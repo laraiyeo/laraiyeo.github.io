@@ -35,6 +35,16 @@ const teamAbbrMap = {
     "Washington Nationals": "wsh_l"
 };
 
+function getOrdinalSuffix(num) {
+    if (num % 100 >= 11 && num % 100 <= 13) return `${num}th`;
+    switch (num % 10) {
+        case 1: return `${num}st`;
+        case 2: return `${num}nd`;
+        case 3: return `${num}rd`;
+        default: return `${num}th`;
+    }
+}
+
 function getLogoUrl(teamName) {
     const abbr = teamAbbrMap[teamName];
     if (!abbr) return ""; // fallback
@@ -116,7 +126,7 @@ async function fetchGameDetails(gamePk) {
         const { balls, strikes, outs } = play.count;
 
         document.getElementById(`inningInfo-${gamePk}`).textContent =
-            `Inning: ${isTopInning ? "Top" : "Bottom"} ${inning}th`;
+            `Inning: ${isTopInning ? "Top" : "Bottom"} ${getOrdinalSuffix(inning)}`;
 
         document.getElementById(`count-${gamePk}`).textContent =
             `Balls: ${balls} • Strikes: ${strikes} • Outs: ${outs}`;
