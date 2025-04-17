@@ -7,55 +7,61 @@ async function fetchLiveGame() {
         const data = await res.json();
         const games = data.dates?.[0]?.games || [];
 
-        // Filter only games in progress
-        const liveGame = games.find(game => game.status.detailedState === "In Progress");
+        const liveGames = games.filter(game => game.status.detailedState === "In Progress");
 
-        if (!liveGame) {
-            document.getElementById("matchup").textContent = "No live games right now.";
-            document.getElementById("state").textContent = "";
-            document.getElementById("inningInfo").textContent = "";
-            document.getElementById("count").textContent = "";
+        const container = document.getElementById("gamesContainer");
+        container.innerHTML = ""; // Clear previous games
+
+        if (liveGames.length === 0) {
+            container.innerHTML = "<p>No live games right now.</p>";
             return;
         }
 
-        const { gamePk, gameDate, teams, status } = liveGame;
-        const away = teams.away;
-        const home = teams.home;
-        const awaynameEl = document.getElementById("awayTeamName");
-        const homenameEl = document.getElementById("homeTeamName");
-        const awayScoreEl = document.getElementById("awayScore");
-        const homeScoreEl = document.getElementById("homeScore");
+        for (const game of liveGames) {
+            const { gamePk, gameDate, teams, status } = game;
+            const away = teams.away;
+            const home = teams.home;
 
-        awaynameEl.textContent = away.team.name
-        awayScoreEl.textContent = away.score;
+            const gameDiv = document.createElement("div");
+            gameDiv.className = "game-block";
+            gameDiv.innerHTML = `
+                <div class="matchup">
+                    <div class="team-column">
+                        <div class="team-name" id="awayTeamName-${gamePk}">${away.team.name}</div>
+                        <div class="team-score" id="awayScore-${gamePk}">${away.score}</div>
+                    </div>
+                    <div class="team-column">
+                        <div class="team-name" id="homeTeamName-${gamePk}">${home.team.name}</div>
+                        <div class="team-score" id="homeScore-${gamePk}">${home.score}</div>
+                    </div>
+                </div>
+                <div class="state" id="state-${gamePk}">${status.detailedState} - ${new Date(gameDate).toLocaleTimeString()}</div>
+                <div class="inningInfo" id="inningInfo-${gamePk}"></div>
+                <div class="count" id="count-${gamePk}"></div>
+            `;
 
-        homenameEl.textContent = home.team.name
-        homeScoreEl.textContent = home.score;
+            container.appendChild(gameDiv);
 
-        document.getElementById("state").textContent = `${status.detailedState} - ${new Date(gameDate).toLocaleTimeString()}`;
+            // Bold the leading team
+            const awayScoreEl = gameDiv.querySelector(`#awayScore-${gamePk}`);
+            const homeScoreEl = gameDiv.querySelector(`#homeScore-${gamePk}`);
+            awayScoreEl.style.fontWeight = "normal";
+            homeScoreEl.style.fontWeight = "normal";
 
-        awaynameEl.style.fontWeight = "normal";
-        awayScoreEl.style.fontWeight = "normal";
-        homenameEl.style.fontWeight = "normal";
-        homeScoreEl.style.fontWeight = "normal";
+            if (away.score > home.score) {
+                awayScoreEl.style.fontWeight = "bold";
+            } else if (home.score > away.score) {
+                homeScoreEl.style.fontWeight = "bold";
+            }
 
-        if (away.score > home.score) {
-            awayScoreEl.style.fontWeight = "bold";
-            awaynameEl.style.fontWeight = "bold";
-        } else if (home.score > away.score) {
-            homeScoreEl.style.fontWeight = "bold";
-            homenameEl.style.fontWeight = "bold";
+            // Fetch detailed game info for inning & counts
+            fetchGameDetails(gamePk);
         }
-
-        fetchGameDetails(gamePk);
     } catch (err) {
-        console.error("Error fetching game:", err);
-        document.getElementById("matchup").textContent = "Error loading game.";
-        document.getElementById("state").textContent = "";
-        document.getElementById("inningInfo").textContent = "";
-        document.getElementById("count").textContent = "";
+        console.error("Error fetching game:", err)
     }
 }
+
 
 
 async function fetchGameDetails(gamePk) {
