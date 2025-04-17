@@ -1,11 +1,11 @@
 const BASE_URL = "https://statsapi.mlb.com";
-const SCHEDULE_URL = `${BASE_URL}/api/v1/schedule/games/?sportID=1`;
+const SCHEDULE_URL = `${BASE_URL}/api/v1/schedule/games/?sportId=1`;
 
 async function fetchLiveGame() {
     try {
         const res = await fetch(SCHEDULE_URL);
         const data = await res.json();
-        const game = data.dates?.[0]?.games || [];
+        const games = data.dates?.[0]?.games || [];
 
         // Filter only games in progress
         const liveGame = games.find(game => game.status.detailedState === "In Progress");
@@ -22,14 +22,23 @@ async function fetchLiveGame() {
         const away = teams.away;
         const home = teams.home;
 
+        // ✅ Set team names and current score
         document.getElementById("matchup").textContent = `${away.team.name} ${away.score} vs ${home.score} ${home.team.name}`;
+
+        // ✅ Set game status and start time
         document.getElementById("state").textContent = `${status.detailedState} - ${new Date(gameDate).toLocaleTimeString()}`;
 
+        // ✅ Now fetch in-depth live play info
         fetchGameDetails(gamePk);
     } catch (err) {
-        console.error("Error fetching game:", err)
+        console.error("Error fetching game:", err);
+        document.getElementById("matchup").textContent = "Error loading game.";
+        document.getElementById("state").textContent = "";
+        document.getElementById("inningInfo").textContent = "";
+        document.getElementById("count").textContent = "";
     }
 }
+
 
 async function fetchGameDetails(gamePk) {
     try {
