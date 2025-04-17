@@ -21,18 +21,32 @@ async function fetchLiveGame() {
         const { gamePk, gameDate, teams, status } = liveGame;
         const away = teams.away;
         const home = teams.home;
+        const awaynameEl = document.getElementById("awayTeamName");
+        const homenameEl = document.getElementById("homeTeamName");
+        const awayScoreEl = document.getElementById("awayScore");
+        const homeScoreEl = document.getElementById("homeScore");
 
-        // ✅ Set team names and current score
-        document.getElementById("awayTeamName").textContent = away.team.name;
-        document.getElementById("awayScore").textContent = away.score;
+        awaynameEl.textContent = away.team.name
+        awayScoreEl.textContent = away.score;
 
-        document.getElementById("homeTeamName").textContent = home.team.name;
-        document.getElementById("homeScore").textContent = home.score;
+        homenameEl.textContent = home.team.name
+        homeScoreEl.textContent = home.score;
 
-        // ✅ Set game status and start time
         document.getElementById("state").textContent = `${status.detailedState} - ${new Date(gameDate).toLocaleTimeString()}`;
 
-        // ✅ Now fetch in-depth live play info
+        awaynameEl.style.fontWeight = "normal";
+        awayScoreEl.style.fontWeight = "normal";
+        homenameEl.style.fontWeight = "normal";
+        homeScoreEl.style.fontWeight = "normal";
+
+        if (away.score > home.score) {
+            awayScoreEl.style.fontWeight = "bold";
+            awaynameEl.style.fontWeight = "bold";
+        } else if (home.score > away.score) {
+            homeScoreEl.style.fontWeight = "bold";
+            homenameEl.style.fontWeight = "bold";
+        }
+
         fetchGameDetails(gamePk);
     } catch (err) {
         console.error("Error fetching game:", err);
@@ -56,7 +70,7 @@ async function fetchGameDetails(gamePk) {
         const { halfInning, inning, isTopInning } = play.about;
         const { balls, strikes, outs } = play.count;
 
-        document.getElementById("inningInfo").textContent = `Inning: ${inning} (${isTopInning ? "Top" : "Bottom"})`;
+        document.getElementById("inningInfo").textContent = `Inning: ${isTopInning ? "Top" : "Bot"} ${inning}th`;
         document.getElementById("count").textContent = `Balls: ${balls} • Strikes: ${strikes} • Outs: ${outs}`;
     } catch (err) {
         console.error("Error fetching play info:", err);

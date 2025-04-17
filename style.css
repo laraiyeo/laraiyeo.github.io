@@ -18,9 +18,11 @@ body {
 
 .matchup {
   display: flex;
-  justify-content: space-around;
+  justify-content: center;
   align-items: center;
+  gap: 60px; /* Adds space between the columns */
   margin-top: 10px;
+  margin-bottom: 10px;
   font-family: Arial, sans-serif;
 }
 
