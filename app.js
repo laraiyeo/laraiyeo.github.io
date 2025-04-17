@@ -62,8 +62,6 @@ async function fetchLiveGame() {
     }
 }
 
-
-
 async function fetchGameDetails(gamePk) {
     try {
         const res = await fetch(`${BASE_URL}/api/v1.1/game/${gamePk}/feed/live`);
@@ -73,13 +71,16 @@ async function fetchGameDetails(gamePk) {
         if (!play) return;
 
         const { awayScore, homeScore } = play.result;
-        const { halfInning, inning, isTopInning } = play.about;
+        const { halfInning, isTopInning, inning } = play.about;
         const { balls, strikes, outs } = play.count;
 
-        document.getElementById("inningInfo").textContent = `Inning: ${isTopInning ? "Top" : "Bot"} ${inning}th`;
-        document.getElementById("count").textContent = `Balls: ${balls} • Strikes: ${strikes} • Outs: ${outs}`;
+        document.getElementById(`inningInfo-${gamePk}`).textContent =
+            `Inning: ${inning} (${isTopInning ? "Top" : "Bottom"})`;
+
+        document.getElementById(`count-${gamePk}`).textContent =
+            `Balls: ${balls}, Strikes: ${strikes}, Outs: ${outs}`;
     } catch (err) {
-        console.error("Error fetching play info:", err);
+        console.error(`Error fetching details for game ${gamePk}:`, err);
     }
 }
 
