@@ -1,0 +1,17 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f4f4;
+  color: #222;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+#scoreboard {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px 40px;
+  box-shadow: 0 4px 1px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
