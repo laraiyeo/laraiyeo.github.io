@@ -91,6 +91,11 @@ async function fetchLiveGame() {
                 <div class="state" id="state-${gamePk}">${status.detailedState} - ${new Date(gameDate).toLocaleTimeString()}</div>
                 <div class="inningInfo" id="inningInfo-${gamePk}"></div>
                 <div class="count" id="count-${gamePk}"></div>
+                    <div class="base-diamond">
+                         <div class="base base-second" id="secondBase-${gamePk}"></div>
+                        <div class="base base-third" id="thirdBase-${gamePk}"></div>
+                         <div class="base base-first" id="firstBase-${gamePk}"></div>
+                     </div>
             `;
 
             container.appendChild(gameDiv);
