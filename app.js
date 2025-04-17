@@ -23,7 +23,11 @@ async function fetchLiveGame() {
         const home = teams.home;
 
         // ✅ Set team names and current score
-        document.getElementById("matchup").textContent = `${away.team.name} ${away.score} vs ${home.score} ${home.team.name}`;
+        document.getElementById("awayTeamName").textContent = away.team.name;
+        document.getElementById("awayScore").textContent = away.score;
+
+        document.getElementById("homeTeamName").textContent = home.team.name;
+        document.getElementById("homeScore").textContent = home.score;
 
         // ✅ Set game status and start time
         document.getElementById("state").textContent = `${status.detailedState} - ${new Date(gameDate).toLocaleTimeString()}`;
