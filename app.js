@@ -51,6 +51,8 @@ function getLogoUrl(teamName) {
     return `https://raw.githubusercontent.com/MLBAMGames/mlb_teams_logo_svg/main/light/${abbr}.svg`;
 }
 
+const gameElements = new Map(); // Keep track of each game DOM element
+
 async function fetchLiveGame() {
     try {
         const res = await fetch(SCHEDULE_URL);
@@ -58,31 +60,24 @@ async function fetchLiveGame() {
         const games = data.dates?.[0]?.games || [];
 
         const liveGames = games.filter(game => game.status.detailedState === "In Progress");
-
         const container = document.getElementById("gamesContainer");
-        container.innerHTML = ""; // Clear previous games
 
-        if (liveGames.length === 0) {
-            container.innerHTML = "<p>No live games right now.</p>";
-            return;
-        }
-
-        console.log("Live games found:", liveGames.map(g => ({
-            gamePk: g.gamePk,
-            away: g.teams.away.team.name,
-            home: g.teams.home.team.name
-        })));
+        const currentGamePks = new Set();
 
         for (const game of liveGames) {
-            try {
-                const { gamePk, gameDate, teams, status } = game;
+            const { gamePk, gameDate, teams, status } = game;
+            currentGamePks.add(gamePk);
+
+            let gameDiv = gameElements.get(gamePk);
+
+            if (!gameDiv) {
                 const away = teams.away;
                 const home = teams.home;
 
                 const awayLogo = getLogoUrl(away.team.name);
                 const homeLogo = getLogoUrl(home.team.name);
 
-                const gameDiv = document.createElement("div");
+                gameDiv = document.createElement("div");
                 gameDiv.className = "game-block";
                 gameDiv.innerHTML = `
                     <div class="matchup">
@@ -104,26 +99,38 @@ async function fetchLiveGame() {
                         <div class="base base-first" id="firstBase-${gamePk}"></div>
                     </div>
                 `;
-
                 container.appendChild(gameDiv);
+                gameElements.set(gamePk, gameDiv);
+            }
 
-                // Bold the leading team
-                const awayScoreEl = gameDiv.querySelector(`#awayScore-${gamePk}`);
-                const homeScoreEl = gameDiv.querySelector(`#homeScore-${gamePk}`);
-                awayScoreEl.style.fontWeight = "normal";
-                homeScoreEl.style.fontWeight = "normal";
+            // Update score and status
+            const awayScoreEl = gameDiv.querySelector(`#awayScore-${gamePk}`);
+            const homeScoreEl = gameDiv.querySelector(`#homeScore-${gamePk}`);
+            awayScoreEl.textContent = teams.away.score;
+            homeScoreEl.textContent = teams.home.score;
 
-                if (away.score > home.score) {
-                    awayScoreEl.style.fontWeight = "bold";
-                } else if (home.score > away.score) {
-                    homeScoreEl.style.fontWeight = "bold";
-                }
+            awayScoreEl.style.fontWeight = "normal";
+            homeScoreEl.style.fontWeight = "normal";
+            if (teams.away.score > teams.home.score) {
+                awayScoreEl.style.fontWeight = "bold";
+            } else if (teams.home.score > teams.away.score) {
+                homeScoreEl.style.fontWeight = "bold";
+            }
 
-                fetchGameDetails(gamePk);
-            } catch (err) {
-                console.error(`Error rendering game ${game?.gamePk}:`, err);
+            document.getElementById(`state-${gamePk}`).textContent =
+                `${status.detailedState} - ${new Date(gameDate).toLocaleTimeString()}`;
+
+            fetchGameDetails(gamePk);
+        }
+
+        // Remove game cards that are no longer live
+        for (const [gamePk, element] of gameElements.entries()) {
+            if (!currentGamePks.has(gamePk)) {
+                element.remove();
+                gameElements.delete(gamePk);
             }
         }
+
     } catch (err) {
         console.error("Error fetching game:", err);
     }
