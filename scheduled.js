@@ -57,11 +57,11 @@ const teamAbbrMap = {
     }
   }
   
-  async function buildCard(card, awayFull, awayShort, awayRecord, homeFull, homeShort, homeRecord, startTime) {
+  async function buildCardContent(awayFull, awayShort, awayRecord, homeFull, homeShort, homeRecord, startTime) {
     const awayLogo = await getLogoUrl(awayFull);
     const homeLogo = await getLogoUrl(homeFull);
   
-    card.innerHTML = `
+    return `
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="text-align: center;">
           <div style="display: flex; align-items: center; gap: 8px;">
@@ -84,21 +84,29 @@ const teamAbbrMap = {
     `;
   }
   
+  const scheduledGameElements = new Map();
+  
   async function loadScheduledGames() {
     try {
       const res = await fetch("https://statsapi.mlb.com/api/v1/schedule?sportId=1");
       const data = await res.json();
-      const games = data.dates[0]?.games || [];
+      const games = data.dates?.[0]?.games || [];
       const container = document.getElementById("gamesContainer");
-      container.innerHTML = "";
   
-      if (games.length === 0) {
-        container.innerHTML = `<div class="game-card">No scheduled games today.</div>`;
+      const validStatuses = ["Scheduled", "Pre-Game", "Warmup"];
+      const scheduledGames = games.filter(game => validStatuses.includes(game.status.detailedState));
+  
+      const currentGamePks = new Set();
+  
+      if (scheduledGames.length === 0) {
+        container.innerHTML = `<div class="game-card">No scheduled games at the moment.</div>`;
+        scheduledGameElements.clear();
         return;
       }
   
-      for (const game of games) {
-        if (game.status.detailedState !== "Scheduled") continue;
+      for (const game of scheduledGames) {
+        const gamePk = game.gamePk;
+        currentGamePks.add(gamePk);
   
         const { teams, gameDate } = game;
         const awayFull = teams.away.team.name;
@@ -119,17 +127,41 @@ const teamAbbrMap = {
           timeZone: "America/New_York"
         });
   
-        const card = document.createElement("div");
-        card.className = "game-card";
-        card.style.color = "#fff";
+        let card = scheduledGameElements.get(gamePk);
+        const newContent = await buildCardContent(awayFull, awayShort, awayRecord, homeFull, homeShort, homeRecord, startTime);
   
-        await buildCard(card, awayFull, awayShort, awayRecord, homeFull, homeShort, homeRecord, startTime);
-        container.appendChild(card);
+        if (card) {
+          // Only update if content changed
+          if (card.dataset.content !== newContent) {
+            card.innerHTML = newContent;
+            card.dataset.content = newContent;
+          }
+        } else {
+          // New card
+          card = document.createElement("div");
+          card.className = "game-card";
+          card.style.color = "#fff";
+          card.innerHTML = newContent;
+          card.dataset.content = newContent;
+  
+          container.appendChild(card);
+          scheduledGameElements.set(gamePk, card);
+        }
       }
+  
+      // Remove cards for games that are no longer scheduled
+      for (const [gamePk, card] of scheduledGameElements.entries()) {
+        if (!currentGamePks.has(gamePk)) {
+          card.remove();
+          scheduledGameElements.delete(gamePk);
+        }
+      }
+  
     } catch (err) {
       console.error("Error loading scheduled games:", err);
     }
   }
   
   loadScheduledGames();
+  setInterval(loadScheduledGames, 5000);
   
