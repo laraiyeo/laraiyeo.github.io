@@ -1,6 +1,6 @@
 const teamAbbrMap = {
     "Arizona Diamondbacks": "ari_d",
-    "Atlanta Braves": "atl_d",
+    "Atlanta Braves": "atl_l",
     "Baltimore Orioles": "bal_d",
     "Boston Red Sox": "bos_d",
     "Chicago White Sox": "cws_d",
@@ -12,14 +12,14 @@ const teamAbbrMap = {
     "Houston Astros": "hou_d",
     "Kansas City Royals": "kc_d",
     "Los Angeles Angels": "laa_d",
-    "Los Angeles Dodgers": "lad_d",
+    "Los Angeles Dodgers": "lad_l",
     "Miami Marlins": "mia_d",
     "Milwaukee Brewers": "mil_d",
     "Minnesota Twins": "min_d",
     "New York Yankees": "nyy_d",
     "New York Mets": "nym_d",
     "Athletics": "oak_d",
-    "Philadelphia Phillies": "phi_d",
+    "Philadelphia Phillies": "phi_l",
     "Pittsburgh Pirates": "pit_d",
     "San Diego Padres": "sd_d",
     "San Francisco Giants": "sf_d",
@@ -31,11 +31,19 @@ const teamAbbrMap = {
     "Washington Nationals": "wsh_d"
   };
   
-  function getLogoUrl(teamName) {
+  async function getLogoUrl(teamName) {
     const abbr = teamAbbrMap[teamName];
-    return abbr
-      ? `https://raw.githubusercontent.com/MLBAMGames/mlb_teams_logo_svg/main/dark/${abbr}.svg`
-      : "";
+    if (!abbr) return "";
+  
+    const darkUrl = `https://raw.githubusercontent.com/MLBAMGames/mlb_teams_logo_svg/main/dark/${abbr}.svg`;
+    const lightUrl = `https://raw.githubusercontent.com/MLBAMGames/mlb_teams_logo_svg/main/light/${abbr}.svg`;
+  
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(darkUrl);
+      img.onerror = () => resolve(lightUrl);
+      img.src = darkUrl;
+    });
   }
   
   async function getTeamNameById(id) {
@@ -47,6 +55,33 @@ const teamAbbrMap = {
       console.error("Error fetching team name for ID:", id, err);
       return "";
     }
+  }
+  
+  async function buildCard(card, awayFull, awayShort, awayRecord, homeFull, homeShort, homeRecord, startTime) {
+    const awayLogo = await getLogoUrl(awayFull);
+    const homeLogo = await getLogoUrl(homeFull);
+  
+    card.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="text-align: center;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <img src="${awayLogo}" alt="${awayShort}" style="width: 40px; height: 40px;">
+            <span style="font-size: 0.9rem;">${awayRecord}</span>
+          </div>
+          <div style="margin-top: 6px; font-weight: bold;">${awayShort}</div>
+        </div>
+  
+        <div style="font-size: 1.1rem; font-weight: bold;">${startTime}</div>
+  
+        <div style="text-align: center;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 0.9rem;">${homeRecord}</span>
+            <img src="${homeLogo}" alt="${homeShort}" style="width: 40px; height: 40px;">
+          </div>
+          <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
+        </div>
+      </div>
+    `;
   }
   
   async function loadScheduledGames() {
@@ -64,6 +99,7 @@ const teamAbbrMap = {
   
       for (const game of games) {
         if (game.status.detailedState !== "Scheduled") continue;
+  
         const { teams, gameDate } = game;
         const awayFull = teams.away.team.name;
         const homeFull = teams.home.team.name;
@@ -87,28 +123,7 @@ const teamAbbrMap = {
         card.className = "game-card";
         card.style.color = "#fff";
   
-        card.innerHTML = `
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="text-align: center;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <img src="${getLogoUrl(awayFull)}" alt="${awayShort}" style="width: 40px; height: 40px;">
-                <span style="font-size: 0.9rem;">${awayRecord}</span>
-              </div>
-              <div style="margin-top: 6px; font-weight: bold;">${awayShort}</div>
-            </div>
-  
-            <div style="font-size: 1.1rem; font-weight: bold;">${startTime}</div>
-  
-            <div style="text-align: center;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 0.9rem;">${homeRecord}</span>
-                <img src="${getLogoUrl(homeFull)}" alt="${homeShort}" style="width: 40px; height: 40px;">
-              </div>
-              <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
-            </div>
-          </div>
-        `;
-  
+        await buildCard(card, awayFull, awayShort, awayRecord, homeFull, homeShort, homeRecord, startTime);
         container.appendChild(card);
       }
     } catch (err) {
