@@ -7,22 +7,30 @@
     <link rel="stylesheet" href="style.css"/>
   </head>
   <body>
+    <!-- Navbar goes here -->
+    <div id="navbar-container"></div>
+
+    <!-- Scoreboard Container -->
     <div id="scoreboard">
       <div id="gamesContainer" class="games-container"></div>
-        <div class="team away">
-          <div class="team-name" id="awayTeamName"></div>
-          <div class="team-score" id="awayScore"></div>
-        </div>
-        <div class="team home">
-          <div class="team-name" id="homeTeamName"></div>
-          <div class="team-score" id="homeScore"></div>
-        </div>
+
+      <div class="team away">
+        <div class="team-name" id="awayTeamName"></div>
+        <div class="team-score" id="awayScore"></div>
       </div>
+
+      <div class="team home">
+        <div class="team-name" id="homeTeamName"></div>
+        <div class="team-score" id="homeScore"></div>
+      </div>
+
       <p id="state"></p>
       <p id="inningInfo"></p>
       <p id="count"></p>
     </div>
 
+    <!-- Scripts -->
+    <script src="navbarLoader.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
