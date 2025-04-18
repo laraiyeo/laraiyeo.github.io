@@ -83,12 +83,14 @@ body {
   position: absolute;
   width: 12px;
   height: 12px;
-  background-color: #888; /* adjust as needed */
+  background-color: #888;
   transform: rotate(45deg);
   opacity: 0.8;
+  border: 2px solid #272727;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* Position the 3 bases */
+/* Base positions */
 .base-second {
   top: 0;
   left: 50%;
@@ -105,4 +107,22 @@ body {
   bottom: 50%;
   right: 0;
   transform: translate(0, 50%) rotate(45deg);
+}
+
+/* When base is occupied */
+.base.occupied {
+  background-color: #272727;
+  box-shadow: 0 0 5px #272727;
+}
+
+.no-games {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100px;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  font-size: 1rem;
+  color: #555;
+  font-weight: bold;
 }

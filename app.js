@@ -59,10 +59,26 @@ async function fetchLiveGame() {
         const data = await res.json();
         const games = data.dates?.[0]?.games || [];
 
-        const liveGames = games.filter(game => game.status.detailedState === "In Progress");
+        const liveGames = games.filter(game =>
+            game.status.detailedState === "In Progress" ||
+            game.status.detailedState === "Manager Challenge"
+        );
+        
         const container = document.getElementById("gamesContainer");
-
+        
+        // If no live games, show fallback message
+        if (liveGames.length === 0) {
+            container.innerHTML = `
+            <div class="game-block no-games">
+              <p>No current games in progress.</p>
+            </div>
+          `;          
+            gameElements.clear(); // Remove any lingering tracked games
+            return; // Exit early
+        }
+        
         const currentGamePks = new Set();
+        container.innerHTML = ""; // Clear container before appending new game blocks        
 
         for (const game of liveGames) {
             const { gamePk, gameDate, teams, status } = game;
@@ -147,11 +163,34 @@ async function fetchGameDetails(gamePk) {
         const { halfInning, isTopInning, inning } = play.about;
         const { balls, strikes, outs } = play.count;
 
+        // Update inning info & count
         document.getElementById(`inningInfo-${gamePk}`).textContent =
             `${isTopInning ? "Top" : "Bottom"} of ${getOrdinalSuffix(inning)} Inning`;
 
         document.getElementById(`count-${gamePk}`).textContent =
             `Balls: ${balls} • Strikes: ${strikes} • Outs: ${outs}`;
+
+// Base elements
+const baseFirst = document.getElementById(`firstBase-${gamePk}`);
+const baseSecond = document.getElementById(`secondBase-${gamePk}`);
+const baseThird = document.getElementById(`thirdBase-${gamePk}`);
+
+// Reset base classes
+[baseFirst, baseSecond, baseThird].forEach(base => {
+    base.classList.remove("occupied");
+});
+
+// Light up bases if runners are present
+if (play.postOnFirst?.id > 0) {
+    baseFirst.classList.add("occupied");
+}
+if (play.postOnSecond?.id > 0) {
+    baseSecond.classList.add("occupied");
+}
+if (play.postOnThird?.id > 0) {
+    baseThird.classList.add("occupied");
+}
+
     } catch (err) {
         console.error(`Error fetching details for game ${gamePk}:`, err);
     }
