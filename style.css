@@ -134,8 +134,8 @@ body {
 
 /* When base is occupied */
 .base.occupied {
-  background-color: #272727;
-  box-shadow: 0 0 5px #272727;
+  background-color: limegreen;
+  box-shadow: 0 0 5px limegreen;
 }
 
 .no-games {

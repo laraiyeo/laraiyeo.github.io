@@ -152,42 +152,59 @@ async function fetchLiveGame() {
   }
 }
 
+// ... [existing constants and functions unchanged above] ...
+
 async function fetchGameDetails(gamePk) {
-  try {
-    const res = await fetch(`${BASE_URL}/api/v1.1/game/${gamePk}/feed/live`);
-    const data = await res.json();
-
-    const play = data.liveData?.plays?.currentPlay;
-    if (!play) return;
-
-    const { halfInning, isTopInning, inning } = play.about;
-    const { balls, strikes, outs } = play.count;
-
-    const inningInfoEl = document.getElementById(`inningInfo-${gamePk}`);
-    const countEl = document.getElementById(`count-${gamePk}`);
-
-    if (inningInfoEl) {
-      inningInfoEl.textContent = `${isTopInning ? "Top" : "Bottom"} of ${getOrdinalSuffix(inning)} Inning`;
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1.1/game/${gamePk}/feed/live`);
+      const data = await res.json();
+  
+      const play = data.liveData?.plays?.currentPlay;
+      if (!play) return;
+  
+      const { halfInning, isTopInning, inning } = play.about;
+      const { balls, strikes, outs } = play.count;
+  
+      const inningInfoEl = document.getElementById(`inningInfo-${gamePk}`);
+      const countEl = document.getElementById(`count-${gamePk}`);
+  
+      if (inningInfoEl) {
+        inningInfoEl.textContent = `${isTopInning ? "Top" : "Bottom"} of ${getOrdinalSuffix(inning)} Inning`;
+      }
+  
+      if (countEl) {
+        countEl.textContent = `Balls: ${balls} • Strikes: ${strikes} • Outs: ${outs}`;
+      }
+  
+      const baseFirst = document.getElementById(`firstBase-${gamePk}`);
+      const baseSecond = document.getElementById(`secondBase-${gamePk}`);
+      const baseThird = document.getElementById(`thirdBase-${gamePk}`);
+  
+      [baseFirst, baseSecond, baseThird].forEach(base => {
+        if (base) base.classList.remove("occupied");
+      });
+  
+      const matchup = play.matchup || {};
+  
+      console.log("postOnFirst:", matchup.postOnFirst);
+      console.log("postOnSecond:", matchup.postOnSecond);
+      console.log("postOnThird:", matchup.postOnThird);
+  
+      if (matchup.postOnFirst?.id) {
+        baseFirst?.classList.add("occupied");
+      }
+      if (matchup.postOnSecond?.id) {
+        baseSecond?.classList.add("occupied");
+      }
+      if (matchup.postOnThird?.id) {
+        baseThird?.classList.add("occupied");
+      }
+  
+    } catch (err) {
+      console.error(`Error fetching details for game ${gamePk}:`, err);
     }
-
-    if (countEl) {
-      countEl.textContent = `Balls: ${balls} • Strikes: ${strikes} • Outs: ${outs}`;
-    }
-
-    const baseFirst = document.getElementById(`firstBase-${gamePk}`);
-    const baseSecond = document.getElementById(`secondBase-${gamePk}`);
-    const baseThird = document.getElementById(`thirdBase-${gamePk}`);
-
-    [baseFirst, baseSecond, baseThird].forEach(base => base?.classList.remove("occupied"));
-
-    if (play.postOnFirst?.id > 0) baseFirst?.classList.add("occupied");
-    if (play.postOnSecond?.id > 0) baseSecond?.classList.add("occupied");
-    if (play.postOnThird?.id > 0) baseThird?.classList.add("occupied");
-
-  } catch (err) {
-    console.error(`Error fetching details for game ${gamePk}:`, err);
   }
-}
-
-fetchLiveGame();
-setInterval(fetchLiveGame, 5000);
+  
+  fetchLiveGame();
+  setInterval(fetchLiveGame, 5000);
+  
