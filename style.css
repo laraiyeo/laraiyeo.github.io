@@ -44,20 +44,23 @@ body {
 
 /* Add this new style for each game block */
 .game-block {
-  background: #ffffff;
+  flex: 1 1 calc(33.33% - 2rem); /* 3 per row with spacing */
+  max-width: 320px;
+  min-height: 200px;
+  border: 1px solid #ccc;
   border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  text-align: center;
-  min-width: 300px;
+  padding: 1rem;
+  background-color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* Optional: center the entire scoreboard content vertically if it grows */
-#gamesContainer {
+.games-container {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center; /* center cards when < 3 in a row */
+  gap: 1rem;
+  padding: 1rem;
 }
 
 .team-logo {

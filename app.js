@@ -67,52 +67,62 @@ async function fetchLiveGame() {
             return;
         }
 
+        console.log("Live games found:", liveGames.map(g => ({
+            gamePk: g.gamePk,
+            away: g.teams.away.team.name,
+            home: g.teams.home.team.name
+        })));
+
         for (const game of liveGames) {
-            const { gamePk, gameDate, teams, status } = game;
-            const away = teams.away;
-            const home = teams.home;
+            try {
+                const { gamePk, gameDate, teams, status } = game;
+                const away = teams.away;
+                const home = teams.home;
 
-            const awayLogo = getLogoUrl(away.team.name);
-            const homeLogo = getLogoUrl(home.team.name);
+                const awayLogo = getLogoUrl(away.team.name);
+                const homeLogo = getLogoUrl(home.team.name);
 
-            const gameDiv = document.createElement("div");
-            gameDiv.className = "game-block";
-            gameDiv.innerHTML = `
-                <div class="matchup">
-                    <div class="team-column">
-                        <img src="${awayLogo}" alt="${away.team.name}" class="team-logo">
-                        <div class="team-score" id="awayScore-${gamePk}">${away.score}</div>
+                const gameDiv = document.createElement("div");
+                gameDiv.className = "game-block";
+                gameDiv.innerHTML = `
+                    <div class="matchup">
+                        <div class="team-column">
+                            <img src="${awayLogo}" alt="${away.team.name}" class="team-logo">
+                            <div class="team-score" id="awayScore-${gamePk}">${away.score}</div>
+                        </div>
+                        <div class="team-column">
+                            <img src="${homeLogo}" alt="${home.team.name}" class="team-logo">
+                            <div class="team-score" id="homeScore-${gamePk}">${home.score}</div>
+                        </div>
                     </div>
-                    <div class="team-column">
-                        <img src="${homeLogo}" alt="${home.team.name}" class="team-logo">
-                        <div class="team-score" id="homeScore-${gamePk}">${home.score}</div>
-                    </div>
-                </div>
-                <div class="state" id="state-${gamePk}">${status.detailedState} - ${new Date(gameDate).toLocaleTimeString()}</div>
-                <div class="inningInfo" id="inningInfo-${gamePk}"></div>
-                <div class="count" id="count-${gamePk}"></div>
+                    <div class="state" id="state-${gamePk}">${status.detailedState} - ${new Date(gameDate).toLocaleTimeString()}</div>
+                    <div class="inningInfo" id="inningInfo-${gamePk}"></div>
+                    <div class="count" id="count-${gamePk}"></div>
                     <div class="base-diamond">
-                         <div class="base base-second" id="secondBase-${gamePk}"></div>
+                        <div class="base base-second" id="secondBase-${gamePk}"></div>
                         <div class="base base-third" id="thirdBase-${gamePk}"></div>
-                         <div class="base base-first" id="firstBase-${gamePk}"></div>
-                     </div>
-            `;
+                        <div class="base base-first" id="firstBase-${gamePk}"></div>
+                    </div>
+                `;
 
-            container.appendChild(gameDiv);
+                container.appendChild(gameDiv);
 
-            // Bold the leading team
-            const awayScoreEl = gameDiv.querySelector(`#awayScore-${gamePk}`);
-            const homeScoreEl = gameDiv.querySelector(`#homeScore-${gamePk}`);
-            awayScoreEl.style.fontWeight = "normal";
-            homeScoreEl.style.fontWeight = "normal";
+                // Bold the leading team
+                const awayScoreEl = gameDiv.querySelector(`#awayScore-${gamePk}`);
+                const homeScoreEl = gameDiv.querySelector(`#homeScore-${gamePk}`);
+                awayScoreEl.style.fontWeight = "normal";
+                homeScoreEl.style.fontWeight = "normal";
 
-            if (away.score > home.score) {
-                awayScoreEl.style.fontWeight = "bold";
-            } else if (home.score > away.score) {
-                homeScoreEl.style.fontWeight = "bold";
+                if (away.score > home.score) {
+                    awayScoreEl.style.fontWeight = "bold";
+                } else if (home.score > away.score) {
+                    homeScoreEl.style.fontWeight = "bold";
+                }
+
+                fetchGameDetails(gamePk);
+            } catch (err) {
+                console.error(`Error rendering game ${game?.gamePk}:`, err);
             }
-
-            fetchGameDetails(gamePk);
         }
     } catch (err) {
         console.error("Error fetching game:", err);
@@ -131,7 +141,7 @@ async function fetchGameDetails(gamePk) {
         const { balls, strikes, outs } = play.count;
 
         document.getElementById(`inningInfo-${gamePk}`).textContent =
-            `Inning: ${isTopInning ? "Top" : "Bottom"} ${getOrdinalSuffix(inning)}`;
+            `${isTopInning ? "Top" : "Bottom"} of ${getOrdinalSuffix(inning)} Inning`;
 
         document.getElementById(`count-${gamePk}`).textContent =
             `Balls: ${balls} • Strikes: ${strikes} • Outs: ${outs}`;
