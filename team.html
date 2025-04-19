@@ -4,7 +4,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>OBS Embed View</title>
+  <title>OBS Embed View - MLB Live Tracker</title>
+  <link rel="icon" href="icon.png" type="image/png" />
   <link rel="stylesheet" href="style.css"/>
   <style>
     body { margin: 0; background: transparent; padding-top: 25px; }
@@ -12,7 +13,7 @@
   </style>
 </head>
 <body>
-  <div id="gameBlockContainer" style="transform: scale(3); transform-origin: top left;"></div>
+  <div id="gameBlockContainer"></div>
   <script>
     const params = new URLSearchParams(window.location.search);
     const team = params.get("team");
