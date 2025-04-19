@@ -180,7 +180,7 @@ const teamAbbrMap = {
           </div>
         </div>
       `;
-    } else if (statusText === "Final","Game Over") {
+    } else if (statusText === "Final" || statusText === "Game Over") {
       card.innerHTML = await buildFinalCardContent(
         awayFull, awayShort, teams.away.score,
         homeFull, homeShort, teams.home.score

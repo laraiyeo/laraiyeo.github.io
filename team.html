@@ -7,45 +7,57 @@
   <title>OBS Embed View</title>
   <link rel="stylesheet" href="style.css"/>
   <style>
-    body { margin: 0; background: transparent; }
+    body { margin: 0; background: transparent; padding-top: 25px; }
     .game-card { margin: 0 auto; max-width: 400px; }
   </style>
 </head>
 <body>
-  <div id="gameBlockContainer"></div>
+  <div id="gameBlockContainer" style="transform: scale(3); transform-origin: top left;"></div>
   <script>
     const params = new URLSearchParams(window.location.search);
     const team = params.get("team");
-
-    async function fetchTeamGame(teamName) {
+  
+    let currentHtml = "";
+  
+    async function fetchAndRenderTeamGame(teamName) {
       const today = new Date().toISOString().split("T")[0];
       const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=linescore,team`;
-
+  
       try {
         const res = await fetch(url);
         const data = await res.json();
         const games = data.dates[0]?.games || [];
-
-        const game = games.find(g => g.teams.away.team.name === teamName || g.teams.home.team.name === teamName);
+  
+        const game = games.find(
+          g => g.teams.away.team.name === teamName || g.teams.home.team.name === teamName
+        );
         if (!game) return;
-
-        // Inject the card using the same card builder logic
-        const script = document.createElement("script");
-        script.src = "teams.js";
-        document.body.appendChild(script);
-
-        script.onload = async () => {
-          const card = await buildCard(game); // assumes teams.js is globally available
-          const container = document.getElementById("gameBlockContainer");
-          container.innerHTML = "";
-          container.appendChild(card);
-        };
+  
+        if (typeof buildCard === "function") {
+          const card = await buildCard(game);
+          const html = card.innerHTML;
+          if (html !== currentHtml) {
+            const container = document.getElementById("gameBlockContainer");
+            container.innerHTML = "";
+            container.appendChild(card);
+            currentHtml = html;
+          }
+        }
       } catch (err) {
         console.error("Error loading team game block:", err);
       }
     }
-
-    if (team) fetchTeamGame(team);
-  </script>
+  
+    const script = document.createElement("script");
+    script.src = "teams.js";
+    document.body.appendChild(script);
+  
+    script.onload = () => {
+      if (team) {
+        fetchAndRenderTeamGame(team);
+        setInterval(() => fetchAndRenderTeamGame(team), 1000);
+      }
+    };
+  </script>  
 </body>
 </html>
