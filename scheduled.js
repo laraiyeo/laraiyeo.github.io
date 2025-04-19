@@ -97,8 +97,7 @@ const teamAbbrMap = {
         const awayRecord = `${teams.away.leagueRecord.wins}-${teams.away.leagueRecord.losses}`;
         const homeRecord = `${teams.home.leagueRecord.wins}-${teams.home.leagueRecord.losses}`;
         const startTime = new Date(gameDate).toLocaleTimeString("en-US", {
-          hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York"
-        });
+          hour: "numeric", minute: "2-digit", hour12: true});
   
         const newContent = await buildCardContent(awayFull, awayShort, awayRecord, homeFull, homeShort, homeRecord, startTime);
   

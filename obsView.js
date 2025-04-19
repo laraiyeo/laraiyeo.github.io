@@ -223,6 +223,9 @@ const teamAbbrMap = {
       
   }
   
+  const urlParams = new URLSearchParams(window.location.search);
+  const selectedTeam = urlParams.get("team");
+  
   async function fetchGames() {
     const today = new Date().toISOString().split("T")[0];
     const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=linescore,team`;
@@ -232,47 +235,23 @@ const teamAbbrMap = {
       const data = await res.json();
       const games = data.dates[0]?.games || [];
   
-      const uniqueTeams = new Set();
-      const gameMap = {};
+      const container = document.getElementById("gamesContainer");
+      container.innerHTML = ""; // Clear previous
   
       for (const game of games) {
         const away = game.teams.away.team.name;
         const home = game.teams.home.team.name;
-        gameMap[away] ??= game;
-        gameMap[home] ??= game;
-        uniqueTeams.add(away);
-        uniqueTeams.add(home);
-      }
   
-      const sortedTeams = Array.from(uniqueTeams).sort();
+        if (away === selectedTeam || home === selectedTeam) {
+          await createTeamSection(selectedTeam);
+          const section = [...document.querySelectorAll(".team-section")]
+            .find(s => s.querySelector("h2")?.textContent === selectedTeam);
+          const container = section.querySelector(".team-games");
   
-      for (const team of sortedTeams) {
-        await createTeamSection(team);
-        const section = [...document.querySelectorAll(".team-section")]
-          .find(s => s.querySelector("h2")?.textContent === team);
-  
-        const game = gameMap[team];
-        const gameKey = `${game.gamePk}-${team}`;
-        const newCard = await buildCard(game);
-        const newCardHtml = newCard.innerHTML;
-        const container = section.querySelector(".team-games");
-  
-        const prevHtml = renderedGameCards.get(gameKey);
-
-        if (!prevHtml) {
-          container.appendChild(newCard);
-          renderedGameCards.set(gameKey, newCardHtml);
-        } else if (prevHtml !== newCardHtml) {
-          const existingCards = container.querySelectorAll(".game-card");
-          for (const card of existingCards) {
-            if (card.innerHTML === prevHtml) {
-              card.replaceWith(newCard);
-              renderedGameCards.set(gameKey, newCardHtml);
-              break;
-            }
-          }
+          const card = await buildCard(game);
+          container.appendChild(card);
+          break;
         }
-        
       }
     } catch (err) {
       console.error("Error fetching games:", err);

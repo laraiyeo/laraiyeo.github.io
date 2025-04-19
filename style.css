@@ -280,3 +280,6 @@ body {
   box-shadow: 0 0 3px rgb(255, 255, 255);
 }
 
+.team-logo {
+  cursor: pointer;
+}

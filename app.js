@@ -33,7 +33,7 @@ const gameElements = new Map();
 
 async function fetchLiveGame() {
  try {
-    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const today = new Date().toISOString().split("T")[0];
     const url = `${SCHEDULE_URL}&startDate=${today}&endDate=${today}`;
   
     const res = await fetch(url);
@@ -124,7 +124,8 @@ async function fetchLiveGame() {
 
       const stateText = status.codedGameState === "M" ? "Manager Challenge" : status.detailedState;
       document.getElementById(`state-${gamePk}`).textContent =
-        `${stateText} - ${new Date(gameDate).toLocaleTimeString()}`;  
+        `${stateText} - ${new Date(gameDate).toLocaleTimeString("en-US", {
+          hour: "numeric", minute: "2-digit", hour12: true})}`;  
 
       fetchGameDetails(gamePk);
     }

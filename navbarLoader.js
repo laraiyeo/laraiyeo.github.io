@@ -3,7 +3,6 @@ fetch("navbar.html")
   .then(data => {
     document.getElementById("navbar-container").innerHTML = data;
 
-    // Highlight active page
     const current = window.location.pathname.split("/").pop();
     const links = document.querySelectorAll(".nav-link");
     links.forEach(link => {
