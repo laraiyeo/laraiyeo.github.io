@@ -2,14 +2,14 @@ const BASE_URL = "https://statsapi.mlb.com";
 const SCHEDULE_URL = `${BASE_URL}/api/v1/schedule/games/?sportId=1`;
 
 const teamAbbrMap = {
-    "Arizona Diamondbacks": "ari_d", "Atlanta Braves": "atl_d", "Baltimore Orioles": "bal_d", "Boston Red Sox": "bos_d",
-    "Chicago White Sox": "cws_d", "Chicago Cubs": "chc_d", "Cincinnati Reds": "cin_d", "Cleveland Guardians": "cle_d",
-    "Colorado Rockies": "col_d", "Detroit Tigers": "det_d", "Houston Astros": "hou_d", "Kansas City Royals": "kc_d",
-    "Los Angeles Angels": "laa_d", "Los Angeles Dodgers": "lad_d", "Miami Marlins": "mia_d", "Milwaukee Brewers": "mil_d",
-    "Minnesota Twins": "min_d", "New York Yankees": "nyy_d", "New York Mets": "nym_d", "Athletics": "oak_d",
-    "Philadelphia Phillies": "phi_d", "Pittsburgh Pirates": "pit_d", "San Diego Padres": "sd_d", "San Francisco Giants": "sf_d",
-    "Seattle Mariners": "sea_d", "St. Louis Cardinals": "stl_d", "Tampa Bay Rays": "tb_d", "Texas Rangers": "tex_d",
-    "Toronto Blue Jays": "tor_d", "Washington Nationals": "wsh_d"
+    "Arizona Diamondbacks": "ari_l", "Atlanta Braves": "atl_l", "Baltimore Orioles": "bal_l", "Boston Red Sox": "bos_l",
+    "Chicago White Sox": "cws_l", "Chicago Cubs": "chc_l", "Cincinnati Reds": "cin_l", "Cleveland Guardians": "cle_l",
+    "Colorado Rockies": "col_l", "Detroit Tigers": "det_l", "Houston Astros": "hou_l", "Kansas City Royals": "kc_l",
+    "Los Angeles Angels": "laa_l", "Los Angeles Dodgers": "lad_l", "Miami Marlins": "mia_l", "Milwaukee Brewers": "mil_l",
+    "Minnesota Twins": "min_l", "New York Yankees": "nyy_l", "New York Mets": "nym_l", "Athletics": "oak_l",
+    "Philadelphia Phillies": "phi_l", "Pittsburgh Pirates": "pit_l", "San Diego Padres": "sd_l", "San Francisco Giants": "sf_l",
+    "Seattle Mariners": "sea_l", "St. Louis Cardinals": "stl_l", "Tampa Bay Rays": "tb_l", "Texas Rangers": "tex_l",
+    "Toronto Blue Jays": "tor_l", "Washington Nationals": "wsh_l"
   };
 
 function getLogoUrl(teamName) {
@@ -42,7 +42,7 @@ async function fetchLiveGame() {
 
     const liveGames = games.filter(game =>
       game.status.detailedState === "In Progress" ||
-      game.status.detailedState === "Manager Challenge"
+      game.status.detailedState === "Manager challenge"
     );
 
     const container = document.getElementById("gamesContainer");

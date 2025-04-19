@@ -237,3 +237,46 @@ body {
   height: 60px;
   margin-bottom: 10px;
 }
+
+.small-base-diamond {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  margin: 0 auto;
+  margin-top: 10px;
+}
+
+.small-base {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: #000000;
+  transform: rotate(45deg);
+  opacity: 0.8;
+  border: 1px solid #797979;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.small-base-second {
+  top: 0px;
+  left: 50%;
+  transform: translate(-50%, 0) rotate(45deg);
+}
+
+.small-base-third {
+  bottom: 50%;
+  left: 0px;
+  transform: translate(0, 50%) rotate(45deg);
+}
+
+.small-base-first {
+  bottom: 50%;
+  right: 0px;
+  transform: translate(0, 50%) rotate(45deg);
+}
+
+.small-base.occupied {
+  background-color: rgb(255, 255, 255);
+  box-shadow: 0 0 3px rgb(255, 255, 255);
+}
+

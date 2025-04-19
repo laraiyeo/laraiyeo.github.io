@@ -20,12 +20,14 @@ const teamAbbrMap = {
     "Toronto Blue Jays": "#1D2D5C", "Washington Nationals": "#AB0003"
   };
   
+  const renderedGameCards = new Map();
+  const createdSections = new Set(); // <== NEW: Track created team sections
+  
   async function getLogoUrl(teamName) {
     const abbr = teamAbbrMap[teamName];
     if (!abbr) return "";
     const darkUrl = `https://raw.githubusercontent.com/MLBAMGames/mlb_teams_logo_svg/main/dark/${abbr}.svg`;
     const lightUrl = `https://raw.githubusercontent.com/MLBAMGames/mlb_teams_logo_svg/main/light/${abbr}.svg`;
-  
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => resolve(darkUrl);
@@ -44,6 +46,27 @@ const teamAbbrMap = {
       return "";
     }
   }
+  
+  function getInningLabel(inningHalf) {
+    return inningHalf === "Bottom" ? "Bot" : inningHalf === "Top" ? "Top" : inningHalf;
+  }
+  
+  function getBaseHtml(matchup) {
+    const filled = {
+      first: matchup?.postOnFirst?.id,
+      second: matchup?.postOnSecond?.id,
+      third: matchup?.postOnThird?.id,
+    };
+  
+    return `
+      <div class="small-base-diamond">
+        <div class="small-base small-base-second ${filled.second ? "occupied" : ""}"></div>
+        <div class="small-base small-base-third ${filled.third ? "occupied" : ""}"></div>
+        <div class="small-base small-base-first ${filled.first ? "occupied" : ""}"></div>
+      </div>
+    `;
+  }  
+  
   
   async function buildFinalCardContent(awayFull, awayShort, awayScore, homeFull, homeShort, homeScore) {
     const awayLogo = await getLogoUrl(awayFull);
@@ -79,38 +102,56 @@ const teamAbbrMap = {
     const awayShort = await getTeamNameById(teams.away.team.id);
     const homeShort = await getTeamNameById(teams.home.team.id);
     const statusText = status.detailedState;
-  
     const card = document.createElement("div");
     card.className = "game-card";
     card.style.color = "#fff";
   
-    if (["In Progress", "Manager Challenge"].includes(statusText)) {
-      const centerText = `${game.linescore?.inningHalf || ""} ${game.linescore?.currentInning || ""}`.trim();
-      const awayBottom = teams.away.score;
-      const homeBottom = teams.home.score;
-  
-      const awayLogo = await getLogoUrl(awayFull);
-      const homeLogo = await getLogoUrl(homeFull);
-  
-      card.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <img src="${awayLogo}" alt="${awayShort}" style="width: 40px; height: 40px;">
-              <span style="font-size: 0.9rem;">${awayBottom}</span>
+    if (["In Progress", "Manager challenge"].includes(statusText)) {
+        const inningLabel = getInningLabel(game.linescore?.inningHalf);
+        const centerText = `${inningLabel} ${game.linescore?.currentInning || ""}`.trim();
+        const awayScore = teams.away.score;
+        const homeScore = teams.home.score;
+        const awayLogo = await getLogoUrl(awayFull);
+        const homeLogo = await getLogoUrl(homeFull);
+        const leadingAway = awayScore > homeScore;
+        const leadingHome = homeScore > awayScore;
+        const outs = game.linescore?.outs || 0;
+      
+        const gamePk = game.gamePk;
+        let matchup = {};
+        try {
+          const res = await fetch(`https://statsapi.mlb.com/api/v1.1/game/${gamePk}/feed/live`);
+          const data = await res.json();
+          matchup = data?.liveData?.plays?.currentPlay?.matchup || {};
+        } catch (err) {
+          console.error(`Error fetching live feed for game ${gamePk}`, err);
+        }
+      
+        const baseHtml = getBaseHtml(matchup);
+      
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="text-align: center;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <img src="${awayLogo}" alt="${awayShort}" style="width: 40px; height: 40px;">
+                <span style="font-size: 2rem; ${leadingAway ? 'font-weight: bold;' : ''}">${awayScore}</span>
+              </div>
+              <div style="margin-top: 6px; font-weight: bold;">${awayShort}</div>
             </div>
-            <div style="margin-top: 6px; font-weight: bold;">${awayShort}</div>
-          </div>
-          <div style="font-size: 1.1rem; font-weight: bold;">${centerText}</div>
-          <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 0.9rem;">${homeBottom}</span>
-              <img src="${homeLogo}" alt="${homeShort}" style="width: 40px; height: 40px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.1rem; font-weight: bold;">${centerText}</div>
+              <div style="font-size: 0.85rem; margin-top: 4px;">Outs: ${outs}</div>
+              ${baseHtml}
             </div>
-            <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
+            <div style="text-align: center;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 2rem; ${leadingHome ? 'font-weight: bold;' : ''}">${homeScore}</span>
+                <img src="${homeLogo}" alt="${homeShort}" style="width: 40px; height: 40px;">
+              </div>
+              <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
+            </div>
           </div>
-        </div>
-      `;
+        `;      
     } else if (["Scheduled", "Pre-Game", "Warmup"].includes(statusText)) {
       const startTime = new Date(gameDate).toLocaleTimeString("en-US", {
         hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York"
@@ -140,53 +181,38 @@ const teamAbbrMap = {
         </div>
       `;
     } else if (statusText === "Final") {
-      const content = await buildFinalCardContent(
+      card.innerHTML = await buildFinalCardContent(
         awayFull, awayShort, teams.away.score,
         homeFull, homeShort, teams.home.score
       );
-      card.innerHTML = content;
     }
   
     return card;
   }
   
-  const gamesByTeam = {};
-  
   async function createTeamSection(teamName) {
+    if (createdSections.has(teamName)) return; // <== FIX: Don't recreate section
+  
     const container = document.getElementById("gamesContainer");
     const section = document.createElement("div");
     section.className = "team-section";
-    section.style.backgroundColor = teamColors[teamName] || "#000000";
+    section.style.backgroundColor = teamColors[teamName] || "#000";
   
     const header = document.createElement("div");
     header.className = "team-header";
     const logoUrl = await getLogoUrl(teamName);
     header.innerHTML = `
       <img src="${logoUrl}" alt="${teamName}" class="team-logo"/>
-      <h3>${teamName}</h3>
+      <h2>${teamName}</h2>
     `;
     section.appendChild(header);
   
     const gameList = document.createElement("div");
     gameList.className = "team-games";
-  
-    const games = gamesByTeam[teamName];
-    if (!games || games.length === 0) {
-      const noGameMsg = document.createElement("p");
-      noGameMsg.textContent = "No games scheduled for today.";
-      noGameMsg.style.color = "#fff";
-      noGameMsg.style.textAlign = "center";
-      noGameMsg.style.fontWeight = "bold";
-      gameList.appendChild(noGameMsg);
-    } else {
-      for (const game of games) {
-        const card = await buildCard(game);
-        gameList.appendChild(card);
-      }
-    }
-  
     section.appendChild(gameList);
     container.appendChild(section);
+  
+    createdSections.add(teamName); // <== Mark section as created
   }
   
   async function fetchGames() {
@@ -198,19 +224,43 @@ const teamAbbrMap = {
       const data = await res.json();
       const games = data.dates[0]?.games || [];
   
+      const uniqueTeams = new Set();
+      const gameMap = {};
+  
       for (const game of games) {
-        const awayTeam = game.teams.away.team.name;
-        const homeTeam = game.teams.home.team.name;
-  
-        if (!gamesByTeam[awayTeam]) gamesByTeam[awayTeam] = [];
-        if (!gamesByTeam[homeTeam]) gamesByTeam[homeTeam] = [];
-  
-        gamesByTeam[awayTeam].push(game);
-        gamesByTeam[homeTeam].push(game);
+        const away = game.teams.away.team.name;
+        const home = game.teams.home.team.name;
+        gameMap[away] ??= game;
+        gameMap[home] ??= game;
+        uniqueTeams.add(away);
+        uniqueTeams.add(home);
       }
   
-      for (const teamName of Object.keys(teamAbbrMap)) {
-        await createTeamSection(teamName);
+      const sortedTeams = Array.from(uniqueTeams).sort();
+  
+      for (const team of sortedTeams) {
+        await createTeamSection(team);
+        const section = [...document.querySelectorAll(".team-section")]
+          .find(s => s.querySelector("h2")?.textContent === team);
+  
+        const game = gameMap[team];
+        const gameKey = `${game.gamePk}-${team}`;
+        const newCard = await buildCard(game);
+        const newCardHtml = newCard.innerHTML;
+        const container = section.querySelector(".team-games");
+  
+        if (!renderedGameCards.has(gameKey)) {
+          container.innerHTML = "";
+          container.appendChild(newCard);
+          renderedGameCards.set(gameKey, newCardHtml);
+        } else {
+          const prevHtml = renderedGameCards.get(gameKey);
+          if (prevHtml !== newCardHtml) {
+            container.innerHTML = "";
+            container.appendChild(newCard);
+            renderedGameCards.set(gameKey, newCardHtml);
+          }
+        }
       }
     } catch (err) {
       console.error("Error fetching games:", err);
@@ -218,4 +268,5 @@ const teamAbbrMap = {
   }
   
   fetchGames();
+  setInterval(fetchGames, 1000);
   
