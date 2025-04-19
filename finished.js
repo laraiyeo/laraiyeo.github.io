@@ -96,7 +96,9 @@ const teamAbbrMap = {
   
   async function loadFinishedGames() {
     try {
-      const res = await fetch("https://statsapi.mlb.com/api/v1/schedule?sportId=1");
+      const today = new Date().toISOString().split("T")[0];
+      const url = `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&startDate=${today}&endDate=${today}`;
+      const res = await fetch(url);        
       const data = await res.json();
       const games = data.dates?.[0]?.games || [];
       const container = document.getElementById("gamesContainer");

@@ -54,8 +54,11 @@ function getOrdinalSuffix(num) {
 const gameElements = new Map();
 
 async function fetchLiveGame() {
-  try {
-    const res = await fetch(SCHEDULE_URL);
+ try {
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const url = `${SCHEDULE_URL}&startDate=${today}&endDate=${today}`;
+  
+    const res = await fetch(url);
     const data = await res.json();
     const games = data.dates?.[0]?.games || [];
 
