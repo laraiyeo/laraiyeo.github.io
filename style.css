@@ -83,6 +83,7 @@ body {
   color: white;
   text-align: center;
   position: relative;
+  box-shadow: 0 0 10px rgb(255, 255, 255);
 }
 
 .team-logo {
@@ -93,7 +94,6 @@ body {
   display: block;
 }
 
-/* BASE DIAMOND CHANGES */
 .base-diamond {
   position: relative;
   width: 60px;
@@ -189,7 +189,6 @@ body {
   font-weight: bold;
 }
 
-/* BALL / STRIKE / OUT INDICATORS */
 .ball-dot {
   width: 12px;
   height: 12px;
@@ -215,4 +214,26 @@ body {
   opacity: 1;
   background-color: red;
   box-shadow: 0 0 5px red;
+}
+
+.team-section {
+  margin-bottom: 40px;
+  border: 2px solid #444;
+  border-radius: 15px;
+  padding: 20px;
+  background-color: #000000;
+}
+
+.team-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+  color: white;
+}
+
+.team-logo {
+  width: 60px;
+  height: 60px;
+  margin-bottom: 10px;
 }
