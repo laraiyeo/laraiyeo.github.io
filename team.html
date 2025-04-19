@@ -1,0 +1,51 @@
+<!-- File: team.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OBS Embed View</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    body { margin: 0; background: transparent; }
+    .game-card { margin: 0 auto; max-width: 400px; }
+  </style>
+</head>
+<body>
+  <div id="gameBlockContainer"></div>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const team = params.get("team");
+
+    async function fetchTeamGame(teamName) {
+      const today = new Date().toISOString().split("T")[0];
+      const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=linescore,team`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        const games = data.dates[0]?.games || [];
+
+        const game = games.find(g => g.teams.away.team.name === teamName || g.teams.home.team.name === teamName);
+        if (!game) return;
+
+        // Inject the card using the same card builder logic
+        const script = document.createElement("script");
+        script.src = "teams.js";
+        document.body.appendChild(script);
+
+        script.onload = async () => {
+          const card = await buildCard(game); // assumes teams.js is globally available
+          const container = document.getElementById("gameBlockContainer");
+          container.innerHTML = "";
+          container.appendChild(card);
+        };
+      } catch (err) {
+        console.error("Error loading team game block:", err);
+      }
+    }
+
+    if (team) fetchTeamGame(team);
+  </script>
+</body>
+</html>
