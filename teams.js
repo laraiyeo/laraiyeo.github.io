@@ -202,8 +202,8 @@ const teamAbbrMap = {
     header.className = "team-header";
     const logoUrl = await getLogoUrl(teamName);
     header.innerHTML = `
-      <img src="${logoUrl}" alt="${teamName}" class="team-logo"/>
-      <h2>${teamName}</h2>
+     <img src="${logoUrl}" alt="${teamName}" class="team-logo" style="cursor: pointer;" role="button" data-team="${teamName}" />
+    <h2>${teamName}</h2>
     `;
     section.appendChild(header);
   
@@ -214,12 +214,17 @@ const teamAbbrMap = {
   
     createdSections.add(teamName);
 
-    header.querySelector("img").addEventListener("click", () => {
-    const obsUrl = `${window.location.origin}/obs.html?team=${encodeURIComponent(teamName)}`;
-    navigator.clipboard.writeText(obsUrl)
-      .then(() => alert(`OBS link copied for ${teamName}!`))
-      .catch(err => console.error("Clipboard copy failed:", err));
-  });
+    header.querySelector("img").addEventListener("click", async (e) => {
+        const team = e.target.getAttribute("data-team");
+        const url = `https://laraiyeo.github.io/team.html?team=${encodeURIComponent(team)}`;
+      
+        try {
+          await navigator.clipboard.writeText(url);
+          alert(`OBS link copied for ${team}: ${url}`);
+        } catch (err) {
+          console.error("Failed to copy OBS link:", err);
+        }
+      });      
       
   }
   
