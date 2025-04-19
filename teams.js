@@ -249,18 +249,24 @@ const teamAbbrMap = {
         const newCardHtml = newCard.innerHTML;
         const container = section.querySelector(".team-games");
   
-        if (!renderedGameCards.has(gameKey)) {
-          container.innerHTML = "";
+        const prevHtml = renderedGameCards.get(gameKey);
+
+        if (!prevHtml) {
+          // Game not rendered for this team yet
           container.appendChild(newCard);
           renderedGameCards.set(gameKey, newCardHtml);
-        } else {
-          const prevHtml = renderedGameCards.get(gameKey);
-          if (prevHtml !== newCardHtml) {
-            container.innerHTML = "";
-            container.appendChild(newCard);
-            renderedGameCards.set(gameKey, newCardHtml);
+        } else if (prevHtml !== newCardHtml) {
+          // Game already exists but updated — find and replace
+          const existingCards = container.querySelectorAll(".game-card");
+          for (const card of existingCards) {
+            if (card.innerHTML === prevHtml) {
+              card.replaceWith(newCard);
+              renderedGameCards.set(gameKey, newCardHtml);
+              break;
+            }
           }
         }
+        
       }
     } catch (err) {
       console.error("Error fetching games:", err);
