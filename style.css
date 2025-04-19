@@ -26,7 +26,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 60px; /* Adds space between the columns */
+  gap: 60px;
   margin-top: 10px;
   margin-bottom: 10px;
   font-family: Arial, sans-serif;
@@ -48,9 +48,8 @@ body {
   font-size: 2em;
 }
 
-/* Add this new style for each game block */
 .game-block {
-  flex: 1 1 calc(33.33% - 2rem); /* 3 per row with spacing */
+  flex: 1 1 calc(33.33% - 2rem);
   max-width: 320px;
   min-height: 200px;
   border: 1px solid #ccc;
@@ -60,7 +59,6 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Game Container Cards */
 .games-container {
   display: flex;
   flex-wrap: wrap;
@@ -84,6 +82,7 @@ body {
   font-family: Arial, sans-serif;
   color: white;
   text-align: center;
+  position: relative;
 }
 
 .team-logo {
@@ -94,45 +93,44 @@ body {
   display: block;
 }
 
+/* BASE DIAMOND CHANGES */
 .base-diamond {
   position: relative;
-  width: 40px;
-  height: 40px;
-  margin: 10px auto;
-  margin-bottom: -15px;
+  width: 60px;
+  height: 60px;
+  margin-left: 30px;
+  margin-bottom: -30px;
 }
 
 .base {
   position: absolute;
-  width: 12px;
-  height: 12px;
-  background-color: #888;
+  width: 20px;
+  height: 20px;
+  background-color: #ffffff;
   transform: rotate(45deg);
   opacity: 0.8;
-  border: 2px solid #272727;
+  border: 2px solid #000000;
   transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* Base positions */
 .base-second {
-  top: 0;
+  top: -10px;
   left: 50%;
   transform: translate(-50%, 0) rotate(45deg);
 }
 
 .base-third {
   bottom: 50%;
-  left: 0;
+  left: -10px;
   transform: translate(0, 50%) rotate(45deg);
 }
 
 .base-first {
   bottom: 50%;
-  right: 0;
+  right: -10px;
   transform: translate(0, 50%) rotate(45deg);
 }
 
-/* When base is occupied */
 .base.occupied {
   background-color: limegreen;
   box-shadow: 0 0 5px limegreen;
@@ -155,7 +153,7 @@ body {
   color: white;
   padding: 20px 0;
   display: flex;
-  justify-content: center; /* Center the container inside */
+  justify-content: center;
   position: sticky;
   top: 0;
   width: 100%;
@@ -164,8 +162,8 @@ body {
 
 .navbar-content {
   width: 100%;
-  max-width: 100vw; /* Keeps it neat on big screens */
-  padding: 0 20px; /* Adds padding on left and right */
+  max-width: 100vw;
+  padding: 0 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -189,4 +187,32 @@ body {
 .nav-link.active {
   color: #888;
   font-weight: bold;
+}
+
+/* BALL / STRIKE / OUT INDICATORS */
+.ball-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid black;
+  background-color: rgb(214, 214, 214);
+  opacity: 0.2;
+}
+
+.ball-dot.ball.active {
+  opacity: 1;
+  background-color: rgb(214, 214, 214);
+  box-shadow: 0 0 5px rgb(214, 214, 214);
+}
+
+.ball-dot.strike.active {
+  opacity: 1;
+  background-color: rgb(214, 214, 214);
+  box-shadow: 0 0 5px rgb(214, 214, 214);
+}
+
+.ball-dot.out.active {
+  opacity: 1;
+  background-color: red;
+  box-shadow: 0 0 5px red;
 }

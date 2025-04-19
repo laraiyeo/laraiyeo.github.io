@@ -78,7 +78,6 @@ async function fetchLiveGame() {
       return;
     }
 
-    // Keep track of which games are still active
     const currentGamePks = new Set();
 
     for (const game of liveGames) {
@@ -108,23 +107,24 @@ async function fetchLiveGame() {
           </div>
           <div class="state" id="state-${gamePk}">${status.detailedState} - ${new Date(gameDate).toLocaleTimeString()}</div>
           <div class="inningInfo" id="inningInfo-${gamePk}"></div>
-          <div class="count" id="count-${gamePk}"></div>
-          <div class="base-diamond">
-            <div class="base base-second" id="secondBase-${gamePk}"></div>
-            <div class="base base-third" id="thirdBase-${gamePk}"></div>
-            <div class="base base-first" id="firstBase-${gamePk}"></div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="base-diamond">
+              <div class="base base-second" id="secondBase-${gamePk}"></div>
+              <div class="base base-third" id="thirdBase-${gamePk}"></div>
+              <div class="base base-first" id="firstBase-${gamePk}"></div>
+            </div>
+            <div class="count-visual" id="countVisual-${gamePk}"></div>
           </div>
         `;
         container.appendChild(gameDiv);
         gameElements.set(gamePk, gameDiv);
       }
 
-      // Update existing score and status
+      document.getElementById(`awayScore-${gamePk}`).textContent = away.score;
+      document.getElementById(`homeScore-${gamePk}`).textContent = home.score;
+
       const awayScoreEl = document.getElementById(`awayScore-${gamePk}`);
       const homeScoreEl = document.getElementById(`homeScore-${gamePk}`);
-
-      awayScoreEl.textContent = away.score;
-      homeScoreEl.textContent = home.score;
 
       awayScoreEl.style.fontWeight = "normal";
       homeScoreEl.style.fontWeight = "normal";
@@ -140,7 +140,6 @@ async function fetchLiveGame() {
       fetchGameDetails(gamePk);
     }
 
-    // Remove finished games from DOM
     for (const [gamePk, element] of gameElements.entries()) {
       if (!currentGamePks.has(gamePk)) {
         element.remove();
@@ -152,59 +151,60 @@ async function fetchLiveGame() {
   }
 }
 
-// ... [existing constants and functions unchanged above] ...
-
 async function fetchGameDetails(gamePk) {
-    try {
-      const res = await fetch(`${BASE_URL}/api/v1.1/game/${gamePk}/feed/live`);
-      const data = await res.json();
-  
-      const play = data.liveData?.plays?.currentPlay;
-      if (!play) return;
-  
-      const { halfInning, isTopInning, inning } = play.about;
-      const { balls, strikes, outs } = play.count;
-  
-      const inningInfoEl = document.getElementById(`inningInfo-${gamePk}`);
-      const countEl = document.getElementById(`count-${gamePk}`);
-  
-      if (inningInfoEl) {
-        inningInfoEl.textContent = `${isTopInning ? "Top" : "Bottom"} of ${getOrdinalSuffix(inning)} Inning`;
-      }
-  
-      if (countEl) {
-        countEl.textContent = `Balls: ${balls} • Strikes: ${strikes} • Outs: ${outs}`;
-      }
-  
-      const baseFirst = document.getElementById(`firstBase-${gamePk}`);
-      const baseSecond = document.getElementById(`secondBase-${gamePk}`);
-      const baseThird = document.getElementById(`thirdBase-${gamePk}`);
-  
-      [baseFirst, baseSecond, baseThird].forEach(base => {
-        if (base) base.classList.remove("occupied");
-      });
-  
-      const matchup = play.matchup || {};
-  
-      console.log("postOnFirst:", matchup.postOnFirst);
-      console.log("postOnSecond:", matchup.postOnSecond);
-      console.log("postOnThird:", matchup.postOnThird);
-  
-      if (matchup.postOnFirst?.id) {
-        baseFirst?.classList.add("occupied");
-      }
-      if (matchup.postOnSecond?.id) {
-        baseSecond?.classList.add("occupied");
-      }
-      if (matchup.postOnThird?.id) {
-        baseThird?.classList.add("occupied");
-      }
-  
-    } catch (err) {
-      console.error(`Error fetching details for game ${gamePk}:`, err);
+  try {
+    const res = await fetch(`${BASE_URL}/api/v1.1/game/${gamePk}/feed/live`);
+    const data = await res.json();
+
+    const play = data.liveData?.plays?.currentPlay;
+    if (!play) return;
+
+    const { halfInning, isTopInning, inning } = play.about;
+    const { balls, strikes, outs } = play.count;
+
+    const inningInfoEl = document.getElementById(`inningInfo-${gamePk}`);
+    if (inningInfoEl) {
+      inningInfoEl.textContent = `${isTopInning ? "Top" : "Bottom"} of ${getOrdinalSuffix(inning)} Inning`;
     }
+
+    const countVisual = document.getElementById(`countVisual-${gamePk}`);
+    if (countVisual) {
+        countVisual.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 8px; font-weight: bold; color: white;">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span style="width: 16px; color: black;">B: </span>
+            ${[...Array(4)].map((_, i) => `<div class="ball-dot ball ${i < balls ? 'active' : ''}"></div>`).join('')}
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span style="width: 16px; color: black;">S: </span>
+            ${[...Array(3)].map((_, i) => `<div class="ball-dot strike ${i < strikes ? 'active' : ''}"></div>`).join('')}
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span style="width: 16px; color: black;">O: </span>
+            ${[...Array(3)].map((_, i) => `<div class="ball-dot out ${i < outs ? 'active' : ''}"></div>`).join('')}
+          </div>
+        </div>
+      `;                    
+    }
+
+    const baseFirst = document.getElementById(`firstBase-${gamePk}`);
+    const baseSecond = document.getElementById(`secondBase-${gamePk}`);
+    const baseThird = document.getElementById(`thirdBase-${gamePk}`);
+
+    [baseFirst, baseSecond, baseThird].forEach(base => {
+      if (base) base.classList.remove("occupied");
+    });
+
+    const matchup = play.matchup || {};
+
+    if (matchup.postOnFirst?.id) baseFirst?.classList.add("occupied");
+    if (matchup.postOnSecond?.id) baseSecond?.classList.add("occupied");
+    if (matchup.postOnThird?.id) baseThird?.classList.add("occupied");
+
+  } catch (err) {
+    console.error(`Error fetching details for game ${gamePk}:`, err);
   }
-  
-  fetchLiveGame();
-  setInterval(fetchLiveGame, 5000);
-  
+}
+
+fetchLiveGame();
+setInterval(fetchLiveGame, 5000);
