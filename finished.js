@@ -101,7 +101,17 @@ const teamAbbrMap = {
       const games = data.dates?.[0]?.games || [];
       const container = document.getElementById("gamesContainer");
   
-      const finalGames = games.filter(game => game.status.detailedState === "Final");
+      // Only take "Final" games and dedupe them by gamePk
+      const seenGamePks = new Set();
+      const finalGames = [];
+  
+      for (const game of games) {
+        const { gamePk, status } = game;
+        if (status.detailedState === "Final" && !seenGamePks.has(gamePk)) {
+          seenGamePks.add(gamePk);
+          finalGames.push(game);
+        }
+      }
   
       const currentGamePks = new Set();
   
@@ -147,18 +157,18 @@ const teamAbbrMap = {
         }
       }
   
-      // Clean up
+      // Clean up removed games
       for (const [gamePk, card] of finishedGameElements.entries()) {
         if (!currentGamePks.has(gamePk)) {
           card.remove();
           finishedGameElements.delete(gamePk);
         }
       }
-  
     } catch (err) {
       console.error("Error loading finished games:", err);
     }
   }
+  
   
   loadFinishedGames();
   setInterval(loadFinishedGames, 1000);

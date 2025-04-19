@@ -94,7 +94,17 @@ const teamAbbrMap = {
       const container = document.getElementById("gamesContainer");
   
       const validStatuses = ["Scheduled", "Pre-Game", "Warmup"];
-      const scheduledGames = games.filter(game => validStatuses.includes(game.status.detailedState));
+  
+      // Deduplicate games by gamePk
+      const seenGamePks = new Set();
+      const scheduledGames = [];
+  
+      for (const game of games) {
+        if (validStatuses.includes(game.status.detailedState) && !seenGamePks.has(game.gamePk)) {
+          seenGamePks.add(game.gamePk);
+          scheduledGames.push(game);
+        }
+      }
   
       const currentGamePks = new Set();
   
@@ -131,13 +141,11 @@ const teamAbbrMap = {
         const newContent = await buildCardContent(awayFull, awayShort, awayRecord, homeFull, homeShort, homeRecord, startTime);
   
         if (card) {
-          // Only update if content changed
           if (card.dataset.content !== newContent) {
             card.innerHTML = newContent;
             card.dataset.content = newContent;
           }
         } else {
-          // New card
           card = document.createElement("div");
           card.className = "game-card";
           card.style.color = "#fff";
@@ -149,7 +157,7 @@ const teamAbbrMap = {
         }
       }
   
-      // Remove cards for games that are no longer scheduled
+      // Remove outdated cards
       for (const [gamePk, card] of scheduledGameElements.entries()) {
         if (!currentGamePks.has(gamePk)) {
           card.remove();
@@ -160,7 +168,7 @@ const teamAbbrMap = {
     } catch (err) {
       console.error("Error loading scheduled games:", err);
     }
-  }
+  }  
   
   loadScheduledGames();
   setInterval(loadScheduledGames, 1000);
