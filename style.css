@@ -201,13 +201,13 @@ body {
 .ball-dot.ball.active {
   opacity: 1;
   background-color: rgb(214, 214, 214);
-  box-shadow: 0 0 5px rgb(214, 214, 214);
+  box-shadow: 0 0 3px rgb(150, 149, 149);
 }
 
 .ball-dot.strike.active {
   opacity: 1;
   background-color: rgb(214, 214, 214);
-  box-shadow: 0 0 5px rgb(214, 214, 214);
+  box-shadow: 0 0 3px rgb(150, 149, 149);
 }
 
 .ball-dot.out.active {

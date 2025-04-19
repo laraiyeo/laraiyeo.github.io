@@ -106,7 +106,7 @@ const teamAbbrMap = {
     card.className = "game-card";
     card.style.color = "#fff";
   
-    if (["In Progress", "Manager challenge"].includes(statusText)) {
+    if (["In Progress", "Manager challenge"].includes(statusText) || status.codedGameState === "M") {
         const inningLabel = getInningLabel(game.linescore?.inningHalf);
         const centerText = `${inningLabel} ${game.linescore?.currentInning || ""}`.trim();
         const awayScore = teams.away.score;
@@ -180,7 +180,7 @@ const teamAbbrMap = {
           </div>
         </div>
       `;
-    } else if (statusText === "Final") {
+    } else if (statusText === "Final","Game Over") {
       card.innerHTML = await buildFinalCardContent(
         awayFull, awayShort, teams.away.score,
         homeFull, homeShort, teams.home.score

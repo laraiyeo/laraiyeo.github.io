@@ -41,9 +41,10 @@ async function fetchLiveGame() {
     const games = data.dates?.[0]?.games || [];
 
     const liveGames = games.filter(game =>
-      game.status.detailedState === "In Progress" ||
-      game.status.detailedState === "Manager challenge"
-    );
+        game.status.detailedState === "In Progress" ||
+        game.status.detailedState === "Manager challenge" ||
+        game.status.codedGameState === "M"
+      );      
 
     const container = document.getElementById("gamesContainer");
 
@@ -121,8 +122,9 @@ async function fetchLiveGame() {
         homeScoreEl.style.fontWeight = "bold";
       }
 
+      const stateText = status.codedGameState === "M" ? "Manager Challenge" : status.detailedState;
       document.getElementById(`state-${gamePk}`).textContent =
-        `${status.detailedState} - ${new Date(gameDate).toLocaleTimeString()}`;
+        `${stateText} - ${new Date(gameDate).toLocaleTimeString()}`;  
 
       fetchGameDetails(gamePk);
     }
