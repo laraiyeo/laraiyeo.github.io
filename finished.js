@@ -161,5 +161,5 @@ const teamAbbrMap = {
   }
   
   loadFinishedGames();
-  setInterval(loadFinishedGames, 5000);
+  setInterval(loadFinishedGames, 1000);
   

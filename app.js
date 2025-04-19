@@ -95,18 +95,24 @@ async function fetchLiveGame() {
         gameDiv = document.createElement("div");
         gameDiv.className = "game-block";
         gameDiv.innerHTML = `
-          <div class="matchup">
-            <div class="team-column">
+          <div class="matchup" style="display: flex; justify-content: center; align-items: center; gap: 20px;">
+            <div class="team-column" style="text-align: center;">
               <img src="${awayLogo}" alt="${away.team.name}" class="team-logo">
               <div class="team-score" id="awayScore-${gamePk}">${away.score}</div>
             </div>
-            <div class="team-column">
+
+            <div class="inning-display" id="inningInfo-${gamePk}" style="display: flex; flex-direction: column; align-items: center; font-size: 1rem; font-weight: bold; color: black;">
+              <!-- Will be updated -->
+            </div>
+
+            <div class="team-column" style="text-align: center;">
               <img src="${homeLogo}" alt="${home.team.name}" class="team-logo">
               <div class="team-score" id="homeScore-${gamePk}">${home.score}</div>
             </div>
           </div>
-          <div class="state" id="state-${gamePk}">${status.detailedState} - ${new Date(gameDate).toLocaleTimeString()}</div>
-          <div class="inningInfo" id="inningInfo-${gamePk}"></div>
+
+          <div class="state" id="state-${gamePk}" style="margin-top: 8px; margin-bottom: 13px;">${status.detailedState} - ${new Date(gameDate).toLocaleTimeString()}</div>
+
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div class="base-diamond">
               <div class="base base-second" id="secondBase-${gamePk}"></div>
@@ -159,17 +165,20 @@ async function fetchGameDetails(gamePk) {
     const play = data.liveData?.plays?.currentPlay;
     if (!play) return;
 
-    const { halfInning, isTopInning, inning } = play.about;
+    const { isTopInning, inning } = play.about;
     const { balls, strikes, outs } = play.count;
 
     const inningInfoEl = document.getElementById(`inningInfo-${gamePk}`);
     if (inningInfoEl) {
-      inningInfoEl.textContent = `${isTopInning ? "Top" : "Bottom"} of ${getOrdinalSuffix(inning)} Inning`;
+      inningInfoEl.innerHTML = `
+        <div style="text-transform: uppercase; font-size: 0.8rem;">${isTopInning ? "Top" : "Bottom"}</div>
+        <div style="font-size: 1.4rem;">${getOrdinalSuffix(inning)}</div>
+      `;
     }
 
     const countVisual = document.getElementById(`countVisual-${gamePk}`);
     if (countVisual) {
-        countVisual.innerHTML = `
+      countVisual.innerHTML = `
         <div style="display: flex; flex-direction: column; gap: 8px; font-weight: bold; color: white;">
           <div style="display: flex; align-items: center; gap: 4px;">
             <span style="width: 16px; color: black;">B: </span>
@@ -184,7 +193,7 @@ async function fetchGameDetails(gamePk) {
             ${[...Array(3)].map((_, i) => `<div class="ball-dot out ${i < outs ? 'active' : ''}"></div>`).join('')}
           </div>
         </div>
-      `;                    
+      `;
     }
 
     const baseFirst = document.getElementById(`firstBase-${gamePk}`);
@@ -196,7 +205,6 @@ async function fetchGameDetails(gamePk) {
     });
 
     const matchup = play.matchup || {};
-
     if (matchup.postOnFirst?.id) baseFirst?.classList.add("occupied");
     if (matchup.postOnSecond?.id) baseSecond?.classList.add("occupied");
     if (matchup.postOnThird?.id) baseThird?.classList.add("occupied");
@@ -207,4 +215,4 @@ async function fetchGameDetails(gamePk) {
 }
 
 fetchLiveGame();
-setInterval(fetchLiveGame, 5000);
+setInterval(fetchLiveGame, 1000);
