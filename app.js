@@ -31,9 +31,25 @@ function getOrdinalSuffix(num) {
 
 const gameElements = new Map();
 
+function getAdjustedDateForMLB() {
+  const now = new Date();
+
+  const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+
+  if (estNow.getHours() < 2) {
+    estNow.setDate(estNow.getDate() - 1);
+  }
+
+  const adjustedDate = estNow.getFullYear() + "-" +
+                       String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
+                       String(estNow.getDate()).padStart(2, "0");
+
+  return adjustedDate;
+}
+
 async function fetchLiveGame() {
  try {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getAdjustedDateForMLB();
     const url = `${SCHEDULE_URL}&startDate=${today}&endDate=${today}`;
   
     const res = await fetch(url);

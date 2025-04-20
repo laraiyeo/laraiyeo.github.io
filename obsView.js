@@ -226,8 +226,24 @@ const teamAbbrMap = {
   const urlParams = new URLSearchParams(window.location.search);
   const selectedTeam = urlParams.get("team");
   
+  function getAdjustedDateForMLB() {
+    const now = new Date();
+  
+    const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  
+    if (estNow.getHours() < 2) {
+      estNow.setDate(estNow.getDate() - 1);
+    }
+  
+    const adjustedDate = estNow.getFullYear() + "-" +
+                         String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
+                         String(estNow.getDate()).padStart(2, "0");
+  
+    return adjustedDate;
+  }
+  
   async function fetchGames() {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getAdjustedDateForMLB();
     const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=linescore,team`;
   
     try {

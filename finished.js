@@ -63,9 +63,25 @@ const teamAbbrMap = {
 
   const finishedGameElements = new Map();
   
+  function getAdjustedDateForMLB() {
+    const now = new Date();
+  
+    const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  
+    if (estNow.getHours() < 2) {
+      estNow.setDate(estNow.getDate() - 1);
+    }
+  
+    const adjustedDate = estNow.getFullYear() + "-" +
+                         String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
+                         String(estNow.getDate()).padStart(2, "0");
+  
+    return adjustedDate;
+  }
+
   async function loadFinishedGames() {
     try {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getAdjustedDateForMLB();
       const res = await fetch(`https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&startDate=${today}&endDate=${today}`);
       const data = await res.json();
       const games = data.dates?.[0]?.games || [];
