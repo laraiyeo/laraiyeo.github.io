@@ -38,20 +38,72 @@
     const team = params.get("team");
   
     let currentHtml = "";
-  
+    
+    function getAdjustedDateForMLB() {
+      const now = new Date();
+      const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+      if (estNow.getHours() < 2) {
+        estNow.setDate(estNow.getDate() - 1);
+      }
+      const adjustedDate = estNow.getFullYear() + "-" +
+                          String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
+                          String(estNow.getDate()).padStart(2, "0");
+      return adjustedDate;
+    }
+
+    let lastScheduleHash = null;
+
+    function hashString(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const chr = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + chr;
+        hash |= 0;
+      }
+      return hash;
+    }
+
     async function fetchAndRenderTeamGame(teamName) {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getAdjustedDateForMLB();
       const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=linescore,team`;
   
       try {
         const res = await fetch(url);
-        const data = await res.json();
+        const newHash = hashString(text);
+
+        if (newHash === lastScheduleHash) {
+          return;
+        }
+        lastScheduleHash = newHash;
+
+        const data = JSON.parse(text);
         const games = data.dates[0]?.games || [];
   
         const game = games.find(
           g => g.teams.away.team.name === teamName || g.teams.home.team.name === teamName
         );
-        if (!game) return;
+
+        if (!game) {
+          const logoUrl = await getLogoUrl(teamName);
+          const noGameCard = document.createElement("div");
+          noGameCard.className = "game-card no-game-card";
+          noGameCard.style.display = "flex";
+          noGameCard.style.alignItems = "center";
+          noGameCard.style.gap = "12px";
+          noGameCard.style.padding = "20px";
+
+          noGameCard.innerHTML = `
+            <img src="${logoUrl}" alt="${teamName} logo" style="width: 48px; height: 48px;">
+            <div style="font-weight: bold;">No game scheduled <br> for today</div>
+          `;
+
+          const newHtml = noGameCard.innerHTML;
+          if (newHtml !== currentHtml) {
+            container.innerHTML = "";
+            container.appendChild(noGameCard);
+            currentHtml = newHtml;
+          }
+        }
   
         if (typeof buildCard === "function") {
           const card = await buildCard(game);
@@ -62,7 +114,7 @@
             container.appendChild(card);
             currentHtml = html;
           }
-        }
+        } 
       } catch (err) {
         console.error("Error loading team game block:", err);
       }
@@ -75,7 +127,7 @@
     script.onload = () => {
       if (team) {
         fetchAndRenderTeamGame(team);
-        setInterval(() => fetchAndRenderTeamGame(team), 1000);
+        setInterval(() => fetchAndRenderTeamGame(team), 2000);
       }
     };
   </script> 
