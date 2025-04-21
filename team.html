@@ -38,7 +38,7 @@
     const team = params.get("team");
   
     let currentHtml = "";
-    
+  
     function getAdjustedDateForMLB() {
       const now = new Date();
       const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
@@ -49,6 +49,29 @@
                           String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
                           String(estNow.getDate()).padStart(2, "0");
       return adjustedDate;
+    }
+
+    async function getLogoUrl(teamName) {
+      const teamAbbrMap = {
+    "Arizona Diamondbacks": "ari_d", "Atlanta Braves": "atl_l", "Baltimore Orioles": "bal_l", "Boston Red Sox": "bos_d",
+    "Chicago White Sox": "cws_d", "Chicago Cubs": "chc_d", "Cincinnati Reds": "cin_d", "Cleveland Guardians": "cle_l",
+    "Colorado Rockies": "col_d", "Detroit Tigers": "det_d", "Houston Astros": "hou_d", "Kansas City Royals": "kc_d",
+    "Los Angeles Angels": "laa_d", "Los Angeles Dodgers": "lad_l", "Miami Marlins": "mia_d", "Milwaukee Brewers": "mil_d",
+    "Minnesota Twins": "min_d", "New York Yankees": "nyy_d", "New York Mets": "nym_d", "Athletics": "oak_l",
+    "Philadelphia Phillies": "phi_l", "Pittsburgh Pirates": "pit_d", "San Diego Padres": "sd_d", "San Francisco Giants": "sf_d",
+    "Seattle Mariners": "sea_d", "St. Louis Cardinals": "stl_d", "Tampa Bay Rays": "tb_d", "Texas Rangers": "tex_d",
+    "Toronto Blue Jays": "tor_l", "Washington Nationals": "wsh_d"
+    };
+    const abbr = teamAbbrMap[teamName];
+    if (!abbr) return "";
+    const darkUrl = `https://raw.githubusercontent.com/MLBAMGames/mlb_teams_logo_svg/main/dark/${abbr}.svg`;
+    const lightUrl = `https://raw.githubusercontent.com/MLBAMGames/mlb_teams_logo_svg/main/light/${abbr}.svg`;
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(darkUrl);
+      img.onerror = () => resolve(lightUrl);
+      img.src = darkUrl;
+    });
     }
 
     let lastScheduleHash = null;
@@ -62,39 +85,51 @@
       }
       return hash;
     }
-
+    
     async function fetchAndRenderTeamGame(teamName) {
       const today = getAdjustedDateForMLB();
       const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=linescore,team`;
-  
+
       try {
         const res = await fetch(url);
+        const text = await res.text();
         const newHash = hashString(text);
-
+  
         if (newHash === lastScheduleHash) {
           return;
         }
         lastScheduleHash = newHash;
-
+  
         const data = JSON.parse(text);
         const games = data.dates[0]?.games || [];
-  
+
         const game = games.find(
           g => g.teams.away.team.name === teamName || g.teams.home.team.name === teamName
         );
 
-        if (!game) {
+        const container = document.getElementById("gameBlockContainer");
+
+        if (game && typeof buildCard === "function") {
+          const card = await buildCard(game);
+          const html = card.innerHTML;
+          if (html !== currentHtml) {
+            container.innerHTML = "";
+            container.appendChild(card);
+            currentHtml = html;
+          }
+        } else {
           const logoUrl = await getLogoUrl(teamName);
+
           const noGameCard = document.createElement("div");
           noGameCard.className = "game-card no-game-card";
           noGameCard.style.display = "flex";
           noGameCard.style.alignItems = "center";
           noGameCard.style.gap = "12px";
-          noGameCard.style.padding = "20px";
+          noGameCard.style.padding = "12px";
 
           noGameCard.innerHTML = `
             <img src="${logoUrl}" alt="${teamName} logo" style="width: 48px; height: 48px;">
-            <div style="font-weight: bold;">No game scheduled <br> for today</div>
+            <div style="font-weight: bold;">No game scheduled today</div>
           `;
 
           const newHtml = noGameCard.innerHTML;
@@ -104,26 +139,15 @@
             currentHtml = newHtml;
           }
         }
-  
-        if (typeof buildCard === "function") {
-          const card = await buildCard(game);
-          const html = card.innerHTML;
-          if (html !== currentHtml) {
-            const container = document.getElementById("gameBlockContainer");
-            container.innerHTML = "";
-            container.appendChild(card);
-            currentHtml = html;
-          }
-        } 
       } catch (err) {
         console.error("Error loading team game block:", err);
       }
     }
-  
+
     const script = document.createElement("script");
     script.src = "teams.js";
     document.body.appendChild(script);
-  
+
     script.onload = () => {
       if (team) {
         fetchAndRenderTeamGame(team);
