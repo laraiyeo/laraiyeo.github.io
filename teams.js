@@ -258,7 +258,7 @@ const teamAbbrMap = {
   
   async function fetchGames() {
     const today = getAdjustedDateForMLB();
-    const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=linescore,team`;
+    const url = await fetch(`https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&startDate=${today}&endDate=${today}`);
   
     try {
       const res = await fetch(url);
