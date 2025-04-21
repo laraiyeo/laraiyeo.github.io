@@ -109,7 +109,7 @@
 
         const container = document.getElementById("gameBlockContainer");
 
-        if (game && typeof buildCard === "function") {
+        if (typeof buildCard === "function") {
           const card = await buildCard(game);
           const html = card.innerHTML;
           if (html !== currentHtml) {
