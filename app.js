@@ -243,4 +243,4 @@ async function fetchGameDetails(gamePk) {
 }
 
 fetchLiveGame();
-setInterval(fetchLiveGame, 2000);
+setInterval(fetchLiveGame, 10000);
