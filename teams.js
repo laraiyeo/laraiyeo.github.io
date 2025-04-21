@@ -185,7 +185,7 @@ const teamAbbrMap = {
         awayFull, awayShort, teams.away.score,
         homeFull, homeShort, teams.home.score
       );
-    }
+    } 
   
     return card;
   }
