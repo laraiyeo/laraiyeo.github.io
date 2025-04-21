@@ -106,13 +106,13 @@
         const game = games.find(
           g => g.teams.away.team.name === teamName || g.teams.home.team.name === teamName
         );
-
-        const container = document.getElementById("gameBlockContainer");
+        if (!game) return;
 
         if (typeof buildCard === "function") {
           const card = await buildCard(game);
           const html = card.innerHTML;
           if (html !== currentHtml) {
+            const container = document.getElementById("gameBlockContainer");
             container.innerHTML = "";
             container.appendChild(card);
             currentHtml = html;
@@ -121,6 +121,7 @@
           const logoUrl = await getLogoUrl(teamName);
 
           const noGameCard = document.createElement("div");
+          const container = document.getElementById("gameBlockContainer");
           noGameCard.className = "game-card no-game-card";
           noGameCard.style.display = "flex";
           noGameCard.style.alignItems = "center";
