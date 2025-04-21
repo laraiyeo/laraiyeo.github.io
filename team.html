@@ -116,29 +116,7 @@
             container.appendChild(card);
             currentHtml = html;
           }
-        } else {
-          const logoUrl = await getLogoUrl(teamName);
-
-          const noGameCard = document.createElement("div");
-          const container = document.getElementById("gameBlockContainer");
-          noGameCard.className = "game-card no-game-card";
-          noGameCard.style.display = "flex";
-          noGameCard.style.alignItems = "center";
-          noGameCard.style.gap = "12px";
-          noGameCard.style.padding = "12px";
-
-          noGameCard.innerHTML = `
-            <img src="${logoUrl}" alt="${teamName} logo" style="width: 48px; height: 48px;">
-            <div style="font-weight: bold;">No game scheduled today</div>
-          `;
-
-          const newHtml = noGameCard.innerHTML;
-          if (newHtml !== currentHtml) {
-            container.innerHTML = "";
-            container.appendChild(noGameCard);
-            currentHtml = newHtml;
-          }
-        }
+        } 
       } catch (err) {
         console.error("Error loading team game block:", err);
       }
