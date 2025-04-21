@@ -244,13 +244,33 @@ const teamAbbrMap = {
     return adjustedDate;
   }
 
+  let lastScheduleHash = null;
+
+  function hashString(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const chr = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + chr;
+      hash |= 0;
+    }
+    return hash;
+  }
+  
   async function fetchGames() {
     const today = getAdjustedDateForMLB();
     const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=linescore,team`;
   
     try {
       const res = await fetch(url);
-      const data = await res.json();
+      const text = await res.text();
+      const newHash = hashString(text);
+  
+      if (newHash === lastScheduleHash) {
+        return;
+      }
+      lastScheduleHash = newHash;
+  
+      const data = JSON.parse(text);
       const games = data.dates[0]?.games || [];
   
       const gameMap = {};
@@ -265,7 +285,7 @@ const teamAbbrMap = {
         uniqueTeams.add(home);
       }
   
-      const sortedTeams = Object.keys(teamAbbrMap).sort(); // Show all teams, not just those with games
+      const sortedTeams = Object.keys(teamAbbrMap).sort();
   
       for (const team of sortedTeams) {
         await createTeamSection(team);
@@ -300,23 +320,21 @@ const teamAbbrMap = {
         } else {
           const existingNoGame = container.querySelector(".no-game-card");
           if (!existingNoGame) {
-            const logoUrl = await getLogoUrl(team); // use your function
-
+            const logoUrl = await getLogoUrl(team);
             const noGameCard = document.createElement("div");
             noGameCard.className = "game-card no-game-card";
             noGameCard.style.display = "flex";
             noGameCard.style.alignItems = "center";
             noGameCard.style.gap = "12px";
             noGameCard.style.padding = "12px";
-            
+
             noGameCard.innerHTML = `
               <img src="${logoUrl}" alt="${team} logo" style="width: 48px; height: 48px;">
               <div style="font-weight: bold;">No game scheduled today</div>
             `;
-            
+
             container.innerHTML = "";
-            container.appendChild(noGameCard);            
-            
+            container.appendChild(noGameCard);
           }
         }
       }
@@ -324,8 +342,6 @@ const teamAbbrMap = {
       console.error("Error fetching games:", err);
     }
   }
-  
-  
   
   fetchGames();
   setInterval(fetchGames, 1000);

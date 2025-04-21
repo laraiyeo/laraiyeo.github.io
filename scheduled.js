@@ -77,11 +77,31 @@ const teamAbbrMap = {
     return adjustedDate;
   }
 
+  let lastScheduleHash = null;
+
+  function hashString(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const chr = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + chr;
+      hash |= 0;
+    }
+    return hash;
+  }
+
   async function loadScheduledGames() {
     try {
       const today = getAdjustedDateForMLB();
       const res = await fetch(`https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&startDate=${today}&endDate=${today}`);
-      const data = await res.json();
+      const text = await res.text();
+      const newHash = hashString(text);
+  
+      if (newHash === lastScheduleHash) {
+        return;
+      }
+      lastScheduleHash = newHash;
+  
+      const data = JSON.parse(text);
       const games = data.dates?.[0]?.games || [];
       const container = document.getElementById("gamesContainer");
   
