@@ -34,42 +34,8 @@
   <div id="gameBlockContainer"></div>
   <script>
     const params = new URLSearchParams(window.location.search);
-    const rawTeam = params.get("team");
+    const teamId = params.get("team");
 
-    const teamNameMap = {
-      "Yankees": "New York Yankees",
-      "Mets": "New York Mets",
-      "Dodgers": "Los Angeles Dodgers",
-      "Angels": "Los Angeles Angels",
-      "Cubs": "Chicago Cubs",
-      "White Sox": "Chicago White Sox",
-      "Red Sox": "Boston Red Sox",
-      "Blue Jays": "Toronto Blue Jays",
-      "Rays": "Tampa Bay Rays",
-      "Orioles": "Baltimore Orioles",
-      "Guardians": "Cleveland Guardians",
-      "Tigers": "Detroit Tigers",
-      "Royals": "Kansas City Royals",
-      "Twins": "Minnesota Twins",
-      "Astros": "Houston Astros",
-      "Mariners": "Seattle Mariners",
-      "Rangers": "Texas Rangers",
-      "Athletics": "Athletics",
-      "Braves": "Atlanta Braves",
-      "Phillies": "Philadelphia Phillies",
-      "Nationals": "Washington Nationals",
-      "Marlins": "Miami Marlins",
-      "Brewers": "Milwaukee Brewers",
-      "Cardinals": "St. Louis Cardinals",
-      "Reds": "Cincinnati Reds",
-      "Pirates": "Pittsburgh Pirates",
-      "Diamondbacks": "Arizona Diamondbacks",
-      "Rockies": "Colorado Rockies",
-      "Padres": "San Diego Padres",
-      "Giants": "San Francisco Giants"
-    };
-
-    const team = teamNameMap[rawTeam] || rawTeam;
     let currentHtml = "";
 
     function getAdjustedDateForMLB() {
@@ -91,6 +57,17 @@
       "Seattle Mariners": "sea_d", "St. Louis Cardinals": "stl_d", "Tampa Bay Rays": "tb_d", "Texas Rangers": "tex_d",
       "Toronto Blue Jays": "tor_l", "Washington Nationals": "wsh_d"
     };
+
+    async function getTeamNameById(id) {
+      try {
+        const res = await fetch(`https://statsapi.mlb.com/api/v1/teams/${id}`);
+        const data = await res.json();
+        return data.teams?.[0]?.name || "";
+      } catch (err) {
+        console.error("Error fetching team name for ID:", id, err);
+        return "";
+      }
+    }
 
     async function getLogoUrl(teamName) {
       const abbr = teamAbbrMap[teamName];
@@ -117,7 +94,10 @@
 
     let lastScheduleHash = null;
 
-    async function fetchAndRenderTeamGame(teamName) {
+    async function fetchAndRenderTeamGame(teamId) {
+      const teamName = await getTeamNameById(teamId);
+      if (!teamName) return;
+
       const today = getAdjustedDateForMLB();
       const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=linescore,team`;
 
@@ -130,11 +110,8 @@
 
         const data = JSON.parse(text);
         const games = data.dates[0]?.games || [];
-
         const game = games.find(
-          g =>
-            g.teams.away.team.name === teamName ||
-            g.teams.home.team.name === teamName
+          g => g.teams.away.team.name === teamName || g.teams.home.team.name === teamName
         );
 
         const container = document.getElementById("gameBlockContainer");
@@ -176,9 +153,9 @@
     document.body.appendChild(script);
 
     script.onload = () => {
-      if (team) {
-        fetchAndRenderTeamGame(team);
-        setInterval(() => fetchAndRenderTeamGame(team), 2000);
+      if (teamId) {
+        fetchAndRenderTeamGame(teamId);
+        setInterval(() => fetchAndRenderTeamGame(teamId), 2000);
       }
     };
   </script>
