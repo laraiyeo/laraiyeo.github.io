@@ -325,7 +325,7 @@ const teamAbbrMap = {
             noGameCard.className = "game-card no-game-card";
             noGameCard.style.display = "flex";
             noGameCard.style.alignItems = "center";
-            noGameCard.style.gap = "12px";
+            noGameCard.style.gap = "35px";
             noGameCard.style.padding = "20px";
 
             noGameCard.innerHTML = `
