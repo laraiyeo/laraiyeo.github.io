@@ -253,52 +253,78 @@ const teamAbbrMap = {
       const data = await res.json();
       const games = data.dates[0]?.games || [];
   
-      const uniqueTeams = new Set();
       const gameMap = {};
+      const uniqueTeams = new Set();
   
       for (const game of games) {
         const away = game.teams.away.team.name;
         const home = game.teams.home.team.name;
-        gameMap[away] ??= game;
-        gameMap[home] ??= game;
+        gameMap[away] = game;
+        gameMap[home] = game;
         uniqueTeams.add(away);
         uniqueTeams.add(home);
       }
   
-      const sortedTeams = Array.from(uniqueTeams).sort();
+      const sortedTeams = Object.keys(teamAbbrMap).sort(); // Show all teams, not just those with games
   
       for (const team of sortedTeams) {
         await createTeamSection(team);
+  
         const section = [...document.querySelectorAll(".team-section")]
           .find(s => s.querySelector("h2")?.textContent === team);
   
-        const game = gameMap[team];
-        const gameKey = `${game.gamePk}-${team}`;
-        const newCard = await buildCard(game);
-        const newCardHtml = newCard.innerHTML;
         const container = section.querySelector(".team-games");
   
-        const prevHtml = renderedGameCards.get(gameKey);
-
-        if (!prevHtml) {
-          container.appendChild(newCard);
-          renderedGameCards.set(gameKey, newCardHtml);
-        } else if (prevHtml !== newCardHtml) {
-          const existingCards = container.querySelectorAll(".game-card");
-          for (const card of existingCards) {
-            if (card.innerHTML === prevHtml) {
-              card.replaceWith(newCard);
-              renderedGameCards.set(gameKey, newCardHtml);
-              break;
+        const game = gameMap[team];
+  
+        if (game) {
+          const gameKey = `${game.gamePk}-${team}`;
+          const newCard = await buildCard(game);
+          const newCardHtml = newCard.innerHTML;
+          const prevHtml = renderedGameCards.get(gameKey);
+  
+          if (!prevHtml) {
+            container.innerHTML = "";
+            container.appendChild(newCard);
+            renderedGameCards.set(gameKey, newCardHtml);
+          } else if (prevHtml !== newCardHtml) {
+            const existingCards = container.querySelectorAll(".game-card");
+            for (const card of existingCards) {
+              if (card.innerHTML === prevHtml) {
+                card.replaceWith(newCard);
+                renderedGameCards.set(gameKey, newCardHtml);
+                break;
+              }
             }
           }
+        } else {
+          const existingNoGame = container.querySelector(".no-game-card");
+          if (!existingNoGame) {
+            const logoUrl = await getLogoUrl(team); // use your function
+
+            const noGameCard = document.createElement("div");
+            noGameCard.className = "game-card no-game-card";
+            noGameCard.style.display = "flex";
+            noGameCard.style.alignItems = "center";
+            noGameCard.style.gap = "12px";
+            noGameCard.style.padding = "12px";
+            
+            noGameCard.innerHTML = `
+              <img src="${logoUrl}" alt="${team} logo" style="width: 48px; height: 48px;">
+              <div style="font-weight: bold;">No game scheduled today</div>
+            `;
+            
+            container.innerHTML = "";
+            container.appendChild(noGameCard);            
+            
+          }
         }
-        
       }
     } catch (err) {
       console.error("Error fetching games:", err);
     }
   }
+  
   
   
   fetchGames();
