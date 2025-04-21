@@ -296,7 +296,7 @@ const teamAbbrMap = {
   
   document.addEventListener("DOMContentLoaded", () => {
     fetchGames();
-    setInterval(fetchGames, 1000);
+    setInterval(fetchGames, 2000);
   });
   
   

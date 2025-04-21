@@ -344,5 +344,5 @@ const teamAbbrMap = {
   }
   
   fetchGames();
-  setInterval(fetchGames, 1000);
+  setInterval(fetchGames, 2000);
   

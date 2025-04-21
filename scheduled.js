@@ -167,5 +167,5 @@ const teamAbbrMap = {
   }
   
   loadScheduledGames();
-  setInterval(loadScheduledGames, 1000);
+  setInterval(loadScheduledGames, 2000);
   
