@@ -258,7 +258,7 @@ const teamAbbrMap = {
   
   async function fetchGames() {
     const today = getAdjustedDateForMLB();
-    const url = await fetch(`https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&startDate=${today}&endDate=${today}`);
+    const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=linescore,team`;
   
     try {
       const res = await fetch(url);
@@ -326,11 +326,11 @@ const teamAbbrMap = {
             noGameCard.style.display = "flex";
             noGameCard.style.alignItems = "center";
             noGameCard.style.gap = "12px";
-            noGameCard.style.padding = "12px";
+            noGameCard.style.padding = "20px";
 
             noGameCard.innerHTML = `
               <img src="${logoUrl}" alt="${team} logo" style="width: 48px; height: 48px;">
-              <div style="font-weight: bold;">No game scheduled today</div>
+              <div style="font-weight: bold;">No game scheduled <br> for today</div>
             `;
 
             container.innerHTML = "";
