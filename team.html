@@ -106,9 +106,8 @@
         const game = games.find(
           g => g.teams.away.team.name === teamName || g.teams.home.team.name === teamName
         );
-        if (!game) return;
 
-        if (typeof buildCard === "function") {
+        if (game && typeof buildCard === "function") {
           const card = await buildCard(game);
           const html = card.innerHTML;
           if (html !== currentHtml) {
