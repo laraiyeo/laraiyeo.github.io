@@ -46,6 +46,13 @@ Welcome to **MLB Live Tracker**, a free, web-based scoreboard designed for real-
 5. Click **OK**
 6. When the card is showing properly in obs, you can shrink or enlarge the card from the profile screen
 
+---
+
+## #️⃣ Current known issues
+
+There are some issues with the code, as it is now, some teams might generate 2 or even 3 empty game containers. I'm not sure why and I also don't really know how to fix the issue.
+
+I've also had to change the fetch rate to 2 seconds as it was consuming too much data with a fetch rate of 1 second.
 
 ---
 
