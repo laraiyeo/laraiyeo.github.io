@@ -11,6 +11,17 @@ const teamAbbrMap = {
   "Toronto Blue Jays": "tor_l", "Washington Nationals": "wsh_d"
 };
 
+const teamColors = {
+  "Arizona Diamondbacks": "#A71930", "Atlanta Braves": "#CE1141", "Baltimore Orioles": "#DF4601", "Boston Red Sox": "#BD3039",
+  "Chicago White Sox": "#27251F", "Chicago Cubs": "#0E3386", "Cincinnati Reds": "#C6011F", "Cleveland Guardians": "#E50022",
+  "Colorado Rockies": "#333366", "Detroit Tigers": "#0C2340", "Houston Astros": "#EB6E1F", "Kansas City Royals": "#004687",
+  "Los Angeles Angels": "#BA0021", "Los Angeles Dodgers": "#005A9C", "Miami Marlins": "#00A3E0", "Milwaukee Brewers": "#FFC52F",
+  "Minnesota Twins": "#002B5C", "New York Yankees": "#003087", "New York Mets": "#002D72", "Athletics": "#003831",
+  "Philadelphia Phillies": "#E81828", "Pittsburgh Pirates": "#27251F", "San Diego Padres": "#2F241D", "San Francisco Giants": "#FD5A1E",
+  "Seattle Mariners": "#005C5C", "St. Louis Cardinals": "#C41E3A", "Tampa Bay Rays": "#092C5C", "Texas Rangers": "#003278",
+  "Toronto Blue Jays": "#134A8E", "Washington Nationals": "#AB0003"
+};
+
 async function getLogoUrl(teamName) {
   const abbr = teamAbbrMap[teamName];
   if (!abbr) return "";
@@ -51,7 +62,7 @@ function renderBases(runners) {
 function renderCount(balls, strikes, outs) {
   return `
     <div class="count-display">
-      Balls: ${balls} | Strikes: ${strikes} <br>Outs: ${"🔴".repeat(outs)}${"⚪".repeat(3 - outs)}
+      ${"🔴".repeat(outs)}${"⚪".repeat(3 - outs)} <br><br> Balls: ${balls} | Strikes: ${strikes}
     </div>
   `;
 }
@@ -195,6 +206,71 @@ function hashString(str) {
   return hash;
 }
 
+function renderPlayDescription(currentPlay, awayTeamName, homeTeamName) {
+  const playDescriptionDiv = document.getElementById("playDescription");
+
+  // Determine the background color based on isTopInning
+  const isTopInning = currentPlay.about.isTopInning;
+  const teamColor = isTopInning ? teamColors[awayTeamName] : teamColors[homeTeamName];
+  playDescriptionDiv.style.backgroundColor = teamColor || "#1a1a1a"; // Fallback to default color if team color is unavailable
+
+  // Check if the current play has a description
+  if (currentPlay.result.description) {
+    playDescriptionDiv.innerHTML = `
+      <div>
+        ${currentPlay.result.description}
+      </div>
+    `;
+    return;
+  }
+
+  // Use the most recent details from playEvents if no description is available
+  const playEvents = currentPlay.playEvents || [];
+  const recentEvent = playEvents.reverse().find(event => event.details && event.details.description);
+
+  if (recentEvent && recentEvent.details) {
+    const pitchDescription = recentEvent.details.type.description;
+    const { description, call } = recentEvent.details;
+    const pitchSpeed = recentEvent.pitchData?.startSpeed;
+    const pitchBall = recentEvent.count.balls;
+    const pitchStrike = recentEvent.count.strikes;
+    const batterMatch = currentPlay.matchup.batter.fullName;
+    const pitcherMatch = currentPlay.matchup.pitcher.fullName;
+
+    // Handle specific cases for call descriptions
+    let message = "";
+    switch (call?.description) {
+      case "Foul":
+        message = `${batterMatch} fouls off ${pitchSpeed ? `${pitchSpeed.toFixed(0)} mph` : "unknown speed"} ${pitchDescription.toLowerCase()} from ${pitcherMatch}. Strike ${pitchStrike}.`;
+        break;
+      case "Swinging Strike":
+        message = `${batterMatch} swings at ${pitchSpeed ? `${pitchSpeed.toFixed(0)} mph` : "unknown speed"} ${pitchDescription.toLowerCase()} from ${pitcherMatch}. Strike ${pitchStrike}.`;
+        break;
+      case "Ball":
+        message = `${pitcherMatch} throws ${pitchSpeed ? `${pitchSpeed.toFixed(0)} mph` : "unknown speed"} ${pitchDescription.toLowerCase()} outside to ${batterMatch}. Ball ${pitchBall}.`;
+        break;
+      case "Called Strike":
+        message = `${batterMatch} takes strike ${pitchStrike} looking from ${pitcherMatch}.`;
+        break;
+      default:
+        message = description || "";
+    }
+
+    playDescriptionDiv.innerHTML = `
+      <div>
+        ${message}
+      </div>
+    `;
+  } else {
+    // Default message if no relevant data is found
+    playDescriptionDiv.innerHTML = `
+      <div>
+        
+      </div>
+    `;
+  }
+}
+
 async function fetchAndUpdateScoreboard(gamePk) {
   try {
     const res = await fetch(`${BASE_URL}/api/v1.1/game/${gamePk}/feed/live`);
@@ -238,6 +314,9 @@ async function fetchAndUpdateScoreboard(gamePk) {
     );
 
     renderLinescoreTable(linescore, awayTeamData.abbreviation, homeTeamData.abbreviation);
+
+    // Render the play description with dynamic background color
+    renderPlayDescription(currentPlay, away.team.name, home.team.name);
 
     const playerStatsDiv = document.getElementById("playerStats");
 
