@@ -240,7 +240,7 @@ const teamAbbrMap = {
 
     header.querySelector("img").addEventListener("click", async (e) => {
         const team = e.target.getAttribute("data-team");
-        const url = `http://127.0.0.1:5500/team.html?team=${encodeURIComponent(team)}`;
+        const url = `https://laraiyeo.github.io/team.html?team=${encodeURIComponent(team)}`;
       
         try {
           await navigator.clipboard.writeText(url);
