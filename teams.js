@@ -180,13 +180,37 @@ const teamAbbrMap = {
           </div>
         </div>
       `;
+    } else if (statusText === "Postponed") {
+      const awayRecord = `${teams.away.leagueRecord.wins}-${teams.away.leagueRecord.losses}`;
+      const homeRecord = `${teams.home.leagueRecord.wins}-${teams.home.leagueRecord.losses}`;
+      const awayLogo = await getLogoUrl(awayFull);
+      const homeLogo = await getLogoUrl(homeFull);
+  
+      card.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="text-align: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <img src="${awayLogo}" alt="${awayShort}" style="width: 40px; height: 40px;">
+              <span style="font-size: 0.9rem;">${awayRecord}</span>
+            </div>
+            <div style="margin-top: 6px; font-weight: bold;">${awayShort}</div>
+          </div>
+          <div style="font-size: 0.9rem; font-weight: bold;">Postponed</div>
+          <div style="text-align: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 0.9rem;">${homeRecord}</span>
+              <img src="${homeLogo}" alt="${homeShort}" style="width: 40px; height: 40px;">
+            </div>
+            <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
+          </div>
+        </div>
+      `;
     } else if (statusText === "Final","Game Over") {
       card.innerHTML = await buildFinalCardContent(
         awayFull, awayShort, teams.away.score,
         homeFull, homeShort, teams.home.score
       );
-    } 
-  
+    }
     return card;
   }
   
