@@ -111,8 +111,11 @@ function renderLinescoreTable(linescore, awayName, homeName) {
   // Determine the innings to display based on screen size
   const isSmallScreen = window.innerWidth <= 475;
   const currentInning = linescore.currentInning || 1;
+
   const innings = isSmallScreen
-    ? Array.from({ length: 3 }, (_, i) => linescore.innings[currentInning - 3 + i] || { num: currentInning - 2 + i, away: {}, home: {} })
+    ? currentInning <= 3
+      ? Array.from({ length: 3 }, (_, i) => linescore.innings[i] || { num: i + 1, away: {}, home: {} }) // Always show innings 1-3
+      : Array.from({ length: 3 }, (_, i) => linescore.innings[currentInning - 3 + i] || { num: currentInning - 2 + i, away: {}, home: {} }) // Show previous 3 innings
     : Array.from({ length: 9 }, (_, i) => linescore.innings[i] || { num: i + 1, away: {}, home: {} });
 
   // Generate inning headers
