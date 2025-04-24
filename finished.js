@@ -97,35 +97,35 @@ const teamAbbrMap = {
       const res = await fetch(`https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&startDate=${today}&endDate=${today}`);
       const text = await res.text();
       const newHash = hashString(text);
-  
+
       if (newHash === lastScheduleHash) {
         return;
       }
       lastScheduleHash = newHash;
-  
+
       const data = JSON.parse(text);
       const games = data.dates?.[0]?.games || [];
       const container = document.getElementById("gamesContainer");
-  
+
       const seenGamePks = new Set();
       const finalGames = games.filter(game =>
         ["Final", "Game Over"].includes(game.status.detailedState) &&
         !seenGamePks.has(game.gamePk) &&
         seenGamePks.add(game.gamePk)
-      );      
-  
+      );
+
       const currentGamePks = new Set();
-  
+
       if (finalGames.length === 0) {
         container.innerHTML = `<div class="game-card">No finished games yet.</div>`;
         finishedGameElements.clear();
         return;
       }
-  
+
       for (const game of finalGames) {
         const gamePk = game.gamePk;
         currentGamePks.add(gamePk);
-  
+
         const { teams } = game;
         const awayFull = teams.away.team.name;
         const homeFull = teams.home.team.name;
@@ -133,15 +133,21 @@ const teamAbbrMap = {
         const homeShort = await getTeamNameById(teams.home.team.id);
         const awayScore = teams.away.score;
         const homeScore = teams.home.score;
-  
+
         const newContent = await buildFinalCardContent(awayFull, awayShort, awayScore, homeFull, homeShort, homeScore);
-  
+
         if (!finishedGameElements.has(gamePk)) {
           const card = document.createElement("div");
           card.className = "game-card";
           card.style.color = "#fff";
           card.dataset.content = newContent;
           card.innerHTML = newContent;
+
+          // Add event listener to redirect to scoreboard.html
+          card.addEventListener("click", () => {
+            window.location.href = `scoreboard.html?gamePk=${gamePk}`;
+          });
+
           finishedGameElements.set(gamePk, card);
           container.appendChild(card);
         } else {
@@ -159,7 +165,7 @@ const teamAbbrMap = {
           finishedGameElements.delete(gamePk);
         }
       }
-  
+
     } catch (err) {
       console.error("Error loading finished games:", err);
     }
@@ -167,4 +173,3 @@ const teamAbbrMap = {
   
   loadFinishedGames();
   setInterval(loadFinishedGames, 2000);
-  

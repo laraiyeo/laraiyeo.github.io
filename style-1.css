@@ -31,10 +31,20 @@ body {
     text-align: center;
   }
   
-  .team-score {
+  /* Away team score */
+  .away-team-score {
     font-size: 8rem;
     font-weight: bold;
     margin-bottom: 0.5rem;
+    color: white; /* Default color */
+  }
+  
+  /* Home team score */
+  .home-team-score {
+    font-size: 8rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: white; /* Default color */
   }
   
   .team-logo {
