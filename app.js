@@ -164,6 +164,11 @@ async function fetchLiveGame() {
           hour: "numeric", minute: "2-digit", hour12: true})}`;  
 
       fetchGameDetails(gamePk);
+
+      gameDiv.addEventListener("click", () => {
+        window.location.href = `scoreboard.html?gamePk=${gamePk}`;
+      });
+      
     }
 
     for (const [gamePk, element] of gameElements.entries()) {
