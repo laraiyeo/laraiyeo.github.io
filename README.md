@@ -48,11 +48,17 @@ Welcome to **MLB Live Tracker**, a free, web-based scoreboard designed for real-
 
 ---
 
+## 💥 New Features
+
+- (4/24/2025) When a game is live, you can click on the game card in the live page and you will see a live scoreboard of that specific game. Same with finished games. If you click a game block on the finished tab, you will see the final scoreboard of that specific game.
+
+---
+
 ## #️⃣ Current known issues
 
-There are some issues with the code, as it is now, some teams might generate 2 or even 3 empty game containers. I'm not sure why and I also don't really know how to fix the issue.
-
-I've also had to change the fetch rate to 2 seconds as it was consuming too much data with a fetch rate of 1 second.
+- There are some issues with the code, as it is now, some teams might generate 2 or even 3 empty game containers. I'm not sure why and I also don't really know how to fix the issue. For now, if this happens, just click on the teams tab again and it should show the teams properly
+- I've also had to change the fetch rate to 2 seconds as it was consuming too much data with a fetch rate of 1 second.
+- On the scoreboard page, if the user is on a phone screen and they turn it landscape, it will show the regular phone view (max 3 innings) in landscape until the next fetch. Vice versa for landscape to portrait.
 
 ---
 
