@@ -1,0 +1,163 @@
+NHL api steps
+
+Get team full name and tricode and id from: api.nhle.com/stats/rest/en/team
+data.id = team id
+data.fullName = team full name
+data.triCode = team tricode
+
+Get team logo from: https://assets.nhle.com/logos/nhl/svg/{triCode}_light.svg or https://assets.nhle.com/logos/nhl/svg/{triCode}_dark.svg
+
+Get games being played from: https://api-web.nhle.com/v1/schedule/now
+gameWeek.date will show something like “2025-04-28”. Only show games for that date
+gameWeek.date.games.id = game id
+gameWeek.date.games.awayTeam.id = away team id
+gameWeek.date.games.awayTeam.commonName.default = default away team name like “Lightning”
+^ both are the same for “homeTeam”
+
+gameWeek.date.games.seriesStatus.seriesAbbrev = Series abbreviation like “R1”
+gameWeek.date.games.seriesStatus.gameNumberofSeries = game number like “game 4”
+gameWeek.date.games.seriesStatus.topSeedTeamAbbrev = Top seeded team abbreviation
+gameWeek.date.games.seriesStatus.topSeedWins = Top seeded team wins
+^ both same for “bottom”
+
+Get scores from: https://api-web.nhle.com/v1/score/now
+games.id – Check for specific game id then continue
+games.gameState = Current game state. As of now, only know of FUT and OFF
+games.awayTeam.id = away team id
+games.awayTeam.record = away team record (Will only show when gameState = “FUT”)
+^ both same for “homeTeam”. 
+
+games.awayTeam.score = away team score (Will only show when gameState =  “OFF”)
+^ same for “homeTeam”
+
+Get game boxscore from: https://api-web.nhle.com/v1/{game-id}/2023020204/boxscore
+awayTeam.id = away team id
+awayTeam.score = away team score
+awayTeam.sog = away team shots on goal
+^ 3 same for “homeTeam”
+
+periodDescriptor.number = period number
+periodDescriptor.type = Regular or overtime “REG” or “OT”
+clock.timeRemaining = time left on clock
+clock.running = True or False if clock is running
+clock.inIntermission = True or False if in intermission
+
+playerByGameStats.awayTeam.forwards.playerId = Player Id
+playerByGameStats.awayTeam.forwards.name.default = Player name, shortened
+playerByGameStats.awayTeam.forwards.position = Player position. If “R” or “L”, add “W” after
+playerByGameStats.awayTeam.forwards.goals
+playerByGameStats.awayTeam.forwards.assists
+playerByGameStats.awayTeam.forwards.points
+playerByGameStats.awayTeam.forwards.plusMinus
+playerByGameStats.awayTeam.forwards.pim
+playerByGameStats.awayTeam.forwards.sog
+^ all 9 same for “defense”
+
+playerByGameStats.awayTeam.goalies.goalsAgainst
+playerByGameStats.awayTeam.goalies.starter = True or False
+playerByGameStats.awayTeam.goalies.shotsAgainst
+playerByGameStats.awayTeam.goalies.saves
+playerByGameStats.awayTeam.goalies.toi – round down to whole number
+^ all 14 same for “homeTeam”
+
+ gameOutcome.lastPeriodType = Last period,  “OT” or “REG”
+If OT - gameOutcome.otPeriods = how many OT
+
+Get game play by play from: api-web.nhle.com/v1/gamecenter/{game-id}/play-by-play
+awayTeam.id
+homeTeam.id
+shootoutInUse = true or false
+otInUse = true or false
+displayPeriod = Current period
+plays – Use most recent play (bottom play)
+plays.timeInPeriod – Current time in the period
+plays.timeRemaining – Current time left in the period
+plays.typeDescKey = description of play, “goal”, “faceoff”, “stoppage”, “penalty”, “blocked-shot”, “takeaway”, “hit”, “giveaway”, “shot-on-goal”, “missed-shot”, “period-end”, “game-end”
+plays.details – Will defer for each DescKey
+plays.details.shootingPlayerId
+plays.details.goalieInNetId
+plays.details.awaySOG
+plays.details.homeSOG
+plays.details.playerId
+plays.details.hittingPlayerId 
+plays.details.hitteePlayerId
+plays.details.blockingPlayerId
+plays.details.reason – if teammate-blocked, resort to message saying “{Player} misses shot."
+plays.details.losingPlayerId
+plays.details.winningPlayerId
+plays.details.descKey
+plays.details.comittedByPlayerId
+plays.details.secondaryReason
+plays.details.scoringPlayerId
+plays.details.assist1PlayerId
+plays.details.assist2PlayerId
+rosterSpots.teamId = team id of player
+rosterSpots.playerId = player id
+rosterSpots.firstName.default = player first name
+rosterSpots.lastName.default = player last name
+
+You can obtain what players are on ice with:   
+"summary": {
+    "iceSurface": {
+      "awayTeam": {
+        "forwards": [
+          {
+            "playerId"
+
+same for defense and goalie. It's also the same for homeTeam
+
+  "games": [
+    {
+      "id": 2024030124,
+      "season": 20242025,
+      "gameType": 3,
+      "gameDate": "2025-04-28",
+      "goals": [
+        {
+          "period": 2,
+          "periodDescriptor": {
+            "number": 2,
+            "periodType": "REG",
+            "maxRegulationPeriods": 3
+          },
+          "timeInPeriod": "09:06",
+          "playerId": 8482113,
+          "name": {
+            "default": "A. Lundell"
+          },
+          "firstName": {
+            "default": "Anton"
+          },
+          "lastName": {
+            "default": "Lundell"
+          },
+          "goalModifier": "none",
+          "assists": [
+            {
+              "playerId": 8473419,
+              "name": {
+                "default": "B. Marchand"
+              },
+              "assistsToDate": 2
+            },
+            {
+              "playerId": 8480185,
+              "name": {
+                "default": "E. Luostarinen"
+              },
+              "assistsToDate": 1
+            }
+          ],
+          "mugshot": "https://assets.nhle.com/mugs/nhl/20242025/FLA/8482113.png",
+          "teamAbbrev": "FLA",
+          "goalsToDate": 1,
+          "awayScore": 0,
+          "homeScore": 1,
+          "strength": "ev",
+          "highlightClipSharingUrl": "https://nhl.com/video/tbl-fla-lundell-scores-goal-against-andrei-vasilevskiy-6372046194112",
+          "highlightClipSharingUrlFr": "https://nhl.com/fr/video/tbl-fla-lundell-marque-un-but-contre-andrei-vasilevskiy-6372045788112",
+          "highlightClip": 6372046194112,
+          "highlightClipFr": 6372045788112,
+          "discreteClip": 6372045108112,
+          "discreteClipFr": 6372045284112
+        }

@@ -109,7 +109,7 @@ const teamAbbrMap = {
 
       const seenGamePks = new Set();
       const finalGames = games.filter(game =>
-        ["Final", "Game Over"].includes(game.status.detailedState) &&
+        ["Final", "Game Over", "Completed Early"].includes(game.status.detailedState) &&
         !seenGamePks.has(game.gamePk) &&
         seenGamePks.add(game.gamePk)
       );
