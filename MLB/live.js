@@ -88,7 +88,7 @@ async function fetchLiveGame() {
       if (!document.querySelector(".no-games")) {
         container.innerHTML = `
           <div class="game-block no-games">
-            <p>No current games in progress.</p>
+            <p>No live games in progress.</p>
           </div>
         `;
       }

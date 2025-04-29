@@ -4,6 +4,14 @@ async function getLogoUrl(teamTriCode) {
   return `${CORS_PROXY}https://assets.nhle.com/logos/nhl/svg/${teamTriCode}_dark.svg`;
 }
 
+function wrapTeamName(name) {
+  const words = name.split(" ");
+  if (words.length > 1) {
+    return `${words[0][0]}. ${words.slice(1).join(" ")}`;
+  }
+  return name;
+}
+
 async function buildFinalCardContent(awayTeam, homeTeam, awayScore, homeScore, seriesStatus) {
   const awayLogo = await getLogoUrl(awayTeam.abbrev);
   const homeLogo = await getLogoUrl(homeTeam.abbrev);
@@ -31,7 +39,7 @@ async function buildFinalCardContent(awayTeam, homeTeam, awayScore, homeScore, s
             <img src="${awayLogo}" alt="${awayTeam.commonName.default}" style="width: 75px; height: 60px;">
             <span style="font-size: 2.2rem; ${awayIsWinner ? 'font-weight: bold;' : ''}">${awayScore}</span>
           </div>
-          <div style="margin-top: 6px; ${awayIsWinner ? 'font-weight: bold;' : ''}">${awayTeam.commonName.default}</div>
+          <div style="margin-top: 6px; ${awayIsWinner ? 'font-weight: bold;' : ''}">${wrapTeamName(awayTeam.commonName.default)}</div>
         </div>
         <div style="text-align: center;">
           <div style="font-size: 1.1rem; font-weight: bold;">Final</div>
@@ -42,7 +50,7 @@ async function buildFinalCardContent(awayTeam, homeTeam, awayScore, homeScore, s
             <span style="font-size: 2.2rem; ${homeIsWinner ? 'font-weight: bold;' : ''}">${homeScore}</span>
             <img src="${homeLogo}" alt="${homeTeam.commonName.default}" style="width: 75px; height: 60px;">
           </div>
-          <div style="margin-top: 6px; ${homeIsWinner ? 'font-weight: bold;' : ''}">${homeTeam.commonName.default}</div>
+          <div style="margin-top: 6px; ${homeIsWinner ? 'font-weight: bold;' : ''}">${wrapTeamName(homeTeam.commonName.default)}</div>
         </div>
       </div>
     </div>
@@ -63,9 +71,19 @@ function hashString(str) {
 
 let lastScheduleHash = null;
 
+function getAdjustedDateForNHL() {
+  const now = new Date();
+  const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  if (estNow.getHours() < 2) {
+    estNow.setDate(estNow.getDate() - 1);
+  }
+  return estNow.toISOString().split("T")[0];
+}
+
 async function loadFinishedGames() {
   try {
-    const res = await fetch(`${CORS_PROXY}https://api-web.nhle.com/v1/schedule/now`);
+    const today = getAdjustedDateForNHL();
+    const res = await fetch(`${CORS_PROXY}https://api-web.nhle.com/v1/schedule/${today}`);
     const text = await res.text();
     const newHash = hashString(text);
 

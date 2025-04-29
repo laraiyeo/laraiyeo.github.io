@@ -57,6 +57,12 @@ body {
   padding: 1rem;
   background-color: #fff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.game-block:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .games-container {
@@ -78,12 +84,17 @@ body {
   border-radius: 10px;
   padding: 16px 20px;
   width: 250px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
   font-family: Arial, sans-serif;
   color: white;
   text-align: center;
   position: relative;
   box-shadow: 0 0 10px rgb(255, 255, 255);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.game-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 12px rgba(255, 255, 255);
 }
 
 .team-logo {
@@ -223,6 +234,12 @@ body {
   padding: 20px;
   width: 290px;
   background-color: #000000;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.team-section:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.5);
 }
 
 .team-header {

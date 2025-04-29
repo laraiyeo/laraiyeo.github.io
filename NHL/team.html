@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OBS Embed View - NHL Live Tracker</title>
+  <link rel="icon" href="icon.png" type="image/png" />
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+      padding-top: 25px;
+      padding-left: 50px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      height: 100vh;
+    }
+
+    #scaleWrapper {
+      transform: scale(2);
+      transform-origin: top left;
+    }
+  
+    .game-card {
+      margin: 0 auto;
+      max-width: 400px;
+    }
+  </style>
+  
+</head>
+<body>
+<div id="scaleWrapper">
+  <div id="gameBlockContainer"></div>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const teamTriCode = params.get("team"); // Use triCode instead of full name
+    let currentHtml = "";
+
+    function getAdjustedDateForNHL() {
+      const now = new Date();
+      const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+      if (estNow.getHours() < 2) {
+        estNow.setDate(estNow.getDate() - 1);
+      }
+      return estNow.toISOString().split("T")[0];
+    }
+
+    async function fetchAndRenderTeamGame(triCode) {
+      const today = getAdjustedDateForNHL();
+      const url = `https://corsproxy.io/?url=https://api-web.nhle.com/v1/schedule/${today}`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        const games = data.gameWeek?.[0]?.games || [];
+
+        const container = document.getElementById("gameBlockContainer");
+        const game = games.find(
+          g => g.awayTeam.abbrev === triCode || g.homeTeam.abbrev === triCode
+        );
+
+        if (!game) {
+          const noGameCard = document.createElement("div");
+          noGameCard.className = "game-card no-game-card";
+          noGameCard.style.display = "flex";
+          noGameCard.style.alignItems = "center";
+          noGameCard.style.gap = "35px";
+          noGameCard.style.padding = "20px";
+
+          const logoUrl = await getLogoUrl(triCode); // Fetch team logo
+          noGameCard.innerHTML = `
+            <img src="${logoUrl}" alt="Team logo" style="width: 80px; height: 70px;">
+            <div style="font-weight: bold; font-size: 1.2rem;">No game scheduled <br> for today</div>
+          `;
+
+          const newHtml = noGameCard.innerHTML;
+          if (newHtml !== currentHtml) {
+            container.innerHTML = "";
+            container.appendChild(noGameCard);
+            currentHtml = newHtml;
+          }
+          return;
+        }
+
+        if (typeof buildGameCard === "function") {
+          const cardHtml = await buildGameCard(game);
+          const newHtml = cardHtml;
+          if (newHtml !== currentHtml) {
+            container.innerHTML = "";
+            container.innerHTML = cardHtml;
+            currentHtml = newHtml;
+          }
+        }
+      } catch (err) {
+        console.error("Error loading team game block:", err);
+      }
+    }
+
+    const script = document.createElement("script");
+    script.src = "teams.js";
+    document.body.appendChild(script);
+
+    script.onload = () => {
+      if (teamTriCode) {
+        fetchAndRenderTeamGame(teamTriCode);
+        setInterval(() => fetchAndRenderTeamGame(teamTriCode), 2000);
+      }
+    };
+  </script>
+</div>
+</body>
+</html>

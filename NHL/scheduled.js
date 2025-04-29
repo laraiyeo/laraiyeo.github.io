@@ -4,12 +4,30 @@ async function getLogoUrl(teamTriCode) {
   return `${CORS_PROXY}https://assets.nhle.com/logos/nhl/svg/${teamTriCode}_dark.svg`;
 }
 
+function wrapTeamName(name) {
+    const words = name.split(" ");
+    if (words.length > 1) {
+      return `${words[0][0]}. ${words.slice(1).join(" ")}`;
+    }
+    return name;
+  }
+
 async function buildCardContent(awayTeam, homeTeam, startTime, seriesStatus) {
   const awayLogo = await getLogoUrl(awayTeam.abbrev);
   const homeLogo = await getLogoUrl(homeTeam.abbrev);
 
-  const awayRecord = `${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`;
-  const homeRecord = `${seriesStatus.bottomSeedWins}-${seriesStatus.topSeedWins}`;
+  const awayAbbrev = awayTeam.abbrev;
+  const homeAbbrev = homeTeam.abbrev;
+
+  const awayRecord =
+    seriesStatus.topSeedTeamAbbrev === awayAbbrev
+      ? `${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`
+      : `${seriesStatus.bottomSeedWins}-${seriesStatus.topSeedWins}`;
+
+  const homeRecord =
+    seriesStatus.topSeedTeamAbbrev === homeAbbrev
+      ? `${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`
+      : `${seriesStatus.bottomSeedWins}-${seriesStatus.topSeedWins}`;
   const seriesInfo = `${seriesStatus.seriesAbbrev || "N/A"} - Game ${seriesStatus.gameNumberOfSeries || "N/A"}`;
 
   return `
@@ -21,7 +39,7 @@ async function buildCardContent(awayTeam, homeTeam, startTime, seriesStatus) {
             <img src="${awayLogo}" alt="${awayTeam.commonName.default}" style="width: 60px; height: 40px;">
             <span style="font-size: 0.9rem;">${awayRecord}</span>
           </div>
-          <div style="margin-top: 6px; font-weight: bold;">${awayTeam.commonName.default}</div>
+          <div style="margin-top: 6px; font-weight: bold;">${wrapTeamName(awayTeam.commonName.default)}</div>
         </div>
         <div style="font-size: 1.1rem; font-weight: bold;">${startTime}</div>
         <div style="text-align: center;">
@@ -29,7 +47,7 @@ async function buildCardContent(awayTeam, homeTeam, startTime, seriesStatus) {
             <span style="font-size: 0.9rem;">${homeRecord}</span>
             <img src="${homeLogo}" alt="${homeTeam.commonName.default}" style="width: 60px; height: 40px;">
           </div>
-          <div style="margin-top: 6px; font-weight: bold;">${homeTeam.commonName.default}</div>
+          <div style="margin-top: 6px; font-weight: bold;">${wrapTeamName(homeTeam.commonName.default)}</div>
         </div>
       </div>
     </div>
@@ -41,6 +59,9 @@ const scheduledGameElements = new Map();
 function getAdjustedDateForNHL() {
   const now = new Date();
   const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  if (estNow.getHours() < 2) {
+    estNow.setDate(estNow.getDate() - 1);
+  }
   return estNow.toISOString().split("T")[0];
 }
 
@@ -59,7 +80,7 @@ function hashString(str) {
 async function loadScheduledGames() {
   try {
     const today = getAdjustedDateForNHL();
-    const res = await fetch(`${CORS_PROXY}https://api-web.nhle.com/v1/schedule/now`);
+    const res = await fetch(`${CORS_PROXY}https://api-web.nhle.com/v1/schedule/${today}`);
     const text = await res.text();
     const newHash = hashString(text);
 

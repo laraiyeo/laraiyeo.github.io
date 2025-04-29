@@ -16,9 +16,19 @@ function getOrdinalSuffix(num) {
 
 const liveGameElements = new Map();
 
-async function fetchLiveGames() {
+function getAdjustedDateForNHL() {
+  const now = new Date();
+  const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  if (estNow.getHours() < 2) {
+    estNow.setDate(estNow.getDate() - 1);
+  }
+  return estNow.toISOString().split("T")[0];
+}
+
+async function loadLiveGames() {
   try {
-    const res = await fetch(`${CORS_PROXY}https://api-web.nhle.com/v1/schedule/now`);
+    const today = getAdjustedDateForNHL();
+    const res = await fetch(`${CORS_PROXY}https://api-web.nhle.com/v1/schedule/${today}`);
     const data = await res.json();
     const games = data.gameWeek?.[0]?.games || [];
 
@@ -27,7 +37,7 @@ async function fetchLiveGames() {
 
     if (liveGames.length === 0) {
       if (!document.querySelector(".no-games")) {
-        container.innerHTML = `<div class="live-game-block no-games"><p>No live games at the moment.</p></div>`;
+        container.innerHTML = `<div class="live-game-block no-games"><p>No live games in progress.</p></div>`;
       }
       liveGameElements.clear();
       return;
@@ -85,7 +95,7 @@ async function fetchLiveGames() {
       }
     }
   } catch (err) {
-    console.error("Error fetching live games:", err);
+    console.error("Error loading live games:", err);
   }
 }
 
@@ -138,5 +148,5 @@ async function fetchGameDetails(gameId, awayTeam, homeTeam) {
   }
 }
 
-fetchLiveGames();
-setInterval(fetchLiveGames, 2000);
+loadLiveGames();
+setInterval(loadLiveGames, 2000);

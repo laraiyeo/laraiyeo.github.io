@@ -68,10 +68,13 @@ function renderCount(balls, strikes, outs) {
 }
 
 async function renderTopScoreboard(away, home, awayTeamData, homeTeamData, state, count, runners) {
+  const isSmallScreen = window.innerWidth <= 525;
   const awayLogo = await getLogoUrl(away.team.name);
   const homeLogo = await getLogoUrl(home.team.name);
   const isFinal = state.inning === "Final";
-  const inningText = isFinal ? "Final" : `${state.isTopInning ? "Top" : "Bottom"} ${ordinalSuffix(state.inning)}`;
+  const inningText = isFinal
+    ? `<span style="font-size: ${isSmallScreen ? '0.9rem' : '1.5rem'};">Final</span>`
+    : `${state.isTopInning ? "Top" : "Bottom"} ${ordinalSuffix(state.inning)}`;
 
   const awayRecord = awayTeamData.record?.leagueRecord;
   const homeRecord = homeTeamData.record?.leagueRecord;

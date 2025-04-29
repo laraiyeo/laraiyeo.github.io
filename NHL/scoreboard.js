@@ -25,16 +25,23 @@ function getOrdinalSuffix(num) {
   }
 }
 
+function getAdjustedDateForNHL() {
+  const now = new Date();
+  const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  if (estNow.getHours() < 2) {
+    estNow.setDate(estNow.getDate() - 1);
+  }
+  return estNow.toISOString().split("T")[0];
+}
+
 async function fetchTeamRecords(gameId) {
   try {
-    const scheduleRes = await fetch(`${BASE_URL}/schedule/now`);
+    const today = getAdjustedDateForNHL();
+    const scheduleRes = await fetch(`${BASE_URL}/schedule/${today}`);
     const scheduleData = await scheduleRes.json();
 
     // Ensure the correct structure is used to access games
     const games = scheduleData.gameWeek?.flatMap(week => week.games) || [];
-
-    // Log available game IDs for debugging
-    console.log("Available game IDs:", games.map(g => g.id));
 
     // Ensure consistent type comparison by converting gameId to a number
     const numericGameId = Number(gameId);
@@ -101,8 +108,10 @@ async function renderTopScoreboard(awayTeam, homeTeam, periodDescriptor, clock, 
   }
 
   // Update period and time display for OFF or FINAL state
+  const isSmallScreen = window.innerWidth <= 525;
+
   const periodDisplay = isGreyedOut
-    ? `<div class="inning-status" style="font-size: 4.5rem;">Final</div>`
+    ? `<div class="inning-status" style="font-size: ${isSmallScreen ? '2.5rem' : '4.5rem'};">Final</div>`
     : `<div class="inning-status">${periodText}</div><div class="time-left">${timeLeft}</div>`;
 
   topScoreboardEl.innerHTML = `

@@ -1,27 +1,27 @@
-# ⚾ MLB Live Tracker
+# ⚾🏒 Live Tracker
 
-Welcome to **MLB Live Tracker**, a free, web-based scoreboard designed for real-time MLB updates and seamless OBS integration.
+Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for real-time MLB and NHL updates and seamless OBS integration.
 
 🔗 **Live Tracker Site**: [https://laraiyeo.github.io/index.html](https://laraiyeo.github.io/index.html)  
 💻 **Source Code**: [GitHub Repository](https://github.com/laraiyeo/laraiyeo.github.io)  
-📊 **Data Source**: [statsapi.mlb.com](http://statsapi.mlb.com/api/v1/schedule/games/?sportId=1)
+📊 **Data Source**: [statsapi.mlb.com](http://statsapi.mlb.com/api/v1/schedule/games/?sportId=1), [api.nhle.com](https://api-web.nhle.com/v1/schedule/now)
 
 ---
 
 ## 🧩 Features
 
 - **Live Game Dashboard**  
-  Real-time display of active MLB games with:
-  - Inning progress (TOP and BOT with inning number)
-  - Base runners logic (Bases light up when runner is present)
-  - Visual balls/strikes/outs tracker
+  Real-time display of active MLB and NHL games with:
+  - Inning progress for MLB (TOP and BOT with inning number) and Period progress for NHL (Time remaining in period and specifc period number)
+  - Base runners logic for MLB (Bases light up when runner is present)
+  - Visual balls/strikes/outs tracker for MLB
 
 - **Game Schedules & Results**  
   - See all scheduled games for the day with start times
   - View completed games and final scores
 
 - **Team Tracker**  
-  - All 30 teams shown at once
+  - All 30 teams shown at once for MLB and all 32 teams shown at once for NHL
   - See each team’s game status
   - Click on a team logo to get a unique URL for OBS
 
@@ -31,7 +31,7 @@ Welcome to **MLB Live Tracker**, a free, web-based scoreboard designed for real-
 
 - **Open Source & Customizable**  
   - Built entirely in HTML/CSS/JS
-  - Data from MLB’s official StatsAPI
+  - Data from MLB’s official StatsAPI as well as NHL's official API
   - Free to clone, fork, or contribute
 
 ---
@@ -39,19 +39,19 @@ Welcome to **MLB Live Tracker**, a free, web-based scoreboard designed for real-
 ## 🖥️ How to Use in OBS
 
 1. Go to **https://laraiyeo.github.io/teams.html**
-2. In the team containers (the bigger box), click the logo of the team you want to integrate into obs
-1. **Open OBS Studio**
-2. Click the ➕ under *Sources*, and choose **Browser**
-3. Name it (e.g. `MLB Tracker`) and paste the URL (do not change the width and height)  
-5. Click **OK**
-6. When the card is showing properly in obs, you can shrink or enlarge the card from the profile screen
+2. Click the team container of the team you want to integrate into obs
+3. **Open OBS Studio**
+4. Click the ➕ under *Sources*, and choose **Browser**
+5. Name it (e.g. `MLB Tracker` or `NHL Tracker`) and paste the URL (do not change the width and height)  
+6. Click **OK**
+7. When the card is showing properly in obs, you can shrink or enlarge the card from the profile screen
 
 ---
 
 ## 💥 New Features
 
 - (4/24/2025) When a game is live, you can click on the game card in the live page and you will see a live scoreboard of that specific game. Same with finished games. If you click a game block on the finished tab, you will see the final scoreboard of that specific game.
-
+- (4/29/2025) Previously known as MLB Live Tracker but with the new integration of an NHL tracker, it is now known as Live Sports Tracker
 ---
 
 ## #️⃣ Current known issues
@@ -59,6 +59,7 @@ Welcome to **MLB Live Tracker**, a free, web-based scoreboard designed for real-
 - There are some issues with the code, as it is now, some teams might generate 2 or even 3 empty game containers. I'm not sure why and I also don't really know how to fix the issue. For now, if this happens, just click on the teams tab again and it should show the teams properly
 - I've also had to change the fetch rate to 2 seconds as it was consuming too much data with a fetch rate of 1 second.
 - On the scoreboard page, if the user is on a phone screen and they turn it landscape, it will show the regular phone view (max 3 innings) in landscape until the next fetch. Vice versa for landscape to portrait.
+- For NHL scoreboard, at times it may show undefined for play-by-play. This is an issue from the api directly as it doesn't update some things immediately.
 
 ---
 

@@ -216,40 +216,39 @@ const teamAbbrMap = {
   
   async function createTeamSection(teamName) {
     if (createdSections.has(teamName)) return;
-  
+
     const container = document.getElementById("gamesContainer");
     const section = document.createElement("div");
     section.className = "team-section";
     section.style.backgroundColor = teamColors[teamName] || "#000";
-  
+
     const header = document.createElement("div");
     header.className = "team-header";
     const logoUrl = await getLogoUrl(teamName);
     header.innerHTML = `
-     <img src="${logoUrl}" alt="${teamName}" class="team-logo" style="cursor: pointer;" role="button" data-team="${teamName}" />
-    <h2>${teamName}</h2>
+      <img src="${logoUrl}" alt="${teamName}" class="team-logo" />
+      <h2>${teamName}</h2>
     `;
     section.appendChild(header);
-  
+
     const gameList = document.createElement("div");
     gameList.className = "team-games";
     section.appendChild(gameList);
     container.appendChild(section);
-  
+
     createdSections.add(teamName);
 
-    header.querySelector("img").addEventListener("click", async (e) => {
-        const team = e.target.getAttribute("data-team");
-        const url = `https://laraiyeo.github.io/team.html?team=${encodeURIComponent(team)}`;
-      
-        try {
-          await navigator.clipboard.writeText(url);
-          alert(`OBS link copied for ${team}: ${url}`);
-        } catch (err) {
-          console.error("Failed to copy OBS link:", err);
-        }
-      });      
-      
+    // Make the entire section clickable
+    section.addEventListener("click", async () => {
+      const url = `https://laraiyeo.github.io/mlb/team.html?team=${encodeURIComponent(teamName)}`;
+
+      try {
+        await navigator.clipboard.writeText(url);
+        alert(`OBS link copied for ${teamName}: ${url}`);
+      } catch (err) {
+        console.error("Failed to copy OBS link:", err);
+      }
+    });
   }
   
   function getAdjustedDateForMLB() {
@@ -369,4 +368,3 @@ const teamAbbrMap = {
   
   fetchGames();
   setInterval(fetchGames, 2000);
-  
