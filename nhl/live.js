@@ -22,7 +22,11 @@ function getAdjustedDateForNHL() {
   if (estNow.getHours() < 2) {
     estNow.setDate(estNow.getDate() - 1);
   }
-  return estNow.toISOString().split("T")[0];
+  const adjustedDate = estNow.getFullYear() + "-" +
+                       String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
+                       String(estNow.getDate()).padStart(2, "0");
+
+  return adjustedDate;
 }
 
 async function loadLiveGames() {
@@ -32,7 +36,7 @@ async function loadLiveGames() {
     const data = await res.json();
     const games = data.gameWeek?.[0]?.games || [];
 
-    const liveGames = games.filter(game => game.gameState === "LIVE");
+    const liveGames = games.filter(game => game.gameState === "LIVE" || game.gameState === "CRIT");
     const container = document.getElementById("gamesContainer");
 
     if (liveGames.length === 0) {
@@ -59,7 +63,7 @@ async function loadLiveGames() {
         gameDiv.style.width = "350px";
         gameDiv.innerHTML = `
           <div style="display: flex; flex-direction: column; justify-content: space-between; align-items: center; height: 100%; padding: 5px;">
-            <div id="period-${gameId}" style="font-size: 1.5rem; font-weight: bold; text-align: center; color: black;">Loading...</div>
+            <div id="period-${gameId}" style="font-size: 1.5rem; font-weight: bold; text-align: center; color: black;"></div>
             <div id="periodStatus-${gameId}" style="font-size: 1rem; color: grey; text-align: center; margin-top: 15px;"></div>
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
               <div style="text-align: center;">
@@ -67,7 +71,7 @@ async function loadLiveGames() {
                 <div id="awayScore-${gameId}" style="font-size: 3.5rem; font-weight: normal; color: black;">0</div>
                 <div style="margin-top: 8px; font-weight: bold; color: black; margin-bottom: 15px;">${awayTeam.commonName.default}</div>
               </div>
-              <div id="status-${gameId}" style="font-size: 1.75rem; font-weight: bold; color: black; text-align: center;">Loading...</div>
+              <div id="status-${gameId}" style="font-size: 1.75rem; font-weight: bold; color: black; text-align: center;"></div>
               <div style="text-align: center;">
                 <img src="${homeLogo}" alt="${homeTeam.commonName.default}" style="width: 120px; height: 80px;">
                 <div id="homeScore-${gameId}" style="font-size: 3.5rem; font-weight: normal; color: black;">0</div>
@@ -130,7 +134,9 @@ async function fetchGameDetails(gameId, awayTeam, homeTeam) {
     const periodEl = document.getElementById(`period-${gameId}`);
     const periodStatusEl = document.getElementById(`periodStatus-${gameId}`);
     if (periodEl && periodStatusEl) {
-      const periodText = `${getOrdinalSuffix(periodDescriptor.number)} Period`;
+      const periodText = periodDescriptor.periodType === "OT" 
+        ? `${getOrdinalSuffix(periodDescriptor.otPeriods)} OT` 
+        : `${getOrdinalSuffix(periodDescriptor.number)} Period`;
       periodEl.textContent = periodText;
 
       const periodStatus = clock.inIntermission ? "" : "";

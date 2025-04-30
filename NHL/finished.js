@@ -12,7 +12,7 @@ function wrapTeamName(name) {
   return name;
 }
 
-async function buildFinalCardContent(awayTeam, homeTeam, awayScore, homeScore, seriesStatus) {
+async function buildFinalCardContent(awayTeam, homeTeam, awayScore, homeScore, seriesStatus, periodDescriptor) {
   const awayLogo = await getLogoUrl(awayTeam.abbrev);
   const homeLogo = await getLogoUrl(homeTeam.abbrev);
   const awayIsWinner = awayScore > homeScore;
@@ -25,7 +25,7 @@ async function buildFinalCardContent(awayTeam, homeTeam, awayScore, homeScore, s
   } else if (seriesStatus.bottomSeedWins > seriesStatus.topSeedWins) {
     seriesInfo = `${seriesStatus.bottomSeedTeamAbbrev} ${seriesStatus.bottomSeedWins}-${seriesStatus.topSeedWins}`;
   } else {
-    seriesInfo = `Series tied ${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`;
+    seriesInfo = `Tied ${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`;
   }
 
   const seriesDetails = `${seriesStatus.seriesAbbrev || "N/A"} - Game ${seriesStatus.gameNumberOfSeries || "N/A"}`;
@@ -42,7 +42,7 @@ async function buildFinalCardContent(awayTeam, homeTeam, awayScore, homeScore, s
           <div style="margin-top: 6px; ${awayIsWinner ? 'font-weight: bold;' : ''}">${wrapTeamName(awayTeam.commonName.default)}</div>
         </div>
         <div style="text-align: center;">
-          <div style="font-size: 1.1rem; font-weight: bold;">Final</div>
+          <div style="font-size: 1.1rem; font-weight: bold;">${periodDescriptor.periodType === "OT" ? "Final/OT" : "Final"}</div>
           <div style="font-size: 0.9rem; color: grey; margin-top: 8px;">${seriesInfo}</div>
         </div>
         <div style="text-align: center;">
@@ -77,7 +77,11 @@ function getAdjustedDateForNHL() {
   if (estNow.getHours() < 2) {
     estNow.setDate(estNow.getDate() - 1);
   }
-  return estNow.toISOString().split("T")[0];
+  const adjustedDate = estNow.getFullYear() + "-" +
+                       String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
+                       String(estNow.getDate()).padStart(2, "0");
+
+  return adjustedDate;
 }
 
 async function loadFinishedGames() {
@@ -121,8 +125,9 @@ async function loadFinishedGames() {
       const awayScore = game.awayTeam.score;
       const homeScore = game.homeTeam.score;
       const seriesStatus = game.seriesStatus || { topSeedWins: 0, bottomSeedWins: 0 };
+      const periodDescriptor = game.periodDescriptor;
 
-      const newContent = await buildFinalCardContent(awayTeam, homeTeam, awayScore, homeScore, seriesStatus);
+      const newContent = await buildFinalCardContent(awayTeam, homeTeam, awayScore, homeScore, seriesStatus, periodDescriptor);
 
       if (!finishedGameElements.has(gameId)) {
         const card = document.createElement("div");

@@ -19,7 +19,11 @@ function getAdjustedDateForNHL() {
   if (estNow.getHours() < 2) {
     estNow.setDate(estNow.getDate() - 1);
   }
-  return estNow.toISOString().split("T")[0];
+  const adjustedDate = estNow.getFullYear() + "-" +
+                       String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
+                       String(estNow.getDate()).padStart(2, "0");
+
+  return adjustedDate;
 }
 
 function wrapTeamName(name) {
@@ -30,8 +34,19 @@ function wrapTeamName(name) {
   return name;
 }
 
+async function fetchTimeRemaining(gameId) {
+  try {
+    const res = await fetch(`https://corsproxy.io/?url=https://api-web.nhle.com/v1/gamecenter/${gameId}/boxscore`);
+    const data = await res.json();
+    return data.clock?.inIntermission ? "End" : data.clock?.timeRemaining || "00:00"; // Handle intermission
+  } catch (err) {
+    console.error(`Error fetching timeRemaining for game ${gameId}:`, err);
+    return "00:00";
+  }
+}
+
 async function buildGameCard(game) {
-  const { awayTeam, homeTeam, gameState, startTimeUTC, seriesStatus, clock, periodDescriptor } = game;
+  const { id: gameId, awayTeam, homeTeam, gameState, startTimeUTC, seriesStatus, clock, periodDescriptor } = game;
   const awayLogo = await getLogoUrl(awayTeam.abbrev);
   const homeLogo = await getLogoUrl(homeTeam.abbrev);
 
@@ -45,7 +60,6 @@ async function buildGameCard(game) {
     ? `${seriesStatus.seriesAbbrev || "N/A"} - Game ${seriesStatus.gameNumberOfSeries || "N/A"}`
     : "";
 
-  // Extract team records from seriesStatus
   const awayRecord =
     seriesStatus?.topSeedTeamAbbrev === awayTeam.abbrev
       ? `${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`
@@ -65,6 +79,17 @@ async function buildGameCard(game) {
       default: return `${num}th`;
     }
   }
+
+  const awayIsWinner = awayTeam.score > homeTeam.score;
+  const homeIsWinner = homeTeam.score > awayTeam.score;
+
+  const currentPeriod = periodDescriptor.periodType === "OT"
+    ? `${getOrdinalSuffix(periodDescriptor.otPeriods)} OT`
+    : `${getOrdinalSuffix(periodDescriptor.number)} Period`;
+
+  const timeRemaining = gameState === "LIVE" || gameState === "CRIT"
+    ? await fetchTimeRemaining(gameId)
+    : "00:00";
 
   if (["PRE", "FUT"].includes(gameState)) {
     // Scheduled game card
@@ -92,15 +117,13 @@ async function buildGameCard(game) {
     `;
   } else if (["FINAL", "OFF"].includes(gameState)) {
     // Finished game card
-    const awayIsWinner = awayTeam.score > homeTeam.score;
-    const homeIsWinner = homeTeam.score > awayTeam.score;
     let gameSeriesInfo = "";
     if (seriesStatus.topSeedWins > seriesStatus.bottomSeedWins) {
       gameSeriesInfo = `${seriesStatus.topSeedTeamAbbrev} ${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`;
     } else if (seriesStatus.bottomSeedWins > seriesStatus.topSeedWins) {
       gameSeriesInfo = `${seriesStatus.bottomSeedTeamAbbrev} ${seriesStatus.bottomSeedWins}-${seriesStatus.topSeedWins}`;
     } else {
-      gameSeriesInfo = `Series tied ${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`;
+      gameSeriesInfo = `Tied ${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`;
     }
 
     return `
@@ -115,7 +138,7 @@ async function buildGameCard(game) {
             <div style="margin-top: 6px; ${awayIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(awayTeam.commonName.default)}</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 1.2rem; font-weight: bold;">Final</div>
+            <div style="font-size: 1.1rem; font-weight: bold;">${periodDescriptor.periodType === "OT" ? "Final/OT" : "Final"}</div>
             <div style="font-size: 0.9rem; color: grey; margin-top: 8px;">${gameSeriesInfo}</div>
           </div>
           <div style="text-align: center;">
@@ -130,19 +153,16 @@ async function buildGameCard(game) {
     `;
   } else {
     // Game in progress card
-    const currentPeriod = `${getOrdinalSuffix(periodDescriptor.number)} Period`;
-    const timeRemaining = clock.timeRemaining || "00:00";
-
     return `
       <div class="game-card">
-        <div style="font-size: 0.8rem; color: grey; text-align: center;">${currentPeriod}</div>
+        <div style="font-size: 0.8rem; color: grey; text-align: center;">${seriesInfo}</div>
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
               <img src="${awayLogo}" alt="${awayTeam.commonName.default}" style="width: 60px; height: 40px;">
-              <span style="font-size: 2.3rem;">${awayTeam.score}</span>
+              <span style="font-size: 2.3rem; ${awayIsWinner ? "font-weight: bold;" : ""}">${awayTeam.score}</span>
             </div>
-            <div style="margin-top: 6px;">${wrapTeamName(awayTeam.commonName.default)}</div>
+            <div style="margin-top: 6px; ${awayIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(awayTeam.commonName.default)}</div>
           </div>
           <div style="text-align: center;">
             <div style="font-size: 1.3rem; font-weight: bold;">${timeRemaining}</div>
@@ -150,10 +170,10 @@ async function buildGameCard(game) {
           </div>
           <div style="text-align: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 2.3rem;">${homeTeam.score}</span>
+              <span style="font-size: 2.3rem; ${homeIsWinner ? "font-weight: bold;" : ""}">${homeTeam.score}</span>
               <img src="${homeLogo}" alt="${homeTeam.commonName.default}" style="width: 60px; height: 40px;">
             </div>
-            <div style="margin-top: 6px;">${wrapTeamName(homeTeam.commonName.default)}</div>
+            <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(homeTeam.commonName.default)}</div>
           </div>
         </div>
       </div>
@@ -183,6 +203,16 @@ async function fetchGames() {
     const newHash = hashString(text);
 
     if (newHash === lastScheduleHash) {
+      // Update timeRemaining for live games
+      const liveGameCards = document.querySelectorAll(".game-card[data-game-id]");
+      for (const card of liveGameCards) {
+        const gameId = card.getAttribute("data-game-id");
+        const timeRemaining = await fetchTimeRemaining(gameId);
+        const timeRemainingEl = card.querySelector(".time-remaining");
+        if (timeRemainingEl) {
+          timeRemainingEl.textContent = timeRemaining;
+        }
+      }
       return;
     }
     lastScheduleHash = newHash;
@@ -232,6 +262,7 @@ async function fetchGames() {
           const gameCardHtml = await buildGameCard(game);
           const gameCard = document.createElement("div");
           gameCard.innerHTML = gameCardHtml;
+          gameCard.setAttribute("data-game-id", game.id); // Add game ID for dynamic updates
           teamGamesContainer.appendChild(gameCard);
         }
       } else {

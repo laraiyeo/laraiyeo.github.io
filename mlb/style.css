@@ -5,7 +5,7 @@ html, body {
 
 body {
   font-family: Arial, sans-serif;
-  background-color: #121212;
+  background-color: #000000;
   color: #000000;
   overflow-x: hidden;
   display: flex;
@@ -296,8 +296,4 @@ body {
 .small-base.occupied {
   background-color: rgb(255, 255, 255);
   box-shadow: 0 0 3px rgb(255, 255, 255);
-}
-
-.team-logo {
-  cursor: pointer;
 }

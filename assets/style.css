@@ -26,8 +26,7 @@ body {
     justify-content: center;
     position: sticky;
     top: 0;
-    left: 0; /* Ensure it starts from the left edge */
-    width: 100vw; /* Span the full viewport width */
+    width: 100vw;
     z-index: 1000;
 }
 

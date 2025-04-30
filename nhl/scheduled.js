@@ -62,7 +62,11 @@ function getAdjustedDateForNHL() {
   if (estNow.getHours() < 2) {
     estNow.setDate(estNow.getDate() - 1);
   }
-  return estNow.toISOString().split("T")[0];
+  const adjustedDate = estNow.getFullYear() + "-" +
+                       String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
+                       String(estNow.getDate()).padStart(2, "0");
+
+  return adjustedDate;
 }
 
 let lastScheduleHash = null;

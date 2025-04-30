@@ -31,7 +31,11 @@ function getAdjustedDateForNHL() {
   if (estNow.getHours() < 2) {
     estNow.setDate(estNow.getDate() - 1);
   }
-  return estNow.toISOString().split("T")[0];
+  const adjustedDate = estNow.getFullYear() + "-" +
+                       String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
+                       String(estNow.getDate()).padStart(2, "0");
+
+  return adjustedDate;
 }
 
 async function fetchTeamRecords(gameId) {
@@ -87,11 +91,21 @@ async function renderTopScoreboard(awayTeam, homeTeam, periodDescriptor, clock, 
     return;
   }
 
-  const periodText = `${getOrdinalSuffix(periodDescriptor.number)} Period`;
+  const periodText = periodDescriptor.number === 4 
+    ? "OT" 
+    : `${getOrdinalSuffix(periodDescriptor.number)} Period`;
   const timeLeft = clock.inIntermission ? "End" : clock.timeRemaining || "00:00";
 
   // Fetch team records
   const { awayRecord, homeRecord } = await fetchTeamRecords(gameId);
+
+  // Check for power play (PP) situations
+  const awayPP = awayTeam.situationDescriptions?.includes("PP") 
+    ? `<span style="font-size: 2rem; color: grey;"> PP</span>` 
+    : "";
+  const homePP = homeTeam.situationDescriptions?.includes("PP") 
+    ? `<span style="font-size: 2rem; color: grey;"> PP</span>` 
+    : "";
 
   // Determine score color based on gameState and scores
   const isGreyedOut = gameState === "OFF" || gameState === "FINAL";
@@ -111,12 +125,12 @@ async function renderTopScoreboard(awayTeam, homeTeam, periodDescriptor, clock, 
   const isSmallScreen = window.innerWidth <= 525;
 
   const periodDisplay = isGreyedOut
-    ? `<div class="inning-status" style="font-size: ${isSmallScreen ? '2.5rem' : '4.5rem'};">Final</div>`
+    ? `<div class="inning-status" style="font-size: ${isSmallScreen ? '1.3rem' : '4.5rem'};">${periodDescriptor.periodType === "OT" ? "Final/OT" : "Final"}</div>`
     : `<div class="inning-status">${periodText}</div><div class="time-left">${timeLeft}</div>`;
 
   topScoreboardEl.innerHTML = `
     <div class="team-block">
-      <div class="team-score" style="color: ${awayScoreColor};">${awayTeam.score}</div>
+      <div class="team-score" style="color: ${awayScoreColor};">${awayTeam.score}${awayPP}</div>
       <img class="team-logo" src="${awayTeam.darkLogo}" alt="${awayTeam.commonName.default}">
       <div class="team-abbr">${awayTeam.commonName.default}</div>
       <div class="team-record">${awayRecord}</div>
@@ -125,7 +139,7 @@ async function renderTopScoreboard(awayTeam, homeTeam, periodDescriptor, clock, 
       ${periodDisplay}
     </div>
     <div class="team-block">
-      <div class="team-score" style="color: ${homeScoreColor};">${homeTeam.score}</div>
+      <div class="team-score" style="color: ${homeScoreColor};">${homePP}${homeTeam.score}</div>
       <img class="team-logo" src="${homeTeam.darkLogo}" alt="${homeTeam.commonName.default}">
       <div class="team-abbr">${homeTeam.commonName.default}</div>
       <div class="team-record">${homeRecord}</div>
@@ -365,7 +379,9 @@ async function renderPlayByPlay(gameId) {
         break;
 
       case "period-end":
-        description = `End of period ${mostRecentPlay.periodDescriptor.number}.`;
+        description = mostRecentPlay.periodDescriptor.periodType === "OT" 
+          ? `End of OT ${mostRecentPlay.periodDescriptor.otPeriods}.`
+          : `End of period ${mostRecentPlay.periodDescriptor.number}.`;
         break;
 
       case "game-end":
