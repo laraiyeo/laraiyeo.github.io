@@ -351,8 +351,9 @@ async function fetchAndUpdateScoreboard(gamePk) {
 
     // Hide bases, outs, and count if the game is not in progress
     const inningCenter = document.querySelector(".inning-center");
+    const isSmallScreen = window.innerWidth <= 525;
     if (!isInProgress && inningCenter) {
-      inningCenter.innerHTML = `<div class="inning-status" style="font-size:3.5rem">Final</div>`; // Replace with "Final"
+      inningCenter.innerHTML = `<div class="inning-status" style="font-size: ${isSmallScreen ? '2rem' : '3.5rem'};">Final</div>`; // Replace with "Final"
     }
 
     // Render player stats

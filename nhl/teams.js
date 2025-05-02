@@ -83,6 +83,15 @@ async function buildGameCard(game) {
   const awayIsWinner = awayTeam.score > homeTeam.score;
   const homeIsWinner = homeTeam.score > awayTeam.score;
 
+  let gameSeriesInfo = "";
+  if (seriesStatus.topSeedWins > seriesStatus.bottomSeedWins) {
+    gameSeriesInfo = `${seriesStatus.topSeedTeamAbbrev} ${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`;
+  } else if (seriesStatus.bottomSeedWins > seriesStatus.topSeedWins) {
+    gameSeriesInfo = `${seriesStatus.bottomSeedTeamAbbrev} ${seriesStatus.bottomSeedWins}-${seriesStatus.topSeedWins}`;
+  } else {
+    gameSeriesInfo = `Tied ${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`;
+  }
+
   const currentPeriod = periodDescriptor.periodType === "OT"
     ? `${getOrdinalSuffix(periodDescriptor.otPeriods)} OT`
     : `${getOrdinalSuffix(periodDescriptor.number)} Period`;
@@ -117,14 +126,6 @@ async function buildGameCard(game) {
     `;
   } else if (["FINAL", "OFF"].includes(gameState)) {
     // Finished game card
-    let gameSeriesInfo = "";
-    if (seriesStatus.topSeedWins > seriesStatus.bottomSeedWins) {
-      gameSeriesInfo = `${seriesStatus.topSeedTeamAbbrev} ${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`;
-    } else if (seriesStatus.bottomSeedWins > seriesStatus.topSeedWins) {
-      gameSeriesInfo = `${seriesStatus.bottomSeedTeamAbbrev} ${seriesStatus.bottomSeedWins}-${seriesStatus.topSeedWins}`;
-    } else {
-      gameSeriesInfo = `Tied ${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`;
-    }
 
     return `
       <div class="game-card">
@@ -165,8 +166,9 @@ async function buildGameCard(game) {
             <div style="margin-top: 6px; ${awayIsWinner ? "font-weight: bold;" : ""}">${wrapTeamName(awayTeam.commonName.default)}</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 1.3rem; font-weight: bold;">${timeRemaining}</div>
+            <div style="font-size: 1.3rem; font-weight: bold; margin-top: 12px;">${timeRemaining}</div>
             <div style="font-size: 0.8rem; color: grey; margin-top: 8px;">${currentPeriod}</div>
+            <div style="font-size: 0.6rem; color: grey; margin-top: 4px;">${gameSeriesInfo}</div>
           </div>
           <div style="text-align: center;">
             <div style="display: flex; align-items: center; gap: 8px;">

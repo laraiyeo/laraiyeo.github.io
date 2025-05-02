@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OBS Embed View - NBA Live Tracker</title>
+  <link rel="icon" href="icon.png" type="image/png" />
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+      padding-top: 25px;
+      padding-left: 50px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      height: 100vh;
+    }
+
+    #scaleWrapper {
+      transform: scale(2);
+      transform-origin: top left;
+    }
+  
+    .game-card {
+      margin: 0 auto;
+      max-width: 400px;
+    }
+  </style>
+</head>
+<body>
+<div id="scaleWrapper">
+  <div id="gameBlockContainer"></div>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const teamAbbreviation = params.get("team");
+    let currentHtml = "";
+
+    function getAdjustedDateForNBA() {
+      const now = new Date();
+      const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+      if (estNow.getHours() < 2) {
+        estNow.setDate(estNow.getDate() - 1);
+      }
+      const adjustedDate = estNow.getFullYear() +
+                           String(estNow.getMonth() + 1).padStart(2, "0") +
+                           String(estNow.getDate()).padStart(2, "0");
+      return adjustedDate;
+    }
+
+    async function fetchAndRenderTeamGame(teamAbbreviation) {
+      const adjustedDate = getAdjustedDateForNBA();
+      const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${adjustedDate}`;
+
+      try {
+        const res = await fetch(SCOREBOARD_API_URL);
+        const data = await res.json();
+        const games = data.events || [];
+
+        const container = document.getElementById("gameBlockContainer");
+        const game = games.find(g =>
+          g.competitions[0].competitors.some(c => c.team.abbreviation === teamAbbreviation)
+        );
+
+        if (!game) {
+          const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
+          const teamsRes = await fetch(TEAMS_API_URL);
+          const teamsData = await teamsRes.json();
+          const team = teamsData.sports[0].leagues[0].teams
+            .map(teamData => teamData.team)
+            .find(t => t.abbreviation === teamAbbreviation);
+
+          const logoUrl = team?.logos?.find(logo => logo.rel.includes("primary_logo_on_black_color"))?.href || "";
+          const noGameCard = document.createElement("div");
+          noGameCard.className = "game-card no-game-card";
+          noGameCard.style.display = "flex";
+          noGameCard.style.flexDirection = "column";
+          noGameCard.style.alignItems = "center";
+          noGameCard.style.justifyContent = "center";
+          noGameCard.style.gap = "10px";
+          noGameCard.style.padding = "20px";
+          noGameCard.style.width = "300px";
+
+          noGameCard.innerHTML = `
+            <img src="${logoUrl}" alt="${team?.displayName || "Unknown"} logo" class="card-team-logo">
+            <div class="no-game-text">No game scheduled <br> for today</div>
+          `;
+
+          const newHtml = noGameCard.innerHTML;
+          if (newHtml !== currentHtml) {
+            container.innerHTML = "";
+            container.appendChild(noGameCard);
+            currentHtml = newHtml;
+          }
+          return;
+        }
+
+        if (typeof buildGameCard === "function") {
+          const cardHtml = await buildGameCard(game, game.competitions[0].competitors[0]?.team || {});
+          const newHtml = cardHtml;
+          if (newHtml !== currentHtml) {
+            container.innerHTML = "";
+            container.innerHTML = cardHtml;
+            currentHtml = newHtml;
+          }
+        }
+      } catch (err) {
+        console.error("Error loading team game block:", err);
+      }
+    }
+
+    const script = document.createElement("script");
+    script.src = "teams.js";
+    document.body.appendChild(script);
+
+    script.onload = () => {
+      if (teamAbbreviation) {
+        fetchAndRenderTeamGame(teamAbbreviation);
+        setInterval(() => fetchAndRenderTeamGame(teamAbbreviation), 2000);
+      }
+    };
+  </script>
+</div>
+</body>
+</html>
+``` 
