@@ -25,6 +25,10 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
   - See each team’s game status
   - Click on a team logo to get a unique URL for OBS
 
+- **Standings**
+  - View current league standings side by side for both conferences with divisions
+  - Hover over a teams name to show a small card that displays home, away and last 10 games record as well as the teams current W/L streak
+
 - **OBS Integration Ready**  
   - Each view is browser-source friendly
   - Easily embed into OBS scenes—no downloads or setup required
@@ -42,7 +46,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 2. Click the team container of the team you want to integrate into obs
 3. **Open OBS Studio**
 4. Click the ➕ under *Sources*, and choose **Browser**
-5. Name it (e.g. `MLB Tracker` or `NHL Tracker`) and paste the URL (do not change the width and height)  
+5. Name it (e.g. `MLB Tracker`, `NHL Tracker` or `NBA Tracker`) and paste the URL (do not change the width and height)  
 6. Click **OK**
 7. When the card is showing properly in obs, you can shrink or enlarge the card from the profile screen
 
@@ -54,6 +58,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - (4/29/2025) Previously known as MLB Live Tracker but with the new integration of an NHL tracker, it is now known as Live Sports Tracker
 - (5/02/2025) Added fully functional NBA tracker
 - (5/03/2025) Added standings page for all sports that shows current team standings in their respective division and conference
+
 ---
 
 ## #️⃣ Current known issues
