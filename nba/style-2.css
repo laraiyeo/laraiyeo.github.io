@@ -167,6 +167,53 @@ body {
   color: #ccc;
 }
 
+.dropdown-link.active {
+    background-color: #444;
+    font-weight: bold;
+  }
+
+  .nav-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    gap: 4px;
+  }
+
+  .nav-toggle .bars {
+    width: 25px;
+    height: 3px;
+    background-color: white;
+  }
+
+  .dropdown-menu {
+    display: none;
+    flex-direction: column;
+    position: absolute;
+    top: 60px;
+    right: 20px;
+    background-color: #000;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+  }
+
+  .dropdown-menu.active {
+    display: flex;
+  }
+
+  .dropdown-link {
+    color: white;
+    text-decoration: none;
+    padding: 10px 20px;
+    text-align: center;
+  }
+
+  .dropdown-link:hover {
+    background-color: #333;
+  }
+
 @media (max-width: 525px) {
   .league-box {
     flex-direction: column; /* Stack league boxes vertically */
@@ -184,5 +231,17 @@ body {
 
   #standingsContainer {
     padding: 0px;
+  }
+  
+  .nav-right {
+    display: none;
+  }
+
+  .nav-toggle {
+    display: flex;
+  }
+
+  .dropdown-menu.active {
+    display: flex;
   }
 }

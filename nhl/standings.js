@@ -120,7 +120,7 @@ function renderConferenceStandings(conference, containerId) {
         teamNameCell.addEventListener("mouseenter", () => {
           hoverCard.style.display = "block";
           const rect = teamNameCell.getBoundingClientRect();
-          hoverCard.style.top = `${rect.top + window.scrollY - 50}px`;
+          hoverCard.style.top = `${rect.top + window.scrollY - 85}px`;
           hoverCard.style.left = `${rect.left + window.scrollX + teamNameCell.offsetWidth}px`;
         });
 
