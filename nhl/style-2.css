@@ -217,7 +217,7 @@ body {
 @media (max-width: 525px) {
   .league-box {
     flex-direction: column;
-    gap: 2rem;
+    gap: 4rem;
   }
 
   .league {

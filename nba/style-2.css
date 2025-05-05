@@ -111,7 +111,7 @@ body {
 }
 
 .division-table {
-  width: 100%;
+  flex: 1;
   border-collapse: collapse;
   background: #1e1e1e;
   border-radius: 8px;
@@ -217,7 +217,7 @@ body {
 @media (max-width: 525px) {
   .league-box {
     flex-direction: column; /* Stack league boxes vertically */
-    gap: 2rem; /* Adjust gap between stacked boxes */
+    gap: 4rem; /* Adjust gap between stacked boxes */
   }
 
   .league {

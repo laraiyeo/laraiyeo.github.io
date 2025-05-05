@@ -72,7 +72,9 @@ function renderLeagueStandings(conference, containerId) {
     .forEach(entry => {
       const row = document.createElement("tr");
 
-      const teamName = entry.team.displayName;
+      const isSmallScreen = window.innerWidth <= 475;
+
+      const teamName = isSmallScreen ? entry.team.abbreviation + "<br>" + entry.team.shortDisplayName : entry.team.displayName;
       const teamAbbreviation = entry.team.abbreviation.toLowerCase();
       const teamSeed = entry.team.seed || "-";
       const clincher = entry.team.clincher || null;
@@ -93,7 +95,7 @@ function renderLeagueStandings(conference, containerId) {
       row.innerHTML = `
         <td class="team-name" data-team-hover>
           <img src="${logoUrl}" alt="${teamName} logo" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
-          ${teamName} <span style="color: grey;">(${teamSeed}) - <span style="color: ${clincherColor};">${clincher || ""}</span></span>
+          ${teamName} <span style="color: grey;">${isSmallScreen ? "<br>" : ""} (${teamSeed}) - <span style="color: ${clincherColor};">${clincher || ""}</span></span>
         </td>
         <td>${wins}</td>
         <td>${losses}</td>

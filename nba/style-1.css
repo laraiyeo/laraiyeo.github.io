@@ -297,3 +297,39 @@ body {
   font-size: 0.9rem;
   color: grey;
 }
+
+@media (max-width: 475px) {
+  .responsive-logo {
+    width: 75px;
+    height: 75px;
+  }
+
+  .responsive-name {
+    font-size: 1.5rem;
+  }
+
+  .responsive-record {
+    font-size: 1.2rem;
+  }
+
+  .responsive-score {
+    font-size: 4.5rem;
+  }
+
+  .responsive-game-clock {
+    font-size: 1.5rem;
+  }
+
+  .responsive-inning-status {
+    font-size: 1.7rem;
+  }
+
+  .responsive-team-box-score {
+    width: 120%;
+    transform: translateX(-50px);
+  }
+
+  .responsive-team-box-score.final {
+    transform: translateX(-55px);
+  }
+}

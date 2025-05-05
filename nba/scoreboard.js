@@ -23,6 +23,8 @@ async function renderBoxScore(gameId, gameState) {
     const response = await fetch(BOX_SCORE_API_URL);
     const data = await response.json();
 
+    const isSmallScreen = window.innerWidth <= 475;
+
     const players = data.gamepackageJSON.boxscore.players || [];
     const boxScoreDiv = document.getElementById("boxScore");
     if (!boxScoreDiv) {
@@ -41,20 +43,23 @@ async function renderBoxScore(gameId, gameState) {
       const teamLogo = team.team.logo; // Get the team logo URL
       const athletes = team.statistics[0].athletes; // Access the first statistics object
 
-      const headers = ["Player", "MIN", "PTS", "REB", "AST", "PF", "FG", "3PT", "+/-"];
+      const headers = isSmallScreen
+        ? ["Player", "M", "PTS", "FG"]
+        : ["Player", "MIN", "PTS", "REB", "AST", "PF", "FG", "3PT", "+/-"];
+
       const starters = athletes
         .filter(player => player.starter)
         .map(player => `
           <tr class="${gameState === "Final" ? "" : player.active ? "active-player" : ""}">
-            <td>${gameState === "Final" ? "" : player.active ? "⭐ " : ""}${player.athlete.displayName} <span style="color: grey;">${player.athlete.position.abbreviation}</span></td>
+            <td>${gameState === "Final" ? "" : player.active ? "⭐ " : ""}${isSmallScreen ? `${player.athlete.shortName}` : `${player.athlete.displayName}`} <span style="color: grey;">${player.athlete.position.abbreviation}</span></td>
             <td>${player.stats[0] || "0"}</td> <!-- MIN -->
             <td>${player.stats[13] || "0"}</td> <!-- PTS -->
-            <td>${player.stats[6] || "0"}</td> <!-- REB -->
-            <td>${player.stats[7] || "0"}</td> <!-- AST -->
-            <td>${player.stats[11] || "0"}</td> <!-- PF -->
-            <td>${player.stats[1] || "0-0"}</td> <!-- FG -->
-            <td>${player.stats[2] || "0-0"}</td> <!-- 3PT -->
-            <td>${player.stats[12] || "0"}</td> <!-- +/- -->
+            ${isSmallScreen ? "" : `<td>${player.stats[6] || "0"}</td>`} <!-- REB -->
+            ${isSmallScreen ? "" : `<td>${player.stats[7] || "0"}</td>`} <!-- AST -->
+            ${isSmallScreen ? "" : `<td>${player.stats[11] || "0"}</td>`} <!-- PF -->
+            <td>${player.stats[1] || "0"}</td> <!-- FG -->
+            ${isSmallScreen ? "" : `<td>${player.stats[2] || "0-0"}</td>`} <!-- 3PT -->
+            ${isSmallScreen ? "" : `<td>${player.stats[12] || "0"}</td>`} <!-- +/- -->
           </tr>
         `).join("");
 
@@ -63,20 +68,20 @@ async function renderBoxScore(gameId, gameState) {
         .sort((a, b) => parseFloat(b.stats[0] || "0") - parseFloat(a.stats[0] || "0")) // Sort by minutes played
         .map(player => `
           <tr class="${gameState === "Final" ? "" : player.active ? "active-player" : ""}">
-            <td>${gameState === "Final" ? "" : player.active ? "⭐ " : ""}${player.athlete.displayName} <span style="color: grey;">${player.athlete.position.abbreviation}</span></td>
+            <td>${gameState === "Final" ? "" : player.active ? "⭐ " : ""}${isSmallScreen ? `${player.athlete.shortName}` : `${player.athlete.displayName}`} <span style="color: grey;">${player.athlete.position.abbreviation}</span></td>
             <td>${player.stats[0] || "0"}</td> <!-- MIN -->
             <td>${player.stats[13] || "0"}</td> <!-- PTS -->
-            <td>${player.stats[6] || "0"}</td> <!-- REB -->
-            <td>${player.stats[7] || "0"}</td> <!-- AST -->
-            <td>${player.stats[11] || "0"}</td> <!-- PF -->
-            <td>${player.stats[1] || "0-0"}</td> <!-- FG -->
-            <td>${player.stats[2] || "0-0"}</td> <!-- 3PT -->
-            <td>${player.stats[12] || "0"}</td> <!-- +/- -->
+            ${isSmallScreen ? "" : `<td>${player.stats[6] || "0"}</td>`} <!-- REB -->
+            ${isSmallScreen ? "" : `<td>${player.stats[7] || "0"}</td>`} <!-- AST -->
+            ${isSmallScreen ? "" : `<td>${player.stats[11] || "0"}</td>`} <!-- PF -->
+            <td>${player.stats[1] || "0"}</td> <!-- FG -->
+            ${isSmallScreen ? "" : `<td>${player.stats[2] || "0-0"}</td>`} <!-- 3PT -->
+            ${isSmallScreen ? "" : `<td>${player.stats[12] || "0"}</td>`} <!-- +/- -->
           </tr>
         `).join("");
 
       return `
-        <div class="team-box-score ${gameState === "Final" ? "final" : ""}">
+        <div class="team-box-score ${gameState === "Final" ? "final" : ""} responsive-team-box-score ${gameState === "Final" ? "final" : ""}">
           <h3 style="background-color: ${teamColor}; display: flex; align-items: center; gap: 10px;">
             <img src="${teamLogo}" alt="${teamName}" style="width: 30px; height: 30px; border-radius: 50%;"> ${teamName}
           </h3>
@@ -154,8 +159,8 @@ async function fetchAndRenderTopScoreboard() {
     const awayLinescores = selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.linescores || [];
     const homeLinescores = selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.linescores || [];
 
-    const homeTeamRecord = selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "No record available";
-    const awayTeamRecord = selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "No record available";
+    const homeTeamRecord = selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "0-0";
+    const awayTeamRecord = selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "0-0";
 
     const period = selectedGame.status.period || 0;
     const clock = selectedGame.status.displayClock || "00:00";
@@ -181,20 +186,20 @@ async function fetchAndRenderTopScoreboard() {
 
     topScoreboardEl.innerHTML = `
       <div class="team-block">
-        <div class="team-score" style="color: ${awayScoreColor};">${awayScore}</div>
-        <img class="team-logo" src="${awayTeam?.logo}" alt="${awayTeam?.displayName}">
-        <div class="team-name">${awayTeam?.shortDisplayName}</div>
-        <div class="team-record">${awayTeamRecord}</div>
+        <div class="team-score responsive-score" style="color: ${awayScoreColor};">${awayScore}</div>
+        <img class="team-logo responsive-logo" src="${awayTeam?.logo}" alt="${awayTeam?.displayName}">
+        <div class="team-name responsive-name">${awayTeam?.shortDisplayName}</div>
+        <div class="team-record responsive-record">${awayTeamRecord}</div>
       </div>
       <div class="inning-center">
-        <div class="inning-status">${periodText}</div>
-        <div class="time-left">${timeLeft}</div>
+        <div class="inning-status responsive-inning-status">${periodText}</div>
+        <div class="time-left responsive-game-clock">${timeLeft}</div>
       </div>
       <div class="team-block">
-        <div class="team-score" style="color: ${homeScoreColor};">${homeScore}</div>
-        <img class="team-logo" src="${homeTeam?.logo}" alt="${homeTeam?.displayName}">
-        <div class="team-name">${homeTeam?.shortDisplayName}</div>
-        <div class="team-record">${homeTeamRecord}</div>
+        <div class="team-score responsive-score" style="color: ${homeScoreColor};">${homeScore}</div>
+        <img class="team-logo responsive-logo" src="${homeTeam?.logo}" alt="${homeTeam?.displayName}">
+        <div class="team-name responsive-name">${homeTeam?.shortDisplayName}</div>
+        <div class="team-record responsive-record">${homeTeamRecord}</div>
       </div>
     `;
 

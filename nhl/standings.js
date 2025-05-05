@@ -81,6 +81,10 @@ function renderConferenceStandings(conference, containerId) {
       .forEach(team => {
         const row = document.createElement("tr");
 
+        const isSmallScreen = window.innerWidth <= 475;
+
+        const teamName = isSmallScreen ? team.teamAbbrev.default + "<br>" + team.teamCommonName.default : team.teamName.default;
+
         const teamSeed = team.conferenceSequence || "-";
         const clinchIndicator = team.clinchIndicator || null;
         const clinchColor = clinchIndicator && ["p", "y", "x", "z"].includes(clinchIndicator) ? "green" : clinchIndicator === "e" ? "red" : "grey";
@@ -93,7 +97,7 @@ function renderConferenceStandings(conference, containerId) {
         row.innerHTML = `
           <td class="team-name" data-team-hover>
             <img src="${team.teamLogo}" alt="${team.teamName.default} logo" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
-            ${team.teamName.default} <span style="color: grey;">(${teamSeed}) -  <span style="color: ${clinchColor};">${clinchIndicator || ""}</span>
+            ${teamName} <span style="color: grey;">${isSmallScreen ? "<br>" : ""}(${teamSeed}) -  <span style="color: ${clinchColor};">${clinchIndicator || ""}</span>
           </td>
           <td>${team.wins}</td>
           <td>${team.losses}</td>

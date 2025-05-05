@@ -82,7 +82,9 @@ function renderLeagueStandings(league, containerId) {
       .forEach(entry => {
         const row = document.createElement("tr");
 
-        const teamName = entry.team.displayName;
+        const isSmallScreen = window.innerWidth <= 475;
+  
+        const teamName = isSmallScreen ? entry.team.abbreviation + "<br>" + entry.team.shortDisplayName : entry.team.displayName;
         const teamAbbreviation = entry.team.abbreviation.toLowerCase();
         const teamSeed = entry.team.seed || "-";
         const logoUrl = `https://a.espncdn.com/i/teamlogos/mlb/500-dark/scoreboard/${teamAbbreviation}.png`;

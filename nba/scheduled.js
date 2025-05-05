@@ -38,8 +38,8 @@ async function buildScheduledGameCard(game) {
   const homeTeamShortName = adjustTeamShortName(homeTeam?.shortDisplayName || "Unknown");
   const awayTeamShortName = adjustTeamShortName(awayTeam?.shortDisplayName || "Unknown");
 
-  const homeRecord = game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "No record available";
-  const awayRecord = game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "No record available";
+  const homeRecord = game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "0-0";
+  const awayRecord = game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "0-0";
 
   const startTime = new Date(game.date).toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -50,7 +50,7 @@ async function buildScheduledGameCard(game) {
   const headline = game.competitions[0].notes?.find(note => note.type === "event")?.headline || "No headline available";
 
   return `
-    <div class="game-card" style="margin-top: -20px;">
+    <div class="game-card" style="margin-top: -20px; margin-bottom: 20px;">
       <div class="game-headline">${headline}</div>
       <div class="game-content">
         <div class="team away-team">
@@ -99,11 +99,6 @@ async function loadScheduledGames() {
       const gameCardHtml = await buildScheduledGameCard(game);
       const gameCard = document.createElement("div");
       gameCard.innerHTML = gameCardHtml;
-
-      // Add event listener to redirect to scoreboard.html
-      gameCard.addEventListener("click", () => {
-        window.location.href = `scoreboard.html?gameId=${game.id}`;
-      });
 
       container.appendChild(gameCard);
     }
