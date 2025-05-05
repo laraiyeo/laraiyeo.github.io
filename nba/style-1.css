@@ -43,11 +43,11 @@ body {
 
 .team-name {
     margin-top: 5px;
-    font-size: 1.2rem;
+    font-size: 1.6rem;
 }
 
 .team-record {
-  font-size: 0.9rem;
+  font-size: 1.4rem;
   color: #ccc;
 }
 
@@ -330,6 +330,7 @@ body {
   }
 
   .responsive-team-box-score.final {
-    transform: translateX(-55px);
+    width: 128%;
+    transform: translateX(-58px);
   }
 }

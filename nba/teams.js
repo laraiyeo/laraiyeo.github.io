@@ -58,8 +58,8 @@ async function buildGameCard(game, team) {
 
     const homeTeam = game.competitions[0].competitors.find(c => c.homeAway === "home")?.team || {};
     const awayTeam = game.competitions[0].competitors.find(c => c.homeAway === "away")?.team || {};
-    const homeTeamRecord = game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "No record available";
-    const awayTeamRecord = game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "No record available";
+    const homeTeamRecord = game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "0-0";
+    const awayTeamRecord = game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "0-0";
 
     const awayTeamShortName = adjustTeamShortName(awayTeam.shortDisplayName || "Unknown");
     const homeTeamShortName = adjustTeamShortName(homeTeam.shortDisplayName || "Unknown");
@@ -92,8 +92,8 @@ async function buildGameCard(game, team) {
     const awayTeam = game.competitions[0].competitors.find(c => c.homeAway === "away")?.team;
     const homeTeamScore = game.competitions[0].competitors.find(c => c.homeAway === "home")?.score || "0";
     const awayTeamScore = game.competitions[0].competitors.find(c => c.homeAway === "away")?.score || "0";
-    const homeTeamRecord = game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "No record available";
-    const awayTeamRecord = game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "No record available";
+    const homeTeamRecord = game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "0-0";
+    const awayTeamRecord = game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "0-0";
 
     const awayTeamShortName = adjustTeamShortName(awayTeam?.shortDisplayName || "Unknown");
     const homeTeamShortName = adjustTeamShortName(homeTeam?.shortDisplayName || "Unknown");
@@ -132,8 +132,8 @@ async function buildGameCard(game, team) {
     const awayTeam = game.competitions[0].competitors.find(c => c.homeAway === "away")?.team;
     const homeTeamScore = game.competitions[0].competitors.find(c => c.homeAway === "home")?.score || "0";
     const awayTeamScore = game.competitions[0].competitors.find(c => c.homeAway === "away")?.score || "0";
-    const homeTeamRecord = game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "No record available";
-    const awayTeamRecord = game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "No record available";
+    const homeTeamRecord = game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "0-0";
+    const awayTeamRecord = game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "0-0";
 
     const awayTeamShortName = adjustTeamShortName(awayTeam?.shortDisplayName || "Unknown");
     const homeTeamShortName = adjustTeamShortName(homeTeam?.shortDisplayName || "Unknown");

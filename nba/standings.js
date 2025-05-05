@@ -74,7 +74,9 @@ function renderLeagueStandings(conference, containerId) {
 
       const isSmallScreen = window.innerWidth <= 475;
 
-      const teamName = isSmallScreen ? entry.team.abbreviation + "<br>" + entry.team.shortDisplayName : entry.team.displayName;
+      const teamName = isSmallScreen 
+        ? `${entry.team.abbreviation}<br>${entry.team.shortDisplayName === "Timberwolves" ? "T. Wolves" : entry.team.shortDisplayName === "Trail Blazers" ? "T. Blazers" : entry.team.shortDisplayName}` 
+        : entry.team.displayName;
       const teamAbbreviation = entry.team.abbreviation.toLowerCase();
       const teamSeed = entry.team.seed || "-";
       const clincher = entry.team.clincher || null;

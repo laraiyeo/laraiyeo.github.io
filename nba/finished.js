@@ -27,8 +27,8 @@ async function buildGameCard(game) {
   const homeTeamShortName = adjustTeamShortName(homeTeam?.shortDisplayName || "Unknown");
   const awayTeamShortName = adjustTeamShortName(awayTeam?.shortDisplayName || "Unknown");
 
-  const homeRecord = game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "No record available";
-  const awayRecord = game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "No record available";
+  const homeRecord = game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "0-0";
+  const awayRecord = game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "0-0";
 
   const homeIsWinner = parseInt(homeScore) > parseInt(awayScore);
   const awayIsWinner = parseInt(awayScore) > parseInt(homeScore);
@@ -36,7 +36,7 @@ async function buildGameCard(game) {
   const headline = game.competitions[0].notes?.find(note => note.type === "event")?.headline || "No headline available";
 
   return `
-    <div class="game-card final-game-card" style="margin-top: -20px;">
+    <div class="game-card final-game-card" style="margin-top: -20px; margin-bottom: 20px;">
       <div class="game-headline">${headline}</div>
       <div class="game-content">
         <div class="team away-team">
