@@ -41,6 +41,13 @@ body {
   height: 120px;
 }
 
+@media (max-width: 475px) {
+  .team-logo {
+    width: 100px;
+    height: 100px;
+  }
+}
+
 .small-team-logo {
     width: 60px;
     height: 40px;
