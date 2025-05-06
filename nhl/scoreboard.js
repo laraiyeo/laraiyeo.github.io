@@ -177,7 +177,7 @@ function renderPlayerStats(title, players, isGoalie, teamLogo, teamName, boldNam
     const positionDisplay = `<span style="color: grey;">${position}</span>`;
     const isBold = boldNames.includes(player.name.default);
     const rowStyle = isBold ? "font-weight: bold;" : "";
-    const playerName = isBold ? `⭐ ${player.name.default}` : player.name.default;
+    const playerName = isBold ? `🟢 ${player.name.default}` : player.name.default;
 
     const stats = isGoalie
       ? [

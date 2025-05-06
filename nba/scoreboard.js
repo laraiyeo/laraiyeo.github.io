@@ -51,7 +51,7 @@ async function renderBoxScore(gameId, gameState) {
         .filter(player => player.starter)
         .map(player => `
           <tr class="${gameState === "Final" ? "" : player.active ? "active-player" : ""}">
-            <td>${gameState === "Final" ? "" : player.active ? "⭐ " : ""}${isSmallScreen ? `${player.athlete.shortName}` : `${player.athlete.displayName}`} <span style="color: grey;">${player.athlete.position.abbreviation}</span></td>
+            <td>${gameState === "Final" ? "" : player.active ? "🟢 " : ""}${isSmallScreen ? `${player.athlete.shortName}` : `${player.athlete.displayName}`} <span style="color: grey;">${player.athlete.position.abbreviation}</span></td>
             <td>${player.stats[0] || "0"}</td> <!-- MIN -->
             <td>${player.stats[13] || "0"}</td> <!-- PTS -->
             ${isSmallScreen ? "" : `<td>${player.stats[6] || "0"}</td>`} <!-- REB -->

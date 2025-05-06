@@ -1,13 +1,17 @@
-fetch("navbar.html")
-  .then(response => response.text())
-  .then(data => {
-    document.getElementById("navbar-container").innerHTML = data;
+document.addEventListener("DOMContentLoaded", async () => {
+  const navbarContainer = document.getElementById("navbar-container");
+  if (navbarContainer) {
+    try {
+      const response = await fetch("navbar.html");
+      const navbarHtml = await response.text();
+      navbarContainer.innerHTML = navbarHtml;
 
-    const current = window.location.pathname.split("/").pop();
-    const links = document.querySelectorAll(".nav-link");
-    links.forEach(link => {
-      if (link.getAttribute("href") === current) {
-        link.classList.add("active");
-      }
-    });
-  });
+      // Dynamically load the navbar script after injecting the HTML
+      const script = document.createElement("script");
+      script.src = "navbar.js";
+      document.body.appendChild(script);
+    } catch (error) {
+      console.error("Failed to load navbar:", error);
+    }
+  }
+});

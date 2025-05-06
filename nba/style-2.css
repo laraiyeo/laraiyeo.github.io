@@ -213,7 +213,7 @@ body {
   .dropdown-link:hover {
     background-color: #333;
   }
-
+  
 @media (max-width: 525px) {
   .league-box {
     flex-direction: column; /* Stack league boxes vertically */

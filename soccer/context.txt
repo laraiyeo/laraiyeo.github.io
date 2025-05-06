@@ -1,0 +1,2 @@
+Link to retrieve games being played https://site.api.espn.com/apis/site/v2/sports/soccer/{league code}.1/scoreboard?dates={today}
+
