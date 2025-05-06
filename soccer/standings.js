@@ -58,6 +58,8 @@ function renderStandings(standings, containerId) {
 
   container.innerHTML = ""; // Clear previous content
 
+  const isSmallScreen = window.innerWidth < 525;
+
   const table = document.createElement("table");
   table.className = "division-table";
 
@@ -69,8 +71,7 @@ function renderStandings(standings, containerId) {
         <th>GP</th>
         <th>W-D-L</th>
         <th>GD</th>
-        <th>F</th>
-        <th>A</th>
+        ${!isSmallScreen ? "<th>F</th><th>A</th>" : ""} <!-- Hide columns on small screens -->
         <th>P</th>
       </tr>
     </thead>
@@ -94,8 +95,7 @@ function renderStandings(standings, containerId) {
     const goalsAgainst = stats.find(stat => stat.name === "pointsAgainst")?.displayValue || "0";
     const points = stats.find(stat => stat.name === "points")?.displayValue || "0";
 
-    const isSmallScreen = window.innerWidth <= 475;
-    const displayName = isSmallScreen ? team.shortDisplayName : team.displayName;
+    const displayName = window.innerWidth <= 475 ? team.shortDisplayName : team.displayName;
 
     const row = document.createElement("tr");
 
@@ -121,8 +121,7 @@ function renderStandings(standings, containerId) {
       <td style="color: ${textColor};">${gamesPlayed}</td>
       <td style="color: ${textColor};">${wins}-${draws}-${losses}</td>
       <td style="color: ${textColor};">${goalDifference}</td>
-      <td style="color: ${textColor};">${goalsFor}</td>
-      <td style="color: ${textColor};">${goalsAgainst}</td>
+      ${!isSmallScreen ? `<td style="color: ${textColor};">${goalsFor}</td><td style="color: ${textColor};">${goalsAgainst}</td>` : ""}
       <td style="color: ${textColor};">${points}</td>
     `;
 

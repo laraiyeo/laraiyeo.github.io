@@ -215,4 +215,11 @@ body {
   .dropdown-menu.active {
     display: flex;
   }
+
+  .division-table th:nth-child(5),
+  .division-table th:nth-child(6),
+  .division-table td:nth-child(5),
+  .division-table td:nth-child(6) {
+    display: none; /* Hide "Goals For" and "Goals Against" columns */
+  }
 }
