@@ -145,6 +145,6 @@ body {
 
 @media (max-width: 475px) {
 .responsive-block-content {
-      margin-top: 0px;
+      margin-top: -15px;
     }
 }
