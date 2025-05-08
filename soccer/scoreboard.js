@@ -117,7 +117,14 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
           "LB": "bottom: 30%; left: 10%; transform: translateX(-50%);", "RB": "bottom: 30%; left: 90%; transform: translateX(-50%);", "LM": "bottom: 52.5%; left: 10%; transform: translateX(-50%);",
           "CM-L": "bottom: 42.5%; left: 35%; transform: translateX(-50%);", "CM-R": "bottom: 42.5%; left: 65%; transform: translateX(-50%);", "RM": "bottom: 52.5%; left: 90%; transform: translateX(-50%);",
           "RCF": "bottom: 65%; left: 50%; transform: translateX(-50%);", "F": "bottom: 85%; left: 50%; transform: translateX(-50%);"
-        };  
+        };
+      case "4-3-1-2":
+        return {
+          "G": "bottom: 2.5%; left: 50%; transform: translateX(-50%);", "CD-L": "bottom: 20%; left: 30%; transform: translateX(-50%);", "CD-R": "bottom: 20%; left: 70%; transform: translateX(-50%);",
+          "LB": "bottom: 30%; left: 10%; transform: translateX(-50%);", "RB": "bottom: 30%; left: 90%; transform: translateX(-50%);", "LM": "bottom: 50%; left: 22.5%; transform: translateX(-50%);",
+          "CM": "bottom: 40%; left: 50%; transform: translateX(-50%);", "RM": "bottom: 50%; left: 77.5%; transform: translateX(-50%);", "AM": "bottom: 62.5%; left: 50%; transform: translateX(-50%);", 
+          "M": "bottom: 85%; left: 40%; transform: translateX(-50%);", "CF-R": "bottom: 85%; left: 60%; transform: translateX(-50%);"
+        };   
       default:
         return {
           "G": "bottom: 2.5%; left: 50%; transform: translateX(-50%);", "CD-L": "bottom: 20%; left: 30%; transform: translateX(-50%);", "CD-R": "bottom: 20%; left: 70%; transform: translateX(-50%);",
@@ -189,14 +196,14 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
       </div>
       <ul class="subs-list">
         ${subs.map(sub => {
-          const name = sub.athlete.lastName ? sub.athlete.lastName : sub.athlete.displayName;
+          const name = sub.athlete?.lastName || sub.athlete?.displayName || "Unknown";
           const subbedInFor = sub.subbedInFor?.athlete ? `
             <span class="sub-arrow green-arrow">→</span>
             <span class="sub-time">${sub.plays?.[0]?.clock?.displayValue || ""}</span>
-            <span class="sub-out">Out: #${sub.subbedInFor.jersey}, ${sub.subbedInFor.athlete.displayName}</span>
+            <span class="sub-out">Out: #${sub.subbedInFor.jersey || ""}, ${sub.subbedInFor.athlete.displayName || "Unknown"}</span>
           ` : "";
-          const jersey = sub.jersey;
-          const stats = sub.stats.reduce((acc, stat) => {
+          const jersey = sub.jersey || "N/A";
+          const stats = (sub.stats || []).reduce((acc, stat) => {
             acc[stat.abbreviation] = stat.displayValue;
             return acc;
           }, {});
@@ -205,7 +212,7 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
           const redCard = stats["RC"] === "1";
           const playerNameColor = redCard ? "red" : yellowCard ? "yellow" : "white";
 
-          const hoverCardId = `hover-card-${sub.athlete.id}`;
+          const hoverCardId = `hover-card-${sub.athlete?.id || "unknown"}`;
 
           // Add hover card to the body
           const hoverCard = document.createElement("div");
@@ -219,7 +226,7 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
             </div>
 
             ${
-              sub.position.abbreviation === "G"
+              sub.position?.abbreviation === "G"
                 ? `<div>SHF: ${stats["SHF"] || "0"} | GA: ${stats["GA"] || "0"}</div>`
                 : `
                   <div>Goals: ${stats["G"] || "0"} | Assists: ${stats["A"] || "0"}</div>
@@ -231,7 +238,7 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
 
           return `
             <li data-hover-id="${hoverCardId}">
-              <span class="jersey-number">${sub.jersey}</span> ${sub.athlete.displayName}
+              <span class="jersey-number">${jersey}</span> ${name}
               ${subbedInFor}
             </li>
           `;
@@ -427,14 +434,14 @@ async function fetchAndRenderTopScoreboard() {
     const homeRoster = scoreboardData.gamepackageJSON.rosters.find(r => r.homeAway === "home");
     const awayRoster = scoreboardData.gamepackageJSON.rosters.find(r => r.homeAway === "away");
 
-    const homePlayers = homeRoster.roster.filter(player => player.starter);
-    const awayPlayers = awayRoster.roster.filter(player => player.starter);
+    const homePlayers = homeRoster?.roster?.filter(player => player.starter) || [];
+    const awayPlayers = awayRoster?.roster?.filter(player => player.starter) || [];
 
-    const homeSubs = homeRoster.roster.filter(player => player.position.abbreviation === "SUB");
-    const awaySubs = awayRoster.roster.filter(player => player.position.abbreviation === "SUB");
+    const homeSubs = homeRoster?.roster?.filter(player => player.formationPlace === "0") || [];
+    const awaySubs = awayRoster?.roster?.filter(player => player.formationPlace === "0") || [];
 
-    const homeFormation = homeRoster.formation || "4-3-3";
-    const awayFormation = awayRoster.formation || "4-3-3";
+    const homeFormation = homeRoster?.formation || "4-3-3";
+    const awayFormation = awayRoster?.formation || "4-3-3";
 
     let pitchesContainer = document.querySelector(".pitches-container");
     if (!pitchesContainer) {

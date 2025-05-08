@@ -17,12 +17,32 @@ const NOTE_COLORS = {
 
 let currentLeague = localStorage.getItem("currentLeague") || "eng.1"; // Default to Premier League if not set
 
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const chr = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + chr;
+    hash |= 0;
+  }
+  return hash;
+}
+
+let lastStandingsHash = null;
+
 async function fetchStandings() {
   try {
     const STANDINGS_URL = `https://cdn.espn.com/core/soccer/table?xhr=1&league=${currentLeague}`;
     const response = await fetch(STANDINGS_URL);
-    const data = await response.json();
+    const standingsText = await response.text();
+    const newHash = hashString(standingsText);
 
+    if (newHash === lastStandingsHash) {
+      console.log("No changes detected in the standings.");
+      return;
+    }
+    lastStandingsHash = newHash;
+
+    const data = JSON.parse(standingsText);
     const standings = data.content.standings.groups[0].standings.entries;
 
     const container = document.getElementById("standingsContainer");
@@ -204,3 +224,4 @@ window.addEventListener("resize", updateLeagueButtonDisplay);
 
 setupLeagueButtons();
 fetchStandings();
+setInterval(fetchStandings, 2000);

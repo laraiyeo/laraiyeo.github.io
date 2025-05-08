@@ -21,5 +21,13 @@
     <script src="navbarLoader.js"></script>
     <script src="navbar.js"></script>
     <script src="playoffs.js"></script>
+    <div id="footer-container"></div>
+    <script>
+      fetch("footer.html")
+        .then(response => response.text())
+        .then(html => {
+          document.getElementById("footer-container").innerHTML = html;
+        });
+    </script>
   </body>
 </html>

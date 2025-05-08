@@ -16,13 +16,34 @@ function ordinalSuffix(n) {
   }
 }
 
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const chr = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + chr;
+    hash |= 0;
+  }
+  return hash;
+}
+
+let lastPlayoffHash = null;
+
 async function fetchPlayoffTeams() {
   try {
     const currentYear = new Date().getFullYear();
     const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/scoreboard?dates=${currentYear}0101`;
 
     const calendarResponse = await fetch(CALENDAR_API_URL);
-    const calendarData = await calendarResponse.json();
+    const calendarText = await calendarResponse.text();
+    const newHash = hashString(calendarText);
+
+    if (newHash === lastPlayoffHash) {
+      console.log("No changes detected in playoff data.");
+      return;
+    }
+    lastPlayoffHash = newHash;
+
+    const calendarData = JSON.parse(calendarText);
 
     const stages = ["Knockout Round Playoffs", "Rd of 16", "Quarterfinals", "Semifinals", "Final"];
     const stageDates = stages.map(stage => {
@@ -365,3 +386,4 @@ window.addEventListener("resize", updateLeagueButtonDisplay);
 setupLeagueButtons();
 setupNavbarToggle();
 fetchPlayoffTeams();
+setInterval(fetchPlayoffTeams, 2000);

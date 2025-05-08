@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>OBS Embed View - Soccer Live Tracker</title>
-  <link rel="icon" href="soccer-ball-png-24.png" type="image/png" />
-  <link rel="stylesheet" href="style.css"/>
+  <title>OBS Embed View - UEFA Live Tracker</title>
+  <link rel="icon" href="../soccer-ball-png-24.png" type="image/png" />
+  <link rel="stylesheet" href="../style.css"/>
   <style>
     body {
       margin: 0;
@@ -59,7 +59,9 @@
             .map(teamData => teamData.team)
             .find(t => t.id === teamId);
 
-          const logoUrl = team?.logos?.find(logo => logo.rel.includes("dark"))?.href || "";
+          const logoUrl = ["367", "2950"].includes(team.id)
+          ? team.logos?.find(logo => logo.rel.includes("default"))?.href || ""
+          : team.logos?.find(logo => logo.rel.includes("dark"))?.href || "";
           const noGameCard = document.createElement("div");
           noGameCard.className = "game-card no-game-card";
           noGameCard.style.display = "flex";

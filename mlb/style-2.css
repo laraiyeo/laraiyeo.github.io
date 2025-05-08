@@ -257,12 +257,12 @@ html, body {
     color: #888;
   }
 
-.footer-icon {
-  width: 20px;
-  height: 20px;
-  vertical-align: middle;
-  margin-right: -2.5px;
-}
+  .footer-icon {
+    width: 20px;
+    height: 20px;
+    vertical-align: middle;
+    margin-right: -2.5px;
+  }
 
   @media (max-width: 525px) {
     .league-box {

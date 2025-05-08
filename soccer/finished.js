@@ -143,15 +143,35 @@ function buildGameCard(game) {
   `;
 }
 
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const chr = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + chr;
+    hash |= 0;
+  }
+  return hash;
+}
+
+let lastFinishedGamesHash = null;
+
 async function fetchAndDisplayFinishedGames() {
   try {
     const tuesdayRange = getTuesdayRange();
     const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/scoreboard?dates=${tuesdayRange}`;
 
     const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
-    const scoreboardData = await scoreboardResponse.json();
-    const games = scoreboardData.events || [];
+    const scoreboardText = await scoreboardResponse.text();
+    const newHash = hashString(scoreboardText);
 
+    if (newHash === lastFinishedGamesHash) {
+      console.log("No changes detected in finished games.");
+      return;
+    }
+    lastFinishedGamesHash = newHash;
+
+    const scoreboardData = JSON.parse(scoreboardText);
+    const games = scoreboardData.events || [];
     const finishedGames = games.filter(game => game.status.type.state === "post");
 
     const container = document.getElementById("finishedGamesContainer");
@@ -220,3 +240,4 @@ setupLeagueButtons();
 updateLeagueButtonDisplay(); // Ensure buttons are displayed correctly on load
 fetchAndDisplayFinishedGames();
 window.addEventListener("resize", updateLeagueButtonDisplay);
+setInterval(fetchAndDisplayFinishedGames, 2000);

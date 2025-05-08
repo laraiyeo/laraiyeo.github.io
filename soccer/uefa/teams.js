@@ -24,6 +24,18 @@ function getTuesdayRange() {
   return `${formatDate(lastTuesday)}-${formatDate(nextMonday)}`;
 }
 
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const chr = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + chr;
+    hash |= 0;
+  }
+  return hash;
+}
+
+let lastScheduleHash = null;
+
 async function fetchAndDisplayTeams() {
   try {
     const TEAMS_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/teams`;
@@ -35,7 +47,16 @@ async function fetchAndDisplayTeams() {
     const teams = teamsData.sports[0].leagues[0].teams.map(teamData => teamData.team);
 
     const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
-    const scoreboardData = await scoreboardResponse.json();
+    const scoreboardText = await scoreboardResponse.text();
+    const newHash = hashString(scoreboardText);
+
+    if (newHash === lastScheduleHash) {
+      console.log("No changes detected in the schedule.");
+      return;
+    }
+    lastScheduleHash = newHash;
+
+    const scoreboardData = JSON.parse(scoreboardText);
     const games = scoreboardData.events || [];
 
     const container = document.getElementById("teamsContainer");
@@ -84,7 +105,7 @@ async function fetchAndDisplayTeams() {
 
       // Add OBS link copying functionality
       teamCard.addEventListener("click", async () => {
-        const url = `127.0.0.1:5500/soccer/uefa/team.html?team=${encodeURIComponent(team.id)}`;
+        const url = `https://laraiyeo.github.io/soccer/uefa/team.html?team=${encodeURIComponent(team.id)}`;
         try {
           await navigator.clipboard.writeText(url);
           alert(`OBS link copied for ${team.displayName}: ${url}`);
@@ -323,3 +344,4 @@ window.addEventListener("DOMContentLoaded", () => {
 
 setupLeagueButtons();
 fetchAndDisplayTeams();
+setInterval(fetchAndDisplayTeams, 2000);
