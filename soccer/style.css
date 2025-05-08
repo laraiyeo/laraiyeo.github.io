@@ -203,6 +203,265 @@ body {
   box-shadow: 0 4px 8px rgba(255, 255, 255, 0.5);
 }
 
+.game-card {
+  background-color: #000000;
+  border: 1px solid #444;
+  border-radius: 10px;
+  padding: 16px 20px;
+  width: 300px;
+  font-family: Arial, sans-serif;
+  color: white;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 0 10px rgb(255, 255, 255);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.game-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 12px rgba(255, 255, 255);
+}
+
+.matchup {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.team {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Add spacing between logo and score */
+}
+
+.card-team-logo {
+  width: 50px;
+  height: 50px;
+}
+
+.card-team-score {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.team-names {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.card-team-name {
+  font-size: 1rem;
+  font-weight: bold;
+  text-align: center;
+  flex: 1;
+}
+
+.game-info {
+  text-align: center;
+}
+
+.game-status {
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.game-time {
+  font-size: 0.9rem;
+  color: #ccc;
+  margin-top: 5px;
+}
+
+.no-game-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  font-size: 1.2rem;
+  color: grey;
+  font-weight: bold;
+  margin-top: 0px; /* Optional: Add spacing from the top */
+}
+
+.scheduled-game-card .game-time,
+.final-game-card .game-status,
+.live-game-card .game-status {
+  font-size: 1rem;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.scheduled-games-container,
+.finished-games-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.finished-games-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+}
+
+.scheduled-games-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+}
+
+.day-header {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: rgb(0, 0, 0);
+  margin-top: 20px;
+  text-align: center;
+}
+
+.day-header:first-of-type {
+  margin-top: 0px; /* Reduce top margin for the first day header */
+}
+
+.games-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+.game-card div[style*="color: black;"] {
+  color: black !important; /* Ensure date text is black */
+}
+
+.live-game-block {
+  flex: 1 1 calc(33.33% - 2rem);
+  max-width: 350px;
+  min-height: 200px;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  padding: 1rem;
+  background-color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.live-game-block:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.no-games {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100px;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  font-size: 1rem;
+  color: #555;
+  font-weight: bold;
+}
+
+.live-game-block img {
+  width: 120px;
+  height: 80px;
+  object-fit: contain;
+}
+
+.live-game-block .team-name {
+  font-weight: bold;
+  font-size: 1.2rem;
+  margin-top: 8px;
+  color: black;
+}
+
+.live-game-block .team-score {
+  font-size: 3.5rem;
+  font-weight: normal;
+  color: black;
+}
+
+.live-game-block .team-score.bold {
+  font-weight: bold;
+}
+
+.live-game-block .game-status {
+  font-size: 1.75rem;
+  font-weight: bold;
+  color: black;
+  text-align: center;
+}
+
+.live-game-block .game-period {
+  font-size: 1rem;
+  color: grey;
+  text-align: center;
+  margin-top: 15px;
+}
+
+.teams-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  padding: 20px;
+}
+
+.team-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background-color: #000;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 10px;
+  padding: 10px 20px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.team-container {
+  margin-bottom: 40px;
+  padding: 20px;
+  background-color: #000;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(255, 255, 255, 0.2);
+}
+
+.game-cards-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  overflow-x: auto;
+  padding: 10px 0;
+}
+
+.stage-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  min-width: 300px; /* Ensure columns have a consistent width */
+}
+
+.stage-header {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #fff;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
 @media (max-width: 525px) {
   .nav-right {
     display: none;

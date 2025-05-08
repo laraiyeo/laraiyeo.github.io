@@ -1,0 +1,397 @@
+body {
+  background: #111;
+  color: white;
+  font-family: sans-serif;
+  margin: 0;
+  padding: 2rem;
+}
+
+#scoreboardContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.top-scoreboard {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 2rem;
+  align-items: center;
+  background: #1e1e1e;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.team-block {
+  text-align: center;
+}
+
+.team-score {
+  font-size: 8rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: white;
+}
+
+.team-logo {
+  width: 120px;
+  height: 120px;
+}
+
+.team-name {
+  margin-top: 5px;
+  font-size: 1.6rem;
+}
+
+.inning-center {
+  text-align: center;
+}
+
+.inning-status {
+  font-size: 3.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.time-left {
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: grey;
+}
+
+.scorers-container {
+  margin-top: 20px;
+  background: #ebebeb;
+  background: #1e1e1e;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  width: 100%;
+  max-width: 1200px;
+  align-items: center;
+  box-shadow: 0 4px 1px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.scorers-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.scorers {
+  flex: 1;
+  text-align: center;
+  font-size: 1rem;
+  color: rgb(255, 255, 255);
+}
+
+.soccer-ball {
+  width: 50px;
+  height: 50px;
+}
+
+.pitches-container {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+}
+  
+.football-pitch {
+  width: 610px;
+  height: 500px;
+  background: #006400;
+  border: 2px solid #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  position: relative;
+  margin-top: 20px; /* Add spacing between the team info and the pitch */
+}
+
+.center-circle {
+  position: absolute;
+  top: 12.5%;
+  left: 50%;
+  width: 250px;
+  height: 125px; /* Half the height for a half-circle */
+  border: 2px solid white;
+  border-radius: 0 0 120px 120px; /* Bottom half-circle */
+  transform: translate(-50%, -50%) rotate(360deg);
+  background: transparent;
+}
+
+.penalty-box {
+  position: absolute;
+  bottom: 0%;
+  left: 20%;
+  width: 60%;
+  height: 125px;
+  border: 2px solid white;
+  border-bottom: none;
+}
+
+.goal-box {
+  position: absolute;
+  bottom: 0%;
+  left: 32.5%;
+  width: 35%;
+  height: 60px;
+  border: 2px solid white;
+  border-bottom: none;
+}
+
+.penalty-box-circle {
+  position: absolute;
+  top: 67%;
+  left: 50%;
+  width: 150px;
+  height: 75px; /* Half the height for a half-circle */
+  border: 2px solid white;
+  border-radius: 0 0 120px 120px; /* Bottom half-circle */
+  transform: translate(-50%, -50%) rotate(180deg);
+  background: transparent;
+}
+
+.player-container {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.player-circle {
+  width: 40px;
+  height: 40px;
+  background-color: white;
+  color: black;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 2px solid black;
+  margin-bottom: 5px;
+}
+
+.player-name {
+  font-size: 0.9rem;
+  color: rgb(255, 255, 255);
+  text-align: center;
+  text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;
+}
+
+.team-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.form-team-logo {
+  width: 50px;
+  height: 50px;
+}
+
+.team-formation {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: white;
+}
+
+.pitches-wrapper {
+  display: flex;
+  gap: 20px;
+}
+
+.pitch-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.subs-box {
+  width: 610px;
+  margin-top: 20px;
+  padding: 10px;
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  color: white;
+}
+
+.subs-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.subs-team-logo {
+  width: 40px;
+  height: 40px;
+}
+
+.subs-title {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.subs-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 1rem;
+}
+
+.subs-list li {
+  margin: 10px 0;
+}
+
+.jersey-number {
+  color: grey;
+  font-weight: bold;
+  margin-right: 5px;
+}
+
+.sub-arrow {
+  font-size: 1rem;
+  font-weight: bold;
+  margin-right: 5px;
+}
+
+.red-arrow {
+  color: red;
+}
+
+.green-arrow {
+  color: green;
+}
+
+.sub-time {
+  margin-left: 10px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: green;
+}
+
+.sub-out {
+  margin-left: 10px;
+  font-size: 0.9rem;
+  color: grey;
+}
+
+.player-hover-card {
+  display: none;
+  position: absolute;
+  background: #1e1e1e;
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  z-index: 1000;
+  width: 150px;
+}
+
+.hover-team-logo {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 8px;
+}
+
+.hover-player-name {
+  font-size: 1rem;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.play-description {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #1a1a1a;
+  border-radius: 1rem;
+  padding: 1rem;
+  width: 100%;
+  max-width: 1200px;
+  text-align: center;
+  font-size: 1.5rem;
+  color: white;
+  text-shadow: 2px 2px 2px black;
+  margin-bottom: -15px;
+}
+
+.play-description-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.play-clock {
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: white;
+}
+
+.game-clock {
+  font-size: 1.6rem;
+  color: #ccc;
+}
+
+.play-text {
+  font-size: 1.75rem;
+  font-weight: bold;
+  color: white;
+}
+
+@media (max-width: 475px) {
+  .responsive-logo {
+    width: 75px;
+    height: 75px;
+  }
+
+  .responsive-name {
+    font-size: 1.5rem;
+  }
+
+  .responsive-score {
+    font-size: 4rem;
+  }
+
+  .responsive-game-clock {
+    font-size: 1.2rem;
+  }
+
+  .responsive-inning-status {
+    font-size: 1.5rem;
+  }
+
+  .soccer-ball {
+    width: 30px;
+    height: 30px;
+  }
+
+  .pitches-wrapper {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .football-pitch {
+    width: 100%;
+  }
+
+  .subs-box {
+    width: 420px;
+  }
+
+  .team-name {
+    font-size: 1rem;
+  }
+}

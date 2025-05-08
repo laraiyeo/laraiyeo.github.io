@@ -37,7 +37,7 @@ async function loadLiveGames() {
     const games = data.events || [];
 
     const liveGames = games.filter(game => 
-      game.status.type.description === "In Progress" || game.status.type.description === "Halftime"
+      game.status.type.description === "In Progress" || game.status.type.description === "Halftime" || game.status.type.description === "End of Period"
     );
     const container = document.getElementById("gamesContainer");
 
@@ -143,12 +143,15 @@ async function fetchGameDetails(gameId, competition) {
     const statusEl = document.getElementById(`status-${gameId}`);
     if (periodEl && periodStatusEl && statusEl) {
       const isHalftime = competition.status.type.description === "Halftime";
+      const isEndOfPeriod = competition.status.type.description === "End of Period";
       const periodText = isHalftime
         ? "Halftime"
+        : isEndOfPeriod
+        ? `End of ${getOrdinalSuffix(competition.status.period)} Quarter`
         : `${getOrdinalSuffix(competition.status.period)} Quarter`;
       periodEl.textContent = periodText;
 
-      statusEl.textContent = isHalftime ? "" : competition.status.displayClock;
+      statusEl.textContent = isHalftime || isEndOfPeriod ? "" : competition.status.displayClock;
     }
   } catch (err) {
     console.error(`Error fetching details for game ${gameId}:`, err);

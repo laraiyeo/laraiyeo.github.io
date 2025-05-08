@@ -1,6 +1,6 @@
-# ⚾🏒🏀 Live Tracker
+# ⚾🏒🏀⚽ Live Tracker
 
-Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for real-time MLB, NHL and NBA updates and seamless OBS integration.
+Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for real-time **MLB, NHL, NBA and Soccer** updates and seamless OBS integration.
 
 🔗 **Live Tracker Site**: [https://laraiyeo.github.io/index.html](https://laraiyeo.github.io/index.html)  
 💻 **Source Code**: [GitHub Repository](https://github.com/laraiyeo/laraiyeo.github.io)  
@@ -11,23 +11,31 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 ## 🧩 Features
 
 - **Live Game Dashboard**  
-  Real-time display of active MLB and NHL games with:
-  - Inning progress for MLB (TOP and BOT with inning number) and Period/Quarter progress for NHL and NBA (Time remaining in period/quarter and specifc period/quarter number)
+  Real-time display of active MLB, NHL, NBA and Soccer games with:
+  - Inning progress for MLB (TOP and BOT with inning number), Period/Quarter progress for NHL and NBA (Time remaining in period/quarter and specifc period/quarter number), and Half progress for Soccer (Current match time as well as current half)
   - Base runners logic for MLB (Bases light up when runner is present)
   - Visual balls/strikes/outs tracker for MLB
+
+  **Scoreboard**
+  - Visual scoreboard for MLB with inning progress, team scores, base runners, current outs, current play description and player stats. It will also grey out any player who is benched
+  - Visual scoreboard for NHL and NBA with Period/Quarter progress, team scores, time remaining in period/quarter, play description and player stats. There will be a 🟢 beside players who are currently on the ice/court
+  - Visual scoreboard for Soccer with half progress, team scores, current match time, play description, a visual football pitch with real team lineups as well as a substitute section that shows subs and will display when they come on the pitch
 
 - **Game Schedules & Results**  
   - See all scheduled games for the day with start times
   - View completed games and final scores
+  - View scheduled and completed games for the week specifically for soccer
 
 - **Team Tracker**  
   - All 30 teams shown at once for MLB and NBA and all 32 teams shown at once for NHL
+  - Includes all teams from Premier League, La Liga, Bundesliga, Serie A and Ligue 1. For UEFA, it includes teams currently in Champions League, Europa League and Europa Conference League
   - See each team’s game status
   - Click on a team logo to get a unique URL for OBS
 
 - **Standings**
   - View current league standings side by side for both conferences with divisions
-  - Hover over a teams name to show a small card that displays home, away and last 10 games record as well as the teams current W/L streak
+  - Hover over a teams name to show a small card that displays home, away and last 10 games record as well as the teams current W/L streak (Not available for soccer)
+  - For soccer, view league standings for all the different leagues with visual colors that indicate specific things with a legend underneath the table.
 
 - **OBS Integration Ready**  
   - Each view is browser-source friendly
@@ -38,15 +46,26 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
   - Data from MLB’s official StatsAPI, NHL's official API, and ESPN'S API
   - Free to clone, fork, or contribute
 
+- **Soccer Specific**
+  - When going to the soccer page from the main page, you will see 5 extra buttons under the navbar. These are for the leagues. Click on one and you will be seeing only league specific data for Live, Scheduled, Finished, Teams, and Standings.
+  - There's no need to be re-clicking the league button when going to a new page through the navbar as it saves the league you're on to your local storage
+  - In the navbar of the soccer page, you will see UEFA. Clicking on it will take you to the UEFA Live Tracker page
+  - Just like the other sports, you can click on a live game to see the scoreboard of that game. Hover over a players circle or name and you will see their current game stats.
+
+- **UEFA Specific**
+  - Just like soccer, UEFA has league buttons at the top
+  - There is a Playoffs section in the navbar. Clicking on it will show you the all the teams in the selected league and their past rounds and matches. You can click on any of the match game cards to be taken to the respective scoreboard of that game
+  - The UEFA scoreboard works the same as the soccer scoreboard
+
 ---
 
 ## 🖥️ How to Use in OBS
 
-1. Go to **https://laraiyeo.github.io/teams.html**
+1. Go to the Teams page in the respective sport tracker page through the navbar
 2. Click the team container of the team you want to integrate into obs
 3. **Open OBS Studio**
 4. Click the ➕ under *Sources*, and choose **Browser**
-5. Name it (e.g. `MLB Tracker`, `NHL Tracker` or `NBA Tracker`) and paste the URL (do not change the width and height)  
+5. Name it (e.g. `MLB Tracker`, `NHL Tracker`, `NBA Tracker` or `Soccer Tracker`) and paste the URL (do not change the width and height)  
 6. Click **OK**
 7. When the card is showing properly in obs, you can shrink or enlarge the card from the profile screen
 
@@ -56,8 +75,9 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 
 - (4/24/2025) When a game is live, you can click on the game card in the live page and you will see a live scoreboard of that specific game. Same with finished games. If you click a game block on the finished tab, you will see the final scoreboard of that specific game.
 - (4/29/2025) Previously known as MLB Live Tracker but with the new integration of an NHL tracker, it is now known as Live Sports Tracker
-- (5/02/2025) Added fully functional NBA tracker
+- **(5/02/2025) Added fully functional NBA tracker**
 - (5/03/2025) Added standings page for all sports that shows current team standings in their respective division and conference
+- **(5/08/2025) Added fully function Soccer and UEFA tracker**
 
 ---
 

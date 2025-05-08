@@ -27,8 +27,11 @@ async function buildGameCard(game) {
   const homeTeamShortName = adjustTeamShortName(homeTeam?.shortDisplayName || "Unknown");
   const awayTeamShortName = adjustTeamShortName(awayTeam?.shortDisplayName || "Unknown");
 
-  const homeRecord = game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "0-0";
-  const awayRecord = game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "0-0";
+  const homeRecord = game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || 
+  (game.competitions[0].competitors.find(c => c.homeAway === "away")?.record.split("-").reverse().join("-") || "0-0");
+
+  const awayRecord = game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || 
+  (game.competitions[0].competitors.find(c => c.homeAway === "home")?.record.split("-").reverse().join("-") || "0-0");
 
   const homeIsWinner = parseInt(homeScore) > parseInt(awayScore);
   const awayIsWinner = parseInt(awayScore) > parseInt(homeScore);

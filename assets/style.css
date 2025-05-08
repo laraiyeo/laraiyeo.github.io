@@ -80,7 +80,7 @@ body {
 }
 
 .block-content {
-    margin-top: 100px;
+    margin-top: 80px;
     position: relative;
     z-index: 2;
     color: #fff;
@@ -135,6 +135,16 @@ body {
     background-image: url('nba.png');
 }
 
+.block-soccer {
+    background-image: url('soccer.png');
+}
+
 .block-nfl {
     background-image: url('nfl.png');
+}
+
+@media (max-width: 475px) {
+.responsive-block-content {
+      margin-top: 55px;
+    }
 }
