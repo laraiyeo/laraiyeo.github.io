@@ -159,11 +159,15 @@ async function fetchAndRenderTopScoreboard() {
     const awayLinescores = selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.linescores || [];
     const homeLinescores = selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.linescores || [];
 
-    const homeTeamRecord = selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.record || 
-    (game.competitions[0].competitors.find(c => c.homeAway === "away")?.record.split("-").reverse().join("-") || "0-0");
+    const slug = selectedGame.season?.slug || "regular-season";
 
-    const awayTeamRecord = selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.record || 
-    (game.competitions[0].competitors.find(c => c.homeAway === "home")?.record.split("-").reverse().join("-") || "0-0");
+    const homeTeamRecord = slug === "post-season"
+      ? selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "0-0"
+      : selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.records?.find(r => r.type === "total")?.summary || "0-0";
+
+    const awayTeamRecord = slug === "post-season"
+      ? selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "0-0"
+      : selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.records?.find(r => r.type === "total")?.summary || "0-0";
 
     const period = selectedGame.status.period || 0;
     const clock = selectedGame.status.displayClock || "00:00";

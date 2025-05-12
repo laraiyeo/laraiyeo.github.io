@@ -234,6 +234,113 @@ body {
   .footer-link:hover {
     color: #888;
   }
+
+  #bracket {
+  background: #ebebeb;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 1px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  flex-grow: 1;
+  overflow-y: auto;
+  }
+
+  .bracket-container {
+    margin-top: 75px;
+    display: flex;
+    justify-content: space-between;
+    background: #ebebeb;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    flex-grow: 1;
+    overflow-x: hidden;
+  }
+
+  .conference {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 30%; /* Each conference takes a third of the width */
+  }
+
+  .west-conference {
+    align-items: flex-end; /* Align West conference to the right */
+  }
+
+  .east-conference {
+    align-items: flex-start; /* Align East conference to the left */
+  }
+
+  .finals-conference {
+    width: 40%; /* Finals column is slightly wider */
+    align-items: center;
+  }
+
+  .bracket-round {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 14%; /* Adjust width to fit all columns */
+  }
+
+  .round-title {
+    font-size: 1.2em;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 5px;
+  }
+
+  .bracket-row {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+  }
+
+  .team-row {
+    display: flex;
+    gap: 10px;
+    font-size: 1em;
+  }
+
+  .team-name {
+    flex-grow: 1;
+    color: #000
+  }
+
+  .team-record {
+    font-weight: bold;
+    color: #000000;
+  }
+
+.matchup-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2em;
+}
+
+.team-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 20px;
+}
+
+.team-line {
+  display: flex;
+  gap: 4px;
+}
+
+.vs {
+  font-weight: bold;
+  align-self: center;
+}
+
   
 @media (max-width: 525px) {
   .league-box {

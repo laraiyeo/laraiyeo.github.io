@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NBA Playoff Bracket</title>
+  <link rel="icon" href="icon.png" type="image/png" />
+  <link rel="stylesheet" href="style-2.css">
+</head>
+<body>
+    <div id="navbar-container"></div>
+  <div id ="bracket">
+    <h2 style="color: black;">NBA Playoff Bracket</h2>
+    <div id="bracketContainer" class="bracket-container"></div>
+  </div>
+  
+  <script src="bracket.js"></script>
+  <script src="navbarLoader.js"></script>
+  <script src="navbar.js"></script>
+  <div id="footer-container"></div>
+    <script>
+      fetch("footer.html")
+        .then(response => response.text())
+        .then(html => {
+          document.getElementById("footer-container").innerHTML = html;
+        });
+    </script>
+</body>
+</html>

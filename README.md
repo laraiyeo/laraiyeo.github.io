@@ -78,6 +78,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - **(5/02/2025) Added fully functional NBA tracker**
 - (5/03/2025) Added standings page for all sports that shows current team standings in their respective division and conference
 - **(5/08/2025) Added fully function Soccer and UEFA tracker**
+- (5/12/2025) Added playoff bracket page to NBA. Coming soon to NHL and MLB.
 
 ---
 
