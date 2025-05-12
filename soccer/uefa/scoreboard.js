@@ -124,6 +124,13 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
           "LB": "bottom: 30%; left: 10%; transform: translateX(-50%);", "RB": "bottom: 30%; left: 90%; transform: translateX(-50%);", "LM": "bottom: 50%; left: 22.5%; transform: translateX(-50%);",
           "CM": "bottom: 40%; left: 50%; transform: translateX(-50%);", "RM": "bottom: 50%; left: 77.5%; transform: translateX(-50%);", "AM": "bottom: 62.5%; left: 50%; transform: translateX(-50%);", 
           "M": "bottom: 85%; left: 40%; transform: translateX(-50%);", "CF-R": "bottom: 85%; left: 60%; transform: translateX(-50%);"
+        };
+      case "3-1-4-2":
+        return {
+          "G": "bottom: 2.5%; left: 50%; transform: translateX(-50%);", "CD-L": "bottom: 20%; left: 30%; transform: translateX(-50%);", "CD": "bottom: 20%; left: 50%; transform: translateX(-50%);",
+          "CD-R": "bottom: 20%; left: 70%; transform: translateX(-50%);", "SW": "bottom: 40%; left: 50%; transform: translateX(-50%);", "LM": "bottom: 60%; left: 15%; transform: translateX(-50%);",
+          "CM-L": "bottom: 60%; left: 40%; transform: translateX(-50%);", "CM-R": "bottom: 60%; left: 60%; transform: translateX(-50%);", "RM": "bottom: 60%; left: 85%; transform: translateX(-50%);", 
+          "CF-L": "bottom: 85%; left: 40%; transform: translateX(-50%);", "CF-R": "bottom: 85%; left: 60%; transform: translateX(-50%);"
         };   
       default:
         return {
@@ -165,7 +172,7 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
 
       ${
         player.position.abbreviation === "G"
-          ? `<div>SHF: ${stats["SHF"] || "0"} | GA: ${stats["GA"] || "0"}</div>`
+          ? `<div>SV: ${stats["SV"] || "0"} | GA: ${stats["GA"] || "0"}</div>`
           : `
             <div>Goals: ${stats["G"] || "0"} | Assists: ${stats["A"] || "0"}</div>
             <div>Shots: ${stats["SH"] || "0"} | SOG: ${stats["ST"] || "0"}</div>
@@ -227,7 +234,7 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
 
             ${
               sub.position?.abbreviation === "G"
-                ? `<div>SHF: ${stats["SHF"] || "0"} | GA: ${stats["GA"] || "0"}</div>`
+                ? `<div>SV: ${stats["SV"] || "0"} | GA: ${stats["GA"] || "0"}</div>`
                 : `
                   <div>Goals: ${stats["G"] || "0"} | Assists: ${stats["A"] || "0"}</div>
                   <div>Shots: ${stats["SH"] || "0"} | SOG: ${stats["ST"] || "0"}</div>
@@ -294,7 +301,7 @@ async function fetchAndRenderPlayDescription(gameId, homeTeam, awayTeam) {
     const mostRecentEntry = commentary.reverse().find(entry => entry.play || entry.sequence) || commentary[0];
 
     const playClock = mostRecentEntry?.play?.clock?.displayValue || mostRecentEntry?.time?.displayValue || "";
-    const playText = mostRecentEntry?.play?.text || mostRecentEntry?.play?.type?.text || mostRecentEntry?.text || "No play data available";
+    const playText = mostRecentEntry?.text || mostRecentEntry?.play?.text || mostRecentEntry?.play?.type?.text || "No play data available";
 
     const playDescriptionDiv = document.getElementById("playDescription");
     if (!playDescriptionDiv) {
@@ -309,20 +316,25 @@ async function fetchAndRenderPlayDescription(gameId, homeTeam, awayTeam) {
 
     if (playText.includes("start") || playText.includes("end") || playText.includes("begins") || playText.includes("Lineups")) {
       backgroundColor = `#1a1a1a`;
-    }  else if (playText.includes("homeTeamName")) {
+    } else if (playText.toLowerCase().includes(`(${homeTeamName.toLowerCase()})`) || playText.toLowerCase().includes(homeTeamName.toLowerCase())) {
       backgroundColor = `#${homeTeam.color}`;
-    } else if (playText.includes(awayTeamName)) {
+    } else if (playText.toLowerCase().includes(`(${awayTeamName.toLowerCase()})`) || playText.toLowerCase().includes(awayTeamName.toLowerCase())) {
       backgroundColor = `#${awayTeam.color}`;
-    } 
+    }
+
+    const lightColor = ["#ffffff", "#ffee00", "#ffff00", "#81f733"].includes(backgroundColor) ? "black" : "white";
 
     playDescriptionDiv.style.backgroundColor = backgroundColor;
+    const shadowColor = lightColor === "black" ? "white" : "black";
+    playDescriptionDiv.style.textShadow = `2px 2px 2px ${shadowColor}`;
 
     playDescriptionDiv.innerHTML = `
       <div class="play-description-content">
-        <div class="play-clock">${playClock}</div>
-        <div class="play-text">${playText}</div>
+        <div class="play-clock" style="color: ${lightColor};">${playClock}</div>
+        <div class="play-text" style="color: ${lightColor};">${playText}</div>
       </div>
     `;
+
   } catch (error) {
     console.error("Error fetching play description data:", error);
   }
@@ -356,7 +368,7 @@ async function fetchAndRenderTopScoreboard() {
       return;
     }
 
-    const shortDetail = competitions[0]?.status?.type.shortDetail || "N/A";
+    const shortDetail = competitions[0]?.status?.type.shortDetail || "0'";
     const gameStatus = competitions[0]?.status?.type.description || "N/A";
     const gameState = competitions[0]?.status?.type.state || "N/A";
 
@@ -386,8 +398,8 @@ async function fetchAndRenderTopScoreboard() {
       return;
     }
 
-    const homeLogo = homeTeam.logos?.[0]?.href || "";
-    const awayLogo = awayTeam.logos?.[0]?.href || "";
+    const homeLogo = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${homeTeamId}.png`;
+    const awayLogo = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${awayTeamId}.png`;
 
     const homeScoreColor = gameState === "post" && (homeShootoutScore || homeScore) < (awayShootoutScore || awayScore) ? "grey" : "white";
     const awayScoreColor = gameState === "post" && (awayShootoutScore || awayScore) < (homeShootoutScore || homeScore) ? "grey" : "white";

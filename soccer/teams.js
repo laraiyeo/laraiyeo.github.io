@@ -184,13 +184,27 @@ function buildGameCard(game, team) {
   const numbers = record.split("-").map(Number);
   const total = numbers.reduce((sum, num) => sum + num, 0);
 
-  const date = new Date(game.date).toLocaleString("en-US", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
+  const gameDate = new Date(game.date);
+
+  const hour = gameDate.toLocaleString("en-US", {
     hour: "numeric",
     hour12: true,
   });
+  const ampm = hour.includes("AM") ? "AM" : "PM";
+  const hourOnly = hour.replace(/ AM| PM/, ""); // remove space and AM/PM
+
+  const datePart = gameDate.toLocaleString("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  const minutes = gameDate.getMinutes();
+  const time = minutes === 0
+    ? `${hourOnly} ${ampm}`
+    : `${hourOnly}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+
+  const date = `${datePart}, ${time}`;
 
   const startTime = new Date(game.date).toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -251,9 +265,11 @@ function buildGameCard(game, team) {
     `;
   } else {
     // Live game card
+    const newTotal = total + 1;
+
     return `
         <div class="game-card">
-          <div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${total}</div>
+          <div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${newTotal}</div>
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <div style="text-align: center;">
               <div style="display: flex; align-items: center; gap: 8px;">
@@ -263,9 +279,8 @@ function buildGameCard(game, team) {
               <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${formatShortDisplayName(homeTeam.team.shortDisplayName)}</div>
             </div>
             <div style="text-align: center;">
-              <div style="f margin-bottom: 18px;">${game.status.displayClock}</div>
-              <div style="font-size: 0.75rem; color: grey; margin-top: -10px;ont-size: 1.1rem; fondescriptionold; margin-bottom: 18px;">${game.status.displayClock}</div>
-              <div style="font-size: 0.75rem; color: grey; margin-top: -10px;">${game.status.type.description}</div>
+              <div style="f margin-bottom: 20px;">${game.status.displayClock}</div>
+              <div style="font-size: 0.75rem; color: grey; margin-top: 10px;">${game.status.type.description}</div>
             </div>
             <div style="text-align: center;">
               <div style="display: flex; align-items: center; gap: 8px;">
@@ -294,7 +309,7 @@ function setupLeagueButtons() {
     button.className = `league-button ${currentLeague === leagueData.code ? "active" : ""}`;
     button.innerHTML = `
       <span class="league-text">${leagueName}</span>
-      <img class="league-logo" src="https://a.espncdn.com/i/leaguelogos/soccer/500/${leagueData.logo}.png" alt="${leagueName}" style="display: none;">
+      <img class="league-logo" src="https://a.espncdn.com/i/leaguelogos/soccer/500-dark/${leagueData.logo}.png" alt="${leagueName}" style="display: none;">
     `;
     button.addEventListener("click", () => {
       currentLeague = leagueData.code;

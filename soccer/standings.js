@@ -184,7 +184,7 @@ function setupLeagueButtons() {
     button.className = `league-button ${currentLeague === leagueData.code ? "active" : ""}`;
     button.innerHTML = `
       <span class="league-text">${leagueName}</span>
-      <img class="league-logo" src="https://a.espncdn.com/i/leaguelogos/soccer/500/${leagueData.logo}.png" alt="${leagueName}" style="display: none;">
+      <img class="league-logo" src="https://a.espncdn.com/i/leaguelogos/soccer/500-dark/${leagueData.logo}.png" alt="${leagueName}" style="display: none;">
     `;
     button.addEventListener("click", () => {
       currentLeague = leagueData.code;

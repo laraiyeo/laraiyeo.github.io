@@ -22,7 +22,7 @@ function setupLeagueButtons() {
     button.className = `league-button ${currentLeague === leagueData.code ? "active" : ""}`;
     button.innerHTML = `
       <span class="league-text">${leagueName}</span>
-      <img class="league-logo" src="https://a.espncdn.com/i/leaguelogos/soccer/500/${leagueData.logo}.png" alt="${leagueName}" style="display: none;">
+      <img class="league-logo" src="https://a.espncdn.com/i/leaguelogos/soccer/500-dark/${leagueData.logo}.png" alt="${leagueName}" style="display: none;">
     `;
     button.addEventListener("click", () => {
       currentLeague = leagueData.code;
@@ -109,38 +109,47 @@ function buildGameCard(game) {
   const numbers = record.split("-").map(Number);
   const total = numbers.reduce((sum, num) => sum + num, 0);
 
-  const date = new Date(game.date).toLocaleString("en-US", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
+  const gameDate = new Date(game.date);
+
+  const hour = gameDate.toLocaleString("en-US", {
     hour: "numeric",
     hour12: true,
   });
+  const ampm = hour.includes("AM") ? "AM" : "PM";
+  const hourOnly = hour.replace(/ AM| PM/, ""); // remove space and AM/PM
+
+  const minutes = gameDate.getMinutes();
+  const time = minutes === 0
+    ? `${hourOnly} ${ampm}`
+    : `${hourOnly}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+
+  const date = `${time}`;
 
   return `
-    <div class="game-card">
-      <div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${total}</div>
-      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-        <div style="text-align: center;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <img src="${getTeamLogo(homeTeam.team)}" alt="${homeTeam.team.displayName}" style="width: 60px; height: 60px;">
-            <span style="font-size: 2.3rem; ${homeIsWinner ? "font-weight: bold;" : ""}">${homeTeam.score}</span>
+      <div class="game-card">
+        <div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${total}</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <div style="text-align: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <img src="${getTeamLogo(homeTeam.team)}" alt="${homeTeam.team.displayName}" style="width: 60px; height: 60px;">
+              <span style="font-size: 2.3rem; ${homeIsWinner ? "font-weight: bold;" : ""}">${homeTeam.score}</span>
+            </div>
+            <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${formatShortDisplayName(homeTeam.team.shortDisplayName)}</div>
           </div>
-          <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${formatShortDisplayName(homeTeam.team.shortDisplayName)}</div>
-        </div>
-        <div style="text-align: center;">
-          <div style="font-size: 1.1rem; font-weight: bold;">Final</div>
-        </div>
-        <div style="text-align: center;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 2.3rem; ${awayIsWinner ? "font-weight: bold;" : ""}">${awayTeam.score}</span>
-            <img src="${getTeamLogo(awayTeam.team)}" alt="${awayTeam.team.displayName}" style="width: 60px; height: 60px;">
+          <div style="text-align: center;">
+            <div style="font-size: 1.1rem; font-weight: bold; margin-top: 20px; margin-bottom: 18px;">Final</div>
+            <div style="font-size: 0.75rem; color: grey; margin-top: 25px;">${date}</div>
           </div>
-          <div style="margin-top: 6px; ${awayIsWinner ? "font-weight: bold;" : ""}">${formatShortDisplayName(awayTeam.team.shortDisplayName)}</div>
+          <div style="text-align: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 2.3rem; ${awayIsWinner ? "font-weight: bold;" : ""}">${awayTeam.score}</span>
+              <img src="${getTeamLogo(awayTeam.team)}" alt="${awayTeam.team.displayName}" style="width: 60px; height: 60px;">
+            </div>
+            <div style="margin-top: 6px; ${awayIsWinner ? "font-weight: bold;" : ""}">${formatShortDisplayName(awayTeam.team.shortDisplayName)}</div>
+          </div>
         </div>
       </div>
-    </div>
-  `;
+    `;
 }
 
 function hashString(str) {

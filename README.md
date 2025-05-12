@@ -87,6 +87,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - I've also had to change the fetch rate to 2 seconds as it was consuming too much data with a fetch rate of 1 second.
 - On the scoreboard page, if the user is on a phone screen and they turn it landscape, it will show the regular phone view (max 3 innings) in landscape until the next fetch. Vice versa for landscape to portrait.
 - For NHL scoreboard, at times it may show undefined for play-by-play. This is an issue from the api directly as it doesn't update some things immediately.
+- For Soccer and UEFA, the top scoreboard score and time as well as the play description might not update in real time. This is a problem caused by ESPN's api
 
 ---
 

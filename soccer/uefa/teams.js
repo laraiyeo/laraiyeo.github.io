@@ -192,13 +192,28 @@ function buildGameCard(game, team) {
     const awayIsWinner = (awayShootoutScore || awayTeam.score) > (homeShootoutScore || homeTeam.score);
     const homeIsWinner = (homeShootoutScore || homeTeam.score) > (awayShootoutScore || awayTeam.score);
   
-    const date = new Date(game.date).toLocaleString("en-US", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "numeric",
-      hour12: true,
-    });
+  const gameDate = new Date(game.date);
+
+  const hour = gameDate.toLocaleString("en-US", {
+    hour: "numeric",
+    hour12: true,
+  });
+  const ampm = hour.includes("AM") ? "AM" : "PM";
+  const hourOnly = hour.replace(/ AM| PM/, ""); // remove space and AM/PM
+
+  const datePart = gameDate.toLocaleString("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  const minutes = gameDate.getMinutes();
+  const time = minutes === 0
+    ? `${hourOnly} ${ampm}`
+    : `${hourOnly}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+
+  const date = `${datePart}, ${time}`;
+
   
     const startTime = new Date(game.date).toLocaleTimeString("en-US", {
       hour: "numeric",

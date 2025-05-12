@@ -280,13 +280,15 @@ function displayTeams(teams, teamAppearances) {
             ? " - Finished"
             : match.competition.status.type.state === "pre"
             ? " - Scheduled"
+            : match.competition.status.type.state === "in"
+            ? " - In Progress"
             : "";
 
           const gameCard = document.createElement("div");
           gameCard.className = "game-card";
 
           // Add click event for finished games
-          if (match.competition.status.type.state === "post") {
+          if (match.competition.status.type.state === "post" || match.competition.status.type.state === "in") {
             gameCard.style.cursor = "pointer";
             gameCard.addEventListener("click", () => {
               window.location.href = `scoreboard.html?gameId=${match.competition.id}`;
