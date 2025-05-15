@@ -20,13 +20,27 @@ async function fetchAndUpdateBracket() {
     const newHash = hashString(text);
 
     if (newHash === lastBracketHash) {
-      console.log("No changes detected in the bracket data.");
-      return; // No changes, skip update
+      // No changes, skip update
+      return;
     }
 
     lastBracketHash = newHash;
     const data = JSON.parse(text);
-    renderBracket(data.events.filter(game => game.season.slug === "post-season")); // Only include post-season games
+    const games = data.events.filter(game => game.season.slug === "post-season");
+
+    // Use a temporary container to compare HTML and avoid jitter
+    const bracketContainer = document.getElementById("bracketContainer");
+    if (!bracketContainer) {
+      console.error("Bracket container not found.");
+      return;
+    }
+    const tempContainer = document.createElement("div");
+    tempContainer.className = "bracket-container";
+    await renderBracket(games, tempContainer);
+
+    if (bracketContainer.innerHTML !== tempContainer.innerHTML) {
+      bracketContainer.innerHTML = tempContainer.innerHTML;
+    }
   } catch (error) {
     console.error("Error fetching bracket data:", error);
   }
@@ -43,6 +57,28 @@ async function fetchPlayoffData() {
     console.error("Error fetching playoff data:", error);
     return [];
   }
+}
+
+function normalizeTeamName(name) {
+  if (!name) return "";
+  return name
+    .split("/")
+    .map(n => n.trim())
+    .sort()
+    .join("/")
+    .toLowerCase();
+}
+
+function isSlashTeam(name) {
+  return name && name.includes("/");
+}
+
+function getBracketLogo(team) {
+  // Use icon.png for teams with a slash in the name, otherwise use ESPN logo
+  if (isSlashTeam(team.shortDisplayName)) {
+    return "icon.png";
+  }
+  return `https://a.espncdn.com/i/teamlogos/nba/500/${team.abbreviation}.png`;
 }
 
 function groupGamesByMatchup(games, standings) {
@@ -68,7 +104,11 @@ function groupGamesByMatchup(games, standings) {
     homeTeam.shortName = homeShortName;
     awayTeam.shortName = awayShortName;
 
-    const matchupKey = [homeTeam.id, awayTeam.id].sort().join("-"); // Unique key for each matchup
+    // Use normalized names for matchups with "/" (e.g., Celtics/Knicks)
+    const homeKey = normalizeTeamName(homeTeam.shortDisplayName);
+    const awayKey = normalizeTeamName(awayTeam.shortDisplayName);
+    const matchupKey = [homeKey, awayKey].sort().join("-"); // Unique key for each matchup, handles "/" cases
+
     if (!matchups[matchupKey]) {
       matchups[matchupKey] = { homeTeam, awayTeam, games: [] };
     }
@@ -233,15 +273,17 @@ function groupGamesByConferenceAndSeed(games) {
   };
 }
 
-async function renderBracket(games) {
-  const bracketContainer = document.getElementById("bracketContainer");
-  if (!bracketContainer) {
-    console.error("Bracket container not found.");
-    return;
+async function renderBracket(games, container) {
+  // If no container is passed, use the default
+  if (!container) {
+    container = document.getElementById("bracketContainer");
+    if (!container) {
+      console.error("Bracket container not found.");
+      return;
+    }
+    container.innerHTML = ""; // Clear existing content
+    container.className = "bracket-container";
   }
-
-  bracketContainer.innerHTML = ""; // Clear existing content
-  bracketContainer.className = "bracket-container"; // Add a class for multi-column layout
 
   const standingsResponse = await fetch("https://cdn.espn.com/core/nba/standings?xhr=1");
   const standingsData = await standingsResponse.json();
@@ -337,8 +379,9 @@ async function renderBracket(games) {
       const homeAbbrev = homeTeam ? homeTeam.abbreviation : "TBD";
       const awayAbbrev = awayTeam ? awayTeam.abbreviation : "TBD";
 
-      const homeLogo = `https://a.espncdn.com/i/teamlogos/nba/500/${homeTeam.abbreviation}.png`;
-      const awayLogo = `https://a.espncdn.com/i/teamlogos/nba/500/${awayTeam.abbreviation}.png`;
+      // Use icon.png for slash teams
+      const homeLogo = getBracketLogo(homeTeam);
+      const awayLogo = getBracketLogo(awayTeam);
 
       const homeIsWinner = parseInt(homeRecord) > parseInt(awayRecord);
       const awayIsWinner = parseInt(awayRecord) > parseInt(homeRecord);
@@ -457,13 +500,13 @@ async function renderBracket(games) {
   const finalsDiv = renderRoundColumn(rounds.finals, "NBA Finals", "finals");
 
   // Append rounds in the correct horizontal order
-  bracketContainer.appendChild(westRounds[0]); // West 1st Round
-  bracketContainer.appendChild(westRounds[1]); // West Semifinals
-  bracketContainer.appendChild(westRounds[2]); // West Finals
-  bracketContainer.appendChild(finalsDiv);     // NBA Finals
-  bracketContainer.appendChild(eastRounds[2]); // East Finals
-  bracketContainer.appendChild(eastRounds[1]); // East Semifinals
-  bracketContainer.appendChild(eastRounds[0]); // East 1st Round
+  container.appendChild(westRounds[0]); // West 1st Round
+  container.appendChild(westRounds[1]); // West Semifinals
+  container.appendChild(westRounds[2]); // West Finals
+  container.appendChild(finalsDiv);     // NBA Finals
+  container.appendChild(eastRounds[2]); // East Finals
+  container.appendChild(eastRounds[1]); // East Semifinals
+  container.appendChild(eastRounds[0]); // East 1st Round
 }
 
 function getRoundTitle(roundType) {

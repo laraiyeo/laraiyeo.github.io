@@ -372,4 +372,25 @@ body {
   .dropdown-menu.active {
     display: flex;
   }
+
+  .bracket-container {
+    flex-direction: row;
+    overflow-x: auto;
+    width: 100vw;
+    min-width: 600px; /* Ensures horizontal scroll if content is wider */
+    padding: 10px 0;
+  }
+
+  .bracket-round {
+    min-width: 180px;
+    width: 250px;
+    flex: 0 0 auto;
+    margin-right: 10px;
+  }
+
+  .conference, .west-conference, .east-conference, .finals-conference {
+    width: auto;
+    min-width: unset;
+    align-items: stretch;
+  }
 }
