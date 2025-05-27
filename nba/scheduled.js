@@ -38,11 +38,15 @@ async function buildScheduledGameCard(game) {
   const homeTeamShortName = adjustTeamShortName(homeTeam?.shortDisplayName || "Unknown");
   const awayTeamShortName = adjustTeamShortName(awayTeam?.shortDisplayName || "Unknown");
 
-  const homeRecord = game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || 
-    (game.competitions[0].competitors.find(c => c.homeAway === "away")?.record.split("-").reverse().join("-") || "0-0");
+  const slug = game.season?.slug || "regular-season";
 
-  const awayRecord = game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || 
-    (game.competitions[0].competitors.find(c => c.homeAway === "home")?.record.split("-").reverse().join("-") || "0-0");
+  const homeRecord = slug === "post-season"
+      ? game.competitions[0].competitors.find(c => c.homeAway === "home")?.record || (game.competitions[0].competitors.find(c => c.homeAway === "home")?.record.split("-").reverse().join("-") || "0-0")
+      : game.competitions[0].competitors.find(c => c.homeAway === "home")?.records?.find(r => r.type === "total")?.summary || "0-0";
+
+  const awayRecord = slug === "post-season"
+      ? game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || (game.competitions[0].competitors.find(c => c.homeAway === "away")?.record.split("-").reverse().join("-") || "0-0")
+      : game.competitions[0].competitors.find(c => c.homeAway === "away")?.records?.find(r => r.type === "total")?.summary || "0-0";
 
   const startTime = new Date(game.date).toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -50,7 +54,7 @@ async function buildScheduledGameCard(game) {
     hour12: true,
   });
 
-  const headline = game.competitions[0].notes?.find(note => note.type === "event")?.headline || "No headline available";
+  const headline = game.competitions[0].notes?.find(note => note.type === "event")?.headline || "";
 
   return `
     <div class="game-card" style="margin-top: -20px; margin-bottom: 20px;">

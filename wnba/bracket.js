@@ -1,5 +1,5 @@
 const currentYear = new Date().getFullYear();
-const PLAYOFFS_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${currentYear}0418-${currentYear}0620`;
+const PLAYOFFS_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${currentYear}0418-${currentYear}0620`;
 
 let lastBracketHash = null;
 
@@ -86,7 +86,7 @@ function getBracketLogo(team) {
   ) {
     return "icon.png";
   }
-  return `https://a.espncdn.com/i/teamlogos/nba/500/${team.abbreviation}.png`;
+  return `https://a.espncdn.com/i/teamlogos/wnba/500/${team.abbreviation}.png`;
 }
 
 function groupGamesByMatchup(games, standings) {
@@ -166,7 +166,7 @@ function groupGamesByConferenceAndRound(games) {
       rounds.west["Semifinals"].push(game);
     } else if (headline.includes("West Finals")) {
       rounds.west["Finals"].push(game);
-    } else if (headline.includes("NBA Finals")) {
+    } else if (headline.includes("WNBA Finals")) {
       rounds.finals.push(game);
     }
   });
@@ -179,7 +179,7 @@ function groupGamesByRound(games) {
     4: [], // 1st Round
     3: [], // Semifinals
     2: [], // Finals
-    1: []  // NBA Finals
+    1: []  // WNBA Finals
   };
 
   games.forEach(game => {
@@ -197,7 +197,7 @@ function groupGamesByRoundUsingHeadline(games) {
     "1st Round": [],
     "Semifinals": [],
     "Finals": [],
-    "NBA Finals": []
+    "WNBA Finals": []
   };
 
   games.forEach(game => {
@@ -207,10 +207,10 @@ function groupGamesByRoundUsingHeadline(games) {
       rounds["1st Round"].push(game);
     } else if (headline.includes("Semifinals")) {
       rounds["Semifinals"].push(game);
-    } else if (headline.includes("Finals") && !headline.includes("NBA Finals")) {
+    } else if (headline.includes("Finals") && !headline.includes("WNBA Finals")) {
       rounds["Finals"].push(game);
-    } else if (headline.includes("NBA Finals")) {
-      rounds["NBA Finals"].push(game);
+    } else if (headline.includes("WNBA Finals")) {
+      rounds["WNBA Finals"].push(game);
     }
   });
 
@@ -293,7 +293,7 @@ async function renderBracket(games, container) {
     container.className = "bracket-container";
   }
 
-  const standingsResponse = await fetch("https://cdn.espn.com/core/nba/standings?xhr=1");
+  const standingsResponse = await fetch("https://cdn.espn.com/core/wnba/standings?xhr=1");
   const standingsData = await standingsResponse.json();
   const standings = standingsData.content.standings.groups;
 
@@ -308,7 +308,7 @@ async function renderBracket(games, container) {
     roundTitle.textContent = roundName;
     roundDiv.appendChild(roundTitle);
 
-    if (roundGames.length === 0 && ["Semifinals", "Finals", "NBA Finals"].includes(roundName)) {
+    if (roundGames.length === 0 && ["Semifinals", "Finals", "WNBA Finals"].includes(roundName)) {
       const tbaCardCount = roundName === "Semifinals" ? 2 : 1; // Show 2 cards for Semifinals, 1 for others
 
       for (let i = 0; i < tbaCardCount; i++) {
@@ -327,7 +327,7 @@ async function renderBracket(games, container) {
           tbaCard.style.marginTop = "180px";
         }
 
-        if (roundName === "NBA Finals") {
+        if (roundName === "WNBA Finals") {
           tbaCard.innerHTML = `
             <div style="font-size: 1.5em; font-weight: bold; margin-bottom: 5px;">CHAMPIONSHIP</div>
             <div style="font-size: 1.2em; margin-bottom: 5px;">${roundName}</div>
@@ -426,7 +426,7 @@ async function renderBracket(games, container) {
         matchupRow.style.marginTop = "190px"; // Adjust spacing for top and bottom cards
       } else if (roundName === "1st Round") {
         matchupRow.style.marginTop = index === 2 ? "50px" : "10px"; // Adjust spacing for top and bottom cards
-      } else if (roundName === "NBA Finals") {
+      } else if (roundName === "WNBA Finals") {
         matchupRow.style.marginLeft = "-25px";
         matchupRow.style.padding = "20px";
         matchupRow.style.width = "270px";
@@ -443,7 +443,7 @@ async function renderBracket(games, container) {
         matchupRow.style.boxShadow = `0 0px 8px rgba(${parseInt(awayTeam.color.slice(0, 2), 16)}, ${parseInt(awayTeam.color.slice(2, 4), 16)}, ${parseInt(awayTeam.color.slice(4, 6), 16)}, 0.8)`;
       }
 
-      if (roundName === "NBA Finals") {
+      if (roundName === "WNBA Finals") {
         matchupRow.innerHTML = `
           <div style="font-size: 1.5em; font-weight: bold; margin-bottom: 5px;">CHAMPIONSHIP</div>
           <div style="font-size: 1.2em; margin-bottom: 5px;">${seriesInfo}</div>
@@ -505,13 +505,13 @@ async function renderBracket(games, container) {
 
   const eastRounds = renderConferenceRounds(rounds.east, "east");
   const westRounds = renderConferenceRounds(rounds.west, "west");
-  const finalsDiv = renderRoundColumn(rounds.finals, "NBA Finals", "finals");
+  const finalsDiv = renderRoundColumn(rounds.finals, "WNBA Finals", "finals");
 
   // Append rounds in the correct horizontal order
   container.appendChild(westRounds[0]); // West 1st Round
   container.appendChild(westRounds[1]); // West Semifinals
   container.appendChild(westRounds[2]); // West Finals
-  container.appendChild(finalsDiv);     // NBA Finals
+  container.appendChild(finalsDiv);     // WNBA Finals
   container.appendChild(eastRounds[2]); // East Finals
   container.appendChild(eastRounds[1]); // East Semifinals
   container.appendChild(eastRounds[0]); // East 1st Round
@@ -522,7 +522,7 @@ function getRoundTitle(roundType) {
     case 4: return "1st Round";
     case 3: return "Semifinals";
     case 2: return "Finals";
-    case 1: return "NBA Finals";
+    case 1: return "WNBA Finals";
     default: return "Unknown Round";
   }
 }

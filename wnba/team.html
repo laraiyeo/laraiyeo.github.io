@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>OBS Embed View - NBA Live Tracker</title>
+  <title>OBS Embed View - WNBA Live Tracker</title>
   <link rel="icon" href="icon.png" type="image/png" />
   <link rel="stylesheet" href="style.css"/>
   <style>
@@ -51,7 +51,7 @@
 
     async function fetchAndRenderTeamGame(teamAbbreviation) {
       const adjustedDate = getAdjustedDateForNBA();
-      const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${adjustedDate}`;
+      const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${adjustedDate}`;
 
       try {
         const res = await fetch(SCOREBOARD_API_URL);
@@ -64,7 +64,7 @@
         );
 
         if (!game) {
-          const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
+          const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams";
           const teamsRes = await fetch(TEAMS_API_URL);
           const teamsData = await teamsRes.json();
           const team = teamsData.sports[0].leagues[0].teams
@@ -74,7 +74,7 @@
             logo.rel.includes(
               ["26"].includes(team.id) ? 'secondary_logo_on_secondary_color' : 'primary_logo_on_primary_color'
             )
-          )?.href || `https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/${team.abbreviation}.png`;
+          )?.href || `https://a.espncdn.com/i/teamlogos/wnba/500-dark/${team.abbreviation}.png`;
           const noGameCard = document.createElement("div");
           noGameCard.className = "game-card no-game-card";
           noGameCard.style.display = "flex";

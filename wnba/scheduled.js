@@ -1,4 +1,17 @@
-const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
+const CORS_PROXY = "https://corsproxy.io/?url=";
+const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams";
+
+async function getLogoUrl(teamTriCode) {
+  return `${CORS_PROXY}https://assets.wnba.com/logos/wnba/svg/${teamTriCode}_dark.svg`;
+}
+
+function wrapTeamName(name) {
+  const words = name.split(" ");
+  if (words.length > 1) {
+    return `${words[0][0]}. ${words.slice(1).join(" ")}`;
+  }
+  return name;
+}
 
 function getAdjustedDateForNBA() {
   const now = new Date();
@@ -18,11 +31,9 @@ function adjustTeamShortName(shortName) {
   return shortName;
 }
 
-async function buildGameCard(game) {
+async function buildScheduledGameCard(game) {
   const homeTeam = game.competitions[0].competitors.find(c => c.homeAway === "home")?.team;
   const awayTeam = game.competitions[0].competitors.find(c => c.homeAway === "away")?.team;
-  const homeScore = game.competitions[0].competitors.find(c => c.homeAway === "home")?.score || "0";
-  const awayScore = game.competitions[0].competitors.find(c => c.homeAway === "away")?.score || "0";
 
   const homeTeamShortName = adjustTeamShortName(homeTeam?.shortDisplayName || "Unknown");
   const awayTeamShortName = adjustTeamShortName(awayTeam?.shortDisplayName || "Unknown");
@@ -37,32 +48,29 @@ async function buildGameCard(game) {
       ? game.competitions[0].competitors.find(c => c.homeAway === "away")?.record || (game.competitions[0].competitors.find(c => c.homeAway === "away")?.record.split("-").reverse().join("-") || "0-0")
       : game.competitions[0].competitors.find(c => c.homeAway === "away")?.records?.find(r => r.type === "total")?.summary || "0-0";
 
-  const homeIsWinner = parseInt(homeScore) > parseInt(awayScore);
-  const awayIsWinner = parseInt(awayScore) > parseInt(homeScore);
+  const startTime = new Date(game.date).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
 
   const headline = game.competitions[0].notes?.find(note => note.type === "event")?.headline || "";
 
   return `
-    <div class="game-card final-game-card" style="margin-top: -20px; margin-bottom: 20px;">
+    <div class="game-card" style="margin-top: -20px; margin-bottom: 20px;">
       <div class="game-headline">${headline}</div>
       <div class="game-content">
         <div class="team away-team">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <img src="${awayTeam?.logo || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
-            <span class="card-team-score" style="${awayIsWinner ? "font-weight: bold;" : ""}">${awayScore}</span>
-          </div>
+          <img src="${awayTeam?.logo || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
           <div class="card-team-name">${awayTeamShortName}</div>
           <div class="card-team-record">${awayRecord}</div>
         </div>
         <div class="game-info">
-          <div class="line"></div>
-          <div class="game-status">Final</div>
+          <div class="game-status">Scheduled</div>
+          <div class="game-time">${startTime}</div>
         </div>
         <div class="team home-team">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span class="card-team-score" style="${homeIsWinner ? "font-weight: bold;" : ""}">${homeScore}</span>
-            <img src="${homeTeam?.logo || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
-          </div>
+          <img src="${homeTeam?.logo || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
           <div class="card-team-name">${homeTeamShortName}</div>
           <div class="card-team-record">${homeRecord}</div>
         </div>
@@ -71,15 +79,15 @@ async function buildGameCard(game) {
   `;
 }
 
-async function loadFinishedGames() {
+async function loadScheduledGames() {
   try {
     const adjustedDate = getAdjustedDateForNBA();
-    const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${adjustedDate}`;
+    const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${adjustedDate}`;
     const response = await fetch(SCOREBOARD_API_URL);
     const data = await response.json();
 
     const games = data.events || [];
-    const finishedGames = games.filter(game => game.status.type.description === "Final");
+    const scheduledGames = games.filter(game => game.status.type.description === "Scheduled");
 
     const container = document.getElementById("gamesContainer");
     if (!container) {
@@ -89,27 +97,22 @@ async function loadFinishedGames() {
 
     container.innerHTML = ""; // Clear any existing content
 
-    if (finishedGames.length === 0) {
-      container.innerHTML = `<div class="game-card" style="margin-top: -20px;">No finished games yet.</div>`;
+    if (scheduledGames.length === 0) {
+      container.innerHTML = `<div class="game-card" style="margin-top: -20px;">No scheduled games at the moment.</div>`;
       return;
     }
 
-    for (const game of finishedGames) {
-      const gameCardHtml = await buildGameCard(game);
+    for (const game of scheduledGames) {
+      const gameCardHtml = await buildScheduledGameCard(game);
       const gameCard = document.createElement("div");
       gameCard.innerHTML = gameCardHtml;
-
-      // Add event listener to redirect to scoreboard.html
-      gameCard.addEventListener("click", () => {
-        window.location.href = `scoreboard.html?gameId=${game.id}`;
-      });
 
       container.appendChild(gameCard);
     }
   } catch (error) {
-    console.error("Error loading finished games:", error);
+    console.error("Error loading scheduled games:", error);
   }
 }
 
-loadFinishedGames();
-setInterval(loadFinishedGames, 2000);
+loadScheduledGames();
+setInterval(loadScheduledGames, 2000);

@@ -135,6 +135,11 @@ body {
     background-image: url('nba.png');
 }
 
+.block-wnba {
+    background-image: url('wnba.png');
+    background-size: 1750px;
+}
+
 .block-soccer {
     background-image: url('soccer.png');
 }
@@ -146,5 +151,9 @@ body {
 @media (max-width: 475px) {
 .responsive-block-content {
       margin-top: -10px;
+    }
+
+    .block-wnba, .block {
+        background-size: cover;
     }
 }

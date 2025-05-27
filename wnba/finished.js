@@ -1,4 +1,4 @@
-const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
+const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams";
 
 function getAdjustedDateForNBA() {
   const now = new Date();
@@ -74,7 +74,7 @@ async function buildGameCard(game) {
 async function loadFinishedGames() {
   try {
     const adjustedDate = getAdjustedDateForNBA();
-    const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${adjustedDate}`;
+    const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${adjustedDate}`;
     const response = await fetch(SCOREBOARD_API_URL);
     const data = await response.json();
 

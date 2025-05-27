@@ -1,6 +1,6 @@
 # ⚾🏒🏀⚽ Live Tracker
 
-Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for real-time **MLB, NHL, NBA and Soccer** updates and seamless OBS integration.
+Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for real-time **MLB, NHL, NBA, WNBA and Soccer** updates and seamless OBS integration.
 
 🔗 **Live Tracker Site**: [https://laraiyeo.github.io/index.html](https://laraiyeo.github.io/index.html)  
 💻 **Source Code**: [GitHub Repository](https://github.com/laraiyeo/laraiyeo.github.io)  
@@ -11,14 +11,14 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 ## 🧩 Features
 
 - **Live Game Dashboard**  
-  Real-time display of active MLB, NHL, NBA and Soccer games with:
-  - Inning progress for MLB (TOP and BOT with inning number), Period/Quarter progress for NHL and NBA (Time remaining in period/quarter and specifc period/quarter number), and Half progress for Soccer (Current match time as well as current half)
+  Real-time display of active MLB, NHL, NBA, WNBA and Soccer games with:
+  - Inning progress for MLB (TOP and BOT with inning number), Period/Quarter progress for NHL, NBA, and WNBA (Time remaining in period/quarter and specifc period/quarter number), and Half progress for Soccer (Current match time as well as current half)
   - Base runners logic for MLB (Bases light up when runner is present)
   - Visual balls/strikes/outs tracker for MLB
 
   **Scoreboard**
   - Visual scoreboard for MLB with inning progress, team scores, base runners, current outs, current play description and player stats. It will also grey out any player who is benched
-  - Visual scoreboard for NHL and NBA with Period/Quarter progress, team scores, time remaining in period/quarter, play description and player stats. There will be a 🟢 beside players who are currently on the ice/court
+  - Visual scoreboard for NHL, NBA and WNBA with Period/Quarter progress, team scores, time remaining in period/quarter, play description and player stats. There will be a 🟢 beside players who are currently on the ice/court
   - Visual scoreboard for Soccer with half progress, team scores, current match time, play description, a visual football pitch with real team lineups as well as a substitute section that shows subs and will display when they come on the pitch
 
 - **Game Schedules & Results**  
@@ -27,7 +27,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
   - View scheduled and completed games for the week specifically for soccer
 
 - **Team Tracker**  
-  - All 30 teams shown at once for MLB and NBA and all 32 teams shown at once for NHL
+  - All 30 teams shown at once for MLB and NBA, all 13 teams shown at once for WNBA and all 32 teams shown at once for NHL
   - Includes all teams from Premier League, La Liga, Bundesliga, Serie A and Ligue 1. For UEFA, it includes teams currently in Champions League, Europa League and Europa Conference League
   - See each team’s game status
   - Click on a team logo to get a unique URL for OBS
@@ -65,7 +65,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 2. Click the team container of the team you want to integrate into obs
 3. **Open OBS Studio**
 4. Click the ➕ under *Sources*, and choose **Browser**
-5. Name it (e.g. `MLB Tracker`, `NHL Tracker`, `NBA Tracker` or `Soccer Tracker`) and paste the URL (do not change the width and height)  
+5. Name it (e.g. `MLB Tracker`, `NHL Tracker`, `NBA Tracker`, `WNBA Tracker` or `Soccer Tracker`) and paste the URL (do not change the width and height)  
 6. Click **OK**
 7. When the card is showing properly in obs, you can shrink or enlarge the card from the profile screen
 
@@ -79,6 +79,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - (5/03/2025) Added standings page for all sports that shows current team standings in their respective division and conference
 - **(5/08/2025) Added fully function Soccer and UEFA tracker**
 - (5/12/2025) Added playoff bracket page to NBA. Coming soon to NHL and MLB.
+- **(5/27/2025) Added fully functional WNBA tracker**
 
 ---
 

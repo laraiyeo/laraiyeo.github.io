@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WNBA Standings</title>
+  <link rel="icon" href="icon.png" type="image/png" />
+  <link rel="stylesheet" href="style-2.css" />
+</head>
+<body>
+  <div id="navbar-container"></div>
+
+  <div id="standingsContainer">
+    <div id="leagueRanking" class="standings-section">
+      <h2>League Ranking</h2>
+      <div class="league-box">
+        <div id="easternConference" class="league">
+          <h3>Eastern Conference</h3>
+          <div id="easternConferenceStandings" class="division-standings"></div>
+        </div>
+        <div id="westernConference" class="league">
+          <h3>Western Conference</h3>
+          <div id="westernConferenceStandings" class="division-standings"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="navbarLoader.js"></script>
+  <script src="navbar.js"></script>
+  <script src="standings.js"></script>
+  <div id="footer-container"></div>
+    <script>
+      fetch("footer.html")
+        .then(response => response.text())
+        .then(html => {
+          document.getElementById("footer-container").innerHTML = html;
+        });
+    </script>
+</body>
+</html>

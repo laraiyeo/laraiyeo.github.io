@@ -1,4 +1,4 @@
-const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
+const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams";
 
 function getAdjustedDateForNBA() {
   const now = new Date();
@@ -31,7 +31,7 @@ function hashString(str) {
 let lastScheduleHash = null;
 
 async function buildGameCard(game, team) {
-  const logoUrl = team?.logos?.find(logo => logo.rel.includes('primary_logo_on_black_color'))?.href || `https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/${team.abbreviation}.png`;
+  const logoUrl = team?.logos?.find(logo => logo.rel.includes('primary_logo_on_black_color'))?.href || `https://a.espncdn.com/i/teamlogos/wnba/500-dark/${team.abbreviation}.png`;
 
   function getOrdinalSuffix(num) {
     if (num % 100 >= 11 && num % 100 <= 13) return `${num}th`;
@@ -209,7 +209,7 @@ async function buildGameCard(game, team) {
 async function fetchAndDisplayTeams() {
   try {
     const adjustedDate = getAdjustedDateForNBA();
-    const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${adjustedDate}`;
+    const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${adjustedDate}`;
 
     const response = await fetch(TEAMS_API_URL);
     const data = await response.json();
@@ -238,11 +238,14 @@ async function fetchAndDisplayTeams() {
     container.innerHTML = ""; // Clear any existing content
 
     for (const team of teams) {
+      if (team.abbreviation === "TOY") {
+        ""
+      } else {
       const logoUrl = team.logos?.find(logo =>
         logo.rel.includes(
           ["26"].includes(team.id) ? 'secondary_logo_on_secondary_color' : 'primary_logo_on_primary_color'
         )
-      )?.href || `https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/${team.abbreviation}.png`;
+      )?.href || `https://a.espncdn.com/i/teamlogos/wnba/500-dark/${team.abbreviation}.png`;
 
       const teamCard = document.createElement("div");
       teamCard.className = "team-card";
@@ -266,7 +269,7 @@ async function fetchAndDisplayTeams() {
 
       // Add OBS link copying functionality
       teamCard.addEventListener("click", async () => {
-        const url = `https://laraiyeo.github.io/nba/team.html?team=${encodeURIComponent(team.abbreviation)}`;
+        const url = `https://laraiyeo.github.io/wnba/team.html?team=${encodeURIComponent(team.abbreviation)}`;
         try {
           await navigator.clipboard.writeText(url);
           alert(`OBS link copied for ${team.displayName}: ${url}`);
@@ -277,8 +280,9 @@ async function fetchAndDisplayTeams() {
 
       container.appendChild(teamCard);
     }
+  }
   } catch (error) {
-    console.error("Error fetching NBA teams or games:", error);
+    console.error("Error fetching WNBA teams or games:", error);
   }
 }
 
