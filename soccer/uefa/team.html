@@ -35,7 +35,41 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const teamId = params.get("team");
+    let promoActive = false;
     let currentHtml = "";
+
+    async function showPromoCard() {
+      const container = document.getElementById("gameBlockContainer");
+      const promoCard = document.createElement("div");
+      promoCard.className = "game-card promo-card";
+      promoCard.style.display = "flex";
+      promoCard.style.alignItems = "center";
+      promoCard.style.gap = "25px";
+      promoCard.style.padding = "20px";
+      promoCard.innerHTML = `
+        <img src="../../assets/cover.jpg" alt="WOAH Cover" style="width: 48px; height: 48px; border-radius: 8px;">
+        <div style="font-weight: bold; font-size: 1.1em; margin-left:20px; margin-right:-10px;">
+          Stream W O A H <br>
+          <span style="font-size:0.8em;">by DamiV12</span>
+          <div style="margin-top: 5px; margin-left:28px; display: flex; gap: 15px;">
+            <img src="../../assets/logo1.png" alt="Logo 1" style="height: 14px;">
+            <img src="../../assets/logo2.png" alt="Logo 2" style="height: 14px;">
+            <img src="../../assets/logo3.png" alt="Logo 3" style="height: 14px;">
+          </div>
+        </div>
+      `;
+      const newHtml = promoCard.innerHTML;
+      if (newHtml !== currentHtml) {
+        container.innerHTML = "";
+        container.appendChild(promoCard);
+        currentHtml = newHtml;
+      }
+    }
+
+    async function fetchAndRenderTeamGameWithPromo(teamId) {
+      if (promoActive) return;
+      await fetchAndRenderTeamGame(teamId);
+    }
 
     async function fetchAndRenderTeamGame(teamId) {
       const tuesdayRange = getTuesdayRange();
@@ -106,8 +140,28 @@
 
     script.onload = () => {
       if (teamId) {
-        fetchAndRenderTeamGame(teamId);
-        setInterval(() => fetchAndRenderTeamGame(teamId), 2000);
+        let lastPromo = Date.now();
+        let showingPromo = false;
+
+        // Show the game card immediately on load
+        fetchAndRenderTeamGameWithPromo(teamId);
+
+        setInterval(async () => {
+          const now = Date.now();
+          if (!showingPromo && now - lastPromo >= 900000) {
+            showingPromo = true;
+            promoActive = true;
+            await showPromoCard();
+            setTimeout(async () => {
+              promoActive = false;
+              showingPromo = false;
+              lastPromo = Date.now();
+              await fetchAndRenderTeamGameWithPromo(teamId);
+            }, 10000);
+          } else if (!showingPromo) {
+            await fetchAndRenderTeamGameWithPromo(teamId);
+          }
+        }, 2000);
       }
     };
   </script>
