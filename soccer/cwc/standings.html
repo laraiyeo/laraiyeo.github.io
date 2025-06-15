@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CWC Standings</title>
+    <link rel="icon" href="../soccer-ball-png-24.png" type="image/png" />
+    <link rel="stylesheet" href="../style-2.css" />
+    <style>
+      .groups-wrapper {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 20px;
+        padding: 20px;
+        max-width: 1600px;
+        margin: 0 auto;
+      }
+
+      .group-box {
+        background-color: #ebebeb;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .group-box h4 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        color: #333;
+        text-align: center;
+        font-size: 1.2rem;
+        border-bottom: 2px solid #ddd;
+        padding-bottom: 10px;
+      }
+
+      @media (max-width: 1200px) {
+        .groups-wrapper {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      @media (max-width: 768px) {
+        .groups-wrapper {
+          grid-template-columns: 1fr;
+          padding: 10px;
+        }
+        
+        .group-box {
+          padding: 10px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="navbar-container"></div>
+
+    <div id="standings">
+      <h2>Standings</h2>
+      <div id="standingsContainer" class="division-standings"></div>
+    </div>
+
+    <script src="navbarLoader.js"></script>
+    <script src="navbar.js"></script>
+    <script src="standings.js"></script>
+    <div id="footer-container"></div>
+    <script>
+      fetch("footer.html")
+        .then(response => response.text())
+        .then(html => {
+          document.getElementById("footer-container").innerHTML = html;
+        });
+    </script>
+  </body>
+</html>
+  </body>
+</html>

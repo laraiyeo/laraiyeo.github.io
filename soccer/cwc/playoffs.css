@@ -1,0 +1,468 @@
+/* ...existing styles from c:\live-sports-tracker\soccer\uefa\playoffs.css... */
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: #000000;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+}
+
+.navbar {
+  background-color: #000;
+  color: white;
+  padding: 20px 0;
+  display: flex;
+  justify-content: center;
+  position: sticky;
+  top: 0;
+  width: 100%;
+  z-index: 1000;
+}
+
+.navbar-content {
+  width: 100%;
+  max-width: 100vw;
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-left {
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.nav-right {
+  display: flex;
+  gap: 20px;
+}
+
+.nav-link {
+  color: white;
+  text-decoration: none;
+  font-size: 1rem;
+}
+
+.nav-link.active {
+  color: #888;
+  font-weight: bold;
+}
+
+.nav-link:hover {
+  text-decoration: underline;
+}
+
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  gap: 4px;
+}
+
+.nav-toggle .bars {
+  width: 25px;
+  height: 3px;
+  background-color: white;
+}
+
+.dropdown-menu {
+  display: none;
+  flex-direction: column;
+  position: absolute;
+  top: 60px;
+  right: 20px;
+  background-color: #000;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+}
+
+.dropdown-menu.active {
+  display: flex;
+}
+
+.dropdown-link {
+  color: white;
+  text-decoration: none;
+  padding: 10px 20px;
+  text-align: center;
+}
+
+.dropdown-link:hover {
+  background-color: #333;
+}
+
+.dropdown-link.active {
+  background-color: #444;
+  font-weight: bold;
+}
+
+#bracket {
+  background: #ebebeb;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 1px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+.bracket-container {
+  margin-top: 50px;
+  display: flex;
+  justify-content: space-between;
+  background: #ebebeb;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  flex-grow: 1;
+  overflow-x: hidden;
+}
+
+.conference {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 30%;
+}
+
+.left-conference {
+  align-items: flex-start;
+}
+
+.right-conference {
+  align-items: flex-end;
+}
+
+.finals-conference {
+  width: 40%;
+  align-items: center;
+}
+
+.conference-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #333;
+  text-align: center;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #ddd;
+  padding-bottom: 10px;
+}
+
+.rounds-container {
+  display: flex;
+  gap: 20px;
+}
+
+.bracket-round {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 180px;
+  min-width: 180px;
+}
+
+.round-title {
+  font-size: 1.2em;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+.bracket-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+  margin-bottom: 15px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.bracket-row:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.tba-card {
+  background-color: #f9f9f9;
+  border: 2px dashed #ccc;
+  color: #666;
+  text-align: center;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  cursor: default;
+}
+
+.tba-card:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.series-info {
+  font-size: 0.9rem;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 10px;
+  color: #555;
+}
+
+.team-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid #eee;
+  gap: 8px;
+  font-size: 1em;
+}
+
+.team-row:last-child {
+  border-bottom: none;
+}
+
+.team-logo-small {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.team-seed {
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: normal;
+  min-width: 15px;
+  text-align: center;
+}
+
+.team-name {
+  font-weight: bold;
+  flex-grow: 1;
+  margin-left: 5px;
+  color: #000;
+  text-align: left;
+}
+
+.team-record {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #000000;
+  min-width: 20px;
+  text-align: right;
+}
+
+/* Finals specific styling like NBA */
+.bracket-row.finals {
+  margin-top: 190px;
+  margin-left: 0; /* Remove the negative margin that was pushing it right */
+  padding: 20px;
+  width: 270px;
+  border: 2px solid #ccc;
+  border-radius: 10px;
+  background-color: #f9f9f9;
+  text-align: center;
+  margin-right: auto;
+  margin-left: auto; /* Center the finals card properly */
+}
+
+.finals-title {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+.finals-matchup {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin-top: 10px;
+}
+
+.team-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.record {
+  font-weight: bold;
+  font-size: 2rem;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+.team-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.abbrev {
+  font-weight: bold;
+  color: #333;
+}
+
+.vs {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #666;
+  align-self: center;
+}
+
+/* NBA-style spacing adjustments */
+.bracket-row.finals {
+  margin-top: 190px;
+  margin-left: -70px;
+  padding: 20px;
+  width: 270px;
+  border: 2px solid #ccc;
+  border-radius: 10px;
+  background-color: #f9f9f9;
+  text-align: center;
+}
+
+.footer {
+  background-color: #000;
+  color: white;
+  text-align: center;
+  padding: 10px 0;
+  font-size: 1rem;
+  position: relative;
+  bottom: 0;
+  width: 100%;
+}
+
+.footer-link {
+  color: white;
+  text-decoration: none;
+  margin: 0 10px;
+}
+
+.footer-link:hover {
+  color: #888;
+}
+
+/* Group standings specific styles */
+.groups-wrapper {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 20px;
+  padding: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.group-box {
+  background-color: #1e1e1e;
+  border-radius: 1.5rem;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.group-box h4 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #ddd;
+  text-align: center;
+}
+
+.legend-container {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.legend-description {
+  color: #ccc;
+}
+
+@media (max-width: 768px) {
+  .bracket-container {
+    flex-direction: row;
+    overflow-x: auto;
+    width: 100vw;
+    min-width: 1200px;
+    padding: 10px 0;
+  }
+
+  .conference {
+    min-width: 300px;
+    width: auto;
+    flex: 0 0 auto;
+    margin-right: 20px;
+  }
+
+  .finals-conference {
+    min-width: 250px;
+  }
+
+  .rounds-container {
+    min-width: 600px;
+  }
+
+  .bracket-round {
+    min-width: 180px;
+    width: 200px;
+    flex: 0 0 auto;
+    margin-right: 10px;
+  }
+
+  .bracket-row.finals {
+    width: 100%;
+    margin-left: -25px;
+  }
+}
+
+@media (max-width: 525px) {
+  .nav-right {
+    display: none;
+  }
+
+  .nav-toggle {
+    display: flex;
+  }
+
+  .dropdown-menu.active {
+    display: flex;
+  }
+
+  .nav-toggle {
+    display: flex;
+  }
+
+  .dropdown-menu.active {
+    display: flex;
+  }
+}

@@ -1,0 +1,95 @@
+/* ...existing styles from c:\live-sports-tracker\soccer\uefa\style.css... */
+
+.navbar .nav-left {
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.navbar .nav-right .nav-link {
+  color: white;
+  text-decoration: none;
+  font-size: 1rem;
+  margin-left: 20px;
+}
+
+.navbar .nav-right .nav-link:hover {
+  text-decoration: underline;
+}
+
+.playoff-container {
+  padding: 1rem;
+}
+
+.stage-header {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin: 1rem 0;
+  color: white;
+}
+
+.match-card {
+  background: #1a1a1a;
+  border-radius: 1rem;
+  padding: 1rem;
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.match-leg {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: grey;
+}
+
+.match-teams {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.team {
+  text-align: center;
+}
+
+.team-logo {
+  width: 60px;
+  height: 60px;
+  margin-bottom: 0.5rem;
+}
+
+.team-name {
+  font-size: 1rem;
+  font-weight: bold;
+  color: white;
+}
+
+.team-score {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: grey;
+}
+
+.footer {
+  background-color: #000;
+  color: white;
+  text-align: center;
+  padding: 10px 0;
+  font-size: 1rem;
+  position: relative;
+  bottom: 0;
+  width: 100%;
+}
+
+.footer-link {
+  color: white;
+  text-decoration: none;
+  margin: 0 10px;
+}
+
+.footer-link:hover {
+  color: #888;
+}

@@ -49,7 +49,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - **Soccer Specific**
   - When going to the soccer page from the main page, you will see 5 extra buttons under the navbar. These are for the leagues. Click on one and you will be seeing only league specific data for Live, Scheduled, Finished, Teams, and Standings.
   - There's no need to be re-clicking the league button when going to a new page through the navbar as it saves the league you're on to your local storage
-  - In the navbar of the soccer page, you will see UEFA. Clicking on it will take you to the UEFA Live Tracker page
+  - In the navbar of the soccer page, you will see UEFA and CWC. Clicking on it will take you to the UEFA or CWC Live Tracker page
   - Just like the other sports, you can click on a live game to see the scoreboard of that game. Hover over a players circle or name and you will see their current game stats.
 
 - **UEFA Specific**
@@ -57,6 +57,9 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
   - There is a Playoffs section in the navbar. Clicking on it will show you the all the teams in the selected league and their past rounds and matches. You can click on any of the match game cards to be taken to the respective scoreboard of that game
   - The UEFA scoreboard works the same as the soccer scoreboard
 
+- **Club World Cup Specific**
+  - In the standings page, it shows all 8 groups in the Club World Cup along with a legend to indicate which teams are moving on to the round of 16
+  - Just like in NBA, the Club World Cup section features a Bracket page so you can see the current bracket as well as what teams have advanced
 ---
 
 ## 🖥️ How to Use in OBS
@@ -80,6 +83,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - **(5/08/2025) Added fully function Soccer and UEFA tracker**
 - (5/12/2025) Added playoff bracket page to NBA. Coming soon to NHL and MLB.
 - **(5/27/2025) Added fully functional WNBA tracker**
+- **(06/14/2025) Added fully functional Club World Cup tracker**
 
 ---
 
@@ -89,7 +93,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - I've also had to change the fetch rate to 2 seconds as it was consuming too much data with a fetch rate of 1 second.
 - On the scoreboard page, if the user is on a phone screen and they turn it landscape, it will show the regular phone view (max 3 innings) in landscape until the next fetch. Vice versa for landscape to portrait.
 - For NHL scoreboard, at times it may show undefined for play-by-play. This is an issue from the api directly as it doesn't update some things immediately.
-- For Soccer and UEFA, the top scoreboard score and time as well as the play description might not update in real time. This is a problem caused by ESPN's api
+- For Soccer, UEFA, and CWC, the top scoreboard score and time as well as the play description might not update in real time. This is a problem caused by ESPN's api
 - NBA bracket page style on mobile is not proper
 
 ---

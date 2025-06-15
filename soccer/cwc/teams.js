@@ -1,10 +1,8 @@
 const LEAGUES = {
-  "Champions League": { code: "uefa.champions", logo: "2" },
-  "Europa League": { code: "uefa.europa", logo: "2310" },
-  "Europa Conference League": { code: "uefa.europa.conf", logo: "20296" },
+  "Club World Cup": { code: "fifa.cwc", logo: "19" },
 };
 
-let currentUefaLeague = localStorage.getItem("currentUefaLeague") || "uefa.champions"; // Default to Champions League
+let currentUefaLeague = localStorage.getItem("currentUefaLeague") || "fifa.cwc"; // Default to Club World Cup
 
 function getTuesdayRange() {
   const now = new Date();
@@ -38,9 +36,9 @@ let lastScheduleHash = null;
 
 async function fetchAndDisplayTeams() {
   try {
-    const TEAMS_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/teams`;
+    const TEAMS_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.cwc/teams`;
     const tuesdayRange = getTuesdayRange();
-    const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/scoreboard?dates=${tuesdayRange}`;
+    const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.cwc/scoreboard?dates=${tuesdayRange}`;
 
     const teamsResponse = await fetch(TEAMS_API_URL);
     const teamsData = await teamsResponse.json();
@@ -77,10 +75,11 @@ async function fetchAndDisplayTeams() {
     container.innerHTML = ""; // Clear any existing content
 
     for (const team of teams) {
-      // Skip teams with all-caps names
-      if (team.displayName === team.displayName.toUpperCase()) {
+      // Skip teams with Round of and América in their displayName
+      if (team.displayName.includes("Round of") || team.displayName.includes("América")) {
         continue;
       }
+
 
       const logoUrl = ["367", "2950"].includes(team.id)
         ? team.logos?.find(logo => logo.rel.includes("default"))?.href || ""
@@ -97,8 +96,8 @@ async function fetchAndDisplayTeams() {
 
       const teamCard = document.createElement("div");
       teamCard.className = "team-card";
-      teamCard.style.backgroundColor = ["2950", "3243", "435"].includes(team.id) ? `#${team.alternateColor}` : `#${team.color}`;
-      nameColorChange = ["ffffff", "ffee00", "ffff00", "81f733", "ffef32", "FCEE33"].includes(team.color) ? "black" : "white";
+      teamCard.style.backgroundColor = ["2950", "3243", "435", "929"].includes(team.id) ? `#${team.alternateColor}` : `#${team.color}`;
+      nameColorChange = ["ffffff", "ffee00", "ffff00", "81f733", "ffef32", "FCEE33", "ffff91", "1c31ce", "ffd700"].includes(team.color) ? "black" : "white";
 
       teamCard.innerHTML = `
         <div class="team-header">
@@ -110,7 +109,7 @@ async function fetchAndDisplayTeams() {
 
       // Add OBS link copying functionality
       teamCard.addEventListener("click", async () => {
-        const url = `https://laraiyeo.github.io/soccer/uefa/team.html?team=${encodeURIComponent(team.id)}`;
+        const url = `https://laraiyeo.github.io/soccer/cwc/team.html?team=${encodeURIComponent(team.id)}`;
         try {
           await navigator.clipboard.writeText(url);
           alert(`OBS link copied for ${team.displayName}: ${url}`);
@@ -123,9 +122,9 @@ async function fetchAndDisplayTeams() {
     }
 
     // Save the current league to localStorage
-    localStorage.setItem("currentUefaLeague", currentUefaLeague);
+    localStorage.setItem("currentUefaLeague", "fifa.cwc");
   } catch (error) {
-    console.error("Error fetching UEFA teams or games:", error);
+    console.error("Error fetching CWC teams or games:", error);
   }
 }
 
@@ -262,7 +261,7 @@ function buildGameCard(game, team) {
               <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${formatShortDisplayName(homeTeam.team.shortDisplayName)}</div>
             </div>
             <div style="text-align: center;">
-              <div style="font-size: 1.1rem; font-weight: bold; ${isAgg ? "margin-top:15px; margin-bottom:5px" : "margin-top: 20px; margin-bottom: 18px"};">Final</div>
+              <div style="font-size: 1.3rem; font-weight: bold; ${isAgg ? "margin-top:15px; margin-bottom:5px" : "margin-top: 20px; margin-bottom: 18px"};">Final</div>
               ${isAgg ? `<div style="font-size: 0.75rem; color: grey;">Agg: ${homeAgg} - ${awayAgg}</div>` : ""}
               <div style="font-size: 0.75rem; color: grey; margin-top: ${isAgg ? "15px; margin-bottom: 7.5px;" : "25px"};">${date}</div>
             </div>
@@ -290,8 +289,8 @@ function buildGameCard(game, team) {
               <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${formatShortDisplayName(homeTeam.team.shortDisplayName)}</div>
             </div>
             <div style="text-align: center;">
-              <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: ${isAgg ? "-10px; margin-top: 15px;" : "-18px"};">${game.status.type.shortDetail}</div>
-              <div style="font-size: 0.75rem; color: grey; margin-top: ${isAgg ? "15px; margin-bottom: 10px;" : "-10px"};">${game.status.type.description}</div>
+              <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: -10px; margin-top: 15px;">${game.status.type.shortDetail}</div>
+              <div style="font-size: 0.75rem; color: grey; margin-top: 15px; margin-bottom: 10px;">${game.status.type.description}</div>
               ${isAgg ? `<div style="font-size: 0.75rem; color: grey;">Agg: ${homeAgg} - ${awayAgg}</div>` : ""}
             </div>
             <div style="text-align: center;">
@@ -307,61 +306,10 @@ function buildGameCard(game, team) {
     }
   }
 
-function setupLeagueButtons() {
-  const leagueContainer = document.getElementById("leagueButtons");
-  if (!leagueContainer) {
-    console.error("Error: Element with ID 'leagueButtons' not found.");
-    return;
-  }
-
-  leagueContainer.innerHTML = ""; // Clear any existing content
-
-  for (const [leagueName, leagueData] of Object.entries(LEAGUES)) {
-    const button = document.createElement("button");
-    button.className = `league-button ${currentUefaLeague === leagueData.code ? "active" : ""}`;
-    button.innerHTML = `
-      <span class="league-text">${leagueName}</span>
-      <img class="league-logo" src="https://a.espncdn.com/i/leaguelogos/soccer/500-dark/${leagueData.logo}.png" alt="${leagueName}" style="display: none;">
-    `;
-    button.addEventListener("click", () => {
-      currentUefaLeague = leagueData.code;
-
-      // Save the current league to localStorage
-      localStorage.setItem("currentUefaLeague", currentUefaLeague);
-
-      // Update active state
-      document.querySelectorAll(".league-button").forEach(btn => btn.classList.remove("active"));
-      button.classList.add("active");
-
-      fetchAndDisplayTeams();
-    });
-
-    leagueContainer.appendChild(button);
-  }
-
-  updateLeagueButtonDisplay(); // Adjust button display based on screen size
-}
-
-function updateLeagueButtonDisplay() {
-  const isSmallScreen = window.innerWidth < 525;
-  document.querySelectorAll(".league-button").forEach(button => {
-    const text = button.querySelector(".league-text");
-    const logo = button.querySelector(".league-logo");
-    if (isSmallScreen) {
-      text.style.display = "none";
-      logo.style.display = "inline";
-    } else {
-      text.style.display = "inline";
-      logo.style.display = "none";
-    }
-  });
-}
-
 // Ensure the default league is loaded when the page is opened
 window.addEventListener("DOMContentLoaded", () => {
   fetchAndDisplayTeams();
 });
 
-setupLeagueButtons();
 fetchAndDisplayTeams();
 setInterval(fetchAndDisplayTeams, 2000);
