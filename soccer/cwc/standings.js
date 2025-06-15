@@ -38,13 +38,10 @@ async function fetchStandings() {
       return;
     }
 
-    // Update the header to reflect the current league
+    // Update the header to reflect the current league - fixed to use correct league name
     const header = document.querySelector("#standings h2");
-    const currentUefaLeagueName = Object.keys(LEAGUES).find(
-      leagueName => LEAGUES[leagueName].code === currentUefaLeague
-    );
     if (header) {
-      header.textContent = `${currentUefaLeagueName} Standings`;
+      header.textContent = `Club World Cup Standings`;
     }
 
     renderGroupStandings(allGroups);

@@ -46,9 +46,9 @@ async function loadLiveGames() {
       return;
     }
 
-    const noGamesMessage = document.querySelector(".no-games");
-    if (noGamesMessage) {
-      noGamesMessage.remove(); // Remove the "No live games" message if it exists
+    // If no live games exist and no elements are present, display a "no games" message
+    if (liveGames.length === 0 && container.children.length === 0) {
+      container.innerHTML = `<div class="live-game-block no-games"><p>No live games in progress.</p></div>`;
     }
 
     const currentGameIds = new Set();
@@ -109,11 +109,6 @@ async function loadLiveGames() {
         element.remove();
         liveGameElements.delete(gameId);
       }
-    }
-
-    // If no live games exist and no elements are present, display a "no games" message
-    if (liveGames.length === 0 && container.children.length === 0) {
-      container.innerHTML = `<div class="live-game-block no-games"><p>No live games in progress.</p></div>`;
     }
   } catch (err) {
     console.error("Error loading live games:", err);

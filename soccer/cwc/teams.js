@@ -63,13 +63,10 @@ async function fetchAndDisplayTeams() {
       return;
     }
 
-    // Update the header to reflect the current league
+    // Update the header to reflect the current league - fixed to use correct league name
     const header = document.querySelector("#scoreboard h2");
-    const currentUefaLeagueName = Object.keys(LEAGUES).find(
-      leagueName => LEAGUES[leagueName].code === currentUefaLeague
-    );
     if (header) {
-      header.textContent = `All Teams - ${currentUefaLeagueName}`;
+      header.textContent = `All Teams - Club World Cup`;
     }
 
     container.innerHTML = ""; // Clear any existing content
@@ -166,9 +163,7 @@ function buildGameCard(game, team) {
         }
     }
 
-    const leagueName = Object.keys(LEAGUES).find(
-      leagueName => LEAGUES[leagueName].code === currentUefaLeague
-    );
+    const leagueName = "Club World Cup"; // Direct assignment instead of lookup
   
     const formatShortDisplayName = (name) => {
       if (name === "Bournemouth") return "B'Mouth";

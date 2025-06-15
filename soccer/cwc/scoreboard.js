@@ -1,10 +1,8 @@
 const LEAGUES = {
-  "Champions League": { code: "uefa.champions", logo: "2" },
-  "Europa League": { code: "uefa.europa", logo: "2310" },
-  "Europa Conference League": { code: "uefa.europa.conf", logo: "20296" },
+  "Club World Cup": { code: "fifa.cwc", logo: "19" },
 };
 
-let currentUefaLeague = localStorage.getItem("currentUefaLeague") || "uefa.champions"; // Default to Champions League
+let currentUefaLeague = localStorage.getItem("currentUefaLeague") || "fifa.cwc"; // Default to Club World Cup
 
 function getAdjustedDateForSoccer() {
   const now = new Date();
