@@ -44,7 +44,7 @@ function buildGameCard(game) {
   const homeTeam = game.competitions[0].competitors.find(c => c.homeAway === "home");
   const awayTeam = game.competitions[0].competitors.find(c => c.homeAway === "away");
 
-  const leagueName = "Club World Cup"; // Direct assignment instead of lookup
+  const leagueCWC = "Club World Cup"; // Direct assignment instead of lookup
 
   const record = game.competitions[0].competitors.map(c => c.homeAway === "home" ? c.records[0].summary : c.records[0].summary)[0];
   const numbers = record.split("-").map(Number);
@@ -73,7 +73,7 @@ function buildGameCard(game) {
 
   return `
       <div class="game-card">
-        <div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName} - ${formatted}</div>
+        <div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueCWC} - ${formatted}</div>
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
             <img src="${getTeamLogo(homeTeam.team)}" alt="${homeTeam.team.displayName}" style="width: 60px; height: 60px; margin-bottom: 6px;">

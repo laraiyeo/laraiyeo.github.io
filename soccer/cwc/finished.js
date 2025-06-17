@@ -44,7 +44,7 @@ function buildGameCard(game) {
   const homeTeam = game.competitions[0].competitors.find(c => c.homeAway === "home");
   const awayTeam = game.competitions[0].competitors.find(c => c.homeAway === "away");
 
-  const leagueName = "Club World Cup"; // Direct assignment instead of lookup
+  const leagueCWC = "Club World Cup"; // Direct assignment instead of lookup
 
   const homeIsWinner = homeTeam.score > awayTeam.score;
   const awayIsWinner = awayTeam.score > homeTeam.score;
@@ -75,7 +75,7 @@ function buildGameCard(game) {
 
   return `
       <div class="game-card">
-        <div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName} - ${formatted}</div>
+        <div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueCWC} - ${formatted}</div>
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
