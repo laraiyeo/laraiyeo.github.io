@@ -6,20 +6,20 @@ let currentUefaLeague = localStorage.getItem("currentUefaLeague") || "fifa.cwc";
 
 function getTuesdayRange() {
   const now = new Date();
-  const dayOfWeek = now.getDay();
-  const daysToLastTuesday = (dayOfWeek + 5) % 7; // Days since the last Tuesday
-  const lastTuesday = new Date(now);
-  lastTuesday.setDate(now.getDate() - daysToLastTuesday);
+  const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  const daysToLastSunday = dayOfWeek; // Days since the last Sunday
+  const lastSunday = new Date(now);
+  lastSunday.setDate(now.getDate() - daysToLastSunday);
 
-  const nextMonday = new Date(lastTuesday);
-  nextMonday.setDate(lastTuesday.getDate() + 6);
+  const nextSaturday = new Date(lastSunday);
+  nextSaturday.setDate(lastSunday.getDate() + 6);
 
   const formatDate = date =>
     date.getFullYear() +
     String(date.getMonth() + 1).padStart(2, "0") +
     String(date.getDate()).padStart(2, "0");
 
-  return `${formatDate(lastTuesday)}-${formatDate(nextMonday)}`;
+  return `${formatDate(lastSunday)}-${formatDate(nextSaturday)}`;
 }
 
 function hashString(str) {
