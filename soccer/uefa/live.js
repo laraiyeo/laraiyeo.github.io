@@ -32,6 +32,12 @@ const liveGameElements = new Map();
 
 async function loadLiveGames() {
   try {
+    // Ensure we have a valid league set
+    if (!currentUefaLeague || !Object.values(LEAGUES).some(league => league.code === currentUefaLeague)) {
+      currentUefaLeague = "uefa.champions";
+      localStorage.setItem("currentUefaLeague", currentUefaLeague);
+    }
+
     const adjustedDate = getAdjustedDateForSoccer();
     const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/scoreboard?dates=${adjustedDate}`;
     const res = await fetch(SCOREBOARD_API_URL);
@@ -218,7 +224,14 @@ function updateLeagueButtonDisplay() {
 }
 
 window.addEventListener("resize", updateLeagueButtonDisplay);
+window.addEventListener("DOMContentLoaded", () => {
+  // Reset to default if coming from another page
+  if (!currentUefaLeague || !Object.values(LEAGUES).some(league => league.code === currentUefaLeague)) {
+    currentUefaLeague = "uefa.champions";
+    localStorage.setItem("currentUefaLeague", currentUefaLeague);
+  }
 
-setupLeagueButtons();
-loadLiveGames();
-setInterval(loadLiveGames, 2000);
+  setupLeagueButtons();
+  loadLiveGames();
+  setInterval(loadLiveGames, 2000);
+});

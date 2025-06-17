@@ -30,6 +30,12 @@ let lastPlayoffHash = null;
 
 async function fetchPlayoffTeams() {
   try {
+    // Ensure we have a valid league set
+    if (!currentUefaLeague || !Object.values(LEAGUES).some(league => league.code === currentUefaLeague)) {
+      currentUefaLeague = "uefa.champions";
+      localStorage.setItem("currentUefaLeague", currentUefaLeague);
+    }
+
     const currentYear = new Date().getFullYear();
     const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/scoreboard?dates=${currentYear}0101`;
 
@@ -385,7 +391,15 @@ function setupNavbarToggle() {
 
 window.addEventListener("resize", updateLeagueButtonDisplay);
 
-setupLeagueButtons();
-setupNavbarToggle();
-fetchPlayoffTeams();
-setInterval(fetchPlayoffTeams, 2000);
+window.addEventListener("DOMContentLoaded", () => {
+  // Reset to default if coming from another page
+  if (!currentUefaLeague || !Object.values(LEAGUES).some(league => league.code === currentUefaLeague)) {
+    currentUefaLeague = "uefa.champions";
+    localStorage.setItem("currentUefaLeague", currentUefaLeague);
+  }
+
+  setupLeagueButtons();
+  setupNavbarToggle();
+  fetchPlayoffTeams();
+  setInterval(fetchPlayoffTeams, 2000);
+});

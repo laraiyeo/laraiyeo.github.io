@@ -359,6 +359,11 @@ function updateLeagueButtonDisplay() {
 
 // Ensure the default league is loaded when the page is opened
 window.addEventListener("DOMContentLoaded", () => {
+  // Reset to default if coming from another page
+  if (!currentUefaLeague || !Object.values(LEAGUES).some(league => league.code === currentUefaLeague)) {
+    currentUefaLeague = "uefa.champions";
+    localStorage.setItem("currentUefaLeague", currentUefaLeague);
+  }
   fetchAndDisplayTeams();
 });
 

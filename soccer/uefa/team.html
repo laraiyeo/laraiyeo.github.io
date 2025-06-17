@@ -139,6 +139,12 @@
     document.body.appendChild(script);
 
     script.onload = () => {
+      // Ensure we have a valid league set
+      if (!currentUefaLeague || !Object.values(LEAGUES).some(league => league.code === currentUefaLeague)) {
+        currentUefaLeague = "uefa.champions";
+        localStorage.setItem("currentUefaLeague", currentUefaLeague);
+      }
+      
       if (teamId) {
         let lastPromo = Date.now();
         let showingPromo = false;
@@ -161,7 +167,7 @@
           } else if (!showingPromo) {
             await fetchAndRenderTeamGameWithPromo(teamId);
           }
-        }, 2000);
+        }, 10000);
       }
     };
   </script>

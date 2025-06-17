@@ -20,6 +20,12 @@ const LEAGUES = {
   
   async function fetchStandings() {
     try {
+      // Ensure we have a valid league set
+      if (!currentUefaLeague || !Object.values(LEAGUES).some(league => league.code === currentUefaLeague)) {
+        currentUefaLeague = "uefa.champions";
+        localStorage.setItem("currentUefaLeague", currentUefaLeague);
+      }
+  
       const STANDINGS_URL = `https://cdn.espn.com/core/soccer/table?xhr=1&league=${currentUefaLeague}`;
       const response = await fetch(STANDINGS_URL);
       const standingsText = await response.text();
@@ -205,6 +211,14 @@ const LEAGUES = {
   }
   
   window.addEventListener("resize", updateLeagueButtonDisplay);
+  
+  window.addEventListener("DOMContentLoaded", () => {
+    // Reset to default if coming from another page
+    if (!currentUefaLeague || !Object.values(LEAGUES).some(league => league.code === currentUefaLeague)) {
+      currentUefaLeague = "uefa.champions";
+      localStorage.setItem("currentUefaLeague", currentUefaLeague);
+    }
+  });
   
   setupLeagueButtons();
   fetchStandings();
