@@ -2,7 +2,7 @@ const LEAGUES = {
   "Club World Cup": { code: "fifa.cwc", logo: "19" },
 };
 
-let currentUefaLeague = localStorage.getItem("currentUefaLeague") || "fifa.cwc"; // Default to Club World Cup
+let currentCWCLeague = localStorage.getItem("currentCWCLeague") || "fifa.cwc"; // Default to Club World Cup
 
 function getAdjustedDateForSoccer() {
   const now = new Date();

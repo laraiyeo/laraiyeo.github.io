@@ -2,7 +2,7 @@ const LEAGUES = {
   "Club World Cup": { code: "fifa.cwc", logo: "19" },
 };
 
-let currentUefaLeague = localStorage.getItem("currentUefaLeague") || "fifa.cwc";
+let currentCWCLeague = localStorage.getItem("currentCWCLeague") || "fifa.cwc";
 let lastPlayoffHash = null;
 
 function hashString(str) {

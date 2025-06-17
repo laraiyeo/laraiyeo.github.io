@@ -2,7 +2,7 @@ const LEAGUES = {
   "Club World Cup": { code: "fifa.cwc", logo: "19" },
 };
 
-let currentUefaLeague = localStorage.getItem("currentUefaLeague") || "fifa.cwc"; // Default to Club World Cup
+let currentCWCLeague = localStorage.getItem("currentCWCLeague") || "fifa.cwc"; // Default to Club World Cup
 
 function hashString(str) {
   let hash = 0;
@@ -47,7 +47,7 @@ async function fetchStandings() {
     renderGroupStandings(allGroups);
 
     // Save the current league to localStorage
-    localStorage.setItem("currentUefaLeague", "fifa.cwc");
+    localStorage.setItem("currentCWCLeague", "fifa.cwc");
   } catch (error) {
     console.error(`Error fetching standings for league fifa.cwc:`, error);
   }
