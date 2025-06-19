@@ -217,7 +217,7 @@ async function fetchAndDisplayFinishedGames() {
 
     // Sort days in chronological order
     const sortedDays = Object.keys(gamesByDay).sort(
-      (a, b) => new Date(a) - new Date(b)
+      (a, b) => new Date(b) - new Date(a)
     );
 
     for (const day of sortedDays) {
