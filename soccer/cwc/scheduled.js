@@ -46,9 +46,6 @@ function buildGameCard(game) {
 
   const leagueCWC = "Club World Cup"; // Direct assignment instead of lookup
 
-  const record = game.competitions[0].competitors.map(c => c.homeAway === "home" ? c.records[0].summary : c.records[0].summary)[0];
-  const numbers = record.split("-").map(Number);
-
   const gameDate = new Date(game.date);
 
   const header = game.season.slug;

@@ -49,8 +49,6 @@ function buildGameCard(game) {
   const homeIsWinner = homeTeam.score > awayTeam.score;
   const awayIsWinner = awayTeam.score > homeTeam.score;
 
-  const record = game.competitions[0].competitors.map(c => c.homeAway === "home" ? c.records[0].summary : c.records[0].summary)[0];
-  const numbers = record.split("-").map(Number);
   const header = game.season.slug;
     const formatted = header
         .split('-')
