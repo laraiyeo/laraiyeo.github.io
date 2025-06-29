@@ -68,9 +68,9 @@ function getExpectedMatchup(matchNumber) {
     55: { conference: "right", description: "Winners of Group H vs. Runners of Group G" },
     56: { conference: "right", description: "Winners of Group F vs. Runners of Group E" },
     // Quarterfinals
-    57: { conference: "right", description: "Winners of Match 53 vs. Winners of Match 54" },
+    57: { conference: "left", description: "Winners of Match 53 vs. Winners of Match 54" },
     58: { conference: "left", description: "Winners of Match 49 vs. Winners of Match 50" },
-    59: { conference: "left", description: "Winners of Match 51 vs. Winners of Match 52" },
+    59: { conference: "right", description: "Winners of Match 51 vs. Winners of Match 52" },
     60: { conference: "right", description: "Winners of Match 55 vs. Winners of Match 56" },
     // Semifinals
     61: { conference: "left", description: "Winners of Match 57 vs. Winners of Match 58" },
@@ -287,8 +287,8 @@ function groupGamesByConferenceAndRound(games, standings) {
 
   // Quarterfinals organization (unchanged)
   if (gamesByMatch[58]) rounds.left["Quarterfinals"].push(...gamesByMatch[58]);
-  if (gamesByMatch[59]) rounds.left["Quarterfinals"].push(...gamesByMatch[59]);
-  if (gamesByMatch[57]) rounds.right["Quarterfinals"].push(...gamesByMatch[57]);
+  if (gamesByMatch[57]) rounds.left["Quarterfinals"].push(...gamesByMatch[57]);
+  if (gamesByMatch[59]) rounds.right["Quarterfinals"].push(...gamesByMatch[59]);
   if (gamesByMatch[60]) rounds.right["Quarterfinals"].push(...gamesByMatch[60]);
 
   // Semifinals organization (unchanged)
