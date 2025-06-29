@@ -37,7 +37,6 @@ body {
 .nav-left {
   font-size: 1.2rem;
   font-weight: bold;
-  cursor: pointer;
 }
 
 .nav-right {
@@ -458,11 +457,127 @@ body {
     display: flex;
   }
 
-  .nav-toggle {
-    display: flex;
+  .bracket-container {
+    padding: 10px;
   }
 
-  .dropdown-menu.active {
+  .team-logo {
+    width: 25px;
+    height: 25px;
+  }
+
+  .team-name {
+    font-size: 0.8rem;
+  }
+
+  /* Mobile vertical layout for finals bracket */
+  .bracket-container {
+    margin-top: 0px;
+    margin-left: -10px;
+    flex-direction: column;
+    width: 100%;
+    min-width: auto;
+    overflow: hidden;
+    gap: 10px;
+  }
+
+  /* Mobile bracket container - 4-2-1-1-2-4 layout */
+  .mobile-bracket-container {
     display: flex;
+    flex-direction: column;
+    gap: 15px;
+    align-items: center;
+    width: 100%;
+  }
+
+  /* Mobile rows */
+  .mobile-row {
+    display: flex;
+    width: 100%;
+  }
+
+  /* Round of 16 rows - 4 cards side by side (2-2 layout) */
+  .mobile-row.r16-row {
+    justify-content: space-between;
+    gap: 2px;
+  }
+
+  .mobile-row.r16-row .bracket-round {
+    flex: 0 0 21%;
+    max-width: 21%;
+    min-width: 21%;
+  }
+
+  /* Quarterfinals rows - 2 cards side by side */
+  .mobile-row.qf-row {
+    justify-content: space-around;
+    gap: 10px;
+  }
+
+  .mobile-row.qf-row .bracket-round {
+    flex: 0 0 40%;
+    max-width: 45%;
+  }
+
+  /* Semifinals rows - 2 cards side by side */
+  .mobile-row.sf-row {
+    justify-content: space-around;
+    gap: 10px;
+  }
+
+  .mobile-row.sf-row .bracket-round {
+    flex: 0 0 40%;
+    max-width: 45%;
+  }
+
+  /* Finals row - 1 card centered */
+  .mobile-row.finals-row {
+    justify-content: center;
+  }
+
+  .mobile-row.finals-row .bracket-round {
+    flex: 0 0 60%;
+    max-width: 70%;
+  }
+
+  /* General mobile bracket styling */
+  .bracket-row {
+    width: 100%;
+    padding: 5px;
+    margin-bottom: 5px;
+    font-size: 0.8rem;
+    min-height: 40px;
+  }
+
+  .bracket-row.finals {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 0;
+    padding: 10px;
+  }
+
+  /* Remove desktop-specific styling for mobile */
+  .conference {
+    width: 100%;
+    min-width: auto;
+    margin-right: 0;
+  }
+
+  .rounds-container {
+    min-width: auto;
+    width: 100%;
+    gap: 5px;
+  }
+
+  /* Hide round titles on mobile */
+  .round-title {
+    display: none;
+  }
+
+  /* Mobile specific bracket row styling */
+  .mobile-row .bracket-round .bracket-row {
+    margin-bottom: 3px;
+    border-radius: 4px;
+    font-size: 0.7rem;
   }
 }

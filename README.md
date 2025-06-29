@@ -109,7 +109,6 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - For Soccer, UEFA, and CWC, the top scoreboard score and time as well as the play description might not update in real time. This is a problem caused by ESPN's api
 - Bracket page style on mobile is not proper for all sports except UEFA
 - NHL search page might not function at times as nhle api has rate limits that blocks requests if done too quickly
-- For finals section in UEFA bracket page, the matchups for some quarterfinals aren't propererly lined up with the semifinals match
 
 ---
 

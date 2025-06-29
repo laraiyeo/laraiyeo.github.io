@@ -112,6 +112,12 @@ function getTeamRecord(teamId, games) {
   return wins.toString();
 }
 
+function getTeamScore(teamId, game) {
+  const competition = game.competitions[0];
+  const team = competition.competitors.find(c => c.team.id === teamId);
+  return parseInt(team?.score || 0);
+}
+
 function getBracketLogo(team) {
   if (!team || !team.id || team.shortDisplayName?.toLowerCase() === "tbd") {
     return "../soccer-ball-png-24.png";
@@ -392,14 +398,20 @@ async function renderBracket(games, standings, container) {
   const rounds = groupGamesByConferenceAndRound(games, standings);
   const tbaMatchups = generateTBAMatchups(standings);
 
+  // Check if mobile layout is needed
+  const isMobile = window.innerWidth < 525;
+
   const renderRoundColumn = (roundGames, roundName, conferenceClass, conferenceName) => {
     const roundDiv = document.createElement("div");
     roundDiv.className = `bracket-round ${conferenceClass}`;
 
-    const roundTitle = document.createElement("h3");
-    roundTitle.className = "round-title";
-    roundTitle.textContent = roundName;
-    roundDiv.appendChild(roundTitle);
+    // Only add round title for desktop
+    if (!isMobile) {
+      const roundTitle = document.createElement("h3");
+      roundTitle.className = "round-title";
+      roundTitle.textContent = roundName;
+      roundDiv.appendChild(roundTitle);
+    }
 
     const matchups = roundGames.length > 0 ? groupGamesByMatchup(roundGames, standings) : [];
     const tbaData = tbaMatchups[conferenceName] ? tbaMatchups[conferenceName][roundName] || [] : tbaMatchups[roundName] || [];
@@ -410,48 +422,77 @@ async function renderBracket(games, standings, container) {
         const tbaCard = document.createElement("div");
         tbaCard.className = "bracket-row tba-card";
 
-        // Adjusted spacing for proper positioning
-        if (roundName === "Quarterfinals") {
-          tbaCard.style.marginTop = index === 0 ? "80px" : "120px";
-        } else if (roundName === "Semifinals") {
-          tbaCard.style.marginTop = "140px";
-        } else if (roundName === "Final") {
-          tbaCard.style.marginTop = "180px";
+        // Adjusted spacing for proper positioning (desktop only)
+        if (!isMobile) {
+          if (roundName === "Quarterfinals") {
+            tbaCard.style.marginTop = index === 0 ? "80px" : "120px";
+          } else if (roundName === "Semifinals") {
+            tbaCard.style.marginTop = "140px";
+          } else if (roundName === "Final") {
+            tbaCard.style.marginTop = "180px";
+          }
         }
 
         if (roundName === "Final") {
-          tbaCard.innerHTML = `
-            <div class="finals-title">CLUB WORLD CUP FINAL</div>
-            <div class="finals-matchup">
-              <div class="team-column">
-                <div class="record">-</div>
-                <div class="team-line">
-                  <span class="abbrev">${matchup.home}</span>
+          if (isMobile) {
+            tbaCard.innerHTML = `
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                <div style="font-size: 14px; font-weight: bold; text-align: center;">CWC FINAL</div>
+                <div style="display: flex; justify-content: space-around; width: 100%;">
+                  <div style="text-align: center;">
+                    <img src="../soccer-ball-png-24.png" alt="TBD" style="width: 30px; height: 30px;" onerror="this.src='../soccer-ball-png-24.png'">
+                    <div style="font-size: 12px; margin-top: 5px;">TBD</div>
+                  </div>
+                  <div style="text-align: center;">
+                    <img src="../soccer-ball-png-24.png" alt="TBD" style="width: 30px; height: 30px;" onerror="this.src='../soccer-ball-png-24.png'">
+                    <div style="font-size: 12px; margin-top: 5px;">TBD</div>
+                  </div>
                 </div>
               </div>
-              <div class="vs">vs</div>
-              <div class="team-column">
-                <div class="record">-</div>
-                <div class="team-line">
-                  <span class="abbrev">${matchup.away}</span>
+            `;
+          } else {
+            tbaCard.innerHTML = `
+              <div class="finals-title">CLUB WORLD CUP FINAL</div>
+              <div class="finals-matchup">
+                <div class="team-column">
+                  <div class="record">-</div>
+                  <div class="team-line">
+                    <span class="abbrev">${matchup.home}</span>
+                  </div>
+                </div>
+                <div class="vs">vs</div>
+                <div class="team-column">
+                  <div class="record">-</div>
+                  <div class="team-line">
+                    <span class="abbrev">${matchup.away}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          `;
+            `;
+          }
         } else {
-          tbaCard.innerHTML = `
-            <div class="series-info">${roundName} - Match ${index + 1}</div>
-            <div class="team-row">
-              <img src="../soccer-ball-png-24.png" alt="TBD" class="team-logo-small" onerror="this.src='../soccer-ball-png-24.png'">
-              <span class="team-name">${matchup.home}</span>
-              <span class="team-record">-</span>
-            </div>
-            <div class="team-row">
-              <img src="../soccer-ball-png-24.png" alt="TBD" class="team-logo-small" onerror="this.src='../soccer-ball-png-24.png'">
-              <span class="team-name">${matchup.away}</span>
-              <span class="team-record">-</span>
-            </div>
-          `;
+          if (isMobile) {
+            tbaCard.innerHTML = `
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                <img src="../soccer-ball-png-24.png" alt="TBD" style="width: 30px; height: 30px;" onerror="this.src='../soccer-ball-png-24.png'">
+                <div style="text-align: center; font-size: 12px;">TBD vs TBD</div>
+              </div>
+            `;
+          } else {
+            tbaCard.innerHTML = `
+              <div class="series-info">${roundName} - Match ${index + 1}</div>
+              <div class="team-row">
+                <img src="../soccer-ball-png-24.png" alt="TBD" class="team-logo-small" onerror="this.src='../soccer-ball-png-24.png'">
+                <span class="team-name">${matchup.home}</span>
+                <span class="team-record">-</span>
+              </div>
+              <div class="team-row">
+                <img src="../soccer-ball-png-24.png" alt="TBD" class="team-logo-small" onerror="this.src='../soccer-ball-png-24.png'">
+                <span class="team-name">${matchup.away}</span>
+                <span class="team-record">-</span>
+              </div>
+            `;
+          }
         }
 
         roundDiv.appendChild(tbaCard);
@@ -461,13 +502,36 @@ async function renderBracket(games, standings, container) {
       matchups.forEach((matchup, index) => {
         let { homeTeam, awayTeam, games: matchupGames } = matchup;
 
-        // Ensure the team with the lower rank (higher seed) is on top
-        if (homeTeam.rank > awayTeam.rank) {
-          [homeTeam, awayTeam] = [awayTeam, homeTeam];
-        }
-
         const homeRecord = getTeamRecord(homeTeam.id, matchupGames);
         const awayRecord = getTeamRecord(awayTeam.id, matchupGames);
+
+        const mostRecentGame = matchupGames.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+        // For quarterfinals, control team positioning based on match structure
+        if (roundName === "Quarterfinals") {
+          // Identify which teams should be on left vs right based on bracket flow
+          const gameDate = new Date(mostRecentGame.date);
+          const gameETDate = new Date(gameDate.getTime() - (5 * 60 * 60 * 1000)).toISOString().split('T')[0];
+          
+          // For match 59 (July 5th): Winner of 51 on left, Winner of 52 on right
+          if (gameETDate === "2025-07-05") {
+            // Don't swap teams for match 59 - keep original order from API
+            // homeTeam should be winner of match 51, awayTeam should be winner of match 52
+          } else {
+            // For other quarterfinal matches, ensure the team with the lower rank is on top
+            if (homeTeam.rank > awayTeam.rank) {
+              [homeTeam, awayTeam] = [awayTeam, homeTeam];
+            }
+          }
+        } else {
+          // For all other rounds, ensure the team with the lower rank (higher seed) is on top
+          if (homeTeam.rank > awayTeam.rank) {
+            [homeTeam, awayTeam] = [awayTeam, homeTeam];
+          }
+        }
+
+        const homeScore = getTeamScore(homeTeam.id, mostRecentGame);
+        const awayScore = getTeamScore(awayTeam.id, mostRecentGame);
 
         const homeAbbrev = homeTeam.shortDisplayName || "TBD";
         const awayAbbrev = awayTeam.shortDisplayName || "TBD";
@@ -482,7 +546,6 @@ async function renderBracket(games, standings, container) {
         const awayIsWinner = awayWins > homeWins;
         const tied = homeWins === awayWins;
 
-        const mostRecentGame = matchupGames.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
         const gameStatus = mostRecentGame?.competitions?.[0]?.status?.type?.state || "pre";
 
         let seriesInfo = "";
@@ -502,48 +565,94 @@ async function renderBracket(games, standings, container) {
 
         const matchupRow = document.createElement("div");
         matchupRow.className = "bracket-row";
-
-        // Adjusted spacing for proper positioning
-        if (roundName === "Quarterfinals") {
-          matchupRow.style.marginTop = index === 0 ? "80px" : "210px";
-        } else if (roundName === "Semifinals") {
-          matchupRow.style.marginTop = "260px";
-        } else if (roundName === "Final") {
-          // Special Finals styling
-          matchupRow.className = "bracket-row finals";
-          matchupRow.innerHTML = `
-            <div class="finals-title">CLUB WORLD CUP FINAL</div>
-            <div class="series-info">${seriesInfo}</div>
-            <div class="finals-matchup">
-              <img src="${homeLogo}" alt="${homeAbbrev}" style="width: 40px; height: 40px; margin-right: -10px;" onerror="this.src='../soccer-ball-png-24.png'">
-              <div class="team-column">
-                <div class="record" style="${tied ? "" : homeIsWinner ? "" : "color: grey;"}">${homeRecord}</div>
-                <div class="team-line">
-                  <span class="abbrev" style="${tied ? "" : homeIsWinner ? "" : "color: grey;"}">${homeAbbrev}</span>
-                </div>
-              </div>
-              <div class="vs">vs</div>
-              <div class="team-column">
-                <div class="record" style="${tied ? "" : awayIsWinner ? "" : "color: grey;"}">${awayRecord}</div>
-                <div class="team-line">
-                  <span class="abbrev" style="${tied ? "" : awayIsWinner ? "" : "color: grey;"}">${awayAbbrev}</span>
-                </div>
-              </div>
-              <img src="${awayLogo}" alt="${awayAbbrev}" style="width: 40px; height: 40px; margin-left: -10px;" onerror="this.src='../soccer-ball-png-24.png'">
-            </div>
-          `;
-          roundDiv.appendChild(matchupRow);
-          return;
-        } else if (roundName === "Round of 16") {
-          matchupRow.style.marginTop = index === 2 ? "50px" : "10px";
+        
+        // Add game ID as data attribute for event delegation
+        if (mostRecentGame && mostRecentGame.id && (gameStatus === "post" || gameStatus === "in")) {
+          matchupRow.dataset.gameId = mostRecentGame.id;
+          matchupRow.style.cursor = "pointer";
         }
 
-        // Add click event for completed or live games
-        if (gameStatus === "post" || gameStatus === "in") {
-          matchupRow.style.cursor = "pointer";
-          matchupRow.addEventListener("click", () => {
-            window.location.href = `scoreboard.html?gameId=${mostRecentGame.id}`;
-          });
+        // Adjusted spacing for proper positioning (desktop only)
+        if (!isMobile) {
+          if (roundName === "Quarterfinals") {
+            matchupRow.style.marginTop = index === 0 ? "80px" : "210px";
+          } else if (roundName === "Semifinals") {
+            matchupRow.style.marginTop = "260px";
+          } else if (roundName === "Round of 16") {
+            matchupRow.style.marginTop = index === 2 ? "50px" : "10px";
+          }
+        }
+
+        if (roundName === "Final") {
+          if (isMobile) {
+            // Mobile finals layout
+            matchupRow.innerHTML = `
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                <div style="font-size: 14px; font-weight: bold; text-align: center; color: black;">CWC FINAL</div>
+                <div style="display: flex; justify-content: space-around; width: 100%;">
+                  <div style="text-align: center;">
+                    <img src="${homeLogo}" alt="${homeAbbrev}" style="width: 30px; height: 30px;" onerror="this.src='../soccer-ball-png-24.png'">
+                    <div style="font-size: 12px; margin-top: 5px; font-weight: bold; color: ${homeScore > awayScore ? '#43a047' : '#333'};">${homeTeam.abbreviation}</div>
+                    <div style="font-size: 16px; font-weight: bold; color: ${homeScore > awayScore ? '#43a047' : '#333'};">${homeScore}</div>
+                  </div>
+                  <div style="text-align: center;">
+                    <img src="${awayLogo}" alt="${awayAbbrev}" style="width: 30px; height: 30px;" onerror="this.src='../soccer-ball-png-24.png'">
+                    <div style="font-size: 12px; margin-top: 5px; font-weight: bold; color: ${awayScore > homeScore ? '#43a047' : '#333'};">${awayTeam.abbreviation}</div>
+                    <div style="font-size: 16px; font-weight: bold; color: ${awayScore > homeScore ? '#43a047' : '#333'};">${awayScore}</div>
+                  </div>
+                </div>
+              </div>
+            `;
+
+            // Add glow for winner (mobile)
+            let winnerId = null;
+            if (homeScore > awayScore) {
+              winnerId = homeTeam.id;
+            } else if (awayScore > homeScore) {
+              winnerId = awayTeam.id;
+            }
+
+            if (winnerId) {
+              const { r, g, b } = getTeamColorRGB(winnerId === homeTeam.id ? homeTeam : awayTeam);
+              matchupRow.style.boxShadow = `0 0 8px rgba(${r}, ${g}, ${b}, 0.8)`;
+            }
+          } else {
+            // Desktop finals layout
+            matchupRow.className = "bracket-row finals";
+            matchupRow.innerHTML = `
+              <div class="finals-title">CLUB WORLD CUP FINAL</div>
+              <div class="series-info">${seriesInfo}</div>
+              <div class="finals-matchup">
+                <img src="${homeLogo}" alt="${homeAbbrev}" style="width: 40px; height: 40px; margin-right: -10px;" onerror="this.src='../soccer-ball-png-24.png'">
+                <div class="team-column">
+                  <div class="record" style="${tied ? "" : homeIsWinner ? "" : "color: grey;"}">${homeScore}</div>
+                  <div class="team-line">
+                    <span class="abbrev" style="${tied ? "" : homeIsWinner ? "" : "color: grey;"}">${homeAbbrev}</span>
+                  </div>
+                </div>
+                <div class="vs">vs</div>
+                <div class="team-column">
+                  <div class="record" style="${tied ? "" : awayIsWinner ? "" : "color: grey;"}">${awayScore}</div>
+                  <div class="team-line">
+                    <span class="abbrev" style="${tied ? "" : awayIsWinner ? "" : "color: grey;"}">${awayAbbrev}</span>
+                  </div>
+                </div>
+                <img src="${awayLogo}" alt="${awayAbbrev}" style="width: 40px; height: 40px; margin-left: -10px;" onerror="this.src='../soccer-ball-png-24.png'">
+              </div>
+            `;
+          }
+          
+          // Add click event for Finals games before the return
+          if (gameStatus === "post" || gameStatus === "in") {
+            matchupRow.style.cursor = "pointer";
+            matchupRow.addEventListener("click", () => {
+              console.log(`Navigating to Finals scoreboard for game ID: ${mostRecentGame.id}`);
+              window.location.href = `scoreboard.html?gameId=${mostRecentGame.id}`;
+            });
+          }
+          
+          roundDiv.appendChild(matchupRow);
+          return;
         }
 
         // Add winning team box shadow with team color using RGB like NBA bracket
@@ -555,25 +664,52 @@ async function renderBracket(games, standings, container) {
           matchupRow.style.boxShadow = `0 0 8px rgba(${r}, ${g}, ${b}, 0.8)`;
         }
 
-        const homeStyle = gameStatus === 'post' ? (tied ? "" : homeIsWinner ? "" : "color: grey;") : "";
-        const awayStyle = gameStatus === 'post' ? (tied ? "" : awayIsWinner ? "" : "color: grey;") : "";
-        const recordHomeStyle = tied ? "" : homeIsWinner ? "" : "color: grey;";
-        const recordAwayStyle = tied ? "" : awayIsWinner ? "" : "color: grey;";
-        
-        // Removed seed display from team rows
-        matchupRow.innerHTML = `
-          <div class="series-info">${seriesInfo}</div>
-          <div class="team-row">
-            <img src="${homeLogo}" alt="${homeAbbrev}" class="team-logo-small" onerror="this.src='../soccer-ball-png-24.png'">
-            <span class="team-name" style="${homeStyle}">${homeAbbrev}</span>
-            <span class="team-record" style="${recordHomeStyle}">${homeRecord}</span>
-          </div>
-          <div class="team-row">
-            <img src="${awayLogo}" alt="${awayAbbrev}" class="team-logo-small" onerror="this.src='../soccer-ball-png-24.png'">
-            <span class="team-name" style="${awayStyle}">${awayAbbrev}</span>
-            <span class="team-record" style="${recordAwayStyle}">${awayRecord}</span>
-          </div>
-        `;
+        if (isMobile) {
+          // Mobile layout for non-finals
+          matchupRow.innerHTML = `
+            <div style="display: flex; justify-content: space-around; align-items: center; width: 100%; gap: 20px;">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                <img src="${homeLogo}" alt="${homeAbbrev}" style="width: 30px; height: 30px;" onerror="this.src='../soccer-ball-png-24.png'">
+                <div style="text-align: center; font-size: 12px; color: #000; font-weight: bold; ${homeIsWinner ? 'color: #43a047;' : ''}">${homeTeam.abbreviation}</div>
+                <div style="text-align: center; font-size: 16px; font-weight: bold; color: ${homeScore > awayScore ? '#43a047' : '#333'};">${homeScore}</div>
+              </div>
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                <img src="${awayLogo}" alt="${awayAbbrev}" style="width: 30px; height: 30px;" onerror="this.src='../soccer-ball-png-24.png'">
+                <div style="text-align: center; font-size: 12px; color: #000; font-weight: bold; ${awayIsWinner ? 'color: #43a047;' : ''}">${awayTeam.abbreviation}</div>
+                <div style="text-align: center; font-size: 16px; font-weight: bold; color: ${awayScore > homeScore ? '#43a047' : '#333'};">${awayScore}</div>
+              </div>
+            </div>
+          `;
+        } else {
+          // Desktop layout for non-finals
+          const homeStyle = gameStatus === 'post' ? (tied ? "" : homeIsWinner ? "" : "color: grey;") : "";
+          const awayStyle = gameStatus === 'post' ? (tied ? "" : awayIsWinner ? "" : "color: grey;") : "";
+          const recordHomeStyle = tied ? "" : homeIsWinner ? "" : "color: grey;";
+          const recordAwayStyle = tied ? "" : awayIsWinner ? "" : "color: grey;";
+          
+          matchupRow.innerHTML = `
+            <div class="series-info">${seriesInfo}</div>
+            <div class="team-row">
+              <img src="${homeLogo}" alt="${homeAbbrev}" class="team-logo-small" onerror="this.src='../soccer-ball-png-24.png'">
+              <span class="team-name" style="${homeStyle}">${homeAbbrev}</span>
+              <span class="team-record" style="${recordHomeStyle}">${homeScore}</span>
+            </div>
+            <div class="team-row">
+              <img src="${awayLogo}" alt="${awayAbbrev}" class="team-logo-small" onerror="this.src='../soccer-ball-png-24.png'">
+              <span class="team-name" style="${awayStyle}">${awayAbbrev}</span>
+              <span class="team-record" style="${recordAwayStyle}">${awayScore}</span>
+            </div>
+          `;
+        }
+
+        // Add click event for completed or live games (non-Finals) AFTER innerHTML is set
+        if (gameStatus === "post" || gameStatus === "in") {
+          matchupRow.style.cursor = "pointer";
+          matchupRow.addEventListener("click", () => {
+            console.log(`Navigating to scoreboard for game ID: ${mostRecentGame.id}`);
+            window.location.href = `scoreboard.html?gameId=${mostRecentGame.id}`;
+          });
+        }
 
         roundDiv.appendChild(matchupRow);
       });
@@ -582,52 +718,150 @@ async function renderBracket(games, standings, container) {
     return roundDiv;
   };
 
-  const renderConferenceRounds = (conferenceRounds, conferenceClass, conferenceTitle, conferenceName) => {
-    const conferenceDiv = document.createElement("div");
-    conferenceDiv.className = `conference ${conferenceClass}`;
-
-    // Remove the conference title section entirely
-    // const titleDiv = document.createElement("h2");
-    // titleDiv.className = "conference-title";
-    // titleDiv.textContent = conferenceTitle;
-    // conferenceDiv.appendChild(titleDiv);
-
-    const roundsContainer = document.createElement("div");
-    roundsContainer.className = "rounds-container";
-
-    // Add rounds in the order that matches NBA layout
-    if (conferenceClass === "left-conference") {
-      // Left side: Round of 16, Quarterfinals, Semifinals (left to right)
-      roundsContainer.appendChild(renderRoundColumn(conferenceRounds["Round of 16"], "Round of 16", conferenceClass, conferenceName));
-      roundsContainer.appendChild(renderRoundColumn(conferenceRounds["Quarterfinals"], "Quarterfinals", conferenceClass, conferenceName));
-      roundsContainer.appendChild(renderRoundColumn(conferenceRounds["Semifinals"], "Semifinals", conferenceClass, conferenceName));
-    } else {
-      // Right side: Semifinals, Quarterfinals, Round of 16 (left to right)
-      roundsContainer.appendChild(renderRoundColumn(conferenceRounds["Semifinals"], "Semifinals", conferenceClass, conferenceName));
-      roundsContainer.appendChild(renderRoundColumn(conferenceRounds["Quarterfinals"], "Quarterfinals", conferenceClass, conferenceName));
-      roundsContainer.appendChild(renderRoundColumn(conferenceRounds["Round of 16"], "Round of 16", conferenceClass, conferenceName));
+  if (isMobile) {
+    // Mobile layout: 4-2-1-1-2-4 column arrangement
+    const mobileContainer = document.createElement("div");
+    mobileContainer.className = "mobile-bracket-container";
+    
+    const leftR16Games = rounds.left["Round of 16"];
+    const rightR16Games = rounds.right["Round of 16"];
+    
+    // Group games by matchup
+    const leftR16Matchups = leftR16Games.length > 0 ? groupGamesByMatchup(leftR16Games, standings) : [];
+    const rightR16Matchups = rightR16Games.length > 0 ? groupGamesByMatchup(rightR16Games, standings) : [];
+    const leftQFMatchups = rounds.left["Quarterfinals"].length > 0 ? groupGamesByMatchup(rounds.left["Quarterfinals"], standings) : [];
+    const rightQFMatchups = rounds.right["Quarterfinals"].length > 0 ? groupGamesByMatchup(rounds.right["Quarterfinals"], standings) : [];
+    
+    // Column 1: 4 Left R16 games
+    const leftR16Column = document.createElement("div");
+    leftR16Column.className = "mobile-row r16-row";
+    
+    for (let i = 0; i < 4; i++) {
+      if (leftR16Matchups[i]) {
+        const gameColumn = renderRoundColumn([leftR16Matchups[i].games[0]], "Round of 16", "mobile-r16", "left");
+        leftR16Column.appendChild(gameColumn);
+      } else {
+        const tbaColumn = renderRoundColumn([], "Round of 16", "mobile-r16", "left");
+        leftR16Column.appendChild(tbaColumn);
+      }
     }
+    
+    // Column 2: 2 Left QF games
+    const leftQFColumn = document.createElement("div");
+    leftQFColumn.className = "mobile-row qf-row";
+    
+    for (let i = 0; i < 2; i++) {
+      if (leftQFMatchups[i]) {
+        const gameColumn = renderRoundColumn([leftQFMatchups[i].games[0]], "Quarterfinals", "mobile-qf", "left");
+        leftQFColumn.appendChild(gameColumn);
+      } else {
+        const tbaColumn = renderRoundColumn([], "Quarterfinals", "mobile-qf", "left");
+        leftQFColumn.appendChild(tbaColumn);
+      }
+    }
+    
+    // Column 3: 1 Left SF game
+    const leftSFColumn = document.createElement("div");
+    leftSFColumn.className = "mobile-column";
+    
+    const leftSF = renderRoundColumn(rounds.left["Semifinals"], "Semifinals", "mobile-sf", "left");
+    leftSFColumn.appendChild(leftSF);
+    
+    // Column 4: 1 Final game (center)
+    const finalsColumn = document.createElement("div");
+    finalsColumn.className = "mobile-column";
+    
+    const finals = renderRoundColumn(rounds.finals, "Final", "mobile-finals", "finals");
+    finalsColumn.appendChild(finals);
+    
+    // Column 5: 1 Right SF game
+    const rightSFColumn = document.createElement("div");
+    rightSFColumn.className = "mobile-column";
+    
+    const rightSF = renderRoundColumn(rounds.right["Semifinals"], "Semifinals", "mobile-sf", "right");
+    rightSFColumn.appendChild(rightSF);
+    
+    // Column 6: 2 Right QF games
+    const rightQFColumn = document.createElement("div");
+    rightQFColumn.className = "mobile-row qf-row";
+    
+    for (let i = 0; i < 2; i++) {
+      if (rightQFMatchups[i]) {
+        const gameColumn = renderRoundColumn([rightQFMatchups[i].games[0]], "Quarterfinals", "mobile-qf", "right");
+        rightQFColumn.appendChild(gameColumn);
+      } else {
+        const tbaColumn = renderRoundColumn([], "Quarterfinals", "mobile-qf", "right");
+        rightQFColumn.appendChild(tbaColumn);
+      }
+    }
+    
+    // Column 7: 4 Right R16 games
+    const rightR16Column = document.createElement("div");
+    rightR16Column.className = "mobile-row r16-row";
+    
+    for (let i = 0; i < 4; i++) {
+      if (rightR16Matchups[i]) {
+        const gameColumn = renderRoundColumn([rightR16Matchups[i].games[0]], "Round of 16", "mobile-r16", "right");
+        rightR16Column.appendChild(gameColumn);
+      } else {
+        const tbaColumn = renderRoundColumn([], "Round of 16", "mobile-r16", "right");
+        rightR16Column.appendChild(tbaColumn);
+      }
+    }
+    
+    // Append all columns to container in order: 4-2-1-1-2-4
+    mobileContainer.appendChild(leftR16Column);
+    mobileContainer.appendChild(leftQFColumn);
+    mobileContainer.appendChild(leftSFColumn);
+    mobileContainer.appendChild(finalsColumn);
+    mobileContainer.appendChild(rightSFColumn);
+    mobileContainer.appendChild(rightQFColumn);
+    mobileContainer.appendChild(rightR16Column);
+    
+    container.appendChild(mobileContainer);
+  } else {
+    // Desktop layout (existing code)
+    const renderConferenceRounds = (conferenceRounds, conferenceClass, conferenceTitle, conferenceName) => {
+      const conferenceDiv = document.createElement("div");
+      conferenceDiv.className = `conference ${conferenceClass}`;
 
-    conferenceDiv.appendChild(roundsContainer);
-    return conferenceDiv;
-  };
+      const roundsContainer = document.createElement("div");
+      roundsContainer.className = "rounds-container";
 
-  // Create left conference (Groups A, B, C, D) - without the title
-  const leftConference = renderConferenceRounds(rounds.left, "left-conference", "", "left");
-  
-  // Create finals column
-  const finalsDiv = document.createElement("div");
-  finalsDiv.className = "conference finals-conference";
-  const finalsColumn = renderRoundColumn(rounds.finals, "Final", "finals", "finals");
-  finalsDiv.appendChild(finalsColumn);
+      // Add rounds in the order that matches NBA layout
+      if (conferenceClass === "left-conference") {
+        // Left side: Round of 16, Quarterfinals, Semifinals (left to right)
+        roundsContainer.appendChild(renderRoundColumn(conferenceRounds["Round of 16"], "Round of 16", conferenceClass, conferenceName));
+        roundsContainer.appendChild(renderRoundColumn(conferenceRounds["Quarterfinals"], "Quarterfinals", conferenceClass, conferenceName));
+        roundsContainer.appendChild(renderRoundColumn(conferenceRounds["Semifinals"], "Semifinals", conferenceClass, conferenceName));
+      } else {
+        // Right side: Semifinals, Quarterfinals, Round of 16 (left to right)
+        roundsContainer.appendChild(renderRoundColumn(conferenceRounds["Semifinals"], "Semifinals", conferenceClass, conferenceName));
+        roundsContainer.appendChild(renderRoundColumn(conferenceRounds["Quarterfinals"], "Quarterfinals", conferenceClass, conferenceName));
+        roundsContainer.appendChild(renderRoundColumn(conferenceRounds["Round of 16"], "Round of 16", conferenceClass, conferenceName));
+      }
 
-  // Create right conference (Groups E, F, G, H) - without the title
-  const rightConference = renderConferenceRounds(rounds.right, "right-conference", "", "right");
+      conferenceDiv.appendChild(roundsContainer);
+      return conferenceDiv;
+    };
 
-  // Append in NBA-style order: Left Conference, Finals, Right Conference
-  container.appendChild(leftConference);
-  container.appendChild(finalsDiv);
-  container.appendChild(rightConference);
+    // Create left conference (Groups A, B, C, D) - without the title
+    const leftConference = renderConferenceRounds(rounds.left, "left-conference", "", "left");
+    
+    // Create finals column
+    const finalsDiv = document.createElement("div");
+    finalsDiv.className = "conference finals-conference";
+    const finalsColumn = renderRoundColumn(rounds.finals, "Final", "finals", "finals");
+    finalsDiv.appendChild(finalsColumn);
+
+    // Create right conference (Groups E, F, G, H) - without the title
+    const rightConference = renderConferenceRounds(rounds.right, "right-conference", "", "right");
+
+    // Append in NBA-style order: Left Conference, Finals, Right Conference
+    container.appendChild(leftConference);
+    container.appendChild(finalsDiv);
+    container.appendChild(rightConference);
+  }
 }
 
 function setupNavbarToggle() {
@@ -641,7 +875,23 @@ function setupNavbarToggle() {
   }
 }
 
+// Add event delegation for bracket clicks
+function setupBracketClickHandlers() {
+  const bracketContainer = document.getElementById("bracketContainer");
+  if (bracketContainer) {
+    bracketContainer.addEventListener("click", (e) => {
+      // Find the closest bracket-row element
+      const matchupRow = e.target.closest(".bracket-row");
+      if (matchupRow && matchupRow.dataset.gameId) {
+        console.log(`Navigating to scoreboard for game ID: ${matchupRow.dataset.gameId}`);
+        window.location.href = `scoreboard.html?gameId=${matchupRow.dataset.gameId}`;
+      }
+    });
+  }
+}
+
 setupNavbarToggle();
+setupBracketClickHandlers();
 fetchAndUpdateBracket();
 setInterval(fetchAndUpdateBracket, 2000);
 

@@ -8,6 +8,16 @@ let currentUefaLeague = localStorage.getItem("currentUefaLeague") || "uefa.champ
 let lastBracketHash = null;
 let showingKnockoutView = true; // Track which view is currently shown
 
+// Add caching variables
+let cachedStandings = null;
+let cachedQuarterfinals = null;
+let cachedSemifinals = null;
+let cachedFinals = null;
+let cachedRoundOf16 = null;
+let lastStandingsCache = 0;
+let lastMatchupsCache = 0;
+const CACHE_DURATION = 30000; // 30 seconds cache
+
 function hashString(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -20,13 +30,22 @@ function hashString(str) {
 
 async function fetchStandings() {
   try {
+    // Use cache if available and recent
+    const now = Date.now();
+    if (cachedStandings && (now - lastStandingsCache) < CACHE_DURATION) {
+      return cachedStandings;
+    }
+
     const STANDINGS_URL = `https://cdn.espn.com/core/soccer/table?xhr=1&league=${currentUefaLeague}`;
     const response = await fetch(STANDINGS_URL);
     const data = await response.json();
-    return data.content.standings.groups[0].standings.entries || [];
+    
+    cachedStandings = data.content.standings.groups[0].standings.entries || [];
+    lastStandingsCache = now;
+    return cachedStandings;
   } catch (error) {
     console.error("Error fetching standings:", error);
-    return [];
+    return cachedStandings || [];
   }
 }
 
@@ -184,14 +203,17 @@ function groupMatchesByPairing(events, standings) {
 
 async function fetchRoundOf16Matchups() {
   try {
+    // Use cache if available and recent
+    const now = Date.now();
+    if (cachedRoundOf16 && (now - lastMatchupsCache) < CACHE_DURATION) {
+      return cachedRoundOf16;
+    }
+
     const currentYear = new Date().getFullYear();
     const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/scoreboard?dates=${currentYear}0101`;
 
     const calendarResponse = await fetch(CALENDAR_API_URL);
     const calendarData = await calendarResponse.json();
-
-    // Debug: Log all available calendar entries to see what's actually there
-    console.log("Available calendar entries:", calendarData.leagues?.[0]?.calendar?.[0]?.entries?.map(e => e.label));
 
     // Find the Round of 16 stage - try multiple possible labels
     let roundOf16Stage = calendarData.leagues?.[0]?.calendar?.[0]?.entries.find(e => 
@@ -205,8 +227,7 @@ async function fetchRoundOf16Matchups() {
     );
 
     if (!roundOf16Stage) {
-      console.log("Round of 16 not found in calendar. Available entries:", 
-        calendarData.leagues?.[0]?.calendar?.[0]?.entries?.map(e => e.label));
+      cachedRoundOf16 = [];
       return [];
     }
 
@@ -217,11 +238,11 @@ async function fetchRoundOf16Matchups() {
     const data = await response.json();
     const events = data.events || [];
     
-    // Group Round of 16 matches by matchup like knockout playoffs
-    return groupRoundOf16ByMatchup(events);
+    cachedRoundOf16 = groupRoundOf16ByMatchup(events);
+    return cachedRoundOf16;
   } catch (error) {
     console.error("Error fetching Round of 16 matchups:", error);
-    return [];
+    return cachedRoundOf16 || [];
   }
 }
 
@@ -672,6 +693,9 @@ function setupLeagueButtons() {
       localStorage.setItem("currentUefaLeague", currentUefaLeague);
       document.querySelectorAll(".league-button").forEach(btn => btn.classList.remove("active"));
       button.classList.add("active");
+      
+      // Clear cache when switching leagues
+      clearCache();
       fetchKnockoutPlayoffs();
     });
 
@@ -719,7 +743,9 @@ window.addEventListener("DOMContentLoaded", () => {
   setupLeagueButtons();
   setupNavbarToggle();
   fetchKnockoutPlayoffs();
-  setInterval(fetchKnockoutPlayoffs, 2000);
+  
+  // Reduce interval frequency to avoid too many requests
+  setInterval(fetchKnockoutPlayoffs, 10000); // Changed from 2000 to 10000ms
 });
 
 async function renderKnockoutBracket(pairings) {
@@ -755,7 +781,7 @@ async function renderKnockoutBracket(pairings) {
   pairingsSection.className = "pairings-section";
   pairingsSection.innerHTML = `<h3 style="color: #333; text-align: center; margin: 40px 0 20px 0;">Knockout Playoffs</h3>`;
 
-  // Fetch Round of 16 matchups for pairings section
+  // Fetch Round of 16 matchups for pairings section (will use cache)
   const roundOf16Matchups = await fetchRoundOf16Matchups();
 
   const pairingContainer = document.createElement("div");
@@ -1028,35 +1054,63 @@ async function renderFinalsBracket(knockoutPairings, container) {
 
         const aggregateHome = matchup.aggregateHome || 0;
         const aggregateAway = matchup.aggregateAway || 0;
+        
+        // For finals, use homeTeam (left) and awayTeam (right) directly without reordering by score
         let firstTeam, secondTeam, firstScore, secondScore, firstIsWinner = false;
-        if (aggregateHome > aggregateAway) {
-          firstTeam = matchup.homeTeam;
-          secondTeam = matchup.awayTeam;
+        
+        if (roundName === "Finals") {
+          // Use positioned teams directly - don't reorder by score
+          firstTeam = matchup.homeTeam;  // Left team
+          secondTeam = matchup.awayTeam; // Right team
           firstScore = aggregateHome;
           secondScore = aggregateAway;
-          firstIsWinner = true;
-        } else if (aggregateAway > aggregateHome) {
-          firstTeam = matchup.awayTeam;
-          secondTeam = matchup.homeTeam;
-          firstScore = aggregateAway;
-          secondScore = aggregateHome;
-          firstIsWinner = true;
+          firstIsWinner = aggregateHome > aggregateAway;
         } else {
-          firstTeam = matchup.homeTeam;
-          secondTeam = matchup.awayTeam;
-          firstScore = aggregateHome;
-          secondScore = aggregateAway;
-          firstIsWinner = false;
+          // For other rounds, reorder by winner as before
+          if (aggregateHome > aggregateAway) {
+            firstTeam = matchup.homeTeam;
+            secondTeam = matchup.awayTeam;
+            firstScore = aggregateHome;
+            secondScore = aggregateAway;
+            firstIsWinner = true;
+          } else if (aggregateAway > aggregateHome) {
+            firstTeam = matchup.awayTeam;
+            secondTeam = matchup.homeTeam;
+            firstScore = aggregateAway;
+            secondScore = aggregateHome;
+            firstIsWinner = true;
+          } else {
+            firstTeam = matchup.homeTeam;
+            secondTeam = matchup.awayTeam;
+            firstScore = aggregateHome;
+            secondScore = aggregateAway;
+            firstIsWinner = false;
+          }
         }
         // Winner color for glow (bigger for bracket)
         let winnerColor = "#43a047";
-        if (firstIsWinner && firstTeam.color) {
-          let color = firstTeam.color;
-          if (color.toLowerCase() === "ffffff" || color.toLowerCase() === "#ffffff") {
-            color = firstTeam.alternateColor;
+        if (roundName === "Finals") {
+          // For finals, determine actual winner regardless of positioning
+          const actualWinner = firstScore > secondScore ? firstTeam : 
+                              secondScore > firstScore ? secondTeam : null;
+          if (actualWinner && actualWinner.color) {
+            let color = actualWinner.color;
+            if (color.toLowerCase() === "ffffff" || color.toLowerCase() === "#ffffff") {
+              color = actualWinner.alternateColor;
+            }
+            winnerColor = (color && color.length === 6 ? "#" + color : "#43a047");
           }
-          winnerColor = (color && color.length === 6 ? "#" + color : "#43a047");
+        } else {
+          // For other rounds, use existing logic
+          if (firstIsWinner && firstTeam.color) {
+            let color = firstTeam.color;
+            if (color.toLowerCase() === "ffffff" || color.toLowerCase() === "#ffffff") {
+              color = firstTeam.alternateColor;
+            }
+            winnerColor = (color && color.length === 6 ? "#" + color : "#43a047");
+          }
         }
+
         const firstTeamLogo = `https://a.espncdn.com/i/teamlogos/soccer/500/${firstTeam.id}.png`;
         const secondTeamLogo = `https://a.espncdn.com/i/teamlogos/soccer/500/${secondTeam.id}.png`;
         const isCompleted = matchup.matches.every(match => match.status === "post");
@@ -1065,23 +1119,30 @@ async function renderFinalsBracket(knockoutPairings, container) {
         if (isMobile) {
           // Mobile layout - simplified cards with only logos and scores
           if (roundName === "Finals") {
+            // Apply same abbreviation logic as desktop
+            const firstAbbrev = abbreviateFinalsTeamName(firstTeam) || (firstTeam?.displayName || "TBD");
+            const secondAbbrev = abbreviateFinalsTeamName(secondTeam) || (secondTeam?.displayName || "TBD");
+            
             // Finals mobile: show both teams with scores under each
             matchupRow.innerHTML = `
-              <div style="display: flex; justify-content: space-around; align-items: center; width: 100%;">
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
-                  <img src="${firstTeamLogo}" alt="${firstTeam.shortDisplayName}" style="width: 30px; height: 30px;" onerror="this.src='../soccer-ball-png-24.png'">
-                  <div style="text-align: center; font-size: 12px; color: #000; font-weight: bold;">${firstTeam.shortDisplayName}</div>
-                  <div style="text-align: center; font-size: 18px; font-weight: bold; color: ${firstScore > secondScore ? '#43a047' : '#333'};">${firstScore}</div>
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
-                  <img src="${secondTeamLogo}" alt="${secondTeam.shortDisplayName}" style="width: 30px; height: 30px;" onerror="this.src='../soccer-ball-png-24.png'">
-                  <div style="text-align: center; font-size: 12px; color: #000; font-weight: bold;">${secondTeam.shortDisplayName}</div>
-                  <div style="text-align: center; font-size: 18px; font-weight: bold; color: ${secondScore > firstScore ? '#43a047' : '#333'};">${secondScore}</div>
+              <div style="display: flex; flex-direction: column; align-items: center; width: 100%; gap: 10px;">
+                <div style="font-size: 14px; font-weight: bold; color: #333; text-align: center;">FINAL</div>
+                <div style="display: flex; justify-content: space-around; align-items: center; width: 100%;">
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                    <img src="${firstTeamLogo}" alt="${firstTeam.shortDisplayName}" style="width: 30px; height: 30px;" onerror="this.src='../soccer-ball-png-24.png'">
+                    <div style="text-align: center; font-size: 12px; color: #000; font-weight: bold;">${firstAbbrev}</div>
+                    <div style="text-align: center; font-size: 18px; font-weight: bold; color: ${firstScore > secondScore ? '#43a047' : '#333'};">${firstScore}</div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                    <img src="${secondTeamLogo}" alt="${secondTeam.shortDisplayName}" style="width: 30px; height: 30px;" onerror="this.src='../soccer-ball-png-24.png'">
+                    <div style="text-align: center; font-size: 12px; color: #000; font-weight: bold;">${secondAbbrev}</div>
+                    <div style="text-align: center; font-size: 18px; font-weight: bold; color: ${secondScore > firstScore ? '#43a047' : '#333'};">${secondScore}</div>
+                  </div>
                 </div>
               </div>
             `;
             
-            // Determine winnerId for mobile glow (only for finals)
+            // Determine winnerId for mobile glow (only for finals)  
             let winnerId = null;
             if (firstScore > secondScore) {
               winnerId = firstTeam.id;
@@ -1238,16 +1299,58 @@ async function renderFinalsBracket(knockoutPairings, container) {
     return conferenceDiv;
   };
 
-  // Split the rounds correctly like CWC
+  // Split the rounds correctly based on bracket flow and maintain positioning
   const leftRounds = {
-    "Quarterfinals": quarterfinalsMatchups.slice(0, 2), // First 2 QF matches
-    "Semifinals": semifinalsMatchups.slice(0, 1) // First SF match
+    "Quarterfinals": [],
+    "Semifinals": []
   };
 
   const rightRounds = {
-    "Quarterfinals": quarterfinalsMatchups.slice(2, 4), // Last 2 QF matches  
-    "Semifinals": semifinalsMatchups.slice(1, 2) // Second SF match
+    "Quarterfinals": [],
+    "Semifinals": []
   };
+
+  // Organize quarterfinals and maintain their bracket positions
+  if (semifinalsMatchups.length >= 2) {
+    const leftSF = semifinalsMatchups[0];  // Top semifinal (left side)
+    const rightSF = semifinalsMatchups[1]; // Bottom semifinal (right side)
+    
+    // Store semifinals in positional order
+    leftRounds["Semifinals"] = [leftSF];
+    rightRounds["Semifinals"] = [rightSF];
+    
+    // Find QF matches that feed into each semifinal and maintain top/bottom positioning
+    quarterfinalsMatchups.forEach(qfMatch => {
+      const feedsIntoLeftSF = leftSF && (
+        (qfMatch.homeTeam.id === leftSF.homeTeam.id || qfMatch.homeTeam.id === leftSF.awayTeam.id) ||
+        (qfMatch.awayTeam.id === leftSF.homeTeam.id || qfMatch.awayTeam.id === leftSF.awayTeam.id)
+      );
+      
+      const feedsIntoRightSF = rightSF && (
+        (qfMatch.homeTeam.id === rightSF.homeTeam.id || qfMatch.homeTeam.id === rightSF.awayTeam.id) ||
+        (qfMatch.awayTeam.id === rightSF.homeTeam.id || qfMatch.awayTeam.id === rightSF.awayTeam.id)
+      );
+      
+      if (feedsIntoLeftSF) {
+        leftRounds["Quarterfinals"].push(qfMatch);
+      } else if (feedsIntoRightSF) {
+        rightRounds["Quarterfinals"].push(qfMatch);
+      } else {
+        // Fallback: distribute evenly if no clear connection
+        if (leftRounds["Quarterfinals"].length <= rightRounds["Quarterfinals"].length) {
+          leftRounds["Quarterfinals"].push(qfMatch);
+        } else {
+          rightRounds["Quarterfinals"].push(qfMatch);
+        }
+      }
+    });
+  } else {
+    // No semifinals data available, split evenly as fallback
+    leftRounds["Quarterfinals"] = quarterfinalsMatchups.slice(0, 2);
+    rightRounds["Quarterfinals"] = quarterfinalsMatchups.slice(2, 4);
+    leftRounds["Semifinals"] = semifinalsMatchups.slice(0, 1);
+    rightRounds["Semifinals"] = semifinalsMatchups.slice(1, 2);
+  }
 
   // Check if mobile layout is needed
   const isMobile = window.innerWidth < 525;
@@ -1279,11 +1382,86 @@ async function renderFinalsBracket(knockoutPairings, container) {
       leftSFRow.appendChild(leftSF);
     }
     
-    // Row 3: Finals (centered)
+    // Row 3: Finals (centered) - Use EXACT same positioning logic as desktop
     const finalsRow = document.createElement("div");
     finalsRow.className = "mobile-row finals-row";
     
-    const finalsColumn = renderRoundColumn(finalsMatchups, "Finals", "mobile-finals");
+    let finalsColumn;
+    if (finalsMatchups.length > 0) {
+      const finalsMatch = finalsMatchups[0];
+      const leftSF = leftRounds["Semifinals"][0];
+      const rightSF = rightRounds["Semifinals"][0];
+      
+      console.log("Mobile Finals positioning debug:", {
+        finalsTeams: [finalsMatch.homeTeam.shortDisplayName, finalsMatch.awayTeam.shortDisplayName],
+        leftSFTeams: leftSF ? [leftSF.homeTeam.shortDisplayName, leftSF.awayTeam.shortDisplayName] : null,
+        rightSFTeams: rightSF ? [rightSF.homeTeam.shortDisplayName, rightSF.awayTeam.shortDisplayName] : null
+      });
+      
+      // Determine which team came from which semifinal - EXACT same logic as desktop
+      let leftTeam = finalsMatch.homeTeam;
+      let rightTeam = finalsMatch.awayTeam;
+      let leftScore = finalsMatch.aggregateHome;
+      let rightScore = finalsMatch.aggregateAway;
+      
+      if (leftSF && rightSF) {
+        // Check which team came from which semifinal
+        const homeFromLeftSF = leftSF.homeTeam.id === finalsMatch.homeTeam.id || leftSF.awayTeam.id === finalsMatch.homeTeam.id;
+        const awayFromLeftSF = leftSF.homeTeam.id === finalsMatch.awayTeam.id || leftSF.awayTeam.id === finalsMatch.awayTeam.id;
+        const homeFromRightSF = rightSF.homeTeam.id === finalsMatch.homeTeam.id || rightSF.awayTeam.id === finalsMatch.homeTeam.id;
+        const awayFromRightSF = rightSF.homeTeam.id === finalsMatch.awayTeam.id || rightSF.awayTeam.id === finalsMatch.awayTeam.id;
+        
+        console.log("Mobile Team source analysis:", {
+          homeFromLeftSF, awayFromLeftSF, homeFromRightSF, awayFromRightSF
+        });
+        
+        // Force correct positioning: left SF winner on left, right SF winner on right
+        if (homeFromLeftSF && awayFromRightSF) {
+          // Home came from left, away from right - this is correct, keep as is
+          console.log("Mobile: Keeping original order - home from left, away from right");
+        } else if (homeFromRightSF && awayFromLeftSF) {
+          // Home came from right, away from left - swap them
+          console.log("Mobile: Swapping order - home from right, away from left");
+          leftTeam = finalsMatch.awayTeam;
+          rightTeam = finalsMatch.homeTeam;
+          leftScore = finalsMatch.aggregateAway;
+          rightScore = finalsMatch.aggregateHome;
+        } else if (homeFromLeftSF && !awayFromRightSF && !awayFromLeftSF) {
+          // Only home team source is clear (from left), assume away is from right
+          console.log("Mobile: Home from left, assuming away from right");
+        } else if (homeFromRightSF && !awayFromLeftSF && !awayFromRightSF) {
+          // Only home team source is clear (from right), assume away is from left
+          console.log("Mobile: Home from right, assuming away from left - swapping");
+          leftTeam = finalsMatch.awayTeam;
+          rightTeam = finalsMatch.homeTeam;
+          leftScore = finalsMatch.aggregateAway;
+          rightScore = finalsMatch.aggregateHome;
+        } else {
+          console.log("Mobile: Could not determine clear source - keeping original order");
+        }
+      }
+      
+      // Create a modified finals matchup with correct positioning
+      const positionedFinalsMatch = {
+        ...finalsMatch,
+        homeTeam: leftTeam,
+        awayTeam: rightTeam,
+        aggregateHome: leftScore,
+        aggregateAway: rightScore
+      };
+      
+      console.log("Mobile Final positioning result:", {
+        leftTeam: leftTeam.shortDisplayName,
+        rightTeam: rightTeam.shortDisplayName,
+        leftScore,
+        rightScore
+      });
+      
+      finalsColumn = renderRoundColumn([positionedFinalsMatch], "Finals", "mobile-finals");
+    } else {
+      finalsColumn = renderRoundColumn(finalsMatchups, "Finals", "mobile-finals");
+    }
+    
     finalsRow.appendChild(finalsColumn);
     
     // Row 4: Right Semifinal (centered)
@@ -1318,16 +1496,66 @@ async function renderFinalsBracket(knockoutPairings, container) {
     container.appendChild(mobileContainer);
   } else {
     // Desktop layout: horizontal (existing layout)
-    // Create left conference
+    // Create the final bracket structure
     const leftConference = renderConferenceRounds(leftRounds, "left-conference", "left");
-    
-    // Create finals column
     const finalsDiv = document.createElement("div");
     finalsDiv.className = "conference finals-conference";
-    const finalsColumn = renderRoundColumn(finalsMatchups, "Finals", "finals");
+    
+    // For finals, determine left/right positioning based on which semifinal teams came from
+    let finalsColumn;
+    if (finalsMatchups.length > 0) {
+      const finalsMatch = finalsMatchups[0];
+      const leftSF = leftRounds["Semifinals"][0];
+      const rightSF = rightRounds["Semifinals"][0];
+      
+      // Determine which team came from which semifinal
+      let leftTeam = finalsMatch.homeTeam;
+      let rightTeam = finalsMatch.awayTeam;
+      let leftScore = finalsMatch.aggregateHome;
+      let rightScore = finalsMatch.aggregateAway;
+      
+      if (leftSF && rightSF) {
+        // Check which team came from which semifinal
+        const homeFromLeftSF = leftSF.homeTeam.id === finalsMatch.homeTeam.id || leftSF.awayTeam.id === finalsMatch.homeTeam.id;
+        const awayFromLeftSF = leftSF.homeTeam.id === finalsMatch.awayTeam.id || leftSF.awayTeam.id === finalsMatch.awayTeam.id;
+        const homeFromRightSF = rightSF.homeTeam.id === finalsMatch.homeTeam.id || rightSF.awayTeam.id === finalsMatch.homeTeam.id;
+        const awayFromRightSF = rightSF.homeTeam.id === finalsMatch.awayTeam.id || rightSF.awayTeam.id === finalsMatch.awayTeam.id;
+        
+        // Force correct positioning: left SF winner on left, right SF winner on right
+        if (homeFromLeftSF && awayFromRightSF) {
+          // Home came from left, away from right - this is correct, keep as is
+        } else if (homeFromRightSF && awayFromLeftSF) {
+          // Home came from right, away from left - swap them
+          leftTeam = finalsMatch.awayTeam;
+          rightTeam = finalsMatch.homeTeam;
+          leftScore = finalsMatch.aggregateAway;
+          rightScore = finalsMatch.aggregateHome;
+        } else if (homeFromLeftSF && !awayFromRightSF && !awayFromLeftSF) {
+          // Only home team source is clear (from left), assume away is from right
+        } else if (homeFromRightSF && !awayFromLeftSF && !awayFromRightSF) {
+          // Only home team source is clear (from right), assume away is from left
+          leftTeam = finalsMatch.awayTeam;
+          rightTeam = finalsMatch.homeTeam;
+          leftScore = finalsMatch.aggregateAway;
+          rightScore = finalsMatch.aggregateHome;
+        }
+      }
+      
+      // Create a modified finals matchup with correct positioning
+      const positionedFinalsMatch = {
+        ...finalsMatch,
+        homeTeam: leftTeam,
+        awayTeam: rightTeam,
+        aggregateHome: leftScore,
+        aggregateAway: rightScore
+      };
+      
+      finalsColumn = renderRoundColumn([positionedFinalsMatch], "Finals", "finals");
+    } else {
+      finalsColumn = renderRoundColumn(finalsMatchups, "Finals", "finals");
+    }
+    
     finalsDiv.appendChild(finalsColumn);
-
-    // Create right conference
     const rightConference = renderConferenceRounds(rightRounds, "right-conference", "right");
 
     // Append in CWC-style order: Left Conference, Finals, Right Conference
@@ -1357,6 +1585,12 @@ function generateTBAFinalsMatchups(knockoutPairings, roundName) {
 
 async function fetchQuarterfinalsMatchups() {
   try {
+    // Use cache if available and recent
+    const now = Date.now();
+    if (cachedQuarterfinals && (now - lastMatchupsCache) < CACHE_DURATION) {
+      return cachedQuarterfinals;
+    }
+
     const currentYear = new Date().getFullYear();
     const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/scoreboard?dates=${currentYear}0101`;
 
@@ -1368,6 +1602,7 @@ async function fetchQuarterfinalsMatchups() {
     );
 
     if (!quarterfinalsStage) {
+      cachedQuarterfinals = [];
       return [];
     }
 
@@ -1378,15 +1613,23 @@ async function fetchQuarterfinalsMatchups() {
     const data = await response.json();
     const events = data.events || [];
     
-    return groupRoundOf16ByMatchup(events);
+    cachedQuarterfinals = groupRoundOf16ByMatchup(events);
+    lastMatchupsCache = now;
+    return cachedQuarterfinals;
   } catch (error) {
     console.error("Error fetching Quarterfinals matchups:", error);
-    return [];
+    return cachedQuarterfinals || [];
   }
 }
 
 async function fetchSemifinalsMatchups() {
   try {
+    // Use cache if available and recent
+    const now = Date.now();
+    if (cachedSemifinals && (now - lastMatchupsCache) < CACHE_DURATION) {
+      return cachedSemifinals;
+    }
+
     const currentYear = new Date().getFullYear();
     const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/scoreboard?dates=${currentYear}0101`;
 
@@ -1398,6 +1641,7 @@ async function fetchSemifinalsMatchups() {
     );
 
     if (!semifinalsStage) {
+      cachedSemifinals = [];
       return [];
     }
 
@@ -1408,15 +1652,22 @@ async function fetchSemifinalsMatchups() {
     const data = await response.json();
     const events = data.events || [];
     
-    return groupRoundOf16ByMatchup(events);
+    cachedSemifinals = groupRoundOf16ByMatchup(events);
+    return cachedSemifinals;
   } catch (error) {
     console.error("Error fetching Semifinals matchups:", error);
-    return [];
+    return cachedSemifinals || [];
   }
 }
 
 async function fetchFinalsMatchups() {
   try {
+    // Use cache if available and recent
+    const now = Date.now();
+    if (cachedFinals && (now - lastMatchupsCache) < CACHE_DURATION) {
+      return cachedFinals;
+    }
+
     const currentYear = new Date().getFullYear();
     const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/scoreboard?dates=${currentYear}0101`;
 
@@ -1428,6 +1679,7 @@ async function fetchFinalsMatchups() {
     );
 
     if (!finalsStage) {
+      cachedFinals = [];
       return [];
     }
 
@@ -1438,9 +1690,21 @@ async function fetchFinalsMatchups() {
     const data = await response.json();
     const events = data.events || [];
     
-    return groupRoundOf16ByMatchup(events);
+    cachedFinals = groupRoundOf16ByMatchup(events);
+    return cachedFinals;
   } catch (error) {
     console.error("Error fetching Finals matchups:", error);
-    return [];
+    return cachedFinals || [];
   }
+}
+
+// Clear cache when league changes
+function clearCache() {
+  cachedStandings = null;
+  cachedQuarterfinals = null;
+  cachedSemifinals = null;
+  cachedFinals = null;
+  cachedRoundOf16 = null;
+  lastStandingsCache = 0;
+  lastMatchupsCache = 0;
 }
