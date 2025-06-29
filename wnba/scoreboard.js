@@ -131,20 +131,64 @@ async function fetchAndRenderTopScoreboard() {
       }
     }
 
-    const adjustedDate = getAdjustedDateForNBA();
-    const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${adjustedDate}`;
-
-    const response = await fetch(SCOREBOARD_API_URL);
-    const scoreboardData = await response.json();
-
-    const games = scoreboardData.events || [];
-    if (games.length === 0) {
-      console.error("No games found for the selected date.");
+    const gameId = getQueryParam("gameId");
+    const gameDate = getQueryParam("date");
+    
+    if (!gameId) {
+      console.error("No gameId provided");
       return;
     }
 
-    const gameId = getQueryParam("gameId");
-    const selectedGame = games.find(game => game.id === gameId);
+    let selectedGame = null;
+    let scoreboardData = null;
+
+    if (gameDate) {
+      // Use the specific date provided
+      const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${gameDate}`;
+      
+      try {
+        const response = await fetch(SCOREBOARD_API_URL);
+        const data = await response.json();
+        const games = data.events || [];
+        
+        selectedGame = games.find(game => game.id === gameId);
+        if (selectedGame) {
+          scoreboardData = data;
+        }
+      } catch (error) {
+        console.error(`Error fetching data for date ${gameDate}:`, error);
+      }
+    }
+
+    // Fallback: search recent dates if specific date doesn't work
+    if (!selectedGame) {
+      const today = new Date();
+      for (let daysBack = 0; daysBack <= 30; daysBack++) {
+        const searchDate = new Date(today);
+        searchDate.setDate(today.getDate() - daysBack);
+        
+        const adjustedDate = searchDate.getFullYear() +
+                             String(searchDate.getMonth() + 1).padStart(2, "0") +
+                             String(searchDate.getDate()).padStart(2, "0");
+        
+        const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${adjustedDate}`;
+
+        try {
+          const response = await fetch(SCOREBOARD_API_URL);
+          const data = await response.json();
+          const games = data.events || [];
+          
+          selectedGame = games.find(game => game.id === gameId);
+          if (selectedGame) {
+            scoreboardData = data;
+            break;
+          }
+        } catch (error) {
+          console.error(`Error fetching data for date ${adjustedDate}:`, error);
+        }
+      }
+    }
+
     if (!selectedGame) {
       console.error(`Game with ID ${gameId} not found.`);
       return;
@@ -172,6 +216,7 @@ async function fetchAndRenderTopScoreboard() {
     const period = selectedGame.status.period || 0;
     const clock = selectedGame.status.displayClock || "00:00";
     const gameStatus = selectedGame.status.type.description;
+    const isGameOver = gameStatus === "Final";
 
     const topScoreboardEl = document.getElementById("topScoreboard");
     if (!topScoreboardEl) {
@@ -225,9 +270,32 @@ async function fetchAndRenderTopScoreboard() {
 
     // Render the box score
     renderBoxScore(gameId, gameStatus);
+
+    // Return true if game is over to stop further updates
+    return isGameOver;
   } catch (error) {
     console.error("Error fetching WNBA scoreboard data:", error);
+    return true; // Stop fetching on error
   }
+}
+
+let updateInterval;
+
+// Fetch and render the scoreboard based on the gameId in the URL
+const gameId = getQueryParam("gameId");
+if (gameId) {
+  const updateScoreboard = async () => {
+    const gameOver = await fetchAndRenderTopScoreboard();
+    if (gameOver && updateInterval) {
+      clearInterval(updateInterval);
+      console.log("Game is over. Stopped fetching updates.");
+    }
+  };
+
+  updateScoreboard(); // Initial fetch
+  updateInterval = setInterval(updateScoreboard, 2000);
+} else {
+  document.getElementById("scoreboardContainer").innerHTML = "<p>No game selected.</p>";
 }
 
 function renderLinescoreTable(awayLinescores, homeLinescores, awayAbbr, homeAbbr, awayTotal, homeTotal) {
@@ -311,7 +379,3 @@ function renderPlayDescription(lastPlay, clock, competitors) {
     </div>
   `;
 }
-
-// Fetch and render the scoreboard based on the gameId in the URL
-fetchAndRenderTopScoreboard();
-setInterval(fetchAndRenderTopScoreboard, 2000);

@@ -1,0 +1,729 @@
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: #000000;
+  color: #ffffff;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Disable scroll bar */
+}
+
+.navbar {
+  background-color: #000;
+  color: white;
+  padding: 10px 0;
+  display: flex;
+  justify-content: center;
+  position: sticky;
+  top: 0;
+  width: 100%;
+  z-index: 1000;
+}
+
+.navbar-content {
+  width: 100%;
+  max-width: 100vw;
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-left {
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.nav-right {
+  display: flex;
+  gap: 20px;
+}
+
+.nav-link {
+  color: white;
+  text-decoration: none;
+  font-size: 1rem;
+}
+
+.nav-link.active {
+  color: #888;
+  font-weight: bold;
+}
+
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  gap: 4px;
+}
+
+.nav-toggle .bars {
+  width: 25px;
+  height: 3px;
+  background-color: white;
+}
+
+.dropdown-menu {
+  display: none;
+  flex-direction: column;
+  position: absolute;
+  top: 60px;
+  right: 20px;
+  background-color: #000;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+}
+
+.dropdown-menu.active {
+  display: flex;
+}
+
+.dropdown-link {
+  color: white;
+  text-decoration: none;
+  padding: 10px 20px;
+  text-align: center;
+}
+
+.dropdown-link:hover {
+  background-color: #333;
+}
+
+.dropdown-link.active {
+  background-color: #444;
+  font-weight: bold;
+}
+
+.league-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 5px;
+  margin-bottom: 15px;
+}
+
+.league-button {
+  background-color: #444;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 10px 20px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.league-button img.league-logo {
+  width: 30px;
+  height: 30px;
+  display: none; /* Default to hidden unless on small screens */
+}
+
+.league-button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(255, 255, 255, 0.5);
+}
+
+.league-button:active {
+  transform: scale(1.05);
+  box-shadow: 0 2px 4px rgba(255, 255, 255, 0.3);
+}
+
+.league-button.active {
+  background-color: #888;
+  font-weight: bold;
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(255, 255, 255, 0.5);
+}
+
+#bracket {
+  background: #ebebeb;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 1px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+.bracket-container {
+  margin-top: 50px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  background: #ebebeb;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  flex-grow: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.pairing-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pairing-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 10px;
+  border: 2px solid #ddd;
+}
+
+.pairing-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #333;
+  text-align: center;
+  margin: 20px;
+}
+
+.pairing-left,
+.pairing-right {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 40%;
+}
+
+.vs-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 20%;
+  gap: 10px;
+}
+
+.vs-text {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #666;
+}
+
+.aggregate-score {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #333;
+  padding: 5px 10px;
+  background-color: #e9ecef;
+  border-radius: 5px;
+}
+
+.team-matchup {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px;
+  background-color: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.team-matchup:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.team-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-grow: 1;
+}
+
+.team-logos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+}
+
+.team-names {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.team-name {
+  font-weight: bold;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.team-seeds {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 10px;
+}
+
+.team-seed {
+  font-size: 0.8rem;
+  color: #666;
+  font-weight: normal;
+}
+
+.match-score {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #333;
+  min-width: 60px;
+  text-align: center;
+}
+
+.tba-matchup {
+  background-color: #f8f9fa;
+  border: 2px dashed #ccc;
+  color: #666;
+  cursor: default;
+}
+
+.tba-matchup:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.match-status {
+  font-size: 0.8rem;
+  color: #666;
+  text-align: center;
+  margin-top: 5px;
+}
+
+.footer {
+  background-color: #000;
+  color: white;
+  text-align: center;
+  padding: 10px 0;
+  font-size: 1rem;
+  position: relative;
+  bottom: 0;
+  width: 100%;
+}
+
+.footer-link {
+  color: white;
+  text-decoration: none;
+  margin: 0 10px;
+}
+
+.footer-link:hover {
+  color: #888;
+}
+
+/* Finals Bracket specific styling - matching CWC playoffs.css */
+.bracket-section .bracket-container {
+  margin-top: -25px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  background: #ebebeb;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  flex-grow: 1;
+  overflow-x: hidden;
+}
+
+.bracket-section .conference {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 30%;
+}
+
+.bracket-section .left-conference {
+  align-items: flex-start;
+}
+
+.bracket-section .right-conference {
+  align-items: flex-end;
+}
+
+.bracket-section .finals-conference {
+  width: 40%;
+  align-items: center;
+}
+
+.bracket-section .rounds-container {
+  display: flex;
+  gap: 20px;
+}
+
+.bracket-section .bracket-round {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 180px;
+  min-width: 180px;
+}
+
+.bracket-section .round-title {
+  font-size: 1.2em;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+.bracket-section .bracket-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+  margin-bottom: 15px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.bracket-section .bracket-row:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.bracket-section .tba-card {
+  background-color: #f9f9f9;
+  border: 2px dashed #ccc;
+  color: #666;
+  text-align: center;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  cursor: default;
+}
+
+.bracket-section .tba-card:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.bracket-section .series-info {
+  font-size: 0.9rem;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 10px;
+  color: #555;
+}
+
+.bracket-section .team-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid #eee;
+  gap: 8px;
+  font-size: 1em;
+}
+
+.bracket-section .team-row:last-child {
+  border-bottom: none;
+}
+
+.bracket-section .team-logo-small {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.bracket-section .team-name {
+  font-weight: bold;
+  flex-grow: 1;
+  margin-left: 5px;
+  color: #000;
+  text-align: left;
+}
+
+.bracket-section .team-record {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #000000;
+  min-width: 20px;
+  text-align: right;
+}
+
+/* Finals specific styling matching CWC */
+.bracket-section .bracket-row.finals {
+  margin-top: 50px;
+  margin-left: -70px;
+  padding: 20px;
+  width: 270px;
+  border: 2px solid #ccc;
+  border-radius: 10px;
+  background-color: #f9f9f9;
+  text-align: center;
+}
+
+.bracket-section .finals-title {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+.bracket-section .finals-matchup {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin-top: 10px;
+}
+
+.bracket-section .team-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.bracket-section .record {
+  font-weight: bold;
+  font-size: 2rem;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+.bracket-section .team-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bracket-section .abbrev {
+  font-weight: bold;
+  color: #333;
+}
+
+.bracket-section .vs {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #666;
+  align-self: center;
+}
+
+/* Mobile responsive for finals bracket only */
+@media (max-width: 768px) {
+  .pairing-row {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .pairing-left,
+  .pairing-right {
+    width: 100%;
+  }
+
+  .vs-section {
+    width: 100%;
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  .bracket-section .bracket-container {
+    flex-direction: row;
+    overflow-x: auto;
+    width: 100vw;
+    min-width: 1200px;
+    padding: 10px 0;
+  }
+
+  .bracket-section .conference {
+    min-width: 300px;
+    width: auto;
+    flex: 0 0 auto;
+    margin-right: 20px;
+  }
+
+  .bracket-section .finals-conference {
+    min-width: 250px;
+  }
+
+  .bracket-section .rounds-container {
+    min-width: 600px;
+  }
+
+  .bracket-section .bracket-round {
+    min-width: 180px;
+    width: 200px;
+    flex: 0 0 auto;
+    margin-right: 10px;
+  }
+
+  .bracket-section .bracket-row.finals {
+    width: 100%;
+    margin-left: -25px;
+  }
+}
+
+@media (max-width: 525px) {
+  .nav-right {
+    display: none;
+  }
+
+  .nav-toggle {
+    display: flex;
+  }
+
+  .dropdown-menu.active {
+    display: flex;
+  }
+
+  .bracket-container {
+    padding: 10px;
+  }
+
+  .team-logo {
+    width: 25px;
+    height: 25px;
+  }
+
+  .team-name {
+    font-size: 0.8rem;
+  }
+
+  .league-button {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+  }
+
+  /* Mobile vertical layout for finals bracket */
+  .bracket-section .bracket-container {
+    margin-top: 0px;
+    flex-direction: column;
+    width: 100%;
+    min-width: auto;
+    padding: 10px;
+    overflow-x: visible;
+    gap: 15px;
+  }
+
+  /* Mobile bracket container - 2-1-1-1-2 layout */
+  .mobile-bracket-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+    width: 100%;
+  }
+
+  /* Mobile rows */
+  .mobile-row {
+    display: flex;
+    width: 100%;
+  }
+
+  /* Quarterfinals rows - 2 cards side by side */
+  .mobile-row.qf-row {
+    justify-content: space-between;
+    gap: 15px;
+  }
+
+  .mobile-row.qf-row .bracket-round {
+    flex: 1;
+    max-width: 40%;
+  }
+
+  /* Semifinals rows - 1 card centered */
+  .mobile-row.sf-row {
+    justify-content: center;
+  }
+
+  .mobile-row.sf-row .bracket-round {
+    flex: 0 0 30%;
+    max-width: 60%;
+  }
+
+  /* Finals row - 1 card centered */
+  .mobile-row.finals-row {
+    justify-content: center;
+  }
+
+  .mobile-row.finals-row .bracket-round {
+    flex: 0 0 55%;
+    max-width: 65%;
+  }
+
+  /* General mobile bracket styling */
+  .bracket-section .bracket-row {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+  }
+
+  .bracket-section .bracket-row.finals {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 0;
+    padding: 15px;
+  }
+
+  /* Remove desktop-specific styling for mobile */
+  .bracket-section .conference {
+    width: 100%;
+    min-width: auto;
+    margin-right: 0;
+  }
+
+  .bracket-section .rounds-container {
+    min-width: auto;
+    width: 100%;
+    gap: 10px;
+  }
+
+  /* Remove old mobile-specific bracket sections */
+  .mobile-bracket-section.mobile-top,
+  .mobile-bracket-section.mobile-middle,
+  .mobile-bracket-section.mobile-bottom {
+    display: none;
+  }
+}
+
+  .bracket-section .rounds-container {
+    min-width: auto;
+    width: 100%;
+    gap: 10px;
+  }
+
+  /* Remove desktop-specific styling for mobile */
+  .bracket-section .conference {
+    width: 100%;
+    min-width: auto;
+    margin-right: 0;
+  }
+
+  .bracket-section .rounds-container {
+    min-width: auto;
+    width: 100%;
+    gap: 10px;
+  }
+

@@ -29,8 +29,16 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - **Team Tracker**  
   - All 30 teams shown at once for MLB and NBA, all 13 teams shown at once for WNBA and all 32 teams shown at once for NHL
   - Includes all teams from Premier League, La Liga, Bundesliga, Serie A and Ligue 1. For UEFA, it includes teams currently in Champions League, Europa League and Europa Conference League
-  - See each team’s game status
+  - See each team's game status
   - Click on a team logo to get a unique URL for OBS
+
+- **Advanced Team Search**
+  - Search for any team across all sports leagues with intelligent autocomplete
+  - Filter matches by custom date ranges (supports multi-year searches)
+  - View comprehensive match history with pagination for large result sets
+  - Click on any search result to view detailed scoreboard for that specific game
+  - Bookmark and share search results with URL parameters
+  - Mobile-optimized with team abbreviations for compact viewing
 
 - **Standings**
   - View current league standings side by side for both conferences with divisions
@@ -54,7 +62,10 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 
 - **UEFA Specific**
   - Just like soccer, UEFA has league buttons at the top
-  - There is a Playoffs section in the navbar. Clicking on it will show you the all the teams in the selected league and their past rounds and matches. You can click on any of the match game cards to be taken to the respective scoreboard of that game
+  - Features a comprehensive Bracket page showing the complete tournament structure from group stage to finals
+  - Interactive bracket navigation allows you to click on any match to view detailed scoreboards
+  - Real-time bracket updates as teams advance through each round
+  - Mobile-responsive bracket layout adapts to different screen sizes
   - The UEFA scoreboard works the same as the soccer scoreboard
 
 - **Club World Cup Specific**
@@ -84,6 +95,8 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - (5/12/2025) Added playoff bracket page to NBA. Coming soon to NHL and MLB.
 - **(5/27/2025) Added fully functional WNBA tracker**
 - **(06/14/2025) Added fully functional Club World Cup tracker**
+- **(06/28/2024) Added comprehensive team search functionality across all sports with multi-year date range support**
+- (06/28/2024) Added UEFA bracket page with complete tournament visualization
 
 ---
 
@@ -94,7 +107,9 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - On the scoreboard page, if the user is on a phone screen and they turn it landscape, it will show the regular phone view (max 3 innings) in landscape until the next fetch. Vice versa for landscape to portrait.
 - For NHL scoreboard, at times it may show undefined for play-by-play. This is an issue from the api directly as it doesn't update some things immediately.
 - For Soccer, UEFA, and CWC, the top scoreboard score and time as well as the play description might not update in real time. This is a problem caused by ESPN's api
-- NBA bracket page style on mobile is not proper
+- Bracket page style on mobile is not proper for all sports except UEFA
+- NHL search page might not function at times as nhle api has rate limits that blocks requests if done too quickly
+- For finals section in UEFA bracket page, the matchups for some quarterfinals aren't propererly lined up with the semifinals match
 
 ---
 

@@ -195,6 +195,8 @@ function hashString(str) {
   return hash;
 }
 
+let updateInterval;
+
 async function fetchGames() {
   const today = getAdjustedDateForNHL();
   const url = `https://corsproxy.io/?url=https://api-web.nhle.com/v1/schedule/${today}`;
@@ -221,6 +223,9 @@ async function fetchGames() {
 
     const gamesData = JSON.parse(text);
     const games = gamesData.gameWeek?.[0]?.games || [];
+
+    // Check if all games are finished
+    const allGamesFinished = games.length > 0 && games.every(game => ["FINAL", "OFF"].includes(game.gameState));
 
     const teamsRes = await fetch(`https://corsproxy.io/?url=https://api.nhle.com/stats/rest/en/team`);
     if (!teamsRes.ok) {
@@ -297,10 +302,22 @@ async function fetchGames() {
         }
       });
     }
+
+    // Return true if all games are finished
+    return allGamesFinished;
   } catch (err) {
     console.error("Error fetching games:", err);
+    return true; // Stop fetching on error
   }
 }
 
-fetchGames();
-setInterval(fetchGames, 2000);
+const updateGames = async () => {
+  const allFinished = await fetchGames();
+  if (allFinished && updateInterval) {
+    clearInterval(updateInterval);
+    console.log("All games are finished. Stopped fetching updates.");
+  }
+};
+
+updateGames(); // Initial fetch
+updateInterval = setInterval(updateGames, 2000);

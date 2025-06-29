@@ -319,6 +319,7 @@ async function fetchAndUpdateScoreboard(gamePk) {
 
     // Determine if the game is in progress
     const isInProgress = ["In Progress", "Manager challenge"].includes(detailedState) || codedGameState === "M";
+    const isGameOver = ["Final", "Game Over", "Completed Early"].includes(detailedState) || codedGameState === "F";
 
     // Fetch small team logos
     const awayLogo = await getLogoUrl(away.team?.name || "Unknown");
@@ -421,15 +422,29 @@ async function fetchAndUpdateScoreboard(gamePk) {
       ], homePitchers, true)}
     </div>
     `;
+
+    // Return true if game is over to stop further updates
+    return isGameOver;
   } catch (error) {
     console.error("Failed to load scoreboard:", error);
     document.getElementById("scoreboardContainer").innerHTML = "<p>Error loading game data.</p>";
+    return true; // Stop fetching on error
   }
 }
 
+let updateInterval;
+
 function startScoreboardUpdates(gamePk) {
-  fetchAndUpdateScoreboard(gamePk);
-  setInterval(() => fetchAndUpdateScoreboard(gamePk), 2000); // Poll every 2 seconds
+  const updateScoreboard = async () => {
+    const gameOver = await fetchAndUpdateScoreboard(gamePk);
+    if (gameOver && updateInterval) {
+      clearInterval(updateInterval);
+      console.log("Game is over. Stopped fetching updates.");
+    }
+  };
+
+  updateScoreboard(); // Initial fetch
+  updateInterval = setInterval(updateScoreboard, 2000); // Poll every 2 seconds
 }
 
 const gamePk = getQueryParam("gamePk");
