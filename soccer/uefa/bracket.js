@@ -1190,13 +1190,13 @@ async function renderFinalsBracket(knockoutPairings, container) {
               <div class="series-info">${statusText}</div>
               <div class="team-row">
                 <img src="${firstTeamLogo}" alt="${firstTeam.shortDisplayName}" class="team-logo-small" onerror="this.src='../soccer-ball-png-24.png'">
-                <span class="team-name" style="${firstTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : (firstTeam.id === loserId ? 'color:#888;' : '')}">${firstTeam.shortDisplayName}</span>
-                <span class="team-record" style="${firstTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : (firstTeam.id === loserId ? 'color:#888;' : '')}">${firstScore}</span>
+                <span class="team-name" style="${firstTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : (firstTeam.id === loserId ? '' : '')}">${firstTeam.shortDisplayName}</span>
+                <span class="team-record" style="${firstTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : (firstTeam.id === loserId ? '' : '')}">${firstScore}</span>
               </div>
               <div class="team-row">
                 <img src="${secondTeamLogo}" alt="${secondTeam.shortDisplayName}" class="team-logo-small" onerror="this.src='../soccer-ball-png-24.png'">
-                <span class="team-name" style="${secondTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : (secondTeam.id === loserId ? 'color:#888;' : '')}">${secondTeam.shortDisplayName}</span>
-                <span class="team-record" style="${secondTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : (secondTeam.id === loserId ? 'color:#888;' : '')}">${secondScore}</span>
+                <span class="team-name" style="${secondTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : (secondTeam.id === loserId ? '' : '')}">${secondTeam.shortDisplayName}</span>
+                <span class="team-record" style="${secondTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : (secondTeam.id === loserId ? '' : '')}">${secondScore}</span>
               </div>
             `;
             // Add glow for winner (desktop)

@@ -621,7 +621,6 @@ body {
     flex-direction: column;
     width: 100%;
     min-width: auto;
-    padding: 10px;
     overflow-x: visible;
     gap: 15px;
   }
@@ -648,8 +647,9 @@ body {
   }
 
   .mobile-row.qf-row .bracket-round {
-    flex: 1;
+    flex: 0 0 20%;
     max-width: 40%;
+    min-width: 40%;
   }
 
   /* Semifinals rows - 1 card centered */

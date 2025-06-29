@@ -118,7 +118,7 @@ function getBracketLogo(team) {
   }
   
   // Always return the soccer ball icon as fallback for any team without proper logo
-  const logoUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${team.id}.png`;
+  const logoUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${team.id}.png`;
   
   // Create an image element to test if the logo exists
   const img = new Image();
@@ -546,11 +546,13 @@ async function renderBracket(games, standings, container) {
           });
         }
 
-        // Add winning team box shadow
+        // Add winning team box shadow with team color using RGB like NBA bracket
         if (homeIsWinner && gameStatus === "post") {
-          matchupRow.style.boxShadow = `0 0 8px rgba(0, 200, 0, 0.6)`;
+          const { r, g, b } = getTeamColorRGB(homeTeam);
+          matchupRow.style.boxShadow = `0 0 8px rgba(${r}, ${g}, ${b}, 0.8)`;
         } else if (awayIsWinner && gameStatus === "post") {
-          matchupRow.style.boxShadow = `0 0 8px rgba(0, 200, 0, 0.6)`;
+          const { r, g, b } = getTeamColorRGB(awayTeam);
+          matchupRow.style.boxShadow = `0 0 8px rgba(${r}, ${g}, ${b}, 0.8)`;
         }
 
         const homeStyle = gameStatus === 'post' ? (tied ? "" : homeIsWinner ? "" : "color: grey;") : "";
@@ -642,3 +644,21 @@ function setupNavbarToggle() {
 setupNavbarToggle();
 fetchAndUpdateBracket();
 setInterval(fetchAndUpdateBracket, 2000);
+
+function getTeamColor(team) {
+  if (!team || !team.color) return "#00c800"; // Default green fallback
+  
+  // Use alternate color for specific teams like in teams.js
+  if (["2950", "3243", "435", "929"].includes(team.id)) {
+    return `#${team.alternateColor}`;
+  }
+  return `#${team.color}`;
+}
+
+function getTeamColorRGB(team) {
+  const color = getTeamColor(team).replace('#', '');
+  const r = parseInt(color.slice(0, 2), 16);
+  const g = parseInt(color.slice(2, 4), 16);
+  const b = parseInt(color.slice(4, 6), 16);
+  return { r, g, b };
+}
