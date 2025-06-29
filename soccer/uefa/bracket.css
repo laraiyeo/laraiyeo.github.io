@@ -643,7 +643,7 @@ body {
   /* Quarterfinals rows - 2 cards side by side */
   .mobile-row.qf-row {
     justify-content: space-between;
-    gap: 15px;
+    gap: 5px;
   }
 
   .mobile-row.qf-row .bracket-round {
