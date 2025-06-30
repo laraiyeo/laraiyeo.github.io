@@ -37,12 +37,42 @@ let lastScheduleHash = null;
 async function fetchAndDisplayTeams() {
   try {
     const TEAMS_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.cwc/teams`;
+    const STANDINGS_API_URL = `https://cdn.espn.com/core/soccer/table?xhr=1&league=fifa.cwc`;
     const tuesdayRange = getTuesdayRange();
     const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.cwc/scoreboard?dates=${tuesdayRange}`;
 
+    // Fetch from teams API (active teams)
     const teamsResponse = await fetch(TEAMS_API_URL);
     const teamsData = await teamsResponse.json();
-    const teams = teamsData.sports[0].leagues[0].teams.map(teamData => teamData.team);
+    const activeTeams = teamsData.sports[0].leagues[0].teams.map(teamData => teamData.team);
+
+    // Fetch from standings API (all teams including eliminated)
+    const standingsResponse = await fetch(STANDINGS_API_URL);
+    const standingsData = await standingsResponse.json();
+    const allGroups = standingsData.content.standings.groups || [];
+    
+    // Extract teams from standings
+    const standingsTeams = [];
+    allGroups.forEach(group => {
+      const entries = group.standings?.entries || [];
+      entries.forEach(entry => {
+        const team = entry.team;
+        // Add grey color for teams not in active teams list
+        if (!activeTeams.find(activeTeam => activeTeam.id === team.id)) {
+          team.color = "808080"; // Grey color for eliminated teams
+          team.alternateColor = "ffffff"; // White alternate color
+        }
+        standingsTeams.push(team);
+      });
+    });
+
+    // Merge teams: prioritize active teams, then add eliminated teams from standings
+    const allTeams = [...activeTeams];
+    standingsTeams.forEach(standingsTeam => {
+      if (!allTeams.find(team => team.id === standingsTeam.id)) {
+        allTeams.push(standingsTeam);
+      }
+    });
 
     const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
     const scoreboardText = await scoreboardResponse.text();
@@ -71,16 +101,23 @@ async function fetchAndDisplayTeams() {
 
     container.innerHTML = ""; // Clear any existing content
 
-    for (const team of teams) {
+    for (const team of allTeams) {
       // Skip teams with Round of and América in their displayName
       if (team.displayName.includes("Round of") || team.displayName.includes("América")) {
         continue;
       }
 
+      // Handle logo URL for teams from standings (may not have full logo data)
+      let logoUrl;
+      if (team.logos && team.logos.length > 0) {
+        logoUrl = ["367", "2950"].includes(team.id)
+          ? team.logos?.find(logo => logo.rel && logo.rel.includes("default"))?.href || team.logos[0].href
+          : team.logos?.find(logo => logo.rel && logo.rel.includes("dark"))?.href || team.logos[0].href || `https://a.espncdn.com/i/teamlogos/soccer/500/${team.id}.png`;
+      } else {
+        // Fallback for teams from standings without full logo data
+        logoUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${team.id}.png`;
+      }
 
-      const logoUrl = ["367", "2950"].includes(team.id)
-        ? team.logos?.find(logo => logo.rel.includes("default"))?.href || ""
-        : team.logos?.find(logo => logo.rel.includes("dark"))?.href || `https://a.espncdn.com/i/teamlogos/soccer/500/${team.id}.png`;
       const teamGames = games.filter(game =>
         game.competitions[0].competitors.some(competitor => competitor.team.id === team.id)
       );
@@ -93,8 +130,11 @@ async function fetchAndDisplayTeams() {
 
       const teamCard = document.createElement("div");
       teamCard.className = "team-card";
-      teamCard.style.backgroundColor = ["2950", "3243", "435", "929"].includes(team.id) ? `#${team.alternateColor}` : `#${team.color}`;
-      nameColorChange = ["ffffff", "ffee00", "ffff00", "81f733", "ffef32", "FCEE33", "ffff91", "1c31ce", "ffd700"].includes(team.color) ? "black" : "white";
+      
+      // Use team color, defaulting to grey for eliminated teams
+      const teamColor = team.color || "808080";
+      teamCard.style.backgroundColor = ["2950", "3243", "435", "929"].includes(team.id) ? `#${team.alternateColor || "ffffff"}` : `#${teamColor}`;
+      nameColorChange = ["ffffff", "ffee00", "ffff00", "81f733", "ffef32", "FCEE33", "ffff91", "1c31ce", "ffd700", "808080"].includes(teamColor) ? "black" : "white";
 
       teamCard.innerHTML = `
         <div class="team-header">
@@ -126,9 +166,16 @@ async function fetchAndDisplayTeams() {
 }
 
 function buildNoGameCard(team) {
-    const logoUrl = ["367", "2950"].includes(team.id)
-    ? team.logos?.find(logo => logo.rel.includes("default"))?.href || ""
-    : team.logos?.find(logo => logo.rel.includes("dark"))?.href || `https://a.espncdn.com/i/teamlogos/soccer/500/${team.id}.png`;
+    // Handle logo URL for teams that might be from standings
+    let logoUrl;
+    if (team.logos && team.logos.length > 0) {
+      logoUrl = ["367", "2950"].includes(team.id)
+        ? team.logos?.find(logo => logo.rel && logo.rel.includes("default"))?.href || team.logos[0].href
+        : team.logos?.find(logo => logo.rel && logo.rel.includes("dark"))?.href || team.logos[0].href || `https://a.espncdn.com/i/teamlogos/soccer/500/${team.id}.png`;
+    } else {
+      // Fallback for teams from standings
+      logoUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${team.id}.png`;
+    }
     
   return `
     <div class="game-card no-game-card">
