@@ -34,7 +34,7 @@ function formatShortDisplayName(name) {
 }
 
 function getTeamLogo(team) {
-  if (!team || !team.id) {
+  if (!team.logo) {
     return "../soccer-ball-png-24.png";
   }
   if (["367", "111"].includes(team.id)) {
