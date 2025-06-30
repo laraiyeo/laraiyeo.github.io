@@ -512,11 +512,27 @@ async function renderBracket(games, standings, container) {
           // Identify which teams should be on left vs right based on bracket flow
           const gameDate = new Date(mostRecentGame.date);
           const gameETDate = new Date(gameDate.getTime() - (5 * 60 * 60 * 1000)).toISOString().split('T')[0];
+          const gameUTCDate = gameDate.toISOString().split('T')[0]; // Add this line to define gameUTCDate
           
           // For match 59 (July 5th): Winner of 51 on left, Winner of 52 on right
           if (gameETDate === "2025-07-05") {
             // Don't swap teams for match 59 - keep original order from API
             // homeTeam should be winner of match 51, awayTeam should be winner of match 52
+          } else if (gameETDate === "2025-07-04") {
+            // For match 57 and 58 on July 4th - need to determine which is which
+            // Check if this is match 57 (Winners of Match 53 vs Winners of Match 54)
+            // We can identify this by checking team rankings or other identifiers
+            // For match 57, force swap so Match 54 winner is on top
+            const gameHour = new Date(mostRecentGame.date).getUTCHours();
+            if (gameHour >= 23 || gameUTCDate === "2025-07-05") {
+              // This is likely match 57 (later game) - force swap
+              [awayTeam, homeTeam] = [awayTeam, homeTeam];
+            } else {
+              // This is likely match 58 (earlier game) - use rank-based sorting
+              if (homeTeam.rank > awayTeam.rank) {
+                [awayTeam, homeTeam] = [awayTeam, homeTeam];
+              }
+            }
           } else {
             // For other quarterfinal matches, ensure the team with the lower rank is on top
             if (homeTeam.rank > awayTeam.rank) {
