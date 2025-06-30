@@ -34,6 +34,9 @@ function formatShortDisplayName(name) {
 }
 
 function getTeamLogo(team) {
+  if (!team || !team.id) {
+    return "../soccer-ball-png-24.png";
+  }
   if (["367", "111"].includes(team.id)) {
     return `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${team.id}.png`;
   }
