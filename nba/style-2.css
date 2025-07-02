@@ -373,24 +373,210 @@ body {
     display: flex;
   }
 
+  /* Mobile vertical layout for NBA bracket */
   .bracket-container {
-    flex-direction: row;
-    overflow-x: auto;
-    width: 100vw;
-    min-width: 600px; /* Ensures horizontal scroll if content is wider */
-    padding: 10px 0;
+    margin-top: -10px;
+    margin-left: -25px;
+    flex-direction: column;
+    width: 100%;
+    min-width: auto;
+    overflow: hidden;
+    gap: 10px;
   }
 
-  .bracket-round {
-    min-width: 180px;
-    width: 250px;
-    flex: 0 0 auto;
-    margin-right: 10px;
+  /* Mobile bracket container - 4-2-1-1-1-2-4 layout */
+  .mobile-bracket-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    align-items: center;
+    width: 100%;
   }
 
-  .conference, .west-conference, .east-conference, .finals-conference {
-    width: auto;
-    min-width: unset;
-    align-items: stretch;
+  /* Mobile rows */
+  .mobile-row {
+    display: flex;
+    width: 100%;
   }
+
+  /* 1st Round rows - 4 cards side by side */
+  .mobile-row.r1-row {
+    justify-content: space-around;
+    gap: 2px;
+  }
+
+  .mobile-row.r1-row .bracket-round {
+    flex: 0 0 21%;
+    max-width: 21%;
+    min-width: 21%;
+  }
+
+  /* Semifinals rows - 2 cards side by side */
+  .mobile-row.sf-row {
+    justify-content: space-around;
+    gap: 10px;
+  }
+
+  .mobile-row.sf-row .bracket-round {
+    flex: 0 0 40%;
+    max-width: 45%;
+  }
+
+  /* Finals rows - 1 card centered */
+  .mobile-row.finals-row {
+    justify-content: center;
+  }
+
+  .mobile-row.finals-row .bracket-round {
+    flex: 0 0 60%;
+    max-width: 70%;
+  }
+
+  /* General mobile bracket styling */
+  .bracket-row {
+    width: 100%;
+    padding: 5px;
+    margin-bottom: 5px;
+    font-size: 0.8rem;
+    min-height: 40px;
+  }
+
+  .bracket-row.finals {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 0;
+    padding: 10px;
+  }
+
+  /* Remove desktop-specific styling for mobile */
+  .conference {
+    width: 100%;
+    min-width: auto;
+    margin-right: 0;
+  }
+
+  .rounds-container {
+    min-width: auto;
+    width: 100%;
+    gap: 5px;
+  }
+
+  /* Hide round titles on mobile */
+  .round-title {
+    display: none;
+  }
+
+  /* Mobile specific bracket row styling */
+  .mobile-row .bracket-round .bracket-row {
+    margin-bottom: 3px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+  }
+}
+
+/* Modal styles for NBA bracket popup */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  max-width: 500px;
+  width: 90%;
+  position: relative;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-content h3 {
+  color: #333;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.pagination-button {
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: opacity 0.2s ease;
+}
+
+.pagination-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-button:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.page-info {
+  color: #333;
+  font-weight: bold;
+}
+
+.game-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 10px;
+  transition: background-color 0.2s ease;
+}
+
+.game-card.clickable {
+  cursor: pointer;
+  background-color: #f8f9fa;
+}
+
+.game-card.clickable:hover {
+  background-color: #e9ecef;
+}
+
+.game-card:not(.clickable) {
+  background-color: #f5f5f5;
+}
+
+.series-summary {
+  text-align: center;
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #e3f2fd;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #1976d2;
+}
+
+/* Bracket row cursor for clickable elements */
+.bracket-row {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.bracket-row:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }

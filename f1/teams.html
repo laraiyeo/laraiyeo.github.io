@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>All Teams - F1 Live Tracker</title>
+    <link rel="icon" href="F1-Logo.png" type="image/png" />
+    <link rel="stylesheet" href="style.css"/>
+  </head>
+  <body>
+    <div id="navbar-container"></div>
+
+    <div id="scoreboard">
+      <h2 style="color: black;">All F1 Teams</h2>
+      <div id="teamsContainer" class="teams-container"></div>
+    </div>
+
+    <script src="navbarLoader.js"></script>
+    <script src="navbar.js"></script>
+    <script src="teams.js"></script>
+    <div id="footer-container"></div>
+    <script>
+      fetch("footer.html")
+        .then(response => response.text())
+        .then(html => {
+          document.getElementById("footer-container").innerHTML = html;
+        });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,483 @@
+body {
+  background: #111;
+  color: white;
+  font-family: sans-serif;
+  margin: 0;
+  padding: 2rem;
+}
+
+#raceInfoContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.top-race-info {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 2rem;
+  align-items: center;
+  background: #1e1e1e;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.race-info-block {
+  text-align: center;
+}
+
+.race-name {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: white;
+}
+
+.race-circuit {
+  font-size: 1.4rem;
+  color: #ccc;
+  margin-bottom: 1rem;
+}
+
+.race-date {
+  font-size: 1.2rem;
+  color: #999;
+}
+
+.countdown-center {
+  text-align: center;
+}
+
+.countdown-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  color: white;
+}
+
+.countdown-timer {
+  font-size: 3rem;
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 0 10px #e2e2e280;
+}
+
+.countdown-units {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.countdown-unit {
+  font-size: 0.9rem;
+  color: #ccc;
+  text-align: center;
+}
+
+.race-flag {
+  width: 120px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.race-details {
+  background: #1a1a1a;
+  border-radius: 1rem;
+  padding: 1rem;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.race-stats {
+  background: #1a1a1a;
+  border-radius: 1rem;
+  padding: 1rem;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.section-title {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.loading {
+  text-align: center;
+  color: #ccc;
+  font-style: italic;
+  padding: 2rem;
+}
+
+.error {
+  text-align: center;
+  color: #e74c3c;
+  font-weight: bold;
+  padding: 2rem;
+}
+
+.circuit-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  align-items: center;
+}
+
+.circuit-image-container {
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.circuit-diagram {
+  width: 100%;
+  max-width: 900px;
+  height: 300px;
+  max-height: 800px;
+  border-radius: 8px;
+  background: transparent !important;
+  object-fit: contain;
+  object-position: center top;
+}
+
+.no-circuit-image {
+  width: 100%;
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #333;
+  border-radius: 8px;
+  color: #ccc;
+  font-style: italic;
+}
+
+.circuit-info-container {
+  margin-top: -200px;
+  width: 100%;
+  max-width: 900px;
+  padding: 1rem;
+}
+
+.circuit-name {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #e74c3c;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.circuit-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.circuit-detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: #2a2a2a;
+  border-radius: 6px;
+  border-left: 4px solid #e74c3c;
+}
+
+.detail-label {
+  font-weight: bold;
+  color: #ccc;
+  font-size: 1rem;
+}
+
+.detail-value {
+  color: white;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+/* Competition Results Styles */
+.competition-tabs {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.competition-tab {
+  background: #333;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+}
+
+.competition-tab:hover {
+  background: #555;
+}
+
+.competition-tab.active {
+  background: #e74c3c;
+  color: white;
+}
+
+.results-table-container {
+  overflow-x: auto;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+  background: #555;
+}
+
+.results-table thead {
+  background: #333;
+  border-bottom: 2px solid #777;
+}
+
+.results-table th {
+  padding: 12px 8px;
+  text-align: left;
+  font-weight: bold;
+  font-size: 0.85rem;
+  color: #ccc;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-right: 1px solid #777;
+}
+
+.results-table td {
+  padding: 12px 8px;
+  border-right: 1px solid #777;
+  border-bottom: 1px solid #777;
+  vertical-align: middle;
+}
+
+.results-table tbody tr:nth-child(even) {
+  background-color: #333;
+}
+
+.pos-header,
+.pos-cell {
+  width: 60px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.driver-header {
+  width: 200px;
+}
+
+.driver-cell .driver-name {
+  font-weight: bold;
+  font-size: 0.9rem;
+  color: white;
+  margin-bottom: 2px;
+}
+
+.driver-cell .driver-team {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.time-header,
+.time-cell {
+  width: 120px;
+  text-align: center;
+  font-family: monospace;
+}
+
+.laps-header,
+.laps-cell {
+  width: 80px;
+  text-align: center;
+}
+
+.pits-header,
+.pits-cell {
+  width: 80px;
+  text-align: center;
+}
+
+.fastest-header,
+.fastest-cell {
+  width: 120px;
+  text-align: center;
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+.fastest-cell small {
+  color: #ccc;
+  font-size: 0.75rem;
+}
+
+.q-header,
+.q-cell {
+  width: 90px;
+  text-align: center;
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+  .top-race-info {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    padding: 1rem;
+  }
+  
+  .race-name {
+    font-size: 2rem;
+  }
+  
+  .countdown-timer {
+    font-size: 2.5rem;
+  }
+  
+  .race-flag {
+    width: 100px;
+    height: 60px;
+  }
+  
+  .circuit-container {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .circuit-name {
+    font-size: 1.5rem;
+  }
+  
+  .circuit-detail {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    text-align: left;
+  }
+  
+  .detail-label,
+  .detail-value {
+    font-size: 0.9rem;
+  }
+  
+  .circuit-image-container {
+    max-width: 100%;
+  }
+  
+  .circuit-diagram {
+    max-width: 100%;
+    max-height: 300px;
+  }
+  
+  .circuit-info-container {
+    max-width: 100%;
+  }
+  
+  .circuit-details {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  
+  .competition-tabs {
+    gap: 3px;
+  }
+  
+  .competition-tab {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
+  
+  .results-table-container {
+    margin: 10px -10px;
+    border-radius: 0;
+  }
+  
+  .results-table {
+    font-size: 0.8rem;
+  }
+  
+  .results-table th,
+  .results-table td {
+    padding: 8px 6px;
+  }
+  
+  .driver-cell .driver-name {
+    font-size: 0.8rem;
+  }
+  
+  .driver-cell .driver-team {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 475px) {
+  body {
+    padding: 1rem;
+  }
+  
+  .race-name {
+    font-size: 1.5rem;
+  }
+  
+  .countdown-timer {
+    font-size: 2rem;
+  }
+  
+  .countdown-units {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .race-circuit {
+    font-size: 1.2rem;
+  }
+  
+  .race-date {
+    font-size: 1rem;
+  }
+  
+  .circuit-info-container {
+    margin-top: -100px;
+    padding: 0.5rem;
+  }
+  
+  .circuit-name {
+    font-size: 1.3rem;
+  }
+  
+  .circuit-details {
+    gap: 0.5rem;
+  }
+  
+  .circuit-detail {
+    padding: 0.5rem;
+  }
+  
+  .circuit-diagram {
+    max-height: 450px;
+  }
+}

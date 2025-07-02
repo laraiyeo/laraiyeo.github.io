@@ -1,18 +1,18 @@
-# ⚾🏒🏀⚽ Live Tracker
+# ⚾🏒🏀⚽🏎️ Live Tracker
 
-Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for real-time **MLB, NHL, NBA, WNBA and Soccer** updates and seamless OBS integration.
+Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for real-time **MLB, NHL, NBA, WNBA, Soccer and F1** updates and seamless OBS integration.
 
 🔗 **Live Tracker Site**: [https://laraiyeo.github.io/index.html](https://laraiyeo.github.io/index.html)  
 💻 **Source Code**: [GitHub Repository](https://github.com/laraiyeo/laraiyeo.github.io)  
-📊 **Data Source**: [statsapi.mlb.com](http://statsapi.mlb.com/api/v1/schedule/games/?sportId=1), [api.nhle.com](https://api-web.nhle.com/v1/schedule/now), [site.api.espn.com](https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard)
+📊 **Data Source**: [statsapi.mlb.com](http://statsapi.mlb.com/api/v1/schedule/games/?sportId=1), [api.nhle.com](https://api-web.nhle.com/v1/schedule/now), [site.api.espn.com](https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard), [sports.core.api.espn.com](https://sports.core.api.espn.com/v2/sports/racing/leagues/f1)
 
 ---
 
 ## 🧩 Features
 
 - **Live Game Dashboard**  
-  Real-time display of active MLB, NHL, NBA, WNBA and Soccer games with:
-  - Inning progress for MLB (TOP and BOT with inning number), Period/Quarter progress for NHL, NBA, and WNBA (Time remaining in period/quarter and specifc period/quarter number), and Half progress for Soccer (Current match time as well as current half)
+  Real-time display of active MLB, NHL, NBA, WNBA, Soccer and F1 races with:
+  - Inning progress for MLB (TOP and BOT with inning number), Period/Quarter progress for NHL, NBA, and WNBA (Time remaining in period/quarter and specifc period/quarter number), Half progress for Soccer (Current match time as well as current half), and Session progress for F1 (Practice, Qualifying, Sprint, Race with real-time lap information)
   - Base runners logic for MLB (Bases light up when runner is present)
   - Visual balls/strikes/outs tracker for MLB
 
@@ -20,17 +20,21 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
   - Visual scoreboard for MLB with inning progress, team scores, base runners, current outs, current play description and player stats. It will also grey out any player who is benched
   - Visual scoreboard for NHL, NBA and WNBA with Period/Quarter progress, team scores, time remaining in period/quarter, play description and player stats. There will be a 🟢 beside players who are currently on the ice/court
   - Visual scoreboard for Soccer with half progress, team scores, current match time, play description, a visual football pitch with real team lineups as well as a substitute section that shows subs and will display when they come on the pitch
+  - Visual race information for F1 with session details, lap counts, fastest lap times, and real-time race positions with detailed driver and constructor information
 
 - **Game Schedules & Results**  
   - See all scheduled games for the day with start times
   - View completed games and final scores
   - View scheduled and completed games for the week specifically for soccer
+  - For F1: View upcoming race weekends with Grand Prix schedules and race times in your local timezone
+  - For F1: Browse completed races with race winners, podium finishers, and championship points earned
 
 - **Team Tracker**  
   - All 30 teams shown at once for MLB and NBA, all 13 teams shown at once for WNBA and all 32 teams shown at once for NHL
   - Includes all teams from Premier League, La Liga, Bundesliga, Serie A and Ligue 1. For UEFA, it includes teams currently in Champions League, Europa League and Europa Conference League
   - See each team's game status
   - Click on a team logo to get a unique URL for OBS
+  - For F1: All 10 constructor teams displayed with official 2025 car liveries, team colors, driver lineups, championship positions, and detailed statistics including points, wins, and gap to championship leader. F1 does not currently have an obs overlay.
 
 - **Advanced Team Search**
   - Search for any team across all sports leagues with intelligent autocomplete
@@ -44,6 +48,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
   - View current league standings side by side for both conferences with divisions
   - Hover over a teams name to show a small card that displays home, away and last 10 games record as well as the teams current W/L streak (Not available for soccer)
   - For soccer, view league standings for all the different leagues with visual colors that indicate specific things with a legend underneath the table.
+  - For F1: Toggle between Driver Championships and Constructor Championships with real-time points, wins, poles, and championship gaps. Driver standings include full names, team affiliations, car numbers, and detailed season statistics
 
 - **OBS Integration Ready**  
   - Each view is browser-source friendly
@@ -71,6 +76,17 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - **Club World Cup Specific**
   - In the standings page, it shows all 8 groups in the Club World Cup along with a legend to indicate which teams are moving on to the round of 16
   - Just like in NBA, the Club World Cup section features a Bracket page so you can see the current bracket as well as what teams have advanced
+
+- **F1 Specific**
+  - Comprehensive constructor team pages showing all 10 F1 teams with official 2025 car designs and team liveries
+  - Interactive team cards featuring high-resolution car images, official team logos, current driver lineups, and championship standings
+  - Real-time championship standings with toggle between Driver and Constructor championships
+  - Each constructor card displays current championship position, total points, race wins, and points behind championship leader
+  - Scheduled races page showing upcoming Grand Prix weekends with country flags, race names, and precise timing in user's local timezone
+  - Race results page displaying completed races with winners, constructor teams, podium information, and race dates
+  - Click on any race (scheduled or completed) to view detailed race information and statistics
+  - Constructor team colors and branding maintained throughout for authentic F1 experience
+
 ---
 
 ## 🖥️ How to Use in OBS
@@ -97,6 +113,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - **(06/14/2025) Added fully functional Club World Cup tracker**
 - **(06/28/2024) Added comprehensive team search functionality across all sports with multi-year date range support**
 - (06/28/2024) Added UEFA bracket page with complete tournament visualization
+- **(01/15/2025) Added comprehensive F1 tracking with constructor teams, driver/constructor championships, race schedules, and race results**
 
 ---
 
@@ -109,6 +126,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - For Soccer, UEFA, and CWC, the top scoreboard score and time as well as the play description might not update in real time. This is a problem caused by ESPN's api
 - Bracket page style on mobile is not proper for all sports except UEFA
 - NHL search page might not function at times as nhle api has rate limits that blocks requests if done too quickly
+- For F1, some race information may experience delays due to ESPN's F1 API update frequency during live race sessions
 
 ---
 

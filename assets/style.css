@@ -80,7 +80,6 @@ body {
 }
 
 .block-content {
-    margin-top: 80px;
     position: relative;
     z-index: 2;
     color: #fff;
@@ -144,6 +143,10 @@ body {
     background-image: url('soccer.png');
 }
 
+.block-f1 {
+    background-image: url('f1.png');
+}
+
 .block-nfl {
     background-image: url('nfl.png');
 }
@@ -168,6 +171,8 @@ body {
     }
 
     .block-description {
+        margin-top: -5px;
+        margin-bottom: 5px;
         font-size: 0.9rem; /* Smaller description font size */
     }
 
