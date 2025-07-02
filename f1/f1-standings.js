@@ -30,12 +30,19 @@ async function fetchStandings(type = 'drivers') {
     }
 }
 
+function convertToHttps(url) {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+}
+
 async function processDriverStandings(data) {
     const driversData = await Promise.all(
         data.standings.map(async (standing) => {
             try {
                 // Fetch athlete details
-                const athleteResponse = await fetch(standing.athlete.$ref);
+                const athleteResponse = await fetch(convertToHttps(standing.athlete.$ref));
                 const athleteData = await athleteResponse.json();
                 
                 // Extract stats from records
@@ -77,7 +84,7 @@ async function processConstructorStandings(data) {
         data.standings.map(async (standing) => {
             try {
                 // Fetch manufacturer details
-                const manufacturerResponse = await fetch(standing.manufacturer.$ref);
+                const manufacturerResponse = await fetch(convertToHttps(standing.manufacturer.$ref));
                 const manufacturerData = await manufacturerResponse.json();
                 
                 // Extract stats from records

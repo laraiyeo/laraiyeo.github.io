@@ -48,6 +48,13 @@ function getTeamColor(constructorName) {
   return colorMap[constructorName] || '000000';
 }
 
+function convertToHttps(url) {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+}
+
 async function fetchRaceResults() {
   try {
     const container = document.getElementById("resultsContainer");
@@ -80,7 +87,7 @@ async function fetchRaceResults() {
     }
 
     // Get event log from first driver to extract race results
-    const firstDriverResponse = await fetch(data.standings[0].athlete.$ref);
+    const firstDriverResponse = await fetch(convertToHttps(data.standings[0].athlete.$ref));
     const firstDriverData = await firstDriverResponse.json();
     
     if (!firstDriverData.eventLog?.$ref) {
@@ -88,7 +95,7 @@ async function fetchRaceResults() {
       return;
     }
 
-    const eventLogResponse = await fetch(firstDriverData.eventLog.$ref);
+    const eventLogResponse = await fetch(convertToHttps(firstDriverData.eventLog.$ref));
     const eventLogData = await eventLogResponse.json();
     
     // Process completed races (played: true)
@@ -97,7 +104,7 @@ async function fetchRaceResults() {
       ?.map(async (event) => {
         try {
           // Get event details for proper race name and abbreviation
-          const eventResponse = await fetch(event.event.$ref);
+          const eventResponse = await fetch(convertToHttps(event.event.$ref));
           const eventData = await eventResponse.json();
           
           const raceName = eventData.name || 'Unknown Grand Prix';
@@ -109,7 +116,7 @@ async function fetchRaceResults() {
           let countryFlag = '';
           if (eventData.venues && eventData.venues.length > 0) {
             try {
-              const venueResponse = await fetch(eventData.venues[0].$ref);
+              const venueResponse = await fetch(convertToHttps(eventData.venues[0].$ref));
               const venueData = await venueResponse.json();
               countryFlag = venueData.countryFlag?.href || '';
             } catch (error) {
@@ -141,7 +148,7 @@ async function fetchRaceResults() {
                 
                 // Get driver info
                 if (winnerCompetitor.athlete?.$ref) {
-                  const athleteResponse = await fetch(winnerCompetitor.athlete.$ref);
+                  const athleteResponse = await fetch(convertToHttps(winnerCompetitor.athlete.$ref));
                   const athleteData = await athleteResponse.json();
                   winner = athleteData.shortName || athleteData.displayName || athleteData.fullName || 'Unknown';
                 }

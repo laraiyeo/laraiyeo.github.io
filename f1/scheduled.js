@@ -47,6 +47,13 @@ function formatDateWithTimezone(date) {
   return date.toLocaleDateString('en-US', options);
 }
 
+function convertToHttps(url) {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+}
+
 async function fetchScheduledRaces() {
   try {
     const container = document.getElementById("scheduledContainer");
@@ -79,7 +86,7 @@ async function fetchScheduledRaces() {
     }
 
     // Get event log from first driver to extract race schedule
-    const firstDriverResponse = await fetch(data.standings[0].athlete.$ref);
+    const firstDriverResponse = await fetch(convertToHttps(data.standings[0].athlete.$ref));
     const firstDriverData = await firstDriverResponse.json();
     
     if (!firstDriverData.eventLog?.$ref) {
@@ -87,7 +94,7 @@ async function fetchScheduledRaces() {
       return;
     }
 
-    const eventLogResponse = await fetch(firstDriverData.eventLog.$ref);
+    const eventLogResponse = await fetch(convertToHttps(firstDriverData.eventLog.$ref));
     const eventLogData = await eventLogResponse.json();
     
     // Process upcoming races (played: false)
@@ -96,7 +103,7 @@ async function fetchScheduledRaces() {
       ?.map(async (event) => {
         try {
           // Get event details for proper race name and abbreviation
-          const eventResponse = await fetch(event.event.$ref);
+          const eventResponse = await fetch(convertToHttps(event.event.$ref));
           const eventData = await eventResponse.json();
           
           const raceName = eventData.name || 'Unknown Grand Prix';
@@ -107,7 +114,7 @@ async function fetchScheduledRaces() {
           let countryFlag = '';
           if (eventData.venues && eventData.venues.length > 0) {
             try {
-              const venueResponse = await fetch(eventData.venues[0].$ref);
+              const venueResponse = await fetch(convertToHttps(eventData.venues[0].$ref));
               const venueData = await venueResponse.json();
               countryFlag = venueData.countryFlag?.href || '';
             } catch (error) {

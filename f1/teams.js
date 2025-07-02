@@ -13,6 +13,13 @@ function hashString(str) {
   return hash;
 }
 
+function convertToHttps(url) {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+}
+
 async function getConstructorDrivers(constructorName) {
   try {
     // Step 1: Get all drivers from standings (context.txt equivalent)
@@ -25,11 +32,11 @@ async function getConstructorDrivers(constructorName) {
     for (const standing of driversData.standings) {
       try {
         // Step 2: Get athlete details (2.txt equivalent)
-        const athleteResponse = await fetch(standing.athlete.$ref);
+        const athleteResponse = await fetch(convertToHttps(standing.athlete.$ref));
         const athleteData = await athleteResponse.json();
         
         // Step 3: Get event log (3.txt equivalent)
-        const eventLogResponse = await fetch(athleteData.eventLog.$ref);
+        const eventLogResponse = await fetch(convertToHttps(athleteData.eventLog.$ref));
         const eventLogData = await eventLogResponse.json();
         
         // Get first event item if it exists
@@ -38,7 +45,7 @@ async function getConstructorDrivers(constructorName) {
           
           // Step 4: Get competitor details (4.txt equivalent)
           if (firstEvent.competitor?.$ref) {
-            const competitorResponse = await fetch(firstEvent.competitor.$ref);
+            const competitorResponse = await fetch(convertToHttps(firstEvent.competitor.$ref));
             const competitorData = await competitorResponse.json();
             
             // Check if this driver belongs to the constructor we're looking for
@@ -196,7 +203,7 @@ async function fetchAndDisplayConstructors() {
       data.standings.map(async (standing) => {
         try {
           // Fetch manufacturer details
-          const manufacturerResponse = await fetch(standing.manufacturer.$ref);
+          const manufacturerResponse = await fetch(convertToHttps(standing.manufacturer.$ref));
           const manufacturerData = await manufacturerResponse.json();
           
           // Extract stats from records

@@ -18,6 +18,13 @@ function hashString(str) {
   return hash;
 }
 
+function convertToHttps(url) {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+}
+
 async function getConstructorDrivers(constructorName) {
   try {
     // Step 1: Get all drivers from standings
@@ -30,11 +37,11 @@ async function getConstructorDrivers(constructorName) {
     for (const standing of driversData.standings) {
       try {
         // Step 2: Get athlete details
-        const athleteResponse = await fetch(standing.athlete.$ref);
+        const athleteResponse = await fetch(convertToHttps(standing.athlete.$ref));
         const athleteData = await athleteResponse.json();
         
         // Step 3: Get event log
-        const eventLogResponse = await fetch(athleteData.eventLog.$ref);
+        const eventLogResponse = await fetch(convertToHttps(athleteData.eventLog.$ref));
         const eventLogData = await eventLogResponse.json();
         
         // Get first event item if it exists
@@ -43,7 +50,7 @@ async function getConstructorDrivers(constructorName) {
           
           // Step 4: Get competitor details
           if (firstEvent.competitor?.$ref) {
-            const competitorResponse = await fetch(firstEvent.competitor.$ref);
+            const competitorResponse = await fetch(convertToHttps(firstEvent.competitor.$ref));
             const competitorData = await competitorResponse.json();
             
             // Check if this driver belongs to the constructor we're looking for
@@ -75,11 +82,11 @@ async function getDriverTeam(driverId) {
     let eventLogData = eventLogCache.get(driverId);
     
     if (!eventLogData) {
-      const driverResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/athletes/${driverId}`);
+      const driverResponse = await fetch(convertToHttps(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/athletes/${driverId}`));
       const driverData = await driverResponse.json();
       
       if (driverData.eventLog?.$ref) {
-        const eventLogResponse = await fetch(driverData.eventLog.$ref);
+        const eventLogResponse = await fetch(convertToHttps(driverData.eventLog.$ref));
         eventLogData = await eventLogResponse.json();
         eventLogCache.set(driverId, eventLogData);
       }
@@ -89,7 +96,7 @@ async function getDriverTeam(driverId) {
       const firstEvent = eventLogData.events.items[0];
       
       if (firstEvent.competitor?.$ref) {
-        const competitorResponse = await fetch(firstEvent.competitor.$ref);
+        const competitorResponse = await fetch(convertToHttps(firstEvent.competitor.$ref));
         const competitorData = await competitorResponse.json();
         
         const team = competitorData.vehicle?.manufacturer || 'Unknown';
@@ -142,7 +149,7 @@ async function fetchStandings() {
     const driversBasicData = await Promise.all(
       data.standings.map(async (standing) => {
         try {
-          const athleteResponse = await fetch(standing.athlete.$ref);
+          const athleteResponse = await fetch(convertToHttps(standing.athlete.$ref));
           const athleteData = await athleteResponse.json();
           
           const record = standing.records[0];
@@ -180,7 +187,7 @@ async function fetchStandings() {
     // Then load detailed circuit data for just one driver to get race structure
     const firstDriver = allDrivers[0];
     if (firstDriver?.eventLogRef) {
-      const eventLogResponse = await fetch(firstDriver.eventLogRef);
+      const eventLogResponse = await fetch(convertToHttps(firstDriver.eventLogRef));
       const eventLogData = await eventLogResponse.json();
       
       // Get all race info from first driver
@@ -189,7 +196,7 @@ async function fetchStandings() {
         if (event.played) { // Only get completed races
           try {
             // Get event details for proper race name and abbreviation
-            const eventResponse = await fetch(event.event.$ref);
+            const eventResponse = await fetch(convertToHttps(event.event.$ref));
             const eventData = await eventResponse.json();
             
             const raceName = eventData.name || 'Unknown Grand Prix';
@@ -199,7 +206,7 @@ async function fetchStandings() {
             let countryFlag = '';
             if (eventData.venues && eventData.venues.length > 0) {
               try {
-                const venueResponse = await fetch(eventData.venues[0].$ref);
+                const venueResponse = await fetch(convertToHttps(eventData.venues[0].$ref));
                 const venueData = await venueResponse.json();
                 countryFlag = venueData.countryFlag?.href || '';
               } catch (error) {
@@ -252,7 +259,7 @@ async function loadDriverPointsForRaces(raceStructure) {
     
     try {
       // Get competition data to find all competitors for this race
-      const competitionResponse = await fetch(race.competitionRef);
+      const competitionResponse = await fetch(convertToHttps(race.competitionRef));
       const competitionData = await competitionResponse.json();
       
       // Process all competitors in this race
@@ -260,7 +267,7 @@ async function loadDriverPointsForRaces(raceStructure) {
       if (competitionData.competitors) {
         for (const competitor of competitionData.competitors) {
           const driverId = competitor.id;
-          const points = competitor.statistics?.$ref ? await getDriverPointsForRace(competitor.statistics.$ref) : 0;
+          const points = competitor.statistics?.$ref ? await getDriverPointsForRace(convertToHttps(competitor.statistics.$ref)) : 0;
           racePoints[driverId] = points;
         }
       }

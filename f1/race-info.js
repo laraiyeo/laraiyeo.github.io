@@ -14,6 +14,13 @@ function getQueryParam(param) {
   return urlParams.get(param);
 }
 
+function convertToHttps(url) {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+}
+
 async function fetchRaceInfo() {
   try {
     // Check if specific race parameters are provided
@@ -203,14 +210,14 @@ async function fetchRaceWinner(raceId) {
     }
 
     // Get event log from first driver
-    const firstDriverResponse = await fetch(data.standings[0].athlete.$ref);
+    const firstDriverResponse = await fetch(convertToHttps(data.standings[0].athlete.$ref));
     const firstDriverData = await firstDriverResponse.json();
     
     if (!firstDriverData.eventLog?.$ref) {
       return null;
     }
 
-    const eventLogResponse = await fetch(firstDriverData.eventLog.$ref);
+    const eventLogResponse = await fetch(convertToHttps(firstDriverData.eventLog.$ref));
     const eventLogData = await eventLogResponse.json();
     
     // Find the specific race by competition ID
@@ -220,7 +227,7 @@ async function fetchRaceWinner(raceId) {
     
     if (raceEvent) {
       // Get event details
-      const eventResponse = await fetch(raceEvent.event.$ref);
+      const eventResponse = await fetch(convertToHttps(raceEvent.event.$ref));
       const eventData = await eventResponse.json();
       
       // Look for the Race competition in the competitions array
@@ -244,15 +251,15 @@ async function fetchRaceWinner(raceId) {
           let winnerTime = 'TBD';
           
           if (winnerCompetitor.athlete?.$ref) {
-            const athleteResponse = await fetch(winnerCompetitor.athlete.$ref);
+            const athleteResponse = await fetch(convertToHttps(winnerCompetitor.athlete.$ref));
             const athleteData = await athleteResponse.json();
-            winner = athleteData.fullName || athleteData.displayName || athleteData.shortName || 'Unknown';
+            winner = athleteData.shortName || athleteData.displayName || athleteData.fullName || 'Unknown';
           }
           
           // Get winner time from statistics
           if (winnerCompetitor.statistics?.$ref) {
             try {
-              const statsResponse = await fetch(winnerCompetitor.statistics.$ref);
+              const statsResponse = await fetch(convertToHttps(winnerCompetitor.statistics.$ref));
               const statsData = await statsResponse.json();
               
               // Find the totalTime stat in the general category
@@ -291,14 +298,14 @@ async function fetchAdditionalRaceDetails(raceId) {
     }
 
     // Get event log from first driver
-    const firstDriverResponse = await fetch(data.standings[0].athlete.$ref);
+    const firstDriverResponse = await fetch(convertToHttps(data.standings[0].athlete.$ref));
     const firstDriverData = await firstDriverResponse.json();
     
     if (!firstDriverData.eventLog?.$ref) {
       return;
     }
 
-    const eventLogResponse = await fetch(firstDriverData.eventLog.$ref);
+    const eventLogResponse = await fetch(convertToHttps(firstDriverData.eventLog.$ref));
     const eventLogData = await eventLogResponse.json();
     
     // Find the specific race by competition ID
@@ -308,13 +315,13 @@ async function fetchAdditionalRaceDetails(raceId) {
     
     if (raceEvent) {
       // Get event details
-      const eventResponse = await fetch(raceEvent.event.$ref);
+      const eventResponse = await fetch(convertToHttps(raceEvent.event.$ref));
       const eventData = await eventResponse.json();
       
       // Get venue details for country flag and venue name
       if (eventData.venues && eventData.venues.length > 0) {
         try {
-          const venueResponse = await fetch(eventData.venues[0].$ref);
+          const venueResponse = await fetch(convertToHttps(eventData.venues[0].$ref));
           const venueData = await venueResponse.json();
           
           selectedRace.countryFlag = venueData.countryFlag?.href || '';
@@ -330,7 +337,7 @@ async function fetchAdditionalRaceDetails(raceId) {
       // Get circuit information
       if (eventData.circuit && eventData.circuit.$ref) {
         try {
-          const circuitResponse = await fetch(eventData.circuit.$ref);
+          const circuitResponse = await fetch(convertToHttps(eventData.circuit.$ref));
           const circuitData = await circuitResponse.json();
           
           // Find the day SVG diagram
@@ -381,14 +388,14 @@ async function fetchNextRace() {
     }
 
     // Get event log from first driver
-    const firstDriverResponse = await fetch(data.standings[0].athlete.$ref);
+    const firstDriverResponse = await fetch(convertToHttps(data.standings[0].athlete.$ref));
     const firstDriverData = await firstDriverResponse.json();
     
     if (!firstDriverData.eventLog?.$ref) {
       throw new Error("No event log found");
     }
 
-    const eventLogResponse = await fetch(firstDriverData.eventLog.$ref);
+    const eventLogResponse = await fetch(convertToHttps(firstDriverData.eventLog.$ref));
     const eventLogData = await eventLogResponse.json();
     
     // Find the next upcoming race
@@ -402,7 +409,7 @@ async function fetchNextRace() {
     const nextEvent = upcomingEvents[0];
     
     // Get event details
-    const eventResponse = await fetch(nextEvent.event.$ref);
+    const eventResponse = await fetch(convertToHttps(nextEvent.event.$ref));
     const eventData = await eventResponse.json();
     
     // Get venue details for country flag
@@ -410,7 +417,7 @@ async function fetchNextRace() {
     let venueName = '';
     if (eventData.venues && eventData.venues.length > 0) {
       try {
-        const venueResponse = await fetch(eventData.venues[0].$ref);
+        const venueResponse = await fetch(convertToHttps(eventData.venues[0].$ref));
         const venueData = await venueResponse.json();
         countryFlag = venueData.countryFlag?.href || '';
         venueName = venueData.fullName || '';
@@ -422,7 +429,7 @@ async function fetchNextRace() {
     // Get circuit information
     if (eventData.circuit && eventData.circuit.$ref) {
       try {
-        const circuitResponse = await fetch(eventData.circuit.$ref);
+        const circuitResponse = await fetch(convertToHttps(eventData.circuit.$ref));
         const circuitData = await circuitResponse.json();
         
         // Find the day SVG diagram
@@ -610,14 +617,14 @@ async function fetchCompetitionResults(raceId) {
     }
 
     // Get event log from first driver
-    const firstDriverResponse = await fetch(data.standings[0].athlete.$ref);
+    const firstDriverResponse = await fetch(convertToHttps(data.standings[0].athlete.$ref));
     const firstDriverData = await firstDriverResponse.json();
     
     if (!firstDriverData.eventLog?.$ref) {
       return null;
     }
 
-    const eventLogResponse = await fetch(firstDriverData.eventLog.$ref);
+    const eventLogResponse = await fetch(convertToHttps(firstDriverData.eventLog.$ref));
     const eventLogData = await eventLogResponse.json();
     
     // Find the specific race by competition ID
@@ -627,7 +634,7 @@ async function fetchCompetitionResults(raceId) {
     
     if (raceEvent) {
       // Get event details
-      const eventResponse = await fetch(raceEvent.event.$ref);
+      const eventResponse = await fetch(convertToHttps(raceEvent.event.$ref));
       const eventData = await eventResponse.json();
       
       const competitions = {};
@@ -635,7 +642,7 @@ async function fetchCompetitionResults(raceId) {
       // Process competitions in parallel for better performance
       const competitionPromises = (eventData.competitions || []).map(async (competition) => {
         try {
-          const compResponse = await fetch(competition.$ref);
+          const compResponse = await fetch(convertToHttps(competition.$ref));
           const compData = await compResponse.json();
           
           // Get competition type and create display name
@@ -664,8 +671,8 @@ async function fetchCompetitionResults(raceId) {
             try {
               // Fetch athlete and statistics in parallel
               const [athleteResponse, statsResponse] = await Promise.all([
-                competitor.athlete?.$ref ? fetch(competitor.athlete.$ref) : Promise.resolve(null),
-                competitor.statistics?.$ref ? fetch(competitor.statistics.$ref) : Promise.resolve(null)
+                competitor.athlete?.$ref ? fetch(convertToHttps(competitor.athlete.$ref)) : Promise.resolve(null),
+                competitor.statistics?.$ref ? fetch(convertToHttps(competitor.statistics.$ref)) : Promise.resolve(null)
               ]);
               
               // Get athlete info
