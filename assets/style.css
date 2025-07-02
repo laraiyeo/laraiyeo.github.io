@@ -14,7 +14,7 @@ body {
     gap: 20px;
     width: 100%;
     height: 80%;
-    max-width: 1200px;
+    max-width: 1400px;
     margin-top: 20px; /* Add spacing below the navbar */
 }
 
@@ -149,11 +149,30 @@ body {
 }
 
 @media (max-width: 475px) {
-.responsive-block-content {
-      margin-top: -10px;
+    .main-container {
+        grid-template-columns: 1fr; /* Single column layout on small screens */
+        gap: 10px; /* Reduced gap for smaller screens */
     }
 
-    .block-wnba, .block {
-        background-size: cover;
+    .block, .block-wip {
+        margin: 0 auto; /* Center blocks on small screens */
+        width: 90%; /* Full width with some margin */
     }
+
+    .block-content {
+        padding: 17.5px; /* Reduced padding for smaller screens */
+    }
+
+    .block-title {
+        font-size: 1.2rem; /* Smaller title font size */
+    }
+
+    .block-description {
+        font-size: 0.9rem; /* Smaller description font size */
+    }
+
+    .responsive-block-content {
+      margin-top: -10px;
+    }
+    
 }
