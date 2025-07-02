@@ -159,6 +159,7 @@ body {
 
     .block, .block-wip {
         margin: 0 auto; /* Center blocks on small screens */
+        height: 110px;
         width: 90%; /* Full width with some margin */
     }
 
@@ -171,8 +172,7 @@ body {
     }
 
     .block-description {
-        margin-top: -5px;
-        margin-bottom: 5px;
+        margin-bottom: 7.5px;
         font-size: 0.9rem; /* Smaller description font size */
     }
 
