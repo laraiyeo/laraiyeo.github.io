@@ -29,8 +29,12 @@ function renderScorersBox(awayScorers, homeScorers) {
   const formatScorer = scorer => {
     const penaltyText = scorer.penaltyKick ? " (Pen.)" : "";
     const fullName = scorer.displayName;
-    const lastName = fullName.split(" ").slice(-1).join(" ");
-    const displayName = window.innerWidth <= 475 ? lastName : fullName;
+    const lastName = scorer.lastName;
+
+    // Use lastName on small screens *only if it's not blank*, otherwise fallback to fullName
+    const displayName = window.innerWidth <= 475
+      ? (lastName && lastName.trim() !== "" ? lastName : fullName)
+      : fullName;
     return `${displayName} ${scorer.clock}${penaltyText}`;
   };
 
