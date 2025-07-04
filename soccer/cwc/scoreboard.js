@@ -767,20 +767,19 @@ async function fetchAndRenderTopScoreboard() {
     // Add stream embed above play description (only render once and only for in-progress games)
     const streamContainer = document.getElementById("streamEmbed");
     if (!streamContainer && isInProgress) {
-      if (topScoreboardEl) {
       const streamDiv = document.createElement("div");
       streamDiv.id = "streamEmbed";
       streamDiv.innerHTML = renderStreamEmbed(homeTeam.displayName || "Unknown", awayTeam.displayName || "Unknown");
       topScoreboardEl.parentNode.insertBefore(streamDiv, topScoreboardEl.nextSibling);
-      
+
       setTimeout(() => {
         startStreamTesting(homeTeam.displayName || "Unknown", awayTeam.displayName || "Unknown");
       }, 100);
-      }
     } else if (streamContainer && !isInProgress) {
       // Remove stream container if game is no longer in progress
       streamContainer.remove();
     }
+
 
     // Render play description
     let playDescriptionDiv = document.getElementById("playDescription");
@@ -788,6 +787,9 @@ async function fetchAndRenderTopScoreboard() {
       playDescriptionDiv = document.createElement("div");
       playDescriptionDiv.id = "playDescription";
       playDescriptionDiv.className = "play-description";
+      // Insert after stream embed if it exists, otherwise after topScoreboard
+      const insertAfter = streamContainer || topScoreboardEl;
+      insertAfter.insertAdjacentElement("afterend", playDescriptionDiv);
     }
     await fetchAndRenderPlayDescription(gameId, homeTeam, awayTeam);
 
