@@ -97,9 +97,9 @@ async function fetchScheduledRaces() {
     const eventLogResponse = await fetch(convertToHttps(firstDriverData.eventLog.$ref));
     const eventLogData = await eventLogResponse.json();
     
-    // Process upcoming races (played: false)
+    // Process upcoming races (not played and not in progress)
     const racePromises = eventLogData.events?.items
-      ?.filter(event => !event.played) // Only upcoming races
+      ?.filter(event => !event.played) // Only unplayed races
       ?.map(async (event) => {
         try {
           // Get event details for proper race name and abbreviation
@@ -109,6 +109,16 @@ async function fetchScheduledRaces() {
           const raceName = eventData.name || 'Unknown Grand Prix';
           const raceAbbreviation = eventData.abbreviation || 'F1';
           const raceDate = new Date(eventData.date);
+          const raceEndDate = eventData.endDate ? new Date(eventData.endDate) : raceDate;
+          const now = new Date();
+          
+          // Check if race is currently in progress
+          const isInProgress = raceDate <= now && raceEndDate >= now;
+          
+          // Only include truly upcoming races (not in progress)
+          if (isInProgress) {
+            return null; // Skip in-progress races
+          }
           
           // Get venue details for country flag
           let countryFlag = '';
@@ -138,7 +148,7 @@ async function fetchScheduledRaces() {
 
     const raceResults = await Promise.all(racePromises);
     
-    // Filter out failed requests and sort by date
+    // Filter out failed requests and in-progress races, then sort by date
     upcomingRaces = raceResults
       .filter(race => race !== null)
       .sort((a, b) => a.date - b.date);

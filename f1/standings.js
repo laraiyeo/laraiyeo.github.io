@@ -4,9 +4,12 @@ let allDrivers = [];
 let circuitResults = {};
 let lastStandingsHash = null;
 
-// Cache to avoid duplicate API calls
+// Enhanced caching system
 const driverTeamCache = new Map();
 const eventLogCache = new Map();
+const raceStructureCache = new Map();
+const competitionDataCache = new Map();
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 
 function hashString(str) {
   let hash = 0;
@@ -126,11 +129,9 @@ async function fetchStandings() {
     const responseText = await response.text();
     const newHash = hashString(responseText);
 
-    if (newHash === lastStandingsHash) {
+    if (newHash === lastStandingsHash && allDrivers.length > 0) {
       console.log("No changes detected in standings data.");
-      if (allDrivers.length > 0) {
-        renderStandings();
-      }
+      renderStandings();
       return;
     }
     lastStandingsHash = newHash;
@@ -145,95 +146,71 @@ async function fetchStandings() {
       return;
     }
 
-    // Get basic driver info first (fast)
-    const driversBasicData = await Promise.all(
-      data.standings.map(async (standing) => {
-        try {
-          const athleteResponse = await fetch(convertToHttps(standing.athlete.$ref));
-          const athleteData = await athleteResponse.json();
-          
-          const record = standing.records[0];
-          const stats = {};
-          record.stats.forEach(stat => {
-            stats[stat.name] = stat.value;
-          });
-          
-          return {
-            rank: stats.rank || 0,
-            driver: {
-              id: athleteData.id,
-              name: athleteData.fullName,
-              flag: athleteData.flag?.href || ''
-            },
-            points: stats.championshipPts || stats.points || 0,
-            wins: stats.wins || 0,
-            eventLogRef: athleteData.eventLog?.$ref
-          };
-        } catch (error) {
-          console.error('Error fetching basic driver data:', error);
-          return null;
-        }
-      })
-    );
+    // Process drivers in batches to avoid overwhelming the API
+    const batchSize = 5;
+    const driversBasicData = [];
+    
+    for (let i = 0; i < data.standings.length; i += batchSize) {
+      const batch = data.standings.slice(i, i + batchSize);
+      
+      const batchResults = await Promise.all(
+        batch.map(async (standing) => {
+          try {
+            const athleteResponse = await fetch(convertToHttps(standing.athlete.$ref));
+            const athleteData = await athleteResponse.json();
+            
+            const record = standing.records[0];
+            const stats = {};
+            record.stats.forEach(stat => {
+              stats[stat.name] = stat.value;
+            });
+            
+            return {
+              rank: stats.rank || 0,
+              driver: {
+                id: athleteData.id,
+                name: athleteData.fullName,
+                flag: athleteData.flag?.href || ''
+              },
+              points: stats.championshipPts || stats.points || 0,
+              wins: stats.wins || 0,
+              eventLogRef: athleteData.eventLog?.$ref
+            };
+          } catch (error) {
+            console.error('Error fetching basic driver data:', error);
+            return null;
+          }
+        })
+      );
+      
+      driversBasicData.push(...batchResults.filter(driver => driver !== null));
+      
+      // Update progress
+      const progress = Math.round(((i + batchSize) / data.standings.length) * 30);
+      if (container) {
+        container.innerHTML = `<div style="color: black; text-align: center; padding: 40px;">Loading drivers... ${progress}%</div>`;
+      }
+    }
 
-    // Render basic table first
-    allDrivers = driversBasicData
-      .filter(driver => driver !== null)
-      .sort((a, b) => a.rank - b.rank);
+    // Sort and store basic driver data
+    allDrivers = driversBasicData.sort((a, b) => a.rank - b.rank);
 
     // Show basic table immediately
     renderBasicStandings();
 
-    // Then load detailed circuit data for just one driver to get race structure
-    const firstDriver = allDrivers[0];
-    if (firstDriver?.eventLogRef) {
-      const eventLogResponse = await fetch(convertToHttps(firstDriver.eventLogRef));
-      const eventLogData = await eventLogResponse.json();
-      
-      // Get all race info from first driver
-      const raceStructure = [];
-      for (const event of eventLogData.events?.items || []) {
-        if (event.played) { // Only get completed races
-          try {
-            // Get event details for proper race name and abbreviation
-            const eventResponse = await fetch(convertToHttps(event.event.$ref));
-            const eventData = await eventResponse.json();
-            
-            const raceName = eventData.name || 'Unknown Grand Prix';
-            const raceAbbreviation = eventData.abbreviation || 'F1';
-            
-            // Get venue details for country flag
-            let countryFlag = '';
-            if (eventData.venues && eventData.venues.length > 0) {
-              try {
-                const venueResponse = await fetch(convertToHttps(eventData.venues[0].$ref));
-                const venueData = await venueResponse.json();
-                countryFlag = venueData.countryFlag?.href || '';
-              } catch (error) {
-                console.error('Error fetching venue data:', error);
-              }
-            }
-            
-            raceStructure.push({
-              competitionId: parseInt(event.competitionId),
-              countryCode: raceAbbreviation,
-              countryFlag: countryFlag,
-              raceName: raceName.replace(' Race', '').replace('Louis Vuitton ', '').replace('Pirelli ', ''),
-              date: new Date(eventData.date),
-              competitionRef: event.competition.$ref
-            });
-          } catch (error) {
-            console.error('Error fetching race structure:', error);
-          }
-        }
+    // Load race structure from cache or fetch once
+    let raceStructure = raceStructureCache.get('main');
+    if (!raceStructure) {
+      if (container) {
+        container.innerHTML = `<div style="color: black; text-align: center; padding: 40px;">Loading race structure...</div>`;
       }
       
-      // Sort races by competition ID
-      raceStructure.sort((a, b) => a.competitionId - b.competitionId);
-      
-      // Now get points for all drivers for these specific races only
-      await loadDriverPointsForRaces(raceStructure);
+      raceStructure = await loadRaceStructure();
+      raceStructureCache.set('main', raceStructure);
     }
+
+    // Load detailed data efficiently
+    await loadDriverPointsOptimized(raceStructure);
 
   } catch (error) {
     console.error("Error fetching F1 standings:", error);
@@ -244,78 +221,135 @@ async function fetchStandings() {
   }
 }
 
-async function loadDriverPointsForRaces(raceStructure) {
+async function loadRaceStructure() {
+  const firstDriver = allDrivers[0];
+  if (!firstDriver?.eventLogRef) return [];
+  
+  const eventLogResponse = await fetch(convertToHttps(firstDriver.eventLogRef));
+  const eventLogData = await eventLogResponse.json();
+  
+  // Process races in parallel with limited concurrency
+  const racePromises = (eventLogData.events?.items || [])
+    .filter(event => event.played)
+    .map(async (event) => {
+      try {
+        const eventResponse = await fetch(convertToHttps(event.event.$ref));
+        const eventData = await eventResponse.json();
+        
+        const raceName = eventData.name || 'Unknown Grand Prix';
+        const raceAbbreviation = eventData.abbreviation || 'F1';
+        
+        // Get venue details in parallel if needed
+        let countryFlag = '';
+        if (eventData.venues && eventData.venues.length > 0) {
+          try {
+            const venueResponse = await fetch(convertToHttps(eventData.venues[0].$ref));
+            const venueData = await venueResponse.json();
+            countryFlag = venueData.countryFlag?.href || '';
+          } catch (error) {
+            console.error('Error fetching venue data:', error);
+          }
+        }
+        
+        return {
+          competitionId: parseInt(event.competitionId),
+          countryCode: raceAbbreviation,
+          countryFlag: countryFlag,
+          raceName: raceName.replace(' Race', '').replace('Louis Vuitton ', '').replace('Pirelli ', ''),
+          date: new Date(eventData.date),
+          competitionRef: event.competition.$ref
+        };
+      } catch (error) {
+        console.error('Error fetching race structure:', error);
+        return null;
+      }
+    });
+  
+  const races = (await Promise.all(racePromises)).filter(race => race !== null);
+  return races.sort((a, b) => a.competitionId - b.competitionId);
+}
+
+async function loadDriverPointsOptimized(raceStructure) {
   const container = document.getElementById("standingsContainer");
   
-  // Process each race one at a time to get all driver points
-  for (let raceIndex = 0; raceIndex < raceStructure.length; raceIndex++) {
-    const race = raceStructure[raceIndex];
+  // Load races in smaller batches for better performance
+  const batchSize = 3;
+  
+  for (let i = 0; i < raceStructure.length; i += batchSize) {
+    const batch = raceStructure.slice(i, i + batchSize);
     
     // Update progress
+    const progress = Math.round(30 + ((i / raceStructure.length) * 70));
     if (container) {
-      const progress = Math.round(((raceIndex + 1) / raceStructure.length) * 100);
-      container.innerHTML = `<div style="color: black; text-align: center; padding: 40px;">Loading race data... ${progress}% (${race.raceName})</div>`;
+      container.innerHTML = `<div style="color: black; text-align: center; padding: 40px;">Loading race data... ${progress}%</div>`;
     }
     
-    try {
-      // Get competition data to find all competitors for this race
-      const competitionResponse = await fetch(convertToHttps(race.competitionRef));
-      const competitionData = await competitionResponse.json();
-      
-      // Process all competitors in this race
-      const racePoints = {};
-      if (competitionData.competitors) {
-        for (const competitor of competitionData.competitors) {
-          const driverId = competitor.id;
-          const points = competitor.statistics?.$ref ? await getDriverPointsForRace(convertToHttps(competitor.statistics.$ref)) : 0;
-          racePoints[driverId] = points;
-        }
-      }
-      
-      // Update driver data with this race's points
-      allDrivers.forEach(driver => {
-        if (!driver.circuitPoints) driver.circuitPoints = {};
-        const uniqueKey = `${race.countryCode}_${race.competitionId}`;
-        const points = racePoints[driver.driver.id] || 0;
+    // Process batch in parallel
+    await Promise.all(batch.map(async (race) => {
+      try {
+        // Check cache first
+        const cacheKey = `comp_${race.competitionId}`;
+        let competitionData = competitionDataCache.get(cacheKey);
         
-        driver.circuitPoints[uniqueKey] = {
-          points: points,
-          raceName: race.raceName,
-          date: race.date,
-          competitionId: race.competitionId,
-          played: true,
-          countryCode: race.countryCode
-        };
-      });
-      
-      // Add team info on first race
-      if (raceIndex === 0) {
-        await addTeamInfo(competitionData);
+        if (!competitionData) {
+          const competitionResponse = await fetch(convertToHttps(race.competitionRef));
+          competitionData = await competitionResponse.json();
+          competitionDataCache.set(cacheKey, competitionData);
+        }
+        
+        // Extract points more efficiently
+        const racePoints = {};
+        if (competitionData.competitors) {
+          // Process competitors in smaller batches
+          const competitorBatches = [];
+          for (let j = 0; j < competitionData.competitors.length; j += 5) {
+            competitorBatches.push(competitionData.competitors.slice(j, j + 5));
+          }
+          
+          for (const competitorBatch of competitorBatches) {
+            await Promise.all(competitorBatch.map(async (competitor) => {
+              const driverId = competitor.id;
+              const points = competitor.statistics?.$ref ? 
+                await getDriverPointsForRace(convertToHttps(competitor.statistics.$ref)) : 0;
+              racePoints[driverId] = points;
+            }));
+          }
+        }
+        
+        // Update driver data
+        allDrivers.forEach(driver => {
+          if (!driver.circuitPoints) driver.circuitPoints = {};
+          const uniqueKey = `${race.countryCode}_${race.competitionId}`;
+          const points = racePoints[driver.driver.id] || 0;
+          
+          driver.circuitPoints[uniqueKey] = {
+            points: points,
+            raceName: race.raceName,
+            date: race.date,
+            competitionId: race.competitionId,
+            played: true,
+            countryCode: race.countryCode,
+            countryFlag: race.countryFlag
+          };
+        });
+        
+        // Add team info from first race
+        if (i === 0 && batch.indexOf(race) === 0) {
+          await addTeamInfoOptimized(competitionData);
+        }
+        
+      } catch (error) {
+        console.error(`Error loading race ${race.raceName}:`, error);
       }
-      
-      // Re-render with updated data
-      renderStandings();
-      
-    } catch (error) {
-      console.error(`Error loading race ${race.raceName}:`, error);
-    }
-  }
-}
-
-async function getDriverPointsForRace(statisticsRef) {
-  try {
-    const statisticsResponse = await fetch(statisticsRef);
-    const statisticsData = await statisticsResponse.json();
+    }));
     
-    const cpStat = statisticsData.splits?.categories?.[0]?.stats?.find(stat => stat.abbreviation === 'CP');
-    return cpStat ? parseInt(cpStat.value) : 0;
-  } catch (error) {
-    return 0;
+    // Update display after each batch
+    renderStandings();
   }
 }
 
-async function addTeamInfo(competitionData) {
-  // Get team info from first race competitors
+async function addTeamInfoOptimized(competitionData) {
+  // Extract team info directly from competitors
   const teamMap = {};
   if (competitionData.competitors) {
     competitionData.competitors.forEach(competitor => {
@@ -329,6 +363,31 @@ async function addTeamInfo(competitionData) {
   allDrivers.forEach(driver => {
     driver.team = teamMap[driver.driver.id] || 'Unknown';
   });
+}
+
+// Cache the statistics API calls
+const statisticsCache = new Map();
+
+async function getDriverPointsForRace(statisticsRef) {
+  // Check cache first
+  if (statisticsCache.has(statisticsRef)) {
+    return statisticsCache.get(statisticsRef);
+  }
+  
+  try {
+    const statisticsResponse = await fetch(statisticsRef);
+    const statisticsData = await statisticsResponse.json();
+    
+    const cpStat = statisticsData.splits?.categories?.[0]?.stats?.find(stat => stat.abbreviation === 'CP');
+    const points = cpStat ? parseInt(cpStat.value) : 0;
+    
+    // Cache the result
+    statisticsCache.set(statisticsRef, points);
+    return points;
+  } catch (error) {
+    statisticsCache.set(statisticsRef, 0);
+    return 0;
+  }
 }
 
 function renderBasicStandings() {
@@ -387,12 +446,11 @@ function renderStandings() {
 
   // Get all unique circuits from all drivers and sort by competitionId
   const allCircuitData = [];
-  const completedRaceNames = new Set(); // For glossary - only completed races
+  const completedRaceNames = new Set();
   
   allDrivers.forEach(driver => {
     if (driver.circuitPoints) {
       Object.entries(driver.circuitPoints).forEach(([uniqueKey, data]) => {
-        // Only add to glossary if race has been played
         if (data.played) {
           completedRaceNames.add(`${data.countryCode} - ${data.raceName}`);
         }
@@ -411,16 +469,19 @@ function renderStandings() {
     }
   });
   
-  // Filter to only show races that have been played (completed races)
+  // Filter to only show completed races
   const completedCircuits = allCircuitData
     .filter(circuit => circuit.played)
     .sort((a, b) => a.competitionId - b.competitionId)
     .map(circuit => circuit.uniqueKey);
 
+  // Use DocumentFragment for better performance
+  const fragment = document.createDocumentFragment();
+  
   const table = document.createElement("table");
   table.className = "standings-table";
 
-  // Create header - use country flags instead of codes
+  // Create header
   const header = document.createElement("thead");
   const headerRow = document.createElement("tr");
   
@@ -430,7 +491,7 @@ function renderStandings() {
     ${completedCircuits.map(uniqueKey => {
       const circuit = allCircuitData.find(c => c.uniqueKey === uniqueKey);
       return `<th class="circuit-header" title="${circuit.raceName}">
-        <img src="${circuit.countryFlag}" alt="${circuit.countryCode}" class="circuit-flag" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+        <img src="${circuit.countryFlag || ''}" alt="${circuit.countryCode}" class="circuit-flag" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
         <span class="circuit-code-fallback" style="display: none; font-size: 0.6rem;">${circuit.countryCode}</span>
       </th>`;
     }).join('')}
@@ -439,26 +500,12 @@ function renderStandings() {
   header.appendChild(headerRow);
   table.appendChild(header);
 
-  // Create body
+  // Create body more efficiently
   const tbody = document.createElement("tbody");
   
   allDrivers.forEach((driver) => {
     const row = document.createElement("tr");
     row.className = "driver-row";
-    
-    const driverCell = `
-      <td class="pos-cell">${driver.rank}</td>
-      <td class="driver-cell">
-        <div class="driver-info">
-          <img src="${driver.driver.flag}" alt="${driver.driver.name}" class="driver-flag" onerror="this.src='https://flagcdn.com/w20/xx.png'">
-          <div class="driver-details">
-            <div class="driver-name">${driver.driver.name}</div>
-            <div class="driver-team">${driver.team || 'Unknown'}</div>
-            <div class="driver-points">${driver.points} PTS</div>
-          </div>
-        </div>
-      </td>
-    `;
     
     const circuitCells = completedCircuits.map(uniqueKey => {
       const circuitData = driver.circuitPoints?.[uniqueKey];
@@ -473,27 +520,42 @@ function renderStandings() {
       }
     }).join('');
     
-    row.innerHTML = driverCell + circuitCells;
+    row.innerHTML = `
+      <td class="pos-cell">${driver.rank}</td>
+      <td class="driver-cell">
+        <div class="driver-info">
+          <img src="${driver.driver.flag}" alt="${driver.driver.name}" class="driver-flag" onerror="this.src='https://flagcdn.com/w20/xx.png'">
+          <div class="driver-details">
+            <div class="driver-name">${driver.driver.name}</div>
+            <div class="driver-team">${driver.team || 'Unknown'}</div>
+            <div class="driver-points">${driver.points} PTS</div>
+          </div>
+        </div>
+      </td>
+      ${circuitCells}
+    `;
     tbody.appendChild(row);
   });
 
   table.appendChild(tbody);
+  fragment.appendChild(table);
   
-  // Create race glossary with country codes and full names, only completed races
-  const glossaryDiv = document.createElement("div");
-  glossaryDiv.innerHTML = `
-    <h3 style="color: black; margin-top: 20px;">Race Glossary (Completed Races):</h3>
-    <ul style="color: black; text-align: left; columns: 2; font-size: 0.9rem;">
-      ${Array.from(completedRaceNames).sort().map(name => `<li>${name}</li>`).join('')}
-    </ul>
-  `;
-  
+  // Update DOM once
   container.innerHTML = "";
-  container.appendChild(table);
-  container.appendChild(glossaryDiv);
+  container.appendChild(fragment);
   
   console.log("Standings rendered successfully");
 }
+
+// Clear caches periodically to prevent memory issues
+setInterval(() => {
+  if (statisticsCache.size > 100) {
+    statisticsCache.clear();
+  }
+  if (competitionDataCache.size > 50) {
+    competitionDataCache.clear();
+  }
+}, 5 * 60 * 1000); // Clear every 5 minutes
 
 // Initialize - only call once
 document.addEventListener('DOMContentLoaded', () => {

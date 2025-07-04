@@ -297,6 +297,336 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
   `;
 }
 
+
+// Global variables for stream testing
+let streamUrls = [];
+let currentStreamIndex = 0;
+let streamTestTimeout = null;
+let isMuted = true; // Start muted to prevent autoplay issues
+
+// Enhanced video control functions matching the iframe pattern
+window.toggleMute = function() {
+  const iframe = document.getElementById('streamIframe');
+  const muteButton = document.getElementById('muteButton');
+  
+  if (!iframe || !muteButton) return;
+  
+  // Toggle muted state
+  isMuted = !isMuted;
+  muteButton.textContent = isMuted ? '🔊 Unmute' : '🔇 Mute';
+  
+  // Multiple approaches to control video muting
+  try {
+    // Method 1: Direct iframe manipulation
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+    if (iframeDoc) {
+      const videos = iframeDoc.querySelectorAll('video');
+      videos.forEach(video => {
+        video.muted = isMuted;
+        video.volume = isMuted ? 0 : 1;
+      });
+      
+      console.log(isMuted ? 'Video muted via direct access' : 'Video unmuted via direct access');
+    }
+  } catch (e) {
+    console.log('Direct video access blocked by CORS');
+  }
+  
+  // Method 2: Enhanced PostMessage to iframe
+  try {
+    iframe.contentWindow.postMessage({
+      action: 'toggleMute',
+      muted: isMuted,
+      volume: isMuted ? 0 : 1
+    }, '*');
+    
+    iframe.contentWindow.postMessage({
+      action: 'setVideoParams',
+      autoplay: 1,
+      mute: isMuted ? 1 : 0
+    }, '*');
+    
+    console.log(isMuted ? 'Mute message sent to iframe' : 'Unmute message sent to iframe');
+  } catch (e) {
+    console.log('PostMessage failed');
+  }
+  
+  // Method 3: Simulate key events
+  try {
+    const keyEvent = new KeyboardEvent('keydown', { key: 'm', code: 'KeyM' });
+    iframe.contentWindow.dispatchEvent(keyEvent);
+    console.log('Mute key event sent to iframe');
+  } catch (e) {
+    console.log('Key event failed');
+  }
+  
+  // Method 4: Try to modify iframe src with mute parameter
+  if (iframe.src && !iframe.src.includes('mute=')) {
+    const separator = iframe.src.includes('?') ? '&' : '?';
+    const newSrc = `${iframe.src}${separator}mute=${isMuted ? 1 : 0}&autoplay=1`;
+    if (iframe.src !== newSrc) {
+      iframe.src = newSrc;
+      console.log('Updated iframe src with mute parameter');
+    }
+  }
+};
+
+window.toggleFullscreen = function() {
+  const iframe = document.getElementById('streamIframe');
+  
+  if (iframe) {
+    try {
+      if (iframe.requestFullscreen) {
+        iframe.requestFullscreen();
+      } else if (iframe.webkitRequestFullscreen) {
+        iframe.webkitRequestFullscreen();
+      } else if (iframe.msRequestFullscreen) {
+        iframe.msRequestFullscreen();
+      }
+      console.log('Fullscreen requested');
+    } catch (e) {
+      console.log('Fullscreen not supported or failed');
+    }
+  }
+};
+
+window.loadStream = function(url) {
+  const iframe = document.getElementById('streamIframe');
+  
+  if (iframe) {
+    iframe.src = url;
+  }
+};
+
+window.handleStreamLoad = function() {
+  const iframe = document.getElementById('streamIframe');
+  const connectingDiv = document.getElementById('streamConnecting');
+  
+  // Clear any existing timeout
+  if (streamTestTimeout) {
+    clearTimeout(streamTestTimeout);
+    streamTestTimeout = null;
+  }
+  
+  if (iframe.src !== 'about:blank') {
+    setTimeout(() => {
+      iframe.style.display = 'block';
+      if (connectingDiv) {
+        connectingDiv.style.display = 'none';
+      }
+      
+      setTimeout(() => {
+        try {
+          const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+          
+          if (iframeDoc) {
+            const videos = iframeDoc.querySelectorAll('video');
+            if (videos.length > 0) {
+              videos.forEach(video => {
+                video.muted = isMuted;
+                video.volume = isMuted ? 0 : 1;
+              });
+              const muteButton = document.getElementById('muteButton');
+              if (muteButton) {
+                muteButton.textContent = isMuted ? '🔊 Unmute' : '🔇 Mute';
+              }
+              console.log(isMuted ? 'Video started muted' : 'Video started unmuted');
+            }
+          }
+        } catch (e) {
+          console.log('Cannot access iframe content (cross-origin)');
+        }
+      }, 200);
+      
+    }, 1000);
+  }
+  
+  if (streamUrls.length > 0 && iframe.src !== 'about:blank') {
+    setTimeout(() => {
+      checkStreamContent(iframe);
+    }, 1500);
+  } else {
+    if (iframe.src !== 'about:blank') {
+      iframe.style.display = 'block';
+      if (connectingDiv) {
+        connectingDiv.style.display = 'none';
+      }
+    }
+  }
+};
+
+function checkStreamContent(iframe) {
+  const connectingDiv = document.getElementById('streamConnecting');
+  
+  try {
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+    
+    const hasVideo = iframeDoc.querySelector('video') || 
+                    iframeDoc.querySelector('.video-js') || 
+                    iframeDoc.querySelector('[id*="video"]') ||
+                    iframeDoc.querySelector('[class*="player"]');
+    
+    if (hasVideo) {
+      iframe.style.display = 'block';
+      if (connectingDiv) {
+        connectingDiv.style.display = 'none';
+      }
+      streamUrls = [];
+      return;
+    }
+  } catch (e) {
+    console.log('Cannot access iframe content (cross-origin), assuming external stream');
+    iframe.style.display = 'block';
+    if (connectingDiv) {
+      connectingDiv.style.display = 'none';
+    }
+  }
+  
+  setTimeout(() => {
+    if (streamUrls.length > 0) {
+      tryNextStream();
+    } else {
+      iframe.style.display = 'block';
+      if (connectingDiv) {
+        connectingDiv.style.display = 'none';
+      }
+    }
+  }, 1000);
+}
+
+function tryNextStream() {
+  const iframe = document.getElementById('streamIframe');
+  
+  if (currentStreamIndex < streamUrls.length) {
+    const nextUrl = streamUrls[currentStreamIndex];
+    currentStreamIndex++;
+    
+    streamTestTimeout = setTimeout(() => {
+      tryNextStream();
+    }, 4000);
+    
+    if (iframe) {
+      iframe.src = nextUrl;
+    }
+  } else {
+    const connectingDiv = document.getElementById('streamConnecting');
+    iframe.style.display = 'block';
+    if (connectingDiv) {
+      connectingDiv.style.display = 'none';
+    }
+    streamUrls = [];
+  }
+}
+
+function normalizeTeamName(teamName) {
+  // Convert team names to streaming format
+  return teamName.toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9\-]/g, '')
+    .replace(/^fc-/, '')
+    .replace(/-fc$/, '');
+}
+
+async function extractVideoPlayerUrl(pageUrl) {
+  try {
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(pageUrl)}`;
+    const response = await fetch(proxyUrl);
+    const data = await response.json();
+    
+    if (data.contents) {
+      const iframeMatch = data.contents.match(/src="([^"]*castweb\.xyz[^"]*)"/);
+      if (iframeMatch) {
+        return iframeMatch[1];
+      }
+      
+      const altMatch = data.contents.match(/iframe[^>]*src="([^"]*\.php[^"]*)"/);
+      if (altMatch) {
+        return altMatch[1];
+      }
+    }
+  } catch (error) {
+    console.error('Error extracting video player URL:', error);
+  }
+  
+  return null;
+}
+
+async function startStreamTesting(homeTeamName, awayTeamName) {
+  const homeNormalized = normalizeTeamName(homeTeamName);
+  const awayNormalized = normalizeTeamName(awayTeamName);
+  
+  const pageUrls = [
+    `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`
+  ];
+  
+  streamUrls = [];
+  
+  const extractionPromises = pageUrls.map(async (url) => {
+    try {
+      const videoUrl = await extractVideoPlayerUrl(url);
+      return videoUrl;
+    } catch (error) {
+      console.error(`Error extracting from ${url}:`, error);
+      return null;
+    }
+  });
+  
+  const extractedUrls = await Promise.all(extractionPromises);
+  
+  extractedUrls.forEach(url => {
+    if (url) {
+      streamUrls.push(url);
+      console.log(`Extracted video URL: ${url}`);
+    }
+  });
+  
+  if (streamUrls.length === 0) {
+    console.log('No video URLs extracted, using page URLs directly');
+    streamUrls = pageUrls;
+  }
+  
+  currentStreamIndex = 0;
+  
+  setTimeout(() => {
+    tryNextStream();
+  }, 300);
+}
+
+function renderStreamEmbed(homeTeamName, awayTeamName) {
+  const homeNormalized = normalizeTeamName(homeTeamName);
+  const awayNormalized = normalizeTeamName(awayTeamName);
+  
+  const streamUrl = `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`;
+  const isSmallScreen = window.innerWidth < 525;
+  const screenHeight = isSmallScreen ? 250 : 700;
+  
+  return `
+    <div class="stream-container" style="margin: 20px 0; text-align: center;">
+      <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
+        <h3 style="color: white; margin: 0;">Live Stream</h3>
+      </div>
+      <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; border-radius: 8px; margin-bottom: 10px;">
+        <p>Connecting to stream... <span id="streamStatus"></span></p>
+      </div>
+      <div class="stream-iframe-container" style="position: relative; width: 100%; margin: 0 auto; overflow: hidden;">
+        <iframe 
+          id="streamIframe"
+          src="about:blank"
+          width="100%" 
+          height="${screenHeight}"
+          style="aspect-ratio: 16/9; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); background: #000; display: none;"
+          frameborder="0"
+          allowfullscreen
+          allow="autoplay; fullscreen; encrypted-media"
+          referrerpolicy="no-referrer-when-downgrade"
+          onload="handleStreamLoad()"
+          onerror="handleStreamError()">
+        </iframe>
+      </div>
+    </div>
+  `;
+}
+
 async function fetchAndRenderPlayDescription(gameId, homeTeam, awayTeam) {
   try {
     const PLAY_DESCRIPTION_API_URL = `https://cdn.espn.com/core/soccer/commentary?xhr=1&gameId=${gameId}`;
@@ -378,6 +708,9 @@ async function fetchAndRenderTopScoreboard() {
     const gameStatus = competitions[0]?.status?.type.description || "N/A";
     const gameState = competitions[0]?.status?.type.state || "N/A";
 
+    // Determine if game is in progress
+    const isInProgress = gameState === "in";
+
     const details = competitions[0]?.details || [];
     const homeTeamId = homeTeam.id;
     const awayTeamId = awayTeam.id;
@@ -431,13 +764,31 @@ async function fetchAndRenderTopScoreboard() {
       </div>
     `;
 
+    // Add stream embed above play description (only render once and only for in-progress games)
+    const streamContainer = document.getElementById("streamEmbed");
+    if (!streamContainer && isInProgress) {
+      const streamDiv = document.createElement("div");
+      streamDiv.id = "streamEmbed";
+      streamDiv.innerHTML = renderStreamEmbed(homeTeam.displayName || "Unknown", awayTeam.displayName || "Unknown");
+      topScoreboardEl.parentNode.insertBefore(streamDiv, topScoreboardEl.nextSibling);
+      
+      setTimeout(() => {
+        startStreamTesting(homeTeam.displayName || "Unknown", awayTeam.displayName || "Unknown");
+      }, 100);
+    } else if (streamContainer && !isInProgress) {
+      // Remove stream container if game is no longer in progress
+      streamContainer.remove();
+    }
+
     // Render play description
     let playDescriptionDiv = document.getElementById("playDescription");
     if (!playDescriptionDiv) {
       playDescriptionDiv = document.createElement("div");
       playDescriptionDiv.id = "playDescription";
       playDescriptionDiv.className = "play-description";
-      topScoreboardEl.insertAdjacentElement("afterend", playDescriptionDiv);
+      // Insert after stream embed if it exists, otherwise after topScoreboard
+      const insertAfter = streamContainer || topScoreboardEl;
+      insertAfter.insertAdjacentElement("afterend", playDescriptionDiv);
     }
     await fetchAndRenderPlayDescription(gameId, homeTeam, awayTeam);
 

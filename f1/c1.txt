@@ -1,0 +1,131 @@
+{
+  "$ref": "http://sports.core.api.espn.com/v2/sports/racing/leagues/f1/events/600052056/competitions/401737792/competitors/5789/statistics/0?lang=en&region=us",
+  "competition": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/racing/leagues/f1/events/600052056/competitions/401737792?lang=en&region=us"
+  },
+  "splits": {
+    "id": "0",
+    "name": "All Splits",
+    "abbreviation": "TOT",
+    "type": "total",
+    "categories": [
+      {
+        "name": "general",
+        "displayName": "General",
+        "shortDisplayName": "General",
+        "abbreviation": "gen",
+        "summary": "",
+        "stats": [
+          {
+            "name": "lapsCompleted",
+            "displayName": "Laps Completed",
+            "shortDisplayName": "Laps Completed",
+            "description": "Total laps completed in the race",
+            "abbreviation": "LC",
+            "value": 3,
+            "displayValue": "3"
+          },
+          {
+            "name": "championshipPts",
+            "displayName": "Championship Points",
+            "shortDisplayName": "Championship Points",
+            "description": "Championship points earned for the race",
+            "abbreviation": "CP",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "bonus",
+            "displayName": "Bonus Points",
+            "shortDisplayName": "Bonus",
+            "description": "Bonus points earned for the race",
+            "abbreviation": "B",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "penaltyPts",
+            "displayName": "Penalty Points",
+            "shortDisplayName": "Penalty Points",
+            "description": "Penalty points earned for the race",
+            "abbreviation": "PP",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "place",
+            "displayName": "Place",
+            "shortDisplayName": "Place",
+            "description": "Place",
+            "abbreviation": "P",
+            "value": 2,
+            "displayValue": "2"
+          },
+          {
+            "name": "qual1TimeMS",
+            "displayName": "Q1 Race Time",
+            "shortDisplayName": "Q1 Race Time",
+            "description": "Time for the first qualifying run",
+            "abbreviation": "Q1",
+            "value": 0,
+            "displayValue": "0.000"
+          },
+          {
+            "name": "qual2TimeMS",
+            "displayName": "Q2 Race Time",
+            "shortDisplayName": "Q2 Race Time",
+            "description": "Time for the first qualifying run",
+            "abbreviation": "Q2",
+            "value": 0,
+            "displayValue": "0.000"
+          },
+          {
+            "name": "qual3TimeMS",
+            "displayName": "Q3 Race Time",
+            "shortDisplayName": "Q3 Race Time",
+            "description": "Time for the first qualifying run",
+            "abbreviation": "Q3",
+            "value": 0,
+            "displayValue": "0.000"
+          }
+        ]
+      },
+      {
+        "name": "gapToLeader",
+        "displayName": "Gap To Leader",
+        "shortDisplayName": "Gap To Leader",
+        "abbreviation": "gtl",
+        "summary": "",
+        "stats": [
+          {
+            "name": "position",
+            "displayName": "Position",
+            "shortDisplayName": "Position",
+            "description": "Position",
+            "abbreviation": "P",
+            "value": 18,
+            "displayValue": "18"
+          },
+          {
+            "name": "gapToLeader",
+            "displayName": "Gap To Leader",
+            "shortDisplayName": "Gap To Leader",
+            "description": "Gap To Leader",
+            "abbreviation": "GTL",
+            "value": 1811,
+            "displayValue": "+1.811"
+          },
+          {
+            "name": "lastUpdated",
+            "displayName": "Last Updated",
+            "shortDisplayName": "Last Updated",
+            "description": "Last Updated",
+            "abbreviation": "LU",
+            "value": 1751641803008,
+            "displayValue": "2025-07-04T15:10:03Z"
+          }
+        ]
+      }
+    ]
+  }
+}

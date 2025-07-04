@@ -98,9 +98,8 @@ async function fetchRaceResults() {
     const eventLogResponse = await fetch(convertToHttps(firstDriverData.eventLog.$ref));
     const eventLogData = await eventLogResponse.json();
     
-    // Process completed races (played: true)
+    // Process all races - both completed and in-progress
     const racePromises = eventLogData.events?.items
-      ?.filter(event => event.played) // Only completed races
       ?.map(async (event) => {
         try {
           // Get event details for proper race name and abbreviation
@@ -110,65 +109,17 @@ async function fetchRaceResults() {
           const raceName = eventData.name || 'Unknown Grand Prix';
           const raceAbbreviation = eventData.abbreviation || 'F1';
           const raceDate = new Date(eventData.date);
-          const raceEndDate = eventData.endDate ? new Date(eventData.endDate) : raceDate; // Use end date if available, fallback to start date
-          
-          // Get venue details for country flag
-          let countryFlag = '';
-          if (eventData.venues && eventData.venues.length > 0) {
-            try {
-              const venueResponse = await fetch(convertToHttps(eventData.venues[0].$ref));
-              const venueData = await venueResponse.json();
-              countryFlag = venueData.countryFlag?.href || '';
-            } catch (error) {
-              console.error('Error fetching venue data:', error);
-            }
-          }
-
-          // Get race winner info from events competitions
-          let winner = 'TBD';
-          let winnerTeam = '';
-          let teamColor = '#333333';
-          
-          try {
-            // Look for the Race competition in the competitions array
-            const raceCompetition = eventData.competitions?.find(comp => 
-              comp.type?.name?.toLowerCase().includes('race') || 
-              comp.type?.displayName?.toLowerCase().includes('race') ||
-              comp.type?.abbreviation?.toLowerCase().includes('race')
-            );
-            
-            if (raceCompetition && raceCompetition.competitors) {
-              // Find the winner (winner: true)
-              const winnerCompetitor = raceCompetition.competitors.find(c => c.winner === true);
-              
-              if (winnerCompetitor) {
-                // Get manufacturer info
-                winnerTeam = winnerCompetitor.vehicle.manufacturer || 'Unknown Team';
-                teamColor = `#${getTeamColor(winnerTeam)}`;
-                
-                // Get driver info
-                if (winnerCompetitor.athlete?.$ref) {
-                  const athleteResponse = await fetch(convertToHttps(winnerCompetitor.athlete.$ref));
-                  const athleteData = await athleteResponse.json();
-                  winner = athleteData.shortName || athleteData.displayName || athleteData.fullName || 'Unknown';
-                }
-              }
-            }
-          } catch (error) {
-            console.error('Error fetching race winner:', error);
-          }
+          const raceEndDate = eventData.endDate ? new Date(eventData.endDate) : raceDate;
+          const now = new Date();
           
           return {
-            competitionId: parseInt(event.competitionId),
-            countryCode: raceAbbreviation,
-            countryFlag: countryFlag,
-            raceName: raceName.replace(' Race', '').replace('Louis Vuitton ', '').replace('Pirelli ', ''),
-            date: raceDate,
-            endDate: raceEndDate,
-            formattedDate: formatDateWithTimezone(raceEndDate), // Use end date for display
-            winner: winner,
-            winnerTeam: winnerTeam,
-            teamColor: teamColor
+            eventData,
+            event,
+            raceName,
+            raceAbbreviation,
+            raceDate,
+            raceEndDate,
+            now
           };
         } catch (error) {
           console.error('Error fetching race data:', error);
@@ -176,12 +127,124 @@ async function fetchRaceResults() {
         }
       }) || [];
 
-    const raceResults = await Promise.all(racePromises);
+    const raceDataArray = (await Promise.all(racePromises)).filter(data => data !== null);
     
-    // Filter out failed requests and sort by end date (most recent first)
-    completedRaces = raceResults
-      .filter(race => race !== null)
-      .sort((a, b) => b.endDate - a.endDate);
+    // Process races with status determination
+    const processedRaces = await Promise.all(raceDataArray.map(async (raceData) => {
+      const { eventData, event, raceName, raceAbbreviation, raceDate, raceEndDate, now } = raceData;
+      
+      // Determine race status
+      let status = 'upcoming';
+      
+      if (event.played) {
+        status = 'completed';
+      } else if (raceDate <= now && raceEndDate >= now) {
+        status = 'in-progress';
+      }
+      
+      // Get venue details for country flag
+      let countryFlag = '';
+      let venueName = '';
+      if (eventData.venues && eventData.venues.length > 0) {
+        try {
+          const venueResponse = await fetch(convertToHttps(eventData.venues[0].$ref));
+          const venueData = await venueResponse.json();
+          countryFlag = venueData.countryFlag?.href || '';
+          venueName = venueData.fullName || '';
+        } catch (error) {
+          console.error('Error fetching venue data:', error);
+        }
+      }
+
+      // For in-progress races (including forced most recent), get competition winners
+      let competitionWinners = {};
+      if (status === 'in-progress') {
+        competitionWinners = await fetchCompetitionWinners(eventData);
+      }
+
+      // For both completed and in-progress races, try to get race winner info
+      let winner = 'TBD';
+      let winnerTeam = '';
+      let teamColor = '#333333';
+      
+      if (status === 'completed' || status === 'in-progress') {
+        try {
+          // Look for the Race competition in the competitions array
+          const raceCompetition = eventData.competitions?.find(comp => 
+            comp.type?.name?.toLowerCase().includes('race') || 
+            comp.type?.displayName?.toLowerCase().includes('race') ||
+            comp.type?.abbreviation?.toLowerCase().includes('race')
+          );
+          
+          if (raceCompetition && raceCompetition.competitors) {
+            // Find the winner (winner: true)
+            const winnerCompetitor = raceCompetition.competitors.find(c => c.winner === true);
+            
+            if (winnerCompetitor) {
+              // Get manufacturer info
+              winnerTeam = winnerCompetitor.vehicle?.manufacturer || 'Unknown Team';
+              teamColor = `#${getTeamColor(winnerTeam)}`;
+              
+              // Get driver info
+              if (winnerCompetitor.athlete?.$ref) {
+                try {
+                  const athleteResponse = await fetch(convertToHttps(winnerCompetitor.athlete.$ref));
+                  const athleteData = await athleteResponse.json();
+                  winner = athleteData.shortName || athleteData.displayName || athleteData.fullName || 'Unknown';
+                } catch (error) {
+                  console.error('Error fetching race winner athlete data:', error);
+                  winner = winnerCompetitor.athlete?.shortName || 
+                          winnerCompetitor.athlete?.displayName || 
+                          winnerCompetitor.athlete?.fullName || 'Unknown';
+                }
+              } else if (winnerCompetitor.athlete) {
+                winner = winnerCompetitor.athlete.shortName || 
+                        winnerCompetitor.athlete.displayName || 
+                        winnerCompetitor.athlete.fullName || 'Unknown';
+              }
+              
+              // For in-progress races, also update the competition winners
+              if (status === 'in-progress' && winner !== 'TBD') {
+                competitionWinners.Race = winner;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching race winner:', error);
+        }
+      }
+      
+      return {
+        competitionId: parseInt(event.competitionId),
+        countryCode: raceAbbreviation,
+        countryFlag: countryFlag,
+        raceName: raceName.replace(' Race', '').replace('Louis Vuitton ', '').replace('Pirelli ', ''),
+        date: raceDate,
+        endDate: raceEndDate,
+        formattedDate: formatDateWithTimezone(raceEndDate),
+        formattedStartDate: formatDateWithTimezone(raceDate),
+        winner: winner,
+        winnerTeam: winnerTeam,
+        teamColor: teamColor,
+        status: status,
+        venue: venueName,
+        competitionWinners: competitionWinners
+      };
+    }));
+    
+    // Filter out failed requests and separate by status
+    const validRaces = processedRaces.filter(race => race !== null);
+    
+    // Separate races by status
+    const inProgressRaces = validRaces.filter(race => race.status === 'in-progress')
+      .sort((a, b) => a.date - b.date); // Sort by start date for in-progress
+    
+    completedRaces = validRaces.filter(race => race.status === 'completed')
+      .sort((a, b) => b.endDate - a.endDate); // Sort by end date (most recent first) for completed
+
+    // Store both arrays globally
+    window.inProgressRaces = inProgressRaces;
+    window.completedRaces = completedRaces;
 
     renderRaceResults();
   } catch (error) {
@@ -193,6 +256,161 @@ async function fetchRaceResults() {
   }
 }
 
+async function fetchCompetitionWinners(eventData) {
+  const winners = {
+    'FP1': 'TBD',
+    'FP2': 'TBD', 
+    'FP3': 'TBD',
+    'Qual': 'TBD',
+    'Race': 'TBD'
+  };
+
+  try {
+    // Process each competition to find winners using the same approach as race-info.js
+    const competitionPromises = (eventData.competitions || []).map(async (competition, index) => {
+      try {
+        // Check competition status first from the competition level
+        if (competition.status?.$ref) {
+          try {
+            const statusResponse = await fetch(convertToHttps(competition.status.$ref));
+            const statusData = await statusResponse.json();
+            
+            // If competition is still in progress (in state), keep as TBD
+            if (statusData.type?.state === 'in') {
+              return; // Keep winner as TBD
+            }
+          } catch (error) {
+            console.error('Error fetching competition status:', error);
+          }
+        }
+
+        const compResponse = await fetch(convertToHttps(competition.$ref));
+        const compData = await compResponse.json();
+        
+        const compType = compData.type || {};
+        let competitionKey = null;
+        
+        // Map competition types to our keys
+        if (compType.abbreviation === 'FP1') competitionKey = 'FP1';
+        else if (compType.abbreviation === 'FP2') competitionKey = 'FP2';
+        else if (compType.abbreviation === 'FP3') competitionKey = 'FP3';
+        else if (compType.abbreviation === 'Qual') competitionKey = 'Qual';
+        else if (compType.abbreviation === 'Race') competitionKey = 'Race';
+        
+        if (competitionKey && compData.competitors) {
+          // Add console logging specifically for qualifying
+          if (competitionKey === 'Qual') {
+            console.log(`Processing Qualifying with ${compData.competitors.length} competitors`);
+          }
+          
+          // Process competitors exactly like race-info.js does
+          const competitorPromises = (compData.competitors || []).map(async (competitor, compIndex) => {
+            try {
+              // Fetch athlete and statistics in parallel (same as race-info.js)
+              const [athleteResponse, statsResponse] = await Promise.all([
+                competitor.athlete?.$ref ? fetch(convertToHttps(competitor.athlete.$ref)) : Promise.resolve(null),
+                competitor.statistics?.$ref ? fetch(convertToHttps(competitor.statistics.$ref)) : Promise.resolve(null)
+              ]);
+              
+              // Get athlete info
+              let driverName = 'Unknown';
+              if (athleteResponse) {
+                const athleteData = await athleteResponse.json();
+                driverName = athleteData.fullName || athleteData.displayName || athleteData.shortName || 'Unknown';
+                
+                // Log for qualifying only
+                if (competitionKey === 'Qual') {
+                  console.log(`Got athlete name for competitor ${compIndex}: ${driverName}`);
+                }
+              }
+              
+              // Get position from statistics (same logic as race-info.js)
+              let position = competitor.order || 999;
+              
+              if (statsResponse) {
+                const statsData = await statsResponse.json();
+                
+                // Log for qualifying only
+                if (competitionKey === 'Qual') {
+                  console.log(`Stats data for ${driverName}:`, statsData);
+                }
+                
+                const generalStats = statsData.splits?.categories?.find(cat => cat.name === 'general');
+                
+                if (generalStats && generalStats.stats) {
+                  const statMap = {};
+                  generalStats.stats.forEach(stat => {
+                    statMap[stat.name] = stat.displayValue || stat.value;
+                  });
+                  
+                  // Log for qualifying only
+                  if (competitionKey === 'Qual') {
+                    console.log(`Stat map for ${driverName}:`, statMap);
+                  }
+                  
+                  // Get position from stats (same as race-info.js)
+                  const statsPosition = parseInt(statMap.place || statMap.position) || competitor.order || 999;
+                  
+                  // Log for qualifying only
+                  if (competitionKey === 'Qual') {
+                    console.log(`Stats position for ${driverName}: ${statsPosition} (place: ${statMap.place}, position: ${statMap.position})`);
+                  }
+                  
+                  position = statsPosition;
+                }
+              }
+              
+              return {
+                driverName,
+                position,
+                winner: competitor.winner || false
+              };
+              
+            } catch (error) {
+              console.error(`Error processing competitor ${compIndex}:`, error);
+              return null;
+            }
+          });
+          
+          const competitorData = (await Promise.all(competitorPromises)).filter(data => data !== null);
+          
+          // Log for qualifying only
+          if (competitionKey === 'Qual') {
+            console.log(`Competitor data for Qualifying:`, competitorData);
+          }
+          
+          // Sort by position and take the first one (position 1) - same as race-info.js
+          competitorData.sort((a, b) => a.position - b.position);
+          
+          // Log for qualifying only
+          if (competitionKey === 'Qual') {
+            console.log(`Sorted competitor data for Qualifying:`, competitorData);
+          }
+          
+          if (competitorData.length > 0) {
+            const winner = competitorData[0];
+            
+            // Log for qualifying only
+            if (competitionKey === 'Qual') {
+              console.log(`Winner for Qualifying:`, winner);
+            }
+            
+            winners[competitionKey] = winner.driverName;
+          }
+        }
+      } catch (error) {
+        console.error(`Error fetching competition ${index}:`, error);
+      }
+    });
+    
+    await Promise.all(competitionPromises);
+  } catch (error) {
+    console.error('Error fetching competition winners:', error);
+  }
+  
+  return winners;
+}
+
 function renderRaceResults() {
   const container = document.getElementById("resultsContainer");
   if (!container) {
@@ -200,40 +418,128 @@ function renderRaceResults() {
     return;
   }
 
-  if (!completedRaces || completedRaces.length === 0) {
-    container.innerHTML = '<div style="color: black; text-align: center; padding: 40px;">No completed races found.</div>';
+  const inProgressRaces = window.inProgressRaces || [];
+  const completedRaces = window.completedRaces || [];
+
+  if (inProgressRaces.length === 0 && completedRaces.length === 0) {
+    container.innerHTML = '<div style="color: black; text-align: center; padding: 40px;">No races found.</div>';
     return;
   }
 
-  console.log(`Rendering ${completedRaces.length} completed races`);
+  let html = '';
 
-  const racesHtml = completedRaces.map((race, index) => `
-    <div class="result-card" data-race-index="${index}" style="border-left: 5px solid ${race.teamColor};">
-      <div class="race-header">
-        <div class="race-country-flag">
-          <img src="${race.countryFlag}" alt="${race.countryCode}" class="country-flag-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
-          <span class="country-code-fallback" style="display: none;">${race.countryCode}</span>
+  // Render in-progress races first with section structure
+  if (inProgressRaces.length > 0) {
+    html += `
+      <div class="in-progress-section">
+        <div class="section-header">
+          <h2 class="section-title">Race Weekend In Progress</h2>
         </div>
-        <div class="race-name">${race.raceName}</div>
-      </div>
-      <div class="race-result-info">
-        <div class="race-winner">
-          <span class="winner-label">Winner:</span>
-          <span class="winner-name" style="color: ${race.teamColor}; text-shadow: 1px 1px 2px black;">${race.winner} - <span class="winner-team" style="color: ${race.teamColor}; text-shadow: 1px 1px 2px black;">${race.winnerTeam}</span></span>
+    `;
+    
+    const inProgressHtml = inProgressRaces.map((race, index) => `
+      <div class="in-progress-card" data-race-index="${index}" data-race-type="in-progress">
+        <div class="in-progress-left">
+          <div class="race-header-in-progress">
+            <img src="${race.countryFlag}" alt="${race.countryCode}" class="country-flag-img-large" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+            <span class="country-code-fallback-large" style="display: none;">${race.countryCode}</span>
+            <div class="race-name-large">${race.raceName}</div>
+          </div>
+          <div class="circuit-name">${race.venue}</div>
+          <div class="race-dates">
+            <div class="start-date">Start: ${race.formattedStartDate}</div>
+            <div class="date-divider">|</div>
+            <div class="end-date">End: ${race.formattedDate}</div>
+          </div>
         </div>
-        <div class="race-date">${race.formattedDate}</div>
+        <div class="in-progress-right">
+          <div class="competition-winners">
+            <div class="competition-result">
+              <span class="comp-label">FP1:</span>
+              <span class="comp-winner">${race.competitionWinners.FP1}</span>
+            </div>
+            <div class="competition-result">
+              <span class="comp-label">FP2:</span>
+              <span class="comp-winner">${race.competitionWinners.FP2}</span>
+            </div>
+            <div class="competition-result">
+              <span class="comp-label">FP3:</span>
+              <span class="comp-winner">${race.competitionWinners.FP3}</span>
+            </div>
+            <div class="competition-result">
+              <span class="comp-label">Qual:</span>
+              <span class="comp-winner">${race.competitionWinners.Qual}</span>
+            </div>
+            <div class="competition-result">
+              <span class="comp-label">Race:</span>
+              <span class="comp-winner">${race.competitionWinners.Race}</span>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `).join('');
+    
+    html += inProgressHtml;
+    html += `
+      </div>
+      <div class="section-divider"></div>
+    `;
+  }
 
-  container.innerHTML = racesHtml;
+  // Render completed races with section wrapper and grid layout
+  if (completedRaces.length > 0) {
+    html += `
+      <div class="completed-section">
+        <div class="section-header">
+          <h2 class="section-title">Recent Results</h2>
+        </div>
+        <div class="completed-races">
+    `;
+    
+    const completedHtml = completedRaces.map((race, index) => `
+      <div class="result-card" data-race-index="${index}" data-race-type="completed" style="border-left: 5px solid ${race.teamColor};">
+        <div class="race-header">
+          <div class="race-country-flag">
+            <img src="${race.countryFlag}" alt="${race.countryCode}" class="country-flag-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+            <span class="country-code-fallback" style="display: none;">${race.countryCode}</span>
+          </div>
+          <div class="race-name">${race.raceName}</div>
+        </div>
+        <div class="race-result-info">
+          <div class="race-winner">
+            <span class="winner-label">Winner:</span>
+            <span class="winner-name" style="color: ${race.teamColor}; text-shadow: 1px 1px 2px black;">${race.winner} - <span class="winner-team" style="color: ${race.teamColor}; text-shadow: 1px 1px 2px black;">${race.winnerTeam}</span></span>
+          </div>
+          <div class="race-date">${race.formattedDate}</div>
+        </div>
+      </div>
+    `).join('');
+    
+    html += completedHtml;
+    html += `
+        </div>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
 
   // Add click event listeners to each result card
-  const resultCards = container.querySelectorAll('.result-card');
-  resultCards.forEach((card, index) => {
+  const resultCards = container.querySelectorAll('.result-card, .in-progress-card');
+  resultCards.forEach((card) => {
     card.addEventListener('click', () => {
+      const raceIndex = parseInt(card.dataset.raceIndex);
+      const raceType = card.dataset.raceType;
+      
+      // Get the appropriate race data
+      let race;
+      if (raceType === 'in-progress') {
+        race = inProgressRaces[raceIndex];
+      } else {
+        race = completedRaces[raceIndex];
+      }
+      
       // Navigate to race info page with race details as query parameters
-      const race = completedRaces[index];
       const queryParams = new URLSearchParams({
         raceId: race.competitionId,
         raceName: race.raceName,

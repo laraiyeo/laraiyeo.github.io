@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OBS Embed View - F1 Live Tracker</title>
+  <link rel="icon" href="icon.png" type="image/png" />
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+      padding-top: 25px;
+      padding-left: 50px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      height: 100vh;
+    }
+
+    #scaleWrapper {
+      transform: scale(2);
+      transform-origin: top left;
+    }
+  
+    .race-game-card {
+      margin: 0 auto;
+      max-width: 400px;
+    }
+
+    .constructor-card-wrapper {
+      margin: 0 auto;
+      max-width: 400px;
+    }
+  </style>
+  
+</head>
+<body>
+<div id="scaleWrapper">
+  <div id="teamCardContainer"></div>
+  <div id="teamsContainer" style="display:none"></div>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const team = params.get("team");
+
+    let currentHtml = "";
+    let lastRaceCardUpdate = 0;
+    let isLiveSession = false;
+    let lastUpdateTime = 0;
+    
+    // Add hash tracking like MLB team.html
+    let lastContentHash = "";
+
+    function hashString(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const chr = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + chr;
+        hash |= 0;
+      }
+      return hash;
+    }
+
+    function convertToHttps(url) {
+      if (url && url.startsWith('http://')) {
+        return url.replace('http://', 'https://');
+      }
+      return url;
+    }
+
+    function getConstructorLogo(constructorName, forceWhite = false) {
+      // Add safety check for constructorName
+      if (!constructorName) return '';
+      
+      const nameMap = {
+        'McLaren': 'mclaren',
+        'Ferrari': 'ferrari', 
+        'Red Bull': 'redbullracing',
+        'Mercedes': 'mercedes',
+        'Aston Martin': 'astonmartin',
+        'Alpine': 'alpine',
+        'Williams': 'williams',
+        'RB': 'rb',
+        'Haas': 'haas',
+        'Sauber': 'kicksauber'
+      };
+      
+      const blackLogoConstructors = ['Williams', 'Alpine', 'Mercedes', 'Sauber'];
+      const logoColor = (forceWhite || !blackLogoConstructors.includes(constructorName)) ? 'logowhite' : 'logoblack';
+      
+      const logoName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
+      return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/2025/${logoName}/2025${logoName}${logoColor}.webp`;
+    }
+
+    function getConstructorCar(constructorName) {
+      // Add safety check for constructorName
+      if (!constructorName) return '';
+      
+      const nameMap = {
+        'McLaren': 'mclaren',
+        'Ferrari': 'ferrari', 
+        'Red Bull': 'redbullracing',
+        'Mercedes': 'mercedes',
+        'Aston Martin': 'astonmartin',
+        'Alpine': 'alpine',
+        'Williams': 'williams',
+        'RB': 'rb',
+        'Haas': 'haas',
+        'Sauber': 'kicksauber'
+      };
+      
+      const carName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
+      return `https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000000/common/f1/2025/${carName}/2025${carName}carright.webp`;
+    }
+
+    function getTeamColor(constructorName) {
+      const colorMap = {
+        'Mercedes': '27F4D2',
+        'Red Bull': '3671C6',
+        'Ferrari': 'E8002D',
+        'McLaren': 'FF8000',
+        'Alpine': 'FF87BC',
+        'Racing Bulls': '6692FF',
+        'Aston Martin': '229971',
+        'Williams': '64C4FF',
+        'Sauber': '52E252',
+        'Haas': 'B6BABD'
+      };
+      
+      return colorMap[constructorName] || '000000';
+    }
+
+    function ordinalSuffix(n) {
+      if (n > 3 && n < 21) return n + "th";
+      switch (n % 10) {
+        case 1: return n + "st";
+        case 2: return n + "nd";
+        case 3: return n + "rd";
+        default: return n + "th";
+      }
+    }
+
+    async function getCurrentRaceEvent() {
+      try {
+        const response = await fetch('https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/types/2/standings/0');
+        const data = await response.json();
+        
+        if (!data.standings || data.standings.length === 0) {
+          return null;
+        }
+
+        const firstDriverResponse = await fetch(convertToHttps(data.standings[0].athlete.$ref));
+        const firstDriverData = await firstDriverResponse.json();
+        
+        if (!firstDriverData.eventLog?.$ref) {
+          return null;
+        }
+
+        const eventLogResponse = await fetch(convertToHttps(firstDriverData.eventLog.$ref));
+        const eventLogData = await eventLogResponse.json();
+        
+        const currentTime = new Date();
+        let targetEvent = null;
+        
+        for (const event of eventLogData.events?.items || []) {
+          const eventResponse = await fetch(convertToHttps(event.event.$ref));
+          const eventData = await eventResponse.json();
+          
+          const startDate = new Date(eventData.date);
+          const endDate = eventData.endDate ? new Date(eventData.endDate) : null;
+          
+          if (endDate && currentTime >= startDate && currentTime <= endDate) {
+            targetEvent = { event, eventData, isInProgress: true };
+            break;
+          }
+        }
+        
+        if (!targetEvent) {
+          const oneDayAgo = new Date(currentTime.getTime() - (24 * 60 * 60 * 1000));
+          
+          for (const event of eventLogData.events?.items || []) {
+            if (event.played) {
+              const eventResponse = await fetch(convertToHttps(event.event.$ref));
+              const eventData = await eventResponse.json();
+              
+              const endDate = eventData.endDate ? new Date(eventData.endDate) : new Date(eventData.date);
+              
+              if (endDate >= oneDayAgo) {
+                targetEvent = { event, eventData, isInProgress: false };
+                break;
+              }
+            }
+          }
+        }
+        
+        if (targetEvent) {
+          let currentCompetition = null;
+          const competitions = targetEvent.eventData.competitions || [];
+          
+          for (const competition of competitions) {
+            if (competition.status?.$ref) {
+              try {
+                const statusResponse = await fetch(convertToHttps(competition.status.$ref));
+                const statusData = await statusResponse.json();
+                
+                if (statusData.type?.state === 'in') {
+                  const compResponse = await fetch(convertToHttps(competition.$ref));
+                  const compData = await compResponse.json();
+                  currentCompetition = { competition, compData, statusData };
+                  break;
+                }
+              } catch (error) {
+                console.error('Error fetching competition status:', error);
+              }
+            }
+          }
+          
+          if (!currentCompetition) {
+            for (const competition of competitions.reverse()) {
+              if (competition.status?.$ref) {
+                try {
+                  const statusResponse = await fetch(convertToHttps(competition.status.$ref));
+                  const statusData = await statusResponse.json();
+                  
+                  if (statusData.type?.state === 'post') {
+                    const compResponse = await fetch(convertToHttps(competition.$ref));
+                    const compData = await compResponse.json();
+                    currentCompetition = { competition, compData, statusData };
+                    break;
+                  }
+                } catch (error) {
+                  console.error('Error fetching competition status:', error);
+                }
+              }
+            }
+          }
+          
+          return {
+            ...targetEvent,
+            currentCompetition
+          };
+        }
+        
+        return null;
+      } catch (error) {
+        console.error('Error fetching current race event:', error);
+        return null;
+      }
+    }
+
+    async function buildRaceCard(constructorName, raceEvent) {
+      // Add safety check for constructorName
+      if (!constructorName) {
+        console.error('Constructor name is undefined in buildRaceCard');
+        return '<div class="race-game-card">Error: Constructor name not provided</div>';
+      }
+      
+      console.log('buildRaceCard called with constructorName:', constructorName);
+      
+      const logoUrl = getConstructorLogo(constructorName, true); // Force white logo for race cards
+      
+      const compType = raceEvent.currentCompetition?.compData?.type || {};
+      const typeMap = {
+        'FP1': 'Free Practice 1',
+        'FP2': 'Free Practice 2',
+        'FP3': 'Free Practice 3',
+        'Qual': 'Qualifying',
+        'Race': 'Race'
+      };
+      
+      const competitionName = typeMap[compType.abbreviation] || 
+                             compType.text || 
+                             compType.displayName || 
+                             compType.name || 
+                             'Unknown Competition';
+      
+      // Determine if this competition should use Gap To Leader for live timing
+      const useGapToLeader = raceEvent.currentCompetition?.statusData?.type?.state === 'in' && 
+        (compType.abbreviation === 'FP1' || compType.abbreviation === 'FP2' || 
+         compType.abbreviation === 'FP3' || compType.abbreviation === 'Race');
+      
+      const raceName = raceEvent.eventData.name?.replace('Pirelli ', '').replace('Louis Vuitton ', '') || 'Unknown Grand Prix';
+      const competitionDate = new Date(raceEvent.currentCompetition?.competition?.date || raceEvent.eventData.date);
+      
+      // Get drivers for this constructor from the race data with fresh data for live sessions
+      let driverStats = [];
+      if (raceEvent.currentCompetition?.compData) {
+        const competitorPromises = (raceEvent.currentCompetition.compData.competitors || []).map(async (competitor) => {
+          try {
+            const team = competitor.vehicle?.manufacturer || 'Unknown Team';
+            
+            if (team !== constructorName) {
+              return null;
+            }
+            
+            // REMOVE timestamp parameter - let browser handle caching properly
+            const [athleteResponse, statsResponse] = await Promise.all([
+              competitor.athlete?.$ref ? fetch(convertToHttps(competitor.athlete.$ref)) : Promise.resolve(null),
+              competitor.statistics?.$ref ? fetch(convertToHttps(competitor.statistics.$ref)) : Promise.resolve(null)
+            ]);
+            
+            let driverName = 'Unknown';
+            if (athleteResponse) {
+              const athleteData = await athleteResponse.json();
+              driverName = athleteData.fullName || athleteData.displayName || athleteData.shortName || 'Unknown';
+            }
+            
+            let stats = {
+              position: 'N/A',
+              time: 'N/A',
+              laps: 'N/A'
+            };
+            
+            if (statsResponse) {
+              const statsData = await statsResponse.json();
+              
+              // Check for Gap To Leader data first if it's a live session
+              if (useGapToLeader && statsData.splits?.categories) {
+                const gapToLeaderStats = statsData.splits.categories.find(cat => cat.name === 'gapToLeader');
+                if (gapToLeaderStats && gapToLeaderStats.stats) {
+                  const gapStatMap = {};
+                  gapToLeaderStats.stats.forEach(stat => {
+                    gapStatMap[stat.name] = stat.displayValue || stat.value;
+                  });
+                  
+                  // Use Gap To Leader position and timing for live sessions
+                  if (gapStatMap.position) {
+                    stats.position = gapStatMap.position;
+                  }
+                  if (gapStatMap.gapToLeader) {
+                    // Format gap time - leader shows interval, others show gap
+                    stats.time = stats.position === '1' || stats.position === 1 ? 
+                      'LEADER' : gapStatMap.gapToLeader;
+                  }
+                }
+              }
+              
+              // Fall back to general stats
+              const generalStats = statsData.splits?.categories?.find(cat => cat.name === 'general');
+              
+              if (generalStats && generalStats.stats) {
+                const statMap = {};
+                generalStats.stats.forEach(stat => {
+                  statMap[stat.name] = stat.displayValue || stat.value;
+                });
+                
+                // Only override if we didn't get Gap To Leader data
+                if (stats.position === 'N/A') {
+                  stats.position = statMap.place || statMap.position || competitor.order || 'N/A';
+                }
+                
+                if (stats.time === 'N/A') {
+                  stats.time = statMap.totalTime || statMap.qual3TimeMS || statMap.qual2TimeMS || statMap.qual1TimeMS || 'N/A';
+                }
+                
+                // Always get laps from general
+                stats.laps = statMap.lapsCompleted || 'N/A';
+                
+                if (competitionName.toLowerCase().includes('qualifying')) {
+                  if (statMap.qual3TimeMS && statMap.qual3TimeMS !== '0.000') {
+                    stats.time = statMap.qual3TimeMS;
+                  } else if (statMap.qual2TimeMS && statMap.qual2TimeMS !== '0.000') {
+                    stats.time = statMap.qual2TimeMS;
+                  } else if (statMap.qual1TimeMS && statMap.qual1TimeMS !== '0.000') {
+                    stats.time = statMap.qual1TimeMS;
+                  }
+                }
+              }
+            }
+            
+            return {
+              name: driverName,
+              ...stats
+            };
+            
+          } catch (error) {
+            console.error('Error processing competitor:', error);
+            return null;
+          }
+        });
+        
+        const allDriverStats = (await Promise.all(competitorPromises)).filter(data => data !== null);
+        
+        // Sort by position for live timing
+        if (useGapToLeader) {
+          allDriverStats.sort((a, b) => {
+            const posA = parseInt(a.position) || 999;
+            const posB = parseInt(b.position) || 999;
+            return posA - posB;
+          });
+        }
+        
+        driverStats = allDriverStats.slice(0, 2);
+      }
+      
+      while (driverStats.length < 2) {
+        driverStats.push({
+          name: 'TBD',
+          time: 'N/A',
+          laps: 'N/A',
+          position: 'N/A'
+        });
+      }
+      
+      return `
+        <div class="race-game-card">
+          <div class="race-event-header">
+            <div class="event-name">${raceName}</div>
+            <div class="competition-name">${competitionName}${useGapToLeader ? ' (LIVE)' : ''}</div>
+          </div>
+          
+          <div class="team-drivers-container">
+            ${driverStats.slice(0, 2).map(driver => `
+              <div class="driver-entry">
+                <div class="team-logo-section">
+                  <img src="${logoUrl}" alt="${constructorName}" class="driver-team-logo">
+                </div>
+                <div class="driver-name-section">
+                  <div class="driver-full-name">${driver.name} - ${ordinalSuffix(driver.position)}</div>
+                  <div class="driver-position">${useGapToLeader ? 'Gap' : 'Lap Time'}: ${driver.time}</div>
+                </div>
+                <div class="driver-stats-section">
+                  <div class="driver-time">Laps</div>
+                  <div class="driver-laps">${driver.laps}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          
+          <div class="competition-date-time">
+            ${competitionDate.toLocaleDateString('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          </div>
+        </div>
+      `;
+    }
+
+    async function fetchAndRenderTeamCard(teamName) {
+      try {
+        const container = document.getElementById("teamCardContainer");
+        
+        if (!teamName) {
+          container.innerHTML = '<div class="error">No team specified</div>';
+          return;
+        }
+        
+        // Check if there's an active race event
+        const raceEvent = await getCurrentRaceEvent();
+        
+        if (raceEvent && raceEvent.currentCompetition) {
+          // Check if this is a live session
+          const compType = raceEvent.currentCompetition?.compData?.type || {};
+          const newIsLiveSession = raceEvent.currentCompetition?.statusData?.type?.state === 'in' && 
+            (compType.abbreviation === 'FP1' || compType.abbreviation === 'FP2' || 
+             compType.abbreviation === 'FP3' || compType.abbreviation === 'Race');
+          
+          isLiveSession = newIsLiveSession;
+          
+          // Show race card if there's an active race
+          const raceCardHtml = await buildRaceCard(teamName, raceEvent);
+          
+          // Hash-based change detection like MLB team.html
+          const newHash = hashString(raceCardHtml).toString();
+          
+          if (newHash !== lastContentHash) {
+            container.innerHTML = raceCardHtml;
+            lastContentHash = newHash;
+            lastRaceCardUpdate = Date.now();
+            console.log('Updated race card with fresh data');
+          }
+        } else {
+          isLiveSession = false;
+          
+          // Show regular constructor card if no active race
+          let constructor = null;
+          
+          if (!window.allConstructors || window.allConstructors.length === 0) {
+            constructor = {
+              displayName: teamName,
+              color: getTeamColor(teamName),
+              rank: '-',
+              points: 0,
+              wins: 0,
+              pointsBehind: 0
+            };
+          } else {
+            constructor = window.allConstructors.find(c => c.displayName === teamName);
+            if (!constructor) {
+              constructor = {
+                displayName: teamName,
+                color: getTeamColor(teamName),
+                rank: '-',
+                points: 0,
+                wins: 0,
+                pointsBehind: 0
+              };
+            }
+          }
+
+          // Use teams.js functions
+          const cardData = await buildConstructorCard(constructor);
+          
+          // Hash-based change detection for constructor cards too
+          const newHash = hashString(cardData.html).toString();
+          
+          if (newHash !== lastContentHash) {
+            container.innerHTML = cardData.html;
+            lastContentHash = newHash;
+            
+            // Set background color and styling
+            const cardElement = container.querySelector('.constructor-card');
+            if (cardElement) {
+              cardElement.style.backgroundColor = `#${constructor.color}`;
+              cardElement.style.border = `2px solid #${constructor.color}`;
+              
+              const logoImg = cardElement.querySelector('.constructor-logo');
+              if (logoImg) {
+                logoImg.style.background = 'transparent';
+                logoImg.style.filter = 'drop-shadow(0 0 4px rgba(0,0,0,0.5))';
+              }
+
+              const carImg = container.querySelector('.car-image');
+              if (carImg) {
+                carImg.style.background = 'transparent';
+                carImg.style.filter = 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))';
+              }
+            }
+            
+            // Update drivers asynchronously
+            cardData.driversPromise.then(drivers => {
+              const driversElement = container.querySelector('.constructor-drivers');
+              if (driversElement) {
+                const driversText = drivers.length > 0 ? drivers.join(' | ') : 'TBD | TBD';
+                driversElement.textContent = driversText;
+              }
+            }).catch(error => {
+              console.error(`Error loading drivers:`, error);
+              const driversElement = container.querySelector('.constructor-drivers');
+              if (driversElement) {
+                driversElement.textContent = 'TBD | TBD';
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error loading team card:", err);
+        const container = document.getElementById("teamCardContainer");
+        container.innerHTML = `<div class="error">Error loading ${teamName || 'team'} data</div>`;
+      }
+    }
+
+    let promoActive = false;
+
+    async function showPromoCard() {
+      const container = document.getElementById("teamCardContainer");
+      const promoCard = document.createElement("div");
+      promoCard.className = "constructor-card-wrapper promo-card";
+      promoCard.innerHTML = `
+        <div class="constructor-card" style="background-color: #000000; border: 2px solid #ffffff; display: flex; align-items: center; gap: 25px; padding: 20px;">
+          <img src="../assets/cover.jpg" alt="WOAH Cover" style="width: 48px; height: 48px; border-radius: 8px;">
+          <div style="font-weight: bold; font-size: 1.1em; color: white;">
+            Stream K S U B I <br>
+            <span style="font-size:0.8em;">by DamiV12</span>
+            <div style="margin-top: 5px; display: flex; gap: 15px;">
+              <img src="../assets/logo1.png" alt="Logo 1" style="height: 14px;">
+              <img src="../assets/logo2.png" alt="Logo 2" style="height: 14px;">
+              <img src="../assets/logo3.png" alt="Logo 3" style="height: 14px;">
+            </div>
+          </div>
+        </div>
+      `;
+      
+      const newHtml = promoCard.innerHTML;
+      if (newHtml !== currentHtml) {
+        container.innerHTML = "";
+        container.appendChild(promoCard);
+        currentHtml = newHtml;
+      }
+    }
+
+    async function fetchAndRenderTeamCardWithPromo(teamName) {
+      if (promoActive) return;
+      await fetchAndRenderTeamCard(teamName);
+    }
+
+    const script = document.createElement("script");
+    script.src = "teams.js";
+    document.body.appendChild(script);
+
+    script.onload = () => {
+      console.log('teams.js loaded, team parameter:', team);
+      
+      if (team) {
+        let lastPromo = Date.now();
+        let showingPromo = false;
+
+        fetchAndRenderTeamCardWithPromo(team);
+
+        // EXACTLY like MLB team.html - proper throttling
+        setInterval(async () => {
+          const now = Date.now();
+          
+          // Handle promo logic first
+          if (!showingPromo && now - lastPromo >= 90000) {
+            showingPromo = true;
+            promoActive = true;
+            await showPromoCard();
+            setTimeout(async () => {
+              promoActive = false;
+              showingPromo = false;
+              lastPromo = Date.now();
+              await fetchAndRenderTeamCardWithPromo(team);
+            }, 10000);
+          } else if (!showingPromo) {
+            // PROPER throttling based on session type
+            const timeSinceLastUpdate = now - lastUpdateTime;
+            
+            if (isLiveSession) {
+              // For live sessions, update every 2 seconds like MLB
+              if (timeSinceLastUpdate >= 2000) {
+                console.log("Live session update triggered (2s interval)");
+                lastUpdateTime = now;
+                await fetchAndRenderTeamCardWithPromo(team);
+              }
+            } else {
+              // For non-live sessions, update every 30 seconds like MLB
+              if (timeSinceLastUpdate >= 30000) {
+                console.log("Non-live session update triggered (30s interval)");
+                lastUpdateTime = now;
+                await fetchAndRenderTeamCardWithPromo(team);
+              }
+            }
+          }
+        }, 2000); // Check every 2 seconds like MLB, but only update based on conditions above
+      } else {
+        console.error('No team parameter provided in URL');
+        const container = document.getElementById("teamCardContainer");
+        container.innerHTML = '<div class="error">No team specified in URL</div>';
+      }
+    };
+  </script>
+</div>
+</body>
+</html>

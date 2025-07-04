@@ -58,6 +58,12 @@ body {
   color: white;
 }
 
+.current-competition {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: white;
+}
+
 .countdown-timer {
   font-size: 3rem;
   font-weight: bold;
@@ -88,7 +94,7 @@ body {
 }
 
 .race-details {
-  background: #1a1a1a;
+  background: #1e1e1e;
   border-radius: 1rem;
   padding: 1rem;
   width: 100%;
@@ -96,7 +102,7 @@ body {
 }
 
 .race-stats {
-  background: #1a1a1a;
+  background: #1e1e1e;
   border-radius: 1rem;
   padding: 1rem;
   width: 100%;
@@ -240,7 +246,7 @@ body {
 
 .results-table-container {
   overflow-x: auto;
-  background: white;
+  background: #1e1e1e;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
