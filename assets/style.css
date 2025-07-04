@@ -160,25 +160,30 @@ body {
 
     .block, .block-wip {
         margin: 0 auto; /* Center blocks on small screens */
-        height: 110px;
+        height: 150px; /* Increased height to accommodate content */
         width: 90%; /* Full width with some margin */
     }
 
     .block-content {
-        padding: 17.5px; /* Reduced padding for smaller screens */
+        padding: 15px; /* Reduced padding for smaller screens */
+        display: flex;
+        flex-direction: column;
+        justify-content: center; /* Center content vertically */
+        height: 100%;
     }
 
     .block-title {
         font-size: 1.2rem; /* Smaller title font size */
+        margin-top: 0; /* Remove the large top margin that was pushing content out of view */
+        margin-bottom: 8px;
     }
 
     .block-description {
-        margin-bottom: 7.5px;
+        margin-bottom: 10px;
         font-size: 0.9rem; /* Smaller description font size */
     }
 
     .responsive-block-content {
-      margin-top: -10px;
+        margin-top: 0; /* Reset this override */
     }
-    
 }
