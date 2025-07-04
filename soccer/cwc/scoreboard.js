@@ -786,9 +786,6 @@ async function fetchAndRenderTopScoreboard() {
       playDescriptionDiv = document.createElement("div");
       playDescriptionDiv.id = "playDescription";
       playDescriptionDiv.className = "play-description";
-      // Insert after stream embed if it exists, otherwise after topScoreboard
-      const insertAfter = streamContainer || topScoreboardEl;
-      insertAfter.insertAdjacentElement("afterend", playDescriptionDiv);
     }
     await fetchAndRenderPlayDescription(gameId, homeTeam, awayTeam);
 
