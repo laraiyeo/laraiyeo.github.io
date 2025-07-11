@@ -991,6 +991,26 @@ body {
   justify-content: space-between; /* Distribute content evenly */
 }
 
+.championship-stats-grid {
+  display: flex; /* This makes the children (the stat items) display in a row */
+  justify-content: space-between; /* Optional: Adjusts the spacing between the items */
+  gap: 20px; /* Optional: Adds some gap between each stat block */
+}
+
+.championship-stat {
+  display: flex;
+  flex-direction: column; /* Ensures the label and value are stacked vertically within each stat */
+  align-items: center; /* Centers the text within each stat block */
+}
+
+.stat-label {
+  font-weight: bold;
+}
+
+.stat-value {
+  font-size: 1.2em;
+}
+
 .constructor-race-content {
   width: 100%;
   min-height: 200px;

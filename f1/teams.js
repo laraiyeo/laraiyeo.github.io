@@ -429,6 +429,40 @@ async function buildRaceCard(constructor, raceEvent) {
   const logoUrl = getConstructorLogo(constructorName, true);
   const drivers = await getConstructorDrivers(constructorName);
   
+  // If no race event or no current competition, show championship stats
+  if (!raceEvent || !raceEvent.currentCompetition) {
+    return `
+      <div class="race-game-card">
+        <div class="race-event-header">
+          <div class="event-name">Championship Standings</div>
+          <div class="competition-name">2025 Season</div>
+        </div>
+        
+        <div class="team-championship-container">
+          <div class="championship-team-header">
+            <div class="championship-team-name">${constructorName}</div>
+            <div class="championship-position">Championship Position: #${constructorData.rank || 'N/A'}</div>
+          </div>
+          <br>
+          <div class="championship-stats-grid">
+            <div class="championship-stat">
+              <div class="stat-label">POINTS</div>
+              <div class="stat-value">${constructorData.points || 0}</div>
+            </div>
+            <div class="championship-stat">
+              <div class="stat-label">WINS</div>
+              <div class="stat-value">${constructorData.wins || 0}</div>
+            </div>
+            <div class="championship-stat">
+              <div class="stat-label">P. BEHIND</div>
+              <div class="stat-value">${constructorData.pointsBehind || 0}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
   // Get competition name and determine if it's live
   const compType = raceEvent.currentCompetition?.compData?.type || {};
   const typeMap = {
@@ -950,6 +984,14 @@ async function fetchAndDisplayConstructors() {
             carImg.style.background = 'transparent';
             carImg.style.filter = 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))';
           }
+        }
+
+        // Replace the constructor stats section with championship race card
+        const statsSection = constructorCard.querySelector('.constructor-stats');
+        if (statsSection) {
+          const raceCardHtml = await buildRaceCard(constructor, null); // Pass null for no race event
+          statsSection.innerHTML = raceCardHtml;
+          statsSection.className = 'constructor-race-content';
         }
 
         // Add OBS link click handler

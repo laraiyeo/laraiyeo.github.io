@@ -1513,6 +1513,9 @@ function renderStreamEmbed(raceName) {
     <div class="stream-container" style="margin: 20px 0; text-align: center;">
       <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
         <h3 style="color: white; margin: 0;">Live Stream</h3>
+        <div class="stream-controls" style="margin-top: 10px;">
+          <button id="fullscreenButton" onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">🔳 Fullscreen</button>
+        </div>
       </div>
       <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; border-radius: 8px; margin-bottom: 10px;">
         <p>Connecting to stream... <span id="streamStatus"></span></p>

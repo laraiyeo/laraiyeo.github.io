@@ -440,6 +440,61 @@
       `;
     }
 
+    async function buildChampionshipRaceCard(constructorName, constructorData) {
+      // Add safety check for constructorName
+      if (!constructorName) {
+        console.error('Constructor name is undefined in buildChampionshipRaceCard');
+        return '<div class="race-game-card">Error: Constructor name not provided</div>';
+      }
+      
+      console.log('buildChampionshipRaceCard called with constructorName:', constructorName);
+      
+      const logoUrl = getConstructorLogo(constructorName, true); // Force white logo for race cards
+      
+      // Get drivers for this constructor - simplified version for championship card
+      let drivers = ['TBD', 'TBD'];
+      try {
+        // You could add driver fetching logic here if needed
+        // For now, we'll use placeholder drivers or get from cached data
+        if (window.cachedDriversData && window.cachedDriversData[constructorName]) {
+          drivers = window.cachedDriversData[constructorName].slice(0, 2);
+        }
+      } catch (error) {
+        console.error('Error getting drivers for championship card:', error);
+      }
+      
+      return `
+        <div class="race-game-card">
+          <div class="race-event-header">
+            <div class="event-name">Championship Standings</div>
+            <div class="competition-name">2025 Season</div>
+          </div>
+          
+          <div class="team-championship-container">
+            <div class="championship-team-header">
+              <div class="championship-team-name">${constructorName}</div>
+              <div class="championship-position">Championship Position: #${constructorData.rank || 'N/A'}</div>
+            </div>
+            <br>
+            <div class="championship-stats-grid">
+              <div class="championship-stat">
+                <div class="stat-label">POINTS</div>
+                <div class="stat-value">${constructorData.points || 0}</div>
+              </div>
+              <div class="championship-stat">
+                <div class="stat-label">WINS</div>
+                <div class="stat-value">${constructorData.wins || 0}</div>
+              </div>
+              <div class="championship-stat">
+                <div class="stat-label">P. BEHIND</div>
+                <div class="stat-value">${constructorData.pointsBehind || 0}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     async function fetchAndRenderTeamCard(teamName) {
       try {
         const container = document.getElementById("teamCardContainer");
@@ -476,7 +531,7 @@
         } else {
           isLiveSession = false;
           
-          // Show regular constructor card if no active race
+          // Show championship race card if no active race
           let constructor = null;
           
           if (!window.allConstructors || window.allConstructors.length === 0) {
@@ -502,49 +557,16 @@
             }
           }
 
-          // Use teams.js functions
-          const cardData = await buildConstructorCard(constructor);
+          // Build championship race card instead of constructor card
+          const championshipRaceCardHtml = await buildChampionshipRaceCard(teamName, constructor);
           
-          // Hash-based change detection for constructor cards too
-          const newHash = hashString(cardData.html).toString();
+          // Hash-based change detection for championship race cards
+          const newHash = hashString(championshipRaceCardHtml).toString();
           
           if (newHash !== lastContentHash) {
-            container.innerHTML = cardData.html;
+            container.innerHTML = championshipRaceCardHtml;
             lastContentHash = newHash;
-            
-            // Set background color and styling
-            const cardElement = container.querySelector('.constructor-card');
-            if (cardElement) {
-              cardElement.style.backgroundColor = `#${constructor.color}`;
-              cardElement.style.border = `2px solid #${constructor.color}`;
-              
-              const logoImg = cardElement.querySelector('.constructor-logo');
-              if (logoImg) {
-                logoImg.style.background = 'transparent';
-                logoImg.style.filter = 'drop-shadow(0 0 4px rgba(0,0,0,0.5))';
-              }
-
-              const carImg = container.querySelector('.car-image');
-              if (carImg) {
-                carImg.style.background = 'transparent';
-                carImg.style.filter = 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))';
-              }
-            }
-            
-            // Update drivers asynchronously
-            cardData.driversPromise.then(drivers => {
-              const driversElement = container.querySelector('.constructor-drivers');
-              if (driversElement) {
-                const driversText = drivers.length > 0 ? drivers.join(' | ') : 'TBD | TBD';
-                driversElement.textContent = driversText;
-              }
-            }).catch(error => {
-              console.error(`Error loading drivers:`, error);
-              const driversElement = container.querySelector('.constructor-drivers');
-              if (driversElement) {
-                driversElement.textContent = 'TBD | TBD';
-              }
-            });
+            console.log('Updated championship race card');
           }
         }
       } catch (err) {

@@ -287,7 +287,7 @@ async function fetchAndDisplayTeams() {
 
       // Add OBS link copying functionality
       teamCard.addEventListener("click", async () => {
-        const url = `127.0.0.1:5500/nba/team.html?team=${encodeURIComponent(team.abbreviation)}`;
+        const url = `https://laraiyeo.github.io/nba/team.html?team=${encodeURIComponent(team.abbreviation)}`;
         try {
           await navigator.clipboard.writeText(url);
           alert(`OBS link copied for ${team.displayName}: ${url}`);
