@@ -128,6 +128,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - **(07/02/2025) Added comprehensive F1 tracking with constructor teams, driver/constructor championships, race schedules, and race results**
 - **(07/04/2025) Integrated live streaming capabilities for MLB and F1 with automatic stream detection and controls**
 - (07/04/2025) Full F1 OBS integration with individual constructor team overlays and dynamic content switching
+- (07/112025) Added support for NBA Summer League
 
 ---
 

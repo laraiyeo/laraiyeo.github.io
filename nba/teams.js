@@ -1,4 +1,19 @@
-const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
+// Function to determine if we're in the Summer League period
+function isSummerLeague() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const summerStart = new Date(year, 6, 10); // July 10 (month is 0-indexed)
+  const summerEnd = new Date(year, 6, 21);   // July 21
+  
+  return now >= summerStart && now <= summerEnd;
+}
+
+// Function to get the appropriate league identifier
+function getLeagueIdentifier() {
+  return isSummerLeague() ? "nba-summer-las-vegas" : "nba";
+}
+
+const TEAMS_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/${getLeagueIdentifier()}/teams`;
 
 function getAdjustedDateForNBA() {
   const now = new Date();
@@ -209,12 +224,18 @@ async function buildGameCard(game, team) {
 async function fetchAndDisplayTeams() {
   try {
     const adjustedDate = getAdjustedDateForNBA();
-    const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${adjustedDate}`;
+    const leagueId = getLeagueIdentifier();
+    const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueId}/scoreboard?dates=${adjustedDate}`;
 
     const response = await fetch(TEAMS_API_URL);
     const data = await response.json();
 
     const teams = data.sports[0].leagues[0].teams.map(teamData => teamData.team);
+    
+    // Remove duplicate teams (filter by team ID to ensure uniqueness)
+    const uniqueTeams = teams.filter((team, index, self) => 
+      index === self.findIndex(t => t.id === team.id)
+    );
 
     const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
     const scoreboardText = await scoreboardResponse.text();
@@ -237,7 +258,7 @@ async function fetchAndDisplayTeams() {
 
     container.innerHTML = ""; // Clear any existing content
 
-    for (const team of teams) {
+    for (const team of uniqueTeams) {
       const logoUrl = team.logos?.find(logo =>
         logo.rel.includes(
           ["26"].includes(team.id) ? 'secondary_logo_on_secondary_color' : 'primary_logo_on_primary_color'
@@ -266,7 +287,7 @@ async function fetchAndDisplayTeams() {
 
       // Add OBS link copying functionality
       teamCard.addEventListener("click", async () => {
-        const url = `https://laraiyeo.github.io/nba/team.html?team=${encodeURIComponent(team.abbreviation)}`;
+        const url = `127.0.0.1:5500/nba/team.html?team=${encodeURIComponent(team.abbreviation)}`;
         try {
           await navigator.clipboard.writeText(url);
           alert(`OBS link copied for ${team.displayName}: ${url}`);

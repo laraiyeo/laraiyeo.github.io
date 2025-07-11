@@ -1,4 +1,37 @@
-const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
+// Function to determine if we're in the Summer League period
+function isSummerLeague() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const summerStart = new Date(year, 6, 10); // July 10 (month is 0-indexed)
+  const summerEnd = new Date(year, 6, 21);   // July 21
+  
+  return now >= summerStart && now <= summerEnd;
+}
+
+// Function to check if a specific date string is in Summer League period
+function isDateInSummerLeague(dateString) {
+  if (!dateString) return false;
+  
+  // Parse the date string (format: YYYYMMDD)
+  const year = parseInt(dateString.substring(0, 4));
+  const month = parseInt(dateString.substring(4, 6)) - 1; // Month is 0-indexed
+  const day = parseInt(dateString.substring(6, 8));
+  
+  const gameDate = new Date(year, month, day);
+  const summerStart = new Date(year, 6, 10); // July 10
+  const summerEnd = new Date(year, 6, 21);   // July 21
+  
+  return gameDate >= summerStart && gameDate <= summerEnd;
+}
+
+// Function to get the appropriate league identifier
+function getLeagueIdentifier() {
+  return isSummerLeague() ? "nba-summer-las-vegas" : "nba";
+}
+
+
+
+const TEAMS_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/${getLeagueIdentifier()}/teams`;
 
 function getAdjustedDateForNBA() {
   const now = new Date();
@@ -19,9 +52,34 @@ function getQueryParam(param) {
 
 async function renderBoxScore(gameId, gameState) {
   try {
-    const BOX_SCORE_API_URL = `https://cdn.espn.com/core/nba/boxscore?xhr=1&gameId=${gameId}`;
-    const response = await fetch(BOX_SCORE_API_URL);
-    const data = await response.json();
+    const gameDate = getQueryParam("date");
+    let BOX_SCORE_API_URL;
+    
+    // Check if the game date falls within Summer League period
+    const isGameInSummerLeague = isDateInSummerLeague(gameDate);
+    
+    // Use Summer League API if the game date is within Summer League period
+    if (isGameInSummerLeague) {
+      BOX_SCORE_API_URL = `https://cdn.espn.com/core/nba-summer-league/boxscore?xhr=1&gameId=${gameId}&league=nba-summer-las-vegas`;
+    } else {
+      BOX_SCORE_API_URL = `https://cdn.espn.com/core/nba/boxscore?xhr=1&gameId=${gameId}`;
+    }
+    
+    let response = await fetch(BOX_SCORE_API_URL);
+    let data = await response.json();
+    
+    // If first API fails, try the other one as fallback
+    if (!data || !data.gamepackageJSON || !data.gamepackageJSON.boxscore) {
+      if (isGameInSummerLeague) {
+        // Try regular NBA API as fallback
+        BOX_SCORE_API_URL = `https://cdn.espn.com/core/nba/boxscore?xhr=1&gameId=${gameId}`;
+      } else {
+        // Try Summer League API as fallback
+        BOX_SCORE_API_URL = `https://cdn.espn.com/core/nba-summer-league/boxscore?xhr=1&gameId=${gameId}&league=nba-summer-las-vegas`;
+      }
+      response = await fetch(BOX_SCORE_API_URL);
+      data = await response.json();
+    }
 
     const isSmallScreen = window.innerWidth <= 475;
 
@@ -68,7 +126,7 @@ async function renderBoxScore(gameId, gameState) {
         .sort((a, b) => parseFloat(b.stats[0] || "0") - parseFloat(a.stats[0] || "0")) // Sort by minutes played
         .map(player => `
           <tr class="${gameState === "Final" ? "" : player.active ? "active-player" : ""}">
-            <td>${gameState === "Final" ? "" : player.active ? "🟢 " : ""}${isSmallScreen ? `${player.athlete.shortName}` : `${player.athlete.displayName}`} <span style="color: grey;">${player.athlete.position.abbreviation}</span></td>
+            <td>${gameState === "Final" ? "" : player.active ? "🟢 " : ""}${isSmallScreen ? `${player.athlete.shortName}` : `${player.athlete.displayName}`} <span style="color: grey;">${player.athlete?.position?.abbreviation || ""}</span></td>
             <td>${player.stats[0] || "0"}</td> <!-- MIN -->
             <td>${player.stats[13] || "0"}</td> <!-- PTS -->
             ${isSmallScreen ? "" : `<td>${player.stats[6] || "0"}</td>`} <!-- REB -->
@@ -143,20 +201,44 @@ async function fetchAndRenderTopScoreboard() {
     let scoreboardData = null;
 
     if (gameDate) {
-      // Use the specific date provided
-      const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${gameDate}`;
+      // Use the specific date provided - check if this game date is in Summer League period
+      const isGameInSummerLeague = isDateInSummerLeague(gameDate);
+      let foundGame = false;
       
-      try {
-        const response = await fetch(SCOREBOARD_API_URL);
-        const data = await response.json();
-        const games = data.events || [];
-        
-        selectedGame = games.find(game => game.id === gameId);
-        if (selectedGame) {
-          scoreboardData = data;
+      if (isGameInSummerLeague) {
+        // Try Summer League API first for games in Summer League period
+        try {
+          const summerLeagueAPI = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/scoreboard?dates=${gameDate}`;
+          const response = await fetch(summerLeagueAPI);
+          const data = await response.json();
+          const games = data.events || [];
+          
+          selectedGame = games.find(game => game.id === gameId);
+          if (selectedGame) {
+            scoreboardData = data;
+            foundGame = true;
+          }
+        } catch (error) {
+          console.log(`Summer League API failed for date ${gameDate}:`, error);
         }
-      } catch (error) {
-        console.error(`Error fetching data for date ${gameDate}:`, error);
+      }
+      
+      // If not found in Summer League or not a Summer League game, try regular NBA API
+      if (!foundGame) {
+        try {
+          const nbaAPI = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${gameDate}`;
+          const response = await fetch(nbaAPI);
+          const data = await response.json();
+          const games = data.events || [];
+          
+          selectedGame = games.find(game => game.id === gameId);
+          if (selectedGame) {
+            scoreboardData = data;
+            foundGame = true;
+          }
+        } catch (error) {
+          console.error(`NBA API failed for date ${gameDate}:`, error);
+        }
       }
     }
 
@@ -170,22 +252,48 @@ async function fetchAndRenderTopScoreboard() {
         const adjustedDate = searchDate.getFullYear() +
                              String(searchDate.getMonth() + 1).padStart(2, "0") +
                              String(searchDate.getDate()).padStart(2, "0");
-        
-        const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${adjustedDate}`;
 
-        try {
-          const response = await fetch(SCOREBOARD_API_URL);
-          const data = await response.json();
-          const games = data.events || [];
-          
-          selectedGame = games.find(game => game.id === gameId);
-          if (selectedGame) {
-            scoreboardData = data;
-            break;
+        // Check if this search date is in Summer League period
+        const isSearchDateInSummerLeague = isDateInSummerLeague(adjustedDate);
+        let foundInFallback = false;
+        
+        if (isSearchDateInSummerLeague) {
+          // Try Summer League API first for dates in Summer League period
+          try {
+            const summerLeagueAPI = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/scoreboard?dates=${adjustedDate}`;
+            const response = await fetch(summerLeagueAPI);
+            const data = await response.json();
+            const games = data.events || [];
+            
+            selectedGame = games.find(game => game.id === gameId);
+            if (selectedGame) {
+              scoreboardData = data;
+              foundInFallback = true;
+            }
+          } catch (error) {
+            console.log(`Summer League API failed for fallback date ${adjustedDate}:`, error);
           }
-        } catch (error) {
-          console.error(`Error fetching data for date ${adjustedDate}:`, error);
         }
+        
+        // If not found in Summer League, try regular NBA API
+        if (!foundInFallback) {
+          try {
+            const nbaAPI = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${adjustedDate}`;
+            const response = await fetch(nbaAPI);
+            const data = await response.json();
+            const games = data.events || [];
+            
+            selectedGame = games.find(game => game.id === gameId);
+            if (selectedGame) {
+              scoreboardData = data;
+              foundInFallback = true;
+            }
+          } catch (error) {
+            console.error(`NBA API failed for fallback date ${adjustedDate}:`, error);
+          }
+        }
+        
+        if (foundInFallback) break;
       }
     }
 

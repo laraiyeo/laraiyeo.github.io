@@ -1,5 +1,18 @@
 const CORS_PROXY = "https://corsproxy.io/?url=";
 
+function isSummerLeague() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const summerStart = new Date(year, 6, 10); // July 10 (month is 0-indexed)
+  const summerEnd = new Date(year, 6, 21);   // July 21
+  
+  return now >= summerStart && now <= summerEnd;
+}
+
+function getLeagueIdentifier() {
+  return isSummerLeague() ? "nba-summer-las-vegas" : "nba";
+}
+
 async function getLogoUrl(teamAbbreviation) {
   return `${CORS_PROXY}https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${teamAbbreviation.toLowerCase()}.png`;
 }
@@ -31,7 +44,8 @@ const liveGameElements = new Map();
 async function loadLiveGames() {
   try {
     const adjustedDate = getAdjustedDateForNBA();
-    const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${adjustedDate}`;
+    const leagueIdentifier = getLeagueIdentifier();
+    const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueIdentifier}/scoreboard?dates=${adjustedDate}`;
     const res = await fetch(SCOREBOARD_API_URL);
     const data = await res.json();
     const games = data.events || [];

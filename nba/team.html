@@ -33,6 +33,20 @@
 <div id="scaleWrapper">
   <div id="gameBlockContainer"></div>
   <script>
+
+  function isSummerLeague() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const summerStart = new Date(year, 6, 10); // July 10 (month is 0-indexed)
+  const summerEnd = new Date(year, 6, 21);   // July 21
+  
+  return now >= summerStart && now <= summerEnd;
+  }
+
+// Function to get the appropriate league identifier
+  function getLeagueIdentifier() {
+    return isSummerLeague() ? "nba-summer-las-vegas" : "nba";
+  }
     const params = new URLSearchParams(window.location.search);
     const teamAbbreviation = params.get("team");
     let promoActive = false;
@@ -52,7 +66,8 @@
 
     async function fetchAndRenderTeamGame(teamAbbreviation) {
       const adjustedDate = getAdjustedDateForNBA();
-      const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${adjustedDate}`;
+      const leagueId = getLeagueIdentifier();
+      const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueId}/scoreboard?dates=${adjustedDate}`;
 
       try {
         const res = await fetch(SCOREBOARD_API_URL);
@@ -65,7 +80,7 @@
         );
 
         if (!game) {
-          const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
+          const TEAMS_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/${getLeagueIdentifier()}/teams`;
           const teamsRes = await fetch(TEAMS_API_URL);
           const teamsData = await teamsRes.json();
           const team = teamsData.sports[0].leagues[0].teams

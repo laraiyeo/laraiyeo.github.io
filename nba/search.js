@@ -5,7 +5,22 @@ let currentPage = 1;
 let matchesPerPage = 10;
 let isLoading = false;
 
-const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
+// Function to determine if we're in the Summer League period
+function isSummerLeague() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const summerStart = new Date(year, 6, 10); // July 10 (month is 0-indexed)
+  const summerEnd = new Date(year, 6, 21);   // July 21
+  
+  return now >= summerStart && now <= summerEnd;
+}
+
+// Function to get the appropriate league identifier
+function getLeagueIdentifier() {
+  return isSummerLeague() ? "nba-summer-las-vegas" : "nba";
+}
+
+const TEAMS_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/${getLeagueIdentifier()}/teams`;
 
 // Initialize the page
 document.addEventListener("DOMContentLoaded", () => {
@@ -75,12 +90,44 @@ function setupSearchForm() {
 
 async function loadTeams() {
   try {
-    const response = await fetch(TEAMS_API_URL);
-    const data = await response.json();
+    const nbaTeamsAPI = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams`;
+    const summerLeagueTeamsAPI = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/teams`;
     
-    allTeams = data.sports[0].leagues[0].teams
-      .map(teamData => teamData.team)
+    const allTeamsMap = new Map();
+
+    // Fetch NBA teams
+    try {
+      const nbaResponse = await fetch(nbaTeamsAPI);
+      const nbaData = await nbaResponse.json();
+      const nbaTeams = nbaData.sports[0].leagues[0].teams.map(teamData => teamData.team);
+      
+      nbaTeams.forEach(team => {
+        allTeamsMap.set(team.id, team);
+      });
+    } catch (nbaError) {
+      console.error("Error loading NBA teams:", nbaError);
+    }
+
+    // Fetch Summer League teams
+    try {
+      const summerResponse = await fetch(summerLeagueTeamsAPI);
+      const summerData = await summerResponse.json();
+      const summerTeams = summerData.sports[0].leagues[0].teams.map(teamData => teamData.team);
+      
+      summerTeams.forEach(team => {
+        // Only add if not already present (avoid duplicates)
+        if (!allTeamsMap.has(team.id)) {
+          allTeamsMap.set(team.id, team);
+        }
+      });
+    } catch (summerError) {
+      console.log("Summer League teams not available:", summerError);
+    }
+
+    // Convert map to array and sort
+    allTeams = Array.from(allTeamsMap.values())
       .sort((a, b) => a.displayName.localeCompare(b.displayName));
+      
   } catch (error) {
     console.error("Error loading teams:", error);
   }
@@ -289,19 +336,55 @@ async function fetchMatchesForPeriod(teamId, startDate, endDate) {
   };
 
   const dateRange = `${formatDate(startDate)}-${formatDate(endDate)}`;
-  const API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateRange}`;
+  
+  // Fetch from both NBA and Summer League APIs
+  const nbaAPI = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateRange}`;
+  const summerLeagueAPI = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/scoreboard?dates=${dateRange}`;
+  
+  const allMatches = [];
 
   try {
-    const response = await fetch(API_URL);
-    const data = await response.json();
-    const events = data.events || [];
-
-    return events.filter(event => {
+    // Fetch from regular NBA API
+    const nbaResponse = await fetch(nbaAPI);
+    const nbaData = await nbaResponse.json();
+    const nbaEvents = nbaData.events || [];
+    
+    const nbaMatches = nbaEvents.filter(event => {
       const competition = event.competitions?.[0];
       if (!competition) return false;
-
       return competition.competitors.some(competitor => competitor.team.id === teamId);
     });
+    
+    // Add league identifier to NBA matches
+    nbaMatches.forEach(match => {
+      match.leagueType = 'NBA';
+    });
+    
+    allMatches.push(...nbaMatches);
+
+    // Fetch from Summer League API
+    try {
+      const summerResponse = await fetch(summerLeagueAPI);
+      const summerData = await summerResponse.json();
+      const summerEvents = summerData.events || [];
+      
+      const summerMatches = summerEvents.filter(event => {
+        const competition = event.competitions?.[0];
+        if (!competition) return false;
+        return competition.competitors.some(competitor => competitor.team.id === teamId);
+      });
+      
+      // Add league identifier to Summer League matches
+      summerMatches.forEach(match => {
+        match.leagueType = 'Summer League';
+      });
+      
+      allMatches.push(...summerMatches);
+    } catch (summerError) {
+      console.log("Summer League data not available for this period:", summerError);
+    }
+
+    return allMatches;
   } catch (error) {
     console.error("Error fetching matches for period:", error);
     return [];
@@ -329,7 +412,7 @@ function displayResults(matches, team) {
   resultsDiv.innerHTML = `
     <div class="results-header">
       <h3>Found ${matches.length} match${matches.length === 1 ? '' : 'es'} for ${team.displayName}</h3>
-      <p>in NBA</p>
+      <p>in NBA & Summer League</p>
       ${totalPages > 1 ? `<p>Showing ${startIndex + 1}-${Math.min(endIndex, matches.length)} of ${matches.length} matches</p>` : ''}
     </div>
     ${paginatedMatches.map(match => createMatchCard(match, team.id)).join('')}
@@ -442,7 +525,10 @@ function createMatchCard(match, teamId) {
 
   // Format competition name
   const competitionName = match.season?.slug || 'regular-season';
-  const formattedCompetition = competitionName === 'post-season' ? 'PLAYOFFS' : 'REGULAR SEASON';
+  const leagueType = match.leagueType || 'NBA';
+  const formattedCompetition = competitionName === 'post-season' ? 
+    `${leagueType} PLAYOFFS` : 
+    `${leagueType} ${competitionName === 'regular-season' ? 'REGULAR SEASON' : competitionName.toUpperCase()}`;
 
   // Format game date for URL parameter
   const gameDate = new Date(match.date);

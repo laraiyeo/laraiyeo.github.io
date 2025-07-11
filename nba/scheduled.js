@@ -1,5 +1,21 @@
 const CORS_PROXY = "https://corsproxy.io/?url=";
-const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
+
+// Function to determine if we're in the Summer League period
+function isSummerLeague() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const summerStart = new Date(year, 6, 10); // July 10 (month is 0-indexed)
+  const summerEnd = new Date(year, 6, 21);   // July 21
+  
+  return now >= summerStart && now <= summerEnd;
+}
+
+// Function to get the appropriate league identifier
+function getLeagueIdentifier() {
+  return isSummerLeague() ? "nba-summer-las-vegas" : "nba";
+}
+
+const TEAMS_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/${getLeagueIdentifier()}/teams`;
 
 async function getLogoUrl(teamTriCode) {
   return `${CORS_PROXY}https://assets.nba.com/logos/nba/svg/${teamTriCode}_dark.svg`;
@@ -82,7 +98,8 @@ async function buildScheduledGameCard(game) {
 async function loadScheduledGames() {
   try {
     const adjustedDate = getAdjustedDateForNBA();
-    const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${adjustedDate}`;
+    const leagueId = getLeagueIdentifier();
+    const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueId}/scoreboard?dates=${adjustedDate}`;
     const response = await fetch(SCOREBOARD_API_URL);
     const data = await response.json();
 
