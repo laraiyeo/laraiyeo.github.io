@@ -372,20 +372,40 @@ window.toggleMute = function() {
 };
 
 window.toggleFullscreen = function() {
+  const streamContainer = document.querySelector('.stream-container');
   const iframe = document.getElementById('streamIframe');
   
-  if (iframe) {
+  if (document.fullscreenElement) {
+    // Exit fullscreen
     try {
-      if (iframe.requestFullscreen) {
-        iframe.requestFullscreen();
-      } else if (iframe.webkitRequestFullscreen) {
-        iframe.webkitRequestFullscreen();
-      } else if (iframe.msRequestFullscreen) {
-        iframe.msRequestFullscreen();
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
       }
-      console.log('Fullscreen requested');
+      console.log('Exiting fullscreen');
     } catch (e) {
-      console.log('Fullscreen not supported or failed');
+      console.log('Exit fullscreen failed');
+    }
+  } else {
+    // Enter fullscreen - try container first, then iframe
+    const elementToFullscreen = streamContainer || iframe;
+    
+    if (elementToFullscreen) {
+      try {
+        if (elementToFullscreen.requestFullscreen) {
+          elementToFullscreen.requestFullscreen();
+        } else if (elementToFullscreen.webkitRequestFullscreen) {
+          elementToFullscreen.webkitRequestFullscreen();
+        } else if (elementToFullscreen.msRequestFullscreen) {
+          elementToFullscreen.msRequestFullscreen();
+        }
+        console.log('Fullscreen requested for', elementToFullscreen.className || elementToFullscreen.id);
+      } catch (e) {
+        console.log('Fullscreen not supported or failed');
+      }
     }
   }
 };
@@ -616,7 +636,7 @@ function renderStreamEmbed(homeTeamName, awayTeamName) {
       <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
         <h3 style="color: white; margin: 0;">Live Stream</h3>
         <div class="stream-controls" style="margin-top: 10px;">
-          <button id="fullscreenButton" onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">🔳 Fullscreen</button>
+          <button id="fullscreenButton" onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">⛶ Fullscreen</button>
         </div>
       </div>
       <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; border-radius: 8px; margin-bottom: 10px;">
@@ -841,6 +861,22 @@ async function fetchAndRenderTopScoreboard() {
 // Fetch and render the scoreboard based on the gameId in the URL
 fetchAndRenderTopScoreboard();
 setInterval(fetchAndRenderTopScoreboard, 2000);
+
+// Listen for fullscreen changes to update button text
+document.addEventListener('fullscreenchange', updateFullscreenButton);
+document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+document.addEventListener('msfullscreenchange', updateFullscreenButton);
+
+function updateFullscreenButton() {
+  const button = document.getElementById('fullscreenButton');
+  if (button) {
+    if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+      button.textContent = '⇱ Exit Fullscreen';
+    } else {
+      button.textContent = '⛶ Fullscreen';
+    }
+  }
+}
 
 document.addEventListener("mouseover", (event) => {
   const hoverTarget = event.target.closest("[data-hover-id]");
