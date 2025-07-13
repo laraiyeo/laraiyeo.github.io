@@ -250,40 +250,20 @@ window.toggleMute = function() {
 };
 
 window.toggleFullscreen = function() {
-  const streamContainer = document.querySelector('.stream-container');
   const iframe = document.getElementById('streamIframe');
   
-  if (document.fullscreenElement) {
-    // Exit fullscreen
+  if (iframe) {
     try {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-      } else if (document.msExitFullscreen) {
-        document.msExitFullscreen();
+      if (iframe.requestFullscreen) {
+        iframe.requestFullscreen();
+      } else if (iframe.webkitRequestFullscreen) {
+        iframe.webkitRequestFullscreen();
+      } else if (iframe.msRequestFullscreen) {
+        iframe.msRequestFullscreen();
       }
-      console.log('Exiting fullscreen');
+      console.log('Fullscreen requested');
     } catch (e) {
-      console.log('Exit fullscreen failed');
-    }
-  } else {
-    // Enter fullscreen - try container first, then iframe
-    const elementToFullscreen = streamContainer || iframe;
-    
-    if (elementToFullscreen) {
-      try {
-        if (elementToFullscreen.requestFullscreen) {
-          elementToFullscreen.requestFullscreen();
-        } else if (elementToFullscreen.webkitRequestFullscreen) {
-          elementToFullscreen.webkitRequestFullscreen();
-        } else if (elementToFullscreen.msRequestFullscreen) {
-          elementToFullscreen.msRequestFullscreen();
-        }
-        console.log('Fullscreen requested for', elementToFullscreen.className || elementToFullscreen.id);
-      } catch (e) {
-        console.log('Fullscreen not supported or failed');
-      }
+      console.log('Fullscreen not supported or failed');
     }
   }
 };
@@ -872,20 +852,4 @@ if (gamePk) {
   startScoreboardUpdates(gamePk);
 } else {
   document.getElementById("scoreboardContainer").innerHTML = "<p>No game selected.</p>";
-}
-
-// Listen for fullscreen changes to update button text
-document.addEventListener('fullscreenchange', updateFullscreenButton);
-document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
-document.addEventListener('msfullscreenchange', updateFullscreenButton);
-
-function updateFullscreenButton() {
-  const button = document.getElementById('fullscreenButton');
-  if (button) {
-    if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
-      button.textContent = '⇱ Exit Fullscreen';
-    } else {
-      button.textContent = '⛶ Fullscreen';
-    }
-  }
 }
