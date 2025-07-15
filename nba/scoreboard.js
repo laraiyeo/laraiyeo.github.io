@@ -438,7 +438,7 @@ async function renderBoxScore(gameId, gameState) {
     const isGameInSummerLeague = isDateInSummerLeague(gameDate);
     
     // Use Summer League API if the game date is within Summer League period
-    if (isGameInSummerLeague) {
+    if (isGameInSummerLeague || isSummerLeague) {
       BOX_SCORE_API_URL = `https://cdn.espn.com/core/nba-summer-league/boxscore?xhr=1&gameId=${gameId}&league=nba-summer-las-vegas`;
     } else {
       BOX_SCORE_API_URL = `https://cdn.espn.com/core/nba/boxscore?xhr=1&gameId=${gameId}`;
@@ -449,7 +449,7 @@ async function renderBoxScore(gameId, gameState) {
     
     // If first API fails, try the other one as fallback
     if (!data || !data.gamepackageJSON || !data.gamepackageJSON.boxscore) {
-      if (isGameInSummerLeague) {
+      if (isGameInSummerLeague || isSummerLeague) {
         // Try regular NBA API as fallback
         BOX_SCORE_API_URL = `https://cdn.espn.com/core/nba/boxscore?xhr=1&gameId=${gameId}`;
       } else {
