@@ -48,8 +48,6 @@ const teamAbbrMap = {
       homeLogo = await getLogoUrl(homeFull);
     }
 
-    const isAllStar = awayShort === "AL All-Stars" || awayShort === "NL All-Stars" ||
-                        homeShort === "AL All-Stars" || homeShort === "NL All-Stars";
     const awayIsWinner = awayScore > homeScore;
     const homeIsWinner = homeScore > awayScore;
   
@@ -57,15 +55,15 @@ const teamAbbrMap = {
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="text-align: center;">
           <div style="display: flex; align-items: center; gap: 8px;">
-            <img src="${awayLogo}" alt="${awayShort}" style="width: 40px; height: 40px;">
+            <img src="${awayLogo}" alt="${awayShort}" style="width: 45px; height: 45px;">
             <span style="font-size: 2.2rem; ${awayIsWinner ? 'font-weight: bold;' : ''}">${awayScore}</span>
           </div>
           <div style="margin-top: 6px; ${awayIsWinner ? 'font-weight: bold;' : ''}">${awayShort}</div>
         </div>
-        <div style="font-size: 1.1rem; font-weight: bold;">Final</div>
+        <div style="position: absolute; left: 50%; transform: translateX(-50%); font-size: 1.1rem; font-weight: bold;">Final</div>
         <div style="text-align: center;">
           <div style="display: flex; align-items: center; gap: 8px; flex-direction: row-reverse;">
-            <img src="${homeLogo}" alt="${homeShort}" style="width: 40px; height: 40px;">
+            <img src="${homeLogo}" alt="${homeShort}" style="width: 45px; height: 45px;">
             <span style="font-size: 2.2rem; ${homeIsWinner ? 'font-weight: bold;' : ''}">${homeScore}</span>
           </div>
           <div style="margin-top: 6px; ${homeIsWinner ? 'font-weight: bold;' : ''}">${homeShort}</div>

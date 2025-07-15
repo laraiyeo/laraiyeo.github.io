@@ -78,16 +78,16 @@ const teamAbbrMap = {
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="text-align: center;">
           <div style="display: flex; align-items: center; gap: 8px;">
-            <img src="${awayLogo}" alt="${awayShort}" style="width: 40px; height: 40px;">
+            <img src="${awayLogo}" alt="${awayShort}" style="width: 45px; height: 45px;">
             <span style="font-size: 2.2rem; ${awayIsWinner ? 'font-weight: bold;' : ''}">${awayScore}</span>
           </div>
           <div style="margin-top: 6px; ${awayIsWinner ? 'font-weight: bold;' : ''}">${awayShort}</div>
         </div>
-        <div style="font-size: 1.1rem; font-weight: bold;">Final</div>
+        <div style="position: absolute; left: 50%; transform: translateX(-50%); font-size: 1.4rem; font-weight: bold;">Final</div>
         <div style="text-align: center;">
-          <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-direction: row-reverse;">
+            <img src="${homeLogo}" alt="${homeShort}" style="width: 45px; height: 45px;">
             <span style="font-size: 2.2rem; ${homeIsWinner ? 'font-weight: bold;' : ''}">${homeScore}</span>
-            <img src="${homeLogo}" alt="${homeShort}" style="width: 40px; height: 40px;">
           </div>
           <div style="margin-top: 6px; ${homeIsWinner ? 'font-weight: bold;' : ''}">${homeShort}</div>
         </div>
@@ -107,10 +107,10 @@ const teamAbbrMap = {
     card.style.color = "#fff";
   
     if (["In Progress", "Manager challenge"].includes(statusText) || status.codedGameState === "M") {
-        const inningLabel = getInningLabel(game.linescore?.inningHalf);
+        const inningLabel = getInningLabel(game.linescore?.inningHalf) || "Inning";
         const centerText = `${inningLabel} ${game.linescore?.currentInning || ""}`.trim();
-        const awayScore = teams.away.score;
-        const homeScore = teams.home.score;
+        const awayScore = teams.away.score || 0;
+        const homeScore = teams.home.score || 0;
         const awayLogo = await getLogoUrl(awayFull);
         const homeLogo = await getLogoUrl(homeFull);
         const leadingAway = awayScore > homeScore;
@@ -133,7 +133,7 @@ const teamAbbrMap = {
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div style="text-align: center;">
               <div style="display: flex; align-items: center; gap: 8px;">
-                <img src="${awayLogo}" alt="${awayShort}" style="width: 40px; height: 40px;">
+                <img src="${awayLogo}" alt="${awayShort}" style="width: 45px; height: 45px;">
                 <span style="font-size: 2rem; ${leadingAway ? 'font-weight: bold;' : ''}">${awayScore}</span>
               </div>
               <div style="margin-top: 6px; font-weight: bold;">${awayShort}</div>
@@ -145,7 +145,7 @@ const teamAbbrMap = {
             </div>
             <div style="text-align: center;">
               <div style="display: flex; align-items: center; gap: 8px; flex-direction: row-reverse;">
-                <img src="${homeLogo}" alt="${homeShort}" style="width: 40px; height: 40px;">
+                <img src="${homeLogo}" alt="${homeShort}" style="width: 45px; height: 45px;">
                 <span style="font-size: 2rem; ${leadingHome ? 'font-weight: bold;' : ''}">${homeScore}</span>
               </div>
               <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
@@ -162,24 +162,24 @@ const teamAbbrMap = {
       const homeLogo = await getLogoUrl(homeFull);
   
       card.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <img src="${awayLogo}" alt="${awayShort}" style="width: 40px; height: 40px;">
-              <span style="font-size: 0.9rem;">${awayRecord}</span>
-            </div>
-            <div style="margin-top: 6px; font-weight: bold;">${awayShort}</div>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="text-align: center;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-direction: column-reverse;">
+            <img src="${awayLogo}" alt="${awayShort}" style="width: 45px; height: 45px;">
+            <span style="font-size: 0.95rem;">${awayRecord}</span>
           </div>
-          <div style="font-size: 1.1rem; font-weight: bold;">${startTime}</div>
-          <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px; flex-direction: row-reverse;">
-              <img src="${homeLogo}" alt="${homeShort}" style="width: 40px; height: 40px;">
-              <span style="font-size: 0.9rem;">${homeRecord}</span>
-            </div>
-            <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
-          </div>
+          <div style="margin-top: 6px; font-weight: bold;">${awayShort}</div>
         </div>
-      `;
+        <div style="position: absolute; left: 50%; transform: translateX(-50%); font-size: 1.4rem; font-weight: bold;">${startTime}</div>
+        <div style="text-align: center;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-direction: column-reverse;">
+            <img src="${homeLogo}" alt="${homeShort}" style="width: 45px; height: 45px;">
+            <span style="font-size: 0.95rem;">${homeRecord}</span>
+          </div>
+          <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
+        </div>
+      </div>
+    `;
     } else if (statusText === "Postponed") {
       const awayRecord = `${teams.away.leagueRecord.wins}-${teams.away.leagueRecord.losses}`;
       const homeRecord = `${teams.home.leagueRecord.wins}-${teams.home.leagueRecord.losses}`;
@@ -189,17 +189,17 @@ const teamAbbrMap = {
       card.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <img src="${awayLogo}" alt="${awayShort}" style="width: 40px; height: 40px;">
-              <span style="font-size: 0.9rem;">${awayRecord}</span>
+            <div style="display: flex; align-items: center; gap: 8px; flex-direction: column-reverse;">
+              <img src="${awayLogo}" alt="${awayShort}" style="width: 45px; height: 45px;">
+             <span style="font-size: 0.95rem;">${awayRecord}</span>
             </div>
             <div style="margin-top: 6px; font-weight: bold;">${awayShort}</div>
           </div>
-          <div style="font-size: 0.9rem; font-weight: bold;">Postponed</div>
+          <div style="position: absolute; left: 50%; transform: translateX(-50%); font-size: 1.3rem; font-weight: bold;">PPD</div>
           <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px; flex-direction: row-reverse;">
-              <img src="${homeLogo}" alt="${homeShort}" style="width: 40px; height: 40px;">
-              <span style="font-size: 0.9rem;">${homeRecord}</span>
+            <div style="display: flex; align-items: center; gap: 8px; flex-direction: column-reverse;">
+              <img src="${homeLogo}" alt="${homeShort}" style="width: 45px; height: 45px;">
+              <span style="font-size: 0.95rem;">${homeRecord}</span>
             </div>
             <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
           </div>
@@ -352,7 +352,7 @@ const teamAbbrMap = {
             noGameCard.style.padding = "20px";
 
             noGameCard.innerHTML = `
-              <img src="${logoUrl}" alt="${team} logo" style="width: 48px; height: 48px;">
+              <img src="${logoUrl}" alt="${team} logo" style="width: 50px; height: 50px;">
               <div style="font-weight: bold;">No game scheduled <br> for today</div>
             `;
 

@@ -54,17 +54,17 @@ const teamAbbrMap = {
     return `
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="text-align: center;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <img src="${awayLogo}" alt="${awayShort}" style="width: ${isAllStar ? "100px" : "40px"}; height: 40px;">
-            <span style="font-size: 0.9rem;">${isAllStar ? "" : awayRecord}</span>
+          <div style="display: flex; align-items: center; gap: 8px; flex-direction: ${isAllStar ? "row" : "column-reverse"};">
+            <img src="${awayLogo}" alt="${awayShort}" style="width: ${isAllStar ? "100px" : "45px"}; height: 45px;">
+            <span style="font-size: 0.95rem;">${isAllStar ? "" : awayRecord}</span>
           </div>
           <div style="margin-top: 6px; font-weight: bold;">${awayShort}</div>
         </div>
-        <div style="font-size: 1.1rem; font-weight: bold;">${startTime}</div>
+        <div style="position: absolute; left: 50%; transform: translateX(-50%); font-size: ${isAllStar ? "1.2rem" : "1.4rem"}; font-weight: bold;">${startTime}</div>
         <div style="text-align: center;">
-          <div style="display: flex; align-items: center; gap: 8px; flex-direction: row-reverse;">
-            <img src="${homeLogo}" alt="${homeShort}" style="width: ${isAllStar ? "100px" : "40px"}; height: 40px;">
-            <span style="font-size: 0.9rem;">${isAllStar ? "" : awayRecord}</span>
+          <div style="display: flex; align-items: center; gap: 8px; flex-direction: ${isAllStar ? "row-reverse" : "column-reverse"};">
+            <img src="${homeLogo}" alt="${homeShort}" style="width: ${isAllStar ? "100px" : "45px"}; height: 45px;">
+            <span style="font-size: 0.95rem;">${isAllStar ? "" : homeRecord}</span>
           </div>
           <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
         </div>
