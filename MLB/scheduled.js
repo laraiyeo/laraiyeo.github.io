@@ -35,23 +35,36 @@ const teamAbbrMap = {
   }
   
   async function buildCardContent(awayFull, awayShort, awayRecord, homeFull, homeShort, homeRecord, startTime) {
-    const awayLogo = await getLogoUrl(awayFull);
-    const homeLogo = await getLogoUrl(homeFull);
+    let awayLogo, homeLogo;
+    
+    if (awayShort === "AL All-Stars") {
+      awayLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/331.svg`; 
+      homeLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/332.svg`;
+    } else if (awayShort === "NL All-Stars") {
+      awayLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/332.svg`; 
+      homeLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/331.svg`;
+    } else {
+      awayLogo = await getLogoUrl(awayFull);
+      homeLogo = await getLogoUrl(homeFull);
+    }
+
+    const isAllStar = awayShort === "AL All-Stars" || awayShort === "NL All-Stars" ||
+                        homeShort === "AL All-Stars" || homeShort === "NL All-Stars";
   
     return `
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="text-align: center;">
           <div style="display: flex; align-items: center; gap: 8px;">
-            <img src="${awayLogo}" alt="${awayShort}" style="width: 40px; height: 40px;">
-            <span style="font-size: 0.9rem;">${awayRecord}</span>
+            <img src="${awayLogo}" alt="${awayShort}" style="width: ${isAllStar ? "100px" : "40px"}; height: 40px;">
+            <span style="font-size: 0.9rem;">${isAllStar ? "" : awayRecord}</span>
           </div>
           <div style="margin-top: 6px; font-weight: bold;">${awayShort}</div>
         </div>
         <div style="font-size: 1.1rem; font-weight: bold;">${startTime}</div>
         <div style="text-align: center;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 0.9rem;">${homeRecord}</span>
-            <img src="${homeLogo}" alt="${homeShort}" style="width: 40px; height: 40px;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-direction: row-reverse;">
+            <img src="${homeLogo}" alt="${homeShort}" style="width: ${isAllStar ? "100px" : "40px"}; height: 40px;">
+            <span style="font-size: 0.9rem;">${isAllStar ? "" : awayRecord}</span>
           </div>
           <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
         </div>

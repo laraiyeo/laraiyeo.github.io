@@ -69,8 +69,18 @@ function renderCount(balls, strikes, outs) {
 
 async function renderTopScoreboard(away, home, awayTeamData, homeTeamData, state, count, runners) {
   const isSmallScreen = window.innerWidth <= 525;
-  const awayLogo = await getLogoUrl(away.team.name);
-  const homeLogo = await getLogoUrl(home.team.name);
+  let awayLogo, homeLogo;
+    
+    if (away.team.name === "American League All-Stars") {
+      awayLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/331.svg`; 
+      homeLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/332.svg`;
+    } else if (away.team.name === "National League All-Stars") {
+      awayLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/332.svg`; 
+      homeLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/331.svg`;
+    } else {
+      awayLogo = await getLogoUrl(away.team.name);
+      homeLogo = await getLogoUrl(home.team.name);
+    }
   const isFinal = state.inning === "Final";
   const inningText = isFinal
     ? `<span style="font-size: ${isSmallScreen ? '0.9rem' : '1.5rem'};">Final</span>`
@@ -140,7 +150,9 @@ function normalizeTeamName(teamName) {
     "Tampa Bay Rays": "tampa-bay-rays",
     "Texas Rangers": "texas-rangers",
     "Toronto Blue Jays": "toronto-blue-jays",
-    "Washington Nationals": "washington-nationals"
+    "Washington Nationals": "washington-nationals",
+    "American League All-Stars": "american-league-all-stars",
+    "National League All-Stars": "national-league-all-stars"
   };
   
   return nameMap[teamName] || teamName.toLowerCase().replace(/\s+/g, '-');
@@ -702,8 +714,18 @@ async function fetchAndUpdateScoreboard(gamePk) {
     const isGameOver = ["Final", "Game Over", "Completed Early"].includes(detailedState) || codedGameState === "F";
 
     // Fetch small team logos
-    const awayLogo = await getLogoUrl(away.team?.name || "Unknown");
-    const homeLogo = await getLogoUrl(home.team?.name || "Unknown");
+    let awayLogo, homeLogo;
+    
+    if (away.team.name === "American League All-Stars") {
+      awayLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/331.svg`; 
+      homeLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/332.svg`;
+    } else if (away.team.name === "National League All-Stars") {
+      awayLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/332.svg`; 
+      homeLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/331.svg`;
+    } else {
+      awayLogo = await getLogoUrl(away.team?.name || "Unknown");
+      homeLogo = await getLogoUrl(home.team?.name || "Unknown");
+    }
 
     // Render the top scoreboard
     await renderTopScoreboard(

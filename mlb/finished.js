@@ -35,8 +35,21 @@ const teamAbbrMap = {
   }
 
   async function buildFinalCardContent(awayFull, awayShort, awayScore, homeFull, homeShort, homeScore) {
-    const awayLogo = await getLogoUrl(awayFull);
-    const homeLogo = await getLogoUrl(homeFull);
+    let awayLogo, homeLogo;
+    
+    if (awayShort === "AL All-Stars") {
+      awayLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/331.svg`; 
+      homeLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/332.svg`;
+    } else if (awayShort === "NL All-Stars") {
+      awayLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/332.svg`; 
+      homeLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/331.svg`;
+    } else {
+      awayLogo = await getLogoUrl(awayFull);
+      homeLogo = await getLogoUrl(homeFull);
+    }
+
+    const isAllStar = awayShort === "AL All-Stars" || awayShort === "NL All-Stars" ||
+                        homeShort === "AL All-Stars" || homeShort === "NL All-Stars";
     const awayIsWinner = awayScore > homeScore;
     const homeIsWinner = homeScore > awayScore;
   
@@ -51,9 +64,9 @@ const teamAbbrMap = {
         </div>
         <div style="font-size: 1.1rem; font-weight: bold;">Final</div>
         <div style="text-align: center;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 2.2rem; ${homeIsWinner ? 'font-weight: bold;' : ''}">${homeScore}</span>
+          <div style="display: flex; align-items: center; gap: 8px; flex-direction: row-reverse;">
             <img src="${homeLogo}" alt="${homeShort}" style="width: 40px; height: 40px;">
+            <span style="font-size: 2.2rem; ${homeIsWinner ? 'font-weight: bold;' : ''}">${homeScore}</span>
           </div>
           <div style="margin-top: 6px; ${homeIsWinner ? 'font-weight: bold;' : ''}">${homeShort}</div>
         </div>

@@ -105,9 +105,18 @@ async function fetchLiveGame() {
       let gameDiv = gameElements.get(gamePk);
       const away = teams.away;
       const home = teams.home;
-
-      const awayLogo = getLogoUrl(away.team.name);
-      const homeLogo = getLogoUrl(home.team.name);
+      let awayLogo, homeLogo;
+    
+     if (away.team.name === "American League All-Stars") {
+      awayLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/331.svg`; 
+      homeLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/332.svg`;
+     } else if (away.team.name === "National League All-Stars") {
+      awayLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/332.svg`; 
+      homeLogo = `https://sports.cbsimg.net/fly/images/team-logos/alt/light/331.svg`;
+     } else {
+       awayLogo = getLogoUrl(away.team.name);
+       homeLogo = getLogoUrl(home.team.name);
+     }
 
       if (!gameDiv) {
         gameDiv = document.createElement("div");

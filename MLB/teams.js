@@ -144,9 +144,9 @@ const teamAbbrMap = {
               ${baseHtml}
             </div>
             <div style="text-align: center;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 2rem; ${leadingHome ? 'font-weight: bold;' : ''}">${homeScore}</span>
+              <div style="display: flex; align-items: center; gap: 8px; flex-direction: row-reverse;">
                 <img src="${homeLogo}" alt="${homeShort}" style="width: 40px; height: 40px;">
+                <span style="font-size: 2rem; ${leadingHome ? 'font-weight: bold;' : ''}">${homeScore}</span>
               </div>
               <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
             </div>
@@ -172,9 +172,9 @@ const teamAbbrMap = {
           </div>
           <div style="font-size: 1.1rem; font-weight: bold;">${startTime}</div>
           <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 0.9rem;">${homeRecord}</span>
+            <div style="display: flex; align-items: center; gap: 8px; flex-direction: row-reverse;">
               <img src="${homeLogo}" alt="${homeShort}" style="width: 40px; height: 40px;">
+              <span style="font-size: 0.9rem;">${homeRecord}</span>
             </div>
             <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
           </div>
@@ -197,9 +197,9 @@ const teamAbbrMap = {
           </div>
           <div style="font-size: 0.9rem; font-weight: bold;">Postponed</div>
           <div style="text-align: center;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 0.9rem;">${homeRecord}</span>
+            <div style="display: flex; align-items: center; gap: 8px; flex-direction: row-reverse;">
               <img src="${homeLogo}" alt="${homeShort}" style="width: 40px; height: 40px;">
+              <span style="font-size: 0.9rem;">${homeRecord}</span>
             </div>
             <div style="margin-top: 6px; font-weight: bold;">${homeShort}</div>
           </div>
