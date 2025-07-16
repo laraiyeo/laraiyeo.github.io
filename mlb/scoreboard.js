@@ -595,7 +595,7 @@ function renderPlayDescription(currentPlay, awayTeamName, homeTeamName) {
   const recentEvent = playEvents.reverse().find(event => event.details && event.details.description);
 
   if (recentEvent && recentEvent.details) {
-    const pitchDescription = recentEvent.details.type.description;
+    const pitchDescription = recentEvent.details.type.description || "pitch";
     const { description, call } = recentEvent.details;
     const pitchSpeed = recentEvent.pitchData?.startSpeed;
     const pitchBall = recentEvent.count.balls;
