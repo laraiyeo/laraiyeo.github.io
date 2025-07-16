@@ -575,13 +575,20 @@ function hashString(str) {
 function renderPlayDescription(currentPlay, awayTeamName, homeTeamName) {
   const playDescriptionDiv = document.getElementById("playDescription");
 
+  // Add null check for currentPlay
+  if (!currentPlay || !currentPlay.about) {
+    playDescriptionDiv.innerHTML = `<div></div>`;
+    playDescriptionDiv.style.backgroundColor = "#1a1a1a";
+    return;
+  }
+
   // Determine the background color based on isTopInning
   const isTopInning = currentPlay.about.isTopInning;
   const teamColor = isTopInning ? teamColors[awayTeamName] : teamColors[homeTeamName];
   playDescriptionDiv.style.backgroundColor = teamColor || "#1a1a1a"; // Fallback to default color if team color is unavailable
 
   // Check if the current play has a description
-  if (currentPlay.result.description) {
+  if (currentPlay.result && currentPlay.result.description) {
     playDescriptionDiv.innerHTML = `
       <div>
         ${currentPlay.result.description}
@@ -595,13 +602,13 @@ function renderPlayDescription(currentPlay, awayTeamName, homeTeamName) {
   const recentEvent = playEvents.reverse().find(event => event.details && event.details.description);
 
   if (recentEvent && recentEvent.details) {
-    const pitchDescription = recentEvent.details.type.description || "pitch";
+    const pitchDescription = recentEvent.details.type?.description || "pitch";
     const { description, call } = recentEvent.details;
     const pitchSpeed = recentEvent.pitchData?.startSpeed;
-    const pitchBall = recentEvent.count.balls;
-    const pitchStrike = recentEvent.count.strikes;
-    const batterMatch = currentPlay.matchup.batter.fullName;
-    const pitcherMatch = currentPlay.matchup.pitcher.fullName;
+    const pitchBall = recentEvent.count?.balls;
+    const pitchStrike = recentEvent.count?.strikes;
+    const batterMatch = currentPlay.matchup?.batter?.fullName || "Batter";
+    const pitcherMatch = currentPlay.matchup?.pitcher?.fullName || "Pitcher";
 
     // Handle specific cases for call descriptions
     let message = "";
@@ -765,11 +772,15 @@ async function fetchAndUpdateScoreboard(gamePk) {
 
     // Render the play description only if the game is in progress
     const playDescriptionDiv = document.getElementById("playDescription");
-    if (isInProgress) {
+    if (isInProgress && currentPlay && Object.keys(currentPlay).length > 0) {
       renderPlayDescription(currentPlay, away.team?.name || "Unknown", home.team?.name || "Unknown");
     } else {
       playDescriptionDiv.innerHTML = ""; // Clear play description
-      playDescriptionDiv.style.display = "none"; // Hide the play description area
+      if (isInProgress) {
+        playDescriptionDiv.style.display = "block"; // Keep visible during game but with no content
+      } else {
+        playDescriptionDiv.style.display = "none"; // Hide the play description area for finished games
+      }
     }
 
     // Hide bases, outs, and count if the game is not in progress
