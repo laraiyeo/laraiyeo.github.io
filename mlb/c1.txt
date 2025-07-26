@@ -1,0 +1,80 @@
+{
+  "copyright": "Copyright 2025 MLB Advanced Media, L.P.  Use of any content on this page acknowledges agreement to the terms posted here http://gdx.mlb.com/components/copyright.txt",
+  "stats": [
+    {
+      "type": {
+        "displayName": "season"
+      },
+      "group": {
+        "displayName": "hitting"
+      },
+      "totalSplits": 677,
+      "exemptions": [],
+      "splits": [
+        {
+          "season": "2025",
+          "stat": {
+            "gamesPlayed": 23,
+            "groundOuts": 0,
+            "airOuts": 0,
+            "runs": 1,
+            "doubles": 0,
+            "triples": 0,
+            "homeRuns": 0,
+            "strikeOuts": 0,
+            "baseOnBalls": 0,
+            "intentionalWalks": 0,
+            "hits": 1,
+            "hitByPitch": 0,
+            "avg": "1.000",
+            "atBats": 1,
+            "obp": "1.000",
+            "slg": "1.000",
+            "ops": "2.000",
+            "caughtStealing": 0,
+            "stolenBases": 0,
+            "stolenBasePercentage": ".---",
+            "groundIntoDoublePlay": 0,
+            "numberOfPitches": 4,
+            "plateAppearances": 1,
+            "totalBases": 1,
+            "rbi": 1,
+            "leftOnBase": 0,
+            "sacBunts": 0,
+            "sacFlies": 0,
+            "babip": "1.000",
+            "groundOutsToAirouts": "-.--",
+            "catchersInterference": 0,
+            "atBatsPerHomeRun": "-.--"
+          },
+          "team": {
+            "id": 109,
+            "name": "Arizona Diamondbacks",
+            "link": "/api/v1/teams/109"
+          },
+          "player": {
+            "id": 669194,
+            "fullName": "Ryne Nelson",
+            "link": "/api/v1/people/669194",
+            "firstName": "Ryne",
+            "lastName": "Nelson"
+          },
+          "league": {
+            "id": 104,
+            "name": "NL",
+            "link": "/api/v1/league/104"
+          },
+          "sport": {
+            "id": 1,
+            "link": "/api/v1/sports/1",
+            "abbreviation": "MLB"
+          },
+          "numTeams": 1,
+          "rank": 1,
+          "position": {
+            "code": "1",
+            "name": "Pitcher",
+            "type": "Pitcher",
+            "abbreviation": "P"
+          }
+        }

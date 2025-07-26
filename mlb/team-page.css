@@ -585,6 +585,35 @@
   margin-bottom: 20px;
 }
 
+.player-year-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.player-year-selector label {
+  font-weight: bold;
+  color: #333;
+  font-size: 14px;
+}
+
+.player-year-selector select {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  background: white;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  min-width: 80px;
+}
+
+.player-year-selector select:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
 .close-player-details {
   background: #f8f9fa;
   border: 1px solid #ddd;

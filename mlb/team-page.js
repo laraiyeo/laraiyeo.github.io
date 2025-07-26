@@ -672,6 +672,7 @@ async function showPlayerDetails(playerId) {
   // Create the player details content
   const jerseyNumber = selectedPlayer.jerseyNumber || '--';
   const position = selectedPlayer.position.name;
+  const currentYear = new Date().getFullYear();
   
   // Show initial loading state
   playerDetailsSection.innerHTML = `
@@ -680,6 +681,15 @@ async function showPlayerDetails(playerId) {
         <button class="close-player-details" onclick="closePlayerDetails()">×</button>
         <div class="player-details-info">
           <h2 class="player-details-name">${selectedPlayer.person.fullName} • ${position} • #${jerseyNumber}</h2>
+        </div>
+        <div class="player-year-selector">
+          <label for="yearSelector">Year:</label>
+          <select id="yearSelector" onchange="onYearChange()">
+            <option value="${currentYear}">${currentYear}</option>
+            <option value="${currentYear - 1}">${currentYear - 1}</option>
+            <option value="${currentYear - 2}">${currentYear - 2}</option>
+            <option value="${currentYear - 3}">${currentYear - 3}</option>
+          </select>
         </div>
       </div>
       <div class="player-stats-content">
@@ -695,21 +705,19 @@ async function showPlayerDetails(playerId) {
   playerDetailsSection.scrollIntoView({ behavior: 'smooth' });
   
   // Load player statistics
-  await loadPlayerStats(playerId);
+  await loadPlayerStats(playerId, currentYear);
 }
 
-async function loadPlayerStats(playerId) {
+async function loadPlayerStats(playerId, year = new Date().getFullYear()) {
   try {
-    const currentYear = new Date().getFullYear();
-    
     // Check if player is a pitcher
     const isPitcher = selectedPlayer.position.code === "1";
     
     if (!isPitcher) {
       // Load hitting stats for non-pitchers and fetch all players for rankings
       const [playerResponse, allPlayersResponse] = await Promise.all([
-        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${currentYear}`),
-        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting&season=${currentYear}&gameType=R&sportId=1&limit=2000&playerPool=all`)
+        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${year}`),
+        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting&season=${year}&gameType=R&sportId=1&limit=2000&playerPool=all`)
       ]);
       
       const playerData = await playerResponse.json();
@@ -718,14 +726,26 @@ async function loadPlayerStats(playerId) {
       const statsContainer = document.querySelector('.player-stats-content');
       
       if (playerData.stats && playerData.stats.length > 0 && playerData.stats[0].splits && playerData.stats[0].splits.length > 0) {
-        const playerStats = playerData.stats[0].splits[0].stat;
-        
+        const splitForYear = playerData.stats[0].splits[0];
+        const playerStats = splitForYear.stat;
+        // Get team name and logo for the chosen year
+        let teamNameForYear = splitForYear.team && splitForYear.team.name ? splitForYear.team.name : (currentTeam && currentTeam.name ? currentTeam.name : "");
+        let teamLogoUrl = "";
+        if (teamNameForYear) {
+          teamLogoUrl = await getStandardLogoUrl(teamNameForYear);
+        }
         // Calculate player rankings
         const rankings = calculatePlayerStatRankings(allPlayersData, playerStats);
-        
+        // Show logo above stats
         statsContainer.innerHTML = `
           <div class="player-hitting-stats">
-            <h3>2025 Hitting Statistics</h3>
+            <div style="display: flex; align-items: center; gap: 10px;">
+            <img src="${teamLogoUrl}" alt="${teamNameForYear}" 
+              class="player-team-logo" 
+              style="height:40px;max-width:60px;" 
+              onerror="this.src='icon.png';">
+            <h3>${year} Hitting Statistics</h3>
+            </div>
             <div class="stats-grid-player">
               <div class="stat-item-player">
                 <div class="stat-value-player">${playerStats.gamesPlayed || 0}</div>
@@ -823,15 +843,15 @@ async function loadPlayerStats(playerId) {
       } else {
         statsContainer.innerHTML = `
           <div class="no-stats">
-            <p>No hitting statistics available for the ${currentYear} season.</p>
+            <p>No hitting statistics available for the ${year} season.</p>
           </div>
         `;
       }
     } else {
       // For pitchers, load pitching stats
       const [playerResponse, allPlayersResponse] = await Promise.all([
-        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${currentYear}`),
-        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=pitching&season=${currentYear}&gameType=R&sportId=1&limit=2000&playerPool=all`)
+        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${year}`),
+        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=pitching&season=${year}&gameType=R&sportId=1&limit=2000&playerPool=all`)
       ]);
       
       const playerData = await playerResponse.json();
@@ -840,14 +860,27 @@ async function loadPlayerStats(playerId) {
       const statsContainer = document.querySelector('.player-stats-content');
       
       if (playerData.stats && playerData.stats.length > 0 && playerData.stats[0].splits && playerData.stats[0].splits.length > 0) {
-        const playerStats = playerData.stats[0].splits[0].stat;
+        const splitForYear = playerData.stats[0].splits[0];
+        const playerStats = splitForYear.stat;
+        // Get team name and logo for the chosen year
+        let teamNameForYear = splitForYear.team && splitForYear.team.name ? splitForYear.team.name : (currentTeam && currentTeam.name ? currentTeam.name : "");
+        let teamLogoUrl = "";
+        if (teamNameForYear) {
+          teamLogoUrl = await getStandardLogoUrl(teamNameForYear);
+        }
         
         // Calculate player rankings for pitching stats
         const rankings = calculatePitcherStatRankings(allPlayersData, playerStats);
         
         statsContainer.innerHTML = `
           <div class="player-pitching-stats">
-            <h3>2025 Pitching Statistics</h3>
+            <div style="display: flex; align-items: center; gap: 10px;">
+            <img src="${teamLogoUrl}" alt="${teamNameForYear}" 
+              class="player-team-logo" 
+              style="height:40px;max-width:60px;" 
+              onerror="this.src='icon.png';">
+            <h3>${year} Pitching Statistics</h3>
+            </div>
             <div class="stats-grid-player">
               <div class="stat-item-player">
                 <div class="stat-value-player">${playerStats.gamesPlayed || 0}</div>
@@ -945,7 +978,7 @@ async function loadPlayerStats(playerId) {
       } else {
         statsContainer.innerHTML = `
           <div class="no-stats">
-            <p>No pitching statistics available for the ${currentYear} season.</p>
+            <p>No pitching statistics available for the ${year} season.</p>
           </div>
         `;
       }
@@ -1396,4 +1429,20 @@ function getTeamAbbreviation(teamName) {
   };
   
   return teamAbbrMap[teamName] || teamName.substring(0, 3).toUpperCase();
+}
+
+function onYearChange() {
+  const yearSelector = document.getElementById('yearSelector');
+  const selectedYear = parseInt(yearSelector.value);
+  
+  if (selectedPlayer) {
+    loadPlayerStats(selectedPlayer.person.id, selectedYear);
+  }
+}
+
+function closePlayerDetails() {
+  const playerDetailsSection = document.getElementById('playerDetailsSection');
+  if (playerDetailsSection) {
+    playerDetailsSection.style.display = 'none';
+  }
 }
