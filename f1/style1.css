@@ -51,6 +51,18 @@ body {
   text-align: center;
 }
 
+.footer-separator {
+  margin: 0 10px;
+  color: #888;
+}
+
+.footer-icon {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  margin-right: -2.5px;
+}
+
 .countdown-title {
   font-size: 1.5rem;
   font-weight: bold;
