@@ -136,10 +136,10 @@ async function fetchRaceResults() {
       // Determine race status
       let status = 'upcoming';
       
-      if (event.played) {
-        status = 'completed';
-      } else if (raceDate <= now && raceEndDate >= now) {
+      if (raceDate <= now && raceEndDate >= now) {
         status = 'in-progress';
+      } else if (event.played) {
+        status = 'completed';
       }
       
       // Get venue details for country flag
@@ -169,11 +169,13 @@ async function fetchRaceResults() {
       
       if (status === 'completed' || status === 'in-progress') {
         try {
-          // Look for the Race competition in the competitions array
+          // Look for the main Race competition (not sprint race) in the competitions array
           const raceCompetition = eventData.competitions?.find(comp => 
-            comp.type?.name?.toLowerCase().includes('race') || 
-            comp.type?.displayName?.toLowerCase().includes('race') ||
-            comp.type?.abbreviation?.toLowerCase().includes('race')
+            (comp.type?.name?.toLowerCase() === 'race' || 
+             comp.type?.displayName?.toLowerCase() === 'race' ||
+             comp.type?.abbreviation?.toLowerCase() === 'race') &&
+            !comp.type?.name?.toLowerCase().includes('sprint') &&
+            !comp.type?.displayName?.toLowerCase().includes('sprint')
           );
           
           if (raceCompetition && raceCompetition.competitors) {
@@ -203,9 +205,12 @@ async function fetchRaceResults() {
                         winnerCompetitor.athlete.fullName || 'Unknown';
               }
               
-              // For in-progress races, also update the competition winners
-              if (status === 'in-progress' && winner !== 'TBD') {
-                competitionWinners.Race = winner;
+              // For in-progress races, only update if this is actually a completed race
+              // Don't override competition winners from fetchCompetitionWinners
+              if (status === 'completed' && winner !== 'TBD') {
+                // Find the proper competition name for this race
+                const properRaceName = 'Race'; // This should match what fetchCompetitionWinners uses
+                competitionWinners[properRaceName] = winner;
               }
             }
           }
@@ -257,13 +262,8 @@ async function fetchRaceResults() {
 }
 
 async function fetchCompetitionWinners(eventData) {
-  const winners = {
-    'FP1': 'TBD',
-    'FP2': 'TBD', 
-    'FP3': 'TBD',
-    'Qual': 'TBD',
-    'Race': 'TBD'
-  };
+  // Initialize empty winners object - will be populated dynamically
+  const winners = {};
 
   try {
     // Process each competition to find winners using the same approach as race-info.js
@@ -287,21 +287,35 @@ async function fetchCompetitionWinners(eventData) {
         const compResponse = await fetch(convertToHttps(competition.$ref));
         const compData = await compResponse.json();
         
+        // Get competition type and create display name - SAME AS RACE-INFO.JS
         const compType = compData.type || {};
-        let competitionKey = null;
+        let competitionName = compType.text || compType.displayName || compType.name || 'Unknown';
+        let competitionKey = competitionName.toLowerCase().replace(/\s+/g, '_');
         
-        // Map competition types to our keys
-        if (compType.abbreviation === 'FP1') competitionKey = 'FP1';
-        else if (compType.abbreviation === 'FP2') competitionKey = 'FP2';
-        else if (compType.abbreviation === 'FP3') competitionKey = 'FP3';
-        else if (compType.abbreviation === 'Qual') competitionKey = 'Qual';
-        else if (compType.abbreviation === 'Race') competitionKey = 'Race';
+        // Map abbreviations to full names for better display - SAME AS RACE-INFO.JS
+        const typeMap = {
+          'FP1': 'Free Practice 1',
+          'FP2': 'Free Practice 2', 
+          'FP3': 'Free Practice 3',
+          'SS': 'Sprint Shootout',
+          'SR': 'Sprint Race',
+          'Qual': 'Qualifying',
+          'Race': 'Race'
+        };
         
-        if (competitionKey && compData.competitors) {
-          // Add console logging specifically for qualifying
-          if (competitionKey === 'Qual') {
-            console.log(`Processing Qualifying with ${compData.competitors.length} competitors`);
-          }
+        if (compType.abbreviation && typeMap[compType.abbreviation]) {
+          competitionName = typeMap[compType.abbreviation];
+          competitionKey = compType.abbreviation.toLowerCase();
+        }
+        
+        console.log(`Processing competition: ${competitionName} (key: ${competitionKey})`);
+        console.log(`Competition type details:`, compType);
+        
+        // Initialize this competition as TBD
+        winners[competitionName] = 'TBD';
+        
+        if (compData.competitors) {
+          console.log(`Processing ${competitionName} with ${compData.competitors.length} competitors`);
           
           // Process competitors exactly like race-info.js does
           const competitorPromises = (compData.competitors || []).map(async (competitor, compIndex) => {
@@ -317,11 +331,6 @@ async function fetchCompetitionWinners(eventData) {
               if (athleteResponse) {
                 const athleteData = await athleteResponse.json();
                 driverName = athleteData.fullName || athleteData.displayName || athleteData.shortName || 'Unknown';
-                
-                // Log for qualifying only
-                if (competitionKey === 'Qual') {
-                  console.log(`Got athlete name for competitor ${compIndex}: ${driverName}`);
-                }
               }
               
               // Get position from statistics (same logic as race-info.js)
@@ -329,11 +338,6 @@ async function fetchCompetitionWinners(eventData) {
               
               if (statsResponse) {
                 const statsData = await statsResponse.json();
-                
-                // Log for qualifying only
-                if (competitionKey === 'Qual') {
-                  console.log(`Stats data for ${driverName}:`, statsData);
-                }
                 
                 const generalStats = statsData.splits?.categories?.find(cat => cat.name === 'general');
                 
@@ -343,19 +347,8 @@ async function fetchCompetitionWinners(eventData) {
                     statMap[stat.name] = stat.displayValue || stat.value;
                   });
                   
-                  // Log for qualifying only
-                  if (competitionKey === 'Qual') {
-                    console.log(`Stat map for ${driverName}:`, statMap);
-                  }
-                  
                   // Get position from stats (same as race-info.js)
                   const statsPosition = parseInt(statMap.place || statMap.position) || competitor.order || 999;
-                  
-                  // Log for qualifying only
-                  if (competitionKey === 'Qual') {
-                    console.log(`Stats position for ${driverName}: ${statsPosition} (place: ${statMap.place}, position: ${statMap.position})`);
-                  }
-                  
                   position = statsPosition;
                 }
               }
@@ -374,28 +367,22 @@ async function fetchCompetitionWinners(eventData) {
           
           const competitorData = (await Promise.all(competitorPromises)).filter(data => data !== null);
           
-          // Log for qualifying only
-          if (competitionKey === 'Qual') {
-            console.log(`Competitor data for Qualifying:`, competitorData);
-          }
-          
-          // Sort by position and take the first one (position 1) - same as race-info.js
-          competitorData.sort((a, b) => a.position - b.position);
-          
-          // Log for qualifying only
-          if (competitionKey === 'Qual') {
-            console.log(`Sorted competitor data for Qualifying:`, competitorData);
-          }
-          
-          if (competitorData.length > 0) {
-            const winner = competitorData[0];
-            
-            // Log for qualifying only
-            if (competitionKey === 'Qual') {
-              console.log(`Winner for Qualifying:`, winner);
+          // For Race and Sprint Race, only declare a winner if someone actually won
+          // For other competitions (practice, qualifying), take the fastest/best position
+          if (competitionName === 'Race' || competitionName === 'Sprint Race') {
+            // For races, only show winner if someone actually has winner: true
+            const actualWinner = competitorData.find(competitor => competitor.winner === true);
+            if (actualWinner) {
+              winners[competitionName] = actualWinner.driverName;
             }
-            
-            winners[competitionKey] = winner.driverName;
+            // Otherwise, leave as 'TBD' (already set above)
+          } else {
+            // For practice sessions, qualifying, etc., take the best position
+            competitorData.sort((a, b) => a.position - b.position);
+            if (competitorData.length > 0) {
+              const winner = competitorData[0];
+              winners[competitionName] = winner.driverName;
+            }
           }
         }
       } catch (error) {
@@ -454,26 +441,37 @@ function renderRaceResults() {
         </div>
         <div class="in-progress-right">
           <div class="competition-winners">
-            <div class="competition-result">
-              <span class="comp-label">FP1:</span>
-              <span class="comp-winner">${race.competitionWinners.FP1}</span>
-            </div>
-            <div class="competition-result">
-              <span class="comp-label">FP2:</span>
-              <span class="comp-winner">${race.competitionWinners.FP2}</span>
-            </div>
-            <div class="competition-result">
-              <span class="comp-label">FP3:</span>
-              <span class="comp-winner">${race.competitionWinners.FP3}</span>
-            </div>
-            <div class="competition-result">
-              <span class="comp-label">Qual:</span>
-              <span class="comp-winner">${race.competitionWinners.Qual}</span>
-            </div>
-            <div class="competition-result">
-              <span class="comp-label">Race:</span>
-              <span class="comp-winner">${race.competitionWinners.Race}</span>
-            </div>
+            ${(() => {
+              // Sort competitions in logical race weekend order
+              const competitionOrder = [
+                'Free Practice 1', 'FP1',
+                'Free Practice 2', 'FP2', 
+                'Free Practice 3', 'FP3',
+                'Sprint Shootout',
+                'Sprint Race',
+                'Qualifying', 'Qual',
+                'Race'
+              ];
+              
+              const sortedEntries = Object.entries(race.competitionWinners || {})
+                .sort(([a], [b]) => {
+                  const indexA = competitionOrder.findIndex(comp => comp === a);
+                  const indexB = competitionOrder.findIndex(comp => comp === b);
+                  
+                  // If not found in order, put at end
+                  const finalIndexA = indexA === -1 ? competitionOrder.length : indexA;
+                  const finalIndexB = indexB === -1 ? competitionOrder.length : indexB;
+                  
+                  return finalIndexA - finalIndexB;
+                });
+              
+              return sortedEntries.map(([competitionName, winner]) => `
+                <div class="competition-result">
+                  <span class="comp-label">${competitionName}:</span>
+                  <span class="comp-winner">${winner}</span>
+                </div>
+              `).join('');
+            })()}
           </div>
         </div>
       </div>

@@ -921,7 +921,8 @@ function renderCompetitionResults(competitions) {
       
       // More specific matching
       if (sessionType === 'race') {
-        return keyLower === 'race' || nameLower.includes('race');
+        return (keyLower === 'race' || nameLower.includes('race')) && 
+               !nameLower.includes('sprint');
       } else if (sessionType === 'qual') {
         return keyLower === 'qual' || nameLower.includes('qualifying');
       } else if (sessionType === 'fp3') {
