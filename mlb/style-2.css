@@ -1,0 +1,297 @@
+html, body {
+    height: 100%;
+    margin: 0;
+  }
+  
+  body {
+    font-family: Arial, sans-serif;
+    background-color: #000000;
+    color: #000000;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  
+.navbar {
+  background-color: #000;
+  color: white;
+  padding: 10px 0;
+  display: flex;
+  justify-content: center;
+  position: sticky;
+  top: 0;
+  width: 100%;
+  z-index: 1000;
+}
+  
+  .navbar-content {
+    width: 100%;
+    max-width: 100vw;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .nav-left {
+    font-size: 1.2rem;
+    font-weight: bold;
+  }
+  
+  .nav-right {
+    display: flex;
+    gap: 20px;
+  }
+  
+  .nav-link {
+    color: white;
+    text-decoration: none;
+  }
+  
+  .nav-link.active {
+    color: #888;
+    font-weight: bold;
+  }
+
+  .dropdown-link.active {
+    background-color: #444;
+    font-weight: bold;
+  }
+
+  .nav-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    gap: 4px;
+  }
+
+  .nav-toggle .bars {
+    width: 25px;
+    height: 3px;
+    background-color: white;
+  }
+
+  .dropdown-menu {
+    display: none;
+    flex-direction: column;
+    position: absolute;
+    top: 60px;
+    right: 20px;
+    background-color: #000;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+  }
+
+  .dropdown-menu.active {
+    display: flex;
+  }
+
+  .dropdown-link {
+    color: white;
+    text-decoration: none;
+    padding: 10px 20px;
+    text-align: center;
+  }
+
+  .dropdown-link:hover {
+    background-color: #333;
+  }
+  
+  #standingsContainer {
+    background: #ebebeb;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 1px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    flex-grow: 1;
+    overflow-y: auto;
+    width: 100%;
+  }
+  
+  .standings-section {
+    margin: 0 auto; /* Center the section horizontally */
+    max-width: 1500px;
+    text-align: center; /* Center the content inside */
+  }
+  
+  .standings-section h2 {
+    font-size: 2.5rem; /* Increase size of main headers */
+    margin-bottom: 1.5rem;
+    color: rgb(0, 0, 0);
+  }
+  
+  .league-box {
+    display: flex;
+    justify-content: space-between;
+    gap: 4.5rem; /* Increase gap between containers */
+  }
+  
+  .league {
+    flex: 1;
+    background: #1e1e1e;
+    border-radius: 1.5rem; /* Slightly rounder corners */
+    padding: 2rem; /* Increase padding */
+  }
+  
+  .league h3 {
+    margin-top: 0rem;
+    color: white;
+    font-size: 2rem; /* Increase size of main league headers */
+    text-align: center; /* Center align the headers */
+  }
+  
+  .division-box {
+    margin-bottom: 2rem;
+    position: relative; /* Ensure hover card is positioned relative to the division */
+    overflow: visible; /* Allow hover card to overflow the division container */
+    z-index: 10;
+  }
+  
+  .division-box h4 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: #ddd;
+    text-align: center; /* Move division headers back to the middle */
+  }
+  
+  .division-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #1e1e1e;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  
+  .division-table th,
+  .division-table td {
+    padding: 0.75rem;
+    text-align: center;
+    border-bottom: 1px solid #444;
+    color: white;
+  }
+  
+  .division-table th {
+    background: #333;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  
+  .division-table tr:last-child td {
+    border-bottom: none;
+  }
+  
+  .team-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .team-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #444;
+  }
+  
+  .team-item:last-child {
+    border-bottom: none;
+  }
+  
+  .team-name {
+    text-align: left;
+    padding-left: 1rem;
+    font-weight: bold;
+    color: white; /* Change team names to white */
+    position: relative;
+    cursor: pointer;
+    z-index: 10; /* Ensure hover card is above other elements */
+  }
+  
+  .team-hover-card {
+    display: none;
+    position: absolute; /* Position relative to the viewport */
+    background: #1e1e1e;
+    color: white;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 0px 8px white;
+    text-align: center;
+    z-index: 1000; /* Ensure hover card is on top of all elements */
+    width: 200px;
+  }
+  
+  .team-name:hover .team-hover-card {
+    display: block;
+  }
+  
+  .team-record {
+    color: #ccc;
+  }
+
+  .footer {
+    background-color: #000;
+    color: white;
+    text-align: center;
+    padding: 10px 0;
+    font-size: 1rem;
+    position: relative;
+    bottom: 0;
+    width: 100%;
+  }
+  
+  .footer-link {
+    color: white;
+    text-decoration: none;
+    margin: 0 10px;
+  }
+  
+  .footer-link:hover {
+    color: #888;
+  }
+  
+  .footer-separator {
+    margin: 0 10px;
+    color: #888;
+  }
+
+  .footer-icon {
+    width: 20px;
+    height: 20px;
+    vertical-align: middle;
+    margin-right: -2.5px;
+  }
+
+  @media (max-width: 525px) {
+    .league-box {
+      flex-direction: column; /* Stack league boxes vertically */
+      gap: 4rem; /* Adjust gap between stacked boxes */
+    }
+
+    .league {
+      padding: 1rem; /* Reduce padding */
+      font-size: 0.9rem; /* Adjust font size for smaller screens */
+    }
+
+    .league h3 {
+      font-size: 1.5rem; /* Reduce header size */
+    }
+
+    #standingsContainer {
+      padding: 0px;
+    }
+
+    .nav-right {
+      display: none;
+    }
+
+    .nav-toggle {
+      display: flex;
+    }
+
+    .dropdown-menu.active {
+      display: flex;
+    }
+  }

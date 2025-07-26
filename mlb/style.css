@@ -1,0 +1,393 @@
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: #000000;
+  color: #000000;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+#scoreboard {
+  background: #ebebeb;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 1px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+.matchup {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 60px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  font-family: Arial, sans-serif;
+}
+
+.team {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.team-name {
+  font-weight: bold;
+  font-size: 1.2em;
+  margin-bottom: 4px;
+}
+
+.team-score {
+  font-size: 2em;
+}
+
+.game-block {
+  flex: 1 1 calc(33.33% - 2rem);
+  max-width: 320px;
+  min-height: 200px;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  padding: 1rem;
+  background-color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.game-block:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.games-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+.scheduled-time {
+  font-size: 0.9rem;
+  color: #ccc;
+  margin-top: 4px;
+}
+
+.game-card {
+  background-color: #000000;
+  border: 1px solid #444;
+  border-radius: 10px;
+  padding: 16px 20px;
+  width: 275px;
+  font-family: Arial, sans-serif;
+  color: white;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 0 10px rgb(255, 255, 255);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.game-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 12px rgba(255, 255, 255);
+}
+
+.team-logo {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.base-diamond {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  margin-left: 30px;
+  margin-bottom: -30px;
+}
+
+.base {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background-color: #ffffff;
+  transform: rotate(45deg);
+  opacity: 0.8;
+  border: 2px solid #000000;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.base-second {
+  top: -10px;
+  left: 50%;
+  transform: translate(-50%, 0) rotate(45deg);
+}
+
+.base-third {
+  bottom: 50%;
+  left: -10px;
+  transform: translate(0, 50%) rotate(45deg);
+}
+
+.base-first {
+  bottom: 50%;
+  right: -10px;
+  transform: translate(0, 50%) rotate(45deg);
+}
+
+.base.occupied {
+  background-color: limegreen;
+  box-shadow: 0 0 5px limegreen;
+}
+
+.no-games {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100px;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  font-size: 1rem;
+  color: #555;
+  font-weight: bold;
+}
+
+.navbar {
+  background-color: #000;
+  color: white;
+  padding: 10px 0;
+  display: flex;
+  justify-content: center;
+  position: sticky;
+  top: 0;
+  width: 100%;
+  z-index: 1000;
+}
+
+.navbar-content {
+  width: 100%;
+  max-width: 100vw;
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-left {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.nav-right {
+  display: flex;
+  gap: 20px;
+}
+
+.nav-link {
+  color: white;
+  text-decoration: none;
+}
+
+.nav-link.active {
+  color: #888;
+  font-weight: bold;
+}
+
+.ball-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid black;
+  background-color: rgb(214, 214, 214);
+  opacity: 0.2;
+}
+
+.ball-dot.ball.active {
+  opacity: 1;
+  background-color: rgb(214, 214, 214);
+  box-shadow: 0 0 3px rgb(150, 149, 149);
+}
+
+.ball-dot.strike.active {
+  opacity: 1;
+  background-color: rgb(214, 214, 214);
+  box-shadow: 0 0 3px rgb(150, 149, 149);
+}
+
+.ball-dot.out.active {
+  opacity: 1;
+  background-color: red;
+  box-shadow: 0 0 5px red;
+}
+
+.team-section {
+  margin-bottom: 40px;
+  border: 2px solid #444;
+  border-radius: 15px;
+  padding: 20px;
+  width: 315px;
+  background-color: #000000;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.team-section:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.5);
+}
+
+.team-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+  color: white;
+}
+
+.team-logo {
+  width: 60px;
+  height: 60px;
+  margin-bottom: 10px;
+}
+
+.small-base-diamond {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  margin: 0 auto;
+  margin-top: 10px;
+}
+
+.small-base {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: #000000;
+  transform: rotate(45deg);
+  opacity: 0.8;
+  border: 1px solid #797979;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.small-base-second {
+  top: 0px;
+  left: 50%;
+  transform: translate(-50%, 0) rotate(45deg);
+}
+
+.small-base-third {
+  bottom: 50%;
+  left: 0px;
+  transform: translate(0, 50%) rotate(45deg);
+}
+
+.small-base-first {
+  bottom: 50%;
+  right: 0px;
+  transform: translate(0, 50%) rotate(45deg);
+}
+
+.small-base.occupied {
+  background-color: rgb(255, 255, 255);
+  box-shadow: 0 0 3px rgb(255, 255, 255);
+}
+
+.dropdown-link.active {
+  background-color: #444;
+  font-weight: bold;
+}
+
+.footer {
+  background-color: #000;
+  color: white;
+  text-align: center;
+  padding: 10px 0;
+  font-size: 1rem;
+  position: relative;
+  bottom: 0;
+  width: 100%;
+}
+
+.footer-link {
+  color: white;
+  text-decoration: none;
+  margin: 0 10px;
+}
+
+.footer-link:hover {
+  color: #888;
+}
+
+.footer-separator {
+  margin: 0 10px;
+  color: #888;
+}
+
+.footer-icon {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  margin-right: -2.5px;
+}
+
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  gap: 4px;
+}
+
+.nav-toggle .bars {
+  width: 25px;
+  height: 3px;
+  background-color: white;
+}
+
+.dropdown-menu {
+  display: none;
+  flex-direction: column;
+  position: absolute;
+  top: 60px;
+  right: 20px;
+  background-color: #000;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+}
+
+.dropdown-menu.active {
+  display: flex;
+}
+
+.dropdown-link {
+  color: white;
+  text-decoration: none;
+  padding: 10px 20px;
+  text-align: center;
+}
+
+.dropdown-link:hover {
+  background-color: #333;
+}
+
+@media (max-width: 525px) {
+.nav-right {
+  display: none;
+}
+
+.nav-toggle {
+  display: flex;
+}
+
+.dropdown-menu.active {
+  display: flex;
+}
+}

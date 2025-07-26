@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Search - MLB</title>
+    <link rel="icon" href="icon.png" type="image/png" />
+    <link rel="stylesheet" href="style-2.css" />
+    <link rel="stylesheet" href="search.css">
+</head>
+<body>
+    <div id="navbar-container"></div>
+
+    <div class="main-content">
+        <div id="search" class="search-section">
+            <h2>Team Search</h2>
+            
+            <div class="search-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="teamSearch">Search for a team:</label>
+                        <input type="text" id="teamSearch" placeholder="Enter team name..." autocomplete="off">
+                        <div id="teamSuggestions" class="suggestions-dropdown"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="searchResults" class="search-results"></div>
+        </div>
+    </div>
+
+    <script src="navbarLoader.js"></script>
+    <script src="navbar.js"></script>
+    <script src="search.js"></script>
+    <div id="footer-container"></div>
+    <script>
+      fetch("footer.html")
+        .then(response => response.text())
+        .then(html => {
+          document.getElementById("footer-container").innerHTML = html;
+        });
+    </script>
+</body>
+</html>

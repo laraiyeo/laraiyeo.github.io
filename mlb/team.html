@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OBS Embed View - MLB Live Tracker</title>
+  <link rel="icon" href="icon.png" type="image/png" />
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+      padding-top: 25px;
+      padding-left: 50px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      height: 100vh;
+    }
+
+    #scaleWrapper {
+      transform: scale(2);
+      transform-origin: top left;
+    }
+  
+    .game-card {
+      margin: 0 auto;
+      max-width: 400px;
+    }
+  </style>
+  
+</head>
+<body>
+<div id="scaleWrapper">
+  <div id="gameBlockContainer"></div>
+  <div id="gamesContainer" style="display:none"></div>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const team = params.get("team");
+
+    let currentHtml = "";
+
+    function getAdjustedDateForMLB() {
+      const now = new Date();
+
+      const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+
+      if (estNow.getHours() < 2) {
+        estNow.setDate(estNow.getDate() - 1);
+      }
+
+      const adjustedDate = estNow.getFullYear() + "-" +
+                           String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
+                           String(estNow.getDate()).padStart(2, "0");
+
+      return adjustedDate;
+    }
+
+    async function getLogoUrl(teamName) {
+        const teamAbbrMap = {
+        "Arizona Diamondbacks": "ari_d", "Atlanta Braves": "atl_l", "Baltimore Orioles": "bal_l", "Boston Red Sox": "bos_d",
+        "Chicago White Sox": "cws_d", "Chicago Cubs": "chc_d", "Cincinnati Reds": "cin_d", "Cleveland Guardians": "cle_l",
+        "Colorado Rockies": "col_d", "Detroit Tigers": "det_d", "Houston Astros": "hou_d", "Kansas City Royals": "kc_d",
+        "Los Angeles Angels": "laa_d", "Los Angeles Dodgers": "lad_l", "Miami Marlins": "mia_d", "Milwaukee Brewers": "mil_d",
+        "Minnesota Twins": "min_d", "New York Yankees": "nyy_d", "New York Mets": "nym_d", "Athletics": "oak_l",
+        "Philadelphia Phillies": "phi_l", "Pittsburgh Pirates": "pit_d", "San Diego Padres": "sd_d", "San Francisco Giants": "sf_d",
+        "Seattle Mariners": "sea_d", "St. Louis Cardinals": "stl_d", "Tampa Bay Rays": "tb_d", "Texas Rangers": "tex_d",
+        "Toronto Blue Jays": "tor_l", "Washington Nationals": "wsh_d"
+        };
+        const abbr = teamAbbrMap[teamName];
+        if (!abbr) return "";
+        const darkUrl = `https://raw.githubusercontent.com/MLBAMGames/mlb_teams_logo_svg/main/dark/${abbr}.svg`;
+        const lightUrl = `https://raw.githubusercontent.com/MLBAMGames/mlb_teams_logo_svg/main/light/${abbr}.svg`;
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve(darkUrl);
+            img.onerror = () => resolve(lightUrl);
+            img.src = darkUrl;
+          });
+        }
+
+    async function fetchAndRenderTeamGame(teamName) {
+      const today = getAdjustedDateForMLB();
+      const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=linescore,team`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        const games = data.dates[0]?.games || [];
+
+        const container = document.getElementById("gameBlockContainer");
+        const game = games.find(
+          g => g.teams.away.team.name === teamName || g.teams.home.team.name === teamName
+        );
+
+        if (!game) {
+          const logoUrl = await getLogoUrl(teamName);
+          const noGameCard = document.createElement("div");
+          noGameCard.className = "game-card no-game-card";
+          noGameCard.style.display = "flex";
+          noGameCard.style.alignItems = "center";
+          noGameCard.style.gap = "35px";
+          noGameCard.style.padding = "20px";
+
+          noGameCard.innerHTML = `
+            <img src="${logoUrl}" alt="${teamName} logo" style="width: 48px; height: 48px;">
+            <div style="font-weight: bold;">No game scheduled <br> for today</div>
+          `;
+
+          const newHtml = noGameCard.innerHTML;
+          if (newHtml !== currentHtml) {
+            container.innerHTML = "";
+            container.appendChild(noGameCard);
+            currentHtml = newHtml;
+          }
+          return;
+        }
+
+        if (typeof buildCard === "function") {
+          const card = await buildCard(game);
+          const html = card.innerHTML;
+          if (html !== currentHtml) {
+            container.innerHTML = "";
+            container.appendChild(card);
+            currentHtml = html;
+          }
+        }
+      } catch (err) {
+        console.error("Error loading team game block:", err);
+      }
+    }
+
+    let promoActive = false;
+    let promoTimeout = null;
+    let lastPromoTime = 0;
+
+    async function showPromoCard() {
+      const container = document.getElementById("gameBlockContainer");
+      const promoCard = document.createElement("div");
+      promoCard.className = "game-card promo-card";
+      promoCard.style.display = "flex";
+      promoCard.style.alignItems = "center";
+      promoCard.style.gap = "25px";
+      promoCard.style.padding = "20px";
+      promoCard.innerHTML = `
+        <img src="../assets/cover.jpg" alt="WOAH Cover" style="width: 48px; height: 48px; border-radius: 8px;">
+        <div style="font-weight: bold; font-size: 1.1em; margin-left:20px; margin-right:-10px;">
+          Stream K S U B I <br>
+          <span style="font-size:0.8em;">by DamiV12</span>
+          <div style="margin-top: 5px; margin-left:28px; display: flex; gap: 15px;">
+            <img src="../assets/logo1.png" alt="Logo 1" style="height: 14px;">
+            <img src="../assets/logo2.png" alt="Logo 2" style="height: 14px;">
+            <img src="../assets/logo3.png" alt="Logo 3" style="height: 14px;">
+          </div>
+        </div>
+      `;
+      const newHtml = promoCard.innerHTML;
+      if (newHtml !== currentHtml) {
+        container.innerHTML = "";
+        container.appendChild(promoCard);
+        currentHtml = newHtml;
+      }
+    }
+
+    async function fetchAndRenderTeamGameWithPromo(teamName) {
+      if (promoActive) return;
+      await fetchAndRenderTeamGame(teamName);
+    }
+
+    const script = document.createElement("script");
+    script.src = "teams.js";
+    document.body.appendChild(script);
+
+    script.onload = () => {
+      if (team) {
+        let lastPromo = Date.now();
+        let showingPromo = false;
+
+        // Show the game card immediately on load
+        fetchAndRenderTeamGameWithPromo(team);
+
+        setInterval(async () => {
+          const now = Date.now();
+          if (!showingPromo && now - lastPromo >= 900000) {
+            showingPromo = true;
+            promoActive = true;
+            await showPromoCard();
+            setTimeout(async () => {
+              promoActive = false;
+              showingPromo = false;
+              lastPromo = Date.now();
+              await fetchAndRenderTeamGameWithPromo(team);
+            }, 10000);
+          } else if (!showingPromo) {
+            await fetchAndRenderTeamGameWithPromo(team);
+          }
+        }, 2000);
+      }
+    };
+  </script>
+</div>
+</body>
+</html>

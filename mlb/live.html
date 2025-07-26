@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Live Games - MLB Live Tracker</title>
+    <link rel="icon" href="icon.png" type="image/png" />
+    <link rel="stylesheet" href="style.css"/>
+  </head>
+  <body>
+    <div id="navbar-container"></div>
+
+    <div id="scoreboard">
+      <h2 style="color: black;">Today's Live Games</h2>
+      <div id="gamesContainer" class="games-container"></div>
+
+      <div class="team away">
+        <div class="team-name" id="awayTeamName"></div>
+        <div class="team-score" id="awayScore"></div>
+      </div>
+
+      <div class="team home">
+        <div class="team-name" id="homeTeamName"></div>
+        <div class="team-score" id="homeScore"></div>
+      </div>
+
+      <p id="state"></p>
+      <p id="inningInfo"></p>
+      <p id="count"></p> 
+    </div>
+
+    <script src="navbarLoader.js"></script>
+    <script src="navbar.js"></script>
+    <script src="live.js"></script>
+    <div id="footer-container"></div>
+    <script>
+      fetch("footer.html")
+        .then(response => response.text())
+        .then(html => {
+          document.getElementById("footer-container").innerHTML = html;
+        });
+    </script>
+  </body>
+</html>
