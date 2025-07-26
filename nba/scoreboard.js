@@ -486,36 +486,80 @@ async function renderBoxScore(gameId, gameState) {
 
       const starters = athletes
         .filter(player => player.starter)
-        .map(player => `
-          <tr class="${gameState === "Final" ? "" : player.active ? "active-player" : ""}">
-            <td>${gameState === "Final" ? "" : player.active ? "🟢 " : ""}${isSmallScreen ? `${player.athlete.shortName}` : `${player.athlete.displayName}`} <span style="color: grey;">${player.athlete.position.abbreviation}</span></td>
-            <td>${player.stats[0] || "0"}</td> <!-- MIN -->
-            <td>${player.stats[13] || "0"}</td> <!-- PTS -->
-            ${isSmallScreen ? "" : `<td>${player.stats[6] || "0"}</td>`} <!-- REB -->
-            ${isSmallScreen ? "" : `<td>${player.stats[7] || "0"}</td>`} <!-- AST -->
-            ${isSmallScreen ? "" : `<td>${player.stats[11] || "0"}</td>`} <!-- PF -->
-            <td>${player.stats[1] || "0"}</td> <!-- FG -->
-            ${isSmallScreen ? "" : `<td>${player.stats[2] || "0-0"}</td>`} <!-- 3PT -->
-            ${isSmallScreen ? "" : `<td>${player.stats[12] || "0"}</td>`} <!-- +/- -->
-          </tr>
-        `).join("");
+        .map(player => {
+          // Function to remove hyphenated part of last name
+          const formatPlayerName = (name) => {
+            if (!name) return '';
+            // Split by spaces to get parts
+            const parts = name.split(' ');
+            if (parts.length >= 2) {
+              // Check if last part has a dash
+              const lastName = parts[parts.length - 1];
+              if (lastName.includes('-')) {
+                // Replace last part with first part before dash
+                parts[parts.length - 1] = lastName.split('-')[0];
+              }
+            }
+            return parts.join(' ');
+          };
+          
+          const playerName = isSmallScreen 
+            ? formatPlayerName(player.athlete.shortName) 
+            : formatPlayerName(player.athlete.displayName);
+            
+          return `
+            <tr class="${gameState === "Final" ? "" : player.active ? "active-player" : ""}">
+              <td>${gameState === "Final" ? "" : player.active ? "🟢 " : ""}${playerName} <span style="color: grey;">${player.athlete.position.abbreviation}</span></td>
+              <td>${player.stats[0] || "0"}</td> <!-- MIN -->
+              <td>${player.stats[13] || "0"}</td> <!-- PTS -->
+              ${isSmallScreen ? "" : `<td>${player.stats[6] || "0"}</td>`} <!-- REB -->
+              ${isSmallScreen ? "" : `<td>${player.stats[7] || "0"}</td>`} <!-- AST -->
+              ${isSmallScreen ? "" : `<td>${player.stats[11] || "0"}</td>`} <!-- PF -->
+              <td>${player.stats[1] || "0"}</td> <!-- FG -->
+              ${isSmallScreen ? "" : `<td>${player.stats[2] || "0-0"}</td>`} <!-- 3PT -->
+              ${isSmallScreen ? "" : `<td>${player.stats[12] || "0"}</td>`} <!-- +/- -->
+            </tr>
+          `;
+        }).join("");
 
       const nonStarters = athletes
         .filter(player => !player.starter)
         .sort((a, b) => parseFloat(b.stats[0] || "0") - parseFloat(a.stats[0] || "0")) // Sort by minutes played
-        .map(player => `
-          <tr class="${gameState === "Final" ? "" : player.active ? "active-player" : ""}">
-            <td>${gameState === "Final" ? "" : player.active ? "🟢 " : ""}${isSmallScreen ? `${player.athlete.shortName}` : `${player.athlete.displayName}`} <span style="color: grey;">${player.athlete?.position?.abbreviation || ""}</span></td>
-            <td>${player.stats[0] || "0"}</td> <!-- MIN -->
-            <td>${player.stats[13] || "0"}</td> <!-- PTS -->
-            ${isSmallScreen ? "" : `<td>${player.stats[6] || "0"}</td>`} <!-- REB -->
-            ${isSmallScreen ? "" : `<td>${player.stats[7] || "0"}</td>`} <!-- AST -->
-            ${isSmallScreen ? "" : `<td>${player.stats[11] || "0"}</td>`} <!-- PF -->
-            <td>${player.stats[1] || "0"}</td> <!-- FG -->
-            ${isSmallScreen ? "" : `<td>${player.stats[2] || "0-0"}</td>`} <!-- 3PT -->
-            ${isSmallScreen ? "" : `<td>${player.stats[12] || "0"}</td>`} <!-- +/- -->
-          </tr>
-        `).join("");
+        .map(player => {
+          // Function to remove hyphenated part of last name
+          const formatPlayerName = (name) => {
+            if (!name) return '';
+            // Split by spaces to get parts
+            const parts = name.split(' ');
+            if (parts.length >= 2) {
+              // Check if last part has a dash
+              const lastName = parts[parts.length - 1];
+              if (lastName.includes('-')) {
+                // Replace last part with first part before dash
+                parts[parts.length - 1] = lastName.split('-')[0];
+              }
+            }
+            return parts.join(' ');
+          };
+          
+          const playerName = isSmallScreen 
+            ? formatPlayerName(player.athlete.shortName) 
+            : formatPlayerName(player.athlete.displayName);
+            
+          return `
+            <tr class="${gameState === "Final" ? "" : player.active ? "active-player" : ""}">
+              <td>${gameState === "Final" ? "" : player.active ? "🟢 " : ""}${playerName} <span style="color: grey;">${player.athlete?.position?.abbreviation || ""}</span></td>
+              <td>${player.stats[0] || "0"}</td> <!-- MIN -->
+              <td>${player.stats[13] || "0"}</td> <!-- PTS -->
+              ${isSmallScreen ? "" : `<td>${player.stats[6] || "0"}</td>`} <!-- REB -->
+              ${isSmallScreen ? "" : `<td>${player.stats[7] || "0"}</td>`} <!-- AST -->
+              ${isSmallScreen ? "" : `<td>${player.stats[11] || "0"}</td>`} <!-- PF -->
+              <td>${player.stats[1] || "0"}</td> <!-- FG -->
+              ${isSmallScreen ? "" : `<td>${player.stats[2] || "0-0"}</td>`} <!-- 3PT -->
+              ${isSmallScreen ? "" : `<td>${player.stats[12] || "0"}</td>`} <!-- +/- -->
+            </tr>
+          `;
+        }).join("");
 
       return `
         <div class="team-box-score ${gameState === "Final" ? "final" : ""} responsive-team-box-score ${gameState === "Final" ? "final" : ""}">
