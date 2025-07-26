@@ -438,7 +438,7 @@ async function renderBoxScore(gameId, gameState) {
     const isGameInSummerLeague = isDateInSummerLeague(gameDate);
     
     // Use Summer League API if the game date is within Summer League period
-    if (isGameInSummerLeague || isSummerLeague) {
+    if (isGameInSummerLeague) {
       BOX_SCORE_API_URL = `https://cdn.espn.com/core/nba-summer-league/boxscore?xhr=1&gameId=${gameId}&league=nba-summer-las-vegas`;
     } else {
       BOX_SCORE_API_URL = `https://cdn.espn.com/core/nba/boxscore?xhr=1&gameId=${gameId}`;
