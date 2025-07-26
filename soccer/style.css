@@ -24,6 +24,18 @@ body {
     scrollbar-width: none; /* For Firefox */
 }
 
+.footer-separator {
+  margin: 0 10px;
+  color: #888;
+}
+
+.footer-icon {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  margin-right: -2.5px;
+}
+
 #scoreboard::-webkit-scrollbar {
   display: none; /* For Chrome, Safari, and Edge */
 }

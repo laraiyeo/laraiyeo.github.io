@@ -28,6 +28,18 @@
   color: white;
 }
 
+.footer-separator {
+  margin: 0 10px;
+  color: #888;
+}
+
+.footer-icon {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  margin-right: -2.5px;
+}
+
 .match-card {
   background: #1a1a1a;
   border-radius: 1rem;
