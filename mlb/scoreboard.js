@@ -501,17 +501,17 @@ function renderLinescoreTable(linescore, awayName, homeName) {
           <td>${awayName}</td>
           ${awayScores}
           <td></td> <!-- Break between innings and totals -->
-          <td>${linescore.teams.away.runs}</td>
-          <td>${linescore.teams.away.hits}</td>
-          <td>${linescore.teams.away.errors}</td>
+          <td>${linescore.teams.away.runs || 0}</td>
+          <td>${linescore.teams.away.hits || 0}</td>
+          <td>${linescore.teams.away.errors || 0}</td>
         </tr>
         <tr>
           <td>${homeName}</td>
           ${homeScores}
           <td></td> <!-- Break between innings and totals -->
-          <td>${linescore.teams.home.runs}</td>
-          <td>${linescore.teams.home.hits}</td>
-          <td>${linescore.teams.home.errors}</td>
+          <td>${linescore.teams.home.runs || 0}</td>
+          <td>${linescore.teams.home.hits || 0}</td>
+          <td>${linescore.teams.home.errors || 0}</td>
         </tr>
       </tbody>
     </table>
@@ -787,7 +787,7 @@ async function fetchAndUpdateScoreboard(gamePk) {
     const inningCenter = document.querySelector(".inning-center");
     const isSmallScreen = window.innerWidth <= 525;
     if (!isInProgress && inningCenter) {
-      inningCenter.innerHTML = `<div class="inning-status" style="font-size: ${isSmallScreen ? '2rem' : '3.5rem'};">Final</div>`; // Replace with "Final"
+      inningCenter.innerHTML = `<div class="inning-status" style="font-size: ${isSmallScreen ? '2rem' : '3.5rem'};"> ${isGameOver ? "Final" : "Scheduled"}</div>`; // Replace with "Final"
     }
 
     // Render player stats

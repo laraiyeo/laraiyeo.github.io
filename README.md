@@ -42,13 +42,19 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
   - Click on a team logo to get a unique URL for OBS
   - For F1: All 10 constructor teams displayed with official 2025 car liveries, team colors, driver lineups, championship positions, and detailed statistics including points, wins, and gap to championship leader. Full OBS integration with individual team overlays for streaming.
 
-- **Advanced Team Search**
-  - Search for any team across all sports leagues with intelligent autocomplete
-  - Filter matches by custom date ranges (supports multi-year searches)
-  - View comprehensive match history with pagination for large result sets
-  - Click on any search result to view detailed scoreboard for that specific game
-  - Bookmark and share search results with URL parameters
-  - Mobile-optimized with team abbreviations for compact viewing
+- **Comprehensive Team Dashboard**
+  - Individual team pages accessible through search results with complete team information
+  - Current Game Display: Shows today's game if scheduled, or next upcoming game with proper MLB date adjustment logic
+  -*Recent Match History: Paginated view of completed games with customizable date range selection and win/loss indicators
+  - Upcoming Schedule: Next 5 scheduled games with dates, opponents, and venue information
+  - Team Statistics: Real-time season stats including offensive and pitching metrics with calculated derived statistics
+  - Current Standings: Team's position in division with record, win percentage, and games behind leader
+  - Complete Player Roster: Searchable, paginated roster with player positions and jersey numbers
+  - Detailed Player Statistics: Click any player to view comprehensive hitting or pitching stats with **MLB rankings for each statistic**
+    - Player Performance Rankings: Each player stat shows their ranking among all MLB players (e.g., "#15 in MLB" for home runs)
+    - Smart Position Detection: Automatically displays hitting stats for position players and pitching stats for pitchers
+    - Quality Filtering: Rankings only include players/pitchers with meaningful playing time (10+ games for hitters, 5+ games for pitchers)
+    - Advanced Metrics: Includes traditional stats plus advanced metrics like OPS, WHIP, K/9, BB/9, and more
 
 - **Standings**
   - View current league standings side by side for both conferences with divisions
@@ -123,12 +129,13 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - (5/12/2025) Added playoff bracket page to NBA. Coming soon to NHL and MLB.
 - **(5/27/2025) Added fully functional WNBA tracker**
 - **(06/14/2025) Added fully functional Club World Cup tracker**
-- **(06/28/2024) Added comprehensive team search functionality across all sports with multi-year date range support**
+- ~~**(06/28/2024) Added comprehensive team search functionality across all sports with multi-year date range support**~~
 - (06/28/2024) Added UEFA bracket page with complete tournament visualization
 - **(07/02/2025) Added comprehensive F1 tracking with constructor teams, driver/constructor championships, race schedules, and race results**
 - **(07/04/2025) Integrated live streaming capabilities for MLB and F1 with automatic stream detection and controls**
 - (07/04/2025) Full F1 OBS integration with individual constructor team overlays and dynamic content switching
 - (07/112025) Added support for NBA Summer League
+- **(07/25/2025) Added comprehensive MLB team dashboard pages with detailed player statistics and MLB rankings**
 
 ---
 
