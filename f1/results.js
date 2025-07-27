@@ -314,34 +314,39 @@ async function fetchRaceResults() {
 }
 
 async function fetchCompetitionWinners(eventData) {
-  // Initialize with all expected race weekend competitions as TBD
-  const winners = {
-    'Free Practice 1': 'TBD',
-    'Free Practice 2': 'TBD',
-    'Free Practice 3': 'TBD',
-    'Sprint Shootout': 'TBD',
-    'Sprint Race': 'TBD',
-    'Qualifying': 'TBD',
-    'Race': 'TBD'
-  };
+  const winners = {};
 
   try {
-    // Process each competition to find winners and update from TBD only if we have actual results
+    // Process each competition to find winners - ONLY INCLUDE COMPETITIONS THAT ACTUALLY EXIST
     const competitionPromises = (eventData.competitions || []).map(async (competition, index) => {
       try {
-        // Check competition status first from the competition level
+        // Check competition status first - only include 'in' (in progress) or 'post' (completed) competitions
+        let shouldInclude = false;
+        let isInProgress = false;
+        
         if (competition.status?.$ref) {
           try {
             const statusResponse = await fetch(convertToHttps(competition.status.$ref));
             const statusData = await statusResponse.json();
             
-            // If competition is still in progress (in state), keep as TBD
+            // Only include competitions that are "in" (in progress) or "post" (completed) - SAME AS RACE-INFO.JS
             if (statusData.type?.state === 'in') {
-              return; // Keep winner as TBD
+              shouldInclude = true;
+              isInProgress = true;
+            } else if (statusData.type?.state === 'post') {
+              shouldInclude = true;
+              isInProgress = false;
             }
           } catch (error) {
             console.error('Error fetching competition status:', error);
+            shouldInclude = true; // Fallback to include if status check fails
           }
+        } else {
+          shouldInclude = true; // Include if no status reference
+        }
+        
+        if (!shouldInclude) {
+          return null; // Skip this competition entirely
         }
 
         const compResponse = await fetch(convertToHttps(competition.$ref));
@@ -371,90 +376,98 @@ async function fetchCompetitionWinners(eventData) {
         console.log(`Processing competition: ${competitionName} (key: ${competitionKey})`);
         console.log(`Competition type details:`, compType);
         
-        // Only update if this competition exists in our winners object (don't add unknown competitions)
-        if (winners.hasOwnProperty(competitionName)) {
-          if (compData.competitors && compData.competitors.length > 0) {
-            console.log(`Processing ${competitionName} with ${compData.competitors.length} competitors`);
-            
-            // Process competitors exactly like race-info.js does
-            const competitorPromises = (compData.competitors || []).map(async (competitor, compIndex) => {
-              try {
-                // Fetch athlete and statistics in parallel (same as race-info.js)
-                const [athleteResponse, statsResponse] = await Promise.all([
-                  competitor.athlete?.$ref ? fetch(convertToHttps(competitor.athlete.$ref)) : Promise.resolve(null),
-                  competitor.statistics?.$ref ? fetch(convertToHttps(competitor.statistics.$ref)) : Promise.resolve(null)
-                ]);
-                
-                // Get athlete info
-                let driverName = 'Unknown';
-                if (athleteResponse) {
-                  const athleteData = await athleteResponse.json();
-                  driverName = athleteData.fullName || athleteData.displayName || athleteData.shortName || 'Unknown';
-                }
-                
-                // Get position from statistics (same logic as race-info.js)
-                let position = competitor.order || 999;
-                
-                if (statsResponse) {
-                  const statsData = await statsResponse.json();
-                  
-                  const generalStats = statsData.splits?.categories?.find(cat => cat.name === 'general');
-                  
-                  if (generalStats && generalStats.stats) {
-                    const statMap = {};
-                    generalStats.stats.forEach(stat => {
-                      statMap[stat.name] = stat.displayValue || stat.value;
-                    });
-                    
-                    // Get position from stats (same as race-info.js)
-                    const statsPosition = parseInt(statMap.place || statMap.position) || competitor.order || 999;
-                    position = statsPosition;
-                  }
-                }
-                
-                return {
-                  driverName,
-                  position,
-                  winner: competitor.winner || false
-                };
-                
-              } catch (error) {
-                console.error(`Error processing competitor ${compIndex}:`, error);
-                return null;
+        // Initialize this competition as TBD first
+        winners[competitionName] = 'TBD';
+        
+        // If competition is still in progress, keep as TBD
+        if (isInProgress) {
+          return null; // Keep as TBD, don't process further
+        }
+        
+        // Only process completed competitions for winner determination
+        if (compData.competitors && compData.competitors.length > 0) {
+          console.log(`Processing ${competitionName} with ${compData.competitors.length} competitors`);
+          
+          // Process competitors exactly like race-info.js does
+          const competitorPromises = (compData.competitors || []).map(async (competitor, compIndex) => {
+            try {
+              // Fetch athlete and statistics in parallel (same as race-info.js)
+              const [athleteResponse, statsResponse] = await Promise.all([
+                competitor.athlete?.$ref ? fetch(convertToHttps(competitor.athlete.$ref)) : Promise.resolve(null),
+                competitor.statistics?.$ref ? fetch(convertToHttps(competitor.statistics.$ref)) : Promise.resolve(null)
+              ]);
+              
+              // Get athlete info
+              let driverName = 'Unknown';
+              if (athleteResponse) {
+                const athleteData = await athleteResponse.json();
+                driverName = athleteData.fullName || athleteData.displayName || athleteData.shortName || 'Unknown';
               }
-            });
-            
-            const competitorData = (await Promise.all(competitorPromises)).filter(data => data !== null);
-            
-            // Only update from TBD if we have actual meaningful results
-            if (competitorData.length > 0) {
-              // For Race and Sprint Race, only declare a winner if someone actually won
-              if (competitionName === 'Race' || competitionName === 'Sprint Race') {
-                // For races, only show winner if someone actually has winner: true
-                const actualWinner = competitorData.find(competitor => competitor.winner === true);
-                if (actualWinner) {
-                  winners[competitionName] = actualWinner.driverName;
+              
+              // Get position from statistics (same logic as race-info.js)
+              let position = competitor.order || 999;
+              
+              if (statsResponse) {
+                const statsData = await statsResponse.json();
+                
+                const generalStats = statsData.splits?.categories?.find(cat => cat.name === 'general');
+                
+                if (generalStats && generalStats.stats) {
+                  const statMap = {};
+                  generalStats.stats.forEach(stat => {
+                    statMap[stat.name] = stat.displayValue || stat.value;
+                  });
+                  
+                  // Get position from stats (same as race-info.js)
+                  const statsPosition = parseInt(statMap.place || statMap.position) || competitor.order || 999;
+                  position = statsPosition;
                 }
-                // Otherwise, leave as 'TBD' (already set above)
-              } else {
-                // For practice sessions, qualifying, etc., only update if we have valid position data
-                // Check if any competitor has a meaningful position (not just default 999)
-                const validResults = competitorData.filter(comp => comp.position < 999);
-                if (validResults.length > 0) {
-                  validResults.sort((a, b) => a.position - b.position);
-                  winners[competitionName] = validResults[0].driverName;
-                }
-                // Otherwise, leave as 'TBD'
               }
+              
+              return {
+                driverName,
+                position,
+                winner: competitor.winner || false
+              };
+              
+            } catch (error) {
+              console.error(`Error processing competitor ${compIndex}:`, error);
+              return null;
             }
-          } else {
-            console.log(`No competitors found for ${competitionName}, keeping as TBD`);
+          });
+          
+          const competitorData = (await Promise.all(competitorPromises)).filter(data => data !== null);
+          
+          // Only update from TBD if we have actual meaningful results
+          if (competitorData.length > 0) {
+            // For Race and Sprint Race, only declare a winner if someone actually won
+            if (competitionName === 'Race' || competitionName === 'Sprint Race') {
+              // For races, only show winner if someone actually has winner: true
+              const actualWinner = competitorData.find(competitor => competitor.winner === true);
+              if (actualWinner) {
+                winners[competitionName] = actualWinner.driverName;
+              }
+              // Otherwise, leave as 'TBD' (already set above)
+            } else {
+              // For practice sessions, qualifying, etc., only update if we have valid position data
+              // Check if any competitor has a meaningful position (not just default 999)
+              const validResults = competitorData.filter(comp => comp.position < 999);
+              if (validResults.length > 0) {
+                validResults.sort((a, b) => a.position - b.position);
+                winners[competitionName] = validResults[0].driverName;
+              }
+              // Otherwise, leave as 'TBD'
+            }
           }
         } else {
-          console.log(`Unknown competition type: ${competitionName}, skipping`);
+          console.log(`No competitors found for ${competitionName}, keeping as TBD`);
         }
+        
+        return null; // Return null since we're updating winners object directly
+        
       } catch (error) {
         console.error(`Error fetching competition ${index}:`, error);
+        return null;
       }
     });
     
