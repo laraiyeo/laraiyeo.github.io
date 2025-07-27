@@ -9,6 +9,14 @@ let playersPerPage = 4;
 let selectedPlayer = null;
 let playersForComparison = []; // Array to store players selected for comparison
 
+// Convert HTTP URLs to HTTPS to avoid mixed content issues
+function convertToHttps(url) {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+}
+
 // NBA team colors mapping
 const teamColors = {
   "Atlanta Hawks": "#E03A3E",
@@ -127,11 +135,11 @@ async function loadTeamInfo() {
     const data = await response.json();
     currentTeam = data.team;
     
-    const logoUrl = currentTeam.logos?.find(logo =>
+    const logoUrl = convertToHttps(currentTeam.logos?.find(logo =>
         logo.rel.includes(
           ["26"].includes(currentTeam.id) ? 'secondary_logo_on_secondary_color' : 'primary_logo_on_primary_color'
         )
-    )?.href || `https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/${currentTeam.abbreviation}.png`;
+    )?.href) || `https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/${currentTeam.abbreviation}.png`;
     
     const teamColor = teamColors[currentTeam.displayName] || "#000000";
     
@@ -589,17 +597,17 @@ async function fetchAllNBAPlayers() {
     // Fetch roster for each team
     const teamPromises = teamsData.items.map(async (teamRef) => {
       try {
-        const teamResponse = await fetch(`${teamRef.$ref}?lang=en&region=us`);
+        const teamResponse = await fetch(convertToHttps(`${teamRef.$ref}?lang=en&region=us`));
         const teamData = await teamResponse.json();
         
         if (teamData.athletes && teamData.athletes.$ref) {
-          const rosterResponse = await fetch(`${teamData.athletes.$ref}?lang=en&region=us`);
+          const rosterResponse = await fetch(convertToHttps(`${teamData.athletes.$ref}?lang=en&region=us`));
           const rosterData = await rosterResponse.json();
           
           if (rosterData.items) {
             const playerPromises = rosterData.items.map(async (playerRef) => {
               try {
-                const playerResponse = await fetch(`${playerRef.$ref}?lang=en&region=us`);
+                const playerResponse = await fetch(convertToHttps(`${playerRef.$ref}?lang=en&region=us`));
                 const playerData = await playerResponse.json();
                 
                 return {
@@ -609,7 +617,7 @@ async function fetchAllNBAPlayers() {
                   displayName: playerData.displayName || `${playerData.firstName || ''} ${playerData.lastName || ''}`.trim(),
                   jersey: playerData.jersey || 'N/A',
                   position: playerData.position?.abbreviation || 'N/A',
-                  headshot: playerData.headshot?.href || 'icon.png',
+                  headshot: convertToHttps(playerData.headshot?.href) || 'icon.png',
                   team: teamData.displayName || 'Unknown Team',
                   teamId: teamData.id
                 };
@@ -811,7 +819,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
               gap: 10px;
               transition: background-color 0.2s ease;
             " onmouseover="this.style.backgroundColor='#f0f0f0'" onmouseout="this.style.backgroundColor='white'">
-              <img src="${player.headshot}" alt="${player.displayName}" 
+              <img src="${convertToHttps(player.headshot)}" alt="${player.displayName}" 
                    style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover;" 
                    onerror="this.src='icon.png';">
               <div>
@@ -1005,7 +1013,7 @@ async function loadCurrentStanding() {
       // Find current team in standings
       let teamStanding = null;
       for (const teamStandingData of standingsData) {
-        const teamRef = teamStandingData.team.$ref.replace('http://', 'https://');
+        const teamRef = convertToHttps(teamStandingData.team.$ref);
         const teamRes = await fetch(teamRef);
         const teamData = await teamRes.json();
         
@@ -1154,7 +1162,7 @@ function displayRosterPlayers() {
     const jerseyNumber = player.jersey || "N/A";
     const firstName = player.firstName || "";
     const lastName = player.lastName || player.displayName || "Unknown";
-    const headshotUrl = player.headshot?.href || "icon.png";
+    const headshotUrl = convertToHttps(player.headshot?.href) || "icon.png";
     
     return `
       <div class="player-card" data-player-id="${player.id}" onclick="showPlayerDetails('${player.id}', '${firstName}', '${lastName}', '${jerseyNumber}', '${position}', '${headshotUrl}')">
@@ -1390,7 +1398,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
               gap: 10px;
               transition: background-color 0.2s ease;
             " onmouseover="this.style.backgroundColor='#f0f0f0'" onmouseout="this.style.backgroundColor='white'">
-              <img src="${player.headshot}" alt="${player.displayName}" 
+              <img src="${convertToHttps(player.headshot)}" alt="${player.displayName}" 
                    style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover;" 
                    onerror="this.src='icon.png';">
               <div>
@@ -1414,7 +1422,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
                   lastName: player.lastName || player.displayName || 'Unknown',
                   jersey: player.jersey || 'N/A',
                   position: player.position || 'N/A',
-                  headshot: player.headshot || 'icon.png'
+                  headshot: convertToHttps(player.headshot) || 'icon.png'
                 };
                 
                 // Close current modal
@@ -1630,7 +1638,7 @@ async function showPlayerComparison(player1, player2) {
         justify-content: center;
         z-index: 1002;
       ">×</button>
-      <img src="${player1.headshot}" alt="${player1.firstName} ${player1.lastName}" 
+      <img src="${convertToHttps(player1.headshot)}" alt="${player1.firstName} ${player1.lastName}" 
            style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;" 
            onerror="this.src='icon.png';">
       <div>
@@ -1684,7 +1692,7 @@ async function showPlayerComparison(player1, player2) {
         justify-content: center;
         z-index: 1002;
       ">×</button>
-      <img src="${player2.headshot}" alt="${player2.firstName} ${player2.lastName}" 
+      <img src="${convertToHttps(player2.headshot)}" alt="${player2.firstName} ${player2.lastName}" 
            style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;" 
            onerror="this.src='icon.png';">
       <div style="text-align: right;">
