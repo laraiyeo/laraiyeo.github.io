@@ -574,7 +574,7 @@ async function createMatchCard(game, isRecent = false) {
           <img src="${opponentLogo}" alt="${opponent.team.abbreviation}" class="match-team-logo" onerror="this.src='icon.png';">
         </div>
       </div>
-      <div class="match-date">${formattedDate}${isHomeTeam ? ' (H)' : ' (A)'}</div>
+      <div class="match-date">${formattedDate}</div>
     </div>
   `;
 }
