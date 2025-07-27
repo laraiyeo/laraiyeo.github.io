@@ -31,6 +31,58 @@ function convertToHttps(url) {
   return url;
 }
 
+async function calculateRaceWeekendEndDate(eventData) {
+  try {
+    if (!eventData.competitions || eventData.competitions.length === 0) {
+      return null;
+    }
+
+    // Get all competition dates
+    let latestDate = null;
+    
+    for (const competition of eventData.competitions) {
+      try {
+        const compResponse = await fetch(convertToHttps(competition.$ref));
+        const compData = await compResponse.json();
+        
+        const competitionDate = new Date(competition.date || compData.date);
+        
+        if (!latestDate || competitionDate > latestDate) {
+          latestDate = competitionDate;
+        }
+      } catch (error) {
+        console.error('Error fetching competition date:', error);
+        // Fall back to competition.date if available
+        if (competition.date) {
+          const competitionDate = new Date(competition.date);
+          if (!latestDate || competitionDate > latestDate) {
+            latestDate = competitionDate;
+          }
+        }
+      }
+    }
+    
+    if (latestDate) {
+      // Set end time to 11:59 PM EST of the latest competition date
+      const endDate = new Date(latestDate);
+      endDate.setHours(23, 59, 59, 999); // Set to 11:59:59.999 PM
+      
+      // Convert to EST (UTC-5) - note: this is a simplified conversion
+      // In a production app, you'd want to use a proper timezone library
+      const estOffset = -5 * 60; // EST is UTC-5
+      const utc = endDate.getTime() + (endDate.getTimezoneOffset() * 60000);
+      const estTime = new Date(utc + (estOffset * 60000));
+      
+      return estTime;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error calculating race weekend end date:', error);
+    return null;
+  }
+}
+
 async function fetchRaceInfo() {
   try {
     // Check if specific race parameters are provided
@@ -366,8 +418,9 @@ async function fetchAdditionalRaceDetails(raceId) {
         }
       }
       
-      // Store end date if available
-      selectedRace.endDate = eventData.endDate ? new Date(eventData.endDate) : null;
+      // Store calculated end date for race weekend
+      const calculatedEndDate = await calculateRaceWeekendEndDate(eventData);
+      selectedRace.endDate = calculatedEndDate;
       
       // Get circuit information
       if (eventData.circuit && eventData.circuit.$ref) {
@@ -494,12 +547,15 @@ async function fetchNextRace() {
       }
     }
     
+    // Get calculated end date for race weekend
+    const calculatedEndDate = await calculateRaceWeekendEndDate(eventData);
+    
     selectedRace = {
       name: eventData.name || 'Unknown Grand Prix',
       shortName: eventData.shortName || eventData.name || 'Unknown GP',
       abbreviation: eventData.abbreviation || 'F1',
       date: new Date(eventData.date),
-      endDate: eventData.endDate ? new Date(eventData.endDate) : null,
+      endDate: calculatedEndDate,
       countryFlag: countryFlag,
       venue: venueName
     };
