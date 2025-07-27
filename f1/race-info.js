@@ -3,6 +3,7 @@ const DRIVERS_STANDINGS_URL = "https://sports.core.api.espn.com/v2/sports/racing
 let selectedRace = null;
 let circuitInfo = null;
 let countdownInterval = null;
+let currentCompetitionInfo = null;
 
 // Add caching for competition results
 let competitionResultsCache = {};
@@ -121,7 +122,7 @@ async function processSVGContent(svgUrl) {
   }
 }
 
-function formatCountdown(targetDate, endDate = null) {
+function formatCountdown(targetDate, endDate = null, nextSessionDate = null) {
   const now = new Date();
   const startTime = targetDate.getTime();
   const endTime = endDate ? endDate.getTime() : null;
@@ -139,6 +140,31 @@ function formatCountdown(targetDate, endDate = null) {
   
   // Check if race is in progress
   if (endTime && currentTime >= startTime && currentTime <= endTime) {
+    // If we have a next session date, show countdown to that
+    if (nextSessionDate) {
+      const nextSessionTime = nextSessionDate.getTime();
+      const timeDiffToNext = nextSessionTime - currentTime;
+      
+      if (timeDiffToNext > 0) {
+        const hours = Math.floor(timeDiffToNext / (1000 * 60 * 60));
+        const minutes = Math.floor((timeDiffToNext % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((timeDiffToNext % (1000 * 60)) / 1000);
+        
+        let display = "";
+        let units = [];
+        
+        if (hours > 0) {
+          display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+          units = ['HOURS', 'MINS', 'SECS'];
+        } else {
+          display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+          units = ['MINS', 'SECS'];
+        }
+        
+        return { display, units, expired: false, status: "in-progress", nextSession: true };
+      }
+    }
+    
     return {
       display: "RACE IN PROGRESS",
       units: [],
@@ -500,7 +526,8 @@ function formatRaceDate(date) {
 function updateCountdown() {
   if (!selectedRace) return;
   
-  const countdown = formatCountdown(selectedRace.date, selectedRace.endDate);
+  const nextSessionDate = currentCompetitionInfo?.next?.date ? new Date(currentCompetitionInfo.next.date) : null;
+  const countdown = formatCountdown(selectedRace.date, selectedRace.endDate, nextSessionDate);
   const countdownEl = document.querySelector('.countdown-timer');
   const unitsEl = document.querySelector('.countdown-units');
   const titleEl = document.querySelector('.countdown-title');
@@ -521,10 +548,20 @@ function updateCountdown() {
         break;
         
       case "in-progress":
-        titleEl.textContent = "";
-        countdownEl.style.color = '#f39c12';
-        countdownEl.style.fontSize = '2.5rem';
-        if (unitsEl) unitsEl.innerHTML = '';
+        if (countdown.nextSession) {
+          titleEl.textContent = "NEXT SESSION IN";
+          countdownEl.style.color = 'white';
+          if (unitsEl && countdown.units.length > 0) {
+            unitsEl.innerHTML = countdown.units.map(unit => 
+              `<div class="countdown-unit">${unit}</div>`
+            ).join('');
+          }
+        } else {
+          titleEl.textContent = "";
+          countdownEl.style.color = '#f39c12';
+          countdownEl.style.fontSize = '2.5rem';
+          if (unitsEl) unitsEl.innerHTML = '';
+        }
         break;
         
       case "finished":
@@ -1099,8 +1136,14 @@ async function getCurrentCompetitionInfo(raceId) {
       const eventResponse = await fetch(convertToHttps(raceEvent.event.$ref));
       const eventData = await eventResponse.json();
       
-      // Find the competition that's currently "in" progress
+      // Find the competition that's currently "in" progress or the next upcoming one
+      let currentCompetition = null;
+      let nextCompetition = null;
+      const now = new Date();
+      
       for (const competition of eventData.competitions || []) {
+        const competitionDate = new Date(competition.date);
+        
         if (competition.status?.$ref) {
           try {
             const statusResponse = await fetch(convertToHttps(competition.status.$ref));
@@ -1128,16 +1171,52 @@ async function getCurrentCompetitionInfo(raceId) {
                                     compType.name || 
                                     'Unknown Competition';
               
-              return {
+              currentCompetition = {
                 name: competitionName,
                 date: new Date(competition.date || compData.date)
               };
+              break; // Found current session, use it
             }
           } catch (error) {
             console.error('Error fetching competition status:', error);
           }
         }
+        
+        // Also check for next upcoming session within this race weekend
+        if (competitionDate > now && (!nextCompetition || competitionDate < nextCompetition.date)) {
+          try {
+            const compResponse = await fetch(convertToHttps(competition.$ref));
+            const compData = await compResponse.json();
+            
+            const compType = compData.type || {};
+            
+            // Map abbreviations to full names
+            const typeMap = {
+              'FP1': 'Free Practice 1',
+              'FP2': 'Free Practice 2', 
+              'FP3': 'Free Practice 3',
+              'Qual': 'Qualifying',
+              'Race': 'Race'
+            };
+            
+            const competitionName = typeMap[compType.abbreviation] || 
+                                  compType.text || 
+                                  compType.displayName || 
+                                  compType.name || 
+                                  'Unknown Competition';
+            
+            nextCompetition = {
+              name: competitionName,
+              date: new Date(competition.date || compData.date)
+            };
+          } catch (error) {
+            console.error('Error fetching next competition details:', error);
+          }
+        }
       }
+      
+      // Return current session if in progress, otherwise return next session
+      return currentCompetition || nextCompetition;
     }
     
     return null;
@@ -1461,9 +1540,7 @@ async function startStreamTesting(raceName) {
   
   // Set up page URLs to extract video players from
   const pageUrls = [
-    `https://papahd4.club/formula-1-2025-${normalizedRaceName}/`,
-    `https://papahd4.club/f1-2025-${normalizedRaceName}/`,
-    `https://papahd4.club/formula1-2025-${normalizedRaceName}/`
+    `https://papaahd.live/formula-1-2025-${normalizedRaceName}/`
   ];
   
   console.log('Trying URLs:', pageUrls);
@@ -1555,22 +1632,48 @@ async function renderRaceInfo() {
   const countdown = formatCountdown(selectedRace.date, selectedRace.endDate);
   
   // For in-progress races, get current competition info
-  let currentCompetitionInfo = null;
+  let localCompetitionInfo = null;
   if (countdown.status === "in-progress") {
     const raceId = getQueryParam('raceId');
     if (raceId) {
-      currentCompetitionInfo = await getCurrentCompetitionInfo(raceId);
+      localCompetitionInfo = await getCurrentCompetitionInfo(raceId);
+      currentCompetitionInfo = localCompetitionInfo; // Set global variable
     }
   }
   
+  // Recalculate countdown with next session info if available
+  const nextSessionDate = localCompetitionInfo?.next?.date ? new Date(localCompetitionInfo.next.date) : null;
+  const finalCountdown = formatCountdown(selectedRace.date, selectedRace.endDate, nextSessionDate);
+  
   // Determine which date to show based on race status
   let displayDate;
-  if (countdown.status === "finished" && selectedRace.endDate) {
+  let dateLabel = "";
+  
+  if (finalCountdown.status === "finished" && selectedRace.endDate) {
     displayDate = formatRaceDate(selectedRace.endDate);
-  } else if (countdown.status === "in-progress" && currentCompetitionInfo?.date) {
-    displayDate = formatRaceDate(currentCompetitionInfo.date);
+    dateLabel = "Race Concluded:";
+  } else if (finalCountdown.status === "in-progress") {
+    if (localCompetitionInfo?.date) {
+      displayDate = formatRaceDate(localCompetitionInfo.date);
+      // Check if this is current or next session
+      const now = new Date();
+      const sessionTime = new Date(localCompetitionInfo.date);
+      const sessionEndTime = new Date(sessionTime.getTime() + 2 * 60 * 60 * 1000); // Assume 2 hour sessions
+      
+      if (now >= sessionTime && now <= sessionEndTime) {
+        dateLabel = "Current Session:";
+      } else if (sessionTime > now) {
+        dateLabel = "Next Session:";
+      } else {
+        dateLabel = "Session:";
+      }
+    } else {
+      displayDate = formatRaceDate(selectedRace.date);
+      dateLabel = "Race Weekend:";
+    }
   } else {
     displayDate = formatRaceDate(selectedRace.date);
+    dateLabel = "";
   }
   
   // Base race info
@@ -1578,17 +1681,18 @@ async function renderRaceInfo() {
     <div class="race-info-block">
       <div class="race-name">${selectedRace.shortName}</div>
       <div class="race-circuit">${selectedRace.venue || 'Circuit TBD'}</div>
+      ${dateLabel ? `<div class="race-date-label" style="font-size: 0.9rem; color: #ccc; margin-bottom: 5px;">${dateLabel}</div>` : ''}
       <div class="race-date">${displayDate}</div>
     </div>
     <div class="countdown-center">
-      <div class="countdown-title">${countdown.status === "upcoming" ? "RACE STARTS IN" : ""}</div>
-      <div class="countdown-timer">${countdown.display}</div>
-      ${countdown.status === "in-progress" && currentCompetitionInfo ? 
-        `<div class="current-competition">${currentCompetitionInfo.name}</div>` : 
+      <div class="countdown-title">${finalCountdown.status === "upcoming" ? "RACE STARTS IN" : finalCountdown.nextSession ? "NEXT SESSION IN" : ""}</div>
+      <div class="countdown-timer">${finalCountdown.display}</div>
+      ${finalCountdown.status === "in-progress" && localCompetitionInfo ? 
+        `<div class="current-competition">${localCompetitionInfo.name}</div>` : 
         ''
       }
       <div class="countdown-units">
-        ${countdown.units.length > 0 ? countdown.units.map(unit => `<div class="countdown-unit">${unit}</div>`).join('') : ''}
+        ${finalCountdown.units.length > 0 ? finalCountdown.units.map(unit => `<div class="countdown-unit">${unit}</div>`).join('') : ''}
       </div>
     </div>
     <div class="race-info-block">
@@ -1620,7 +1724,7 @@ async function renderRaceInfo() {
 
   // Add stream embed after topRaceInfo for in-progress races
   const streamContainer = document.getElementById("streamEmbed");
-  if (!streamContainer && countdown.status === "in-progress") {
+  if (!streamContainer && finalCountdown.status === "in-progress") {
     const raceDetailsDiv = document.getElementById("raceDetails");
     if (raceDetailsDiv) {
       const streamDiv = document.createElement("div");
