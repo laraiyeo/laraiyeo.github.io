@@ -55,6 +55,13 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
     - Smart Position Detection: Automatically displays hitting stats for position players and pitching stats for pitchers
     - Quality Filtering: Rankings only include players/pitchers with meaningful playing time (10+ games for hitters, 5+ games for pitchers)
     - Advanced Metrics: Includes traditional stats plus advanced metrics like OPS, WHIP, K/9, BB/9, and more
+  - **NBA Player Search & Comparison**: Dedicated search page allowing users to find and compare any NBA players across all 30 teams
+    - League-wide Player Search: Search through complete rosters of all NBA teams with real-time filtering
+    - Advanced Player Comparison: Side-by-side statistical comparison of any two NBA players with comprehensive season stats
+    - Interactive Comparison Interface: Individual clear buttons for each player allowing selective removal and replacement
+    - Smart UX Design: Prevents clearing both players simultaneously to maintain valid comparison states
+    - Responsive Player Display: Optimized for mobile screens (≤525px) with first-name-only display in comparison view
+    - Comprehensive Statistics: Detailed player stats including points, rebounds, assists, shooting percentages, and advanced metrics
 
 - **Standings**
   - View current league standings side by side for both conferences with divisions
@@ -136,6 +143,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - (07/04/2025) Full F1 OBS integration with individual constructor team overlays and dynamic content switching
 - (07/112025) Added support for NBA Summer League
 - **(07/25/2025) Added comprehensive MLB team dashboard pages with detailed player statistics and MLB rankings**
+- **(07/26/2025) Added comprehensive NBA team dashboard pages with detailed player statistics and NBA rankings**
 
 ---
 
@@ -152,6 +160,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - Live streaming may occasionally fail to load due to external stream source availability
 - F1 OBS overlays may show brief loading states when switching between race cards and constructor standings
 - For streaming, you most definitely need a strong pop-up and ad blocker as the stream where the video comes from has an ad script embedded in it (I have made multiple attempts to try and remove it to no avail).
+- Last matches for NBA is currently facing issues when you try and search too far back
 
 ---
 

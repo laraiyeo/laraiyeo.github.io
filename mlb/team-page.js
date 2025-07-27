@@ -501,8 +501,8 @@ async function loadCurrentStanding() {
         <div class="standing-info">
           <div class="standing-position">${positionWithSuffix}</div>
           <div class="standing-details">
-            <div style="font-weight: bold; margin-bottom: 8px;">Position in ${shortDivisionName}</div>
-            <div style="margin-bottom: 4px;">Record: ${wins}-${losses} (${winPercent})</div>
+            <div style="font-weight: bold; margin-bottom: 8px;">Position in ${shortDivisionName}</div><br>
+            <div style="margin-bottom: 4px;">Record: ${wins}-${losses} (${winPercent})</div><br>
             <div>Games Behind: ${gamesBehind === "0" ? "Leading" : gamesBehind}</div>
           </div>
         </div>
@@ -1157,57 +1157,44 @@ function applyTeamColors(teamColor) {
   styleElement.textContent = `
     .section-card h3 {
       border-bottom: 2px solid ${teamColor} !important;
-    }
-    
+    }   
     .section-header h3 {
       border-bottom: 2px solid ${teamColor} !important;
-    }
-    
+    }   
     #startDatePicker:focus {
       border-color: ${teamColor} !important;
-    }
-    
+    }    
     .pagination-btn {
       background-color: ${teamColor} !important;
-    }
-    
+    }   
     .pagination-btn:hover:not(:disabled) {
       background-color: ${teamColor} !important;
       opacity: 0.9;
     }
-
     .pagination-btn:disabled {
       background-color: #ccc !important;
     }
-
     .current-game-card {
       border: 2px solid ${teamColor} !important;
-    }
-    
+    }    
     .current-game-card:hover {
       box-shadow: 0 4px 8px ${teamColor}4d !important;
     }
-
     .game-status {
       color: ${teamColor} !important;
     }
-    
     .scheduled {
       color: ${teamColor} !important;
     }
-
     .stat-value {
       color: ${teamColor} !important;
     }
-    
     .standing-position {
       color: ${teamColor} !important;
     }
-    
     .player-details-section {
       border-top: 3px solid ${teamColor} !important;
     }
-
     .match-item:hover {
       box-shadow: 0 2px 4px ${teamColor}1a !important;
     }

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Details - NBA</title>
+    <link rel="icon" href="icon.png" type="image/png" />
+    <link rel="stylesheet" href="style-2.css" />
+    <link rel="stylesheet" href="team-page.css">
+</head>
+<body>
+    <div id="navbar-container"></div>
+
+    <div id="teamPageContainer">
+        <div id="teamInfo" class="team-info-section">
+            <!-- Team header will be loaded here -->
+        </div>
+
+        <div class="team-content">
+            <!-- Current Game Section -->
+            <div id="currentGame" class="section-card">
+                <h3>Current Game</h3>
+                <div id="currentGameContent">
+                    <div class="loading">Loading current game...</div>
+                </div>
+            </div>
+
+            <!-- Last Matches Section -->
+            <div id="recentMatches" class="section-card">
+                <div class="section-header">
+                    <h3>Last Matches</h3>
+                    <div class="date-picker-container">
+                        <label for="startDatePicker">Start Date:</label>
+                        <input type="date" id="startDatePicker" class="date-picker">
+                    </div>
+                </div>
+                <div id="recentMatchesContent">
+                    <div class="loading">Loading recent matches...</div>
+                </div>
+                <div class="pagination-container">
+                    <button id="prevPage" class="pagination-btn" disabled>Prev</button>
+                    <span id="pageInfo" class="page-info">Page 1</span>
+                    <button id="nextPage" class="pagination-btn" disabled>Next</button>
+                </div>
+            </div>
+
+            <!-- Next 5 Matches Section -->
+            <div id="upcomingMatches" class="section-card">
+                <h3>Next 5 Matches</h3>
+                <div id="upcomingMatchesContent">
+                    <div class="loading">Loading upcoming matches...</div>
+                </div>
+            </div>
+
+            <!-- Team Stats Section -->
+            <div id="teamStats" class="section-card">
+                <h3>Team Statistics</h3>
+                <div id="teamStatsContent">
+                    <div class="loading">Loading team stats...</div>
+                </div>
+            </div>
+
+            <!-- Current Standing Section -->
+            <div id="currentStanding" class="section-card">
+                <h3>Current Standing</h3>
+                <div id="currentStandingContent">
+                    <div class="loading">Loading standings...</div>
+                </div>
+            </div>
+
+            <!-- Players Section -->
+            <div id="playersInfo" class="section-card">
+                <h3>Player Information</h3>
+                <div id="playersInfoContent">
+                    <div class="loading">Loading player information...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="navbarLoader.js"></script>
+    <script src="navbar.js"></script>
+    <script src="team-page.js"></script>
+    <div id="footer-container"></div>
+    <script>
+      fetch("footer.html")
+        .then(response => response.text())
+        .then(html => {
+          document.getElementById("footer-container").innerHTML = html;
+        });
+    </script>
+</body>
+</html>
