@@ -154,7 +154,6 @@ async function loadTeamInfo() {
     applyTeamColors(teamColor);
     
     // Get team record from standings
-    let recordText = "NBA Team";
     try {
       const standingsResponse = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard');
       const standingsData = await standingsResponse.json();
@@ -168,8 +167,8 @@ async function loadTeamInfo() {
         <img src="${logoUrl}" alt="${currentTeam.displayName}" class="team-logo-header" onerror="this.src='icon.png';">
         <div class="team-details-header">
           <div class="team-name-header">${currentTeam.displayName}</div>
-          <div class="team-division-header">${currentTeam.group?.name || 'NBA'}</div>
-          <div class="team-record-header">${recordText}</div>
+          <div class="team-record-header">${currentTeam.standingSummary}</div>
+          <div class="team-division-header">${currentTeam.abbreviation} -  NBA</div>
         </div>
       </div>
     `;
@@ -192,7 +191,7 @@ function applyTeamColors(teamColor) {
     .game-status {
       color: ${teamColor} !important;
     }
-    .stat-value {
+    .team-stat-value {
       color: ${teamColor} !important;
     }
     .standing-position {
@@ -1592,7 +1591,7 @@ async function showPlayerComparison(player1, player2) {
       text-align: center;
       margin-bottom: 20px;
       padding-bottom: 15px;
-      border-bottom: 2px solid #007bff;
+      border-bottom: 2px solid #333;
     `;
     comparisonHeader.innerHTML = `
       <h2 style="margin: 0; color: #333; font-size: 1.8rem;">Player Comparison</h2>
@@ -1657,7 +1656,7 @@ async function showPlayerComparison(player1, player2) {
       text-align: center;
       font-size: 1.5rem;
       font-weight: bold;
-      color: #007bff;
+      color: #333;
     `;
     vsDivider.innerHTML = 'VS';
 
@@ -1881,7 +1880,7 @@ function displayPlayerStatsInModal(categories, container) {
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
       ${playerStats.map(stat => `
         <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
-          <div style="font-size: 1.5rem; font-weight: bold; color: #007bff; margin-bottom: 8px;">
+          <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">
             ${stat.value}
           </div>
           <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">
@@ -1983,7 +1982,7 @@ function displayPlayerComparison(player1Categories, player2Categories, container
       <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; padding: 15px; background-color: #f8f9fa; border-radius: 8px;">
         <!-- Player 1 Stat -->
         <div style="text-align: center; padding: 10px; background-color: ${player1Better ? '#e8f5e8' : 'white'}; border-radius: 6px; ${player1Better ? 'border: 2px solid #28a745;' : 'border: 1px solid #ddd;'}">
-          <div style="font-size: 1.3rem; font-weight: bold; color: ${player1Better ? '#28a745' : '#007bff'}; margin-bottom: 5px;">
+          <div style="font-size: 1.3rem; font-weight: bold; color: ${player1Better ? '#28a745' : '#333'}; margin-bottom: 5px;">
             ${stat1.value}
           </div>
           ${stat1.rank ? `
@@ -2000,7 +1999,7 @@ function displayPlayerComparison(player1Categories, player2Categories, container
         
         <!-- Player 2 Stat -->
         <div style="text-align: center; padding: 10px; background-color: ${player2Better ? '#e8f5e8' : 'white'}; border-radius: 6px; ${player2Better ? 'border: 2px solid #28a745;' : 'border: 1px solid #ddd;'}">
-          <div style="font-size: 1.3rem; font-weight: bold; color: ${player2Better ? '#28a745' : '#007bff'}; margin-bottom: 5px;">
+          <div style="font-size: 1.3rem; font-weight: bold; color: ${player2Better ? '#28a745' : '#333'}; margin-bottom: 5px;">
             ${stat2.value}
           </div>
           ${stat2.rank ? `

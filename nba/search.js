@@ -106,16 +106,15 @@ async function displayTeamResults(teams) {
 
 async function createTeamCard(team) {
   const logoUrl = `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${team.abbreviation}.png`;
-  
-  // Get division/conference info
-  const division = team.group?.name || 'NBA';
-  
+
+  const abbreviation = team.abbreviation || 'NBA';
+
   return `
     <div class="team-card" data-team-id="${team.id}">
       <img src="${logoUrl}" alt="${team.displayName}" class="team-logo-large" onerror="this.src='icon.png';">
       <div class="team-details">
         <div class="team-name-large">${team.displayName}</div>
-        <div class="team-division">${division}</div>
+        <div class="team-division" style="color: #${team.color || '000000'};">${abbreviation} - NBA</div>
         <div class="team-record">Click to view team details</div>
       </div>
     </div>
