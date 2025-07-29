@@ -72,7 +72,7 @@
   margin-bottom: 20px;
   font-size: 1.5rem;
   font-weight: bold;
-  border-bottom: 2px solid #007bff;
+  border-bottom: 2px solid #ffffff;
   padding-bottom: 10px;
 }
 
@@ -85,7 +85,7 @@
 
 .section-header h3 {
   margin-bottom: 0;
-  border-bottom: 2px solid #007bff;
+  border-bottom: 2px solid #ffffff;
   padding-bottom: 10px;
 }
 
@@ -110,7 +110,7 @@
 
 .date-picker:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: #ffffff;
 }
 
 .pagination-container {
@@ -124,7 +124,7 @@
 }
 
 .pagination-btn {
-  background-color: #007bff;
+  background-color: #ffffff;
   color: white;
   border: none;
   border-radius: 6px;
@@ -159,7 +159,7 @@
 /* Current Game Styles */
 .current-game-card {
   background: #f8f9fa;
-  border: 2px solid #007bff;
+  border: 2px solid #ffffff;
   border-radius: 8px;
   padding: 20px;
   text-align: center;
@@ -174,7 +174,7 @@
 .game-status {
   font-size: 1.1rem;
   font-weight: bold;
-  color: #007bff;
+  color: #ffffff;
   margin-bottom: 15px;
 }
 
@@ -297,7 +297,7 @@
 }
 
 .scheduled {
-  color: #007bff;
+  color: #ffffff;
 }
 
 /* Stats Styles */
@@ -318,7 +318,7 @@
 .stat-value {
   font-size: 1.5rem;
   font-weight: bold;
-  color: #007bff;
+  color: #ffffff;
   margin-bottom: 5px;
 }
 
@@ -346,7 +346,7 @@
 .standing-position {
   font-size: 3rem;
   font-weight: bold;
-  color: #007bff;
+  color: #ffffff;
   margin-bottom: 10px;
 }
 
@@ -426,7 +426,7 @@
 }
 
 .add-to-compare-btn {
-  background-color: #007bff;
+  background-color: #ffffff;
   color: white;
   border: none;
   border-radius: 4px;
@@ -638,7 +638,7 @@
   left: 0;
   right: 0;
   background: white;
-  border-top: 3px solid #007bff;
+  border-top: 3px solid #ffffff;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
   z-index: 1000;
   max-height: 50vh;
@@ -683,7 +683,7 @@
 
 .player-year-selector select:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: #ffffff;
   box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 
@@ -925,13 +925,13 @@
 
 .player-year-selector select:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: #ffffff;
   box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 
 .comparison-divider {
   width: 2px;
-  background: linear-gradient(to bottom, #ddd, #007bff, #ddd);
+  background: linear-gradient(to bottom, #ddd, #ffffff, #ddd);
   margin: 0 10px;
   border-radius: 1px;
 }

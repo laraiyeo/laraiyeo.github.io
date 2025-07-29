@@ -367,7 +367,7 @@
 .standing-position {
   font-size: 3rem;
   font-weight: bold;
-  color: #007bff;
+  color: #ffffff;
   margin-bottom: 10px;
 }
 
@@ -769,7 +769,7 @@
   left: 0;
   right: 0;
   background: white;
-  border-top: 3px solid #007bff;
+  border-top: 3px solid #ffffff;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
   z-index: 1000;
   max-height: 50vh;
