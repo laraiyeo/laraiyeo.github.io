@@ -7,6 +7,10 @@ let currentRosterPage = 1;
 let allRosterPlayers = [];
 let playersPerPage = 4;
 let selectedPlayer = null;
+let playersForComparison = []; // Array to store players selected for comparison
+
+// Global variable to store all MLB players for league-wide comparison
+let allMLBPlayers = [];
 
 // Initialize the page
 document.addEventListener("DOMContentLoaded", () => {
@@ -82,6 +86,9 @@ async function loadTeamData() {
   try {
     // Load team information
     await loadTeamInfo();
+    
+    // Initialize MLB players for comparison (async, don't wait)
+    fetchAllMLBPlayers().catch(console.error);
     
     // Load all sections
     await Promise.all([
@@ -578,7 +585,20 @@ function displayRosterPlayers() {
   // Create player cards
   const playerCards = paginatedPlayers.map(player => createPlayerCard(player)).join('');
   
+  // Create comparison status display
+  const comparisonStatus = playersForComparison.length > 0 ? 
+    `<div class="comparison-status">
+      <strong>Selected for comparison:</strong> 
+      ${playersForComparison.map(p => p.name).join(', ')}
+      ${playersForComparison.length === 2 ? 
+        ' <button onclick="showPlayerComparison(playersForComparison[0], playersForComparison[1])" class="compare-btn">Compare Now</button>' : 
+        ' (Select another player to compare)'
+      }
+      <button onclick="clearComparison()" class="clear-btn">Clear</button>
+    </div>` : '';
+  
   contentDiv.innerHTML = `
+    ${comparisonStatus}
     <div class="roster-list">
       ${playerCards}
     </div>
@@ -600,9 +620,13 @@ function createPlayerCard(player) {
   const lastName = nameParts.slice(1).join(' ');
   const jerseyNumber = player.jerseyNumber || '--';
   const position = player.position.abbreviation;
+  const headshotUrl = player.person.id ? 
+    `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${player.person.id}/headshot/67/current` : 
+    'icon.png';
   
   return `
     <div class="player-card" data-player-id="${player.person.id}" onclick="showPlayerDetails(${player.person.id})">
+      <img src="${headshotUrl}" alt="${firstName} ${lastName}" class="player-headshot" onerror="this.src='icon.png';">
       <div class="player-name-column">
         <div class="player-first-name">${firstName}</div>
         <div class="player-last-name">${lastName}</div>
@@ -655,57 +679,736 @@ function setupRosterPaginationHandlers() {
 }
 
 async function showPlayerDetails(playerId) {
-  // Find the player in the roster
-  selectedPlayer = allRosterPlayers.find(player => player.person.id === playerId);
-  
-  if (!selectedPlayer) return;
-  
-  // Get or create the player details section
-  let playerDetailsSection = document.getElementById('playerDetailsSection');
-  if (!playerDetailsSection) {
-    playerDetailsSection = document.createElement('div');
-    playerDetailsSection.id = 'playerDetailsSection';
-    playerDetailsSection.className = 'player-details-section';
-    document.body.appendChild(playerDetailsSection);
+  try {
+    // Find the player in the roster
+    selectedPlayer = allRosterPlayers.find(player => player.person.id === playerId);
+    
+    if (!selectedPlayer) return;
+    
+    const firstName = selectedPlayer.person.firstName || '';
+    const lastName = selectedPlayer.person.lastName || '';
+    const fullName = selectedPlayer.person.fullName || `${firstName} ${lastName}`;
+    const jerseyNumber = selectedPlayer.jerseyNumber || '--';
+    const position = selectedPlayer.position.abbreviation; // Use abbreviation instead of name
+    const headshotUrl = selectedPlayer.person.id ? 
+      `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${selectedPlayer.person.id}/headshot/67/current` : 
+      'icon.png';
+
+    console.log('Player debug:', { fullName, firstName, lastName, jerseyNumber, position, playerId: selectedPlayer.person.id });
+
+    // Create modal overlay
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    `;
+
+    // Create modal content
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal-content';
+    modalContent.style.cssText = `
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      position: relative;
+    `;
+
+    // Create close button
+    const closeButton = document.createElement('button');
+    closeButton.innerHTML = '×';
+    closeButton.style.cssText = `
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      background: none;
+      border: none;
+      font-size: 36px;
+      cursor: pointer;
+      color: #333;
+      z-index: 1001;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: background-color 0.2s ease;
+    `;
+    closeButton.addEventListener('mouseenter', () => {
+      closeButton.style.backgroundColor = '#f0f0f0';
+    });
+    closeButton.addEventListener('mouseleave', () => {
+      closeButton.style.backgroundColor = 'transparent';
+    });
+    closeButton.addEventListener('click', () => {
+      document.body.removeChild(modal);
+    });
+
+    // Create player header
+    const playerHeader = document.createElement('div');
+    playerHeader.className = 'selected-player-header';
+    playerHeader.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+    `;
+    playerHeader.innerHTML = `
+      <img src="${headshotUrl}" alt="${fullName}" 
+           style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover;" 
+           onerror="this.src='icon.png';">
+      <div>
+        <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 5px;">
+          ${fullName}
+        </div>
+        <div style="font-size: 1.1rem; color: #666;">
+          #${jerseyNumber} | ${position}
+        </div>
+      </div>
+    `;
+
+    // Create stats container
+    const statsContainer = document.createElement('div');
+    statsContainer.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
+
+    // Create player search section
+    const searchSection = document.createElement('div');
+    searchSection.style.cssText = `
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    `;
+
+    const searchLabel = document.createElement('div');
+    searchLabel.innerHTML = 'Compare with another player:';
+    searchLabel.style.cssText = `
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 14px;
+    `;
+
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = 'Type player name...';
+    searchInput.style.cssText = `
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      outline: none;
+      box-sizing: border-box;
+    `;
+
+    const searchResults = document.createElement('div');
+    searchResults.style.cssText = `
+      margin-top: 5px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: white;
+      max-height: 120px;
+      overflow-y: auto;
+      display: none;
+    `;
+
+    searchSection.appendChild(searchLabel);
+    searchSection.appendChild(searchInput);
+    searchSection.appendChild(searchResults);
+
+    // Add search functionality with position filtering
+    let searchTimeout;
+    searchInput.addEventListener('input', async (e) => {
+      clearTimeout(searchTimeout);
+      const query = e.target.value.trim().toLowerCase();
+      
+      if (query.length < 2) {
+        searchResults.style.display = 'none';
+        return;
+      }
+
+      searchTimeout = setTimeout(async () => {
+        // Get all MLB players for league-wide search
+        const allPlayers = await fetchAllMLBPlayers();
+        const selectedPlayerIsPitcher = selectedPlayer.position.code === "1";
+        
+        const filteredPlayers = allPlayers
+          .filter(player => {
+            const fullName = `${player.firstName || ''} ${player.lastName || ''}`.toLowerCase();
+            const displayName = (player.displayName || '').toLowerCase();
+            const teamName = (player.team || '').toLowerCase();
+            const playerIsPitcher = player.positionCode === "1";
+            
+            // Check if query matches player name first (prioritize name over team)
+            const nameMatch = fullName.includes(query) || displayName.includes(query);
+            const teamMatch = teamName.includes(query);
+            
+            // For position matching, handle TWP players and regular players
+            let positionMatch = false;
+            if (selectedPlayerIsPitcher) {
+              // If selected player is pitcher, show other pitchers (including TWP pitchers)
+              positionMatch = playerIsPitcher;
+            } else {
+              // If selected player is hitter, show other hitters (including TWP hitters)
+              positionMatch = !playerIsPitcher;
+            }
+            
+            // Exclude self (use originalId for TWP players if available)
+            const playerId = player.originalId || player.id;
+            const excludeSelf = playerId !== selectedPlayer.person.id;
+            
+            // Prioritize name matches over team matches
+            return (nameMatch || teamMatch) && excludeSelf && positionMatch;
+          })
+          .sort((a, b) => {
+            // Sort by name match first, then team match
+            const aNameMatch = (`${a.firstName || ''} ${a.lastName || ''}`.toLowerCase() + (a.displayName || '').toLowerCase()).includes(query);
+            const bNameMatch = (`${b.firstName || ''} ${b.lastName || ''}`.toLowerCase() + (b.displayName || '').toLowerCase()).includes(query);
+            
+            if (aNameMatch && !bNameMatch) return -1;
+            if (!aNameMatch && bNameMatch) return 1;
+            return 0;
+          })
+          .slice(0, 3); // Max 3 results
+
+        console.log('Filtered players for comparison:', filteredPlayers.length, 'Selected player is pitcher:', selectedPlayerIsPitcher);
+
+        if (filteredPlayers.length > 0) {
+          searchResults.innerHTML = filteredPlayers.map(player => `
+            <div class="search-result-item" data-player-id="${player.id}" data-original-id="${player.originalId || player.id}" style="
+              padding: 10px;
+              cursor: pointer;
+              border-bottom: 1px solid #eee;
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              transition: background-color 0.2s ease;
+            " onmouseover="this.style.backgroundColor='#f0f0f0'" onmouseout="this.style.backgroundColor='white'">
+              <img src="${player.headshot}" alt="${player.displayName}" 
+                   style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover;" 
+                   onerror="this.src='icon.png';">
+              <div>
+                <div style="font-weight: bold; color: #333;">${player.displayName}${player.isTwoWayPlayer ? ` (${player.twoWayRole})` : ''}</div>
+                <div style="font-size: 12px; color: #666;">${player.team} | #${player.jersey} | ${player.position}</div>
+              </div>
+            </div>
+          `).join('');
+          
+          searchResults.style.display = 'block';
+
+          // Add click handlers to search results
+          searchResults.querySelectorAll('.search-result-item').forEach((item, index) => {
+            item.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              
+              const playerId = item.getAttribute('data-player-id');
+              const originalId = item.getAttribute('data-original-id');
+              
+              // Get the player from the filtered results using the index
+              const player = filteredPlayers[index];
+              
+              console.log('Clicked player:', player);
+              console.log('Player ID from data:', playerId);
+              console.log('Original ID from data:', originalId);
+              
+              if (player) {
+                // Parse the display name properly to get firstName and lastName
+                const displayName = player.displayName || `${player.firstName || ''} ${player.lastName || ''}`.trim();
+                const nameParts = displayName.split(' ');
+                const parsedFirstName = player.firstName || (nameParts.length > 1 ? nameParts[0] : '');
+                const parsedLastName = player.lastName || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : nameParts[0]);
+                
+                const playerForComparison = {
+                  id: originalId || player.id, // Use original ID for stats API
+                  firstName: parsedFirstName,
+                  lastName: parsedLastName,
+                  fullName: displayName,
+                  jersey: player.jersey || 'N/A',
+                  position: player.position || 'N/A',
+                  headshot: player.headshot || 'icon.png',
+                  isTwoWayPlayer: player.isTwoWayPlayer || false,
+                  twoWayRole: player.twoWayRole || null
+                };
+                
+                console.log('Player for comparison:', playerForComparison);
+                console.log('Parsed names - First:', parsedFirstName, 'Last:', parsedLastName);
+                
+                // Close current modal
+                document.body.removeChild(modal);
+                
+                // Start comparison
+                // Parse the current player's name properly
+                const currentPlayerDisplayName = fullName;
+                const currentPlayerNameParts = currentPlayerDisplayName.split(' ');
+                const currentPlayerFirstName = firstName || (currentPlayerNameParts.length > 1 ? currentPlayerNameParts[0] : '');
+                const currentPlayerLastName = lastName || (currentPlayerNameParts.length > 1 ? currentPlayerNameParts.slice(1).join(' ') : currentPlayerNameParts[0]);
+                
+                // Normalize position format to match the search results
+                let normalizedPosition = position;
+                if (selectedPlayer.position.code === "1") {
+                  normalizedPosition = "P"; // Ensure pitchers are consistently "P"
+                }
+                
+                const currentPlayerForComparison = {
+                  id: selectedPlayer.person.id,
+                  firstName: currentPlayerFirstName,
+                  lastName: currentPlayerLastName,
+                  fullName: fullName,
+                  jersey: jerseyNumber,
+                  position: normalizedPosition,
+                  headshot: headshotUrl,
+                  isTwoWayPlayer: false, // Roster players don't have TWP info, default to false
+                  twoWayRole: null // Roster players don't have TWP info, default to null
+                };
+                
+                console.log('Current player for comparison:', currentPlayerForComparison);
+                console.log('Current player parsed names - First:', currentPlayerFirstName, 'Last:', currentPlayerLastName);
+                
+                playersForComparison = [currentPlayerForComparison, playerForComparison];
+                console.log('Starting comparison with:', currentPlayerForComparison, playerForComparison);
+                showPlayerComparison(currentPlayerForComparison, playerForComparison);
+              } else {
+                console.error('Player not found in filtered results');
+              }
+            });
+          });
+        } else {
+          const positionText = selectedPlayerIsPitcher ? 'pitchers' : 'hitters';
+          searchResults.innerHTML = `<div style="padding: 10px; color: #666; text-align: center;">No ${positionText} found</div>`;
+          searchResults.style.display = 'block';
+        }
+      }, 300);
+    });
+
+    // Hide search results when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!searchSection.contains(e.target)) {
+        searchResults.style.display = 'none';
+      }
+    });
+
+    // Assemble modal
+    modalContent.appendChild(closeButton);
+    modalContent.appendChild(playerHeader);
+    modalContent.appendChild(statsContainer);
+    modalContent.appendChild(searchSection);
+    modal.appendChild(modalContent);
+
+    // Add modal to document
+    document.body.appendChild(modal);
+
+    // Load initial stats
+    const currentYear = new Date().getFullYear();
+    await loadPlayerStatsForModal(playerId, currentYear, statsContainer);
+
+    // Close modal when clicking outside
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        document.body.removeChild(modal);
+      }
+    });
+
+  } catch (error) {
+    console.error('Error loading player details:', error);
   }
-  
-  // Create the player details content
-  const jerseyNumber = selectedPlayer.jerseyNumber || '--';
-  const position = selectedPlayer.position.name;
-  const currentYear = new Date().getFullYear();
-  
-  // Show initial loading state
-  playerDetailsSection.innerHTML = `
-    <div class="player-details-container">
-      <div class="player-details-header">
-        <button class="close-player-details" onclick="closePlayerDetails()">×</button>
-        <div class="player-details-info">
-          <h2 class="player-details-name">${selectedPlayer.person.fullName} • ${position} • #${jerseyNumber}</h2>
-        </div>
-        <div class="player-year-selector">
-          <label for="yearSelector">Year:</label>
-          <select id="yearSelector" onchange="onYearChange()">
-            <option value="${currentYear}">${currentYear}</option>
-            <option value="${currentYear - 1}">${currentYear - 1}</option>
-            <option value="${currentYear - 2}">${currentYear - 2}</option>
-            <option value="${currentYear - 3}">${currentYear - 3}</option>
-          </select>
-        </div>
+}
+
+async function loadPlayerStatsForModal(playerId, year, container) {
+  try {
+    // Check if player is a pitcher or TWP player
+    const isPitcher = selectedPlayer.position.code === "1" || selectedPlayer.position.abbreviation === "TWP";
+    const isTwoWayPlayer = selectedPlayer.position.abbreviation === "TWP";
+    
+    // For TWP players, show both hitting and pitching stats
+    if (isTwoWayPlayer) {
+      // Load both hitting and pitching stats for TWP players
+      const [hittingResponse, pitchingResponse, allHittersResponse, allPitchersResponse] = await Promise.all([
+        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${year}`),
+        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${year}`),
+        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting&season=${year}&gameType=R&sportId=1&limit=2000&playerPool=all`),
+        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=pitching&season=${year}&gameType=R&sportId=1&limit=2000&playerPool=all`)
+      ]);
+      
+      const [hittingData, pitchingData, allHittersData, allPitchersData] = await Promise.all([
+        hittingResponse.json(),
+        pitchingResponse.json(),
+        allHittersResponse.json(),
+        allPitchersResponse.json()
+      ]);
+      
+      let content = `<div style="margin-bottom: 20px;"><h3 style="margin: 0; color: #333;">${year} Two-Way Player Statistics</h3></div>`;
+      
+      // Show hitting stats if available
+      if (hittingData.stats && hittingData.stats.length > 0 && hittingData.stats[0].splits && hittingData.stats[0].splits.length > 0) {
+        const hittingSplit = hittingData.stats[0].splits[0];
+        const hittingStats = hittingSplit.stat;
+        const hittingRankings = calculatePlayerStatRankings(allHittersData, hittingStats);
+        
+        content += `
+          <div style="margin-bottom: 30px;">
+            <h4 style="color: #333; border-bottom: 2px solid #007bff; padding-bottom: 5px;">Hitting Statistics</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-top: 15px;">
+              <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
+                <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${hittingStats.avg || '.000'}</div>
+                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">AVG</div>
+                ${hittingRankings.avg ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${hittingRankings.avg} in MLB</div>` : ''}
+              </div>
+              <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
+                <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${hittingStats.homeRuns || '0'}</div>
+                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">HR</div>
+                ${hittingRankings.homeRuns ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${hittingRankings.homeRuns} in MLB</div>` : ''}
+              </div>
+              <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
+                <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${hittingStats.rbi || '0'}</div>
+                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">RBI</div>
+                ${hittingRankings.rbi ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${hittingRankings.rbi} in MLB</div>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      
+      // Show pitching stats if available
+      if (pitchingData.stats && pitchingData.stats.length > 0 && pitchingData.stats[0].splits && pitchingData.stats[0].splits.length > 0) {
+        const pitchingSplit = pitchingData.stats[0].splits[0];
+        const pitchingStats = pitchingSplit.stat;
+        const pitchingRankings = calculatePitcherStatRankings(allPitchersData, pitchingStats);
+        
+        content += `
+          <div>
+            <h4 style="color: #333; border-bottom: 2px solid #007bff; padding-bottom: 5px;">Pitching Statistics</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-top: 15px;">
+              <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
+                <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${pitchingStats.era || '0.00'}</div>
+                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">ERA</div>
+                ${pitchingRankings.era ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${pitchingRankings.era} in MLB</div>` : ''}
+              </div>
+              <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
+                <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${pitchingStats.wins || '0'}</div>
+                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">W</div>
+                ${pitchingRankings.wins ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${pitchingRankings.wins} in MLB</div>` : ''}
+              </div>
+              <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
+                <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${pitchingStats.strikeOuts || '0'}</div>
+                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">K</div>
+                ${pitchingRankings.strikeOuts ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${pitchingRankings.strikeOuts} in MLB</div>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      
+      if (!hittingData.stats?.length && !pitchingData.stats?.length) {
+        content += '<div style="text-align: center; color: #666; font-style: italic; padding: 30px 20px;">No statistics available for this year.</div>';
+      }
+      
+      container.innerHTML = content;
+      return;
+    }
+    
+    if (!isPitcher) {
+      // Load hitting stats for non-pitchers
+      const [playerResponse, allPlayersResponse] = await Promise.all([
+        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${year}`),
+        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting&season=${year}&gameType=R&sportId=1&limit=2000&playerPool=all`)
+      ]);
+      
+      const playerData = await playerResponse.json();
+      const allPlayersData = await allPlayersResponse.json();
+      
+      if (playerData.stats && playerData.stats.length > 0 && playerData.stats[0].splits && playerData.stats[0].splits.length > 0) {
+        const splitForYear = playerData.stats[0].splits[0];
+        const playerStats = splitForYear.stat;
+        
+        // Get team name and logo for the chosen year
+        let teamNameForYear = splitForYear.team && splitForYear.team.name ? splitForYear.team.name : (currentTeam && currentTeam.name ? currentTeam.name : "");
+        let teamLogoUrl = "";
+        if (teamNameForYear) {
+          teamLogoUrl = await getStandardLogoUrl(teamNameForYear);
+        }
+        
+        // Calculate player rankings
+        const rankings = calculatePlayerStatRankings(allPlayersData, playerStats);
+        
+        const currentYear = new Date().getFullYear();
+        const startYear = 2022;
+        
+        // Show stats in modal format
+        container.innerHTML = `
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <img src="${teamLogoUrl}" alt="${teamNameForYear}" 
+                   style="height:40px;max-width:60px;" 
+                   onerror="this.src='icon.png';">
+              <h3 style="margin: 0; color: #333;">${year} Hitting Statistics</h3>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <label style="font-weight: bold; color: #333;">Year:</label>
+              <select id="modalYearSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(yearOption => 
+                  `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
+                ).join('')}
+              </select>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+            <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.avg || '.000'}</div>
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">AVG</div>
+              ${rankings.avg ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.avg} in MLB</div>` : ''}
+            </div>
+            <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.homeRuns || 0}</div>
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">HR</div>
+              ${rankings.homeRuns ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.homeRuns} in MLB</div>` : ''}
+            </div>
+            <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.rbi || 0}</div>
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">RBI</div>
+              ${rankings.rbi ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.rbi} in MLB</div>` : ''}
+            </div>
+            <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.obp || '.000'}</div>
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">OBP</div>
+              ${rankings.obp ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.obp} in MLB</div>` : ''}
+            </div>
+            <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.slg || '.000'}</div>
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">SLG</div>
+              ${rankings.slg ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.slg} in MLB</div>` : ''}
+            </div>
+            <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.ops || '.000'}</div>
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">OPS</div>
+              ${rankings.ops ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.ops} in MLB</div>` : ''}
+            </div>
+            <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.hits || 0}</div>
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">H</div>
+              ${rankings.hits ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.hits} in MLB</div>` : ''}
+            </div>
+            <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.runs || 0}</div>
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">R</div>
+              ${rankings.runs ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.runs} in MLB</div>` : ''}
+            </div>
+            <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.stolenBases || 0}</div>
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">SB</div>
+              ${rankings.stolenBases ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.stolenBases} in MLB</div>` : ''}
+            </div>
+          </div>
+        `;
+        
+        // Add year selector event listener for hitting stats
+        setTimeout(() => {
+          const yearSelector = document.getElementById('modalYearSelector');
+          if (yearSelector) {
+            yearSelector.addEventListener('change', async () => {
+              const selectedYear = parseInt(yearSelector.value);
+              container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
+              await loadPlayerStatsForModal(playerId, selectedYear, container);
+            });
+          }
+        }, 100);
+      } else {
+        const currentYear = new Date().getFullYear();
+        const startYear = 2022;
+        
+        container.innerHTML = `
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <h3 style="margin: 0; color: #333;">${year} Hitting Statistics</h3>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <label style="font-weight: bold; color: #333;">Year:</label>
+              <select id="modalYearSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(yearOption => 
+                  `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
+                ).join('')}
+              </select>
+            </div>
+          </div>
+          <div style="text-align: center; padding: 20px; color: #666;">
+            No hitting statistics available for the ${year} season.
+          </div>
+        `;
+        
+        // Add year selector event listener for no hitting stats
+        setTimeout(() => {
+          const yearSelector = document.getElementById('modalYearSelector');
+          if (yearSelector) {
+            yearSelector.addEventListener('change', async () => {
+              const selectedYear = parseInt(yearSelector.value);
+              container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
+              await loadPlayerStatsForModal(playerId, selectedYear, container);
+            });
+          }
+        }, 100);
+      }
+    } else {
+      // For pitchers, load pitching stats
+      const [playerResponse, allPlayersResponse] = await Promise.all([
+        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${year}`),
+        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=pitching&season=${year}&gameType=R&sportId=1&limit=2000&playerPool=all`)
+      ]);
+      
+      const playerData = await playerResponse.json();
+      const allPlayersData = await allPlayersResponse.json();
+      
+      if (playerData.stats && playerData.stats.length > 0 && playerData.stats[0].splits && playerData.stats[0].splits.length > 0) {
+        const splitForYear = playerData.stats[0].splits[0];
+        const playerStats = splitForYear.stat;
+        
+        // Get team name and logo for the chosen year
+        let teamNameForYear = splitForYear.team && splitForYear.team.name ? splitForYear.team.name : (currentTeam && currentTeam.name ? currentTeam.name : "");
+        let teamLogoUrl = "";
+        if (teamNameForYear) {
+          teamLogoUrl = await getStandardLogoUrl(teamNameForYear);
+        }
+        
+        // Calculate player rankings for pitching stats
+        const rankings = calculatePitcherStatRankings(allPlayersData, playerStats);
+        
+        const currentYear = new Date().getFullYear();
+        const startYear = 2022;
+        
+        // Show stats in modal format
+        container.innerHTML = `
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <img src="${teamLogoUrl}" alt="${teamNameForYear}" 
+                   style="height:40px;max-width:60px;" 
+                   onerror="this.src='icon.png';">
+              <h3 style="margin: 0; color: #333;">${year} Pitching Statistics</h3>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <label style="font-weight: bold; color: #333;">Year:</label>
+              <select id="modalYearSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(yearOption => 
+                  `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
+                ).join('')}
+              </select>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+            <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.era || '0.00'}</div>
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">ERA</div>
+              ${rankings.era ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.era} in MLB</div>` : ''}
+            </div>
+            <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.whip || '0.00'}</div>
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">WHIP</div>
+              ${rankings.whip ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.whip} in MLB</div>` : ''}
+            </div>
+            <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.wins || 0}</div>
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">W</div>
+              ${rankings.wins ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.wins} in MLB</div>` : ''}
+            </div>
+            <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.losses || 0}</div>
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">L</div>
+              ${rankings.losses ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.losses} in MLB</div>` : ''}
+            </div>
+            <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.saves || 0}</div>
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">SV</div>
+              ${rankings.saves ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.saves} in MLB</div>` : ''}
+            </div>
+            <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.strikeOuts || 0}</div>
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">K</div>
+              ${rankings.strikeOuts ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.strikeOuts} in MLB</div>` : ''}
+            </div>
+            <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.inningsPitched || '0.0'}</div>
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">IP</div>
+              ${rankings.inningsPitched ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.inningsPitched} in MLB</div>` : ''}
+            </div>
+            <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.baseOnBalls || 0}</div>
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">BB</div>
+              ${rankings.baseOnBalls ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.baseOnBalls} in MLB</div>` : ''}
+            </div>
+          </div>
+        `;
+        
+        // Add year selector event listener for pitching stats
+        setTimeout(() => {
+          const yearSelector = document.getElementById('modalYearSelector');
+          if (yearSelector) {
+            yearSelector.addEventListener('change', async () => {
+              const selectedYear = parseInt(yearSelector.value);
+              container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
+              await loadPlayerStatsForModal(playerId, selectedYear, container);
+            });
+          }
+        }, 100);
+      } else {
+        const currentYear = new Date().getFullYear();
+        const startYear = 2022;
+        
+        container.innerHTML = `
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <h3 style="margin: 0; color: #333;">${year} Pitching Statistics</h3>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <label style="font-weight: bold; color: #333;">Year:</label>
+              <select id="modalYearSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(yearOption => 
+                  `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
+                ).join('')}
+              </select>
+            </div>
+          </div>
+          <div style="text-align: center; padding: 20px; color: #666;">
+            No pitching statistics available for the ${year} season.
+          </div>
+        `;
+        
+        // Add year selector event listener for no pitching stats
+        setTimeout(() => {
+          const yearSelector = document.getElementById('modalYearSelector');
+          if (yearSelector) {
+            yearSelector.addEventListener('change', async () => {
+              const selectedYear = parseInt(yearSelector.value);
+              container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
+              await loadPlayerStatsForModal(playerId, selectedYear, container);
+            });
+          }
+        }, 100);
+      }
+    }
+  } catch (error) {
+    console.error('Error loading player stats for modal:', error);
+    container.innerHTML = `
+      <div style="text-align: center; padding: 20px; color: #dc3545;">
+        Error loading player statistics
       </div>
-      <div class="player-stats-content">
-        <div class="loading-stats">Loading player statistics...</div>
-      </div>
-    </div>
-  `;
-  
-  // Show the section
-  playerDetailsSection.style.display = 'block';
-  
-  // Scroll to the player details section
-  playerDetailsSection.scrollIntoView({ behavior: 'smooth' });
-  
-  // Load player statistics
-  await loadPlayerStats(playerId, currentYear);
+    `;
+  }
 }
 
 async function loadPlayerStats(playerId, year = new Date().getFullYear()) {
@@ -1427,9 +2130,1088 @@ function onYearChange() {
   }
 }
 
-function closePlayerDetails() {
-  const playerDetailsSection = document.getElementById('playerDetailsSection');
-  if (playerDetailsSection) {
-    playerDetailsSection.style.display = 'none';
+// Fetch all MLB players for league-wide comparison
+async function fetchAllMLBPlayers() {
+  if (allMLBPlayers.length > 0) {
+    return allMLBPlayers;
+  }
+
+  try {
+    console.log('Fetching all MLB players...');
+    
+    // Get all teams first
+    const teamsResponse = await fetch('https://statsapi.mlb.com/api/v1/teams?sportId=1');
+    const teamsData = await teamsResponse.json();
+    
+    // Fetch rosters for all teams
+    const rosterPromises = teamsData.teams.map(async (team) => {
+      try {
+        const rosterResponse = await fetch(`https://statsapi.mlb.com/api/v1/teams/${team.id}/roster`);
+        const rosterData = await rosterResponse.json();
+        return rosterData.roster?.map(player => {
+          const firstName = player.person.firstName || '';
+          const lastName = player.person.lastName || '';
+          const fullName = player.person.fullName || `${firstName} ${lastName}`;
+          const isPitcher = player.position.code === "1";
+          const isTwoWayPlayer = player.position.abbreviation === "TWP";
+          
+          // For TWP players, we'll create entries for both pitcher and hitter roles
+          if (isTwoWayPlayer) {
+            return [
+              // TWP as pitcher
+              {
+                id: player.person.id,
+                firstName: firstName,
+                lastName: lastName,
+                displayName: fullName,
+                team: team.name,
+                jersey: player.jerseyNumber || '--',
+                position: "P",
+                positionCode: "1", // Treat as pitcher
+                headshot: player.person.id ? 
+                  `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${player.person.id}/headshot/67/current` : 
+                  'icon.png',
+                teamName: team.name,
+                teamId: team.id,
+                originalPlayer: player,
+                isTwoWayPlayer: true,
+                twoWayRole: "Pitcher"
+              },
+              // TWP as hitter
+              {
+                id: player.person.id + '_hitter', // Different ID for hitter role
+                originalId: player.person.id, // Keep original ID for stats
+                firstName: firstName,
+                lastName: lastName,
+                displayName: fullName,
+                team: team.name,
+                jersey: player.jerseyNumber || '--',
+                position: "DH", // Treat as designated hitter
+                positionCode: "10", // DH position code
+                headshot: player.person.id ? 
+                  `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${player.person.id}/headshot/67/current` : 
+                  'icon.png',
+                teamName: team.name,
+                teamId: team.id,
+                originalPlayer: player,
+                isTwoWayPlayer: true,
+                twoWayRole: "Hitter"
+              }
+            ];
+          } else {
+            return {
+              id: player.person.id,
+              firstName: firstName,
+              lastName: lastName,
+              displayName: fullName,
+              team: team.name,
+              jersey: player.jerseyNumber || '--',
+              position: isPitcher ? "P" : player.position.abbreviation,
+              positionCode: player.position.code,
+              headshot: player.person.id ? 
+                `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${player.person.id}/headshot/67/current` : 
+                'icon.png',
+              teamName: team.name,
+              teamId: team.id,
+              originalPlayer: player
+            };
+          }
+        }).flat() || []; // Use flat() to handle TWP arrays
+      } catch (error) {
+        console.error(`Error fetching roster for team ${team.name}:`, error);
+        return [];
+      }
+    });
+    
+    const allRosters = await Promise.all(rosterPromises);
+    allMLBPlayers = allRosters.flat();
+    
+    console.log(`Loaded ${allMLBPlayers.length} MLB players for comparison`);
+    return allMLBPlayers;
+  } catch (error) {
+    console.error('Error fetching all MLB players:', error);
+    return [];
+  }
+}
+
+// Show player comparison modal
+async function showPlayerComparison(player1, player2) {
+  try {
+    // Create modal overlay
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    `;
+
+    // Create modal content
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal-content';
+    modalContent.style.cssText = `
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      max-width: 900px;
+      width: 95%;
+      max-height: 85vh;
+      overflow-y: auto;
+      position: relative;
+    `;
+
+    // Create close button
+    const closeButton = document.createElement('button');
+    closeButton.innerHTML = '×';
+    closeButton.style.cssText = `
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      background: none;
+      border: none;
+      font-size: 36px;
+      cursor: pointer;
+      color: #333;
+      z-index: 1001;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: background-color 0.2s ease;
+    `;
+    closeButton.addEventListener('mouseenter', () => {
+      closeButton.style.backgroundColor = '#f0f0f0';
+    });
+    closeButton.addEventListener('mouseleave', () => {
+      closeButton.style.backgroundColor = 'transparent';
+    });
+    closeButton.addEventListener('click', () => {
+      document.body.removeChild(modal);
+      playersForComparison = []; // Clear comparison when closing
+    });
+
+    // Create comparison header
+    const comparisonHeader = document.createElement('div');
+    comparisonHeader.style.cssText = `
+      text-align: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #333;
+    `;
+    comparisonHeader.innerHTML = `
+      <h2 style="margin: 0; color: #333; font-size: 1.8rem;">Player Comparison</h2>
+    `;
+
+    // Create players header with year selectors
+    const playersHeader = document.createElement('div');
+    playersHeader.style.cssText = `
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+      align-items: center;
+    `;
+
+    // Player 1 header
+    const player1Header = document.createElement('div');
+    player1Header.id = 'player1-header';
+    player1Header.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 15px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      position: relative;
+    `;
+    
+    const currentYear = new Date().getFullYear();
+    const startYear = 2022; // Start from 2022 instead of going back 10 years
+    player1Header.innerHTML = `
+      <button class="player-clear-btn" data-player="1" style="
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        font-size: 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1002;
+      ">×</button>
+      <div style="display: flex; align-items: center; gap: 15px;">
+        <img src="${player1.headshot}" alt="${player1.firstName} ${player1.lastName}" 
+             style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;" 
+             onerror="this.src='icon.png';">
+        <div style="text-align: center;">
+          <div class="player-name-display" style="font-size: 1.2rem; font-weight: bold; color: #333;">
+            ${player1.firstName} ${player1.lastName}
+          </div>
+          <div style="font-size: 1rem; color: #666;">
+            #${player1.jersey} | ${player1.position}
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-weight: bold; color: #333;">Year:</label>
+        <select id="player1YearSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+          ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(year => 
+            `<option value="${year}" ${year === currentYear ? 'selected' : ''}>${year}</option>`
+          ).join('')}
+        </select>
+      </div>
+    `;
+
+    // VS divider
+    const vsDivider = document.createElement('div');
+    vsDivider.style.cssText = `
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #333;
+    `;
+    vsDivider.innerHTML = 'VS';
+
+    // Player 2 header
+    const player2Header = document.createElement('div');
+    player2Header.id = 'player2-header';
+    player2Header.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 15px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      position: relative;
+    `;
+    player2Header.innerHTML = `
+      <button class="player-clear-btn" data-player="2" style="
+        position: absolute;
+        top: 5px;
+        left: 5px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        font-size: 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1002;
+      ">×</button>
+      <div style="display: flex; align-items: center; gap: 15px; flex-direction: row-reverse;">
+        <img src="${player2.headshot}" alt="${player2.firstName} ${player2.lastName}" 
+             style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;" 
+             onerror="this.src='icon.png';">
+        <div style="text-align: center;">
+          <div class="player-name-display" style="font-size: 1.2rem; font-weight: bold; color: #333;">
+            ${player2.firstName} ${player2.lastName}
+          </div>
+          <div style="font-size: 1rem; color: #666;">
+            #${player2.jersey} | ${player2.position}
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-weight: bold; color: #333;">Year:</label>
+        <select id="player2YearSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+          ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(year => 
+            `<option value="${year}" ${year === currentYear ? 'selected' : ''}>${year}</option>`
+          ).join('')}
+        </select>
+      </div>
+    `;
+
+    playersHeader.appendChild(player1Header);
+    playersHeader.appendChild(vsDivider);
+    playersHeader.appendChild(player2Header);
+
+    // Create stats comparison container
+    const statsComparisonContainer = document.createElement('div');
+    statsComparisonContainer.id = 'comparison-stats-container';
+    statsComparisonContainer.innerHTML = '<div style="text-align: center; padding: 20px;">Loading comparison statistics...</div>';
+
+    // Assemble modal
+    modalContent.appendChild(closeButton);
+    modalContent.appendChild(comparisonHeader);
+    modalContent.appendChild(playersHeader);
+    modalContent.appendChild(statsComparisonContainer);
+    modal.appendChild(modalContent);
+
+    // Add modal to document
+    document.body.appendChild(modal);
+
+    // Add event listeners for individual player clear buttons
+    const clearButtons = modalContent.querySelectorAll('.player-clear-btn');
+    clearButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const playerNumber = btn.getAttribute('data-player');
+        showPlayerSelectionInterface(playerNumber, modal, modalContent, player1, player2);
+      });
+    });
+
+    // Add year selector event listeners
+    const player1YearSelector = document.getElementById('player1YearSelector');
+    const player2YearSelector = document.getElementById('player2YearSelector');
+    
+    const updateComparison = async () => {
+      const year1 = parseInt(player1YearSelector.value);
+      const year2 = parseInt(player2YearSelector.value);
+      statsComparisonContainer.innerHTML = '<div style="text-align: center; padding: 20px;">Loading comparison statistics...</div>';
+      await displayPlayerComparison(player1, player2, year1, year2, statsComparisonContainer);
+    };
+
+    player1YearSelector.addEventListener('change', updateComparison);
+    player2YearSelector.addEventListener('change', updateComparison);
+
+    // Add responsive name display
+    const updateNameDisplay = () => {
+      const nameElements = modalContent.querySelectorAll('.player-name-display');
+      nameElements.forEach((element, index) => {
+        const player = index === 0 ? player1 : player2;
+        if (window.innerWidth <= 525) {
+          element.textContent = player.firstName;
+        } else {
+          element.textContent = `${player.firstName} ${player.lastName}`;
+        }
+      });
+    };
+
+    // Initial call and window resize listener
+    updateNameDisplay();
+    window.addEventListener('resize', updateNameDisplay);
+
+    // Load initial comparison
+    await displayPlayerComparison(player1, player2, currentYear, currentYear, statsComparisonContainer);
+
+    // Close modal when clicking outside
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        document.body.removeChild(modal);
+        playersForComparison = []; // Clear comparison when closing
+      }
+    });
+
+  } catch (error) {
+    console.error('Error loading player comparison:', error);
+    alert('Error loading player comparison. Please try again.');
+  }
+}
+
+async function displayPlayerComparison(player1, player2, year1, year2, container) {
+  try {
+    // Determine if players are pitchers
+    // Check multiple possible pitcher position formats
+    const isPitcher1 = player1.position === 'P' || 
+                       player1.position === 'Pitcher' ||
+                       player1.position === 'SP' ||
+                       player1.position === 'RP' ||
+                       player1.position === 'CP' ||
+                       (player1.isTwoWayPlayer && (player1.twoWayRole === 'pitcher' || player1.twoWayRole === 'Pitcher'));
+    const isPitcher2 = player2.position === 'P' || 
+                       player2.position === 'Pitcher' ||
+                       player2.position === 'SP' ||
+                       player2.position === 'RP' ||
+                       player2.position === 'CP' ||
+                       (player2.isTwoWayPlayer && (player2.twoWayRole === 'pitcher' || player2.twoWayRole === 'Pitcher'));
+    
+    console.log('Position comparison debug:', {
+      player1: { 
+        name: `${player1.firstName} ${player1.lastName}`,
+        position: player1.position, 
+        isTwoWayPlayer: player1.isTwoWayPlayer, 
+        twoWayRole: player1.twoWayRole, 
+        isPitcher: isPitcher1 
+      },
+      player2: { 
+        name: `${player2.firstName} ${player2.lastName}`,
+        position: player2.position, 
+        isTwoWayPlayer: player2.isTwoWayPlayer, 
+        twoWayRole: player2.twoWayRole, 
+        isPitcher: isPitcher2 
+      },
+      comparison: `${isPitcher1} !== ${isPitcher2} = ${isPitcher1 !== isPitcher2}`
+    });
+    
+    // Ensure both players are of the same type
+    if (isPitcher1 !== isPitcher2) {
+      console.log('Blocking comparison: mixed pitcher/hitter types');
+      container.innerHTML = '<div style="text-align: center; padding: 20px; color: #dc3545;">Can only compare pitchers with pitchers and hitters with hitters.</div>';
+      return;
+    }
+    
+    console.log('Allowing comparison: both players are', isPitcher1 ? 'pitchers' : 'hitters');
+
+    if (!isPitcher1) {
+      // Hitting comparison
+      const [player1Response, player2Response, allPlayersResponse] = await Promise.all([
+        fetch(`https://statsapi.mlb.com/api/v1/people/${player1.id}/stats?stats=season&group=hitting&season=${year1}`),
+        fetch(`https://statsapi.mlb.com/api/v1/people/${player2.id}/stats?stats=season&group=hitting&season=${year2}`),
+        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting&season=${Math.max(year1, year2)}&gameType=R&sportId=1&limit=2000&playerPool=all`)
+      ]);
+
+      const [player1Data, player2Data, allPlayersData] = await Promise.all([
+        player1Response.json(),
+        player2Response.json(),
+        allPlayersResponse.json()
+      ]);
+
+      const player1Stats = player1Data.stats?.[0]?.splits?.[0]?.stat;
+      const player2Stats = player2Data.stats?.[0]?.splits?.[0]?.stat;
+
+      if (!player1Stats && !player2Stats) {
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No statistics available for comparison</div>';
+        return;
+      }
+
+      // Define hitting stats to compare
+      const hittingStats = [
+        { key: "avg", label: "Avg", higherIsBetter: true },
+        { key: "homeRuns", label: "HR", higherIsBetter: true },
+        { key: "rbi", label: "RBI", higherIsBetter: true },
+        { key: "obp", label: "OBP", higherIsBetter: true },
+        { key: "slg", label: "SLG", higherIsBetter: true },
+        { key: "ops", label: "OPS", higherIsBetter: true },
+        { key: "hits", label: "Hits", higherIsBetter: true },
+        { key: "runs", label: "Runs", higherIsBetter: true },
+        { key: "stolenBases", label: "SB", higherIsBetter: true },
+        { key: "strikeOuts", label: "SO", higherIsBetter: false }
+      ];
+
+      // Create comparison HTML
+      let comparisonHTML = '<div style="display: flex; flex-direction: column; gap: 15px;">';
+      
+      hittingStats.forEach((statDef) => {
+        const stat1Value = player1Stats?.[statDef.key] || (statDef.key.includes('avg') || statDef.key.includes('obp') || statDef.key.includes('slg') || statDef.key.includes('ops') ? '.000' : '0');
+        const stat2Value = player2Stats?.[statDef.key] || (statDef.key.includes('avg') || statDef.key.includes('obp') || statDef.key.includes('slg') || statDef.key.includes('ops') ? '.000' : '0');
+        
+        // Convert to numbers for comparison
+        const num1 = parseFloat(stat1Value) || 0;
+        const num2 = parseFloat(stat2Value) || 0;
+        
+        // Determine which is better
+        let player1Better = false;
+        let player2Better = false;
+        
+        if (num1 !== 0 && num2 !== 0) {
+          if (statDef.higherIsBetter) {
+            player1Better = num1 > num2;
+            player2Better = num2 > num1;
+          } else {
+            player1Better = num1 < num2;
+            player2Better = num2 < num1;
+          }
+        }
+        
+        comparisonHTML += `
+          <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; padding: 15px; background-color: #f8f9fa; border-radius: 8px;">
+            <!-- Player 1 Stat -->
+            <div style="text-align: center; padding: 10px; background-color: ${player1Better ? '#e8f5e8' : 'white'}; border-radius: 6px; ${player1Better ? 'border: 2px solid #28a745;' : 'border: 1px solid #ddd;'}">
+              <div style="font-size: 1.3rem; font-weight: bold; color: ${player1Better ? '#28a745' : '#333'}; margin-bottom: 5px;">
+                ${stat1Value}
+              </div>
+            </div>
+            
+            <!-- Stat Label -->
+            <div style="text-align: center; font-weight: bold; color: #333; min-width: 80px; padding: 0 10px;">
+              ${statDef.label}
+            </div>
+            
+            <!-- Player 2 Stat -->
+            <div style="text-align: center; padding: 10px; background-color: ${player2Better ? '#e8f5e8' : 'white'}; border-radius: 6px; ${player2Better ? 'border: 2px solid #28a745;' : 'border: 1px solid #ddd;'}">
+              <div style="font-size: 1.3rem; font-weight: bold; color: ${player2Better ? '#28a745' : '#333'}; margin-bottom: 5px;">
+                ${stat2Value}
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      
+      comparisonHTML += '</div>';
+      container.innerHTML = comparisonHTML;
+
+    } else {
+      // Pitching comparison
+      const [player1Response, player2Response, allPlayersResponse] = await Promise.all([
+        fetch(`https://statsapi.mlb.com/api/v1/people/${player1.id}/stats?stats=season&group=pitching&season=${year1}`),
+        fetch(`https://statsapi.mlb.com/api/v1/people/${player2.id}/stats?stats=season&group=pitching&season=${year2}`),
+        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=pitching&season=${Math.max(year1, year2)}&gameType=R&sportId=1&limit=2000&playerPool=all`)
+      ]);
+
+      const [player1Data, player2Data, allPlayersData] = await Promise.all([
+        player1Response.json(),
+        player2Response.json(),
+        allPlayersResponse.json()
+      ]);
+
+      const player1Stats = player1Data.stats?.[0]?.splits?.[0]?.stat;
+      const player2Stats = player2Data.stats?.[0]?.splits?.[0]?.stat;
+
+      if (!player1Stats && !player2Stats) {
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No statistics available for comparison</div>';
+        return;
+      }
+
+      // Define pitching stats to compare
+      const pitchingStats = [
+        { key: "era", label: "ERA", higherIsBetter: false },
+        { key: "whip", label: "WHIP", higherIsBetter: false },
+        { key: "wins", label: "Wins", higherIsBetter: true },
+        { key: "strikeOuts", label: "SO", higherIsBetter: true },
+        { key: "saves", label: "Saves", higherIsBetter: true },
+        { key: "inningsPitched", label: "IP", higherIsBetter: true },
+        { key: "baseOnBalls", label: "BB", higherIsBetter: false },
+        { key: "losses", label: "L", higherIsBetter: false },
+        { key: "hits", label: "H", higherIsBetter: false },
+        { key: "homeRuns", label: "HR", higherIsBetter: false }
+      ];
+
+      // Create comparison HTML
+      let comparisonHTML = '<div style="display: flex; flex-direction: column; gap: 15px;">';
+      
+      pitchingStats.forEach((statDef) => {
+        const stat1Value = player1Stats?.[statDef.key] || (statDef.key.includes('era') || statDef.key.includes('whip') ? '0.00' : '0');
+        const stat2Value = player2Stats?.[statDef.key] || (statDef.key.includes('era') || statDef.key.includes('whip') ? '0.00' : '0');
+        
+        // Convert to numbers for comparison
+        const num1 = parseFloat(stat1Value) || 0;
+        const num2 = parseFloat(stat2Value) || 0;
+        
+        // Determine which is better
+        let player1Better = false;
+        let player2Better = false;
+        
+        if (num1 !== 0 && num2 !== 0) {
+          if (statDef.higherIsBetter) {
+            player1Better = num1 > num2;
+            player2Better = num2 > num1;
+          } else {
+            player1Better = num1 < num2;
+            player2Better = num2 < num1;
+          }
+        }
+        
+        comparisonHTML += `
+          <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; padding: 15px; background-color: #f8f9fa; border-radius: 8px;">
+            <!-- Player 1 Stat -->
+            <div style="text-align: center; padding: 10px; background-color: ${player1Better ? '#e8f5e8' : 'white'}; border-radius: 6px; ${player1Better ? 'border: 2px solid #28a745;' : 'border: 1px solid #ddd;'}">
+              <div style="font-size: 1.3rem; font-weight: bold; color: ${player1Better ? '#28a745' : '#333'}; margin-bottom: 5px;">
+                ${stat1Value}
+              </div>
+            </div>
+            
+            <!-- Stat Label -->
+            <div style="text-align: center; font-weight: bold; color: #333; min-width: 80px; padding: 0 10px;">
+              ${statDef.label}
+            </div>
+            
+            <!-- Player 2 Stat -->
+            <div style="text-align: center; padding: 10px; background-color: ${player2Better ? '#e8f5e8' : 'white'}; border-radius: 6px; ${player2Better ? 'border: 2px solid #28a745;' : 'border: 1px solid #ddd;'}">
+              <div style="font-size: 1.3rem; font-weight: bold; color: ${player2Better ? '#28a745' : '#333'}; margin-bottom: 5px;">
+                ${stat2Value}
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      
+      comparisonHTML += '</div>';
+      container.innerHTML = comparisonHTML;
+    }
+  } catch (error) {
+    console.error('Error in displayPlayerComparison:', error);
+    container.innerHTML = '<div style="text-align: center; padding: 20px; color: #dc3545;">Error loading comparison statistics</div>';
+  }
+}
+
+async function showPlayerSelectionInterface(playerNumber, modal, modalContent, currentPlayer1, currentPlayer2) {
+  try {
+    console.log(`Clearing player ${playerNumber}`);
+    
+    // Get all MLB players
+    const allPlayers = await fetchAllMLBPlayers();
+    
+    // Find the specific player header to replace by ID
+    const headerToReplace = modalContent.querySelector(`#player${playerNumber}-header`);
+    
+    if (!headerToReplace) {
+      console.error(`Could not find header for player ${playerNumber}`);
+      return;
+    }
+
+    console.log(`Found header for player ${playerNumber}, replacing...`);
+
+    // Create replacement interface
+    const replacementInterface = document.createElement('div');
+    replacementInterface.id = `player${playerNumber}-replacement`;
+    replacementInterface.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 15px;
+      background-color: #e9ecef;
+      border-radius: 8px;
+      border: 2px dashed #6c757d;
+      position: relative;
+      min-height: 90px;
+    `;
+
+    const addButton = document.createElement('button');
+    addButton.innerHTML = '+';
+    addButton.style.cssText = `
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background-color: #6c757d;
+      color: white;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.2s ease;
+    `;
+
+    const addText = document.createElement('div');
+    addText.innerHTML = 'Add Player';
+    addText.style.cssText = `
+      font-size: 12px;
+      color: #6c757d;
+      font-weight: 500;
+    `;
+
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = 'Search any MLB player...';
+    searchInput.style.cssText = `
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      outline: none;
+      box-sizing: border-box;
+      display: none;
+    `;
+
+    const searchResults = document.createElement('div');
+    searchResults.style.cssText = `
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      max-height: 150px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: white;
+      display: none;
+      z-index: 1003;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    `;
+
+    replacementInterface.appendChild(addButton);
+    replacementInterface.appendChild(addText);
+    replacementInterface.appendChild(searchInput);
+    replacementInterface.appendChild(searchResults);
+
+    // Replace the header
+    headerToReplace.parentNode.replaceChild(replacementInterface, headerToReplace);
+    console.log(`Replaced header for player ${playerNumber}`);
+
+    // Hide the × button of the remaining player
+    const otherPlayerNumber = playerNumber === "1" ? "2" : "1";
+    const otherPlayerHeader = modalContent.querySelector(`#player${otherPlayerNumber}-header`);
+    if (otherPlayerHeader) {
+      const otherClearBtn = otherPlayerHeader.querySelector('.player-clear-btn');
+      if (otherClearBtn) {
+        otherClearBtn.style.display = 'none';
+      }
+    }
+
+    // Clear the comparison stats as well
+    const statsContainer = modalContent.querySelector('#comparison-stats-container');
+    if (statsContainer) {
+      statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Select a player to start comparison</div>';
+    }
+
+    // Add button hover effects
+    addButton.addEventListener('mouseenter', () => {
+      addButton.style.backgroundColor = '#5a6268';
+    });
+    addButton.addEventListener('mouseleave', () => {
+      addButton.style.backgroundColor = '#6c757d';
+    });
+
+    // Add button click to show search
+    addButton.addEventListener('click', () => {
+      addButton.style.display = 'none';
+      addText.style.display = 'none';
+      searchInput.style.display = 'block';
+      searchInput.focus();
+    });
+
+    // Search functionality
+    let searchTimeout;
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      const query = e.target.value.trim().toLowerCase();
+      
+      if (query.length < 2) {
+        searchResults.style.display = 'none';
+        return;
+      }
+
+      searchTimeout = setTimeout(async () => {
+        // Determine what type of player we're looking for based on the remaining player
+        const remainingPlayer = playerNumber === "1" ? currentPlayer2 : currentPlayer1;
+        const needsPitcher = remainingPlayer.position === 'P' || 
+                           (remainingPlayer.isTwoWayPlayer && (remainingPlayer.twoWayRole === 'pitcher' || remainingPlayer.twoWayRole === 'Pitcher'));
+        
+        console.log('Search interface - looking for:', needsPitcher ? 'pitchers' : 'hitters');
+        
+        const filteredPlayers = allPlayers
+          .filter(player => {
+            const fullName = `${player.firstName || ''} ${player.lastName || ''}`.toLowerCase();
+            const displayName = (player.displayName || '').toLowerCase();
+            const teamName = (player.team || '').toLowerCase();
+            const playerIsPitcher = player.positionCode === "1";
+            
+            // Check if query matches player name first (prioritize name over team)
+            const nameMatch = fullName.includes(query) || displayName.includes(query);
+            const teamMatch = teamName.includes(query);
+            
+            // For position matching, handle TWP players and regular players
+            let positionMatch = false;
+            if (needsPitcher) {
+              // If we need a pitcher, show pitchers (including TWP pitchers)
+              positionMatch = playerIsPitcher;
+            } else {
+              // If we need a hitter, show hitters (including TWP hitters)
+              positionMatch = !playerIsPitcher;
+            }
+            
+            // Exclude the remaining player
+            const excludeRemaining = (player.originalId || player.id) !== remainingPlayer.id;
+            
+            // Prioritize name matches over team matches
+            return (nameMatch || teamMatch) && excludeRemaining && positionMatch;
+          })
+          .sort((a, b) => {
+            // Sort by name match first, then team match
+            const aNameMatch = (`${a.firstName || ''} ${a.lastName || ''}`.toLowerCase() + (a.displayName || '').toLowerCase()).includes(query);
+            const bNameMatch = (`${b.firstName || ''} ${b.lastName || ''}`.toLowerCase() + (b.displayName || '').toLowerCase()).includes(query);
+            
+            if (aNameMatch && !bNameMatch) return -1;
+            if (!aNameMatch && bNameMatch) return 1;
+            return 0;
+          })
+          .slice(0, 5); // Max 5 results
+
+        if (filteredPlayers.length > 0) {
+          searchResults.innerHTML = filteredPlayers.map(player => `
+            <div class="replacement-search-result" data-player-index="${filteredPlayers.indexOf(player)}" style="
+              padding: 10px;
+              cursor: pointer;
+              border-bottom: 1px solid #eee;
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              transition: background-color 0.2s ease;
+            " onmouseover="this.style.backgroundColor='#f0f0f0'" onmouseout="this.style.backgroundColor='white'">
+              <img src="${player.headshot}" alt="${player.displayName}" 
+                   style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover;" 
+                   onerror="this.src='icon.png';">
+              <div>
+                <div style="font-weight: bold; color: #333;">${player.displayName}${player.isTwoWayPlayer ? ` (${player.twoWayRole})` : ''}</div>
+                <div style="font-size: 12px; color: #666;">${player.team} | #${player.jersey} | ${player.position}</div>
+              </div>
+            </div>
+          `).join('');
+          
+          searchResults.style.display = 'block';
+
+          // Add click handlers to search results
+          searchResults.querySelectorAll('.replacement-search-result').forEach((item, index) => {
+            item.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              
+              const player = filteredPlayers[index];
+              console.log('Selected replacement player:', player);
+              
+              if (player) {
+                // Parse the display name properly to get firstName and lastName
+                const displayName = player.displayName || `${player.firstName || ''} ${player.lastName || ''}`.trim();
+                const nameParts = displayName.split(' ');
+                const parsedFirstName = player.firstName || (nameParts.length > 1 ? nameParts[0] : '');
+                const parsedLastName = player.lastName || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : nameParts[0]);
+                
+                const newPlayer = {
+                  id: player.originalId || player.id,
+                  firstName: parsedFirstName,
+                  lastName: parsedLastName,
+                  fullName: displayName,
+                  jersey: player.jersey || 'N/A',
+                  position: player.position || 'N/A',
+                  headshot: player.headshot || 'icon.png',
+                  isTwoWayPlayer: player.isTwoWayPlayer || false,
+                  twoWayRole: player.twoWayRole || null
+                };
+                
+                console.log('Replacement player for comparison:', newPlayer);
+                console.log('Parsed replacement names - First:', parsedFirstName, 'Last:', parsedLastName);
+                
+                // Close current modal and start new comparison
+                document.body.removeChild(modal);
+                
+                // Create new comparison with the new player
+                if (playerNumber === "1") {
+                  playersForComparison = [newPlayer, currentPlayer2];
+                  showPlayerComparison(newPlayer, currentPlayer2);
+                } else {
+                  playersForComparison = [currentPlayer1, newPlayer];
+                  showPlayerComparison(currentPlayer1, newPlayer);
+                }
+              }
+            });
+          });
+        } else {
+          const positionText = needsPitcher ? 'pitchers' : 'hitters';
+          searchResults.innerHTML = `<div style="padding: 10px; color: #666; text-align: center;">No ${positionText} found</div>`;
+          searchResults.style.display = 'block';
+        }
+      }, 300);
+    });
+
+    // Hide search when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!replacementInterface.contains(e.target)) {
+        searchResults.style.display = 'none';
+      }
+    });
+
+    console.log(`Player ${playerNumber} replacement interface completed`);
+
+  } catch (error) {
+    console.error('Error in player selection interface:', error);
+  }
+}
+
+// Update comparison stats when year changes
+async function updatePlayerComparisonStats(playerNumber) {
+  const yearSelector = document.getElementById(`player${playerNumber}Year`);
+  const statsContainer = document.getElementById(`player${playerNumber}Stats`);
+  const player = playerNumber === 1 ? window.comparisonPlayer1 : window.comparisonPlayer2;
+  
+  const selectedYear = parseInt(yearSelector.value);
+  
+  statsContainer.innerHTML = '<div class="loading">Loading stats...</div>';
+  
+  try {
+    await loadPlayerStatsForComparison(player.id, selectedYear, statsContainer);
+  } catch (error) {
+    console.error('Error loading comparison stats:', error);
+    statsContainer.innerHTML = '<div class="error">Error loading stats</div>';
+  }
+}
+
+// Load player stats for comparison
+async function loadPlayerStatsForComparison(playerId, year, container) {
+  try {
+    // First determine if player is a pitcher
+    const playerInfoResponse = await fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}`);
+    const playerInfoData = await playerInfoResponse.json();
+    const playerInfo = playerInfoData.people[0];
+    
+    let isPitcher = false;
+    if (playerInfo.primaryPosition) {
+      isPitcher = playerInfo.primaryPosition.abbreviation === 'P';
+    }
+    
+    if (!isPitcher) {
+      // Load hitting stats for comparison
+      const [playerResponse, allPlayersResponse] = await Promise.all([
+        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${year}`),
+        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting&season=${year}&gameType=R&sportId=1&limit=2000&playerPool=all`)
+      ]);
+      
+      const playerData = await playerResponse.json();
+      const allPlayersData = await allPlayersResponse.json();
+      
+      if (playerData.stats && playerData.stats.length > 0 && playerData.stats[0].splits && playerData.stats[0].splits.length > 0) {
+        const splitForYear = playerData.stats[0].splits[0];
+        const playerStats = splitForYear.stat;
+        
+        // Get team info for the year
+        let teamNameForYear = splitForYear.team && splitForYear.team.name ? splitForYear.team.name : "";
+        let teamLogoUrl = "";
+        if (teamNameForYear) {
+          teamLogoUrl = await getStandardLogoUrl(teamNameForYear);
+        }
+        
+        // Calculate rankings
+        const rankings = calculatePlayerStatRankings(allPlayersData, playerStats);
+        
+        container.innerHTML = `
+          <div class="comparison-player-header">
+            <img src="${teamLogoUrl}" alt="${teamNameForYear}" 
+              class="comparison-team-logo" 
+              style="height:30px;max-width:40px;" 
+              onerror="this.src='icon.png';">
+            <span class="comparison-year-label">${year} Hitting Stats</span>
+          </div>
+          <div class="comparison-stats-grid">
+            <div class="comparison-stat-item">
+              <div class="comparison-stat-value">${playerStats.avg || '.000'}</div>
+              <div class="comparison-stat-label">AVG</div>
+              ${rankings.avg ? `<div class="comparison-stat-rank">#${rankings.avg}</div>` : ''}
+            </div>
+            <div class="comparison-stat-item">
+              <div class="comparison-stat-value">${playerStats.homeRuns || 0}</div>
+              <div class="comparison-stat-label">HR</div>
+              ${rankings.homeRuns ? `<div class="comparison-stat-rank">#${rankings.homeRuns}</div>` : ''}
+            </div>
+            <div class="comparison-stat-item">
+              <div class="comparison-stat-value">${playerStats.rbi || 0}</div>
+              <div class="comparison-stat-label">RBI</div>
+              ${rankings.rbi ? `<div class="comparison-stat-rank">#${rankings.rbi}</div>` : ''}
+            </div>
+            <div class="comparison-stat-item">
+              <div class="comparison-stat-value">${playerStats.ops || '.000'}</div>
+              <div class="comparison-stat-label">OPS</div>
+              ${rankings.ops ? `<div class="comparison-stat-rank">#${rankings.ops}</div>` : ''}
+            </div>
+            <div class="comparison-stat-item">
+              <div class="comparison-stat-value">${playerStats.hits || 0}</div>
+              <div class="comparison-stat-label">Hits</div>
+              ${rankings.hits ? `<div class="comparison-stat-rank">#${rankings.hits}</div>` : ''}
+            </div>
+            <div class="comparison-stat-item">
+              <div class="comparison-stat-value">${playerStats.runs || 0}</div>
+              <div class="comparison-stat-label">Runs</div>
+              ${rankings.runs ? `<div class="comparison-stat-rank">#${rankings.runs}</div>` : ''}
+            </div>
+            <div class="comparison-stat-item">
+              <div class="comparison-stat-value">${playerStats.stolenBases || 0}</div>
+              <div class="comparison-stat-label">SB</div>
+              ${rankings.stolenBases ? `<div class="comparison-stat-rank">#${rankings.stolenBases}</div>` : ''}
+            </div>
+            <div class="comparison-stat-item">
+              <div class="comparison-stat-value">${playerStats.obp || '.000'}</div>
+              <div class="comparison-stat-label">OBP</div>
+              ${rankings.obp ? `<div class="comparison-stat-rank">#${rankings.obp}</div>` : ''}
+            </div>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `<div class="no-stats">No hitting stats available for ${year}</div>`;
+      }
+    } else {
+      // Load pitching stats for comparison
+      const [playerResponse, allPlayersResponse] = await Promise.all([
+        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${year}`),
+        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=pitching&season=${year}&gameType=R&sportId=1&limit=2000&playerPool=all`)
+      ]);
+      
+      const playerData = await playerResponse.json();
+      const allPlayersData = await allPlayersResponse.json();
+      
+      if (playerData.stats && playerData.stats.length > 0 && playerData.stats[0].splits && playerData.stats[0].splits.length > 0) {
+        const splitForYear = playerData.stats[0].splits[0];
+        const playerStats = splitForYear.stat;
+        
+        // Get team info for the year
+        let teamNameForYear = splitForYear.team && splitForYear.team.name ? splitForYear.team.name : "";
+        let teamLogoUrl = "";
+        if (teamNameForYear) {
+          teamLogoUrl = await getStandardLogoUrl(teamNameForYear);
+        }
+        
+        // Calculate rankings
+        const rankings = calculatePitcherStatRankings(allPlayersData, playerStats);
+        
+        container.innerHTML = `
+          <div class="comparison-player-header">
+            <img src="${teamLogoUrl}" alt="${teamNameForYear}" 
+              class="comparison-team-logo" 
+              style="height:30px;max-width:40px;" 
+              onerror="this.src='icon.png';">
+            <span class="comparison-year-label">${year} Pitching Stats</span>
+          </div>
+          <div class="comparison-stats-grid">
+            <div class="comparison-stat-item">
+              <div class="comparison-stat-value">${playerStats.era || '0.00'}</div>
+              <div class="comparison-stat-label">ERA</div>
+              ${rankings.era ? `<div class="comparison-stat-rank">#${rankings.era}</div>` : ''}
+            </div>
+            <div class="comparison-stat-item">
+              <div class="comparison-stat-value">${playerStats.wins || 0}</div>
+              <div class="comparison-stat-label">Wins</div>
+              ${rankings.wins ? `<div class="comparison-stat-rank">#${rankings.wins}</div>` : ''}
+            </div>
+            <div class="comparison-stat-item">
+              <div class="comparison-stat-value">${playerStats.strikeOuts || 0}</div>
+              <div class="comparison-stat-label">SO</div>
+              ${rankings.strikeOuts ? `<div class="comparison-stat-rank">#${rankings.strikeOuts}</div>` : ''}
+            </div>
+            <div class="comparison-stat-item">
+              <div class="comparison-stat-value">${playerStats.whip || '0.00'}</div>
+              <div class="comparison-stat-label">WHIP</div>
+              ${rankings.whip ? `<div class="comparison-stat-rank">#${rankings.whip}</div>` : ''}
+            </div>
+            <div class="comparison-stat-item">
+              <div class="comparison-stat-value">${playerStats.inningsPitched || '0.0'}</div>
+              <div class="comparison-stat-label">IP</div>
+              ${rankings.inningsPitched ? `<div class="comparison-stat-rank">#${rankings.inningsPitched}</div>` : ''}
+            </div>
+            <div class="comparison-stat-item">
+              <div class="comparison-stat-value">${playerStats.saves || 0}</div>
+              <div class="comparison-stat-label">Saves</div>
+              ${rankings.saves ? `<div class="comparison-stat-rank">#${rankings.saves}</div>` : ''}
+            </div>
+            <div class="comparison-stat-item">
+              <div class="comparison-stat-value">${playerStats.baseOnBalls || 0}</div>
+              <div class="comparison-stat-label">BB</div>
+              ${rankings.baseOnBalls ? `<div class="comparison-stat-rank">#${rankings.baseOnBalls}</div>` : ''}
+            </div>
+            <div class="comparison-stat-item">
+              <div class="comparison-stat-value">${playerStats.hits || 0}</div>
+              <div class="comparison-stat-label">Hits</div>
+              ${rankings.hits ? `<div class="comparison-stat-rank">#${rankings.hits}</div>` : ''}
+            </div>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `<div class="no-stats">No pitching stats available for ${year}</div>`;
+      }
+    }
+  } catch (error) {
+    console.error('Error loading player stats for comparison:', error);
+    container.innerHTML = '<div class="error">Error loading stats</div>';
   }
 }

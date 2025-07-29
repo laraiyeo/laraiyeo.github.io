@@ -97,7 +97,7 @@ async function loadTeamData() {
 
 async function loadTeamInfo() {
   try {
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${currentTeamId}`);
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${currentTeamId}`);
     const data = await response.json();
     currentTeam = data.team;
     
@@ -105,7 +105,7 @@ async function loadTeamInfo() {
         logo.rel.includes(
           ["26"].includes(currentTeam.id) ? 'secondary_logo_on_secondary_color' : 'primary_logo_on_primary_color'
         )
-    )?.href) || `https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/${currentTeam.abbreviation}.png`;
+    )?.href) || `https://a.espncdn.com/i/teamlogos/wnba/500/${currentTeam.abbreviation}.png`;
 
     const teamColor = `#${currentTeam.color}` || "#000000";
 
@@ -121,7 +121,7 @@ async function loadTeamInfo() {
     
     // Get team record from standings
     try {
-      const standingsResponse = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard');
+      const standingsResponse = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard');
       const standingsData = await standingsResponse.json();
       // This is simplified - we could get more detailed record info from standings API
     } catch (error) {
@@ -134,13 +134,13 @@ async function loadTeamInfo() {
         <div class="team-details-header">
           <div class="team-name-header">${currentTeam.displayName}</div>
           <div class="team-record-header">${currentTeam.standingSummary}</div>
-          <div class="team-division-header">${currentTeam.abbreviation} -  NBA</div>
+          <div class="team-division-header">${currentTeam.abbreviation} -  WNBA</div>
         </div>
       </div>
     `;
     
     // Update page title
-    document.title = `${currentTeam.displayName} - NBA`;
+    document.title = `${currentTeam.displayName} - WNBA`;
   } catch (error) {
     console.error("Error loading team info:", error);
     document.getElementById('teamInfo').innerHTML = '<div class="no-data">Error loading team information</div>';
@@ -198,27 +198,14 @@ async function loadCurrentGame() {
     
     const today = getAdjustedDateForNBA();
     
-    // Fetch from both NBA and Summer League APIs
-    const [todayResponse, summerResponse] = await Promise.all([
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${today}`),
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/scoreboard?dates=${today}`)
-    ]);
-    
-    const [todayData, summerData] = await Promise.all([
-      todayResponse.json(),
-      summerResponse.json()
-    ]);
-    
-    // Combine events from both sources
-    const allEvents = [
-      ...(todayData.events || []),
-      ...(summerData.events || [])
-    ];
+    // Fetch WNBA games
+    const todayResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${today}`);
+    const todayData = await todayResponse.json();
     
     const contentDiv = document.getElementById('currentGameContent');
     
     // Check if there's a game today for this team
-    const todayGame = allEvents.find(event => {
+    const todayGame = todayData.events?.find(event => {
       const competition = event.competitions?.[0];
       return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
     });
@@ -253,25 +240,12 @@ async function loadCurrentGame() {
                               String(endDate.getMonth() + 1).padStart(2, "0") +
                               String(endDate.getDate()).padStart(2, "0");
       
-      // Fetch from both NBA and Summer League APIs
-      const [upcomingResponse, summerUpcomingResponse] = await Promise.all([
-        fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${tomorrowFormatted}-${endDateFormatted}`),
-        fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/scoreboard?dates=${tomorrowFormatted}-${endDateFormatted}`)
-      ]);
-      
-      const [upcomingData, summerUpcomingData] = await Promise.all([
-        upcomingResponse.json(),
-        summerUpcomingResponse.json()
-      ]);
-      
-      // Combine events from both sources
-      const allUpcomingEvents = [
-        ...(upcomingData.events || []),
-        ...(summerUpcomingData.events || [])
-      ];
+      // Fetch WNBA games
+      const upcomingResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${tomorrowFormatted}-${endDateFormatted}`);
+      const upcomingData = await upcomingResponse.json();
       
       // Find the next scheduled game for this team
-      const nextGame = allUpcomingEvents
+      const nextGame = upcomingData.events
         ?.filter(event => {
           const competition = event.competitions?.[0];
           return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
@@ -342,8 +316,8 @@ async function createCurrentGameCard(game) {
     scoreDisplay = `${teamScore || 0} - ${opponentScore || 0}`;
   }
 
-  const teamLogo = `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${currentTeam.abbreviation}.png`;
-  const opponentLogo = `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${opponent.team.abbreviation}.png`;
+  const teamLogo = `https://a.espncdn.com/i/teamlogos/wnba/500/${currentTeam.abbreviation}.png`;
+  const opponentLogo = `https://a.espncdn.com/i/teamlogos/wnba/500/${opponent.team.abbreviation}.png`;
 
   // Format game date for URL parameter
   const gameUrlDate = gameDate.getFullYear() +
@@ -375,7 +349,7 @@ async function loadRecentMatches() {
     const today = new Date();
     const startDate = startDatePicker ? new Date(startDatePicker.value) : new Date(today.getTime() - 10 * 24 * 60 * 60 * 1000);
     
-    // Format dates for NBA API
+    // Format dates for WNBA API
     const formatDate = (date) => {
       return date.getFullYear() +
         String(date.getMonth() + 1).padStart(2, "0") +
@@ -384,25 +358,12 @@ async function loadRecentMatches() {
     
     const dateRange = `${formatDate(startDate)}-${formatDate(today)}`;
     
-    // Fetch from both NBA and Summer League APIs
-    const [response, summerResponse] = await Promise.all([
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateRange}`),
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/scoreboard?dates=${dateRange}`)
-    ]);
-    
-    const [data, summerData] = await Promise.all([
-      response.json(),
-      summerResponse.json()
-    ]);
-    
-    // Combine events from both sources
-    const allEvents = [
-      ...(data.events || []),
-      ...(summerData.events || [])
-    ];
+    // Fetch WNBA games
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${dateRange}`);
+    const data = await response.json();
     
     // Filter games for this team and completed games
-    const allGames = allEvents.filter(event => {
+    const allGames = data.events?.filter(event => {
       const competition = event.competitions?.[0];
       return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
     }) || [];
@@ -502,8 +463,8 @@ async function createMatchCard(game, isRecent = false) {
     day: "numeric"
   });
 
-  const teamLogo = `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${currentTeam.abbreviation}.png`;
-  const opponentLogo = `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${opponent.team.abbreviation}.png`;
+  const teamLogo = `https://a.espncdn.com/i/teamlogos/wnba/500/${currentTeam.abbreviation}.png`;
+  const opponentLogo = `https://a.espncdn.com/i/teamlogos/wnba/500/${opponent.team.abbreviation}.png`;
 
   let resultClass = "";
   let resultText = "";
@@ -544,7 +505,7 @@ async function createMatchCard(game, isRecent = false) {
   `;
 }
 
-// Global variable to store all NBA players for league-wide comparison
+// Global variable to store all WNBA players for league-wide comparison
 let allNBAPlayers = [];
 
 async function fetchAllNBAPlayers() {
@@ -553,8 +514,8 @@ async function fetchAllNBAPlayers() {
   }
 
   try {
-    // Fetch all NBA teams
-    const teamsResponse = await fetch('https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/teams?lang=en&region=us');
+    // Fetch all WNBA teams
+    const teamsResponse = await fetch('https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/teams?lang=en&region=us');
     const teamsData = await teamsResponse.json();
     
     const allPlayers = [];
@@ -609,10 +570,10 @@ async function fetchAllNBAPlayers() {
     });
 
     allNBAPlayers = allPlayers;
-    console.log(`Loaded ${allNBAPlayers.length} NBA players for comparison`);
+    console.log(`Loaded ${allNBAPlayers.length} WNBA players for comparison`);
     return allNBAPlayers;
   } catch (error) {
-    console.error('Error fetching all NBA players:', error);
+    console.error('Error fetching all WNBA players:', error);
     return [];
   }
 }
@@ -621,7 +582,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
   try {
     console.log(`Clearing player ${playerNumber}`);
     
-    // Get all NBA players
+    // Get all WNBA players
     const allPlayers = await fetchAllNBAPlayers();
     
     // Find the specific player header to replace by ID
@@ -678,7 +639,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
 
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
-    searchInput.placeholder = 'Search any NBA player...';
+    searchInput.placeholder = 'Search any WNBA player...';
     searchInput.style.cssText = `
       width: 100%;
       padding: 8px;
@@ -852,24 +813,11 @@ async function loadUpcomingMatches() {
     
     const dateRange = `${formatDate(today)}-${formatDate(endDate)}`;
     
-    // Fetch from both NBA and Summer League APIs
-    const [response, summerResponse] = await Promise.all([
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateRange}`),
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/scoreboard?dates=${dateRange}`)
-    ]);
+    // Fetch WNBA games
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${dateRange}`);
+    const data = await response.json();
     
-    const [data, summerData] = await Promise.all([
-      response.json(),
-      summerResponse.json()
-    ]);
-    
-    // Combine events from both sources
-    const allEvents = [
-      ...(data.events || []),
-      ...(summerData.events || [])
-    ];
-    
-    const upcomingGames = allEvents
+    const upcomingGames = data.events
       .filter(event => {
         const competition = event.competitions?.[0];
         return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
@@ -906,11 +854,11 @@ async function loadUpcomingMatches() {
 
 async function loadTeamStats() {
   try {
-    // NBA doesn't have a direct team stats API like MLB, so we'll show basic info
+    // WNBA doesn't have a direct team stats API like MLB, so we'll show basic info
     const contentDiv = document.getElementById('teamStatsContent');
     
     // Try to get team info from the main team API
-    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2025/types/2/teams/${currentTeamId}/statistics?lang=en&region=us`);
+    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/2025/types/2/teams/${currentTeamId}/statistics?lang=en&region=us`);
     const data = await response.json();
     
     if (data.team) {
@@ -948,128 +896,105 @@ async function loadTeamStats() {
 
 async function loadCurrentStanding() {
   try {
-    // Function to determine if we're in the Summer League period (same as standings.js)
-    function isSummerLeague() {
-      const now = new Date();
-      const year = now.getFullYear();
-      const summerStart = new Date(year, 6, 10); // July 10 (month is 0-indexed)
-      const summerEnd = new Date(year, 6, 21);   // July 21
-      
-      return now >= summerStart && now <= summerEnd;
-    }
-
-    // Function to get the appropriate league identifier
-    function getLeagueIdentifier() {
-      return isSummerLeague() ? "nba-summer-las-vegas" : "nba";
-    }
-
-    const STANDINGS_URL = `https://cdn.espn.com/core/${getLeagueIdentifier()}/standings?xhr=1`;
+    const STANDINGS_URL = `https://cdn.espn.com/core/wnba/standings?xhr=1`;
     const contentDiv = document.getElementById('currentStandingContent');
     
-    if (isSummerLeague()) {
-      // Handle Summer League standings
-      const SUMMER_LEAGUE_STANDINGS_URL = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba-summer-las-vegas/seasons/2025/types/2/groups/1/standings/0?lang=en&region=us";
-      
-      const res = await fetch(SUMMER_LEAGUE_STANDINGS_URL);
-      const data = await res.json();
-      
-      const standingsData = data.standings || [];
-      
-      // Find current team in standings
-      let teamStanding = null;
-      for (const teamStandingData of standingsData) {
-        const teamRef = convertToHttps(teamStandingData.team.$ref);
-        const teamRes = await fetch(teamRef);
-        const teamData = await teamRes.json();
-        
-        if (teamData.id === currentTeamId) {
-          const record = teamStandingData.records[0];
-          const stats = record.stats.reduce((acc, stat) => {
-            acc[stat.name] = stat;
-            return acc;
-          }, {});
-          
-          teamStanding = {
-            team: teamData,
-            record: record,
-            stats: stats,
-            seed: stats.playoffSeed?.value || 0
-          };
-          break;
-        }
-      }
-      
-      if (teamStanding) {
-        const wins = teamStanding.stats.wins?.displayValue || "0";
-        const losses = teamStanding.stats.losses?.displayValue || "0";
-        const winPercentage = teamStanding.stats.winPercent?.displayValue || "0.000";
-        
-        contentDiv.innerHTML = `
-          <div class="standing-info">
-            <div class="standing-position">#${teamStanding.seed}</div>
-            <div class="standing-details">
-              <strong>Summer League</strong><br>
-              Record: ${wins}-${losses}<br>
-              Win %: ${winPercentage}
-            </div>
-          </div>
-        `;
-      } else {
-        contentDiv.innerHTML = '<div class="no-data">Summer League standing information not available</div>';
-      }
-    } else {
-      // Handle regular NBA standings
-      const res = await fetch(STANDINGS_URL);
-      const text = await res.text();
-      const data = JSON.parse(text);
-      const groups = data.content.standings.groups;
+    const res = await fetch(STANDINGS_URL);
+    const text = await res.text();
+    const data = JSON.parse(text);
 
-      const easternConference = groups.find(group => group.name === "Eastern Conference");
-      const westernConference = groups.find(group => group.name === "Western Conference");
-      
-      let teamStanding = null;
-      let conferenceName = "";
-      
-      // Search in Eastern Conference
-      if (easternConference) {
-        const foundEntry = easternConference.standings.entries.find(entry => entry.team.id === currentTeamId);
-        if (foundEntry) {
-          teamStanding = foundEntry;
-          conferenceName = "Eastern Conference";
+    // Get all standings entries from data.content.standings.standings.entries (following standings.js pattern)
+    const allEntries =
+      data.content &&
+      data.content.standings &&
+      data.content.standings.standings &&
+      Array.isArray(data.content.standings.standings.entries)
+        ? data.content.standings.standings.entries
+        : [];
+
+    // Find current team in all entries
+    const teamStanding = allEntries.find(entry => entry.team.id === currentTeamId);
+    
+    if (!teamStanding) {
+      contentDiv.innerHTML = '<div class="no-data">Team not found in standings</div>';
+      return;
+    }
+
+    // Get conference order from tier2Nav.subNavMenu.navigation.items (following standings.js pattern)
+    let eastOrder = [];
+    let westOrder = [];
+    const tier2Nav = data.content.tier2Nav;
+    if (
+      tier2Nav &&
+      tier2Nav.subNavMenu &&
+      tier2Nav.subNavMenu.navigation &&
+      Array.isArray(tier2Nav.subNavMenu.navigation.items)
+    ) {
+      let east = false, west = false;
+      for (const item of tier2Nav.subNavMenu.navigation.items) {
+        if (item.links && item.links[0]) {
+          const link = item.links[0];
+          if (link.text === "Eastern Conference") {
+            east = true;
+            west = false;
+            continue;
+          }
+          if (link.text === "Western Conference") {
+            west = true;
+            east = false;
+            continue;
+          }
+          if (link.rel && link.rel.includes("team") && link.attributes && link.attributes.teamAbbrev) {
+            if (east) eastOrder.push(link.attributes.teamAbbrev);
+            if (west) westOrder.push(link.attributes.teamAbbrev);
+          }
         }
-      }
-      
-      // Search in Western Conference if not found in Eastern
-      if (!teamStanding && westernConference) {
-        const foundEntry = westernConference.standings.entries.find(entry => entry.team.id === currentTeamId);
-        if (foundEntry) {
-          teamStanding = foundEntry;
-          conferenceName = "Western Conference";
-        }
-      }
-      
-      if (teamStanding) {
-        const wins = teamStanding.stats.find(stat => stat.name === "wins")?.displayValue || "0";
-        const losses = teamStanding.stats.find(stat => stat.name === "losses")?.displayValue || "0";
-        const winPercent = teamStanding.stats.find(stat => stat.name === "winPercent")?.displayValue || "0.000";
-        const gamesBehind = teamStanding.stats.find(stat => stat.name === "gamesBehind")?.displayValue || "-";
-        const teamSeed = teamStanding.team.seed || "N/A";
-        
-        contentDiv.innerHTML = `
-          <div class="standing-info">
-            <div class="standing-position">#${teamSeed}</div>
-            <div class="standing-details">
-              <strong>${conferenceName}</strong><br><br>
-              Record: ${wins}-${losses}<br><br>
-              Win %: ${winPercent}<br><br>
-              GB: ${gamesBehind}
-            </div>
-          </div>
-        `;
-      } else {
-        contentDiv.innerHTML = '<div class="no-data">Standing information not available</div>';
       }
     }
+
+    // Fallback to default order if not found (from standings.js)
+    if (eastOrder.length === 0) eastOrder = ["ATL", "CHI", "CONN", "IND", "NY", "WSH"];
+    if (westOrder.length === 0) westOrder = ["DAL", "GS", "LV", "LA", "MIN", "PHX", "SEA"];
+
+    // Determine which conference the team is in
+    const teamAbbr = teamStanding.team.abbreviation;
+    let conferenceName = "";
+    if (eastOrder.includes(teamAbbr)) {
+      conferenceName = "Eastern Conference";
+    } else if (westOrder.includes(teamAbbr)) {
+      conferenceName = "Western Conference";
+    } else {
+      conferenceName = "Conference";
+    }
+
+    // Extract stats using the same pattern as standings.js
+    const wins = teamStanding.stats.find(stat => stat.name === "wins")?.displayValue || "0";
+    const losses = teamStanding.stats.find(stat => stat.name === "losses")?.displayValue || "0";
+    const winPercent = teamStanding.stats.find(stat => stat.name === "winPercent")?.displayValue || "0.000";
+    const gamesBehind = teamStanding.stats.find(stat => stat.name === "gamesBehind")?.displayValue || "-";
+    const teamSeed = teamStanding.team.seed || "N/A";
+    
+    // Add ordinal suffix helper function (from standings.js)
+    const getOrdinalSuffix = (num) => {
+      const j = num % 10;
+      const k = num % 100;
+      if (j === 1 && k !== 11) return num + "st";
+      if (j === 2 && k !== 12) return num + "nd";
+      if (j === 3 && k !== 13) return num + "rd";
+      return num + "th";
+    };
+    
+    contentDiv.innerHTML = `
+      <div class="standing-info">
+        <div class="standing-position">#${getOrdinalSuffix(teamSeed)}</div>
+        <div class="standing-details">
+          <strong>${conferenceName}</strong><br><br>
+          Record: ${wins}-${losses}<br><br>
+          Win %: ${winPercent}<br><br>
+          GB: ${gamesBehind}<br>
+        </div>
+      </div>
+    `;
   } catch (error) {
     console.error("Error loading standings:", error);
     document.getElementById('currentStandingContent').innerHTML = '<div class="no-data">Error loading standings</div>';
@@ -1078,7 +1003,7 @@ async function loadCurrentStanding() {
 
 async function loadPlayersInfo() {
   try {
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${currentTeamId}/roster`);
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${currentTeamId}/roster`);
     const data = await response.json();
     
     const contentDiv = document.getElementById('playersInfoContent');
@@ -1342,7 +1267,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       }
 
       searchTimeout = setTimeout(async () => {
-        // Get all NBA players for league-wide search
+        // Get all WNBA players for league-wide search
         const allPlayers = await fetchAllNBAPlayers();
         const filteredPlayers = allPlayers
           .filter(player => {
@@ -1424,7 +1349,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
     document.body.appendChild(modal);
 
     // Fetch player stats
-    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2025/types/2/athletes/${playerId}/statistics?lang=en&region=us`);
+    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/2025/types/2/athletes/${playerId}/statistics?lang=en&region=us`);
     const data = await response.json();
 
     console.log('Player stats data:', data);
@@ -1718,8 +1643,8 @@ async function showPlayerComparison(player1, player2) {
 
     // Fetch both players' stats
     const [player1Response, player2Response] = await Promise.all([
-      fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2025/types/2/athletes/${player1.id}/statistics?lang=en&region=us`),
-      fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2025/types/2/athletes/${player2.id}/statistics?lang=en&region=us`)
+      fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/2025/types/2/athletes/${player1.id}/statistics?lang=en&region=us`),
+      fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/2025/types/2/athletes/${player2.id}/statistics?lang=en&region=us`)
     ]);
 
     const [player1Data, player2Data] = await Promise.all([

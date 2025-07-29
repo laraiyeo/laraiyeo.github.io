@@ -93,7 +93,7 @@
             .map(teamData => teamData.team)
             .find(t => t.id === teamId);
 
-          const logoUrl = ["367", "2950"].includes(team.id)
+          const logoUrl = ["367", "2950", "92"].includes(team.id)
           ? team.logos?.find(logo => logo.rel.includes("default"))?.href || ""
           : team.logos?.find(logo => logo.rel.includes("dark"))?.href || "";
           const noGameCard = document.createElement("div");

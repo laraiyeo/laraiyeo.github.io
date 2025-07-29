@@ -42,26 +42,32 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
   - Click on a team logo to get a unique URL for OBS
   - For F1: All 10 constructor teams displayed with official 2025 car liveries, team colors, driver lineups, championship positions, and detailed statistics including points, wins, and gap to championship leader. Full OBS integration with individual team overlays for streaming.
 
-- **Comprehensive Team Dashboard**
-  - Individual team pages accessible through search results with complete team information
-  - Current Game Display: Shows today's game if scheduled, or next upcoming game with proper MLB date adjustment logic
-  -*Recent Match History: Paginated view of completed games with customizable date range selection and win/loss indicators
+- **Comprehensive Team Search & Dashboard**
+  - Universal Team Search: Dedicated search pages for all sports (MLB, NHL, NBA, WNBA, Soccer) allowing users to find any team across leagues
+  - Individual Team Pages: Complete team dashboards accessible through search results with comprehensive team information
+  - Current Game Display: Shows today's game if scheduled, or next upcoming game with proper date adjustment logic for each sport
+  - Recent Match History: Paginated view of completed games with customizable date range selection and win/loss indicators
   - Upcoming Schedule: Next 5 scheduled games with dates, opponents, and venue information
-  - Team Statistics: Real-time season stats including offensive and pitching metrics with calculated derived statistics
-  - Current Standings: Team's position in division with record, win percentage, and games behind leader
-  - Complete Player Roster: Searchable, paginated roster with player positions and jersey numbers
-  - Detailed Player Statistics: Click any player to view comprehensive hitting or pitching stats with **MLB rankings for each statistic**
-    - Player Performance Rankings: Each player stat shows their ranking among all MLB players (e.g., "#15 in MLB" for home runs)
-    - Smart Position Detection: Automatically displays hitting stats for position players and pitching stats for pitchers
-    - Quality Filtering: Rankings only include players/pitchers with meaningful playing time (10+ games for hitters, 5+ games for pitchers)
-    - Advanced Metrics: Includes traditional stats plus advanced metrics like OPS, WHIP, K/9, BB/9, and more
-  - **NBA Player Search & Comparison**: Dedicated search page allowing users to find and compare any NBA players across all 30 teams
-    - League-wide Player Search: Search through complete rosters of all NBA teams with real-time filtering
-    - Advanced Player Comparison: Side-by-side statistical comparison of any two NBA players with comprehensive season stats
+  - Team Statistics: Real-time season stats including sport-specific metrics (offensive/pitching for MLB, goals/assists for NHL, etc.)
+  - Current Standings: Team's position in division/conference with record, win percentage, and relevant league standings
+  - Complete Player Roster: Searchable, paginated roster with player positions and jersey numbers for all sports
+  - Detailed Player Statistics: Click any player to view comprehensive stats with **league rankings for each statistic**
+    - Player Performance Rankings: Each player stat shows their ranking among all league players (e.g., "#15 in MLB" for home runs)
+    - Smart Position Detection: 
+      - MLB: Automatically displays hitting stats for position players and pitching stats for pitchers
+      - Soccer: Only allows for comparison of goalie vs goalie and field vs field
+      - NHL: Shows goaltending stats for goalies and skater stats for forwards/defensemen
+      - NBA/WNBA: Displays comprehensive basketball statistics for all positions
+    - Position-Specific Comparisons: Players can only be compared with compatible positions (goalies vs goalies, pitchers vs pitchers, etc.)
+    - Quality Filtering: Rankings only include players with meaningful playing time
+    - Advanced Metrics: Sport-specific advanced statistics (OPS/WHIP for MLB, +/- for NHL, PER for NBA, etc.)
+  - League-Wide Player Search & Comparison: 
+    - Cross-Team Player Search: Search through complete rosters of all teams within each sport with real-time filtering
+    - Advanced Player Comparison: Side-by-side statistical comparison of any two compatible players with comprehensive season stats
     - Interactive Comparison Interface: Individual clear buttons for each player allowing selective removal and replacement
     - Smart UX Design: Prevents clearing both players simultaneously to maintain valid comparison states
-    - Responsive Player Display: Optimized for mobile screens (≤525px) with first-name-only display in comparison view
-    - Comprehensive Statistics: Detailed player stats including points, rebounds, assists, shooting percentages, and advanced metrics
+    - Position-Aware Filtering: Automatically filters search results to show only compatible positions for fair comparisons
+    - Responsive Player Display: Optimized for mobile screens (≤525px) with abbreviated display in comparison view
 
 - **Standings**
   - View current league standings side by side for both conferences with divisions
@@ -136,31 +142,26 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - (5/12/2025) Added playoff bracket page to NBA. Coming soon to NHL and MLB.
 - **(5/27/2025) Added fully functional WNBA tracker**
 - **(06/14/2025) Added fully functional Club World Cup tracker**
-- ~~**(06/28/2024) Added comprehensive team search functionality across all sports with multi-year date range support**~~
 - (06/28/2024) Added UEFA bracket page with complete tournament visualization
 - **(07/02/2025) Added comprehensive F1 tracking with constructor teams, driver/constructor championships, race schedules, and race results**
 - **(07/04/2025) Integrated live streaming capabilities for MLB and F1 with automatic stream detection and controls**
 - (07/04/2025) Full F1 OBS integration with individual constructor team overlays and dynamic content switching
 - (07/112025) Added support for NBA Summer League
-- **(07/25/2025) Added comprehensive MLB team dashboard pages with detailed player statistics and MLB rankings**
-- **(07/26/2025) Added comprehensive NBA team dashboard pages with detailed player statistics and NBA rankings**
+- **(07/29/2025) Added comprehensive team dashboard pages to all available sports (except F1) with detailed player statistics, rankings and comparison of player stats**
 
 ---
 
 ## #️⃣ Current known issues
 
-- There are some issues with the code, as it is now, some teams might generate 2 or even 3 empty game containers. I'm not sure why and I also don't really know how to fix the issue. For now, if this happens, just click on the teams tab again and it should show the teams properly
-- I've also had to change the fetch rate to 2 seconds as it was consuming too much data with a fetch rate of 1 second.
 - On the scoreboard page, if the user is on a phone screen and they turn it landscape, it will show the regular phone view (max 3 innings) in landscape until the next fetch. Vice versa for landscape to portrait.
 - For NHL scoreboard, at times it may show undefined for play-by-play. This is an issue from the api directly as it doesn't update some things immediately.
 - For Soccer, UEFA, and CWC, the top scoreboard score and time as well as the play description might not update in real time. This is a problem caused by ESPN's api
-- Bracket page style on mobile is not proper for all sports except UEFA
-- NHL search page might not function at times as nhle api has rate limits that blocks requests if done too quickly
+- Bracket page style on mobile is not proper for WNBA
 - For F1, some race information may experience delays due to ESPN's F1 API update frequency during live race sessions
 - Live streaming may occasionally fail to load due to external stream source availability
 - F1 OBS overlays may show brief loading states when switching between race cards and constructor standings
 - For streaming, you most definitely need a strong pop-up and ad blocker as the stream where the video comes from has an ad script embedded in it (I have made multiple attempts to try and remove it to no avail).
-- Last matches for NBA is currently facing issues when you try and search too far back
+- Last matches for all sports are currently facing issues when you try and search too far back
 
 ---
 

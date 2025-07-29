@@ -191,8 +191,8 @@ body {
 }
 
 .team-logo {
-  width: 30px;
-  height: 30px;
+  width: 40px;
+  height: 40px;
 }
 
 .team-logo-container {
@@ -212,6 +212,15 @@ body {
   font-weight: bold;
   color: #333;
   display: none;
+}
+
+.team-name:first-child {
+  justify-content: flex-start;
+  text-align: right;
+}
+
+.team-name:last-child {
+  justify-content: flex-end;
 }
 
 .match-score {
@@ -277,25 +286,6 @@ body {
   margin: 0 15px;
 }
 
-.footer {
-  background-color: #000;
-  color: white;
-  text-align: center;
-  padding: 10px 0;
-  font-size: 1rem;
-  margin-top: auto;
-}
-
-.footer-link {
-  color: white;
-  text-decoration: none;
-  margin: 0 10px;
-}
-
-.footer-link:hover {
-  color: #888;
-}
-
 @media (max-width: 525px) {
   .form-row {
     flex-direction: column;
@@ -345,5 +335,68 @@ body {
   .pagination-button {
     padding: 6px 12px;
     font-size: 12px;
+  }
+}
+
+/* Team Card Styles */
+.team-card {
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 15px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.team-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.team-logo-large {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+}
+
+.team-details {
+  flex-grow: 1;
+}
+
+.team-name-large {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.team-division {
+  font-size: 1rem;
+  color: #666;
+  margin-bottom: 5px;
+}
+
+.team-record {
+  font-size: 0.9rem;
+  color: #888;
+}
+
+@media (max-width: 525px) {
+  .team-card {
+    padding: 15px;
+    gap: 15px;
+  }
+  
+  .team-logo-large {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .team-name-large {
+    font-size: 1.1rem;
   }
 }

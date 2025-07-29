@@ -31,7 +31,7 @@ function hashString(str) {
 let lastScheduleHash = null;
 
 async function buildGameCard(game, team) {
-  const logoUrl = team?.logos?.find(logo => logo.rel.includes('primary_logo_on_black_color'))?.href || `https://a.espncdn.com/i/teamlogos/wnba/500-dark/${team.abbreviation}.png`;
+  const logoUrl = team?.logos?.find(logo => logo.rel.includes('primary_logo_on_black_color'))?.href || `https://a.espncdn.com/i/teamlogos/wnba/500/${team.abbreviation}.png`;
 
   function getOrdinalSuffix(num) {
     if (num % 100 >= 11 && num % 100 <= 13) return `${num}th`;
@@ -245,7 +245,7 @@ async function fetchAndDisplayTeams() {
         logo.rel.includes(
           ["26"].includes(team.id) ? 'secondary_logo_on_secondary_color' : 'primary_logo_on_primary_color'
         )
-      )?.href || `https://a.espncdn.com/i/teamlogos/wnba/500-dark/${team.abbreviation}.png`;
+      )?.href || `https://a.espncdn.com/i/teamlogos/wnba/500/${team.abbreviation}.png`;
 
       const teamCard = document.createElement("div");
       teamCard.className = "team-card";

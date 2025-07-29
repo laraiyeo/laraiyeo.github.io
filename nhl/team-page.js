@@ -97,7 +97,7 @@ async function loadTeamData() {
 
 async function loadTeamInfo() {
   try {
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${currentTeamId}`);
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${currentTeamId}`);
     const data = await response.json();
     currentTeam = data.team;
     
@@ -105,7 +105,7 @@ async function loadTeamInfo() {
         logo.rel.includes(
           ["26"].includes(currentTeam.id) ? 'secondary_logo_on_secondary_color' : 'primary_logo_on_primary_color'
         )
-    )?.href) || `https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/${currentTeam.abbreviation}.png`;
+    )?.href) || `https://a.espncdn.com/i/teamlogos/nhl/500/${currentTeam.abbreviation}.png`;
 
     const teamColor = `#${currentTeam.color}` || "#000000";
 
@@ -121,7 +121,7 @@ async function loadTeamInfo() {
     
     // Get team record from standings
     try {
-      const standingsResponse = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard');
+      const standingsResponse = await fetch('https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard');
       const standingsData = await standingsResponse.json();
       // This is simplified - we could get more detailed record info from standings API
     } catch (error) {
@@ -134,13 +134,13 @@ async function loadTeamInfo() {
         <div class="team-details-header">
           <div class="team-name-header">${currentTeam.displayName}</div>
           <div class="team-record-header">${currentTeam.standingSummary}</div>
-          <div class="team-division-header">${currentTeam.abbreviation} -  NBA</div>
+          <div class="team-division-header">${currentTeam.abbreviation} -  NHL</div>
         </div>
       </div>
     `;
     
     // Update page title
-    document.title = `${currentTeam.displayName} - NBA`;
+    document.title = `${currentTeam.displayName} - NHL`;
   } catch (error) {
     console.error("Error loading team info:", error);
     document.getElementById('teamInfo').innerHTML = '<div class="no-data">Error loading team information</div>';
@@ -182,9 +182,50 @@ function applyTeamColors(teamColor) {
   document.head.appendChild(style);
 }
 
+// Helper function to convert ESPN game data to NHL game ID
+async function convertToNHLGameId(espnGame) {
+  try {
+    const gameDate = new Date(espnGame.date);
+    const nhlDateFormat = gameDate.getFullYear() + "-" +
+                         String(gameDate.getMonth() + 1).padStart(2, "0") + "-" +
+                         String(gameDate.getDate()).padStart(2, "0");
+    
+    // Get the team abbreviations from ESPN data
+    const competition = espnGame.competitions[0];
+    const homeTeam = competition.competitors.find(c => c.homeAway === "home");
+    const awayTeam = competition.competitors.find(c => c.homeAway === "away");
+    
+    const homeAbbrev = homeTeam.team.abbreviation;
+    const awayAbbrev = awayTeam.team.abbreviation;
+    
+    // Fetch NHL schedule for that date
+    const nhlResponse = await fetch(`https://corsproxy.io/?url=https://api-web.nhle.com/v1/schedule/${nhlDateFormat}`);
+    const nhlData = await nhlResponse.json();
+    
+    // Find the matching game by team abbreviations
+    const matchingGame = nhlData.gameWeek?.[0]?.games?.find(game => {
+      return (game.homeTeam.abbrev === homeAbbrev && game.awayTeam.abbrev === awayAbbrev) ||
+             (game.homeTeam.abbrev === awayAbbrev && game.awayTeam.abbrev === homeAbbrev);
+    });
+    
+    if (matchingGame) {
+      return {
+        nhlGameId: matchingGame.id,
+        nhlDateFormat: nhlDateFormat.replace(/-/g, '') // Convert back to YYYYMMDD for URL
+      };
+    }
+    
+    console.warn(`Could not find NHL game ID for ESPN game ${espnGame.id} on ${nhlDateFormat}`);
+    return null;
+  } catch (error) {
+    console.error('Error converting ESPN game to NHL game ID:', error);
+    return null;
+  }
+}
+
 async function loadCurrentGame() {
   try {
-    function getAdjustedDateForNBA() {
+    function getAdjustedDateForNHL() {
       const now = new Date();
       const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
       if (estNow.getHours() < 2) {
@@ -196,29 +237,16 @@ async function loadCurrentGame() {
       return adjustedDate;
     }
     
-    const today = getAdjustedDateForNBA();
+    const today = getAdjustedDateForNHL();
     
-    // Fetch from both NBA and Summer League APIs
-    const [todayResponse, summerResponse] = await Promise.all([
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${today}`),
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/scoreboard?dates=${today}`)
-    ]);
-    
-    const [todayData, summerData] = await Promise.all([
-      todayResponse.json(),
-      summerResponse.json()
-    ]);
-    
-    // Combine events from both sources
-    const allEvents = [
-      ...(todayData.events || []),
-      ...(summerData.events || [])
-    ];
+    // Fetch NHL games
+    const todayResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates=${today}`);
+    const todayData = await todayResponse.json();
     
     const contentDiv = document.getElementById('currentGameContent');
     
     // Check if there's a game today for this team
-    const todayGame = allEvents.find(event => {
+    const todayGame = todayData.events?.find(event => {
       const competition = event.competitions?.[0];
       return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
     });
@@ -231,11 +259,18 @@ async function loadCurrentGame() {
       const gameCardElement = contentDiv.querySelector('.current-game-card');
       if (gameCardElement) {
         gameCardElement.style.cursor = 'pointer';
-        gameCardElement.addEventListener('click', () => {
-          const gameId = gameCardElement.getAttribute('data-game-id');
-          const gameDate = gameCardElement.getAttribute('data-game-date');
-          if (gameId && gameDate) {
-            window.location.href = `scoreboard.html?gameId=${gameId}&date=${gameDate}`;
+        gameCardElement.addEventListener('click', async () => {
+          try {
+            const nhlGameData = await convertToNHLGameId(todayGame);
+            if (nhlGameData) {
+              window.location.href = `scoreboard.html?gameId=${nhlGameData.nhlGameId}&date=${nhlGameData.nhlDateFormat}`;
+            } else {
+              console.error('Could not convert ESPN game to NHL game ID');
+              alert('Unable to load game details. Please try again.');
+            }
+          } catch (error) {
+            console.error('Error loading game:', error);
+            alert('Error loading game details. Please try again.');
           }
         });
       }
@@ -253,25 +288,12 @@ async function loadCurrentGame() {
                               String(endDate.getMonth() + 1).padStart(2, "0") +
                               String(endDate.getDate()).padStart(2, "0");
       
-      // Fetch from both NBA and Summer League APIs
-      const [upcomingResponse, summerUpcomingResponse] = await Promise.all([
-        fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${tomorrowFormatted}-${endDateFormatted}`),
-        fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/scoreboard?dates=${tomorrowFormatted}-${endDateFormatted}`)
-      ]);
-      
-      const [upcomingData, summerUpcomingData] = await Promise.all([
-        upcomingResponse.json(),
-        summerUpcomingResponse.json()
-      ]);
-      
-      // Combine events from both sources
-      const allUpcomingEvents = [
-        ...(upcomingData.events || []),
-        ...(summerUpcomingData.events || [])
-      ];
+      // Fetch NHL games
+      const upcomingResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates=${tomorrowFormatted}-${endDateFormatted}`);
+      const upcomingData = await upcomingResponse.json();
       
       // Find the next scheduled game for this team
-      const nextGame = allUpcomingEvents
+      const nextGame = upcomingData.events
         ?.filter(event => {
           const competition = event.competitions?.[0];
           return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
@@ -287,11 +309,18 @@ async function loadCurrentGame() {
         const gameCardElement = contentDiv.querySelector('.current-game-card');
         if (gameCardElement) {
           gameCardElement.style.cursor = 'pointer';
-          gameCardElement.addEventListener('click', () => {
-            const gameId = gameCardElement.getAttribute('data-game-id');
-            const gameDate = gameCardElement.getAttribute('data-game-date');
-            if (gameId && gameDate) {
-              window.location.href = `scoreboard.html?gameId=${gameId}&date=${gameDate}`;
+          gameCardElement.addEventListener('click', async () => {
+            try {
+              const nhlGameData = await convertToNHLGameId(nextGame);
+              if (nhlGameData) {
+                window.location.href = `scoreboard.html?gameId=${nhlGameData.nhlGameId}&date=${nhlGameData.nhlDateFormat}`;
+              } else {
+                console.error('Could not convert ESPN game to NHL game ID');
+                alert('Unable to load game details. Please try again.');
+              }
+            } catch (error) {
+              console.error('Error loading game:', error);
+              alert('Error loading game details. Please try again.');
             }
           });
         }
@@ -342,8 +371,8 @@ async function createCurrentGameCard(game) {
     scoreDisplay = `${teamScore || 0} - ${opponentScore || 0}`;
   }
 
-  const teamLogo = `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${currentTeam.abbreviation}.png`;
-  const opponentLogo = `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${opponent.team.abbreviation}.png`;
+  const teamLogo = `https://a.espncdn.com/i/teamlogos/nhl/500/${currentTeam.abbreviation}.png`;
+  const opponentLogo = `https://a.espncdn.com/i/teamlogos/nhl/500/${opponent.team.abbreviation}.png`;
 
   // Format game date for URL parameter
   const gameUrlDate = gameDate.getFullYear() +
@@ -375,7 +404,7 @@ async function loadRecentMatches() {
     const today = new Date();
     const startDate = startDatePicker ? new Date(startDatePicker.value) : new Date(today.getTime() - 10 * 24 * 60 * 60 * 1000);
     
-    // Format dates for NBA API
+    // Format dates for NHL API
     const formatDate = (date) => {
       return date.getFullYear() +
         String(date.getMonth() + 1).padStart(2, "0") +
@@ -384,25 +413,12 @@ async function loadRecentMatches() {
     
     const dateRange = `${formatDate(startDate)}-${formatDate(today)}`;
     
-    // Fetch from both NBA and Summer League APIs
-    const [response, summerResponse] = await Promise.all([
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateRange}`),
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/scoreboard?dates=${dateRange}`)
-    ]);
-    
-    const [data, summerData] = await Promise.all([
-      response.json(),
-      summerResponse.json()
-    ]);
-    
-    // Combine events from both sources
-    const allEvents = [
-      ...(data.events || []),
-      ...(summerData.events || [])
-    ];
+    // Fetch NHL games
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates=${dateRange}`);
+    const data = await response.json();
     
     // Filter games for this team and completed games
-    const allGames = allEvents.filter(event => {
+    const allGames = data.events?.filter(event => {
       const competition = event.competitions?.[0];
       return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
     }) || [];
@@ -455,12 +471,20 @@ function displayRecentMatches() {
       contentDiv.innerHTML = `<div class="match-list">${matchCards.join('')}</div>`;
       
       // Add click handlers
-      contentDiv.querySelectorAll('.match-item').forEach(item => {
-        item.addEventListener('click', () => {
-          const gameId = item.getAttribute('data-game-id');
-          const gameDate = item.getAttribute('data-game-date');
-          if (gameId && gameDate) {
-            window.location.href = `scoreboard.html?gameId=${gameId}&date=${gameDate}`;
+      contentDiv.querySelectorAll('.match-item').forEach((item, index) => {
+        item.addEventListener('click', async () => {
+          try {
+            const espnGame = paginatedMatches[index]; // Get the corresponding ESPN game data
+            const nhlGameData = await convertToNHLGameId(espnGame);
+            if (nhlGameData) {
+              window.location.href = `scoreboard.html?gameId=${nhlGameData.nhlGameId}&date=${nhlGameData.nhlDateFormat}`;
+            } else {
+              console.error('Could not convert ESPN game to NHL game ID');
+              alert('Unable to load game details. Please try again.');
+            }
+          } catch (error) {
+            console.error('Error loading game:', error);
+            alert('Error loading game details. Please try again.');
           }
         });
       });
@@ -502,8 +526,8 @@ async function createMatchCard(game, isRecent = false) {
     day: "numeric"
   });
 
-  const teamLogo = `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${currentTeam.abbreviation}.png`;
-  const opponentLogo = `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${opponent.team.abbreviation}.png`;
+  const teamLogo = `https://a.espncdn.com/i/teamlogos/nhl/500/${currentTeam.abbreviation}.png`;
+  const opponentLogo = `https://a.espncdn.com/i/teamlogos/nhl/500/${opponent.team.abbreviation}.png`;
 
   let resultClass = "";
   let resultText = "";
@@ -544,17 +568,17 @@ async function createMatchCard(game, isRecent = false) {
   `;
 }
 
-// Global variable to store all NBA players for league-wide comparison
-let allNBAPlayers = [];
+// Global variable to store all NHL players for league-wide comparison
+let allNHLPlayers = [];
 
-async function fetchAllNBAPlayers() {
-  if (allNBAPlayers.length > 0) {
-    return allNBAPlayers; // Return cached data
+async function fetchAllNHLPlayers() {
+  if (allNHLPlayers.length > 0) {
+    return allNHLPlayers; // Return cached data
   }
 
   try {
-    // Fetch all NBA teams
-    const teamsResponse = await fetch('https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/teams?lang=en&region=us');
+    // Fetch all NHL teams
+    const teamsResponse = await fetch('https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/teams?lang=en&region=us');
     const teamsData = await teamsResponse.json();
     
     const allPlayers = [];
@@ -608,11 +632,11 @@ async function fetchAllNBAPlayers() {
       allPlayers.push(...roster);
     });
 
-    allNBAPlayers = allPlayers;
-    console.log(`Loaded ${allNBAPlayers.length} NBA players for comparison`);
-    return allNBAPlayers;
+    allNHLPlayers = allPlayers;
+    console.log(`Loaded ${allNHLPlayers.length} NHL players for comparison`);
+    return allNHLPlayers;
   } catch (error) {
-    console.error('Error fetching all NBA players:', error);
+    console.error('Error fetching all NHL players:', error);
     return [];
   }
 }
@@ -621,8 +645,8 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
   try {
     console.log(`Clearing player ${playerNumber}`);
     
-    // Get all NBA players
-    const allPlayers = await fetchAllNBAPlayers();
+    // Get all NHL players
+    const allPlayers = await fetchAllNHLPlayers();
     
     // Find the specific player header to replace by ID
     const headerToReplace = modalContent.querySelector(`#player${playerNumber}-header`);
@@ -678,7 +702,10 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
 
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
-    searchInput.placeholder = 'Search any NBA player...';
+    const isGoalieComparison = currentPlayer1.position === "G" || currentPlayer1.position.includes("Goalie") ||
+                              currentPlayer2.position === "G" || currentPlayer2.position.includes("Goalie");
+    const positionText = isGoalieComparison ? 'goalies' : 'skaters';
+    searchInput.placeholder = `Search ${positionText}...`;
     searchInput.style.cssText = `
       width: 100%;
       padding: 8px;
@@ -763,15 +790,27 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
       }
 
       searchTimeout = setTimeout(() => {
+        // Determine if we're dealing with goalies or skaters based on existing players
+        const currentPlayerIsGoalie = currentPlayer1.position === "G" || currentPlayer1.position.includes("Goalie") ||
+                                     currentPlayer2.position === "G" || currentPlayer2.position.includes("Goalie");
+        
         const filteredPlayers = allPlayers
           .filter(player => {
             const fullName = `${player.firstName || ''} ${player.lastName || ''}`.toLowerCase();
             const teamName = player.team.toLowerCase();
+            const playerIsGoalie = player.position === "G" || player.position.includes("Goalie");
+            
+            // Position filtering - maintain consistency with existing comparison
+            const positionMatch = currentPlayerIsGoalie ? playerIsGoalie : !playerIsGoalie;
+            
             return (fullName.includes(query) || teamName.includes(query)) && 
                    player.id !== currentPlayer1.id && 
-                   player.id !== currentPlayer2.id;
+                   player.id !== currentPlayer2.id &&
+                   positionMatch;
           })
           .slice(0, 5); // Max 5 results
+        
+        console.log('Selection interface - Current comparison is goalie:', currentPlayerIsGoalie, 'Found players:', filteredPlayers.length);
 
         if (filteredPlayers.length > 0) {
           searchResults.innerHTML = filteredPlayers.map(player => `
@@ -818,7 +857,8 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
             });
           });
         } else {
-          searchResults.innerHTML = '<div style="padding: 10px; color: #666; text-align: center;">No players found</div>';
+          const selectionPositionText = isGoalieComparison ? 'goalies' : 'skaters';
+          searchResults.innerHTML = `<div style="padding: 10px; color: #666; text-align: center;">No ${selectionPositionText} found matching "${query}"</div>`;
           searchResults.style.display = 'block';
         }
       }, 300);
@@ -852,24 +892,11 @@ async function loadUpcomingMatches() {
     
     const dateRange = `${formatDate(today)}-${formatDate(endDate)}`;
     
-    // Fetch from both NBA and Summer League APIs
-    const [response, summerResponse] = await Promise.all([
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateRange}`),
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/scoreboard?dates=${dateRange}`)
-    ]);
+    // Fetch NHL games
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates=${dateRange}`);
+    const data = await response.json();
     
-    const [data, summerData] = await Promise.all([
-      response.json(),
-      summerResponse.json()
-    ]);
-    
-    // Combine events from both sources
-    const allEvents = [
-      ...(data.events || []),
-      ...(summerData.events || [])
-    ];
-    
-    const upcomingGames = allEvents
+    const upcomingGames = data.events
       .filter(event => {
         const competition = event.competitions?.[0];
         return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
@@ -889,12 +916,20 @@ async function loadUpcomingMatches() {
     contentDiv.innerHTML = `<div class="match-list">${matchCards.join('')}</div>`;
     
     // Add click handlers
-    contentDiv.querySelectorAll('.match-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const gameId = item.getAttribute('data-game-id');
-        const gameDate = item.getAttribute('data-game-date');
-        if (gameId && gameDate) {
-          window.location.href = `scoreboard.html?gameId=${gameId}&date=${gameDate}`;
+    contentDiv.querySelectorAll('.match-item').forEach((item, index) => {
+      item.addEventListener('click', async () => {
+        try {
+          const espnGame = upcomingGames[index]; // Get the corresponding ESPN game data
+          const nhlGameData = await convertToNHLGameId(espnGame);
+          if (nhlGameData) {
+            window.location.href = `scoreboard.html?gameId=${nhlGameData.nhlGameId}&date=${nhlGameData.nhlDateFormat}`;
+          } else {
+            console.error('Could not convert ESPN game to NHL game ID');
+            alert('Unable to load game details. Please try again.');
+          }
+        } catch (error) {
+          console.error('Error loading game:', error);
+          alert('Error loading game details. Please try again.');
         }
       });
     });
@@ -906,25 +941,25 @@ async function loadUpcomingMatches() {
 
 async function loadTeamStats() {
   try {
-    // NBA doesn't have a direct team stats API like MLB, so we'll show basic info
+    // NHL doesn't have a direct team stats API like MLB, so we'll show basic info
     const contentDiv = document.getElementById('teamStatsContent');
     
     // Try to get team info from the main team API
-    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2025/types/2/teams/${currentTeamId}/statistics?lang=en&region=us`);
+    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/2025/types/2/teams/${currentTeamId}/statistics?lang=en&region=us`);
     const data = await response.json();
     
     if (data.team) {
       const stats = [
-        { label: "Avg Points For", value: data?.splits?.categories?.find(c => c.name === "offensive")?.stats?.find(s => s.name === "avgPoints")?.displayValue || "N/A" },
-        { label: "Field Goal %", value: data?.splits?.categories?.find(c => c.name === "offensive")?.stats?.find(s => s.name === "fieldGoalPct")?.displayValue || "N/A" },
-        { label: "Rebounds", value: data?.splits?.categories?.find(c => c.name === "general")?.stats?.find(s => s.name === "avgRebounds")?.displayValue || "N/A" },
-        { label: "Assists", value: data?.splits?.categories?.find(c => c.name === "offensive")?.stats?.find(s => s.name === "avgAssists")?.displayValue || "N/A" },
-        { label: "Steals", value: data?.splits?.categories?.find(c => c.name === "defensive")?.stats?.find(s => s.name === "avgSteals")?.displayValue || "N/A" },
-        { label: "Blocks", value: data?.splits?.categories?.find(c => c.name === "defensive")?.stats?.find(s => s.name === "avgBlocks")?.displayValue || "N/A" },
-        { label: "Turnovers", value: data?.splits?.categories?.find(c => c.name === "offensive")?.stats?.find(s => s.name === "avgTurnovers")?.displayValue || "N/A" },
-        { label: "Fouls", value: data?.splits?.categories?.find(c => c.name === "general")?.stats?.find(s => s.name === "avgFouls")?.displayValue || "N/A" },
-        { label: "Free Throw %", value: data?.splits?.categories?.find(c => c.name === "offensive")?.stats?.find(s => s.name === "freeThrowPct")?.displayValue || "N/A" },
-        { label: "3 Point %", value: data?.splits?.categories?.find(c => c.name === "offensive")?.stats?.find(s => s.name === "threePointPct")?.displayValue || "N/A" }
+        { label: "Goals Per Game", value: data?.splits?.categories?.find(c => c.name === "offensive")?.stats?.find(s => s.name === "avgGoals")?.displayValue || "N/A" },
+        { label: "Assists Per Game", value: data?.splits?.categories?.find(c => c.name === "offensive")?.stats?.find(s => s.name === "assists")?.perGameValue || "N/A" },
+        { label: "Goals Against Average", value: data?.splits?.categories?.find(c => c.name === "defensive")?.stats?.find(s => s.name === "avgGoalsAgainst")?.displayValue || "N/A" },
+        { label: "Shots Against Average", value: data?.splits?.categories?.find(c => c.name === "defensive")?.stats?.find(s => s.name === "avgShotsAgainst")?.displayValue || "N/A" },
+        { label: "Shooting %", value: data?.splits?.categories?.find(c => c.name === "offensive")?.stats?.find(s => s.name === "shootingPct")?.displayValue || "N/A" },
+        { label: "Saves %", value: (data?.splits?.categories?.find(c => c.name === "defensive")?.stats?.find(s => s.name === "savePct")?.displayValue * 100) || "N/A" },
+        { label: "Shots Per Game", value: data?.splits?.categories?.find(c => c.name === "offensive")?.stats?.find(s => s.name === "avgShots")?.displayValue || "N/A" },
+        { label: "Points Per Game", value: data?.splits?.categories?.find(c => c.name === "offensive")?.stats?.find(s => s.name === "pointsPerGame")?.displayValue || "N/A" },
+        { label: "Total Penalties", value: data?.splits?.categories?.find(c => c.name === "penalties")?.stats?.find(s => s.name === "penalties")?.displayValue || "N/A" },
+        { label: "Total Shutouts", value: data?.splits?.categories?.find(c => c.name === "defensive")?.stats?.find(s => s.name === "shutouts")?.displayValue || "N/A" }
       ];
       
       contentDiv.innerHTML = `
@@ -948,128 +983,62 @@ async function loadTeamStats() {
 
 async function loadCurrentStanding() {
   try {
-    // Function to determine if we're in the Summer League period (same as standings.js)
-    function isSummerLeague() {
-      const now = new Date();
-      const year = now.getFullYear();
-      const summerStart = new Date(year, 6, 10); // July 10 (month is 0-indexed)
-      const summerEnd = new Date(year, 6, 21);   // July 21
-      
-      return now >= summerStart && now <= summerEnd;
-    }
-
-    // Function to get the appropriate league identifier
-    function getLeagueIdentifier() {
-      return isSummerLeague() ? "nba-summer-las-vegas" : "nba";
-    }
-
-    const STANDINGS_URL = `https://cdn.espn.com/core/${getLeagueIdentifier()}/standings?xhr=1`;
+    const STANDINGS_URL = "https://corsproxy.io/?url=https://api-web.nhle.com/v1/standings/now";
     const contentDiv = document.getElementById('currentStandingContent');
     
-    if (isSummerLeague()) {
-      // Handle Summer League standings
-      const SUMMER_LEAGUE_STANDINGS_URL = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba-summer-las-vegas/seasons/2025/types/2/groups/1/standings/0?lang=en&region=us";
-      
-      const res = await fetch(SUMMER_LEAGUE_STANDINGS_URL);
-      const data = await res.json();
-      
-      const standingsData = data.standings || [];
-      
-      // Find current team in standings
-      let teamStanding = null;
-      for (const teamStandingData of standingsData) {
-        const teamRef = convertToHttps(teamStandingData.team.$ref);
-        const teamRes = await fetch(teamRef);
-        const teamData = await teamRes.json();
-        
-        if (teamData.id === currentTeamId) {
-          const record = teamStandingData.records[0];
-          const stats = record.stats.reduce((acc, stat) => {
-            acc[stat.name] = stat;
-            return acc;
-          }, {});
-          
-          teamStanding = {
-            team: teamData,
-            record: record,
-            stats: stats,
-            seed: stats.playoffSeed?.value || 0
-          };
-          break;
-        }
-      }
-      
-      if (teamStanding) {
-        const wins = teamStanding.stats.wins?.displayValue || "0";
-        const losses = teamStanding.stats.losses?.displayValue || "0";
-        const winPercentage = teamStanding.stats.winPercent?.displayValue || "0.000";
-        
-        contentDiv.innerHTML = `
-          <div class="standing-info">
-            <div class="standing-position">#${teamStanding.seed}</div>
-            <div class="standing-details">
-              <strong>Summer League</strong><br>
-              Record: ${wins}-${losses}<br>
-              Win %: ${winPercentage}
-            </div>
-          </div>
-        `;
-      } else {
-        contentDiv.innerHTML = '<div class="no-data">Summer League standing information not available</div>';
-      }
-    } else {
-      // Handle regular NBA standings
-      const res = await fetch(STANDINGS_URL);
-      const text = await res.text();
-      const data = JSON.parse(text);
-      const groups = data.content.standings.groups;
-
-      const easternConference = groups.find(group => group.name === "Eastern Conference");
-      const westernConference = groups.find(group => group.name === "Western Conference");
-      
-      let teamStanding = null;
-      let conferenceName = "";
-      
-      // Search in Eastern Conference
-      if (easternConference) {
-        const foundEntry = easternConference.standings.entries.find(entry => entry.team.id === currentTeamId);
-        if (foundEntry) {
-          teamStanding = foundEntry;
-          conferenceName = "Eastern Conference";
-        }
-      }
-      
-      // Search in Western Conference if not found in Eastern
-      if (!teamStanding && westernConference) {
-        const foundEntry = westernConference.standings.entries.find(entry => entry.team.id === currentTeamId);
-        if (foundEntry) {
-          teamStanding = foundEntry;
-          conferenceName = "Western Conference";
-        }
-      }
-      
-      if (teamStanding) {
-        const wins = teamStanding.stats.find(stat => stat.name === "wins")?.displayValue || "0";
-        const losses = teamStanding.stats.find(stat => stat.name === "losses")?.displayValue || "0";
-        const winPercent = teamStanding.stats.find(stat => stat.name === "winPercent")?.displayValue || "0.000";
-        const gamesBehind = teamStanding.stats.find(stat => stat.name === "gamesBehind")?.displayValue || "-";
-        const teamSeed = teamStanding.team.seed || "N/A";
-        
-        contentDiv.innerHTML = `
-          <div class="standing-info">
-            <div class="standing-position">#${teamSeed}</div>
-            <div class="standing-details">
-              <strong>${conferenceName}</strong><br><br>
-              Record: ${wins}-${losses}<br><br>
-              Win %: ${winPercent}<br><br>
-              GB: ${gamesBehind}
-            </div>
-          </div>
-        `;
-      } else {
-        contentDiv.innerHTML = '<div class="no-data">Standing information not available</div>';
-      }
+    const res = await fetch(STANDINGS_URL);
+    const text = await res.text();
+    const data = JSON.parse(text);
+    
+    // Get all standings entries (same pattern as standings.js)
+    const standings = data.standings;
+    
+    if (!standings || standings.length === 0) {
+      contentDiv.innerHTML = '<div class="no-data">Standings data not available</div>';
+      return;
     }
+    
+    // Find current team in standings by matching team ID
+    const teamStanding = standings.find(team => team.teamAbbrev.default === currentTeam.abbreviation);
+    
+    if (!teamStanding) {
+      contentDiv.innerHTML = '<div class="no-data">Team not found in standings</div>';
+      return;
+    }
+    
+    // Extract team data (following standings.js structure)
+    const wins = teamStanding.wins || 0;
+    const losses = teamStanding.losses || 0;
+    const otLosses = teamStanding.otLosses || 0;
+    const points = teamStanding.points || 0;
+    const winPercentage = teamStanding.pointPctg ? (teamStanding.pointPctg * 100).toFixed(1) + "%" : "0.0%";
+    const conferenceName = teamStanding.conferenceName || "Conference";
+    
+    // Calculate conference and division positions
+    const conferenceSequence = teamStanding.conferenceSequence || "-";
+    const divisionSequence = teamStanding.divisionSequence || "-";
+    
+    // Add ordinal suffix helper function (same as standings.js pattern)
+    const getOrdinalSuffix = (num) => {
+      const j = num % 10;
+      const k = num % 100;
+      if (j === 1 && k !== 11) return num + "st";
+      if (j === 2 && k !== 12) return num + "nd";
+      if (j === 3 && k !== 13) return num + "rd";
+      return num + "th";
+    };
+    
+    contentDiv.innerHTML = `
+      <div class="standing-info">
+        <div class="standing-position">#${getOrdinalSuffix(conferenceSequence)}</div>
+        <div class="standing-details">
+          <strong>${conferenceName} Conference</strong><br><br>
+          Record: ${wins}-${losses}-${otLosses}<br><br>
+          Points: ${points}<br><br>
+          Win %: ${winPercentage}<br>
+        </div>
+      </div>
+    `;
   } catch (error) {
     console.error("Error loading standings:", error);
     document.getElementById('currentStandingContent').innerHTML = '<div class="no-data">Error loading standings</div>';
@@ -1078,14 +1047,33 @@ async function loadCurrentStanding() {
 
 async function loadPlayersInfo() {
   try {
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${currentTeamId}/roster`);
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${currentTeamId}/roster`);
     const data = await response.json();
     
     const contentDiv = document.getElementById('playersInfoContent');
     
-    if (data.athletes && data.athletes.length > 0) {
-      // Players are directly in the athletes array
-      allRosterPlayers = data.athletes;
+    console.log('Roster data structure:', data);
+    
+    // Extract players from the nested structure
+    allRosterPlayers = [];
+    
+    if (data.athletes && Array.isArray(data.athletes)) {
+      data.athletes.forEach(positionGroup => {
+        if (positionGroup.items && Array.isArray(positionGroup.items)) {
+          console.log(`Found ${positionGroup.items.length} players in position group:`, positionGroup.position || 'Unknown');
+          positionGroup.items.forEach(player => {
+            // Add position info from the group if not already on player
+            if (!player.position && positionGroup.position) {
+              player.position = { abbreviation: positionGroup.position };
+            }
+            allRosterPlayers.push(player);
+          });
+        }
+      });
+    }
+    
+    if (allRosterPlayers.length > 0) {
+      console.log(`Total players loaded: ${allRosterPlayers.length}`);
       
       // Sort players by jersey number
       allRosterPlayers.sort((a, b) => {
@@ -1097,7 +1085,7 @@ async function loadPlayersInfo() {
       currentRosterPage = 1;
       displayRosterPlayers();
     } else {
-      console.log('No athletes found in response');
+      console.log('No athletes found in response structure');
       contentDiv.innerHTML = '<div class="no-data">Player roster not available</div>';
     }
   } catch (error) {
@@ -1294,7 +1282,8 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
     `;
 
     const searchLabel = document.createElement('div');
-    searchLabel.innerHTML = 'Compare with another player:';
+    const labelPositionText = selectedPlayer.position === "G" || selectedPlayer.position.includes("Goalie") ? 'goalies' : 'skaters';
+    searchLabel.innerHTML = `Compare with another ${labelPositionText.slice(0, -1)}:`;
     searchLabel.style.cssText = `
       font-weight: bold;
       color: #333;
@@ -1304,7 +1293,8 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
 
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
-    searchInput.placeholder = 'Type player name...';
+    const inputPositionText = selectedPlayer.position === "G" || selectedPlayer.position.includes("Goalie") ? 'goalies' : 'skaters';
+    searchInput.placeholder = `Search ${inputPositionText}...`;
     searchInput.style.cssText = `
       width: 100%;
       padding: 10px;
@@ -1342,15 +1332,26 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       }
 
       searchTimeout = setTimeout(async () => {
-        // Get all NBA players for league-wide search
-        const allPlayers = await fetchAllNBAPlayers();
+        // Get all NHL players for league-wide search
+        const allPlayers = await fetchAllNHLPlayers();
+        const selectedPlayerIsGoalie = selectedPlayer.position === "G" || selectedPlayer.position.includes("Goalie");
+        
         const filteredPlayers = allPlayers
           .filter(player => {
             const fullName = `${player.firstName || ''} ${player.lastName || ''}`.toLowerCase();
             const teamName = player.team.toLowerCase();
-            return (fullName.includes(query) || teamName.includes(query)) && player.id !== selectedPlayer.id;
+            const playerIsGoalie = player.position === "G" || player.position.includes("Goalie");
+            
+            // Position filtering - goalies can only compare with goalies, skaters with skaters
+            const positionMatch = selectedPlayerIsGoalie ? playerIsGoalie : !playerIsGoalie;
+            
+            return (fullName.includes(query) || teamName.includes(query)) && 
+                   player.id !== selectedPlayer.id && 
+                   positionMatch;
           })
           .slice(0, 3); // Max 3 results
+        
+        console.log('Player search - Selected player is goalie:', selectedPlayerIsGoalie, 'Found players:', filteredPlayers.length);
 
         if (filteredPlayers.length > 0) {
           searchResults.innerHTML = filteredPlayers.map(player => `
@@ -1400,7 +1401,8 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
             });
           });
         } else {
-          searchResults.innerHTML = '<div style="padding: 10px; color: #666; text-align: center;">No players found</div>';
+          const playerTypeText = selectedPlayerIsGoalie ? 'goalies' : 'skaters';
+          searchResults.innerHTML = `<div style="padding: 10px; color: #666; text-align: center;">No ${playerTypeText} found matching "${query}"</div>`;
           searchResults.style.display = 'block';
         }
       }, 300);
@@ -1424,13 +1426,13 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
     document.body.appendChild(modal);
 
     // Fetch player stats
-    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2025/types/2/athletes/${playerId}/statistics?lang=en&region=us`);
+    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/2025/types/2/athletes/${playerId}/statistics?lang=en&region=us`);
     const data = await response.json();
 
     console.log('Player stats data:', data);
 
     if (data.splits && data.splits.categories) {
-      displayPlayerStatsInModal(data.splits.categories, statsContainer);
+      displayPlayerStatsInModal(data.splits.categories, statsContainer, selectedPlayer.position);
     } else {
       statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Player statistics not available</div>';
     }
@@ -1718,8 +1720,8 @@ async function showPlayerComparison(player1, player2) {
 
     // Fetch both players' stats
     const [player1Response, player2Response] = await Promise.all([
-      fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2025/types/2/athletes/${player1.id}/statistics?lang=en&region=us`),
-      fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2025/types/2/athletes/${player2.id}/statistics?lang=en&region=us`)
+      fetch(`https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/2025/types/2/athletes/${player1.id}/statistics?lang=en&region=us`),
+      fetch(`https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/2025/types/2/athletes/${player2.id}/statistics?lang=en&region=us`)
     ]);
 
     const [player1Data, player2Data] = await Promise.all([
@@ -1727,7 +1729,7 @@ async function showPlayerComparison(player1, player2) {
       player2Response.json()
     ]);
 
-    displayPlayerComparison(player1Data.splits?.categories, player2Data.splits?.categories, statsComparisonContainer);
+    displayPlayerComparison(player1Data.splits?.categories, player2Data.splits?.categories, statsComparisonContainer, playersForComparison[0].position, playersForComparison[1].position);
 
     // Close modal when clicking outside
     modal.addEventListener('click', (e) => {
@@ -1790,20 +1792,33 @@ function displayPlayerStats(categories) {
   statsDiv.innerHTML = statsHTML;
 }
 
-function displayPlayerStatsInModal(categories, container) {
-  // Define the specific stats we want to show (same as team statistics)
-  const desiredStats = [
-    { key: "avgPoints", label: "Avg Points", category: "offensive" },
-    { key: "fieldGoalPct", label: "Field Goal %", category: "offensive" },
-    { key: "avgRebounds", label: "Rebounds", category: "general" },
-    { key: "avgAssists", label: "Assists", category: "offensive" },
-    { key: "avgSteals", label: "Steals", category: "defensive" },
-    { key: "avgBlocks", label: "Blocks", category: "defensive" },
-    { key: "avgTurnovers", label: "Turnovers", category: "offensive" },
-    { key: "avgFouls", label: "Fouls", category: "general" },
-    { key: "freeThrowPct", label: "Free Throw %", category: "offensive" },
-    { key: "threePointPct", label: "3 Point %", category: "offensive" }
+function displayPlayerStatsInModal(categories, container, playerPosition = null) {
+  // Check if player is a goalie
+  const isGoalie = playerPosition === "G" || (selectedPlayer && (selectedPlayer.position === "G" || selectedPlayer.position.includes("Goalie")));
+  
+  // Define position-specific stats
+  const goalieStats = [
+    { key: "goalsAgainst", label: "Goals Against", category: "defensive" },
+    { key: "shotsAgainst", label: "Shots Against", category: "defensive" },
+    { key: "shutouts", label: "Shutouts", category: "defensive" },
+    { key: "saves", label: "Total Saves", category: "defensive" },
+    { key: "savePct", label: "Saves Pct", category: "defensive" },
+    { key: "production", label: "Production", category: "general" },
+    { key: "games", label: "Games Played", category: "general" }
   ];
+  
+  const skaterStats = [
+    { key: "goals", label: "Goals", category: "offensive" },
+    { key: "assists", label: "Assists", category: "offensive" },
+    { key: "points", label: "Points", category: "offensive" },
+    { key: "hits", label: "Hits", category: "defensive" },
+    { key: "shootingPct", label: "Shooting %", category: "offensive" },
+    { key: "penaltyMinutes", label: "Penalty Minutes", category: "penalties" },
+    { key: "plusMinus", label: "+/-", category: "general" },
+    { key: "games", label: "Games Played", category: "general" }
+  ];
+
+  const desiredStats = isGoalie ? goalieStats : skaterStats;
 
   // Extract the specific stats we want
   const playerStats = [];
@@ -1819,18 +1834,18 @@ function displayPlayerStatsInModal(categories, container) {
           rank: stat.rankDisplayValue || null
         });
       } else {
-        // Include the stat even if not available, show as N/A
+        // Include the stat even if not available, show as 0
         playerStats.push({
           label: desired.label,
-          value: "N/A",
+          value: "0",
           rank: null
         });
       }
     } else {
-      // Include the stat even if category not found, show as N/A
+      // Include the stat even if category not found, show as 0
       playerStats.push({
         label: desired.label,
-        value: "N/A",
+        value: "0",
         rank: null
       });
     }
@@ -1865,20 +1880,51 @@ function displayPlayerStatsInModal(categories, container) {
   container.innerHTML = statsHTML;
 }
 
-function displayPlayerComparison(player1Categories, player2Categories, container) {
-  // Define the specific stats we want to show (same as individual player stats)
-  const desiredStats = [
-    { key: "avgPoints", label: "Avg Points", category: "offensive" },
-    { key: "fieldGoalPct", label: "Field Goal %", category: "offensive" },
-    { key: "avgRebounds", label: "Rebounds", category: "general" },
-    { key: "avgAssists", label: "Assists", category: "offensive" },
-    { key: "avgSteals", label: "Steals", category: "defensive" },
-    { key: "avgBlocks", label: "Blocks", category: "defensive" },
-    { key: "avgTurnovers", label: "Turnovers", category: "offensive" },
-    { key: "avgFouls", label: "Fouls", category: "general" },
-    { key: "freeThrowPct", label: "Free Throw %", category: "offensive" },
-    { key: "threePointPct", label: "3 Point %", category: "offensive" }
+function displayPlayerComparison(player1Categories, player2Categories, container, player1Position = null, player2Position = null) {
+  // Check if both players are goalies
+  const player1IsGoalie = player1Position === "G" || (playersForComparison[0] && (playersForComparison[0].position === "G" || playersForComparison[0].position.includes("Goalie")));
+  const player2IsGoalie = player2Position === "G" || (playersForComparison[1] && (playersForComparison[1].position === "G" || playersForComparison[1].position.includes("Goalie")));
+  
+  // For fair comparison, both players should be the same type (both goalies or both skaters)
+  const isGoalieComparison = player1IsGoalie && player2IsGoalie;
+  
+  // Define position-specific stats
+  const goalieStats = [
+    { key: "goalsAgainst", label: "Goals Against", category: "defensive" },
+    { key: "shotsAgainst", label: "Shots Against", category: "defensive" },
+    { key: "shutouts", label: "Shutouts", category: "defensive" },
+    { key: "saves", label: "Total Saves", category: "defensive" },
+    { key: "savePct", label: "Saves Pct", category: "defensive" },
+    { key: "production", label: "Production", category: "general" },
+    { key: "games", label: "Games Played", category: "general" }
   ];
+  
+  const skaterStats = [
+    { key: "goals", label: "Goals", category: "offensive" },
+    { key: "assists", label: "Assists", category: "offensive" },
+    { key: "points", label: "Points", category: "offensive" },
+    { key: "hits", label: "Hits", category: "defensive" },
+    { key: "shootingPct", label: "Shooting %", category: "offensive" },
+    { key: "penaltyMinutes", label: "Penalty Minutes", category: "penalties" },
+    { key: "plusMinus", label: "+/-", category: "general" },
+    { key: "games", label: "Games Played", category: "general" }
+  ];
+
+  const desiredStats = isGoalieComparison ? goalieStats : skaterStats;
+  
+  // Validation check for position mismatch
+  if ((player1IsGoalie && !player2IsGoalie) || (!player1IsGoalie && player2IsGoalie)) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #dc3545; border: 2px solid #dc3545; border-radius: 8px; background-color: #fff5f5;">
+        <h4 style="margin: 0 0 15px 0; color: #dc3545;">Position Mismatch</h4>
+        <p style="margin: 0; font-size: 14px;">
+          Goalies can only be compared with other goalies, and skaters can only be compared with other skaters.
+          <br>Please select players of the same position type for a fair comparison.
+        </p>
+      </div>
+    `;
+    return;
+  }
 
   // Extract stats for both players
   const getPlayerStats = (categories) => {
@@ -1897,7 +1943,7 @@ function displayPlayerComparison(player1Categories, player2Categories, container
         } else {
           playerStats.push({
             label: desired.label,
-            value: "N/A",
+            value: "0",
             rank: null,
             numericValue: 0
           });
@@ -1905,7 +1951,7 @@ function displayPlayerComparison(player1Categories, player2Categories, container
       } else {
         playerStats.push({
           label: desired.label,
-          value: "N/A",
+          value: "0",
           rank: null,
           numericValue: 0
         });

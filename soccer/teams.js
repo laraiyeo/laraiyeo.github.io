@@ -79,7 +79,7 @@ async function fetchAndDisplayTeams() {
     container.innerHTML = ""; // Clear any existing content
 
     for (const team of teams) {
-      const logoUrl = ["367", "2950"].includes(team.id)
+      const logoUrl = ["367", "2950", "92"].includes(team.id)
         ? team.logos?.find(logo => logo.rel.includes("default"))?.href || ""
         : team.logos?.find(logo => logo.rel.includes("dark"))?.href || "";
       const teamGames = games.filter(game =>
@@ -129,7 +129,7 @@ async function fetchAndDisplayTeams() {
 }
 
 function buildNoGameCard(team) {
-  const logoUrl = ["367", "2950"].includes(team.id)
+  const logoUrl = ["367", "2950", "92"].includes(team.id)
   ? team.logos?.find(logo => logo.rel.includes("default"))?.href || ""
   : team.logos?.find(logo => logo.rel.includes("dark"))?.href || "";
   

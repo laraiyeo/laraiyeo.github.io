@@ -472,7 +472,7 @@ async function renderBoxScore(gameId, gameState) {
     const renderTeamRoster = (team) => {
       if (!team || !team.statistics || !team.statistics[0]?.athletes) {
         console.error("Invalid team data for player stats rendering.");
-        return `<div class="error-message">Player data unavailable for this team.</div>`;
+        return `<div class="error-message"></div>`;
       }
 
       const teamName = team.team.shortDisplayName;
@@ -748,6 +748,7 @@ async function fetchAndRenderTopScoreboard() {
     const clock = selectedGame.status.displayClock || "00:00";
     const gameStatus = selectedGame.status.type.description;
     const isGameOver = gameStatus === "Final";
+    const isGameScheduled = gameStatus === "Scheduled";
 
     const topScoreboardEl = document.getElementById("topScoreboard");
     if (!topScoreboardEl) {
@@ -755,17 +756,17 @@ async function fetchAndRenderTopScoreboard() {
       return;
     }
 
-    const periodText = gameStatus === "Final"
-      ? "Final"
+    const periodText = isGameOver ? "Final"
+      : isGameScheduled ? "Scheduled"
       : period > 4
       ? "OT"
       : `${getOrdinalSuffix(period)} Quarter`;
 
-    const timeLeft = gameStatus === "Final" || clock === "0.0" ? "End" : clock;
+    const timeLeft = isGameOver ? "End" : isGameScheduled ? `${selectedGame.status.type.shortDetail}` : clock;
 
     // Determine score colors for the final game state
-    const awayScoreColor = gameStatus === "Final" && parseInt(awayScore) < parseInt(homeScore) ? "grey" : "white";
-    const homeScoreColor = gameStatus === "Final" && parseInt(homeScore) < parseInt(awayScore) ? "grey" : "white";
+    const awayScoreColor = isGameOver && parseInt(awayScore) < parseInt(homeScore) ? "grey" : "white";
+    const homeScoreColor = isGameOver && parseInt(homeScore) < parseInt(awayScore) ? "grey" : "white";
 
     topScoreboardEl.innerHTML = `
       <div class="team-block">
