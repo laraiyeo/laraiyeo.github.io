@@ -17,6 +17,38 @@ function convertToHttps(url) {
   return url;
 }
 
+// Get the appropriate season year, falling back to previous year if current year has no data
+async function getValidSeasonYear(sport, league, playerId = null, teamId = null) {
+  const currentYear = new Date().getFullYear();
+  const previousYear = currentYear - 1;
+  
+  // Test current year first
+  let testUrl;
+  if (playerId) {
+    testUrl = `https://sports.core.api.espn.com/v2/sports/${sport}/leagues/${league}/seasons/${currentYear}/types/2/athletes/${playerId}/statistics?lang=en&region=us`;
+  } else if (teamId) {
+    testUrl = `https://sports.core.api.espn.com/v2/sports/${sport}/leagues/${league}/seasons/${currentYear}/types/2/teams/${teamId}/statistics?lang=en&region=us`;
+  } else {
+    return currentYear; // Default to current year if no specific entity to test
+  }
+  
+  try {
+    const response = await fetch(testUrl);
+    const data = await response.json();
+    
+    // Check if current year has valid stats data
+    if (response.ok && data && ((data.splits && data.splits.categories && data.splits.categories.length > 0) || 
+        (data.statistics && data.statistics.length > 0))) {
+      return currentYear;
+    }
+  } catch (error) {
+    console.log(`Current year ${currentYear} stats not available, trying previous year`);
+  }
+  
+  // Fall back to previous year
+  return previousYear;
+}
+
 // Initialize the page
 document.addEventListener("DOMContentLoaded", () => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -240,64 +272,7 @@ async function loadCurrentGame() {
         });
       }
     } else {
-      // No game today, look for the next upcoming game
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 30); // Look ahead 30 days
-      
-      const tomorrowFormatted = tomorrow.getFullYear() +
-                               String(tomorrow.getMonth() + 1).padStart(2, "0") +
-                               String(tomorrow.getDate()).padStart(2, "0");
-      const endDateFormatted = endDate.getFullYear() +
-                              String(endDate.getMonth() + 1).padStart(2, "0") +
-                              String(endDate.getDate()).padStart(2, "0");
-      
-      // Fetch from both NBA and Summer League APIs
-      const [upcomingResponse, summerUpcomingResponse] = await Promise.all([
-        fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${tomorrowFormatted}-${endDateFormatted}`),
-        fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/scoreboard?dates=${tomorrowFormatted}-${endDateFormatted}`)
-      ]);
-      
-      const [upcomingData, summerUpcomingData] = await Promise.all([
-        upcomingResponse.json(),
-        summerUpcomingResponse.json()
-      ]);
-      
-      // Combine events from both sources
-      const allUpcomingEvents = [
-        ...(upcomingData.events || []),
-        ...(summerUpcomingData.events || [])
-      ];
-      
-      // Find the next scheduled game for this team
-      const nextGame = allUpcomingEvents
-        ?.filter(event => {
-          const competition = event.competitions?.[0];
-          return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
-        })
-        .filter(event => event.status.type.description === "Scheduled")
-        .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
-      
-      if (nextGame) {
-        const gameCard = await createCurrentGameCard(nextGame);
-        contentDiv.innerHTML = gameCard;
-        
-        // Add click handler for next game
-        const gameCardElement = contentDiv.querySelector('.current-game-card');
-        if (gameCardElement) {
-          gameCardElement.style.cursor = 'pointer';
-          gameCardElement.addEventListener('click', () => {
-            const gameId = gameCardElement.getAttribute('data-game-id');
-            const gameDate = gameCardElement.getAttribute('data-game-date');
-            if (gameId && gameDate) {
-              window.location.href = `scoreboard.html?gameId=${gameId}&date=${gameDate}`;
-            }
-          });
-        }
-      } else {
-        contentDiv.innerHTML = '<div class="no-data">No upcoming games found</div>';
-      }
+        contentDiv.innerHTML = '<div class="no-data">No game being played today</div>';
     }
   } catch (error) {
     console.error("Error loading current game:", error);
@@ -909,8 +884,9 @@ async function loadTeamStats() {
     // NBA doesn't have a direct team stats API like MLB, so we'll show basic info
     const contentDiv = document.getElementById('teamStatsContent');
     
-    // Try to get team info from the main team API
-    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2025/types/2/teams/${currentTeamId}/statistics?lang=en&region=us`);
+    // Get valid season year and try to get team info from the main team API
+    const seasonYear = await getValidSeasonYear('basketball', 'nba', null, currentTeamId);
+    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${seasonYear}/types/2/teams/${currentTeamId}/statistics?lang=en&region=us`);
     const data = await response.json();
     
     if (data.team) {
@@ -1003,10 +979,19 @@ async function loadCurrentStanding() {
         const wins = teamStanding.stats.wins?.displayValue || "0";
         const losses = teamStanding.stats.losses?.displayValue || "0";
         const winPercentage = teamStanding.stats.winPercent?.displayValue || "0.000";
-        
+
+        const getOrdinalSuffix = (num) => {
+          const j = num % 10;
+          const k = num % 100;
+          if (j === 1 && k !== 11) return num + "st";
+          if (j === 2 && k !== 12) return num + "nd";
+          if (j === 3 && k !== 13) return num + "rd";
+          return num + "th";
+        };
+
         contentDiv.innerHTML = `
           <div class="standing-info">
-            <div class="standing-position">#${teamStanding.seed}</div>
+            <div class="standing-position">${getOrdinalSuffix(teamStanding.seed)}</div>
             <div class="standing-details">
               <strong>Summer League</strong><br>
               Record: ${wins}-${losses}<br>
@@ -1055,9 +1040,18 @@ async function loadCurrentStanding() {
         const gamesBehind = teamStanding.stats.find(stat => stat.name === "gamesBehind")?.displayValue || "-";
         const teamSeed = teamStanding.team.seed || "N/A";
         
+        const getOrdinalSuffix = (num) => {
+          const j = num % 10;
+          const k = num % 100;
+          if (j === 1 && k !== 11) return num + "st";
+          if (j === 2 && k !== 12) return num + "nd";
+          if (j === 3 && k !== 13) return num + "rd";
+          return num + "th";
+        };
+
         contentDiv.innerHTML = `
           <div class="standing-info">
-            <div class="standing-position">#${teamSeed}</div>
+            <div class="standing-position">${getOrdinalSuffix(teamSeed)}</div>
             <div class="standing-details">
               <strong>${conferenceName}</strong><br><br>
               Record: ${wins}-${losses}<br><br>
@@ -1423,8 +1417,9 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
     // Add modal to document
     document.body.appendChild(modal);
 
-    // Fetch player stats
-    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2025/types/2/athletes/${playerId}/statistics?lang=en&region=us`);
+    // Get valid season year and fetch player stats
+    const seasonYear = await getValidSeasonYear('basketball', 'nba', playerId);
+    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${seasonYear}/types/2/athletes/${playerId}/statistics?lang=en&region=us`);
     const data = await response.json();
 
     console.log('Player stats data:', data);
@@ -1716,10 +1711,15 @@ async function showPlayerComparison(player1, player2) {
     updateNameDisplay();
     window.addEventListener('resize', updateNameDisplay);
 
-    // Fetch both players' stats
+    // Get valid season years and fetch both players' stats
+    const [seasonYear1, seasonYear2] = await Promise.all([
+      getValidSeasonYear('basketball', 'nba', player1.id),
+      getValidSeasonYear('basketball', 'nba', player2.id)
+    ]);
+
     const [player1Response, player2Response] = await Promise.all([
-      fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2025/types/2/athletes/${player1.id}/statistics?lang=en&region=us`),
-      fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2025/types/2/athletes/${player2.id}/statistics?lang=en&region=us`)
+      fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${seasonYear1}/types/2/athletes/${player1.id}/statistics?lang=en&region=us`),
+      fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${seasonYear2}/types/2/athletes/${player2.id}/statistics?lang=en&region=us`)
     ]);
 
     const [player1Data, player2Data] = await Promise.all([

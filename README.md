@@ -1,24 +1,24 @@
-# ⚾🏒🏀⚽🏎️ Live Tracker
+# ⚾🏒🏀🏈⚽🏎️ Live Tracker
 
-Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for real-time **MLB, NHL, NBA, WNBA, Soccer and F1** updates and seamless OBS integration.
+Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for real-time **MLB, NHL, NBA, NFL, WNBA, Soccer and F1** updates and seamless OBS integration.
 
 🔗 **Live Tracker Site**: [https://laraiyeo.github.io/index.html](https://laraiyeo.github.io/index.html)  
 💻 **Source Code**: [GitHub Repository](https://github.com/laraiyeo/laraiyeo.github.io)  
-📊 **Data Source**: [statsapi.mlb.com](http://statsapi.mlb.com/api/v1/schedule/games/?sportId=1), [api.nhle.com](https://api-web.nhle.com/v1/schedule/now), [site.api.espn.com](https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard), [sports.core.api.espn.com](https://sports.core.api.espn.com/v2/sports/racing/leagues/f1)
+📊 **Data Source**: [statsapi.mlb.com](http://statsapi.mlb.com/api/v1/schedule/games/?sportId=1), [api.nhle.com](https://api-web.nhle.com/v1/schedule/now), [site.api.espn.com](https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard), [site.api.espn.com NFL](https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard), [sports.core.api.espn.com](https://sports.core.api.espn.com/v2/sports/racing/leagues/f1)
 
 ---
 
 ## 🧩 Features
 
 - **Live Game Dashboard**  
-  Real-time display of active MLB, NHL, NBA, WNBA, Soccer and F1 races with:
-  - Inning progress for MLB (TOP and BOT with inning number), Period/Quarter progress for NHL, NBA, and WNBA (Time remaining in period/quarter and specifc period/quarter number), Half progress for Soccer (Current match time as well as current half), and Session progress for F1 (Practice, Qualifying, Sprint, Race with real-time lap information)
+  Real-time display of active MLB, NHL, NBA, NFL, WNBA, Soccer and F1 races with:
+  - Inning progress for MLB (TOP and BOT with inning number), Period/Quarter progress for NHL, NBA, NFL, and WNBA (Time remaining in period/quarter and specifc period/quarter number), Half progress for Soccer (Current match time as well as current half), and Session progress for F1 (Practice, Qualifying, Sprint, Race with real-time lap information)
   - Base runners logic for MLB (Bases light up when runner is present)
   - Visual balls/strikes/outs tracker for MLB
 
   **Scoreboard with Live Streaming**
   - Visual scoreboard for MLB with inning progress, team scores, base runners, current outs, current play description and player stats. It will also grey out any player who is benched. **Now includes embedded live game streams during active games**
-  - Visual scoreboard for NHL, NBA and WNBA with Period/Quarter progress, team scores, time remaining in period/quarter, play description and player stats. There will be a 🟢 beside players who are currently on the ice/court
+  - Visual scoreboard for NHL, NBA, NFL and WNBA with Period/Quarter progress, team scores, time remaining in period/quarter, play description and player stats. There will be a 🟢 beside players who are currently on the ice/court/field
   - Visual scoreboard for Soccer with half progress, team scores, current match time, play description, a visual football pitch with real team lineups as well as a substitute section that shows subs and will display when they come on the pitch
   - Visual race information for F1 with session details, lap counts, fastest lap times, and real-time race positions with detailed driver and constructor information. Features embedded live race streams during active race weekends
 
@@ -36,31 +36,32 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
   - For F1: Browse completed races with race winners, podium finishers, and championship points earned
 
 - **Team Tracker**  
-  - All 30 teams shown at once for MLB and NBA, all 13 teams shown at once for WNBA and all 32 teams shown at once for NHL
+  - All 30 teams shown at once for MLB and NBA, all 13 teams shown at once for WNBA, all 32 teams shown at once for NHL and NFL
   - Includes all teams from Premier League, La Liga, Bundesliga, Serie A and Ligue 1. For UEFA, it includes teams currently in Champions League, Europa League and Europa Conference League
   - See each team's game status
   - Click on a team logo to get a unique URL for OBS
   - For F1: All 10 constructor teams displayed with official 2025 car liveries, team colors, driver lineups, championship positions, and detailed statistics including points, wins, and gap to championship leader. Full OBS integration with individual team overlays for streaming.
 
 - **Comprehensive Team Search & Dashboard**
-  - Universal Team Search: Dedicated search pages for all sports (MLB, NHL, NBA, WNBA, Soccer) allowing users to find any team across leagues
+  - Universal Team Search: Dedicated search pages for all sports (MLB, NHL, NBA, NFL, WNBA, Soccer) allowing users to find any team across leagues
   - Individual Team Pages: Complete team dashboards accessible through search results with comprehensive team information
   - Current Game Display: Shows today's game if scheduled, or next upcoming game with proper date adjustment logic for each sport
   - Recent Match History: Paginated view of completed games with customizable date range selection and win/loss indicators
   - Upcoming Schedule: Next 5 scheduled games with dates, opponents, and venue information
-  - Team Statistics: Real-time season stats including sport-specific metrics (offensive/pitching for MLB, goals/assists for NHL, etc.)
+  - Team Statistics: Real-time season stats including sport-specific metrics (offensive/pitching for MLB, goals/assists for NHL, passing/rushing/receiving for NFL, etc.)
   - Current Standings: Team's position in division/conference with record, win percentage, and relevant league standings
   - Complete Player Roster: Searchable, paginated roster with player positions and jersey numbers for all sports
   - Detailed Player Statistics: Click any player to view comprehensive stats with **league rankings for each statistic**
-    - Player Performance Rankings: Each player stat shows their ranking among all league players (e.g., "#15 in MLB" for home runs)
+    - Player Performance Rankings: Each player stat shows their ranking among all league players (e.g., "#15 in NFL" for passing yards)
     - Smart Position Detection: 
       - MLB: Automatically displays hitting stats for position players and pitching stats for pitchers
+      - NFL: Shows position-specific stats (passing for QBs, rushing for RBs, receiving for WRs/TEs, defensive stats for defenders)
       - Soccer: Only allows for comparison of goalie vs goalie and field vs field
       - NHL: Shows goaltending stats for goalies and skater stats for forwards/defensemen
       - NBA/WNBA: Displays comprehensive basketball statistics for all positions
-    - Position-Specific Comparisons: Players can only be compared with compatible positions (goalies vs goalies, pitchers vs pitchers, etc.)
+    - Position-Specific Comparisons: Players can only be compared with compatible positions (goalies vs goalies, pitchers vs pitchers, quarterbacks vs quarterbacks, etc.)
     - Quality Filtering: Rankings only include players with meaningful playing time
-    - Advanced Metrics: Sport-specific advanced statistics (OPS/WHIP for MLB, +/- for NHL, PER for NBA, etc.)
+    - Advanced Metrics: Sport-specific advanced statistics (OPS/WHIP for MLB, passer rating for NFL QBs, +/- for NHL, PER for NBA, etc.)
   - League-Wide Player Search & Comparison: 
     - Cross-Team Player Search: Search through complete rosters of all teams within each sport with real-time filtering
     - Advanced Player Comparison: Side-by-side statistical comparison of any two compatible players with comprehensive season stats
@@ -71,6 +72,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 
 - **Standings**
   - View current league standings side by side for both conferences with divisions
+  - For NFL: Displays AFC and NFC conferences with their respective divisions (North, South, East, West) matching the official NFL structure
   - Hover over a teams name to show a small card that displays home, away and last 10 games record as well as the teams current W/L streak (Not available for soccer)
   - For soccer, view league standings for all the different leagues with visual colors that indicate specific things with a legend underneath the table.
   - For F1: Toggle between Driver Championships and Constructor Championships with real-time points, wins, poles, and championship gaps. Driver standings include full names, team affiliations, car numbers, and detailed season statistics
@@ -118,6 +120,23 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
   - Click on any race (scheduled or completed) to view detailed race information and statistics
   - Constructor team colors and branding maintained throughout for authentic F1 experience
 
+- **NFL Specific**
+  - Comprehensive NFL coverage with all 32 teams across both AFC and NFC conferences
+  - Real-time game tracking with quarter-by-quarter progression and time remaining display
+  - **Live streaming integration** for in-progress games with automatic stream detection and embedded video players
+  - Complete standings structure matching official NFL format with AFC/NFC conferences and their respective divisions (North, South, East, West)
+  - Detailed player box scores featuring position-specific statistics:
+    - **Passing statistics** for quarterbacks (completions, attempts, yards, touchdowns, interceptions)
+    - **Rushing statistics** for running backs and ball carriers (attempts, yards, touchdowns, longest rush)
+    - **Receiving statistics** for wide receivers and tight ends (receptions, yards, touchdowns, longest reception)
+    - **Defensive statistics** for all defensive players (tackles, assists, sacks, interceptions)
+  - Smart responsive design with mobile optimization showing only the most critical statistics (first 3 columns) on small screens
+  - Automatic fumbles category filtering to focus on essential performance metrics
+  - Team dashboard pages with comprehensive roster management, player statistics, and league rankings
+  - Player comparison system supporting position-specific matchups (QB vs QB, RB vs RB, etc.)
+  - Advanced NFL metrics including passer rating, yards per attempt, completion percentage, and other football-specific analytics
+  - Real-time play-by-play descriptions with team-colored backgrounds for enhanced visual context
+
 ---
 
 ## 🖥️ How to Use in OBS
@@ -126,7 +145,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 2. Click the team container of the team you want to integrate into obs
 3. **Open OBS Studio**
 4. Click the ➕ under *Sources*, and choose **Browser**
-5. Name it (e.g. `MLB Tracker`, `NHL Tracker`, `NBA Tracker`, `WNBA Tracker`, `Soccer Tracker` or  `F1 Tracker`) and paste the URL (do not change the width and height)  
+5. Name it (e.g. `MLB Tracker`, `NHL Tracker`, `NBA Tracker`, `NFL Tracker`, `WNBA Tracker`, `Soccer Tracker` or  `F1 Tracker`) and paste the URL (do not change the width and height)  
 6. Click **OK**
 7. When the card is showing properly in obs, you can shrink or enlarge the card from the profile screen
 
@@ -148,6 +167,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - (07/04/2025) Full F1 OBS integration with individual constructor team overlays and dynamic content switching
 - (07/112025) Added support for NBA Summer League
 - **(07/29/2025) Added comprehensive team dashboard pages to all available sports (except F1) with detailed player statistics, rankings and comparison of player stats**
+- **(07/31/2025) Added fully functional NFL tracker with complete standings structure (AFC/NFC conferences), live streaming integration, and position-specific player statistics**
 
 ---
 

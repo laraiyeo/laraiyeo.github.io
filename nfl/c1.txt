@@ -1,0 +1,274 @@
+      "players": [
+        {
+          "displayOrder": 1,
+          "team": {
+            "shortDisplayName": "Bills",
+            "uid": "s:20~l:28~t:2",
+            "alternateColor": "d50a0a",
+            "color": "00338d",
+            "displayName": "Buffalo Bills",
+            "name": "Bills",
+            "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/buf.png",
+            "location": "Buffalo",
+            "id": "2",
+            "abbreviation": "BUF",
+            "slug": "buffalo-bills"
+          },
+          "statistics": [
+            {
+              "keys": [
+                "completions/passingAttempts",
+                "passingYards",
+                "yardsPerPassAttempt",
+                "passingTouchdowns",
+                "interceptions",
+                "sacks-sackYardsLost",
+                "adjQBR",
+                "QBRating"
+              ],
+              "name": "passing",
+              "athletes": [
+                {
+                  "athlete": {
+                    "uid": "s:20~l:28~a:3918298",
+                    "firstName": "Josh",
+                    "lastName": "Allen",
+                    "displayName": "Josh Allen",
+                    "headshot": {
+                      "alt": "Josh Allen",
+                      "href": "https://a.espncdn.com/i/headshots/nfl/players/full/3918298.png"
+                    },
+                    "jersey": "17",
+                    "guid": "853f8768-54bd-6a4f-cb10-63d6df1e7742",
+                    "links": [
+                      {
+                        "rel": [
+                          "playercard",
+                          "desktop",
+                          "athlete"
+                        ],
+                        "href": "https://www.espn.com/nfl/player/_/id/3918298/josh-allen",
+                        "text": "Player Card"
+                      }
+                    ],
+                    "id": "3918298"
+                  },
+                  "stats": [
+                    "22/34",
+                    "237",
+                    "7.0",
+                    "2",
+                    "0",
+                    "2-10",
+                    "71.1",
+                    "104.7"
+                  ]
+                }
+              ],
+              "text": "Buffalo Passing",
+              "totals": [
+                "22/34",
+                "227",
+                "7.0",
+                "2",
+                "0",
+                "2-10",
+                "--",
+                "104.7"
+              ],
+              "descriptions": [
+                "Completions/Attempts",
+                "Yards",
+                "Yards Per Pass Attempt",
+                "Touchdowns",
+                "Interceptions",
+                "Sacks",
+                "Adjusted QBR",
+                "Passer Rating"
+              ],
+              "labels": [
+                "C/ATT",
+                "YDS",
+                "AVG",
+                "TD",
+                "INT",
+                "SACKS",
+                "QBR",
+                "RTG"
+              ]
+            },
+            {
+              "keys": [
+                "rushingAttempts",
+                "rushingYards",
+                "yardsPerRushAttempt",
+                "rushingTouchdowns",
+                "longRushing"
+              ],
+              "name": "rushing",
+              "athletes": [
+                {
+                  "athlete": {
+                    "uid": "s:20~l:28~a:4379399",
+                    "firstName": "James",
+                    "lastName": "Cook",
+                    "displayName": "James Cook",
+                    "headshot": {
+                      "alt": "James Cook",
+                      "href": "https://a.espncdn.com/i/headshots/nfl/players/full/4379399.png"
+                    },
+                    "jersey": "4",
+                    "guid": "cdce4094-c5b8-d8ee-8849-810e285a6323",
+                    "links": [
+                      {
+                        "rel": [
+                          "playercard",
+                          "desktop",
+                          "athlete"
+                        ],
+                        "href": "https://www.espn.com/nfl/player/_/id/4379399/james-cook",
+                        "text": "Player Card"
+                      }
+                    ],
+                    "id": "4379399"
+                  },
+                  "stats": [
+                    "13",
+                    "85",
+                    "6.5",
+                    "2",
+                    "33"
+                  ]
+                },
+                {
+                  "athlete": {
+                    "uid": "s:20~l:28~a:3918298",
+                    "firstName": "Josh",
+                    "lastName": "Allen",
+                    "displayName": "Josh Allen",
+                    "headshot": {
+                      "alt": "Josh Allen",
+                      "href": "https://a.espncdn.com/i/headshots/nfl/players/full/3918298.png"
+                    },
+                    "jersey": "17",
+                    "guid": "853f8768-54bd-6a4f-cb10-63d6df1e7742",
+                    "links": [
+                      {
+                        "rel": [
+                          "playercard",
+                          "desktop",
+                          "athlete"
+                        ],
+                        "href": "https://www.espn.com/nfl/player/_/id/3918298/josh-allen",
+                        "text": "Player Card"
+                      }
+                    ],
+                    "id": "3918298"
+                  },
+                  "stats": [
+                    "11",
+                    "39",
+                    "3.5",
+                    "0",
+                    "13"
+                  ]
+                },
+                {
+                  "athlete": {
+                    "uid": "s:20~l:28~a:3915411",
+                    "firstName": "Ty",
+                    "lastName": "Johnson",
+                    "displayName": "Ty Johnson",
+                    "headshot": {
+                      "alt": "Ty Johnson",
+                      "href": "https://a.espncdn.com/i/headshots/nfl/players/full/3915411.png"
+                    },
+                    "jersey": "26",
+                    "guid": "53c6c81e-03ca-3d96-49a7-682f434b9a17",
+                    "links": [
+                      {
+                        "rel": [
+                          "playercard",
+                          "desktop",
+                          "athlete"
+                        ],
+                        "href": "https://www.espn.com/nfl/player/_/id/3915411/ty-johnson",
+                        "text": "Player Card"
+                      }
+                    ],
+                    "id": "3915411"
+                  },
+                  "stats": [
+                    "6",
+                    "19",
+                    "3.2",
+                    "0",
+                    "8"
+                  ]
+                },
+                {
+                  "athlete": {
+                    "uid": "s:20~l:28~a:4429501",
+                    "firstName": "Ray",
+                    "lastName": "Davis",
+                    "displayName": "Ray Davis",
+                    "headshot": {
+                      "alt": "Ray Davis",
+                      "href": "https://a.espncdn.com/i/headshots/nfl/players/full/4429501.png"
+                    },
+                    "jersey": "22",
+                    "guid": "6be15e08-5453-5777-f67c-6258d56a062c",
+                    "links": [
+                      {
+                        "rel": [
+                          "playercard",
+                          "desktop",
+                          "athlete"
+                        ],
+                        "href": "https://www.espn.com/nfl/player/_/id/4429501/ray-davis",
+                        "text": "Player Card"
+                      }
+                    ],
+                    "id": "4429501"
+                  },
+                  "stats": [
+                    "2",
+                    "4",
+                    "2.0",
+                    "0",
+                    "4"
+                  ]
+                }
+              ],
+              "text": "Buffalo Rushing",
+              "totals": [
+                "32",
+                "147",
+                "4.6",
+                "2",
+                "33"
+              ],
+              "descriptions": [
+                "Rushing Attempts",
+                "Yards",
+                "Yards Per Rushing Attempt",
+                "Touchdowns",
+                "Longest Run"
+              ],
+              "labels": [
+                "CAR",
+                "YDS",
+                "AVG",
+                "TD",
+                "LONG"
+              ]
+            },
+            {
+              "keys": [
+                "receptions",
+                "receivingYards",
+                "yardsPerReception",
+                "receivingTouchdowns",
+                "longReception",
+                "receivingTargets"
+              ],

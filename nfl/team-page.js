@@ -49,6 +49,125 @@ async function getValidSeasonYear(sport, league, playerId = null, teamId = null)
   return previousYear;
 }
 
+// NFL Position Groupings for Comparisons
+function getPositionGroup(position) {
+  const positionGroups = {
+    'QB': 'QB',
+    'RB': 'RB', 'FB': 'RB',
+    'WR': 'WR/TE', 'TE': 'WR/TE',
+    'OT': 'OL', 'G': 'OL', 'C': 'OL', 'OL': 'OL',
+    'DE': 'DL/LB', 'DT': 'DL/LB', 'LB': 'DL/LB', 'OLB': 'DL/LB', 'MLB': 'DL/LB', 'ILB': 'DL/LB',
+    'CB': 'DB', 'S': 'DB', 'FS': 'DB', 'SS': 'DB', 'DB': 'DB',
+    'K': 'K/P', 'P': 'K/P', 'PK': 'K/P',
+    'LS': 'LS' // Long snappers get their own group (no stats)
+  };
+  
+  return positionGroups[position] || 'OTHER';
+}
+
+// Check if position should have full stats (exclude LS)
+function shouldShowFullStats(position) {
+  const otPositions = ['OT', 'G', 'C', 'OL'];
+  return position !== 'LS' && !otPositions.includes(position);
+}
+
+// Get relevant stats for each position group (8 stats each)
+function getPositionStats(positionGroup, categories) {
+  const statMappings = {
+    'QB': [
+      { key: 'gamesPlayed', label: 'Games Played', category: 'general' },
+      { key: 'passingYards', label: 'Pass Yards', category: 'passing' },
+      { key: 'passingTouchdowns', label: 'Pass TDs', category: 'passing' },
+      { key: 'interceptions', label: 'Interceptions', category: 'passing' },
+      { key: 'completionPct', label: 'Completion %', category: 'passing' },
+      { key: 'QBRating', label: 'QB Rating', category: 'passing' },
+      { key: 'rushingYards', label: 'Rush Yards', category: 'rushing' },
+      { key: 'rushingTouchdowns', label: 'Rush TDs', category: 'rushing' }
+    ],
+    'RB': [
+      { key: 'gamesPlayed', label: 'Games Played', category: 'general' },
+      { key: 'rushingAttempts', label: 'Rush Attempts', category: 'rushing' },
+      { key: 'rushingYards', label: 'Rush Yards', category: 'rushing' },
+      { key: 'rushingTouchdowns', label: 'Rush TDs', category: 'rushing' },
+      { key: 'yardsPerRushAttempt', label: 'Yards/Carry', category: 'rushing' },
+      { key: 'receptions', label: 'Receptions', category: 'receiving' },
+      { key: 'receivingYards', label: 'Rec Yards', category: 'receiving' },
+      { key: 'receivingTouchdowns', label: 'Rec TDs', category: 'receiving' }
+    ],
+    'WR/TE': [
+      { key: 'gamesPlayed', label: 'Games Played', category: 'general' },
+      { key: 'receptions', label: 'Receptions', category: 'receiving' },
+      { key: 'receivingYards', label: 'Rec Yards', category: 'receiving' },
+      { key: 'receivingTouchdowns', label: 'Rec TDs', category: 'receiving' },
+      { key: 'yardsPerGame', label: 'Yards/Game', category: 'receiving' },
+      { key: 'receivingTargets', label: 'Targets', category: 'receiving' },
+      { key: 'longReception', label: 'Long Rec', category: 'receiving' },
+      { key: 'receivingFirstDowns', label: 'Rec 1st Downs', category: 'receiving' }
+    ],
+    'DL/LB': [
+      { key: 'gamesPlayed', label: 'Games Played', category: 'general' },
+      { key: 'totalTackles', label: 'Total Tackles', category: 'defensive' },
+      { key: 'soloTackles', label: 'Solo Tackles', category: 'defensive' },
+      { key: 'sacks', label: 'Sacks', category: 'defensive' },
+      { key: 'tacklesForLoss', label: 'TFL', category: 'defensive' },
+      { key: 'QBHits', label: 'QB Hits', category: 'defensive' },
+      { key: 'passesDefended', label: 'Pass Defended', category: 'defensive' },
+      { key: 'fumblesForced', label: 'Forced Fumbles', category: 'general' }
+    ],
+    'DB': [
+      { key: 'gamesPlayed', label: 'Games Played', category: 'general' },
+      { key: 'totalTackles', label: 'Total Tackles', category: 'defensive' },
+      { key: 'interceptions', label: 'Interceptions', category: 'defensiveInterceptions' },
+      { key: 'passesDefended', label: 'Pass Defended', category: 'defensive' },
+      { key: 'interceptionYards', label: 'INT Yards', category: 'defensiveInterceptions' },
+      { key: 'sackYards', label: 'Sack YDS', category: 'defensive' },
+      { key: 'fumblesRecovered', label: 'Fumbles Rec', category: 'general' },
+      { key: 'stuffs', label: 'Stuffs', category: 'defensive' }
+    ],
+    'K/P': [
+      { key: 'gamesPlayed', label: 'Games Played', category: 'general' },
+      { key: 'fieldGoals', label: 'FG Made', category: 'scoring' },
+      { key: 'kickExtraPoints', label: 'XP Made', category: 'scoring' },
+      { key: 'grossAvgPuntYards', label: 'Punt Avg', category: 'punting' },
+      { key: 'touchbacks', label: 'Touchbacks', category: 'punting' },
+      { key: 'netTotalYards', label: 'Total Yards', category: 'passing' }
+    ]
+  };
+
+  const positionStatConfig = statMappings[positionGroup] || statMappings['DL/LB']; // Default to defensive stats
+  const playerStats = [];
+
+  positionStatConfig.forEach(config => {
+    const category = categories.find(c => c.name === config.category);
+    if (category && category.stats) {
+      const stat = category.stats.find(s => s.name === config.key);
+      if (stat) {
+        playerStats.push({
+          label: config.label,
+          value: stat.displayValue || '0',
+          rank: stat.rankDisplayValue || null
+        });
+      } else {
+        // If stat not found, show as 0
+        playerStats.push({
+          label: config.label,
+          value: '0',
+          rank: null
+        });
+      }
+    } else {
+      // If category not found, show as 0
+      playerStats.push({
+        label: config.label,
+        value: '0',
+        rank: null
+      });
+    }
+  });
+
+  return playerStats;
+}
+
 // Initialize the page
 document.addEventListener("DOMContentLoaded", () => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -129,15 +248,16 @@ async function loadTeamData() {
 
 async function loadTeamInfo() {
   try {
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${currentTeamId}`);
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${currentTeamId}`);
     const data = await response.json();
     currentTeam = data.team;
     
     const logoUrl = convertToHttps(currentTeam.logos?.find(logo =>
         logo.rel.includes(
-          ["26"].includes(currentTeam.id) ? 'secondary_logo_on_secondary_color' : 'primary_logo_on_primary_color'
+          ["19", "20"].includes(currentTeam.id) ? 'dark' : 'default'
         )
-    )?.href) || `https://a.espncdn.com/i/teamlogos/wnba/500/${currentTeam.abbreviation}.png`;
+    )?.href) || `https://a.espncdn.com/i/teamlogos/nfl/500/${currentTeam.abbreviation}.png`;
+
 
     const teamColor = `#${currentTeam.color}` || "#000000";
 
@@ -153,7 +273,7 @@ async function loadTeamInfo() {
     
     // Get team record from standings
     try {
-      const standingsResponse = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard');
+      const standingsResponse = await fetch('https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard');
       const standingsData = await standingsResponse.json();
       // This is simplified - we could get more detailed record info from standings API
     } catch (error) {
@@ -162,17 +282,17 @@ async function loadTeamInfo() {
     
     document.getElementById('teamInfo').innerHTML = `
       <div class="team-header">
-        <img src="${logoUrl}" alt="${currentTeam.displayName}" class="team-logo-header" onerror="this.src='icon.png';">
+        <img src="${logoUrl}" alt="${currentTeam.displayName}" class="team-logo-header" onerror="this.src='football.png';">
         <div class="team-details-header">
           <div class="team-name-header">${currentTeam.displayName}</div>
-          <div class="team-record-header">${currentTeam.standingSummary}</div>
-          <div class="team-division-header">${currentTeam.abbreviation} -  WNBA</div>
+          <div class="team-record-header">${currentTeam.nickname} (${currentTeam.franchise.venue.fullName})</div>
+          <div class="team-division-header">${currentTeam.abbreviation} - NFL</div>
         </div>
       </div>
     `;
     
     // Update page title
-    document.title = `${currentTeam.displayName} - WNBA`;
+    document.title = `${currentTeam.displayName} - NFL`;
   } catch (error) {
     console.error("Error loading team info:", error);
     document.getElementById('teamInfo').innerHTML = '<div class="no-data">Error loading team information</div>';
@@ -189,7 +309,7 @@ function applyTeamColors(teamColor) {
     .game-status {
       color: ${teamColor} !important;
     }
-    .team-stat-value {
+    .stat-value {
       color: ${teamColor} !important;
     }
     .standing-position {
@@ -216,7 +336,7 @@ function applyTeamColors(teamColor) {
 
 async function loadCurrentGame() {
   try {
-    function getAdjustedDateForNBA() {
+    function getAdjustedDateForNFL() {
       const now = new Date();
       const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
       if (estNow.getHours() < 2) {
@@ -228,10 +348,10 @@ async function loadCurrentGame() {
       return adjustedDate;
     }
     
-    const today = getAdjustedDateForNBA();
+    const today = getAdjustedDateForNFL();
     
-    // Fetch WNBA games
-    const todayResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${today}`);
+    // Fetch NFL games
+    const todayResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${today}`);
     const todayData = await todayResponse.json();
     
     const contentDiv = document.getElementById('currentGameContent');
@@ -304,8 +424,8 @@ async function createCurrentGameCard(game) {
     scoreDisplay = `${teamScore || 0} - ${opponentScore || 0}`;
   }
 
-  const teamLogo = `https://a.espncdn.com/i/teamlogos/wnba/500/${currentTeam.abbreviation}.png`;
-  const opponentLogo = `https://a.espncdn.com/i/teamlogos/wnba/500/${opponent.team.abbreviation}.png`;
+  const teamLogo = `https://a.espncdn.com/i/teamlogos/nfl/500/${isHomeTeam ? homeTeam.team.abbreviation : awayTeam.team.abbreviation}.png`;
+  const opponentLogo = `https://a.espncdn.com/i/teamlogos/nfl/500/${opponent.team.abbreviation}.png`;
 
   // Format game date for URL parameter
   const gameUrlDate = gameDate.getFullYear() +
@@ -317,12 +437,12 @@ async function createCurrentGameCard(game) {
       <div class="game-status">${statusText}</div>
       <div class="game-teams">
         <div class="game-team">
-          <img src="${teamLogo}" alt="${currentTeam.displayName}" class="game-team-logo" onerror="this.src='icon.png';">
-          <div class="game-team-name">${currentTeam.abbreviation}</div>
+          <img src="${teamLogo}" alt="${isHomeTeam ? homeTeam.team.displayName : awayTeam.team.displayName}" class="game-team-logo" onerror="this.src='football.png';">
+          <div class="game-team-name">${isHomeTeam ? homeTeam.team.abbreviation : awayTeam.team.abbreviation}</div>
         </div>
         <div class="game-score">${scoreDisplay}</div>
         <div class="game-team">
-          <img src="${opponentLogo}" alt="${opponent.team.displayName}" class="game-team-logo" onerror="this.src='icon.png';">
+          <img src="${opponentLogo}" alt="${opponent.team.displayName}" class="game-team-logo" onerror="this.src='football.png';">
           <div class="game-team-name">${opponent.team.abbreviation}</div>
         </div>
       </div>
@@ -337,7 +457,7 @@ async function loadRecentMatches() {
     const today = new Date();
     const startDate = startDatePicker ? new Date(startDatePicker.value) : new Date(today.getTime() - 10 * 24 * 60 * 60 * 1000);
     
-    // Format dates for WNBA API
+    // Format dates for NFL API
     const formatDate = (date) => {
       return date.getFullYear() +
         String(date.getMonth() + 1).padStart(2, "0") +
@@ -346,8 +466,8 @@ async function loadRecentMatches() {
     
     const dateRange = `${formatDate(startDate)}-${formatDate(today)}`;
     
-    // Fetch WNBA games
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${dateRange}`);
+    // Fetch NFL games
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${dateRange}`);
     const data = await response.json();
     
     // Filter games for this team and completed games
@@ -451,8 +571,8 @@ async function createMatchCard(game, isRecent = false) {
     day: "numeric"
   });
 
-  const teamLogo = `https://a.espncdn.com/i/teamlogos/wnba/500/${currentTeam.abbreviation}.png`;
-  const opponentLogo = `https://a.espncdn.com/i/teamlogos/wnba/500/${opponent.team.abbreviation}.png`;
+  const teamLogo = `https://a.espncdn.com/i/teamlogos/nfl/500/${isHomeTeam ? homeTeam.team.abbreviation : awayTeam.team.abbreviation}.png`;
+  const opponentLogo = `https://a.espncdn.com/i/teamlogos/nfl/500/${opponent.team.abbreviation}.png`;
 
   let resultClass = "";
   let resultText = "";
@@ -479,13 +599,13 @@ async function createMatchCard(game, isRecent = false) {
     <div class="match-item" data-game-id="${game.id}" data-game-date="${gameUrlDate}">
       <div class="match-teams">
         <div class="match-team-info">
-          <img src="${teamLogo}" alt="${currentTeam.abbreviation}" class="match-team-logo" onerror="this.src='icon.png';">
-          <div class="match-team-name">${currentTeam.abbreviation}</div>
+          <img src="${teamLogo}" alt="${isHomeTeam ? homeTeam.team.abbreviation : awayTeam.team.abbreviation}" class="match-team-logo" onerror="this.src='football.png';">
+          <div class="match-team-name">${isHomeTeam ? homeTeam.team.abbreviation : awayTeam.team.abbreviation}</div>
         </div>
         <div class="match-result ${resultClass}">${resultText}</div>
         <div class="match-team-info">
           <div class="match-team-name">${opponent.team.abbreviation}</div>
-          <img src="${opponentLogo}" alt="${opponent.team.abbreviation}" class="match-team-logo" onerror="this.src='icon.png';">
+          <img src="${opponentLogo}" alt="${opponent.team.abbreviation}" class="match-team-logo" onerror="this.src='football.png';">
         </div>
       </div>
       <div class="match-date">${formattedDate}</div>
@@ -493,17 +613,17 @@ async function createMatchCard(game, isRecent = false) {
   `;
 }
 
-// Global variable to store all WNBA players for league-wide comparison
-let allNBAPlayers = [];
+// Global variable to store all NFL players for league-wide comparison
+let allNFLPlayers = [];
 
-async function fetchAllNBAPlayers() {
-  if (allNBAPlayers.length > 0) {
-    return allNBAPlayers; // Return cached data
+async function fetchAllNFLPlayers() {
+  if (allNFLPlayers.length > 0) {
+    return allNFLPlayers; // Return cached data
   }
 
   try {
-    // Fetch all WNBA teams
-    const teamsResponse = await fetch('https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/teams?lang=en&region=us');
+    // Fetch all NFL teams
+    const teamsResponse = await fetch('https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/teams?lang=en&region=us');
     const teamsData = await teamsResponse.json();
     
     const allPlayers = [];
@@ -531,7 +651,7 @@ async function fetchAllNBAPlayers() {
                   displayName: playerData.displayName || `${playerData.firstName || ''} ${playerData.lastName || ''}`.trim(),
                   jersey: playerData.jersey || 'N/A',
                   position: playerData.position?.abbreviation || 'N/A',
-                  headshot: convertToHttps(playerData.headshot?.href) || 'icon.png',
+                  headshot: convertToHttps(playerData.headshot?.href) || 'football.png',
                   team: teamData.displayName || 'Unknown Team',
                   teamId: teamData.id
                 };
@@ -557,11 +677,11 @@ async function fetchAllNBAPlayers() {
       allPlayers.push(...roster);
     });
 
-    allNBAPlayers = allPlayers;
-    console.log(`Loaded ${allNBAPlayers.length} WNBA players for comparison`);
-    return allNBAPlayers;
+    allNFLPlayers = allPlayers;
+    console.log(`Loaded ${allNFLPlayers.length} NFL players for comparison`);
+    return allNFLPlayers;
   } catch (error) {
-    console.error('Error fetching all WNBA players:', error);
+    console.error('Error fetching all NFL players:', error);
     return [];
   }
 }
@@ -570,8 +690,8 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
   try {
     console.log(`Clearing player ${playerNumber}`);
     
-    // Get all WNBA players
-    const allPlayers = await fetchAllNBAPlayers();
+    // Get all NFL players
+    const allPlayers = await fetchAllNFLPlayers();
     
     // Find the specific player header to replace by ID
     const headerToReplace = modalContent.querySelector(`#player${playerNumber}-header`);
@@ -627,7 +747,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
 
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
-    searchInput.placeholder = 'Search any WNBA player...';
+    searchInput.placeholder = 'Search any NFL player...';
     searchInput.style.cssText = `
       width: 100%;
       padding: 8px;
@@ -712,13 +832,21 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
       }
 
       searchTimeout = setTimeout(() => {
+        // Get the position group of the remaining player to filter by
+        const remainingPlayer = playerNumber === "1" ? currentPlayer2 : currentPlayer1;
+        const remainingPlayerPositionGroup = getPositionGroup(remainingPlayer.position);
+        
         const filteredPlayers = allPlayers
           .filter(player => {
             const fullName = `${player.firstName || ''} ${player.lastName || ''}`.toLowerCase();
             const teamName = player.team.toLowerCase();
+            const playerPositionGroup = getPositionGroup(player.position);
+            
+            // Only show players from the same position group as the remaining player
             return (fullName.includes(query) || teamName.includes(query)) && 
                    player.id !== currentPlayer1.id && 
-                   player.id !== currentPlayer2.id;
+                   player.id !== currentPlayer2.id &&
+                   playerPositionGroup === remainingPlayerPositionGroup;
           })
           .slice(0, 5); // Max 5 results
 
@@ -735,7 +863,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
             " onmouseover="this.style.backgroundColor='#f0f0f0'" onmouseout="this.style.backgroundColor='white'">
               <img src="${convertToHttps(player.headshot)}" alt="${player.displayName}" 
                    style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover;" 
-                   onerror="this.src='icon.png';">
+                   onerror="this.src='football.png';">
               <div>
                 <div style="font-weight: bold; color: #333;">${player.displayName}</div>
                 <div style="font-size: 12px; color: #666;">${player.team} | #${player.jersey} | ${player.position}</div>
@@ -801,8 +929,8 @@ async function loadUpcomingMatches() {
     
     const dateRange = `${formatDate(today)}-${formatDate(endDate)}`;
     
-    // Fetch WNBA games
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${dateRange}`);
+    // Fetch NFL games
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${dateRange}`);
     const data = await response.json();
     
     const upcomingGames = data.events
@@ -842,128 +970,114 @@ async function loadUpcomingMatches() {
 
 async function loadTeamStats() {
   try {
-    // WNBA doesn't have a direct team stats API like MLB, so we'll show basic info
     const contentDiv = document.getElementById('teamStatsContent');
-    
-    // Get valid season year and try to get team info from the main team API
-    const seasonYear = await getValidSeasonYear('basketball', 'wnba', null, currentTeamId);
-    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/${seasonYear}/types/2/teams/${currentTeamId}/statistics?lang=en&region=us`);
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${currentTeamId}`);
     const data = await response.json();
+
+    currentTeam = data.team.record;
     
-    if (data.team) {
-      const stats = [
-        { label: "Avg Points For", value: data?.splits?.categories?.find(c => c.name === "offensive")?.stats?.find(s => s.name === "avgPoints")?.displayValue || "N/A" },
-        { label: "Field Goal %", value: data?.splits?.categories?.find(c => c.name === "offensive")?.stats?.find(s => s.name === "fieldGoalPct")?.displayValue || "N/A" },
-        { label: "Rebounds", value: data?.splits?.categories?.find(c => c.name === "general")?.stats?.find(s => s.name === "avgRebounds")?.displayValue || "N/A" },
-        { label: "Assists", value: data?.splits?.categories?.find(c => c.name === "offensive")?.stats?.find(s => s.name === "avgAssists")?.displayValue || "N/A" },
-        { label: "Steals", value: data?.splits?.categories?.find(c => c.name === "defensive")?.stats?.find(s => s.name === "avgSteals")?.displayValue || "N/A" },
-        { label: "Blocks", value: data?.splits?.categories?.find(c => c.name === "defensive")?.stats?.find(s => s.name === "avgBlocks")?.displayValue || "N/A" },
-        { label: "Turnovers", value: data?.splits?.categories?.find(c => c.name === "offensive")?.stats?.find(s => s.name === "avgTurnovers")?.displayValue || "N/A" },
-        { label: "Fouls", value: data?.splits?.categories?.find(c => c.name === "general")?.stats?.find(s => s.name === "avgFouls")?.displayValue || "N/A" },
-        { label: "Free Throw %", value: data?.splits?.categories?.find(c => c.name === "offensive")?.stats?.find(s => s.name === "freeThrowPct")?.displayValue || "N/A" },
-        { label: "3 Point %", value: data?.splits?.categories?.find(c => c.name === "offensive")?.stats?.find(s => s.name === "threePointPct")?.displayValue || "N/A" }
-      ];
-      
-      contentDiv.innerHTML = `
-        <div class="team-stats-grid">
-          ${stats.map(stat => `
-            <div class="team-stat-item">
-              <div class="team-stat-value">${stat.value}</div>
-              <div class="team-stat-label">${stat.label}</div>
-            </div>
-          `).join('')}
+    contentDiv.innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-label">Games Played</div>
+          <div class="stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'gamesPlayed')?.value}</div>
         </div>
-      `;
-    } else {
-      contentDiv.innerHTML = '<div class="no-data">Team statistics not available</div>';
-    }
+        <div class="stat-item">
+          <div class="stat-label">Division Record</div>
+          <div class="stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'divisionWins')?.value}-${currentTeam.items[0].stats?.find(s => s.name === 'divisionLosses')?.value}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Away Games Played</div>
+          <div class="stat-value">${currentTeam.items[1].stats?.find(s => s.name === 'wins')?.value + currentTeam.items[1].stats?.find(s => s.name === 'losses')?.value + currentTeam.items[1].stats?.find(s => s.name === 'ties')?.value}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Away Games Record</div>
+          <div class="stat-value">${currentTeam.items[1].summary}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Home Games Played</div>
+          <div class="stat-value">${currentTeam.items[2].stats?.find(s => s.name === 'wins')?.value + currentTeam.items[2].stats?.find(s => s.name === 'losses')?.value + currentTeam.items[2].stats?.find(s => s.name === 'ties')?.value}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Home Games Record</div>
+          <div class="stat-value">${currentTeam.items[2].summary}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Average Points For</div>
+          <div class="stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'avgPointsFor')?.value}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Average Points Against</div>
+          <div class="stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'avgPointsAgainst')?.value}</div>
+        </div>
+    `;
   } catch (error) {
     console.error("Error loading team stats:", error);
-    document.getElementById('teamStatsContent').innerHTML = '<div class="no-data">Error loading team statistics</div>';
+    document.getElementById('teamStatsContent').innerHTML = '<div class="no-data">No data available</div>';
   }
 }
 
 async function loadCurrentStanding() {
   try {
-    const STANDINGS_URL = `https://cdn.espn.com/core/wnba/standings?xhr=1`;
+    const STANDINGS_URL = `https://cdn.espn.com/core/nfl/standings?xhr=1`;
     const contentDiv = document.getElementById('currentStandingContent');
     
     const res = await fetch(STANDINGS_URL);
     const text = await res.text();
     const data = JSON.parse(text);
 
-    // Get all standings entries from data.content.standings.standings.entries (following standings.js pattern)
-    const allEntries =
-      data.content &&
-      data.content.standings &&
-      data.content.standings.standings &&
-      Array.isArray(data.content.standings.standings.entries)
-        ? data.content.standings.standings.entries
-        : [];
+    // Navigate through the NFL standings structure
+    const standings = data.content?.standings;
+    if (!standings) {
+      contentDiv.innerHTML = '<div class="no-data">Standings data not found</div>';
+      return;
+    }
 
-    // Find current team in all entries
-    const teamStanding = allEntries.find(entry => entry.team.id === currentTeamId);
+    let teamStanding = null;
+    let divisionName = "";
+    let divisionPosition = 0;
+
+    // Search through AFC and NFC groups
+    const groups = standings.groups || [];
+    
+    for (const conference of groups) {
+      // Each conference (AFC/NFC) has division groups
+      const divisions = conference.groups || [];
+      
+      for (const division of divisions) {
+        // Each division has standings entries
+        const entries = division.standings?.entries || [];
+        
+        // Find the team in this division
+        const foundTeam = entries.find(entry => entry.team.id === currentTeamId);
+        
+        if (foundTeam) {
+          teamStanding = foundTeam;
+          divisionName = `${conference.name}<br><br>${division.name}`;
+          // Find position in division (1-based)
+          divisionPosition = entries.findIndex(entry => entry.team.id === currentTeamId) + 1;
+          break;
+        }
+      }
+      
+      if (teamStanding) break;
+    }
     
     if (!teamStanding) {
       contentDiv.innerHTML = '<div class="no-data">Team not found in standings</div>';
       return;
     }
 
-    // Get conference order from tier2Nav.subNavMenu.navigation.items (following standings.js pattern)
-    let eastOrder = [];
-    let westOrder = [];
-    const tier2Nav = data.content.tier2Nav;
-    if (
-      tier2Nav &&
-      tier2Nav.subNavMenu &&
-      tier2Nav.subNavMenu.navigation &&
-      Array.isArray(tier2Nav.subNavMenu.navigation.items)
-    ) {
-      let east = false, west = false;
-      for (const item of tier2Nav.subNavMenu.navigation.items) {
-        if (item.links && item.links[0]) {
-          const link = item.links[0];
-          if (link.text === "Eastern Conference") {
-            east = true;
-            west = false;
-            continue;
-          }
-          if (link.text === "Western Conference") {
-            west = true;
-            east = false;
-            continue;
-          }
-          if (link.rel && link.rel.includes("team") && link.attributes && link.attributes.teamAbbrev) {
-            if (east) eastOrder.push(link.attributes.teamAbbrev);
-            if (west) westOrder.push(link.attributes.teamAbbrev);
-          }
-        }
-      }
-    }
-
-    // Fallback to default order if not found (from standings.js)
-    if (eastOrder.length === 0) eastOrder = ["ATL", "CHI", "CONN", "IND", "NY", "WSH"];
-    if (westOrder.length === 0) westOrder = ["DAL", "GS", "LV", "LA", "MIN", "PHX", "SEA"];
-
-    // Determine which conference the team is in
-    const teamAbbr = teamStanding.team.abbreviation;
-    let conferenceName = "";
-    if (eastOrder.includes(teamAbbr)) {
-      conferenceName = "Eastern Conference";
-    } else if (westOrder.includes(teamAbbr)) {
-      conferenceName = "Western Conference";
-    } else {
-      conferenceName = "Conference";
-    }
-
-    // Extract stats using the same pattern as standings.js
+    // Extract stats
     const wins = teamStanding.stats.find(stat => stat.name === "wins")?.displayValue || "0";
     const losses = teamStanding.stats.find(stat => stat.name === "losses")?.displayValue || "0";
+    const ties = teamStanding.stats.find(stat => stat.name === "ties")?.displayValue || "0";
     const winPercent = teamStanding.stats.find(stat => stat.name === "winPercent")?.displayValue || "0.000";
-    const gamesBehind = teamStanding.stats.find(stat => stat.name === "gamesBehind")?.displayValue || "-";
-    const teamSeed = teamStanding.team.seed || "N/A";
-    
-    // Add ordinal suffix helper function (from standings.js)
+    const pointsFor = teamStanding.stats.find(stat => stat.name === "pointsFor")?.displayValue || "0";
+    const pointsAgainst = teamStanding.stats.find(stat => stat.name === "pointsAgainst")?.displayValue || "0";
+    const differential = teamStanding.stats.find(stat => stat.name === "differential")?.displayValue || "0";
+
+    // Add ordinal suffix helper function
     const getOrdinalSuffix = (num) => {
       const j = num % 10;
       const k = num % 100;
@@ -972,15 +1086,19 @@ async function loadCurrentStanding() {
       if (j === 3 && k !== 13) return num + "rd";
       return num + "th";
     };
+
+    // Format record (include ties if any)
+    const record = parseInt(ties) > 0 ? `${wins}-${losses}-${ties}` : `${wins}-${losses}`;
     
     contentDiv.innerHTML = `
       <div class="standing-info">
-        <div class="standing-position">${getOrdinalSuffix(teamSeed)}</div>
+        <div class="standing-position">${getOrdinalSuffix(divisionPosition)}</div>
         <div class="standing-details">
-          <strong>${conferenceName}</strong><br><br>
-          Record: ${wins}-${losses}<br><br>
+          <strong>${divisionName}</strong><br><br>
+          Record: ${record}<br><br>
           Win %: ${winPercent}<br><br>
-          GB: ${gamesBehind}<br>
+          PF: ${pointsFor} | PA: ${pointsAgainst}<br><br>
+          Diff: ${differential}
         </div>
       </div>
     `;
@@ -992,14 +1110,33 @@ async function loadCurrentStanding() {
 
 async function loadPlayersInfo() {
   try {
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${currentTeamId}/roster`);
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${currentTeamId}/roster`);
     const data = await response.json();
     
     const contentDiv = document.getElementById('playersInfoContent');
     
-    if (data.athletes && data.athletes.length > 0) {
-      // Players are directly in the athletes array
-      allRosterPlayers = data.athletes;
+    console.log('Roster data structure:', data);
+    
+    // Extract players from the nested structure
+    allRosterPlayers = [];
+    
+    if (data.athletes && Array.isArray(data.athletes)) {
+      data.athletes.forEach(positionGroup => {
+        if (positionGroup.items && Array.isArray(positionGroup.items)) {
+          console.log(`Found ${positionGroup.items.length} players in position group:`, positionGroup.position || 'Unknown');
+          positionGroup.items.forEach(player => {
+            // Add position info from the group if not already on player
+            if (!player.position && positionGroup.position) {
+              player.position = { abbreviation: positionGroup.position };
+            }
+            allRosterPlayers.push(player);
+          });
+        }
+      });
+    }
+    
+    if (allRosterPlayers.length > 0) {
+      console.log(`Total players loaded: ${allRosterPlayers.length}`);
       
       // Sort players by jersey number
       allRosterPlayers.sort((a, b) => {
@@ -1011,7 +1148,7 @@ async function loadPlayersInfo() {
       currentRosterPage = 1;
       displayRosterPlayers();
     } else {
-      console.log('No athletes found in response');
+      console.log('No athletes found in response structure');
       contentDiv.innerHTML = '<div class="no-data">Player roster not available</div>';
     }
   } catch (error) {
@@ -1041,11 +1178,11 @@ function displayRosterPlayers() {
     const jerseyNumber = player.jersey || "N/A";
     const firstName = player.firstName || "";
     const lastName = player.lastName || player.displayName || "Unknown";
-    const headshotUrl = convertToHttps(player.headshot?.href) || "icon.png";
+    const headshotUrl = convertToHttps(player.headshot?.href) || "football.png";
     
     return `
       <div class="player-card" data-player-id="${player.id}" onclick="showPlayerDetails('${player.id}', '${firstName}', '${lastName}', '${jerseyNumber}', '${position}', '${headshotUrl}')">
-        <img src="${headshotUrl}" alt="${firstName} ${lastName}" class="player-headshot" onerror="this.src='icon.png';">
+        <img src="${headshotUrl}" alt="${firstName} ${lastName}" class="player-headshot" onerror="this.src='football.png';">
         <div class="player-name-column">
           <div class="player-first-name">${firstName}</div>
           <div class="player-last-name">${lastName}</div>
@@ -1182,7 +1319,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
     playerHeader.innerHTML = `
       <img src="${headshotUrl}" alt="${firstName} ${lastName}" 
            style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover;" 
-           onerror="this.src='icon.png';">
+           onerror="this.src='football.png';">
       <div>
         <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 5px;">
           ${firstName} ${lastName}
@@ -1256,13 +1393,22 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       }
 
       searchTimeout = setTimeout(async () => {
-        // Get all WNBA players for league-wide search
-        const allPlayers = await fetchAllNBAPlayers();
+        // Get all NFL players for league-wide search
+        const allPlayers = await fetchAllNFLPlayers();
+        
+        // Get the position group of the current player to filter by
+        const currentPlayerPositionGroup = getPositionGroup(position);
+        
         const filteredPlayers = allPlayers
           .filter(player => {
             const fullName = `${player.firstName || ''} ${player.lastName || ''}`.toLowerCase();
             const teamName = player.team.toLowerCase();
-            return (fullName.includes(query) || teamName.includes(query)) && player.id !== selectedPlayer.id;
+            const playerPositionGroup = getPositionGroup(player.position);
+            
+            // Only show players from the same position group and exclude current player
+            return (fullName.includes(query) || teamName.includes(query)) && 
+                   player.id !== selectedPlayer.id &&
+                   playerPositionGroup === currentPlayerPositionGroup;
           })
           .slice(0, 3); // Max 3 results
 
@@ -1279,7 +1425,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
             " onmouseover="this.style.backgroundColor='#f0f0f0'" onmouseout="this.style.backgroundColor='white'">
               <img src="${convertToHttps(player.headshot)}" alt="${player.displayName}" 
                    style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover;" 
-                   onerror="this.src='icon.png';">
+                   onerror="this.src='football.png';">
               <div>
                 <div style="font-weight: bold; color: #333;">${player.displayName}</div>
                 <div style="font-size: 12px; color: #666;">${player.team} | #${player.jersey} | ${player.position}</div>
@@ -1301,7 +1447,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
                   lastName: player.lastName || player.displayName || 'Unknown',
                   jersey: player.jersey || 'N/A',
                   position: player.position || 'N/A',
-                  headshot: convertToHttps(player.headshot) || 'icon.png'
+                  headshot: convertToHttps(player.headshot) || 'football.png'
                 };
                 
                 // Close current modal
@@ -1337,17 +1483,22 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
     // Add modal to document
     document.body.appendChild(modal);
 
-    // Get valid season year and fetch player stats
-    const seasonYear = await getValidSeasonYear('basketball', 'wnba', playerId);
-    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/${seasonYear}/types/2/athletes/${playerId}/statistics?lang=en&region=us`);
-    const data = await response.json();
-
-    console.log('Player stats data:', data);
-
-    if (data.splits && data.splits.categories) {
-      displayPlayerStatsInModal(data.splits.categories, statsContainer);
+    // Check if position should show full stats (exclude LS)
+    if (!shouldShowFullStats(position)) {
+      statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Statistics not available for this position</div>';
     } else {
-      statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Player statistics not available</div>';
+      // Get valid season year and fetch player stats
+      const seasonYear = await getValidSeasonYear('football', 'nfl', playerId);
+      const response = await fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${seasonYear}/types/2/athletes/${playerId}/statistics?lang=en&region=us`);
+      const data = await response.json();
+
+      console.log('Player stats data:', data);
+
+      if (data.splits && data.splits.categories) {
+        displayPlayerStatsInModal(data.splits.categories, statsContainer, position);
+      } else {
+        statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Player statistics not available</div>';
+      }
     }
 
     // Close modal when clicking outside
@@ -1404,6 +1555,21 @@ function addPlayerToComparison(player) {
 
 async function showPlayerComparison(player1, player2) {
   try {
+    // Check if both players are from the same position group
+    const position1Group = getPositionGroup(player1.position);
+    const position2Group = getPositionGroup(player2.position);
+    
+    if (position1Group !== position2Group) {
+      alert(`Cannot compare players from different position groups:\n${player1.firstName} ${player1.lastName} (${position1Group}) vs ${player2.firstName} ${player2.lastName} (${position2Group})\n\nPlease select players from the same position group.`);
+      return;
+    }
+    
+    // Check if positions should have stats (exclude LS)
+    if (!shouldShowFullStats(player1.position) || !shouldShowFullStats(player2.position)) {
+      alert('Cannot compare players from positions that do not have detailed statistics.');
+      return;
+    }
+
     // Create modal overlay
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -1520,7 +1686,7 @@ async function showPlayerComparison(player1, player2) {
       ">×</button>
       <img src="${convertToHttps(player1.headshot)}" alt="${player1.firstName} ${player1.lastName}" 
            style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;" 
-           onerror="this.src='icon.png';">
+           onerror="this.src='football.png';">
       <div>
         <div class="player-name-display" style="font-size: 1.2rem; font-weight: bold; color: #333;">
           ${player1.firstName} ${player1.lastName}
@@ -1574,7 +1740,7 @@ async function showPlayerComparison(player1, player2) {
       ">×</button>
       <img src="${convertToHttps(player2.headshot)}" alt="${player2.firstName} ${player2.lastName}" 
            style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;" 
-           onerror="this.src='icon.png';">
+           onerror="this.src='football.png';">
       <div style="text-align: right;">
         <div class="player-name-display" style="font-size: 1.2rem; font-weight: bold; color: #333;">
           ${player2.firstName} ${player2.lastName}
@@ -1633,13 +1799,13 @@ async function showPlayerComparison(player1, player2) {
 
     // Get valid season years and fetch both players' stats
     const [seasonYear1, seasonYear2] = await Promise.all([
-      getValidSeasonYear('basketball', 'wnba', player1.id),
-      getValidSeasonYear('basketball', 'wnba', player2.id)
+      getValidSeasonYear('football', 'nfl', player1.id),
+      getValidSeasonYear('football', 'nfl', player2.id)
     ]);
 
     const [player1Response, player2Response] = await Promise.all([
-      fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/${seasonYear1}/types/2/athletes/${player1.id}/statistics?lang=en&region=us`),
-      fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/${seasonYear2}/types/2/athletes/${player2.id}/statistics?lang=en&region=us`)
+      fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${seasonYear1}/types/2/athletes/${player1.id}/statistics?lang=en&region=us`),
+      fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${seasonYear2}/types/2/athletes/${player2.id}/statistics?lang=en&region=us`)
     ]);
 
     const [player1Data, player2Data] = await Promise.all([
@@ -1647,7 +1813,7 @@ async function showPlayerComparison(player1, player2) {
       player2Response.json()
     ]);
 
-    displayPlayerComparison(player1Data.splits?.categories, player2Data.splits?.categories, statsComparisonContainer);
+    displayPlayerComparison(player1Data.splits?.categories, player2Data.splits?.categories, statsComparisonContainer, player1.position);
 
     // Close modal when clicking outside
     modal.addEventListener('click', (e) => {
@@ -1710,51 +1876,10 @@ function displayPlayerStats(categories) {
   statsDiv.innerHTML = statsHTML;
 }
 
-function displayPlayerStatsInModal(categories, container) {
-  // Define the specific stats we want to show (same as team statistics)
-  const desiredStats = [
-    { key: "avgPoints", label: "Avg Points", category: "offensive" },
-    { key: "fieldGoalPct", label: "Field Goal %", category: "offensive" },
-    { key: "avgRebounds", label: "Rebounds", category: "general" },
-    { key: "avgAssists", label: "Assists", category: "offensive" },
-    { key: "avgSteals", label: "Steals", category: "defensive" },
-    { key: "avgBlocks", label: "Blocks", category: "defensive" },
-    { key: "avgTurnovers", label: "Turnovers", category: "offensive" },
-    { key: "avgFouls", label: "Fouls", category: "general" },
-    { key: "freeThrowPct", label: "Free Throw %", category: "offensive" },
-    { key: "threePointPct", label: "3 Point %", category: "offensive" }
-  ];
-
-  // Extract the specific stats we want
-  const playerStats = [];
-  
-  desiredStats.forEach(desired => {
-    const category = categories.find(c => c.name === desired.category);
-    if (category && category.stats) {
-      const stat = category.stats.find(s => s.name === desired.key);
-      if (stat && stat.displayValue && stat.displayValue !== "0" && stat.displayValue !== "0.0") {
-        playerStats.push({
-          label: desired.label,
-          value: stat.displayValue,
-          rank: stat.rankDisplayValue || null
-        });
-      } else {
-        // Include the stat even if not available, show as N/A
-        playerStats.push({
-          label: desired.label,
-          value: "N/A",
-          rank: null
-        });
-      }
-    } else {
-      // Include the stat even if category not found, show as N/A
-      playerStats.push({
-        label: desired.label,
-        value: "N/A",
-        rank: null
-      });
-    }
-  });
+function displayPlayerStatsInModal(categories, container, position) {
+  // Get position-specific stats
+  const positionGroup = getPositionGroup(position);
+  const playerStats = getPositionStats(positionGroup, categories);
 
   if (playerStats.length === 0) {
     container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No statistics available for this player</div>';
@@ -1785,57 +1910,11 @@ function displayPlayerStatsInModal(categories, container) {
   container.innerHTML = statsHTML;
 }
 
-function displayPlayerComparison(player1Categories, player2Categories, container) {
-  // Define the specific stats we want to show (same as individual player stats)
-  const desiredStats = [
-    { key: "avgPoints", label: "Avg Points", category: "offensive" },
-    { key: "fieldGoalPct", label: "Field Goal %", category: "offensive" },
-    { key: "avgRebounds", label: "Rebounds", category: "general" },
-    { key: "avgAssists", label: "Assists", category: "offensive" },
-    { key: "avgSteals", label: "Steals", category: "defensive" },
-    { key: "avgBlocks", label: "Blocks", category: "defensive" },
-    { key: "avgTurnovers", label: "Turnovers", category: "offensive" },
-    { key: "avgFouls", label: "Fouls", category: "general" },
-    { key: "freeThrowPct", label: "Free Throw %", category: "offensive" },
-    { key: "threePointPct", label: "3 Point %", category: "offensive" }
-  ];
-
-  // Extract stats for both players
-  const getPlayerStats = (categories) => {
-    const playerStats = [];
-    desiredStats.forEach(desired => {
-      const category = categories?.find(c => c.name === desired.category);
-      if (category && category.stats) {
-        const stat = category.stats.find(s => s.name === desired.key);
-        if (stat && stat.displayValue && stat.displayValue !== "0" && stat.displayValue !== "0.0") {
-          playerStats.push({
-            label: desired.label,
-            value: stat.displayValue,
-            rank: stat.rankDisplayValue || null,
-            numericValue: parseFloat(stat.value) || 0
-          });
-        } else {
-          playerStats.push({
-            label: desired.label,
-            value: "N/A",
-            rank: null,
-            numericValue: 0
-          });
-        }
-      } else {
-        playerStats.push({
-          label: desired.label,
-          value: "N/A",
-          rank: null,
-          numericValue: 0
-        });
-      }
-    });
-    return playerStats;
-  };
-
-  const player1Stats = getPlayerStats(player1Categories);
-  const player2Stats = getPlayerStats(player2Categories);
+function displayPlayerComparison(player1Categories, player2Categories, container, position) {
+  // Get position-specific stats for both players
+  const positionGroup = getPositionGroup(position);
+  const player1Stats = getPositionStats(positionGroup, player1Categories);
+  const player2Stats = getPositionStats(positionGroup, player2Categories);
 
   if (player1Stats.length === 0 && player2Stats.length === 0) {
     container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No statistics available for comparison</div>';
@@ -1845,22 +1924,35 @@ function displayPlayerComparison(player1Categories, player2Categories, container
   // Create comparison table
   let comparisonHTML = '<div style="display: flex; flex-direction: column; gap: 15px;">';
   
-  desiredStats.forEach((desired, index) => {
-    const stat1 = player1Stats[index];
-    const stat2 = player2Stats[index];
+  // Use the length of whichever array has stats
+  const maxStats = Math.max(player1Stats.length, player2Stats.length);
+  
+  for (let i = 0; i < maxStats; i++) {
+    const stat1 = player1Stats[i] || { label: 'N/A', value: 'N/A', rank: null };
+    const stat2 = player2Stats[i] || { label: 'N/A', value: 'N/A', rank: null };
     
-    // Determine which stat is better (higher is better for most stats, lower is better for turnovers and fouls)
-    const lowerIsBetter = desired.key === "avgTurnovers" || desired.key === "avgFouls";
+    // Determine which stat is better (varies by stat type)
     let player1Better = false;
     let player2Better = false;
     
     if (stat1.value !== "N/A" && stat2.value !== "N/A") {
+      const val1 = parseFloat(stat1.value) || 0;
+      const val2 = parseFloat(stat2.value) || 0;
+      
+      // Stats where lower is better
+      const lowerIsBetter = stat1.label.includes('Interceptions') || 
+                           stat1.label.includes('Sacks Allowed') || 
+                           stat1.label.includes('Hurries Allowed') || 
+                           stat1.label.includes('QB Hits Allowed') ||
+                           stat1.label.includes('Penalties') ||
+                           stat1.label.includes('Penalty Yards');
+      
       if (lowerIsBetter) {
-        player1Better = stat1.numericValue < stat2.numericValue && stat1.numericValue > 0;
-        player2Better = stat2.numericValue < stat1.numericValue && stat2.numericValue > 0;
+        player1Better = val1 < val2 && val1 > 0;
+        player2Better = val2 < val1 && val2 > 0;
       } else {
-        player1Better = stat1.numericValue > stat2.numericValue;
-        player2Better = stat2.numericValue > stat1.numericValue;
+        player1Better = val1 > val2;
+        player2Better = val2 > val1;
       }
     }
     
@@ -1896,7 +1988,7 @@ function displayPlayerComparison(player1Categories, player2Categories, container
         </div>
       </div>
     `;
-  });
+  }
   
   comparisonHTML += '</div>';
   container.innerHTML = comparisonHTML;

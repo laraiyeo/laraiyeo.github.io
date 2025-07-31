@@ -1,0 +1,348 @@
+body {
+  background: #111;
+  color: white;
+  font-family: sans-serif;
+  margin: 0;
+  padding: 2rem;
+}
+
+#scoreboardContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.top-scoreboard {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 2rem;
+  align-items: center;
+  background: #1e1e1e;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.footer-separator {
+  margin: 0 10px;
+  color: #888;
+}
+
+.footer-icon {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  margin-right: -2.5px;
+}
+
+.team-block {
+  text-align: center;
+}
+
+.team-score {
+  font-size: 8rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: white;
+}
+
+.team-logo {
+  width: 120px;
+  height: 120px;
+}
+
+.team-name {
+    margin-top: 5px;
+    font-size: 1.6rem;
+}
+
+.team-record {
+  font-size: 1.4rem;
+  color: #ccc;
+}
+
+.inning-center {
+  text-align: center;
+}
+
+.inning-status {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.game-clock {
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: grey;
+}
+
+.linescore-table {
+  background: #1a1a1a;
+  border-radius: 1rem;
+  padding: 1rem;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.linescore-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.linescore-table th,
+.linescore-table td {
+  padding: 0.5rem;
+  text-align: center;
+  border-bottom: 1px solid #444;
+}
+
+.stat-section {
+  margin-top: 2rem;
+}
+
+.stat-section table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stat-section th,
+.stat-section td {
+  padding: 0.5rem;
+  text-align: center;
+  border-bottom: 1px solid #444;
+}
+
+.time-left {
+    font-size: 1.6rem;
+    font-weight: bold;
+    color: grey;
+}
+
+.play-description {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #1a1a1a;
+  border-radius: 1rem;
+  padding: 1rem;
+  width: 100%;
+  max-width: 1200px;
+  text-align: center;
+  font-size: 1.5rem;
+  color: white;
+  text-shadow: 2px 2px 2px black;
+}
+
+.play-description-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.play-text {
+  font-size: 1.75rem;
+  color: white;
+  text-shadow: 1px 1px 2px black;
+}
+
+.team-box-score {
+  background: #1a1a1a;
+  border-radius: 1rem;
+  padding: 1rem;
+  width: 250%;
+  max-width: 1205px;
+  margin: -2rem auto 2rem; /* Reduce top margin and keep bottom margin */
+  transform: translateX(-310px); /* Default shift to the left */
+  transition: transform 0.3s ease; /* Smooth transition for transform changes */
+}
+
+.team-box-score.final {
+  transform: translateX(-310px); /* Shift to the right when game state is Final */
+}
+
+.team-box-score + .team-box-score {
+  margin-top: 3rem; /* Add separation between consecutive team boxes */
+}
+
+.team-box-score h3 {
+  color: white;
+  text-align: center;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.team-box-score table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.team-box-score th,
+.team-box-score td {
+  padding: 0.5rem;
+  text-align: center;
+  border-bottom: 1px solid #444;
+}
+
+.team-box-score th {
+  background: #333;
+  color: white;
+  font-weight: bold;
+}
+
+.team-box-score td {
+  background: #222;
+  color: white;
+}
+
+.team-box-score .did-not-play {
+  color: grey;
+}
+
+.team-box-score .active-player {
+  font-weight: bold;
+}
+
+.active-player {
+  font-weight: bold;
+}
+
+.player-position {
+  color: grey;
+  font-size: 0.9rem;
+}
+
+.roster-section {
+  margin-top: 1rem;
+}
+
+.game-card {
+  background: #1a1a1a;
+  border-radius: 1rem;
+  padding: 1rem;
+  margin: 1rem auto;
+  width: 300px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.game-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.game-card img {
+  border-radius: 0.5rem;
+}
+
+.no-game-card {
+  background: #333;
+  color: #ccc;
+  padding: 1rem;
+  border-radius: 1rem;
+  text-align: center;
+}
+
+.scheduled-game-card {
+  background: #1a1a1a;
+  border-radius: 1rem;
+  padding: 1rem;
+  margin: 1rem auto;
+  width: 300px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.scheduled-game-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.scheduled-game-card .game-headline {
+  font-size: 0.9rem;
+  color: grey;
+  margin-bottom: 0.5rem;
+}
+
+.scheduled-game-card .game-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.scheduled-game-card .team {
+  text-align: center;
+}
+
+.scheduled-game-card .card-team-logo {
+  width: 60px;
+  height: 40px;
+}
+
+.scheduled-game-card .card-team-name {
+  font-size: 1rem;
+  font-weight: bold;
+  margin-top: 0.5rem;
+}
+
+.scheduled-game-card .card-team-record {
+  font-size: 0.8rem;
+  color: #ccc;
+}
+
+.scheduled-game-card .game-info {
+  text-align: center;
+}
+
+.scheduled-game-card .game-status {
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.scheduled-game-card .game-time {
+  font-size: 0.9rem;
+  color: grey;
+}
+
+@media (max-width: 475px) {
+  .responsive-logo {
+    width: 75px;
+    height: 75px;
+  }
+
+  .responsive-name {
+    font-size: 1.5rem;
+  }
+
+  .responsive-record {
+    font-size: 1.2rem;
+  }
+
+  .responsive-score {
+    font-size: 4rem;
+  }
+
+  .responsive-game-clock {
+    font-size: 1.5rem;
+  }
+
+  .responsive-inning-status {
+    font-size: 1.7rem;
+  }
+
+  .responsive-team-box-score {
+    width: 1000%;
+    transform: translateX(-18px);
+  }
+
+  .responsive-team-box-score.final {
+    width: 100%;
+    transform: translateX(-18px);
+  }
+}

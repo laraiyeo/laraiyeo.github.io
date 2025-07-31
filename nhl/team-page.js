@@ -17,6 +17,38 @@ function convertToHttps(url) {
   return url;
 }
 
+// Get the appropriate season year, falling back to previous year if current year has no data
+async function getValidSeasonYear(sport, league, playerId = null, teamId = null) {
+  const currentYear = new Date().getFullYear();
+  const previousYear = currentYear - 1;
+  
+  // Test current year first
+  let testUrl;
+  if (playerId) {
+    testUrl = `https://sports.core.api.espn.com/v2/sports/${sport}/leagues/${league}/seasons/${currentYear}/types/2/athletes/${playerId}/statistics?lang=en&region=us`;
+  } else if (teamId) {
+    testUrl = `https://sports.core.api.espn.com/v2/sports/${sport}/leagues/${league}/seasons/${currentYear}/types/2/teams/${teamId}/statistics?lang=en&region=us`;
+  } else {
+    return currentYear; // Default to current year if no specific entity to test
+  }
+  
+  try {
+    const response = await fetch(testUrl);
+    const data = await response.json();
+    
+    // Check if current year has valid stats data
+    if (response.ok && data && ((data.splits && data.splits.categories && data.splits.categories.length > 0) || 
+        (data.statistics && data.statistics.length > 0))) {
+      return currentYear;
+    }
+  } catch (error) {
+    console.log(`Current year ${currentYear} stats not available, trying previous year`);
+  }
+  
+  // Fall back to previous year
+  return previousYear;
+}
+
 // Initialize the page
 document.addEventListener("DOMContentLoaded", () => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -275,58 +307,7 @@ async function loadCurrentGame() {
         });
       }
     } else {
-      // No game today, look for the next upcoming game
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 30); // Look ahead 30 days
-      
-      const tomorrowFormatted = tomorrow.getFullYear() +
-                               String(tomorrow.getMonth() + 1).padStart(2, "0") +
-                               String(tomorrow.getDate()).padStart(2, "0");
-      const endDateFormatted = endDate.getFullYear() +
-                              String(endDate.getMonth() + 1).padStart(2, "0") +
-                              String(endDate.getDate()).padStart(2, "0");
-      
-      // Fetch NHL games
-      const upcomingResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates=${tomorrowFormatted}-${endDateFormatted}`);
-      const upcomingData = await upcomingResponse.json();
-      
-      // Find the next scheduled game for this team
-      const nextGame = upcomingData.events
-        ?.filter(event => {
-          const competition = event.competitions?.[0];
-          return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
-        })
-        .filter(event => event.status.type.description === "Scheduled")
-        .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
-      
-      if (nextGame) {
-        const gameCard = await createCurrentGameCard(nextGame);
-        contentDiv.innerHTML = gameCard;
-        
-        // Add click handler for next game
-        const gameCardElement = contentDiv.querySelector('.current-game-card');
-        if (gameCardElement) {
-          gameCardElement.style.cursor = 'pointer';
-          gameCardElement.addEventListener('click', async () => {
-            try {
-              const nhlGameData = await convertToNHLGameId(nextGame);
-              if (nhlGameData) {
-                window.location.href = `scoreboard.html?gameId=${nhlGameData.nhlGameId}&date=${nhlGameData.nhlDateFormat}`;
-              } else {
-                console.error('Could not convert ESPN game to NHL game ID');
-                alert('Unable to load game details. Please try again.');
-              }
-            } catch (error) {
-              console.error('Error loading game:', error);
-              alert('Error loading game details. Please try again.');
-            }
-          });
-        }
-      } else {
-        contentDiv.innerHTML = '<div class="no-data">No upcoming games found</div>';
-      }
+        contentDiv.innerHTML = '<div class="no-data">No game being played today</div>';
     }
   } catch (error) {
     console.error("Error loading current game:", error);
@@ -944,8 +925,9 @@ async function loadTeamStats() {
     // NHL doesn't have a direct team stats API like MLB, so we'll show basic info
     const contentDiv = document.getElementById('teamStatsContent');
     
-    // Try to get team info from the main team API
-    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/2025/types/2/teams/${currentTeamId}/statistics?lang=en&region=us`);
+    // Get valid season year and try to get team info from the main team API
+    const seasonYear = await getValidSeasonYear('hockey', 'nhl', null, currentTeamId);
+    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${seasonYear}/types/2/teams/${currentTeamId}/statistics?lang=en&region=us`);
     const data = await response.json();
     
     if (data.team) {
@@ -1030,7 +1012,7 @@ async function loadCurrentStanding() {
     
     contentDiv.innerHTML = `
       <div class="standing-info">
-        <div class="standing-position">#${getOrdinalSuffix(conferenceSequence)}</div>
+        <div class="standing-position">${getOrdinalSuffix(conferenceSequence)}</div>
         <div class="standing-details">
           <strong>${conferenceName} Conference</strong><br><br>
           Record: ${wins}-${losses}-${otLosses}<br><br>
@@ -1425,8 +1407,9 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
     // Add modal to document
     document.body.appendChild(modal);
 
-    // Fetch player stats
-    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/2025/types/2/athletes/${playerId}/statistics?lang=en&region=us`);
+    // Get valid season year and fetch player stats
+    const seasonYear = await getValidSeasonYear('hockey', 'nhl', playerId);
+    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${seasonYear}/types/2/athletes/${playerId}/statistics?lang=en&region=us`);
     const data = await response.json();
 
     console.log('Player stats data:', data);
@@ -1718,10 +1701,15 @@ async function showPlayerComparison(player1, player2) {
     updateNameDisplay();
     window.addEventListener('resize', updateNameDisplay);
 
-    // Fetch both players' stats
+    // Get valid season years and fetch both players' stats
+    const [seasonYear1, seasonYear2] = await Promise.all([
+      getValidSeasonYear('hockey', 'nhl', player1.id),
+      getValidSeasonYear('hockey', 'nhl', player2.id)
+    ]);
+
     const [player1Response, player2Response] = await Promise.all([
-      fetch(`https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/2025/types/2/athletes/${player1.id}/statistics?lang=en&region=us`),
-      fetch(`https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/2025/types/2/athletes/${player2.id}/statistics?lang=en&region=us`)
+      fetch(`https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${seasonYear1}/types/2/athletes/${player1.id}/statistics?lang=en&region=us`),
+      fetch(`https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${seasonYear2}/types/2/athletes/${player2.id}/statistics?lang=en&region=us`)
     ]);
 
     const [player1Data, player2Data] = await Promise.all([

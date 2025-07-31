@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OBS Embed View - NFL Live Tracker</title>
+  <link rel="icon" href="football.png" type="image/png" />
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+      padding-top: 25px;
+      padding-left: 50px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      height: 100vh;
+    }
+
+    #scaleWrapper {
+      transform: scale(2);
+      transform-origin: top left;
+    }
+  
+    .game-card {
+      margin: 0 auto;
+      max-width: 400px;
+    }
+  </style>
+</head>
+<body>
+<div id="scaleWrapper">
+  <div id="gameBlockContainer"></div>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const teamAbbreviation = params.get("team");
+    let promoActive = false;
+    let currentHtml = "";
+
+    async function showPromoCard() {
+      const container = document.getElementById("gameBlockContainer");
+      const promoCard = document.createElement("div");
+      promoCard.className = "game-card promo-card";
+      promoCard.style.display = "flex";
+      promoCard.style.alignItems = "center";
+      promoCard.style.gap = "25px";
+      promoCard.style.padding = "20px";
+      promoCard.innerHTML = `
+        <img src="../assets/cover.jpg" alt="WOAH Cover" style="width: 60px; height: 60px; border-radius: 8px;">
+        <div style="font-weight: bold; font-size: 1.1em; margin-top: -16px;">
+          Stream K S U B I <br>
+          <span style="font-size:0.8em; margin-left:28px; ">by DamiV12</span>
+          <div style="margin-top: 5px; margin-left:24px; display: flex; gap: 15px;">
+            <img src="../assets/logo1.png" alt="Logo 1" style="height: 16px;">
+            <img src="../assets/logo2.png" alt="Logo 2" style="height: 16px;">
+            <img src="../assets/logo3.png" alt="Logo 3" style="height: 16px;">
+          </div>
+        </div>
+      `;
+      const newHtml = promoCard.innerHTML;
+      if (newHtml !== currentHtml) {
+        container.innerHTML = "";
+        container.appendChild(promoCard);
+        currentHtml = newHtml;
+      }
+    }
+
+    async function fetchAndRenderTeamGameWithPromo(teamAbbreviation) {
+      if (promoActive) return;
+      await fetchAndRenderTeamGame(teamAbbreviation);
+    }
+
+    async function fetchAndRenderTeamGame(teamAbbreviation) {
+      const adjustedDate = getAdjustedDateForNBA();
+      const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${adjustedDate}`;
+
+      try {
+        const res = await fetch(SCOREBOARD_API_URL);
+        const data = await res.json();
+        const games = data.events || [];
+
+        const container = document.getElementById("gameBlockContainer");
+        const game = games.find(g =>
+          g.competitions[0].competitors.some(c => c.team.abbreviation === teamAbbreviation)
+        );
+
+        if (!game) {
+          const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams";
+          const teamsRes = await fetch(TEAMS_API_URL);
+          const teamsData = await teamsRes.json();
+          const team = teamsData.sports[0].leagues[0].teams
+            .map(teamData => teamData.team)
+            .find(t => t.abbreviation === teamAbbreviation);
+          const logoUrl = team.logos?.find(logo =>
+        logo.rel.includes(
+          ["19", "20"].includes(team.id) ? 'dark' : 'default'
+        )
+      )?.href || `https://a.espncdn.com/i/teamlogos/nfl/500/${team.abbreviation}.png`;
+
+          const noGameCard = document.createElement("div");
+          noGameCard.className = "game-card no-game-card";
+          noGameCard.style.display = "flex";
+          noGameCard.style.flexDirection = "column";
+          noGameCard.style.alignItems = "center";
+          noGameCard.style.justifyContent = "center";
+          noGameCard.style.gap = "10px";
+          noGameCard.style.padding = "20px";
+          noGameCard.style.width = "300px";
+
+          noGameCard.innerHTML = `
+            <img src="${logoUrl}" alt="${team?.displayName || "Unknown"} logo" class="card-team-logo team-shadow">
+            <div class="no-game-text">No game scheduled <br> for today</div>
+          `;
+
+          const newHtml = noGameCard.innerHTML;
+          if (newHtml !== currentHtml) {
+            container.innerHTML = "";
+            container.appendChild(noGameCard);
+            currentHtml = newHtml;
+          }
+          return;
+        }
+
+        if (typeof buildGameCard === "function") {
+          const cardHtml = await buildGameCard(game, game.competitions[0].competitors[0]?.team || {});
+          const newHtml = cardHtml;
+          if (newHtml !== currentHtml) {
+            container.innerHTML = "";
+            container.innerHTML = cardHtml;
+            currentHtml = newHtml;
+          }
+        }
+      } catch (err) {
+        console.error("Error loading team game block:", err);
+      }
+    }
+
+    const script = document.createElement("script");
+    script.src = "teams.js";
+    document.body.appendChild(script);
+
+    script.onload = () => {
+      if (teamAbbreviation) {
+        let lastPromo = Date.now();
+        let showingPromo = false;
+
+        // Show the game card immediately on load
+        fetchAndRenderTeamGameWithPromo(teamAbbreviation);
+
+        setInterval(async () => {
+          const now = Date.now();
+          if (!showingPromo && now - lastPromo >= 900000) {
+            showingPromo = true;
+            promoActive = true;
+            await showPromoCard();
+            setTimeout(async () => {
+              promoActive = false;
+              showingPromo = false;
+              lastPromo = Date.now();
+              await fetchAndRenderTeamGameWithPromo(teamAbbreviation);
+            }, 10000);
+          } else if (!showingPromo) {
+            await fetchAndRenderTeamGameWithPromo(teamAbbreviation);
+          }
+        }, 2000);
+      }
+    };
+  </script>
+</div>
+</body>
+</html>

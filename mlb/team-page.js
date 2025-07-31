@@ -184,43 +184,7 @@ async function loadCurrentGame() {
         });
       }
     } else {
-      // No game today, look for the next upcoming game
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 30); // Look ahead 30 days
-      
-      const upcomingResponse = await fetch(`https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId=${currentTeamId}&startDate=${tomorrow.toISOString().split('T')[0]}&endDate=${endDate.toISOString().split('T')[0]}`);
-      const upcomingData = await upcomingResponse.json();
-      
-      const allUpcomingGames = [];
-      upcomingData.dates?.forEach(dateObj => {
-        allUpcomingGames.push(...dateObj.games);
-      });
-      
-      // Find the next scheduled game
-      const nextGame = allUpcomingGames
-        .filter(game => ["Scheduled", "Pre-Game", "Warmup"].includes(game.status.detailedState))
-        .sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate))[0];
-      
-      if (nextGame) {
-        const gameCard = await createCurrentGameCard(nextGame);
-        contentDiv.innerHTML = gameCard;
-        
-        // Add click handler for next game
-        const gameCardElement = contentDiv.querySelector('.current-game-card');
-        if (gameCardElement) {
-          gameCardElement.style.cursor = 'pointer';
-          gameCardElement.addEventListener('click', () => {
-            const gamePk = gameCardElement.getAttribute('data-game-pk');
-            if (gamePk) {
-              window.location.href = `scoreboard.html?gamePk=${gamePk}`;
-            }
-          });
-        }
-      } else {
-        contentDiv.innerHTML = '<div class="no-data">No upcoming games found</div>';
-      }
+        contentDiv.innerHTML = '<div class="no-data">No game being played today</div>';
     }
   } catch (error) {
     console.error("Error loading current game:", error);

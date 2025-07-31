@@ -699,7 +699,7 @@ async function loadCurrentStanding() {
     
     contentDiv.innerHTML = `
       <div class="standing-info">
-        <div class="standing-position">#${getOrdinalSuffix(position)}</div>
+        <div class="standing-position">${getOrdinalSuffix(position)}</div>
         <div class="standing-details">
           <strong>${leagueName}</strong><br><br>
           Record: ${wins}-${draws}-${losses}<br><br>

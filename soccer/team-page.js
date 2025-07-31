@@ -289,43 +289,7 @@ async function loadCurrentGame() {
         });
       }
     } else {
-      // No game today, look for the next upcoming game
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 14); // Look ahead 14 days instead of 30
-      
-      const dateRange = `${formatDate(tomorrow)}-${formatDate(endDate)}`;
-      const upcomingResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/scoreboard?dates=${dateRange}`);
-      const upcomingData = await upcomingResponse.json();
-      
-      // Find the next scheduled game for this team
-      const nextGame = upcomingData.events
-        ?.filter(event => {
-          const competition = event.competitions?.[0];
-          return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
-        })
-        .filter(event => event.status.type.state === "pre")
-        .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
-      
-      if (nextGame) {
-        const gameCard = await createCurrentGameCard(nextGame);
-        contentDiv.innerHTML = gameCard;
-        
-        // Add click handler for next game
-        const gameCardElement = contentDiv.querySelector('.current-game-card');
-        if (gameCardElement) {
-          gameCardElement.style.cursor = 'pointer';
-          gameCardElement.addEventListener('click', () => {
-            const gameId = gameCardElement.getAttribute('data-game-id');
-            if (gameId) {
-              window.location.href = `scoreboard.html?gameId=${gameId}`;
-            }
-          });
-        }
-      } else {
-        contentDiv.innerHTML = '<div class="no-data">No upcoming games found</div>';
-      }
+        contentDiv.innerHTML = '<div class="no-data">No game being played today</div>';
     }
   } catch (error) {
     console.error("Error loading current game:", error);
@@ -701,7 +665,7 @@ async function loadCurrentStanding() {
     
     contentDiv.innerHTML = `
       <div class="standing-info">
-        <div class="standing-position">#${getOrdinalSuffix(position)}</div>
+        <div class="standing-position">${getOrdinalSuffix(position)}</div>
         <div class="standing-details">
           <strong>${leagueName}</strong><br><br>
           Record: ${wins}-${draws}-${losses}<br><br>
