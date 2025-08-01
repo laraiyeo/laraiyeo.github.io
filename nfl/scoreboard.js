@@ -4,7 +4,7 @@ function normalizeTeamName(teamName) {
   // Convert team names to the format used in the streaming site URLs
   const nameMap = {
     "Arizona Cardinals": "arizona-cardinals",
-    "Atlanta Falcons": "atlanta-falcons",
+    "Atlanta Falcons": "atlanta-falcons", 
     "Baltimore Ravens": "baltimore-ravens",
     "Buffalo Bills": "buffalo-bills",
     "Carolina Panthers": "carolina-panthers",
@@ -48,22 +48,16 @@ async function extractVideoPlayerUrl(pageUrl) {
     const data = await response.json();
     
     if (data.contents) {
-      const content = data.contents;
+      // Look for iframe src in the page content
+      const iframeMatch = data.contents.match(/src="([^"]*castweb\.xyz[^"]*)"/);
+      if (iframeMatch) {
+        return iframeMatch[1];
+      }
       
-      // Look for various video URL patterns
-      const patterns = [
-        /https?:\/\/[^"'\s]+\.m3u8[^"'\s]*/gi,
-        /https?:\/\/[^"'\s]*(?:stream|video|live)[^"'\s]*\.(m3u8|mp4|webm)[^"'\s]*/gi,
-        /"(https?:\/\/[^"]*(?:stream|video|live)[^"]*\.(m3u8|mp4|webm)[^"]*)"/gi,
-        /'(https?:\/\/[^']*(?:stream|video|live)[^']*\.(m3u8|mp4|webm)[^']*)'/gi
-      ];
-      
-      for (const pattern of patterns) {
-        const matches = content.match(pattern);
-        if (matches && matches.length > 0) {
-          console.log('Found video URL:', matches[0]);
-          return matches[0].replace(/['"]/g, '');
-        }
+      // Alternative patterns to look for
+      const altMatch = data.contents.match(/iframe[^>]*src="([^"]*\.php[^"]*)"/);
+      if (altMatch) {
+        return altMatch[1];
       }
     }
   } catch (error) {
@@ -207,11 +201,6 @@ window.handleStreamLoad = function() {
   }
 };
 
-window.handleStreamError = function() {
-  console.log('Stream iframe encountered an error');
-  tryNextStream();
-};
-
 function checkStreamContent(iframe) {
   const connectingDiv = document.getElementById('streamConnecting');
   
@@ -295,7 +284,7 @@ async function startStreamTesting(awayTeamName, homeTeamName) {
       const videoUrl = await extractVideoPlayerUrl(url);
       return videoUrl;
     } catch (error) {
-      console.error(`Error processing URL ${url}:`, error);
+      console.error(`Error extracting from ${url}:`, error);
       return null;
     }
   });
@@ -306,6 +295,7 @@ async function startStreamTesting(awayTeamName, homeTeamName) {
   extractedUrls.forEach(url => {
     if (url) {
       streamUrls.push(url);
+      console.log(`Extracted video URL: ${url}`);
     }
   });
   
@@ -382,22 +372,34 @@ function getQueryParam(param) {
 async function renderBoxScore(gameId, gameState) {
   try {
     const BOX_SCORE_API_URL = `https://cdn.espn.com/core/nfl/boxscore?xhr=1&gameId=${gameId}`;
+    console.log("Fetching box score from:", BOX_SCORE_API_URL);
     const response = await fetch(BOX_SCORE_API_URL);
     const data = await response.json();
 
+    console.log("Box score data received:", data);
+
     const isSmallScreen = window.innerWidth <= 475;
 
-    const players = data.gamepackageJSON.boxscore.players || [];
+    const players = data.gamepackageJSON?.boxscore?.players || [];
+    console.log("Players data:", players);
+    
     const boxScoreDiv = document.getElementById("boxScore");
     if (!boxScoreDiv) {
       console.error("Error: 'boxScore' element not found.");
       return;
     }
 
+    // Check if we have valid player data
+    if (players.length === 0) {
+      boxScoreDiv.innerHTML = `<div style="color: white; text-align: center; padding: 20px;">Box score data not yet available for this game.</div>`;
+      return;
+    }
+
     const renderTeamRoster = (team) => {
       if (!team || !team.statistics || team.statistics.length === 0) {
+        console.log("Team data structure:", team);
         console.error("Invalid team data for player stats rendering.");
-        return `<div class="error-message">No player statistics available</div>`;
+        return `<div class="error-message"></div>`;
       }
 
       const teamName = team.team.shortDisplayName;
@@ -412,7 +414,7 @@ async function renderBoxScore(gameId, gameState) {
         const athletes = statCategory.athletes || [];
         
         // Skip fumbles category and empty categories
-        if (athletes.length === 0 || categoryName.toLowerCase().includes('fumble')) return;
+        if (athletes.length === 0) return;
 
         // Create header for this stat category
         const categoryLabels = statCategory.labels || [];

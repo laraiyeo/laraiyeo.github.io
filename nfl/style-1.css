@@ -337,7 +337,7 @@ body {
   }
 
   .responsive-team-box-score {
-    width: 1000%;
+    width: 100%;
     transform: translateX(-18px);
   }
 
