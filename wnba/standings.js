@@ -158,7 +158,7 @@ function renderLeagueStandings(conference, containerId) {
       row.innerHTML = `
         <td class="team-name" data-team-hover>
           <img src="${logoUrl}" alt="${teamName} logo" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
-          ${teamName} <span style="color: grey;">${isSmallScreen ? "<br>" : ""} (${teamSeed}) - <span style="color: ${clincherColor};">${clincher || ""}</span></span>
+          ${teamName} <span style="color: grey;">${isSmallScreen ? "<br>" : ""} (${teamSeed}) ${clincher ? `<span style="color: ${clincherColor};"> - ${clincher || ""}</span>` : ""}</span>
         </td>
         <td>${wins}</td>
         <td>${losses}</td>
@@ -195,6 +195,12 @@ function renderLeagueStandings(conference, containerId) {
       teamNameCell.addEventListener("mouseleave", () => {
         hoverCard.style.display = "none";
       });
+
+      // Add click handler to navigate to team page
+        teamNameCell.style.cursor = 'pointer';
+        teamNameCell.addEventListener('click', () => {
+          window.location.href = `team-page.html?teamId=${entry.team.id}`;
+        });
 
       tbody.appendChild(row);
     });

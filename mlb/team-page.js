@@ -8,6 +8,7 @@ let allRosterPlayers = [];
 let playersPerPage = 4;
 let selectedPlayer = null;
 let playersForComparison = []; // Array to store players selected for comparison
+let currentStatsMode = 'overall'; // 'overall' or 'gamelog'
 
 // Global variable to store all MLB players for league-wide comparison
 let allMLBPlayers = [];
@@ -644,6 +645,9 @@ function setupRosterPaginationHandlers() {
 
 async function showPlayerDetails(playerId) {
   try {
+    // Reset stats mode to overall when opening a new player modal
+    currentStatsMode = 'overall';
+    
     // Find the player in the roster
     selectedPlayer = allRosterPlayers.find(player => player.person.id === playerId);
     
@@ -662,6 +666,7 @@ async function showPlayerDetails(playerId) {
 
     // Create modal overlay
     const modal = document.createElement('div');
+    modal.id = 'playerDetailsSection'; // Add the ID here
     modal.className = 'modal-overlay';
     modal.style.cssText = `
       position: fixed;
@@ -970,10 +975,108 @@ async function showPlayerDetails(playerId) {
       }
     });
 
+    // Create slider section for Overall vs Game Log
+const sliderSection = document.createElement('div');
+sliderSection.style.cssText = `
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+`;
+
+const sliderContainer = document.createElement('div');
+sliderContainer.style.cssText = `
+  display: flex;
+  position: relative;
+  width: 200px;
+  height: 50px;
+  background: #e9ecef;
+  border-radius: 25px;
+  margin: 0 auto;
+  overflow: hidden;
+`;
+
+// Background behind active tab
+const sliderBackground = document.createElement('div');
+sliderBackground.id = 'sliderBackground';
+sliderBackground.style.cssText = `
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 51.75%;
+  height: 100%;
+  background-color: ${teamColors[currentTeam?.name] || '#dc3545'}; /* red fallback */
+  border-radius: 25px;
+  transition: transform 0.3s ease;
+  z-index: 0;
+`;
+
+    const overallOption = document.createElement('button');
+    overallOption.id = 'overallOption';
+    overallOption.innerHTML = 'Overall';
+    overallOption.style.cssText = `
+      background: none;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: white;
+      position: relative;
+      z-index: 2;
+      width: 96px;
+      transition: color 0.3s ease;
+    `;
+
+    const gameLogOption = document.createElement('button');
+    gameLogOption.id = 'gameLogOption';
+    gameLogOption.innerHTML = 'Game Log';
+    gameLogOption.style.cssText = `
+      background: none;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: #666;
+      position: relative;
+      z-index: 2;
+      width: 96px;
+      transition: color 0.3s ease;
+    `;
+
+    sliderContainer.appendChild(sliderBackground);
+    sliderContainer.appendChild(overallOption);
+    sliderContainer.appendChild(gameLogOption);
+    sliderSection.appendChild(sliderContainer);
+
+    // Add click handlers for slider
+    overallOption.addEventListener('click', () => {
+      console.log('Overall option clicked');
+      sliderBackground.style.transform = 'translateX(0)';
+      overallOption.style.color = 'white';
+      gameLogOption.style.color = '#666';
+      currentStatsMode = 'overall';
+      showOverallStats();
+    });
+
+    gameLogOption.addEventListener('click', () => {
+      console.log('Game log option clicked');
+      sliderBackground.style.transform = 'translateX(96px)';
+      overallOption.style.color = '#666';
+      gameLogOption.style.color = 'white';
+      currentStatsMode = 'gamelog';
+      showGameLogInterface();
+    });
+
     // Assemble modal
     modalContent.appendChild(closeButton);
     modalContent.appendChild(playerHeader);
     modalContent.appendChild(statsContainer);
+    modalContent.appendChild(sliderSection);
     modalContent.appendChild(searchSection);
     modal.appendChild(modalContent);
 
@@ -994,6 +1097,438 @@ async function showPlayerDetails(playerId) {
   } catch (error) {
     console.error('Error loading player details:', error);
   }
+}
+
+// Game log functionality
+async function showGameLogInterface() {
+  console.log('showGameLogInterface called');
+  
+  // Find the stats container - it's the 3rd element added to modalContent
+  const modal = document.querySelector('#playerDetailsSection');
+  if (!modal) {
+    console.error('Modal not found');
+    return;
+  }
+
+  const modalContent = modal.querySelector('.modal-content');
+  if (!modalContent) {
+    console.error('Modal content not found');
+    return;
+  }
+
+  // Get all direct children of modalContent
+  const children = Array.from(modalContent.children);
+  console.log('Modal content children:', children.length);
+  
+  // The statsContainer should be the 3rd child (index 2)
+  // Order: closeButton(0), playerHeader(1), statsContainer(2), sliderSection(3), searchSection(4)
+  let statsContainer = children[2];
+  
+  if (!statsContainer) {
+    console.error('Stats container not found in modal structure');
+    console.log('Available children:', children.map(child => child.tagName + (child.className ? '.' + child.className : '')));
+    return;
+  }
+  
+  if (!selectedPlayer) {
+    console.error('No selected player');
+    return;
+  }
+
+  console.log('Stats container found, updating interface');
+  const currentYear = new Date().getFullYear();
+  
+  // Get today's date in YYYY-MM-DD format for the date picker
+  const today = new Date();
+  const todayString = today.toISOString().split('T')[0];
+  
+  statsContainer.innerHTML = `
+<div style="text-align: center; margin-bottom: 30px;">
+  <div style="background: #f8f9fa; border-radius: 12px; padding: 20px; border: 1px solid #ddd; display: inline-flex; align-items: center; gap: 12px;">
+    <div style="font-weight: bold; color: #333;">Select a game date:</div>
+    <input type="date" id="gameLogDatePicker" value="${todayString}" style="padding: 12px 16px; border: 2px solid ${teamColors[currentTeam?.name] || '#007bff'}; border-radius: 8px; font-size: 16px; outline: none; cursor: pointer; background: white; color: #333; width: 200px; font-weight: 500;">
+  </div>
+</div>
+
+    <div id="gameLogResults"></div>
+  `;
+
+  // Add date picker event listener
+  const datePicker = document.getElementById('gameLogDatePicker');
+  if (datePicker) {
+    datePicker.addEventListener('change', async (e) => {
+      const selectedDate = e.target.value;
+      console.log('Date selected:', selectedDate);
+      if (selectedDate) {
+        await loadGameLogForDate(selectedDate);
+      }
+    });
+    console.log('Date picker event listener added');
+    
+    // Auto-load today's game log if date is set to today
+    if (datePicker.value === todayString) {
+      setTimeout(() => {
+        loadGameLogForDate(todayString);
+      }, 100);
+    }
+  } else {
+    console.error('Date picker not found');
+  }
+}
+
+async function showOverallStats() {
+  // Find the stats container using the same approach as showGameLogInterface
+  const modal = document.querySelector('#playerDetailsSection');
+  if (!modal) {
+    console.error('Modal not found');
+    return;
+  }
+
+  const modalContent = modal.querySelector('.modal-content');
+  if (!modalContent) {
+    console.error('Modal content not found');
+    return;
+  }
+
+  // Get all direct children of modalContent
+  const children = Array.from(modalContent.children);
+  
+  // The statsContainer should be the 3rd child (index 2)
+  let statsContainer = children[2];
+  
+  if (!statsContainer || !selectedPlayer) {
+    console.error('Stats container not found or no selected player');
+    return;
+  }
+
+  // Reload the overall stats
+  const currentYear = new Date().getFullYear();
+  await loadPlayerStatsForModal(selectedPlayer.person.id, currentYear, statsContainer);
+}
+
+async function loadGameLogForDate(date) {
+  const resultsContainer = document.getElementById('gameLogResults');
+  if (!resultsContainer || !selectedPlayer) return;
+
+  try {
+    resultsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;"><div style="display: inline-block; width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #333; border-radius: 50%; animation: spin 1s linear infinite;"></div><br>Loading game data...</div>';
+
+    // Add the spinner animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    if (!document.getElementById('spinner-style')) {
+      style.id = 'spinner-style';
+      document.head.appendChild(style);
+    }
+
+    // Find games for the selected date
+    const scheduleResponse = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&teamId=${currentTeamId}&hydrate=linescore,team`);
+    
+    if (!scheduleResponse.ok) {
+      throw new Error(`HTTP error! status: ${scheduleResponse.status}`);
+    }
+    
+    const scheduleData = await scheduleResponse.json();
+
+    if (!scheduleData.dates || scheduleData.dates.length === 0) {
+      resultsContainer.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #ddd;">
+          <div style="font-size: 1.2rem; color: #666; margin-bottom: 10px;">📅</div>
+          <div style="color: #666; font-size: 1rem;">No games found for this date</div>
+          <div style="color: #999; font-size: 0.9rem; margin-top: 5px;">Try selecting a different date during the season</div>
+        </div>
+      `;
+      return;
+    }
+
+    const games = scheduleData.dates[0].games;
+    if (games.length === 0) {
+      resultsContainer.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #ddd;">
+          <div style="font-size: 1.2rem; color: #666; margin-bottom: 10px;">📅</div>
+          <div style="color: #666; font-size: 1rem;">No games found for this date</div>
+          <div style="color: #999; font-size: 0.9rem; margin-top: 5px;">Try selecting a different date during the season</div>
+        </div>
+      `;
+      return;
+    }
+
+    // Get the game for this team
+    const game = games[0]; // Should only be one game per team per day
+    const gamePk = game.gamePk;
+
+    // Check if game is scheduled but not yet played
+    if (['Scheduled', 'Pre-Game', 'Warmup', 'Postponed', 'Suspended'].includes(game.status.detailedState)) {
+      const gameDate = new Date(game.gameDate);
+      const opponent = game.teams.home.team.id === parseInt(currentTeamId) ? game.teams.away.team : game.teams.home.team;
+      const isHomeGame = game.teams.home.team.id === parseInt(currentTeamId);
+      
+      resultsContainer.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
+          <div style="font-size: 1.2rem; color: #856404; margin-bottom: 10px;">⏰</div>
+          <div style="color: #856404; font-size: 1rem; margin-bottom: 5px;">Game ${game.status.detailedState}</div>
+          <div style="color: #856404; font-size: 0.9rem;">
+            ${isHomeGame ? 'vs' : 'at'} ${opponent.name}<br>
+            ${gameDate.toLocaleString('en-US', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true 
+            })}
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // Fetch the boxscore for this game
+    const boxscoreResponse = await fetch(`https://statsapi.mlb.com/api/v1.1/game/${gamePk}/feed/live`);
+    
+    if (!boxscoreResponse.ok) {
+      throw new Error(`HTTP error! status: ${boxscoreResponse.status}`);
+    }
+    
+    const boxscoreData = await boxscoreResponse.json();
+
+    if (!boxscoreData.liveData || !boxscoreData.liveData.boxscore) {
+      resultsContainer.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px; background: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb;">
+          <div style="font-size: 1.2rem; color: #721c24; margin-bottom: 10px;">⚠️</div>
+          <div style="color: #721c24; font-size: 1rem;">No boxscore data available</div>
+          <div style="color: #721c24; font-size: 0.9rem; margin-top: 5px;">This game may not have detailed statistics available</div>
+        </div>
+      `;
+      return;
+    }
+
+    await displayPlayerGameStats(boxscoreData, game);
+
+  } catch (error) {
+    console.error('Error loading game log:', error);
+    resultsContainer.innerHTML = `
+      <div style="text-align: center; padding: 40px 20px; background: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb;">
+        <div style="font-size: 1.2rem; color: #721c24; margin-bottom: 10px;">❌</div>
+        <div style="color: #721c24; font-size: 1rem;">Error loading game data</div>
+        <div style="color: #721c24; font-size: 0.9rem; margin-top: 5px;">Please try again or select a different date</div>
+      </div>
+    `;
+  }
+}
+
+async function displayPlayerGameStats(boxscoreData, game) {
+  const resultsContainer = document.getElementById('gameLogResults');
+  if (!resultsContainer || !selectedPlayer) return;
+
+  const boxscore = boxscoreData.liveData.boxscore;
+  const isHomeTeam = boxscoreData.gameData.teams.home.id === parseInt(currentTeamId);
+  const teamBoxscore = isHomeTeam ? boxscore.teams.home : boxscore.teams.away;
+  const opponentBoxscore = isHomeTeam ? boxscore.teams.away : boxscore.teams.home;
+  
+  // Find the player in the boxscore
+  const playerId = selectedPlayer.person.id;
+  const playerKey = `ID${playerId}`;
+  const playerData = teamBoxscore.players[playerKey];
+
+  if (!playerData) {
+    const gameDate = new Date(game.gameDate);
+    const opponent = isHomeTeam ? boxscoreData.gameData.teams.away : boxscoreData.gameData.teams.home;
+    
+    resultsContainer.innerHTML = `
+      <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
+        <div style="font-size: 2rem; margin-bottom: 15px;">�</div>
+        <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+          No box score data for this game
+        </div>
+        <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
+          ${selectedPlayer.person.fullName} did not appear in this game<br>
+          <strong>${gameDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</strong><br>
+          ${isHomeTeam ? 'vs' : 'at'} ${opponent.teamName || opponent.name}
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // Get opponent info
+  const opponent = isHomeTeam ? boxscoreData.gameData.teams.away : boxscoreData.gameData.teams.home;
+  const opponentLogo = await getLogoUrl(opponent.name);
+  const teamLogo = await getLogoUrl(currentTeam.name);
+
+  // Game info
+  const gameDate = new Date(game.gameDate);
+  const gameStatus = game.status.detailedState;
+  const teamScore = isHomeTeam ? game.teams.home.score : game.teams.away.score;
+  const opponentScore = isHomeTeam ? game.teams.away.score : game.teams.home.score;
+  
+  let gameResult = '';
+  if (['Final', 'Game Over', 'Completed Early'].includes(gameStatus)) {
+    gameResult = teamScore > opponentScore ? 'W' : 'L';
+  }
+
+  // Check if player has batting or pitching stats
+  const hasBattingStats = playerData.stats.batting && Object.keys(playerData.stats.batting).length > 0;
+  const hasPitchingStats = playerData.stats.pitching && Object.keys(playerData.stats.pitching).length > 0;
+
+  if (!hasBattingStats && !hasPitchingStats) {
+    resultsContainer.innerHTML = `
+      <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
+        <div style="font-size: 2rem; margin-bottom: 15px;">📊</div>
+        <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+          No box score data for this game
+        </div>
+        <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
+          ${selectedPlayer.person.fullName} was on the roster but did not record any statistics<br>
+          <strong>${gameDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</strong><br>
+          ${isHomeTeam ? 'vs' : 'at'} ${opponent.teamName || opponent.name}
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // Create the game stats display similar to the second image
+  let content = `
+    <div style="background: #1a1a1a; color: white; border-radius: 12px; padding: 25px; margin-bottom: 20px;">
+      <!-- Player Header -->
+      <div style="display: flex; align-items: center; margin-bottom: 20px; gap: 15px;">
+        <img src="${selectedPlayer.person.id ? 
+          `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${selectedPlayer.person.id}/headshot/67/current` : 
+          'icon.png'}" 
+          alt="${selectedPlayer.person.fullName}" 
+          style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;" 
+          onerror="this.src='icon.png';">
+        <div>
+          <div style="font-size: 1.3rem; font-weight: bold; margin-bottom: 2px;">${selectedPlayer.person.fullName}</div>
+          <div style="color: #ccc; font-size: 0.9rem;">#${selectedPlayer.jerseyNumber || '--'} | ${selectedPlayer.position.abbreviation}</div>
+        </div>
+      </div>
+
+      <!-- Game Header -->
+      <div id="gameHeader_${game.gamePk}" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.15)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.1)'" onclick="window.open('scoreboard.html?gamePk=${game.gamePk}', '_blank')">
+        <div style="display: flex; align-items: center; gap: 15px;">
+          <img src="${teamLogo}" alt="${currentTeam.name}" style="height: 30px;" onerror="this.src='icon.png';">
+          <span style="font-size: 1.1rem; font-weight: bold; color: ${parseInt(teamScore) > parseInt(opponentScore)  ? '#fff' : '#ccc'};">${teamScore}</span>
+          <span style="color: #ccc;">vs</span>
+          <span style="font-size: 1.1rem; font-weight: bold; color: ${parseInt(opponentScore) > parseInt(teamScore) ? '#fff' : '#ccc'};">${opponentScore}</span>
+          <img src="${opponentLogo}" alt="${opponent.name}" style="height: 30px;" onerror="this.src='icon.png';">
+          ${gameResult ? `<span style="font-weight: bold; color: ${gameResult === 'W' ? '#4CAF50' : '#f44336'}; font-size: 1.1rem;">${gameResult}</span>` : ''}
+        </div>
+        <div style="text-align: right; color: #ccc; font-size: 0.85rem;">
+          ${gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+          <div style="font-size: 0.7rem; margin-top: 2px; opacity: 0.7;">Click to view game details</div>
+        </div>
+      </div>
+  `;
+
+  // Show batting stats if available
+  if (hasBattingStats) {
+    const battingStats = playerData.stats.batting;
+    content += `
+      <!-- Batting Stats -->
+      <div style="margin-bottom: 20px;">
+        <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; color: #4CAF50;">⚾ Batting</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.hits || 0}/${battingStats.atBats || 0}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">H/AB</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.runs || 0}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">R</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.rbi || 0}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">RBI</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.homeRuns || 0}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">HR</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.baseOnBalls || 0}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">BB</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.strikeOuts || 0}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">SO</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.totalBases || '0'}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">TB</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.stolenBases || '0'}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">SB</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.leftOnBase || '0'}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">LOB</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Show pitching stats if available
+  if (hasPitchingStats) {
+    const pitchingStats = playerData.stats.pitching;
+    content += `
+      <!-- Pitching Stats -->
+      <div>
+        <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; color: #FF9800;">🥎 Pitching</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.inningsPitched || '0.0'}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">IP</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.hits || 0}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">H</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.runs || 0}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">R</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.earnedRuns || 0}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">ER</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.baseOnBalls || 0}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">BB</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.strikeOuts || 0}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">K</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.pitchesThrown || '0'}-${pitchingStats.strikes || '0'}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">P-ST</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.strikePercentage || '0.00'}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">K%</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.outs || '0'}</div>
+            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">O</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  content += '</div>';
+
+  resultsContainer.innerHTML = content;
 }
 
 async function loadPlayerStatsForModal(playerId, year, container) {
@@ -1189,8 +1724,13 @@ async function loadPlayerStatsForModal(playerId, year, container) {
           if (yearSelector) {
             yearSelector.addEventListener('change', async () => {
               const selectedYear = parseInt(yearSelector.value);
-              container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
-              await loadPlayerStatsForModal(playerId, selectedYear, container);
+              if (currentStatsMode === 'overall') {
+                container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
+                await loadPlayerStatsForModal(playerId, selectedYear, container);
+              } else if (currentStatsMode === 'gamelog') {
+                // Update game log interface with new year
+                showGameLogInterface();
+              }
             });
           }
         }, 100);
@@ -1223,8 +1763,13 @@ async function loadPlayerStatsForModal(playerId, year, container) {
           if (yearSelector) {
             yearSelector.addEventListener('change', async () => {
               const selectedYear = parseInt(yearSelector.value);
-              container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
-              await loadPlayerStatsForModal(playerId, selectedYear, container);
+              if (currentStatsMode === 'overall') {
+                container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
+                await loadPlayerStatsForModal(playerId, selectedYear, container);
+              } else if (currentStatsMode === 'gamelog') {
+                // Update game log interface with new year
+                showGameLogInterface();
+              }
             });
           }
         }, 100);
@@ -1324,8 +1869,13 @@ async function loadPlayerStatsForModal(playerId, year, container) {
           if (yearSelector) {
             yearSelector.addEventListener('change', async () => {
               const selectedYear = parseInt(yearSelector.value);
-              container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
-              await loadPlayerStatsForModal(playerId, selectedYear, container);
+              if (currentStatsMode === 'overall') {
+                container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
+                await loadPlayerStatsForModal(playerId, selectedYear, container);
+              } else if (currentStatsMode === 'gamelog') {
+                // Update game log interface with new year
+                showGameLogInterface();
+              }
             });
           }
         }, 100);
@@ -1358,8 +1908,13 @@ async function loadPlayerStatsForModal(playerId, year, container) {
           if (yearSelector) {
             yearSelector.addEventListener('change', async () => {
               const selectedYear = parseInt(yearSelector.value);
-              container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
-              await loadPlayerStatsForModal(playerId, selectedYear, container);
+              if (currentStatsMode === 'overall') {
+                container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
+                await loadPlayerStatsForModal(playerId, selectedYear, container);
+              } else if (currentStatsMode === 'gamelog') {
+                // Update game log interface with new year
+                showGameLogInterface();
+              }
             });
           }
         }, 100);
@@ -2069,6 +2624,7 @@ async function getStandardLogoUrl(teamName) {
     img.src = darkUrl;
   });
 }
+
 
 function getTeamAbbreviation(teamName) {
   const teamAbbrMap = {

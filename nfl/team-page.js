@@ -8,6 +8,8 @@ let allRosterPlayers = [];
 let playersPerPage = 4;
 let selectedPlayer = null;
 let playersForComparison = []; // Array to store players selected for comparison
+let currentStatsMode = 'overall'; // Track current stats view mode: 'overall' or 'gamelog'
+let teamColor = "#000000"; // Default team color
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
 function convertToHttps(url) {
@@ -259,7 +261,9 @@ async function loadTeamInfo() {
     )?.href) || `https://a.espncdn.com/i/teamlogos/nfl/500/${currentTeam.abbreviation}.png`;
 
 
-    const teamColor = `#${currentTeam.color}` || "#000000";
+    if (currentTeam.color) {
+      teamColor = `#${currentTeam.color}`;
+    }
 
     // Set the background color of the team info section
     const teamInfoSection = document.querySelector('.team-info-section');
@@ -270,7 +274,7 @@ async function loadTeamInfo() {
     
     // Apply team color to various elements
     applyTeamColors(teamColor);
-    
+
     // Get team record from standings
     try {
       const standingsResponse = await fetch('https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard');
@@ -977,41 +981,41 @@ async function loadTeamStats() {
     const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${currentTeamId}`);
     const data = await response.json();
 
-    currentTeam = data.team.record;
+    const teamRecord = data.team.record;
     
     contentDiv.innerHTML = `
       <div class="team-stats-grid">
         <div class="team-stat-item">
           <div class="team-stat-label">Games Played</div>
-          <div class="team-stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'gamesPlayed')?.value}</div>
+          <div class="team-stat-value">${teamRecord.items[0].stats?.find(s => s.name === 'gamesPlayed')?.value}</div>
         </div>
         <div class="team-stat-item">
           <div class="team-stat-label">Division Record</div>
-          <div class="team-stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'divisionWins')?.value}-${currentTeam.items[0].stats?.find(s => s.name === 'divisionLosses')?.value}</div>
+          <div class="team-stat-value">${teamRecord.items[0].stats?.find(s => s.name === 'divisionWins')?.value}-${teamRecord.items[0].stats?.find(s => s.name === 'divisionLosses')?.value}</div>
         </div>
         <div class="team-stat-item">
           <div class="team-stat-label">Away Games Played</div>
-          <div class="team-stat-value">${currentTeam.items[1].stats?.find(s => s.name === 'wins')?.value + currentTeam.items[1].stats?.find(s => s.name === 'losses')?.value + currentTeam.items[1].stats?.find(s => s.name === 'ties')?.value}</div>
+          <div class="team-stat-value">${teamRecord.items[1].stats?.find(s => s.name === 'wins')?.value + teamRecord.items[1].stats?.find(s => s.name === 'losses')?.value + teamRecord.items[1].stats?.find(s => s.name === 'ties')?.value}</div>
         </div>
         <div class="team-stat-item">
           <div class="team-stat-label">Away Games Record</div>
-          <div class="team-stat-value">${currentTeam.items[1].summary}</div>
+          <div class="team-stat-value">${teamRecord.items[1].summary}</div>
         </div>
         <div class="team-stat-item">
           <div class="team-stat-label">Home Games Played</div>
-          <div class="team-stat-value">${currentTeam.items[2].stats?.find(s => s.name === 'wins')?.value + currentTeam.items[2].stats?.find(s => s.name === 'losses')?.value + currentTeam.items[2].stats?.find(s => s.name === 'ties')?.value}</div>
+          <div class="team-stat-value">${teamRecord.items[2].stats?.find(s => s.name === 'wins')?.value + teamRecord.items[2].stats?.find(s => s.name === 'losses')?.value + teamRecord.items[2].stats?.find(s => s.name === 'ties')?.value}</div>
         </div>
         <div class="team-stat-item">
           <div class="team-stat-label">Home Games Record</div>
-          <div class="team-stat-value">${currentTeam.items[2].summary}</div>
+          <div class="team-stat-value">${teamRecord.items[2].summary}</div>
         </div>
         <div class="team-stat-item">
           <div class="team-stat-label">AVG Points For</div>
-          <div class="team-stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'avgPointsFor')?.value}</div>
+          <div class="team-stat-value">${teamRecord.items[0].stats?.find(s => s.name === 'avgPointsFor')?.value}</div>
         </div>
         <div class="team-stat-item">
           <div class="team-stat-label">AVG Points Against</div>
-          <div class="team-stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'avgPointsAgainst')?.value}</div>
+          <div class="team-stat-value">${teamRecord.items[0].stats?.find(s => s.name === 'avgPointsAgainst')?.value}</div>
         </div>
     `;
   } catch (error) {
@@ -1337,6 +1341,103 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
     const statsContainer = document.createElement('div');
     statsContainer.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
 
+    // Create slider section for Overall vs Game Log
+    const sliderSection = document.createElement('div');
+    sliderSection.style.cssText = `
+      margin: 20px 0;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    `;
+
+    const sliderContainer = document.createElement('div');
+    sliderContainer.style.cssText = `
+      display: flex;
+      position: relative;
+      width: 200px;
+      height: 50px;
+      background: #e9ecef;
+      border-radius: 25px;
+      margin: 0 auto;
+      overflow: hidden;
+    `;
+
+    // Background behind active tab
+    const sliderBackground = document.createElement('div');
+    sliderBackground.id = 'sliderBackground';
+    sliderBackground.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 51.75%;
+      height: 100%;
+      background-color: ${teamColor};
+      border-radius: 25px;
+      transition: transform 0.3s ease;
+      z-index: 0;
+    `;
+
+    const overallOption = document.createElement('button');
+    overallOption.id = 'overallOption';
+    overallOption.innerHTML = 'Overall';
+    overallOption.style.cssText = `
+      background: none;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: white;
+      position: relative;
+      z-index: 2;
+      width: 96px;
+      transition: color 0.3s ease;
+    `;
+
+    const gameLogOption = document.createElement('button');
+    gameLogOption.id = 'gameLogOption';
+    gameLogOption.innerHTML = 'Game Log';
+    gameLogOption.style.cssText = `
+      background: none;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: #666;
+      position: relative;
+      z-index: 2;
+      width: 96px;
+      transition: color 0.3s ease;
+    `;
+
+    sliderContainer.appendChild(sliderBackground);
+    sliderContainer.appendChild(overallOption);
+    sliderContainer.appendChild(gameLogOption);
+    sliderSection.appendChild(sliderContainer);
+
+    // Add click handlers for slider
+    overallOption.addEventListener('click', () => {
+      console.log('Overall option clicked');
+      sliderBackground.style.transform = 'translateX(0)';
+      overallOption.style.color = 'white';
+      gameLogOption.style.color = '#666';
+      currentStatsMode = 'overall';
+      showOverallStats();
+    });
+
+    gameLogOption.addEventListener('click', () => {
+      console.log('Game log option clicked');
+      sliderBackground.style.transform = 'translateX(96px)';
+      overallOption.style.color = '#666';
+      gameLogOption.style.color = 'white';
+      currentStatsMode = 'gamelog';
+      showGameLogInterface();
+    });
+
     // Create player search section
     const searchSection = document.createElement('div');
     searchSection.style.cssText = `
@@ -1480,6 +1581,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
     modalContent.appendChild(closeButton);
     modalContent.appendChild(playerHeader);
     modalContent.appendChild(statsContainer);
+    modalContent.appendChild(sliderSection);
     modalContent.appendChild(searchSection);
     modal.appendChild(modalContent);
 
@@ -1522,6 +1624,770 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
         statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #dc3545;">Error loading player statistics</div>';
       }
     }
+  }
+}
+
+// Game log functionality
+async function showGameLogInterface() {
+  console.log('showGameLogInterface called');
+  
+  // Find the stats container - it's the 3rd element added to modalContent
+  const modal = document.querySelector('.modal-overlay');
+  if (!modal) {
+    console.error('Modal not found');
+    return;
+  }
+
+  const modalContent = modal.querySelector('.modal-content');
+  if (!modalContent) {
+    console.error('Modal content not found');
+    return;
+  }
+
+  // Get all direct children of modalContent
+  const children = Array.from(modalContent.children);
+  console.log('Modal content children:', children.length);
+  
+  // The statsContainer should be the 3rd child (index 2)
+  // Order: closeButton(0), playerHeader(1), statsContainer(2), sliderSection(3), searchSection(4)
+  let statsContainer = children[2];
+  
+  if (!statsContainer) {
+    console.error('Stats container not found in modal structure');
+    console.log('Available children:', children.map(child => child.tagName + (child.className ? '.' + child.className : '')));
+    return;
+  }
+  
+  if (!selectedPlayer) {
+    console.error('No selected player');
+    return;
+  }
+
+  console.log('Stats container found, updating interface');
+  const currentYear = new Date().getFullYear();
+  
+  // Get today's date in YYYY-MM-DD format for the date picker
+  const today = new Date();
+  const todayString = today.toISOString().split('T')[0];
+  
+  statsContainer.innerHTML = `
+    <div style="text-align: center; margin-bottom: 30px;">
+      <div style="background: #f8f9fa; border-radius: 12px; padding: 20px; border: 1px solid #ddd; display: inline-flex; align-items: center; gap: 12px;">
+        <div style="font-weight: bold; color: #333;">Select a game date:</div>
+        <input type="date" id="gameLogDatePicker" value="${todayString}" style="padding: 12px 16px; border: 2px solid #013369; border-radius: 8px; font-size: 16px; outline: none; cursor: pointer; background: white; color: #333; width: 200px; font-weight: 500;">
+      </div>
+    </div>
+    <div id="gameLogResults"></div>
+  `;
+
+  // Add date picker event listener
+  const datePicker = document.getElementById('gameLogDatePicker');
+  if (datePicker) {
+    datePicker.addEventListener('change', async (e) => {
+      const selectedDate = e.target.value;
+      console.log('Date selected:', selectedDate);
+      if (selectedDate) {
+        await loadGameLogForDate(selectedDate);
+      }
+    });
+    console.log('Date picker event listener added');
+    
+    // Auto-load today's game log if date is set to today
+    if (datePicker.value === todayString) {
+      setTimeout(() => {
+        loadGameLogForDate(todayString);
+      }, 100);
+    }
+  } else {
+    console.error('Date picker not found');
+  }
+}
+
+async function showOverallStats() {
+  // Find the stats container using the same approach as showGameLogInterface
+  const modal = document.querySelector('.modal-overlay');
+  if (!modal) {
+    console.error('Modal not found');
+    return;
+  }
+
+  const modalContent = modal.querySelector('.modal-content');
+  if (!modalContent) {
+    console.error('Modal content not found');
+    return;
+  }
+
+  // Get all direct children of modalContent
+  const children = Array.from(modalContent.children);
+  
+  // The statsContainer should be the 3rd child (index 2)
+  let statsContainer = children[2];
+  
+  if (!statsContainer || !selectedPlayer) {
+    console.error('Stats container not found or no selected player');
+    return;
+  }
+
+  // Check if position should show full stats (exclude LS)
+  if (!shouldShowFullStats(selectedPlayer.position)) {
+    statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Statistics not available for this position</div>';
+    return;
+  }
+
+  // Reload the overall stats
+  const seasonYear = await getValidSeasonYear('football', 'nfl', selectedPlayer.id);
+  const response = await fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${seasonYear}/types/2/athletes/${selectedPlayer.id}/statistics?lang=en&region=us`);
+  const data = await response.json();
+
+  console.log('Player stats data:', data);
+
+  if (data.splits && data.splits.categories) {
+    displayPlayerStatsInModal(data.splits.categories, statsContainer, selectedPlayer.position);
+  } else {
+    statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Player statistics not available</div>';
+  }
+}
+
+async function loadGameLogForDate(date) {
+  const resultsContainer = document.getElementById('gameLogResults');
+  if (!resultsContainer || !selectedPlayer) return;
+
+  try {
+    resultsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;"><div style="display: inline-block; width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #013369; border-radius: 50%; animation: spin 1s linear infinite;"></div><br>Loading game data...</div>';
+
+    // Add the spinner animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    if (!document.getElementById('spinner-style')) {
+      style.id = 'spinner-style';
+      document.head.appendChild(style);
+    }
+
+    // Get current season year
+    const seasonYear = await getValidSeasonYear('football', 'nfl');
+    
+    // Format date for ESPN API (YYYYMMDD)
+    const formattedDate = date.replace(/-/g, '');
+    
+    // Find games for the selected date using ESPN API
+    const scheduleResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${currentTeamId}/schedule?season=${seasonYear}`);
+    
+    if (!scheduleResponse.ok) {
+      throw new Error(`HTTP error! status: ${scheduleResponse.status}`);
+    }
+    
+    const scheduleData = await scheduleResponse.json();
+
+    // Find the game for the selected date
+    const targetDate = new Date(date + 'T00:00:00'); // Add time to prevent timezone issues
+    const games = scheduleData.events || [];
+    
+    console.log('Target date:', targetDate.toDateString());
+    console.log('Available games:', games.map(g => new Date(g.date).toDateString()));
+    
+    const game = games.find(event => {
+      const gameDate = new Date(event.date);
+      console.log('Comparing:', gameDate.toDateString(), 'vs', targetDate.toDateString());
+      return gameDate.toDateString() === targetDate.toDateString();
+    });
+
+    if (!game) {
+      resultsContainer.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #ddd;">
+          <div style="font-size: 1.2rem; color: #666; margin-bottom: 10px;">📅</div>
+          <div style="color: #666; font-size: 1rem;">No games found for this date</div>
+          <div style="color: #999; font-size: 0.9rem; margin-top: 5px;">Try selecting a different date during the season</div>
+        </div>
+      `;
+      return;
+    }
+
+    // Check if game is scheduled but not yet played
+    if (['STATUS_SCHEDULED', 'STATUS_POSTPONED', 'STATUS_SUSPENDED'].includes(game.competitions[0].status.type.name)) {
+      const gameDate = new Date(game.date);
+      const competition = game.competitions[0];
+      const opponent = competition.competitors.find(c => c.team.id !== currentTeamId);
+      const isHomeGame = competition.competitors.find(c => c.team.id === currentTeamId).homeAway === 'home';
+      
+      resultsContainer.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
+          <div style="font-size: 1.2rem; color: #856404; margin-bottom: 10px;">⏰</div>
+          <div style="color: #856404; font-size: 1rem; margin-bottom: 5px;">Game ${game.competitions[0].status.type.description}</div>
+          <div style="color: #856404; font-size: 0.9rem;">
+            ${isHomeGame ? 'vs' : 'at'} ${opponent.team.displayName}<br>
+            ${gameDate.toLocaleString('en-US', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true 
+            })}
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // For completed games, we need to get box score data
+    await displayPlayerGameStats(game, date);
+
+  } catch (error) {
+    console.error('Error loading game log:', error);
+    resultsContainer.innerHTML = `
+      <div style="text-align: center; padding: 40px 20px; background: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb;">
+        <div style="font-size: 1.2rem; color: #721c24; margin-bottom: 10px;">❌</div>
+        <div style="color: #721c24; font-size: 1rem;">Error loading game data</div>
+        <div style="color: #721c24; font-size: 0.9rem; margin-top: 5px;">Please try again or select a different date</div>
+      </div>
+    `;
+  }
+}
+
+async function displayPlayerGameStats(game, date) {
+  const resultsContainer = document.getElementById('gameLogResults');
+  if (!resultsContainer || !selectedPlayer) return;
+
+  try {
+    // Get detailed game data with box score using the same API as scoreboard.js
+    const gameResponse = await fetch(`https://cdn.espn.com/core/nfl/boxscore?xhr=1&gameId=${game.id}`);
+    const gameData = await gameResponse.json();
+
+    console.log('Game data structure:', gameData); // Debug log
+
+    // Use the exact same structure as scoreboard.js
+    const players = gameData.gamepackageJSON?.boxscore?.players || [];
+    console.log("Players data:", players);
+
+    if (players.length === 0) {
+      resultsContainer.innerHTML = `
+        <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
+          <div style="font-size: 2rem; margin-bottom: 15px;">📊</div>
+          <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+            No box score data for this game
+          </div>
+          <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
+            Box score data may not be available for this game
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // Find the team that contains our player and collect all their stats
+    let playerStats = {};
+    let playerTeam = null;
+    let foundPlayer = false;
+
+    for (const team of players) {
+      if (!team.statistics || team.statistics.length === 0) continue;
+
+      // Search through all statistics categories for this team
+      for (const statCategory of team.statistics) {
+        const athletes = statCategory.athletes || [];
+        
+        // Try different ID matching approaches
+        const foundPlayerInCategory = athletes.find(athlete => 
+          athlete.athlete.id === selectedPlayer.id.toString() ||
+          athlete.athlete.id === selectedPlayer.id ||
+          athlete.athlete.displayName === `${selectedPlayer.firstName} ${selectedPlayer.lastName}` ||
+          athlete.athlete.fullName === `${selectedPlayer.firstName} ${selectedPlayer.lastName}`
+        );
+
+        if (foundPlayerInCategory) {
+          foundPlayer = true;
+          playerTeam = team;
+          playerStats[statCategory.name] = foundPlayerInCategory.stats;
+          console.log(`Player found in ${statCategory.name}:`, foundPlayerInCategory.stats);
+        }
+      }
+
+      if (foundPlayer) break;
+    }
+
+    if (!foundPlayer) {
+      const competition = game.competitions[0];
+      const gameDate = new Date(game.date);
+      const opponent = competition.competitors.find(c => c.team.id !== currentTeamId);
+      const isHomeTeam = competition.competitors.find(c => c.team.id === currentTeamId).homeAway === 'home';
+      
+      resultsContainer.innerHTML = `
+        <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
+          <div style="font-size: 2rem; margin-bottom: 15px;">🏈</div>
+          <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+            Player not found in game statistics
+          </div>
+          <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
+            ${selectedPlayer.firstName} ${selectedPlayer.lastName} did not appear in this game<br>
+            <strong>${gameDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</strong><br>
+            ${isHomeTeam ? 'vs' : 'at'} ${opponent.team.displayName}
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // Extract competition data for use in the rest of the function
+    const competition = game.competitions[0];
+
+    // Get team logos - use proper NFL logo URLs
+    const teamLogo = `https://a.espncdn.com/i/teamlogos/nfl/500/${currentTeam.abbreviation}.png`;
+    const opponentTeam = competition.competitors.find(c => c.team.id !== currentTeamId);
+    const opponentLogo = `https://a.espncdn.com/i/teamlogos/nfl/500/${opponentTeam.team.abbreviation}.png`;
+
+    // Game info
+    const gameDate = new Date(game.date);
+    const teamCompetitor = competition.competitors.find(c => c.team.id === currentTeamId);
+    const opponentCompetitor = competition.competitors.find(c => c.team.id !== currentTeamId);
+    
+    // Access the score value properly - it might be a string or number
+    const teamScore = teamCompetitor.score?.value || teamCompetitor.score || "0";
+    const opponentScore = opponentCompetitor.score?.value || opponentCompetitor.score || "0";
+    
+    let gameResult = '';
+    if (game.competitions[0].status.type.completed) {
+      gameResult = parseInt(teamScore) > parseInt(opponentScore) ? 'W' : 'L';
+    }
+
+    // Extract player stats using the correct structure from playerStats
+    const position = selectedPlayer.position;
+    
+    // Create position-specific stats display based on available categories
+    let statsDisplay = '';
+    
+    if (['QB'].includes(position)) {
+      // Quarterback stats - get from passing and rushing
+      const passingStats = playerStats.passing || [];
+      const rushingStats = playerStats.rushing || [];
+      
+      statsDisplay = `
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Passing Stats</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px; margin-bottom: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${passingStats[0] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">C/ATT</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${passingStats[1] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">PYDS</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${passingStats[2] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">PAVG</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${passingStats[3] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">PTD</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${passingStats[4] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">INT</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${passingStats[5] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">S-YDSLST</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${passingStats[6] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">RTG</div>
+            </div>
+          </div>
+        </div>
+        ${rushingStats.length > 0 ? `
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Rushing Stats</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[0] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">CAR</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[1] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">RUSH YDS</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[2] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">YDS/CAR</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[3] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">RUSH TD</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[4] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">LNG</div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+      `;
+    } else if (['RB', 'FB'].includes(position)) {
+      // Running back stats - get from rushing and receiving
+      const rushingStats = playerStats.rushing || [];
+      const receivingStats = playerStats.receiving || [];
+      
+      statsDisplay = `
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Rushing Stats</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px; margin-bottom: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[0] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">CAR</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[1] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">RUSH YDS</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[2] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">YDS/CAR</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[3] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">RUSH TD</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[4] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">LNG</div>
+            </div>
+          </div>
+        </div>
+        ${receivingStats.length > 0 ? `
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Receiving Stats</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${receivingStats[0] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">REC</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${receivingStats[1] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">REC YDS</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${receivingStats[2] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">YDS/REC</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${receivingStats[3] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">REC TD</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${receivingStats[4] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">LNG</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${receivingStats[5] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">TGT</div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+      `;
+    } else if (['WR', 'TE'].includes(position)) {
+      // Receiver stats - get from receiving and rushing
+      const receivingStats = playerStats.receiving || [];
+      const rushingStats = playerStats.rushing || [];
+      
+      statsDisplay = `
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Receiving Stats</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px; margin-bottom: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${receivingStats[0] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">REC</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${receivingStats[1] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">REC YDS</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${receivingStats[2] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">YDS/REC</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${receivingStats[3] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">REC TD</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${receivingStats[4] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">LNG</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${receivingStats[5] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">TGT</div>
+            </div>
+          </div>
+        </div>
+        ${rushingStats.length > 0 ? `
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Rushing Stats</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[0] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">CAR</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[1] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">RUSH YDS</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[2] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">YDS/CAR</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[3] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">RUSH TD</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[4] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">LNG</div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+      `;
+    } else if (['DE', 'DT', 'LB', 'OLB', 'MLB', 'ILB'].includes(position)) {
+      // Defensive front seven stats - get from defensive
+      const defensiveStats = playerStats.defensive || [];
+      
+      statsDisplay = `
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Defensive Stats</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${defensiveStats[0] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">TOT TCKL</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${defensiveStats[1] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">SOLO</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${defensiveStats[2] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">SACKS</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${defensiveStats[3] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">TFL</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${defensiveStats[4] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">PD</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${defensiveStats[5] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">QB HIT</div>
+            </div>
+          </div>
+        </div>
+      `;
+    } else if (['CB', 'S', 'FS', 'SS', 'DB'].includes(position)) {
+      // Defensive back stats - get from defensive and interceptions
+      const defensiveStats = playerStats.defensive || [];
+      const interceptionStats = playerStats.interceptions || [];
+      
+      statsDisplay = `
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Defensive Stats</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px; margin-bottom: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${defensiveStats[0] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">TOT TCKL</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${defensiveStats[1] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">SOLO</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${defensiveStats[4] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">PD</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${defensiveStats[5] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">QB HIT</div>
+            </div>
+          </div>
+        </div>
+        ${interceptionStats.length > 0 ? `
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Interception Stats</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${interceptionStats[0] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">INT</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${interceptionStats[1] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">INT YDS</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${interceptionStats[2] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">LNG</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${interceptionStats[3] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">TD</div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+      `;
+    } else if (['K', 'P', 'PK'].includes(position)) {
+      // Kicker/Punter stats - get from kicking and punting
+      const kickingStats = playerStats.kicking || [];
+      const puntingStats = playerStats.punting || [];
+      
+      statsDisplay = `
+        ${kickingStats.length > 0 ? `
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Kicking Stats</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px; margin-bottom: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${kickingStats[0] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">FG MADE</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${kickingStats[1] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">FG ATT</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${kickingStats[2] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">XP MADE</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${kickingStats[3] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">XP ATT</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${kickingStats[4] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">LNG</div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+        ${puntingStats.length > 0 ? `
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Punting Stats</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${puntingStats[0] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">PUNTS</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${puntingStats[1] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">PUNT YDS</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${puntingStats[2] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">PUNT AVG</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${puntingStats[3] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">PTB</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${puntingStats[4] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">IN 20</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${puntingStats[5] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">LNG</div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+      `;
+    } else {
+      // Generic stats for offensive linemen and other positions
+      const availableCategories = Object.keys(playerStats);
+      
+      if (availableCategories.length > 0) {
+        statsDisplay = `
+          <div style="margin-bottom: 20px;">
+            <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Player Statistics</div>
+            ${availableCategories.map(category => {
+              const stats = playerStats[category];
+              return `
+                <div style="margin-bottom: 15px;">
+                  <div style="font-size: 0.9rem; font-weight: bold; margin-bottom: 8px; color: #ccc; text-transform: capitalize;">${category}</div>
+                  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); gap: 10px;">
+                    ${stats.map((stat, index) => `
+                      <div style="text-align: center;">
+                        <div style="font-size: 1.2rem; font-weight: bold; color: #fff;">${stat || '0'}</div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      } else {
+        statsDisplay = `
+          <div style="text-align: center; padding: 30px; background: rgba(255,255,255,0.1); border-radius: 8px;">
+            <div style="font-size: 1.1rem; color: #ccc; margin-bottom: 10px;">🏈</div>
+            <div style="color: #ccc; font-size: 1rem; margin-bottom: 5px;">Player appeared in this game</div>
+            <div style="color: #999; font-size: 0.9rem;">Detailed statistics not available for this position</div>
+          </div>
+        `;
+      }
+    }
+    
+    // Create the game stats display
+    let content = `
+      <div style="background: #1a1a1a; color: white; border-radius: 12px; padding: 25px; margin-bottom: 20px;">
+        <!-- Player Header -->
+        <div style="display: flex; align-items: center; margin-bottom: 20px; gap: 15px;">
+          <img src="${selectedPlayer.headshot}" alt="${selectedPlayer.firstName} ${selectedPlayer.lastName}" 
+            style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;" 
+            onerror="this.src='football.png';">
+          <div>
+            <div style="font-size: 1.3rem; font-weight: bold; margin-bottom: 2px;">${selectedPlayer.firstName} ${selectedPlayer.lastName}</div>
+            <div style="color: #ccc; font-size: 0.9rem;">#${selectedPlayer.jersey} | ${selectedPlayer.position}</div>
+          </div>
+        </div>
+
+        <!-- Game Header -->
+        <div id="gameHeader_${game.id}" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.15)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.1)'" onclick="window.open('scoreboard.html?gameId=${game.id}&date=${date.replace(/-/g, '')}', '_blank')">
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <img src="${teamLogo}" alt="${currentTeam.displayName}" style="height: 30px;" onerror="this.src='football.png';">
+            <span style="font-size: 1.1rem; font-weight: bold; color: ${parseInt(teamScore) > parseInt(opponentScore)  ? '#fff' : '#ccc'};">${teamScore}</span>
+            <span style="color: #ccc;">-</span>
+            <span style="font-size: 1.1rem; font-weight: bold; color: ${parseInt(opponentScore) > parseInt(teamScore) ? '#fff' : '#ccc'};">${opponentScore}</span>
+            <img src="${opponentLogo}" alt="${opponentTeam.team.displayName}" style="height: 30px;" onerror="this.src='football.png';">
+            ${gameResult ? `<span style="font-weight: bold; color: ${gameResult === 'W' ? '#4CAF50' : '#f44336'}; font-size: 1.1rem;">${gameResult}</span>` : ''}
+          </div>
+          <div style="text-align: right; color: #ccc; font-size: 0.85rem;">
+            ${gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            <div style="font-size: 0.7rem; margin-top: 2px; opacity: 0.7;">Click to view game details</div>
+          </div>
+        </div>
+
+        <!-- Football Stats -->
+        <div style="margin-bottom: 20px;">
+          ${statsDisplay}
+        </div>
+      </div>
+    `;
+
+    resultsContainer.innerHTML = content;
+  } catch (error) {
+    console.error('Error displaying player game stats:', error);
+    resultsContainer.innerHTML = `
+      <div style="text-align: center; padding: 40px 20px; background: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb;">
+        <div style="font-size: 1.2rem; color: #721c24; margin-bottom: 10px;">❌</div>
+        <div style="color: #721c24; font-size: 1rem;">Error loading player stats</div>
+        <div style="color: #721c24; font-size: 0.9rem; margin-top: 5px;">Unable to retrieve game statistics</div>
+      </div>
+    `;
   }
 }
 

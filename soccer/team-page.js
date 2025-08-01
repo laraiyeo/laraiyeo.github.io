@@ -1,6 +1,6 @@
 let currentTeam = null;
 let currentTeamId = null;
-let currentLeague = "eng.1"; // Default to Champions League
+let currentLeague = "eng.1"; // Default to Premier League
 let currentPage = 1;
 let allRecentMatches = [];
 let matchesPerPage = 4;
@@ -8,6 +8,9 @@ let currentRosterPage = 1;
 let allRosterPlayers = [];
 let playersPerPage = 4;
 let playersForComparison = []; // Array to store players selected for comparison
+let currentStatsMode = 'overall'; // Track current stats view mode: 'overall' or 'gamelog'
+let selectedPlayer = null; // Currently selected player for details
+let teamColor = "#000000"; // Default team color, will be set dynamically
 
 // Global variable to store all league players for league-wide comparison
 let allLeaguePlayers = [];
@@ -169,7 +172,13 @@ async function loadTeamInfo() {
     
     // Get team color dynamically from API (like teams.js)
     const isUsingAlternateColor = ["ffffff", "ffee00", "ffff00", "81f733", "000000"].includes(currentTeam.color);
-    const teamColor = isUsingAlternateColor ? `#${currentTeam.alternateColor}` : `#${currentTeam.color}`;
+    if (currentTeam) {
+      if (isUsingAlternateColor && currentTeam.alternateColor) {
+        teamColor = `#${currentTeam.alternateColor}`;
+      } else if (currentTeam.color) {
+        teamColor = `#${currentTeam.color}`;
+      }
+    }
     
     // Determine text color based on the actual color being used
     const actualColorHex = isUsingAlternateColor ? currentTeam.alternateColor : currentTeam.color;
@@ -189,7 +198,7 @@ async function loadTeamInfo() {
     
     document.getElementById('teamInfo').innerHTML = `
       <div class="team-header">
-        <img src="${logoUrl}" alt="${currentTeam.displayName}" class="team-logo-header" onerror="this.src='../soccer-ball-png-24.png';">
+        <img src="${logoUrl}" alt="${currentTeam.displayName}" class="team-logo-header" onerror="this.src='soccer-ball-png-24.png';">
         <div class="team-details-header">
           <div class="team-name-header" style="color: ${nameColorChange};">${currentTeam.displayName}</div>
           <div class="team-record-header" style="color: ${nameColorChange === 'black' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)'};">${currentTeam.nickname || ''}</div>
@@ -289,7 +298,43 @@ async function loadCurrentGame() {
         });
       }
     } else {
-        contentDiv.innerHTML = '<div class="no-data">No game being played today</div>';
+      // No game today, look for the next upcoming game
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + 14); // Look ahead 14 days instead of 30
+      
+      const dateRange = `${formatDate(tomorrow)}-${formatDate(endDate)}`;
+      const upcomingResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/scoreboard?dates=${dateRange}`);
+      const upcomingData = await upcomingResponse.json();
+      
+      // Find the next scheduled game for this team
+      const nextGame = upcomingData.events
+        ?.filter(event => {
+          const competition = event.competitions?.[0];
+          return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
+        })
+        .filter(event => event.status.type.state === "pre")
+        .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+      
+      if (nextGame) {
+        const gameCard = await createCurrentGameCard(nextGame);
+        contentDiv.innerHTML = gameCard;
+        
+        // Add click handler for next game
+        const gameCardElement = contentDiv.querySelector('.current-game-card');
+        if (gameCardElement) {
+          gameCardElement.style.cursor = 'pointer';
+          gameCardElement.addEventListener('click', () => {
+            const gameId = gameCardElement.getAttribute('data-game-id');
+            if (gameId) {
+              window.location.href = `scoreboard.html?gameId=${gameId}`;
+            }
+          });
+        }
+      } else {
+        contentDiv.innerHTML = '<div class="no-data">No upcoming games found</div>';
+      }
     }
   } catch (error) {
     console.error("Error loading current game:", error);
@@ -342,12 +387,12 @@ async function createCurrentGameCard(game) {
       <div class="game-status">${statusText}</div>
       <div class="game-teams">
         <div class="game-team">
-          <img src="${teamLogo}" alt="${currentTeam.displayName}" class="game-team-logo" onerror="this.src='../soccer-ball-png-24.png';">
+          <img src="${teamLogo}" alt="${currentTeam.displayName}" class="game-team-logo" onerror="this.src='soccer-ball-png-24.png';">
           <div class="game-team-name">${currentTeam.abbreviation || currentTeam.shortDisplayName}</div>
         </div>
         <div class="game-score">${scoreDisplay}</div>
         <div class="game-team">
-          <img src="${opponentLogo}" alt="${opponent.team.displayName}" class="game-team-logo" onerror="this.src='../soccer-ball-png-24.png';">
+          <img src="${opponentLogo}" alt="${opponent.team.displayName}" class="game-team-logo" onerror="this.src='soccer-ball-png-24.png';">
           <div class="game-team-name">${opponent.team.abbreviation || opponent.team.shortDisplayName}</div>
         </div>
       </div>
@@ -506,13 +551,13 @@ async function createMatchCard(game, isRecent = false) {
     <div class="match-item" data-game-id="${game.id}">
       <div class="match-teams">
         <div class="match-team-info">
-          <img src="${teamLogo}" alt="${currentTeamData.team.abbreviation}" class="match-team-logo" onerror="this.src='../soccer-ball-png-24.png';">
+          <img src="${teamLogo}" alt="${currentTeamData.team.abbreviation}" class="match-team-logo" onerror="this.src='soccer-ball-png-24.png';">
           <div class="match-team-name">${currentTeamData.team.abbreviation || currentTeamData.team.shortDisplayName}</div>
         </div>
         <div class="match-result ${resultClass}">${resultText}</div>
         <div class="match-team-info">
           <div class="match-team-name">${opponent.team.abbreviation || opponent.team.shortDisplayName}</div>
-          <img src="${opponentLogo}" alt="${opponent.team.abbreviation}" class="match-team-logo" onerror="this.src='../soccer-ball-png-24.png';">
+          <img src="${opponentLogo}" alt="${opponent.team.abbreviation}" class="match-team-logo" onerror="this.src='soccer-ball-png-24.png';">
         </div>
       </div>
       <div class="match-date">${formattedDate}</div>
@@ -895,7 +940,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       document.body.removeChild(modal);
     });
 
-    // Create player header
+    // Create player header with proper styling for the player display
     const playerHeader = document.createElement('div');
     playerHeader.className = 'selected-player-header';
     playerHeader.style.cssText = `
@@ -904,23 +949,135 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       gap: 15px;
       margin-bottom: 20px;
       padding: 15px;
-      background-color: #f8f9fa;
+      background: linear-gradient(135deg, ${teamColor} 0%, #cccccc 100%);
       border-radius: 8px;
+      color: white;
     `;
     playerHeader.innerHTML = `
+      <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: bold;">
+        ${jerseyNumber}
+      </div>
       <div>
-        <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 5px;">
+        <div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 5px;">
           ${lastName ? `${firstName} ${lastName}` : firstName}
         </div>
-        <div style="font-size: 1.1rem; color: #666;">
+        <div style="font-size: 1.1rem; opacity: 0.9;">
           #${jerseyNumber} | ${position} | ${currentTeam?.abbreviation || currentTeam?.shortDisplayName || 'UNK'}
         </div>
       </div>
     `;
 
+    // Set selected player info
+    selectedPlayer = {
+      id: playerId,
+      firstName: firstName,
+      lastName: lastName,
+      fullName: lastName ? `${firstName} ${lastName}` : firstName,
+      jersey: jerseyNumber,
+      position: position,
+      headshot: null // UEFA doesn't have headshots
+    };
+
     // Create stats container
     const statsContainer = document.createElement('div');
     statsContainer.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
+
+    // Create slider section for Overall vs Game Log
+    const sliderSection = document.createElement('div');
+    sliderSection.style.cssText = `
+      margin: 20px 0;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    `;
+
+    const sliderContainer = document.createElement('div');
+    sliderContainer.style.cssText = `
+      display: flex;
+      position: relative;
+      width: 200px;
+      height: 50px;
+      background: #e9ecef;
+      border-radius: 25px;
+      margin: 0 auto;
+      overflow: hidden;
+    `;
+
+    // Background behind active tab
+    const sliderBackground = document.createElement('div');
+    sliderBackground.id = 'sliderBackground';
+    sliderBackground.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 51.75%;
+      height: 100%;
+      background-color: ${teamColor};
+      border-radius: 25px;
+      transition: transform 0.3s ease;
+      z-index: 0;
+    `;
+
+    const overallOption = document.createElement('button');
+    overallOption.id = 'overallOption';
+    overallOption.innerHTML = 'Overall';
+    overallOption.style.cssText = `
+      background: none;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: white;
+      position: relative;
+      z-index: 2;
+      width: 96px;
+      transition: color 0.3s ease;
+    `;
+
+    const gameLogOption = document.createElement('button');
+    gameLogOption.id = 'gameLogOption';
+    gameLogOption.innerHTML = 'Game Log';
+    gameLogOption.style.cssText = `
+      background: none;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: #666;
+      position: relative;
+      z-index: 2;
+      width: 96px;
+      transition: color 0.3s ease;
+    `;
+
+    sliderContainer.appendChild(sliderBackground);
+    sliderContainer.appendChild(overallOption);
+    sliderContainer.appendChild(gameLogOption);
+    sliderSection.appendChild(sliderContainer);
+
+    // Add click handlers for slider
+    overallOption.addEventListener('click', () => {
+      console.log('Overall option clicked');
+      sliderBackground.style.transform = 'translateX(0)';
+      overallOption.style.color = 'white';
+      gameLogOption.style.color = '#666';
+      currentStatsMode = 'overall';
+      showOverallStats();
+    });
+
+    gameLogOption.addEventListener('click', () => {
+      console.log('Game log option clicked');
+      sliderBackground.style.transform = 'translateX(96px)';
+      overallOption.style.color = '#666';
+      gameLogOption.style.color = 'white';
+      currentStatsMode = 'gamelog';
+      showGameLogInterface();
+    });
 
     // Create player search section
     const searchSection = document.createElement('div');
@@ -1109,6 +1266,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
     modalContent.appendChild(closeButton);
     modalContent.appendChild(playerHeader);
     modalContent.appendChild(statsContainer);
+    modalContent.appendChild(sliderSection);
     modalContent.appendChild(searchSection);
     modal.appendChild(modalContent);
 
@@ -1531,6 +1689,448 @@ async function fetchAllSoccerPlayers() {
   } catch (error) {
     console.error('Error fetching soccer players:', error);
     return [];
+  }
+}
+
+// Game log functionality
+async function showGameLogInterface() {
+  console.log('showGameLogInterface called');
+  
+  // Find the stats container - it's the 2nd element added to modalContent
+  const modal = document.querySelector('.modal-overlay');
+  if (!modal) {
+    console.error('Modal not found');
+    return;
+  }
+
+  const modalContent = modal.querySelector('.modal-content');
+  if (!modalContent) {
+    console.error('Modal content not found');
+    return;
+  }
+
+  // Get all direct children of modalContent
+  const children = Array.from(modalContent.children);
+  console.log('Modal content children:', children.length);
+  
+  // The statsContainer should be the 2nd child (index 1)
+  // Order: closeButton(0), playerHeader(1), statsContainer(2), sliderSection(3), searchSection(4)
+  let statsContainer = children[2];
+  
+  if (!statsContainer) {
+    console.error('Stats container not found in modal structure');
+    console.log('Available children:', children.map(child => child.tagName + (child.className ? '.' + child.className : '')));
+    return;
+  }
+  
+  if (!selectedPlayer) {
+    console.error('No selected player');
+    return;
+  }
+
+  console.log('Stats container found, updating interface');
+  
+  // Get today's date in YYYY-MM-DD format for the date picker
+  const today = new Date();
+  const todayString = today.toISOString().split('T')[0];
+  
+  statsContainer.innerHTML = `
+    <div style="text-align: center; margin-bottom: 30px;">
+      <div style="background: #f8f9fa; border-radius: 12px; padding: 20px; border: 1px solid #ddd; display: inline-flex; align-items: center; gap: 12px;">
+        <div style="font-weight: bold; color: #333;">Select a game date:</div>
+        <input type="date" id="gameLogDatePicker" value="${todayString}" style="padding: 12px 16px; border: 2px solid ${teamColor}; border-radius: 8px; font-size: 16px; outline: none; cursor: pointer; background: white; color: #333; width: 200px; font-weight: 500;">
+      </div>
+    </div>
+    <div id="gameLogResults"></div>
+  `;
+
+  // Add date picker event listener
+  const datePicker = document.getElementById('gameLogDatePicker');
+  if (datePicker) {
+    datePicker.addEventListener('change', async (e) => {
+      const selectedDate = e.target.value;
+      console.log('Date selected:', selectedDate);
+      if (selectedDate) {
+        await loadGameLogForDate(selectedDate);
+      }
+    });
+    console.log('Date picker event listener added');
+  } else {
+    console.error('Date picker not found');
+  }
+}
+
+async function showOverallStats() {
+  // Find the stats container using the same approach as showGameLogInterface
+  const modal = document.querySelector('.modal-overlay');
+  if (!modal) {
+    console.error('Modal not found');
+    return;
+  }
+
+  const modalContent = modal.querySelector('.modal-content');
+  if (!modalContent) {
+    console.error('Modal content not found');
+    return;
+  }
+
+  // Get all direct children of modalContent
+  const children = Array.from(modalContent.children);
+  
+  // The statsContainer should be the 3rd child (index 2)
+  let statsContainer = children[2];
+  
+  if (!statsContainer || !selectedPlayer) {
+    console.error('Stats container not found or no selected player');
+    return;
+  }
+
+  // Show loading message
+  statsContainer.innerHTML = '<div style="text-align: center; padding: 20px;">Loading overall statistics...</div>';
+  
+  // Load the original player stats (Field Player Statistics)
+  await loadPlayerStats(selectedPlayer.id, selectedPlayer.position, statsContainer);
+}
+
+async function loadGameLogForDate(date) {
+  const resultsContainer = document.getElementById('gameLogResults');
+  if (!resultsContainer || !selectedPlayer) return;
+
+  try {
+    // Add loading spinner
+    resultsContainer.innerHTML = `
+      <div style="text-align: center; padding: 40px 20px;">
+        <div style="font-size: 2rem; margin-bottom: 15px;">⚽</div>
+        <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px;">Loading game data...</div>
+        <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid ${teamColor}; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+      </div>
+    `;
+
+    // Add spinner style if not exists
+    if (!document.getElementById('spinner-style')) {
+      const style = document.createElement('style');
+      style.id = 'spinner-style';
+      style.textContent = `
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // Format date for API (YYYYMMDD)
+    const formattedDate = date.replace(/-/g, '');
+    
+    // Find games for the selected date using UEFA API
+    const scheduleResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/scoreboard?dates=${formattedDate}`);
+    
+    if (!scheduleResponse.ok) {
+      throw new Error(`Schedule API returned ${scheduleResponse.status}`);
+    }
+    
+    const scheduleData = await scheduleResponse.json();
+    const games = scheduleData.events || [];
+    
+    console.log('Available games for date:', games.length);
+    
+    // Find game where our team participated
+    const teamGame = games.find(event => {
+      const competition = event.competitions?.[0];
+      return competition?.competitors?.some(competitor => 
+        competitor.team.id === currentTeamId
+      );
+    });
+
+    if (!teamGame) {
+      // Parse the date correctly to avoid timezone issues
+      const [year, month, day] = date.split('-');
+      const gameDate = new Date(year, month - 1, day); // month is 0-indexed
+      
+      resultsContainer.innerHTML = `
+        <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
+          <div style="font-size: 2rem; margin-bottom: 15px;">📅</div>
+          <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+            No game found for this date
+          </div>
+          <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
+            ${currentTeam?.shortDisplayName || 'Team'} did not play on ${gameDate.toLocaleDateString('en-US', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })}
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // Check if game is completed
+    if (teamGame.status.type.state !== 'post') {
+      resultsContainer.innerHTML = `
+        <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #fff3cd; text-align: center;">
+          <div style="font-size: 2rem; margin-bottom: 15px;">⏰</div>
+          <div style="color: #856404; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+            Game not yet completed
+          </div>
+          <div style="color: #856404; font-size: 0.95rem; line-height: 1.4;">
+            This game is scheduled or in progress. Game log data will be available after completion.
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // Display player game stats
+    await displayPlayerGameStats(teamGame, date);
+
+  } catch (error) {
+    console.error('Error loading game log:', error);
+    resultsContainer.innerHTML = `
+      <div style="text-align: center; padding: 40px 20px; background: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb;">
+        <div style="font-size: 1.2rem; color: #721c24; margin-bottom: 10px;">❌</div>
+        <div style="color: #721c24; font-size: 1rem;">Error loading game data</div>
+        <div style="color: #721c24; font-size: 0.9rem; margin-top: 5px;">Please try again or select a different date</div>
+      </div>
+    `;
+  }
+}
+
+async function displayPlayerGameStats(game, date) {
+  const resultsContainer = document.getElementById('gameLogResults');
+  if (!resultsContainer || !selectedPlayer) return;
+
+  try {
+    // Get detailed game data with lineups using the same API as scoreboard.js
+    const gameResponse = await fetch(`https://cdn.espn.com/core/soccer/lineups?xhr=1&gameId=${game.id}`);
+    const gameData = await gameResponse.json();
+
+    console.log('Game data structure:', gameData);
+
+    // Get rosters from gamepackageJSON
+    const rosters = gameData.gamepackageJSON?.rosters || [];
+    console.log("Rosters data:", rosters);
+
+    if (rosters.length === 0) {
+      resultsContainer.innerHTML = `
+        <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
+          <div style="font-size: 2rem; margin-bottom: 15px;">📊</div>
+          <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+            No lineup data for this game
+          </div>
+          <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
+            Lineup data may not be available for this game
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // Find player in rosters
+    let playerData = null;
+    let playerTeam = null;
+
+    for (const roster of rosters) {
+      const foundPlayer = roster.roster?.find(player => 
+        player.athlete?.id === selectedPlayer.id.toString() ||
+        player.athlete?.id === selectedPlayer.id ||
+        player.athlete?.displayName === selectedPlayer.fullName ||
+        (player.athlete?.firstName && player.athlete?.lastName && 
+         `${player.athlete.firstName} ${player.athlete.lastName}` === selectedPlayer.fullName)
+      );
+
+      if (foundPlayer) {
+        playerData = foundPlayer;
+        playerTeam = roster;
+        console.log('Player found in roster:', foundPlayer);
+        break;
+      }
+    }
+
+    if (!playerData) {
+      const competition = game.competitions[0];
+      const gameDate = new Date(game.date);
+      const opponent = competition.competitors.find(c => c.team.id !== currentTeamId);
+      const isHomeTeam = competition.competitors.find(c => c.team.id === currentTeamId).homeAway === 'home';
+      
+      resultsContainer.innerHTML = `
+        <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
+          <div style="font-size: 2rem; margin-bottom: 15px;">⚽</div>
+          <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+            Player not found in match squad
+          </div>
+          <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
+            ${selectedPlayer.fullName} was not in the squad for this game<br>
+            <strong>${gameDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</strong><br>
+            ${isHomeTeam ? 'vs' : 'at'} ${opponent.team.displayName}
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // Extract game information
+    const competition = game.competitions[0];
+    const gameDate = new Date(game.date);
+    const teamCompetitor = competition.competitors.find(c => c.team.id === currentTeamId);
+    const opponentCompetitor = competition.competitors.find(c => c.team.id !== currentTeamId);
+    
+    const teamScore = teamCompetitor.score || "0";
+    const opponentScore = opponentCompetitor.score || "0";
+    const isHomeTeam = teamCompetitor.homeAway === 'home';
+    
+    // Team logos
+    const teamLogo = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${currentTeamId}.png`;
+    const opponentLogo = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${opponentCompetitor.team.id}.png`;
+
+    // Game result
+    let gameResult = '';
+    if (game.status.type.state === 'post') {
+      const teamScoreInt = parseInt(teamScore);
+      const opponentScoreInt = parseInt(opponentScore);
+      if (teamScoreInt > opponentScoreInt) {
+        gameResult = 'W';
+      } else if (teamScoreInt < opponentScoreInt) {
+        gameResult = 'L';
+      } else {
+        gameResult = 'D';
+      }
+    }
+
+    // Extract player stats if available
+    const stats = playerData.stats || [];
+    const playerStats = stats.reduce((acc, stat) => {
+      acc[stat.abbreviation] = stat.displayValue;
+      return acc;
+    }, {});
+
+    // Create position-specific stats display
+    let statsDisplay = '';
+    const position = playerData.position?.abbreviation || selectedPlayer.position;
+    
+    if (position === 'G') {
+      // Goalkeeper stats
+      statsDisplay = `
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Goalkeeper Stats</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['SV'] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">SV</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['GA'] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">GA</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['SHF'] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">SHF</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['OG'] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">OG</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['YC'] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">YC</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['RC'] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">RC</div>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      // Outfield player stats
+      statsDisplay = `
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Match Performance</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['G'] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">G</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['A'] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">A</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['SH'] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">SH</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['ST'] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">SOG</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['YC'] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">YC</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['RC'] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">RC</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Create the game stats display with NBA-style dark card
+    let content = `
+      <div style="background: #1a1a1a; color: white; border-radius: 12px; padding: 25px; margin-bottom: 20px;">
+        <!-- Player Header -->
+        <div style="display: flex; align-items: center; margin-bottom: 20px; gap: 15px;">
+          <div style="width: 60px; height: 60px; background: linear-gradient(135deg, ${teamColor} 0%, #cccccc 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: bold; color: white;">
+            ${selectedPlayer.jersey}
+          </div>
+          <div>
+            <div style="font-size: 1.3rem; font-weight: bold; margin-bottom: 2px;">${selectedPlayer.fullName}</div>
+            <div style="color: #ccc; font-size: 0.9rem;">#${selectedPlayer.jersey} | ${position}</div>
+          </div>
+        </div>
+
+        <!-- Game Header -->
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.15)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.1)'" onclick="window.open('scoreboard.html?gameId=${game.id}', '_blank')">
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <img src="${teamLogo}" alt="${currentTeam?.displayName}" style="height: 30px;" onerror="this.src='soccer-ball-png-24.png';">
+            <span style="font-size: 1.1rem; font-weight: bold; color: ${gameResult === 'W' ? '#fff' : '#ccc'};">${teamScore}</span>
+            <span style="color: #ccc;">-</span>
+            <span style="font-size: 1.1rem; font-weight: bold; color: ${gameResult === 'L' ? '#fff' : '#ccc'};">${opponentScore}</span>
+            <img src="${opponentLogo}" alt="${opponentCompetitor.team.displayName}" style="height: 30px;" onerror="this.src='soccer-ball-png-24.png';">
+            ${gameResult ? `<span style="font-weight: bold; color: ${gameResult === 'W' ? '#4CAF50' : gameResult === 'L' ? '#f44336' : '#FFA500'}; font-size: 1.1rem;">${gameResult}</span>` : ''}
+          </div>
+          <div style="text-align: right; color: #ccc; font-size: 0.85rem;">
+            ${gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            <div style="font-size: 0.7rem; margin-top: 2px; opacity: 0.7;">Click to view game details</div>
+          </div>
+        </div>
+
+        <!-- Soccer Stats -->
+        ${statsDisplay}
+
+        <!-- Playing Status -->
+        <div style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; text-align: center;">
+          <div style="color: #ccc; font-size: 0.9rem;">
+            Playing Status: <span style="color: #fff; font-weight: bold;">${playerData.starter ? 'Starter' : 'Substitute'}</span>
+            ${playerData.formationPlace && playerData.formationPlace !== "0" ? ` | Position: ${playerData.position.abbreviation}` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+
+    resultsContainer.innerHTML = content;
+
+  } catch (error) {
+    console.error('Error displaying player game stats:', error);
+    resultsContainer.innerHTML = `
+      <div style="text-align: center; padding: 40px 20px; background: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb;">
+        <div style="font-size: 1.2rem; color: #721c24; margin-bottom: 10px;">❌</div>
+        <div style="color: #721c24; font-size: 1rem;">Error loading player stats</div>
+        <div style="color: #721c24; font-size: 0.9rem; margin-top: 5px;">Unable to retrieve game statistics</div>
+      </div>
+    `;
   }
 }
 

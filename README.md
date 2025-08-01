@@ -69,6 +69,13 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
     - Smart UX Design: Prevents clearing both players simultaneously to maintain valid comparison states
     - Position-Aware Filtering: Automatically filters search results to show only compatible positions for fair comparisons
     - Responsive Player Display: Optimized for mobile screens (≤525px) with abbreviated display in comparison view
+  - **Game Log Feature**: 
+    - Date-specific player performance tracking across all sports (MLB, NBA, WNBA, NHL, NFL, Soccer, UEFA)
+    - Interactive date picker to view player stats from any specific game
+    - Smart game detection that finds team games for selected dates
+    - Handles different game states: completed games with full stats, scheduled games with opponent info, and no-game scenarios
+    - Direct links to detailed scoreboard pages from game log entries
+    - Team-branded styling with sport-specific loading animations
 
 - **Standings**
   - View current league standings side by side for both conferences with divisions
@@ -168,6 +175,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - (07/112025) Added support for NBA Summer League
 - **(07/29/2025) Added comprehensive team dashboard pages to all available sports (except F1) with detailed player statistics, rankings and comparison of player stats**
 - **(07/31/2025) Added fully functional NFL tracker with complete standings structure (AFC/NFC conferences), live streaming integration, and position-specific player statistics**
+- (08/01/2025) Added gamelog feature for players which lets you check any players log for the current season
 
 ---
 
