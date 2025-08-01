@@ -439,7 +439,7 @@ async function renderBoxScore(gameId, gameState) {
                   return `
                     <tr>
                       <td>
-                        ${isSmallScreen ? player.firstName?.charAt(0) || '' : player.firstName || ''} ${player.lastName || player.displayName || 'Unknown'}
+                        ${isSmallScreen ? player.firstName?.charAt(0) + '. ' || '' : player.firstName || ''} ${player.lastName || player.displayName || 'Unknown'}
                         <span style="color: grey;"> #${player.jersey || 'N/A'}</span>
                       </td>
                       ${displayStats.map(stat => `<td>${stat || '0'}</td>`).join('')}
