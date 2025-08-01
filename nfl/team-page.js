@@ -312,6 +312,9 @@ function applyTeamColors(teamColor) {
     .stat-value {
       color: ${teamColor} !important;
     }
+    .team-stat-value {
+      color: ${teamColor} !important;
+    }
     .standing-position {
       color: ${teamColor} !important;
     }
@@ -415,7 +418,7 @@ async function createCurrentGameCard(game) {
 
   if (status === "Scheduled") {
     statusText = `${formattedDate} at ${formattedTime}`;
-    scoreDisplay = "vs";
+    scoreDisplay = isHomeTeam ? "vs" : "at";
   } else if (status === "Final") {
     statusText = "Final";
     scoreDisplay = `${teamScore || 0} - ${opponentScore || 0}`;
@@ -587,7 +590,7 @@ async function createMatchCard(game, isRecent = false) {
     }
   } else {
     resultClass = "scheduled";
-    resultText = "vs";
+    resultText = isHomeTeam ? "vs" : "at";
   }
 
   // Format game date for URL parameter
@@ -977,38 +980,38 @@ async function loadTeamStats() {
     currentTeam = data.team.record;
     
     contentDiv.innerHTML = `
-      <div class="stats-grid">
-        <div class="stat-item">
-          <div class="stat-label">Games Played</div>
-          <div class="stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'gamesPlayed')?.value}</div>
+      <div class="team-stats-grid">
+        <div class="team-stat-item">
+          <div class="team-stat-label">Games Played</div>
+          <div class="team-stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'gamesPlayed')?.value}</div>
         </div>
-        <div class="stat-item">
-          <div class="stat-label">Division Record</div>
-          <div class="stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'divisionWins')?.value}-${currentTeam.items[0].stats?.find(s => s.name === 'divisionLosses')?.value}</div>
+        <div class="team-stat-item">
+          <div class="team-stat-label">Division Record</div>
+          <div class="team-stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'divisionWins')?.value}-${currentTeam.items[0].stats?.find(s => s.name === 'divisionLosses')?.value}</div>
         </div>
-        <div class="stat-item">
-          <div class="stat-label">Away Games Played</div>
-          <div class="stat-value">${currentTeam.items[1].stats?.find(s => s.name === 'wins')?.value + currentTeam.items[1].stats?.find(s => s.name === 'losses')?.value + currentTeam.items[1].stats?.find(s => s.name === 'ties')?.value}</div>
+        <div class="team-stat-item">
+          <div class="team-stat-label">Away Games Played</div>
+          <div class="team-stat-value">${currentTeam.items[1].stats?.find(s => s.name === 'wins')?.value + currentTeam.items[1].stats?.find(s => s.name === 'losses')?.value + currentTeam.items[1].stats?.find(s => s.name === 'ties')?.value}</div>
         </div>
-        <div class="stat-item">
-          <div class="stat-label">Away Games Record</div>
-          <div class="stat-value">${currentTeam.items[1].summary}</div>
+        <div class="team-stat-item">
+          <div class="team-stat-label">Away Games Record</div>
+          <div class="team-stat-value">${currentTeam.items[1].summary}</div>
         </div>
-        <div class="stat-item">
-          <div class="stat-label">Home Games Played</div>
-          <div class="stat-value">${currentTeam.items[2].stats?.find(s => s.name === 'wins')?.value + currentTeam.items[2].stats?.find(s => s.name === 'losses')?.value + currentTeam.items[2].stats?.find(s => s.name === 'ties')?.value}</div>
+        <div class="team-stat-item">
+          <div class="team-stat-label">Home Games Played</div>
+          <div class="team-stat-value">${currentTeam.items[2].stats?.find(s => s.name === 'wins')?.value + currentTeam.items[2].stats?.find(s => s.name === 'losses')?.value + currentTeam.items[2].stats?.find(s => s.name === 'ties')?.value}</div>
         </div>
-        <div class="stat-item">
-          <div class="stat-label">Home Games Record</div>
-          <div class="stat-value">${currentTeam.items[2].summary}</div>
+        <div class="team-stat-item">
+          <div class="team-stat-label">Home Games Record</div>
+          <div class="team-stat-value">${currentTeam.items[2].summary}</div>
         </div>
-        <div class="stat-item">
-          <div class="stat-label">Average Points For</div>
-          <div class="stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'avgPointsFor')?.value}</div>
+        <div class="team-stat-item">
+          <div class="team-stat-label">AVG Points For</div>
+          <div class="team-stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'avgPointsFor')?.value}</div>
         </div>
-        <div class="stat-item">
-          <div class="stat-label">Average Points Against</div>
-          <div class="stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'avgPointsAgainst')?.value}</div>
+        <div class="team-stat-item">
+          <div class="team-stat-label">AVG Points Against</div>
+          <div class="team-stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'avgPointsAgainst')?.value}</div>
         </div>
     `;
   } catch (error) {

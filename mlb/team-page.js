@@ -1923,7 +1923,7 @@ async function createCurrentGameCard(game) {
     } else {
       statusText = `${formattedDate} at ${formattedTime}`;
     }
-    scoreDisplay = "vs";
+    scoreDisplay = isHomeTeam ? "vs" : "at";
   } else if (["Final", "Game Over", "Completed Early"].includes(status)) {
     statusText = "Final";
     scoreDisplay = `${teamScore || 0} - ${opponentScore || 0}`;
@@ -1982,7 +1982,7 @@ async function createMatchCard(game, isCompleted) {
     }
   } else {
     resultClass = "scheduled";
-    resultText = "vs";
+    resultText = isHomeTeam ? "vs" : "at";
   }
 
   const teamLogo = await getStandardLogoUrl(currentTeam.name);

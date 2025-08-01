@@ -391,7 +391,7 @@ async function renderBoxScore(gameId, gameState) {
 
     // Check if we have valid player data
     if (players.length === 0) {
-      boxScoreDiv.innerHTML = `<div style="color: white; text-align: center; padding: 20px;">Box score data not yet available for this game.</div>`;
+      boxScoreDiv.innerHTML = `<div style="color: white; text-align: center; padding: 20px;"></div>`;
       return;
     }
 
@@ -614,7 +614,7 @@ async function fetchAndRenderTopScoreboard() {
     renderLinescoreTable(awayLinescores, homeLinescores, awayTeam?.abbreviation, homeTeam?.abbreviation, awayScore, homeScore);
 
     // Add stream embed after linescore (only render once and only for in-progress games)
-    const isInProgress = gameStatus !== "Final";
+    const isInProgress = gameStatus !== "Final" && gameStatus !== "Scheduled";
     const streamContainer = document.getElementById("streamEmbed");
     if (!streamContainer.innerHTML && isInProgress) {
       streamContainer.innerHTML = renderStreamEmbed(awayTeam?.displayName, homeTeam?.displayName);

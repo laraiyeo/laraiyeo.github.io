@@ -325,7 +325,7 @@ async function createCurrentGameCard(game) {
 
   if (status === "pre") {
     statusText = `${formattedDate} at ${formattedTime}`;
-    scoreDisplay = "vs";
+    scoreDisplay = isHomeTeam ? "vs" : "at";
   } else if (status === "post") {
     statusText = "Final";
     scoreDisplay = `${teamScore || 0} - ${opponentScore || 0}`;
@@ -499,7 +499,7 @@ async function createMatchCard(game, isRecent = false) {
     }
   } else {
     resultClass = "scheduled";
-    resultText = "vs";
+    resultText = isHomeTeam ? "vs" : "at";
   }
 
   return `

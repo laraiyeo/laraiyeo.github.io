@@ -308,7 +308,7 @@ async function createCurrentGameCard(game) {
 
   if (status === "Scheduled") {
     statusText = `${formattedDate} at ${formattedTime}`;
-    scoreDisplay = "vs";
+    scoreDisplay = isHomeTeam ? "vs" : "at";
   } else if (status === "Final") {
     statusText = "Final";
     scoreDisplay = `${teamScore || 0} - ${opponentScore || 0}`;
@@ -493,7 +493,7 @@ async function createMatchCard(game, isRecent = false) {
     }
   } else {
     resultClass = "scheduled";
-    resultText = "vs";
+    resultText = isHomeTeam ? "vs" : "at";
   }
 
   // Format game date for URL parameter
