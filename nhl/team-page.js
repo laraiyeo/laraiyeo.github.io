@@ -1582,9 +1582,23 @@ async function showGameLogInterface() {
   console.log('Stats container found, updating interface');
   const currentYear = new Date().getFullYear();
   
-  // Get today's date in YYYY-MM-DD format for the date picker
-  const today = new Date();
-  const todayString = today.toISOString().split('T')[0];
+  // Get today's date using sports-adjusted date logic for consistency
+  function getAdjustedDateForSports() {
+    const now = new Date();
+    const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+    
+    if (estNow.getHours() < 6) { // Use 6 AM for hockey (games often end late)
+      estNow.setDate(estNow.getDate() - 1);
+    }
+    
+    const adjustedDate = estNow.getFullYear() + "-" +
+                         String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
+                         String(estNow.getDate()).padStart(2, "0");
+    
+    return adjustedDate;
+  }
+  
+  const todayString = getAdjustedDateForSports();
   
   statsContainer.innerHTML = `
     <div style="text-align: center; margin-bottom: 30px;">
