@@ -2635,8 +2635,8 @@ async function captureAndCopyImage(element) {
       useCORS: true,
       allowTaint: false, // Allow tainted canvas for better compatibility
       logging: false,
-      width: element.clientWidth - (isSmallScreen ? 40 : 30),
-      height: element.clientHeight + (isSmallScreen ? 40 : 30),
+      width: isSmallScreen ? element.clientWidth : element.clientWidth - 30,
+      height: isSmallScreen ? element.clientHeight : element.clientHeight + 30,
       scrollX: 0,
       scrollY: 0,
       ignoreElements: (element) => {

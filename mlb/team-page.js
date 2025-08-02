@@ -4035,8 +4035,8 @@ async function captureAndCopyImage(element) {
       useCORS: true,
       allowTaint: false, // Allow tainted canvas for better compatibility
       logging: false,
-      width: element.clientWidth - (isSmallScreen ? 40 : 30),
-      height: element.clientHeight + (isSmallScreen ? 40 : 30),
+      width: isSmallScreen ? element.clientWidth : element.clientWidth - 30,
+      height: isSmallScreen ? element.clientHeight : element.clientHeight + 30,
       scrollX: 0,
       scrollY: 0,
       ignoreElements: (element) => {
@@ -4091,29 +4091,11 @@ async function captureAndCopyImage(element) {
             await navigator.clipboard.write([clipboardItem]);
             showFeedback('Game log copied to clipboard!', 'success');
           } else {
-            // Fallback to download if clipboard fails
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `game-log-${new Date().getTime()}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            showFeedback('Game log downloaded!', 'success');
+            showFeedback('Could not copy game log to clipboard. Try again', 'error');
           }
         }
       } catch (clipboardError) {
-        // Fallback to download if clipboard fails
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `game-log-${new Date().getTime()}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        showFeedback('Game log downloaded!', 'success');
+        showFeedback('Could not copy game log to clipboard. Try again', 'error');
       }
     }, 'image/png', 0.95);
     
