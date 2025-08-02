@@ -3020,19 +3020,55 @@ async function captureAndCopyImage(element) {
         return;
       }
 
+      // Check if device is mobile
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                      ('ontouchstart' in window) || 
+                      (navigator.maxTouchPoints > 0);
+
       try {
-        // Try to copy to clipboard using modern API
-        if (navigator.clipboard && window.ClipboardItem) {
-          const clipboardItem = new ClipboardItem({
-            'image/png': blob
-          });
-          await navigator.clipboard.write([clipboardItem]);
-          showFeedback('Game log copied to clipboard!', 'success');
+        if (isMobile) {
+          // On mobile, download the image
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `game-log-${new Date().getTime()}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          showFeedback('Game log downloaded!', 'success');
         } else {
-          showFeedback('Could not copy to clipboard. Try again.', 'error');
+          // On desktop, try to copy to clipboard using modern API
+          if (navigator.clipboard && window.ClipboardItem) {
+            const clipboardItem = new ClipboardItem({
+              'image/png': blob
+            });
+            await navigator.clipboard.write([clipboardItem]);
+            showFeedback('Game log copied to clipboard!', 'success');
+          } else {
+            // Fallback to download if clipboard fails
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `game-log-${new Date().getTime()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showFeedback('Game log downloaded!', 'success');
+          }
         }
       } catch (clipboardError) {
-        showFeedback('Could not copy to clipboard. Try again.', 'error');
+        // Fallback to download if clipboard fails
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `game-log-${new Date().getTime()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showFeedback('Game log downloaded!', 'success');
       }
     }, 'image/png', 0.95);
     
