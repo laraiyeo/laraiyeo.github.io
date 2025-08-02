@@ -76,6 +76,13 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
     - Handles different game states: completed games with full stats, scheduled games with opponent info, and no-game scenarios
     - Direct links to detailed scoreboard pages from game log entries
     - Team-branded styling with sport-specific loading animations
+    - **Clipboard Export Functionality**: One-click copying of game log cards as high-quality images for easy sharing
+      - Professional game log cards featuring player headshots, team logos, and comprehensive game statistics
+      - Optimized image rendering with proper aspect ratios and clean circular player photos
+      - Smart element exclusion (removes UI elements like clipboard icons and interactive text during capture)
+      - Cross-origin image handling with automatic base64 conversion for external assets
+      - Modern Clipboard API integration with user feedback notifications
+      - Compatible across all sports with sport-specific styling and branding
 
 - **Standings**
   - View current league standings side by side for both conferences with divisions
@@ -176,6 +183,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - **(07/29/2025) Added comprehensive team dashboard pages to all available sports (except F1) with detailed player statistics, rankings and comparison of player stats**
 - **(07/31/2025) Added fully functional NFL tracker with complete standings structure (AFC/NFC conferences), live streaming integration, and position-specific player statistics**
 - (08/01/2025) Added gamelog feature for players which lets you check any players log for the current season
+- (08/02/2025) Added clipboard function to game logs that allows you to copy any game log card
 
 ---
 
@@ -190,6 +198,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - F1 OBS overlays may show brief loading states when switching between race cards and constructor standings
 - For streaming, you most definitely need a strong pop-up and ad blocker as the stream where the video comes from has an ad script embedded in it (I have made multiple attempts to try and remove it to no avail).
 - Last matches for all sports are currently facing issues when you try and search too far back
+- For NBA, WNBA, NFL, and NHL, the players headshots on the copied game card are squished a little
 
 ---
 

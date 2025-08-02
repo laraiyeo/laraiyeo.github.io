@@ -1410,34 +1410,48 @@ async function displayPlayerGameStats(boxscoreData, game) {
 
   // Create the game stats display similar to the second image
   let content = `
-    <div style="background: #1a1a1a; color: white; border-radius: 12px; padding: 25px; margin-bottom: 20px;">
+    <div id="gameLogCard_${game.gamePk}" style="background: #1a1a1a; color: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; position: relative; max-width: 100%; box-sizing: border-box;">
+      <!-- Clipboard Icon -->
+      <div style="position: absolute; top: 12px; right: 12px; cursor: pointer; background: rgba(255,255,255,0.1); border-radius: 6px; padding: 6px; transition: background-color 0.2s ease;" onclick="copyGameLogAsImage('gameLogCard_${game.gamePk}')" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.2)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.1)'" title="Copy game log as image">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+          <path d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"/>
+        </svg>
+      </div>
+      
       <!-- Player Header -->
-      <div style="display: flex; align-items: center; margin-bottom: 20px; gap: 15px;">
-        <img src="${selectedPlayer.person.id ? 
-          `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${selectedPlayer.person.id}/headshot/67/current` : 
-          'icon.png'}" 
-          alt="${selectedPlayer.person.fullName}" 
-          style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;" 
-          onerror="this.src='icon.png';">
-        <div>
+      <div style="display: flex; align-items: center; margin-bottom: 18px; gap: 12px;">
+        <div style="width: 60px; height: 60px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: #333; position: relative;">
+          <img src="${selectedPlayer.person.id ? 
+            `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${selectedPlayer.person.id}/headshot/67/current` : 
+            'icon.png'}" 
+            alt="${selectedPlayer.person.fullName}" 
+            style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: auto; min-height: 100%; object-fit: cover;" 
+            onerror="this.src='icon.png';" 
+            crossorigin="anonymous">
+        </div>
+        <div style="flex: 1;">
           <div style="font-size: 1.3rem; font-weight: bold; margin-bottom: 2px;">${selectedPlayer.person.fullName}</div>
           <div style="color: #ccc; font-size: 0.9rem;">#${selectedPlayer.jerseyNumber || '--'} | ${selectedPlayer.position.abbreviation}</div>
         </div>
       </div>
 
       <!-- Game Header -->
-      <div id="gameHeader_${game.gamePk}" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.15)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.1)'" onclick="window.open('scoreboard.html?gamePk=${game.gamePk}', '_blank')">
-        <div style="display: flex; align-items: center; gap: 15px;">
-          <img src="${teamLogo}" alt="${currentTeam.name}" style="height: 30px;" onerror="this.src='icon.png';">
-          <span style="font-size: 1.1rem; font-weight: bold; color: ${parseInt(teamScore) > parseInt(opponentScore)  ? '#fff' : '#ccc'};">${teamScore}</span>
-          <span style="color: #ccc;">vs</span>
-          <span style="font-size: 1.1rem; font-weight: bold; color: ${parseInt(opponentScore) > parseInt(teamScore) ? '#fff' : '#ccc'};">${opponentScore}</span>
-          <img src="${opponentLogo}" alt="${opponent.name}" style="height: 30px;" onerror="this.src='icon.png';">
-          ${gameResult ? `<span style="font-weight: bold; color: ${gameResult === 'W' ? '#4CAF50' : '#f44336'}; font-size: 1.1rem;">${gameResult}</span>` : ''}
+      <div id="gameHeader_${game.gamePk}" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding: 12px; background: rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.15)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.1)'" onclick="window.open('scoreboard.html?gamePk=${game.gamePk}', '_blank')">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <img src="${teamLogo}" alt="${currentTeam.name}" style="max-width: 100%; max-height: 100%; object-fit: contain;" onerror="this.src='icon.png';" crossorigin="anonymous">
+          </div>
+          <span style="font-size: 1rem; font-weight: bold; color: ${parseInt(teamScore) > parseInt(opponentScore)  ? '#fff' : '#ccc'};">${teamScore}</span>
+          <span style="color: #ccc; font-size: 0.9rem;">vs</span>
+          <span style="font-size: 1rem; font-weight: bold; color: ${parseInt(opponentScore) > parseInt(teamScore) ? '#fff' : '#ccc'};">${opponentScore}</span>
+          <div style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <img src="${opponentLogo}" alt="${opponent.name}" style="max-width: 100%; max-height: 100%; object-fit: contain;" onerror="this.src='icon.png';" crossorigin="anonymous">
+          </div>
+          ${gameResult ? `<span style="font-weight: bold; color: ${gameResult === 'W' ? '#4CAF50' : '#f44336'}; font-size: 1rem;">${gameResult}</span>` : ''}
         </div>
-        <div style="text-align: right; color: #ccc; font-size: 0.85rem;">
+        <div style="text-align: right; color: #ccc; font-size: 0.8rem;">
           ${gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-          <div style="font-size: 0.7rem; margin-top: 2px; opacity: 0.7;">Click to view game details</div>
+          <div style="font-size: 0.65rem; margin-top: 1px; opacity: 0.7;">Click to view game deails</div>
         </div>
       </div>
   `;
@@ -1447,44 +1461,130 @@ async function displayPlayerGameStats(boxscoreData, game) {
     const battingStats = playerData.stats.batting;
     content += `
       <!-- Batting Stats -->
-      <div style="margin-bottom: 20px;">
-        <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; color: #4CAF50;">⚾ Batting</div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
+      <div style="margin-bottom: 15px;">
+        <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 12px; color: #4CAF50;">⚾ Batting</div>
+        
+        <!-- Responsive layout with CSS media queries -->
+        <style>
+          .batting-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 12px;
+          }
+          
+          @media (min-width: 768px) {
+            .batting-stats-desktop-row1 {
+              grid-template-columns: repeat(5, 1fr) !important;
+              gap: 15px !important;
+              margin-bottom: 20px !important;
+              max-width: 100% !important;
+            }
+            .batting-stats-desktop-row2 {
+              grid-template-columns: repeat(4, 1fr) !important;
+              gap: 15px !important;
+              max-width: 80% !important;
+              margin: 0 auto !important;
+            }
+            .batting-mobile-only {
+              display: none !important;
+            }
+          }
+          
+          @media (max-width: 767px) {
+            .batting-desktop-only {
+              display: none !important;
+            }
+          }
+        </style>
+        
+        <!-- Desktop: 5 stats in first row -->
+        <div class="batting-stats-grid batting-stats-desktop-row1 batting-desktop-only">
           <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.hits || 0}/${battingStats.atBats || 0}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">H/AB</div>
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.hits || 0}/${battingStats.atBats || 0}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">H/AB</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.runs || 0}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">R</div>
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.runs || 0}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">R</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.rbi || 0}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">RBI</div>
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.rbi || 0}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">RBI</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.homeRuns || 0}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">HR</div>
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.homeRuns || 0}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">HR</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.baseOnBalls || 0}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">BB</div>
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.baseOnBalls || 0}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">BB</div>
+          </div>
+        </div>
+        
+        <!-- Desktop: 4 stats in second row -->
+        <div class="batting-stats-grid batting-stats-desktop-row2 batting-desktop-only">
+          <div style="text-align: center;">
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.strikeOuts || 0}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">SO</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.strikeOuts || 0}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">SO</div>
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.totalBases || '0'}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">TB</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.totalBases || '0'}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">TB</div>
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.stolenBases || '0'}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">SB</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.stolenBases || '0'}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">SB</div>
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.leftOnBase || '0'}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">LOB</div>
           </div>
-          <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${battingStats.leftOnBase || '0'}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">LOB</div>
+        </div>
+        
+        <!-- Mobile: 3 stats per row -->
+        <div class="batting-mobile-only">
+          <div class="batting-stats-grid">
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.hits || 0}/${battingStats.atBats || 0}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">H/AB</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.runs || 0}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">R</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.rbi || 0}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">RBI</div>
+            </div>
+          </div>
+          <div class="batting-stats-grid">
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.homeRuns || 0}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">HR</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.baseOnBalls || 0}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">BB</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.strikeOuts || 0}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">SO</div>
+            </div>
+          </div>
+          <div class="batting-stats-grid" style="margin-bottom: 0;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.totalBases || '0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">TB</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.stolenBases || '0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">SB</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${battingStats.leftOnBase || '0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">LOB</div>
+            </div>
           </div>
         </div>
       </div>
@@ -1497,43 +1597,129 @@ async function displayPlayerGameStats(boxscoreData, game) {
     content += `
       <!-- Pitching Stats -->
       <div>
-        <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; color: #FF9800;">🥎 Pitching</div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
+        <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 12px; color: #FF9800;">🥎 Pitching</div>
+        
+        <!-- Responsive layout with CSS media queries -->
+        <style>
+          .pitching-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 12px;
+          }
+          
+          @media (min-width: 768px) {
+            .pitching-stats-desktop-row1 {
+              grid-template-columns: repeat(5, 1fr) !important;
+              gap: 15px !important;
+              margin-bottom: 20px !important;
+              max-width: 100% !important;
+            }
+            .pitching-stats-desktop-row2 {
+              grid-template-columns: repeat(4, 1fr) !important;
+              gap: 15px !important;
+              max-width: 80% !important;
+              margin: 0 auto !important;
+            }
+            .pitching-mobile-only {
+              display: none !important;
+            }
+          }
+          
+          @media (max-width: 767px) {
+            .pitching-desktop-only {
+              display: none !important;
+            }
+          }
+        </style>
+        
+        <!-- Desktop: 5 stats in first row -->
+        <div class="pitching-stats-grid pitching-stats-desktop-row1 pitching-desktop-only">
           <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.inningsPitched || '0.0'}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">IP</div>
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.inningsPitched || '0.0'}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">IP</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.hits || 0}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">H</div>
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.hits || 0}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">H</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.runs || 0}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">R</div>
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.runs || 0}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">R</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.earnedRuns || 0}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">ER</div>
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.earnedRuns || 0}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">ER</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.baseOnBalls || 0}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">BB</div>
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.baseOnBalls || 0}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">BB</div>
+          </div>
+        </div>
+        
+        <!-- Desktop: 4 stats in second row -->
+        <div class="pitching-stats-grid pitching-stats-desktop-row2 pitching-desktop-only" style="margin-bottom: 0;">
+          <div style="text-align: center;">
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.strikeOuts || 0}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">K</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.strikeOuts || 0}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">K</div>
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.pitchesThrown || '0'}-${pitchingStats.strikes || '0'}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">P-ST</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.pitchesThrown || '0'}-${pitchingStats.strikes || '0'}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">P-ST</div>
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.strikePercentage || '0.00'}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">K%</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.strikePercentage || '0.00'}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">K%</div>
+            <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.outs || '0'}</div>
+            <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">O</div>
           </div>
-          <div style="text-align: center;">
-            <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${pitchingStats.outs || '0'}</div>
-            <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">O</div>
+        </div>
+        
+        <!-- Mobile: 3 stats per row -->
+        <div class="pitching-mobile-only">
+          <div class="pitching-stats-grid">
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.inningsPitched || '0.0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">IP</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.hits || 0}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">H</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.runs || 0}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">R</div>
+            </div>
+          </div>
+          <div class="pitching-stats-grid">
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.earnedRuns || 0}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">ER</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.baseOnBalls || 0}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">BB</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.strikeOuts || 0}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">K</div>
+            </div>
+          </div>
+          <div class="pitching-stats-grid" style="margin-bottom: 0;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.pitchesThrown || '0'}-${pitchingStats.strikes || '0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">P-ST</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.strikePercentage || '0.00'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">K%</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.8rem; font-weight: bold; color: #fff;">${pitchingStats.outs || '0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 4px;">O</div>
+            </div>
           </div>
         </div>
       </div>
@@ -3747,5 +3933,212 @@ async function loadPlayerStatsForComparison(playerId, year, container) {
   } catch (error) {
     console.error('Error loading player stats for comparison:', error);
     container.innerHTML = '<div class="error">Error loading stats</div>';
+  }
+}
+
+// Function to copy game log card as image
+async function copyGameLogAsImage(cardId) {
+  try {
+    const cardElement = document.getElementById(cardId);
+    if (!cardElement) {
+      console.error('Game log card not found');
+      return;
+    }
+
+    // Import html2canvas dynamically
+    if (!window.html2canvas) {
+      // Load html2canvas library
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+      script.onload = () => {
+        captureAndCopyImage(cardElement);
+      };
+      document.head.appendChild(script);
+    } else {
+      captureAndCopyImage(cardElement);
+    }
+  } catch (error) {
+    console.error('Error copying game log as image:', error);
+    showCopyFeedback('Error copying image', 'error');
+  }
+}
+
+async function captureAndCopyImage(element) {
+  try {
+    
+    showFeedback('Capturing image...', 'loading');
+    
+    // Replace all external images with base64 versions or remove them
+    const images = element.querySelectorAll('img');
+
+    for (const img of images) {
+      try {
+        // For MLB headshots and logos, replace with a placeholder or try to convert
+        if (img.src.includes('mlbstatic.com') || img.src.includes('http')) {
+          // Create a canvas to draw the image and convert to base64
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Create a new image for loading
+          const tempImg = new Image();
+          tempImg.crossOrigin = 'anonymous';
+          
+          await new Promise((resolve, reject) => {
+            tempImg.onload = () => {
+              try {
+                canvas.width = tempImg.width;
+                canvas.height = tempImg.height;
+                ctx.drawImage(tempImg, 0, 0);
+                
+                // Try to convert to base64
+                try {
+                  const dataURL = canvas.toDataURL('image/png');
+                  img.src = dataURL;
+                } catch (e) {
+                  // If conversion fails, use a placeholder
+                  img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+CjwvdGV4dD4KPC9zdmc+';
+                }
+                resolve();
+              } catch (e) {
+                // Fallback to placeholder
+                img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+CjwvdGV4dD4KPC9zdmc+';
+                resolve();
+              }
+            };
+            
+            tempImg.onerror = () => {
+              // Use placeholder on error
+              img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+CjwvdGV4dD4KPC9zdmc+';
+              resolve();
+            };
+            
+            // Start loading
+            tempImg.src = img.src;
+          });
+        }
+      } catch (e) {
+        console.log('Error processing image:', e);
+        // Use placeholder on any error
+        img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+CjwvdGV4dD4KPC9zdmc+';
+      }
+    }
+    
+    // Wait a bit for images to process
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const isSmallScreen = window.innerWidth < 525; // Adjust based on your design breakpoints
+
+    // Capture the element with html2canvas using exact element dimensions
+    const canvas = await html2canvas(element, {
+      backgroundColor: '#1a1a1a', // Set the actual background color
+      scale: 2, // Use scale 2 to avoid logo scaling issues
+      useCORS: true,
+      allowTaint: false, // Allow tainted canvas for better compatibility
+      logging: false,
+      width: element.clientWidth - (isSmallScreen ? 40 : 30),
+      height: element.clientHeight + (isSmallScreen ? 40 : 30),
+      scrollX: 0,
+      scrollY: 0,
+      ignoreElements: (element) => {
+        try {
+          // Ignore the clipboard icon itself
+          if (element && element.getAttribute && element.getAttribute('onclick') && 
+              element.getAttribute('onclick').includes('copyGameLogAsImage')) {
+            return true;
+          }
+          // Ignore "Click to view game details" text by CSS class
+          if (element && element.classList && element.classList.contains('game-details-text')) {
+            return true;
+          }
+          return false;
+        } catch (e) {
+          // If there's any error accessing element properties, don't ignore it
+          return false;
+        }
+      }
+    });
+    
+    // Convert to blob
+    canvas.toBlob(async (blob) => {
+      if (!blob) {
+        showFeedback('Failed to create image', 'error');
+        return;
+      }
+
+      try {
+        // Try to copy to clipboard using modern API
+        if (navigator.clipboard && window.ClipboardItem) {
+          const clipboardItem = new ClipboardItem({
+            'image/png': blob
+          });
+          await navigator.clipboard.write([clipboardItem]);
+          showFeedback('Game log copied to clipboard!', 'success');
+        } else {
+          showFeedback('Could not copy to clipboard. Try again.', 'error');
+        }
+      } catch (clipboardError) {
+        showFeedback('Could not copy to clipboard. Try again.', 'error');
+      }
+    }, 'image/png', 0.95);
+    
+  } catch (error) {
+    console.error('Error capturing image:', error);
+    showFeedback('Failed to capture image: ' + error.message, 'error');
+  }
+}
+
+function showFeedback(message, type) {
+  // Remove existing feedback
+  const existingFeedback = document.getElementById('copyFeedback');
+  if (existingFeedback) {
+    existingFeedback.remove();
+  }
+
+  // Create feedback element
+  const feedback = document.createElement('div');
+  feedback.id = 'copyFeedback';
+  feedback.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    z-index: 10000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    transition: opacity 0.3s ease;
+  `;
+
+  // Set colors based on type
+  switch (type) {
+    case 'success':
+      feedback.style.backgroundColor = '#4CAF50';
+      break;
+    case 'error':
+      feedback.style.backgroundColor = '#f44336';
+      break;
+    case 'loading':
+      feedback.style.backgroundColor = '#2196F3';
+      break;
+    default:
+      feedback.style.backgroundColor = '#333';
+  }
+
+  feedback.textContent = message;
+  document.body.appendChild(feedback);
+
+  // Auto remove after 3 seconds (except for loading)
+  if (type !== 'loading') {
+    setTimeout(() => {
+      if (feedback && feedback.parentNode) {
+        feedback.style.opacity = '0';
+        setTimeout(() => {
+          if (feedback && feedback.parentNode) {
+            feedback.remove();
+          }
+        }, 300);
+      }
+    }, 3000);
   }
 }

@@ -1945,12 +1945,22 @@ async function displayPlayerGameStats(game, date) {
     
     // Create the game stats display
     let content = `
-      <div style="background: #1a1a1a; color: white; border-radius: 12px; padding: 25px; margin-bottom: 20px;">
+      <div id="gameLogCard_${game.id}" style="background: #1a1a1a; color: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; position: relative;">
+        <!-- Clipboard Icon -->
+        <div style="position: absolute; top: 12px; right: 12px; cursor: pointer; background: rgba(255,255,255,0.1); border-radius: 6px; padding: 6px; transition: background-color 0.2s ease;" onclick="copyGameLogAsImage('gameLogCard_${game.id}')" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.2)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.1)'" title="Copy game log as image">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+            <path d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"/>
+          </svg>
+        </div>
+        
         <!-- Player Header -->
         <div style="display: flex; align-items: center; margin-bottom: 20px; gap: 15px;">
-          <img src="${selectedPlayer.headshot}" alt="${selectedPlayer.firstName} ${selectedPlayer.lastName}" 
-            style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;" 
-            onerror="this.src='icon.png';">
+          <div style="width: 60px; height: 60px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: #333;">
+            <img src="${selectedPlayer.headshot}" alt="${selectedPlayer.firstName} ${selectedPlayer.lastName}" 
+              style="width: 60px; height: 60px; object-fit: cover; display: block;" 
+              onerror="this.src='icon.png';" 
+              crossorigin="anonymous">
+          </div>
           <div>
             <div style="font-size: 1.3rem; font-weight: bold; margin-bottom: 2px;">${selectedPlayer.firstName} ${selectedPlayer.lastName}</div>
             <div style="color: #ccc; font-size: 0.9rem;">#${selectedPlayer.jersey} | ${selectedPlayer.position}</div>
@@ -1969,7 +1979,7 @@ async function displayPlayerGameStats(game, date) {
           </div>
           <div style="text-align: right; color: #ccc; font-size: 0.85rem;">
             ${gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-            <div style="font-size: 0.7rem; margin-top: 2px; opacity: 0.7;">${nhlGameData ? 'Click to view game details' : 'Game details unavailable'}</div>
+            <div class="game-details-text" style="font-size: 0.7rem; margin-top: 2px; opacity: 0.7;">${nhlGameData ? 'Click to view game details' : 'Game details unavailable'}</div>
           </div>
         </div>
 
@@ -2567,4 +2577,210 @@ function displayPlayerComparison(player1Categories, player2Categories, container
   
   comparisonHTML += '</div>';
   container.innerHTML = comparisonHTML;
+}
+
+// Function to copy game log card as image
+async function copyGameLogAsImage(cardId) {
+  try {
+    const cardElement = document.getElementById(cardId);
+    if (!cardElement) {
+      console.error('Game log card not found');
+      return;
+    }
+
+    // Import html2canvas dynamically
+    if (!window.html2canvas) {
+      // Load html2canvas library
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+      script.onload = () => {
+        captureAndCopyImage(cardElement);
+      };
+      document.head.appendChild(script);
+    } else {
+      captureAndCopyImage(cardElement);
+    }
+  } catch (error) {
+    console.error('Error copying game log as image:', error);
+    showFeedback('Error copying image', 'error');
+  }
+}
+
+async function captureAndCopyImage(element) {
+  try {
+    showFeedback('Capturing image...', 'loading');
+    
+    // Replace all external images with base64 versions or remove them
+    const images = element.querySelectorAll('img');
+
+    for (const img of images) {
+      try {
+        // For NHL headshots and logos, replace with a placeholder or try to convert
+        if (img.src.includes('espncdn.com') || img.src.includes('http')) {
+          // Create a canvas to draw the image and convert to base64
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Create a new image for loading
+          const tempImg = new Image();
+          tempImg.crossOrigin = 'anonymous';
+          
+          await new Promise((resolve, reject) => {
+            tempImg.onload = () => {
+              try {
+                canvas.width = tempImg.width;
+                canvas.height = tempImg.height;
+                ctx.drawImage(tempImg, 0, 0);
+                
+                // Try to convert to base64
+                try {
+                  const dataURL = canvas.toDataURL('image/png');
+                  img.src = dataURL;
+                } catch (e) {
+                  // If conversion fails, use a placeholder
+                  img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+CjwvdGV4dD4KPC9zdmc+';
+                }
+                resolve();
+              } catch (e) {
+                // Fallback to placeholder
+                img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+CjwvdGV4dD4KPC9zdmc+';
+                resolve();
+              }
+            };
+            
+            tempImg.onerror = () => {
+              // Use placeholder on error
+              img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+CjwvdGV4dD4KPC9zdmc+';
+              resolve();
+            };
+            
+            // Start loading
+            tempImg.src = img.src;
+          });
+        }
+      } catch (e) {
+        console.log('Error processing image:', e);
+        // Use placeholder on any error
+        img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+CjwvdGV4dD4KPC9zdmc+';
+      }
+    }
+    
+    // Wait a bit for images to process
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const isSmallScreen = window.innerWidth < 525; // Adjust based on your design breakpoints
+
+    // Capture the element with html2canvas using exact element dimensions
+    const canvas = await html2canvas(element, {
+      backgroundColor: '#1a1a1a', // Set the actual background color
+      scale: 2, // Use scale 2 to avoid logo scaling issues
+      useCORS: true,
+      allowTaint: false, // Allow tainted canvas for better compatibility
+      logging: false,
+      width: element.clientWidth - (isSmallScreen ? 40 : 30),
+      height: element.clientHeight + (isSmallScreen ? 40 : 30),
+      scrollX: 0,
+      scrollY: 0,
+      ignoreElements: (element) => {
+        try {
+          // Ignore the clipboard icon itself
+          if (element && element.getAttribute && element.getAttribute('onclick') && 
+              element.getAttribute('onclick').includes('copyGameLogAsImage')) {
+            return true;
+          }
+          // Ignore "Click to view game details" text by CSS class
+          if (element && element.classList && element.classList.contains('game-details-text')) {
+            return true;
+          }
+          return false;
+        } catch (e) {
+          // If there's any error accessing element properties, don't ignore it
+          return false;
+        }
+      }
+    });
+    
+    // Convert to blob
+    canvas.toBlob(async (blob) => {
+      if (!blob) {
+        showFeedback('Failed to create image', 'error');
+        return;
+      }
+
+      try {
+        // Try to copy to clipboard using modern API
+        if (navigator.clipboard && window.ClipboardItem) {
+          const clipboardItem = new ClipboardItem({
+            'image/png': blob
+          });
+          await navigator.clipboard.write([clipboardItem]);
+          showFeedback('Game log copied to clipboard!', 'success');
+        } else {
+          showFeedback('Could not copy to clipboard. Try again.', 'error');
+        }
+      } catch (clipboardError) {
+        showFeedback('Could not copy to clipboard. Try again.', 'error');
+      }
+    }, 'image/png', 0.95);
+    
+  } catch (error) {
+    console.error('Error capturing image:', error);
+    showFeedback('Failed to capture image: ' + error.message, 'error');
+  }
+}
+
+function showFeedback(message, type) {
+  // Remove existing feedback
+  const existingFeedback = document.getElementById('copyFeedback');
+  if (existingFeedback) {
+    existingFeedback.remove();
+  }
+
+  // Create feedback element
+  const feedback = document.createElement('div');
+  feedback.id = 'copyFeedback';
+  feedback.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    z-index: 10000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    transition: opacity 0.3s ease;
+  `;
+
+  // Set colors based on type
+  switch (type) {
+    case 'success':
+      feedback.style.backgroundColor = '#4CAF50';
+      break;
+    case 'error':
+      feedback.style.backgroundColor = '#f44336';
+      break;
+    case 'loading':
+      feedback.style.backgroundColor = '#2196F3';
+      break;
+    default:
+      feedback.style.backgroundColor = '#333';
+  }
+
+  feedback.textContent = message;
+  document.body.appendChild(feedback);
+
+  // Auto remove after 3 seconds (except for loading)
+  if (type !== 'loading') {
+    setTimeout(() => {
+      if (feedback && feedback.parentNode) {
+        feedback.style.opacity = '0';
+        setTimeout(() => {
+          if (feedback && feedback.parentNode) {
+            feedback.remove();
+          }
+        }, 300);
+      }
+    }, 3000);
+  }
 }
