@@ -1713,27 +1713,98 @@ async function loadGameLogForDate(date) {
     // Format date for ESPN API (YYYYMMDD)
     const formattedDate = date.replace(/-/g, '');
     
-    // Find games for the selected date using ESPN API
-    const scheduleResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${currentTeamId}/schedule?season=${seasonYear}`);
-    
-    if (!scheduleResponse.ok) {
-      throw new Error(`HTTP error! status: ${scheduleResponse.status}`);
+    // Determine season type based on the selected date
+    function getSeasonTypeForDate(dateStr, seasonYear) {
+      const selectedDate = new Date(dateStr);
+      const selectedMonth = selectedDate.getMonth() + 1; // 0-based, so add 1
+      const selectedYear = selectedDate.getFullYear();
+      
+      // NBA season structure:
+      // Preseason (1): September - Early October
+      // Regular Season (2): Mid October - Early April
+      // Postseason/Playoffs (3): Mid April - June
+      
+      if (selectedMonth === 9 || (selectedMonth === 10 && selectedDate.getDate() <= 15)) {
+        return 1; // Preseason
+      } else if (selectedMonth === 4 && selectedDate.getDate() >= 15) {
+        return 3; // Postseason (playoffs start mid-April)
+      } else if (selectedMonth >= 5 && selectedMonth <= 6) {
+        return 3; // Postseason (May-June playoffs)
+      } else if (selectedMonth === 7) {
+        return 1; // Summer League (treated as preseason type)
+      } else {
+        return 2; // Regular season (mid-October through early April)
+      }
     }
     
-    const scheduleData = await scheduleResponse.json();
-
-    // Find the game for the selected date
-    const targetDate = new Date(date + 'T00:00:00'); // Add time to prevent timezone issues
-    const games = scheduleData.events || [];
+    // Try to find the game in the appropriate season type or Summer League
+    const primarySeasonType = getSeasonTypeForDate(date, seasonYear);
+    const selectedDate = new Date(date);
+    const selectedMonth = selectedDate.getMonth() + 1;
     
-    console.log('Target date:', targetDate.toDateString());
-    console.log('Available games:', games.map(g => new Date(g.date).toDateString()));
+    let game = null;
+    let scheduleData = null;
     
-    const game = games.find(event => {
-      const gameDate = new Date(event.date);
-      console.log('Comparing:', gameDate.toDateString(), 'vs', targetDate.toDateString());
-      return gameDate.toDateString() === targetDate.toDateString();
-    });
+    // Check if this is Summer League (July)
+    if (selectedMonth === 7) {
+      // For Summer League, use the nba-summer-las-vegas league
+      try {
+        console.log('Trying Summer League (nba-summer-las-vegas)');
+        
+        const scheduleResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/teams/${currentTeamId}/schedule?season=${seasonYear}`);
+        
+        if (scheduleResponse.ok) {
+          scheduleData = await scheduleResponse.json();
+          const games = scheduleData.events || [];
+          
+          // Find the game for the selected date
+          const targetDate = new Date(date + 'T00:00:00'); // Add time to prevent timezone issues
+          
+          console.log('Summer League - Target date:', targetDate.toDateString());
+          console.log('Summer League - Available games:', games.map(g => new Date(g.date).toDateString()));
+          
+          game = games.find(event => {
+            const gameDate = new Date(event.date);
+            return gameDate.toDateString() === targetDate.toDateString();
+          });
+          
+          if (game) {
+            console.log('Found game in Summer League');
+          }
+        }
+      } catch (error) {
+        console.log('Error fetching Summer League:', error);
+      }
+    } else {
+      // For regular NBA seasons, try only the determined season type
+      try {
+        console.log(`Trying primary season type ${primarySeasonType} (${primarySeasonType === 1 ? 'Preseason' : primarySeasonType === 2 ? 'Regular Season' : 'Postseason'})`);
+        
+        const scheduleResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${currentTeamId}/schedule?season=${seasonYear}&seasontype=${primarySeasonType}`);
+        
+        if (scheduleResponse.ok) {
+          scheduleData = await scheduleResponse.json();
+          const games = scheduleData.events || [];
+          
+          // Find the game for the selected date
+          const targetDate = new Date(date + 'T00:00:00'); // Add time to prevent timezone issues
+          
+          console.log(`Primary season type ${primarySeasonType} - Target date:`, targetDate.toDateString());
+          console.log(`Primary season type ${primarySeasonType} - Available games:`, games.map(g => new Date(g.date).toDateString()));
+          
+          game = games.find(event => {
+            const gameDate = new Date(event.date);
+            return gameDate.toDateString() === targetDate.toDateString();
+          });
+          
+          if (game) {
+            console.log(`Found game in primary season type ${primarySeasonType}`);
+          }
+        }
+      } catch (error) {
+        console.log(`Error fetching primary season type ${primarySeasonType}:`, error);
+      }
+    }
 
     if (!game) {
       resultsContainer.innerHTML = `
@@ -1794,8 +1865,20 @@ async function displayPlayerGameStats(game, date) {
   if (!resultsContainer || !selectedPlayer) return;
 
   try {
-    // Get detailed game data with box score using the same API as scoreboard.js
-    const gameResponse = await fetch(`https://cdn.espn.com/core/nba/boxscore?xhr=1&gameId=${game.id}`);
+    // Determine if this is a Summer League game based on the date
+    const selectedDate = new Date(date);
+    const selectedMonth = selectedDate.getMonth() + 1;
+    const isSummerLeague = selectedMonth === 7;
+    
+    // Use the appropriate API endpoint based on whether it's Summer League or regular NBA
+    const apiEndpoint = isSummerLeague 
+      ? `https://cdn.espn.com/core/nba-summer-league/boxscore?xhr=1&gameId=${game.id}&league=nba-summer-las-vegas`
+      : `https://cdn.espn.com/core/nba/boxscore?xhr=1&gameId=${game.id}`;
+    
+    console.log(`Fetching box score from: ${apiEndpoint}`);
+    
+    // Get detailed game data with box score
+    const gameResponse = await fetch(apiEndpoint);
     const gameData = await gameResponse.json();
 
     if (!gameData.gamepackageJSON || !gameData.gamepackageJSON.boxscore || !gameData.gamepackageJSON.boxscore.players) {
@@ -2573,8 +2656,34 @@ async function captureAndCopyImage(element) {
 
     for (const img of images) {
       try {
-        // For NBA headshots and logos, replace with a placeholder or try to convert
-        if (img.src.includes('espncdn.com') || img.src.includes('http')) {
+        // Check if this is a player headshot that needs special processing
+        const isPlayerHeadshot = selectedPlayer && img.src === selectedPlayer.headshot;
+        const isOtherImage = img.src.includes('espncdn.com') || img.src.includes('https');
+        
+        if (isPlayerHeadshot || isOtherImage) {
+          // For player headshots, temporarily modify styling to preserve aspect ratio
+          if (isPlayerHeadshot) {
+            // Store original styles
+            const originalStyles = {
+              width: img.style.width,
+              height: img.style.height,
+              borderRadius: img.style.borderRadius,
+              objectFit: img.style.objectFit,
+              marginLeft: img.style.marginLeft
+            };
+            
+            // Apply temporary styles for better aspect ratio in captured image
+            img.style.width = 'auto';
+            img.style.height = '60px'; // Keep height but let width adjust naturally
+            img.style.borderRadius = '8px'; // Less circular, more natural
+            img.style.objectFit = 'contain'; // Show full image without cropping
+            img.style.maxWidth = '80px'; // Limit max width to prevent oversizing
+            img.style.marginLeft = '-10px'; // Adjust the value as needed
+            
+            // Store original styles on the element for restoration later
+            img.dataset.originalStyles = JSON.stringify(originalStyles);
+          }
+          
           // Create a canvas to draw the image and convert to base64
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
@@ -2657,6 +2766,21 @@ async function captureAndCopyImage(element) {
         }
       }
     });
+    
+    // Restore original styles for headshot images
+    const imagesAfterCapture = element.querySelectorAll('img');
+    for (const img of imagesAfterCapture) {
+      if (img.dataset.originalStyles) {
+        const originalStyles = JSON.parse(img.dataset.originalStyles);
+        img.style.width = originalStyles.width;
+        img.style.height = originalStyles.height;
+        img.style.borderRadius = originalStyles.borderRadius;
+        img.style.objectFit = originalStyles.objectFit;
+        img.style.marginLeft = originalStyles.marginLeft;
+        // Clean up the dataset
+        delete img.dataset.originalStyles;
+      }
+    }
     
     // Convert to blob
     canvas.toBlob(async (blob) => {

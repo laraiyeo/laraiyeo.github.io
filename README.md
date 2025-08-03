@@ -198,7 +198,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - F1 OBS overlays may show brief loading states when switching between race cards and constructor standings
 - For streaming, you most definitely need a strong pop-up and ad blocker as the stream where the video comes from has an ad script embedded in it (I have made multiple attempts to try and remove it to no avail).
 - Last matches for all sports are currently facing issues when you try and search too far back
-- For NBA, WNBA, NFL, and NHL, the players headshots on the copied game card are squished a little
+- For NBA, WNBA, NFL, and NHL, the players headshots on the copied game card are squished a little if you click copy twice. On the first copy, they are normal
 
 ---
 

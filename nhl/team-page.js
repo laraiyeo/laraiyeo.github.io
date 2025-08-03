@@ -2615,8 +2615,34 @@ async function captureAndCopyImage(element) {
 
     for (const img of images) {
       try {
-        // For NHL headshots and logos, replace with a placeholder or try to convert
-        if (img.src.includes('espncdn.com') || img.src.includes('http')) {
+        // Check if this is a player headshot that needs special processing
+        const isPlayerHeadshot = selectedPlayer && img.src === selectedPlayer.headshot;
+        const isOtherImage = img.src.includes('espncdn.com') || img.src.includes('https');
+        
+        if (isPlayerHeadshot || isOtherImage) {
+          // For player headshots, temporarily modify styling to preserve aspect ratio
+          if (isPlayerHeadshot) {
+            // Store original styles
+            const originalStyles = {
+              width: img.style.width,
+              height: img.style.height,
+              borderRadius: img.style.borderRadius,
+              objectFit: img.style.objectFit,
+              marginLeft: img.style.marginLeft
+            };
+            
+            // Apply temporary styles for better aspect ratio in captured image
+            img.style.width = 'auto';
+            img.style.height = '60px'; // Keep height but let width adjust naturally
+            img.style.borderRadius = '8px'; // Less circular, more natural
+            img.style.objectFit = 'contain'; // Show full image without cropping
+            img.style.maxWidth = '80px'; // Limit max width to prevent oversizing
+            img.style.marginLeft = '-10px'; // Adjust the value as needed
+            
+            // Store original styles on the element for restoration later
+            img.dataset.originalStyles = JSON.stringify(originalStyles);
+          }
+          
           // Create a canvas to draw the image and convert to base64
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
@@ -2699,6 +2725,21 @@ async function captureAndCopyImage(element) {
         }
       }
     });
+    
+    // Restore original styles for headshot images
+    const imagesAfterCapture = element.querySelectorAll('img');
+    for (const img of imagesAfterCapture) {
+      if (img.dataset.originalStyles) {
+        const originalStyles = JSON.parse(img.dataset.originalStyles);
+        img.style.width = originalStyles.width;
+        img.style.height = originalStyles.height;
+        img.style.borderRadius = originalStyles.borderRadius;
+        img.style.objectFit = originalStyles.objectFit;
+        img.style.marginLeft = originalStyles.marginLeft;
+        // Clean up the dataset
+        delete img.dataset.originalStyles;
+      }
+    }
     
     // Convert to blob
     canvas.toBlob(async (blob) => {
