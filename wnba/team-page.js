@@ -1228,7 +1228,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       left: 0;
       width: 51.75%;
       height: 100%;
-      background-color: ${teamcolor};
+      background-color: ${teamColor};
       border-radius: 25px;
       transition: transform 0.3s ease;
       z-index: 0;
