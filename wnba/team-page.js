@@ -1530,7 +1530,7 @@ async function showGameLogInterface() {
     <div style="text-align: center; margin-bottom: 30px;">
       <div style="background: #f8f9fa; border-radius: 12px; padding: 20px; border: 1px solid #ddd; display: inline-flex; align-items: center; gap: 12px;">
         <div style="font-weight: bold; color: #333;">Select a game date:</div>
-        <input type="date" id="gameLogDatePicker" value="${todayString}" style="padding: 12px 16px; border: 2px solid #C8102E; border-radius: 8px; font-size: 16px; outline: none; cursor: pointer; background: white; color: #333; width: 200px; font-weight: 500;">
+        <input type="date" id="gameLogDatePicker" value="${todayString}" style="padding: 12px 16px; border: 2px solid ${currentTeam && currentTeam.color ? `#${currentTeam.color}` : '#17408B'}; border-radius: 8px; font-size: 16px; outline: none; cursor: pointer; background: white; color: #333; width: 200px; font-weight: 500;">
       </div>
     </div>
     <div id="gameLogResults"></div>
