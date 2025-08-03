@@ -1217,12 +1217,11 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       margin: 0 auto;
       overflow: hidden;
     `;
-    
-    const teamColor = currentTeam && currentTeam.color ? `#${currentTeam.color}` : '#17408B';
 
     // Background behind active tab
     const sliderBackground = document.createElement('div');
     sliderBackground.id = 'sliderBackground';
+    const teamColor = currentTeam && currentTeam.color ? `#${currentTeam.color}` : '#17408B';
     sliderBackground.style.cssText = `
       position: absolute;
       top: 0;
