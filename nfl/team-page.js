@@ -1688,7 +1688,7 @@ async function showGameLogInterface() {
     <div style="text-align: center; margin-bottom: 30px;">
       <div style="background: #f8f9fa; border-radius: 12px; padding: 20px; border: 1px solid #ddd; display: inline-flex; align-items: center; gap: 12px;">
         <div style="font-weight: bold; color: #333;">Select a game date:</div>
-        <input type="date" id="gameLogDatePicker" value="${todayString}" style="padding: 12px 16px; border: 2px solid #013369; border-radius: 8px; font-size: 16px; outline: none; cursor: pointer; background: white; color: #333; width: 200px; font-weight: 500;">
+        <input type="date" id="gameLogDatePicker" value="${todayString}" style="padding: 12px 16px; border: 2px solid ${teamColor}; border-radius: 8px; font-size: 16px; outline: none; cursor: pointer; background: white; color: #333; width: 200px; font-weight: 500;">
       </div>
     </div>
     <div id="gameLogResults"></div>
@@ -1982,7 +1982,7 @@ async function displayPlayerGameStats(game, date) {
       
       statsDisplay = `
         <div style="margin-bottom: 20px;">
-          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Passing Stats</div>
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">🏈 Passing Stats</div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px; margin-bottom: 15px;">
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${passingStats[0] || '0'}</div>
@@ -2016,7 +2016,7 @@ async function displayPlayerGameStats(game, date) {
         </div>
         ${rushingStats.length > 0 ? `
         <div style="margin-bottom: 20px;">
-          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Rushing Stats</div>
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">🏈 Rushing Stats</div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[0] || '0'}</div>
@@ -2049,7 +2049,7 @@ async function displayPlayerGameStats(game, date) {
       
       statsDisplay = `
         <div style="margin-bottom: 20px;">
-          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Rushing Stats</div>
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">🏈 Rushing Stats</div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px; margin-bottom: 15px;">
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[0] || '0'}</div>
@@ -2075,7 +2075,7 @@ async function displayPlayerGameStats(game, date) {
         </div>
         ${receivingStats.length > 0 ? `
         <div style="margin-bottom: 20px;">
-          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Receiving Stats</div>
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">🏈 Receiving Stats</div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${receivingStats[0] || '0'}</div>
@@ -2112,7 +2112,7 @@ async function displayPlayerGameStats(game, date) {
       
       statsDisplay = `
         <div style="margin-bottom: 20px;">
-          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Receiving Stats</div>
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">🏈 Receiving Stats</div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px; margin-bottom: 15px;">
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${receivingStats[0] || '0'}</div>
@@ -2142,7 +2142,7 @@ async function displayPlayerGameStats(game, date) {
         </div>
         ${rushingStats.length > 0 ? `
         <div style="margin-bottom: 20px;">
-          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Rushing Stats</div>
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">🏈 Rushing Stats</div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[0] || '0'}</div>
@@ -2174,7 +2174,7 @@ async function displayPlayerGameStats(game, date) {
       
       statsDisplay = `
         <div style="margin-bottom: 20px;">
-          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Defensive Stats</div>
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">🏈 Defensive Stats</div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${defensiveStats[0] || '0'}</div>
@@ -2210,7 +2210,7 @@ async function displayPlayerGameStats(game, date) {
       
       statsDisplay = `
         <div style="margin-bottom: 20px;">
-          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Defensive Stats</div>
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">🏈 Defensive Stats</div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px; margin-bottom: 15px;">
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${defensiveStats[0] || '0'}</div>
@@ -2232,7 +2232,7 @@ async function displayPlayerGameStats(game, date) {
         </div>
         ${interceptionStats.length > 0 ? `
         <div style="margin-bottom: 20px;">
-          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Interception Stats</div>
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">🏈 Interception Stats</div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${interceptionStats[0] || '0'}</div>
@@ -2262,7 +2262,7 @@ async function displayPlayerGameStats(game, date) {
       statsDisplay = `
         ${kickingStats.length > 0 ? `
         <div style="margin-bottom: 20px;">
-          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Kicking Stats</div>
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">🏈 Kicking Stats</div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px; margin-bottom: 15px;">
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${kickingStats[0] || '0'}</div>
@@ -2289,7 +2289,7 @@ async function displayPlayerGameStats(game, date) {
         ` : ''}
         ${puntingStats.length > 0 ? `
         <div style="margin-bottom: 20px;">
-          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Punting Stats</div>
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">🏈 Punting Stats</div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${puntingStats[0] || '0'}</div>
@@ -2326,7 +2326,7 @@ async function displayPlayerGameStats(game, date) {
       if (availableCategories.length > 0) {
         statsDisplay = `
           <div style="margin-bottom: 20px;">
-            <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Player Statistics</div>
+            <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">🏈 Player Statistics</div>
             ${availableCategories.map(category => {
               const stats = playerStats[category];
               return `

@@ -1387,7 +1387,7 @@ function processPlayerStats(selectedPlayer, position, contentDiv) {
       { key: 'shotsOnTarget', label: 'Shots on Target', category: 'offensive' },
       { key: 'foulsCommitted', label: 'Fouls Committed', category: 'general' },
       { key: 'offsides', label: 'Offsides', category: 'offensive' },
-      { key: 'subIns', label: 'Substitute Appearances', category: 'general' }
+      { key: 'subIns', label: 'Subbed In', category: 'general' }
     ];
   }
   
@@ -2025,31 +2025,31 @@ async function displayPlayerGameStats(game, date) {
       // Goalkeeper stats
       statsDisplay = `
         <div style="margin-bottom: 20px;">
-          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Goalkeeper Stats</div>
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">⚽ Goalkeeper Stats</div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
             <div style="text-align: center;">
-              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['SV'] || '0'}</div>
-              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">SV</div>
+              <div style="font-size: 1.65rem; font-weight: bold; color: #fff;">${playerStats['SV'] || '0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 2px;">SV</div>
             </div>
             <div style="text-align: center;">
-              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['GA'] || '0'}</div>
-              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">GA</div>
+              <div style="font-size: 1.65rem; font-weight: bold; color: #fff;">${playerStats['GA'] || '0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 2px;">GA</div>
             </div>
             <div style="text-align: center;">
-              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['SHF'] || '0'}</div>
-              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">SHF</div>
+              <div style="font-size: 1.65rem; font-weight: bold; color: #fff;">${playerStats['SHF'] || '0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 2px;">SHF</div>
             </div>
             <div style="text-align: center;">
-              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['OG'] || '0'}</div>
-              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">OG</div>
+              <div style="font-size: 1.65rem; font-weight: bold; color: #fff;">${playerStats['OG'] || '0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 2px;">OG</div>
             </div>
             <div style="text-align: center;">
-              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['YC'] || '0'}</div>
-              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">YC</div>
+              <div style="font-size: 1.65rem; font-weight: bold; color: #fff;">${playerStats['YC'] || '0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 2px;">YC</div>
             </div>
             <div style="text-align: center;">
-              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['RC'] || '0'}</div>
-              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">RC</div>
+              <div style="font-size: 1.65rem; font-weight: bold; color: #fff;">${playerStats['RC'] || '0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 2px;">RC</div>
             </div>
           </div>
         </div>
@@ -2058,31 +2058,31 @@ async function displayPlayerGameStats(game, date) {
       // Outfield player stats
       statsDisplay = `
         <div style="margin-bottom: 20px;">
-          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">Match Performance</div>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">⚽ Match Performance</div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
             <div style="text-align: center;">
-              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['G'] || '0'}</div>
-              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">G</div>
+              <div style="font-size: 1.65rem; font-weight: bold; color: #fff;">${playerStats['G'] || '0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 2px;">G</div>
             </div>
             <div style="text-align: center;">
-              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['A'] || '0'}</div>
-              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">A</div>
+              <div style="font-size: 1.65rem; font-weight: bold; color: #fff;">${playerStats['A'] || '0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 2px;">A</div>
             </div>
             <div style="text-align: center;">
-              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['SH'] || '0'}</div>
-              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">SH</div>
+              <div style="font-size: 1.65rem; font-weight: bold; color: #fff;">${playerStats['SH'] || '0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 2px;">SH</div>
             </div>
             <div style="text-align: center;">
-              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['ST'] || '0'}</div>
-              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">SOG</div>
+              <div style="font-size: 1.65rem; font-weight: bold; color: #fff;">${playerStats['ST'] || '0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 2px;">SOG</div>
             </div>
             <div style="text-align: center;">
-              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['YC'] || '0'}</div>
-              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">YC</div>
+              <div style="font-size: 1.65rem; font-weight: bold; color: #fff;">${playerStats['YC'] || '0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 2px;">YC</div>
             </div>
             <div style="text-align: center;">
-              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${playerStats['RC'] || '0'}</div>
-              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">RC</div>
+              <div style="font-size: 1.65rem; font-weight: bold; color: #fff;">${playerStats['RC'] || '0'}</div>
+              <div style="font-size: 0.9rem; color: #ccc; margin-top: 2px;">RC</div>
             </div>
           </div>
         </div>
@@ -2534,7 +2534,7 @@ function createStatsComparisonDisplay(player1, player2, player1Stats, player2Sta
       { key: 'shotsOnTarget', label: 'Shots on Target', category: 'offensive' },
       { key: 'foulsCommitted', label: 'Fouls Committed', category: 'general' },
       { key: 'offsides', label: 'Offsides', category: 'offensive' },
-      { key: 'subIns', label: 'Substitute Appearances', category: 'general' }
+      { key: 'subIns', label: 'Subbed In', category: 'general' }
     ];
   }
 

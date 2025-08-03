@@ -156,3 +156,31 @@ body {
   color: white;
   text-shadow: 2px 2px 2px black;
 }
+
+@media (max-width: 525px) {
+  .away-team-score,
+  .home-team-score {
+    font-size: 6rem; /* Adjusted for smaller screens */
+  }
+
+  .team-logo {
+    width: 40px; /* Smaller logo for mobile */
+    height: 40px;
+  }
+
+  .top-scoreboard {
+    width: 95%;
+  }
+
+  .diamond {
+    grid-template-areas:
+      ". second ."
+      "third first";
+    gap: 0.2rem;
+  }
+
+  .base {
+    width: 14px; /* Smaller bases for mobile */
+    height: 14px;
+  }
+}

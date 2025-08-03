@@ -1451,7 +1451,7 @@ async function displayPlayerGameStats(boxscoreData, game) {
         </div>
         <div style="text-align: right; color: #ccc; font-size: 0.8rem;">
           ${gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-          <div style="font-size: 0.65rem; margin-top: 1px; opacity: 0.7;">Click to view game deails</div>
+          <div class="game-details-text" style="font-size: 0.7rem; margin-top: 2px; opacity: 0.7;">Click to view game details</div>
         </div>
       </div>
   `;

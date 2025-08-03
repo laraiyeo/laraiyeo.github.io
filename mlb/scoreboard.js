@@ -787,7 +787,7 @@ async function fetchAndUpdateScoreboard(gamePk) {
     const inningCenter = document.querySelector(".inning-center");
     const isSmallScreen = window.innerWidth <= 525;
     if (!isInProgress && inningCenter) {
-      inningCenter.innerHTML = `<div class="inning-status" style="font-size: ${isSmallScreen ? '2rem' : '3.5rem'};"> ${isGameOver ? "Final" : "Scheduled"}</div>`; // Replace with "Final"
+      inningCenter.innerHTML = `<div class="inning-status" style="font-size: ${isSmallScreen ? '1.75rem' : '3.5rem'};"> ${isGameOver ? "Final" : "Scheduled"}</div>`; // Replace with "Final"
     }
 
     // Render player stats
