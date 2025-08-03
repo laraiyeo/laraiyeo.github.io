@@ -1217,6 +1217,8 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       margin: 0 auto;
       overflow: hidden;
     `;
+    
+    const teamColor = currentTeam && currentTeam.color ? `#${currentTeam.color}` : '#17408B';
 
     // Background behind active tab
     const sliderBackground = document.createElement('div');
@@ -1227,7 +1229,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       left: 0;
       width: 51.75%;
       height: 100%;
-      background-color: #C8102E; /* WNBA red */
+      background-color: ${teamcolor};
       border-radius: 25px;
       transition: transform 0.3s ease;
       z-index: 0;
