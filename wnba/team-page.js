@@ -1618,14 +1618,55 @@ async function loadGameLogForDate(date) {
       document.head.appendChild(style);
     }
 
-    // Get current season year
-    const seasonYear = await getValidSeasonYear('basketball', 'wnba');
+    // Get season year based on the selected date, not current date
+    function getSeasonYearForDate(dateStr) {
+      const selectedDate = new Date(dateStr);
+      const selectedMonth = selectedDate.getMonth() + 1; // 0-based, so add 1
+      const selectedYear = selectedDate.getFullYear();
+      
+      // WNBA season runs from May to October
+      // If the date is from November-April, it belongs to the off-season
+      // If the date is from May-October, it belongs to the season of that year
+      if (selectedMonth >= 11 || selectedMonth <= 4) {
+        // Off-season: if Nov-Dec, use next year; if Jan-Apr, use current year
+        return selectedMonth >= 11 ? selectedYear + 1 : selectedYear;
+      } else {
+        return selectedYear; // May-October, use current year
+      }
+    }
     
+    const seasonYear = getSeasonYearForDate(date);
+    console.log(`Selected date: ${date}, calculated season year: ${seasonYear}`);
+    
+    // Get the player's team for the specific season year
+    let teamIdForSeason = currentTeamId; // Default to current team
+    try {
+      console.log(`Fetching player's team for season ${seasonYear}...`);
+      const playerSeasonResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/${seasonYear}/athletes/${selectedPlayer.id}?lang=en&region=us`);
+      
+      if (playerSeasonResponse.ok) {
+        const playerSeasonData = await playerSeasonResponse.json();
+        if (playerSeasonData.team && playerSeasonData.team.$ref) {
+          // Extract team ID from the $ref URL
+          const teamRefMatch = playerSeasonData.team.$ref.match(/teams\/(\d+)/);
+          if (teamRefMatch) {
+            teamIdForSeason = teamRefMatch[1];
+            console.log(`Player was on team ${teamIdForSeason} during ${seasonYear} season`);
+          }
+        }
+      } else {
+        console.log(`Could not fetch player's team for season ${seasonYear}, using current team`);
+      }
+    } catch (error) {
+      console.log(`Error fetching player's season team:`, error);
+      console.log(`Using current team ${currentTeamId} as fallback`);
+    }
+
     // Format date for ESPN API (YYYYMMDD)
     const formattedDate = date.replace(/-/g, '');
     
     // Find games for the selected date using ESPN API
-    const scheduleResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${currentTeamId}/schedule?season=${seasonYear}`);
+    const scheduleResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${teamIdForSeason}/schedule?season=${seasonYear}`);
     
     if (!scheduleResponse.ok) {
       throw new Error(`HTTP error! status: ${scheduleResponse.status}`);
@@ -1686,7 +1727,7 @@ async function loadGameLogForDate(date) {
     }
 
     // For completed games, we need to get box score data
-    await displayPlayerGameStats(game, date);
+    await displayPlayerGameStats(game, date, teamIdForSeason);
 
   } catch (error) {
     console.error('Error loading game log:', error);
@@ -1700,7 +1741,7 @@ async function loadGameLogForDate(date) {
   }
 }
 
-async function displayPlayerGameStats(game, date) {
+async function displayPlayerGameStats(game, date, teamIdForSeason) {
   const resultsContainer = document.getElementById('gameLogResults');
   if (!resultsContainer || !selectedPlayer) return;
 

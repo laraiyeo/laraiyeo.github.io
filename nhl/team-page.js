@@ -226,20 +226,80 @@ async function convertToNHLGameId(espnGame) {
                          String(gameDate.getMonth() + 1).padStart(2, "0") + "-" +
                          String(gameDate.getDate()).padStart(2, "0");
     
+    // Check if the date is likely in off-season (July through September)
+    const month = gameDate.getMonth() + 1; // 0-based month
+    const isOffSeason = month >= 7 && month <= 9;
+    
+    if (isOffSeason) {
+      console.log(`Date ${nhlDateFormat} is in NHL off-season, skipping NHL API lookup`);
+      return null;
+    }
+    
+    // Helper function to convert ESPN team abbreviations to NHL abbreviations
+    const convertEspnToNhlAbbrev = (espnAbbrev) => {
+      const mapping = {
+        'NJ': 'NJD',   // New Jersey Devils
+        'TB': 'TBL',   // Tampa Bay Lightning  
+        'LA': 'LAK',   // Los Angeles Kings
+        'SJ': 'SJS',   // San Jose Sharks
+        'VGS': 'VGK',  // Vegas Golden Knights (ESPN might use VGS)
+        'VGK': 'VGK',  // Vegas Golden Knights (keep if already correct)
+        'WSH': 'WSH',  // Washington Capitals (same)
+        'CAR': 'CAR',  // Carolina Hurricanes (same)
+        'MTL': 'MTL',  // Montreal Canadiens (same)
+        'TOR': 'TOR',  // Toronto Maple Leafs (same)
+        'BOS': 'BOS',  // Boston Bruins (same)
+        'NYR': 'NYR',  // New York Rangers (same)
+        'NYI': 'NYI',  // New York Islanders (same)
+        'PHI': 'PHI',  // Philadelphia Flyers (same)
+        'PIT': 'PIT',  // Pittsburgh Penguins (same)
+        'CBJ': 'CBJ',  // Columbus Blue Jackets (same)
+        'DET': 'DET',  // Detroit Red Wings (same)
+        'BUF': 'BUF',  // Buffalo Sabres (same)
+        'FLA': 'FLA',  // Florida Panthers (same)
+        'OTT': 'OTT',  // Ottawa Senators (same)
+        'WPG': 'WPG',  // Winnipeg Jets (same)
+        'NSH': 'NSH',  // Nashville Predators (same)
+        'STL': 'STL',  // St. Louis Blues (same)
+        'CHI': 'CHI',  // Chicago Blackhawks (same)
+        'COL': 'COL',  // Colorado Avalanche (same)
+        'MIN': 'MIN',  // Minnesota Wild (same)
+        'DAL': 'DAL',  // Dallas Stars (same)
+        'ARI': 'ARI',  // Arizona Coyotes (same)
+        'UTA': 'UTA',  // Utah Hockey Club (same)
+        'VAN': 'VAN',  // Vancouver Canucks (same)
+        'SEA': 'SEA',  // Seattle Kraken (same)
+        'CGY': 'CGY',  // Calgary Flames (same)
+        'EDM': 'EDM',  // Edmonton Oilers (same)
+        'ANA': 'ANA'   // Anaheim Ducks (same)
+      };
+      return mapping[espnAbbrev] || espnAbbrev;
+    };
+    
     // Get the team abbreviations from ESPN data
     const competition = espnGame.competitions[0];
     const homeTeam = competition.competitors.find(c => c.homeAway === "home");
     const awayTeam = competition.competitors.find(c => c.homeAway === "away");
     
-    const homeAbbrev = homeTeam.team.abbreviation;
-    const awayAbbrev = awayTeam.team.abbreviation;
+    const homeAbbrev = convertEspnToNhlAbbrev(homeTeam.team.abbreviation);
+    const awayAbbrev = convertEspnToNhlAbbrev(awayTeam.team.abbreviation);
+    
+    console.log(`Converting ESPN teams: ${homeTeam.team.abbreviation} vs ${awayTeam.team.abbreviation} to NHL: ${homeAbbrev} vs ${awayAbbrev}`);
     
     // Fetch NHL schedule for that date
     const nhlResponse = await fetch(`https://corsproxy.io/?url=https://api-web.nhle.com/v1/schedule/${nhlDateFormat}`);
+    
+    if (!nhlResponse.ok) {
+      console.log(`NHL API request failed for ${nhlDateFormat}, using ESPN data only`);
+      return null;
+    }
+    
     const nhlData = await nhlResponse.json();
+    console.log(`NHL schedule data for ${nhlDateFormat}:`, nhlData);
     
     // Find the matching game by team abbreviations
     const matchingGame = nhlData.gameWeek?.[0]?.games?.find(game => {
+      console.log(`Checking NHL game: ${game.homeTeam.abbrev} vs ${game.awayTeam.abbrev} against ESPN ${homeAbbrev} vs ${awayAbbrev}`);
       return (game.homeTeam.abbrev === homeAbbrev && game.awayTeam.abbrev === awayAbbrev) ||
              (game.homeTeam.abbrev === awayAbbrev && game.awayTeam.abbrev === homeAbbrev);
     });
@@ -251,7 +311,10 @@ async function convertToNHLGameId(espnGame) {
       };
     }
     
-    console.warn(`Could not find NHL game ID for ESPN game ${espnGame.id} on ${nhlDateFormat}`);
+    // Only show warning for dates that should have NHL games (regular season/playoffs)
+    if (!isOffSeason) {
+      console.warn(`Could not find NHL game ID for ESPN game ${espnGame.id} on ${nhlDateFormat}`);
+    }
     return null;
   } catch (error) {
     console.error('Error converting ESPN game to NHL game ID:', error);
@@ -1692,6 +1755,52 @@ async function loadGameLogForDate(date) {
       document.head.appendChild(style);
     }
 
+    // Get season year based on the selected date, not current date
+    function getSeasonYearForDate(dateStr) {
+      const selectedDate = new Date(dateStr);
+      const selectedMonth = selectedDate.getMonth() + 1; // 0-based, so add 1
+      const selectedYear = selectedDate.getFullYear();
+      
+      // NHL season runs from October to June
+      // If the date is from July-September, it belongs to the off-season of that year
+      // If the date is from October-December, it belongs to the season ending in the following year
+      // If the date is from January-June, it belongs to the season ending in that year
+      if (selectedMonth >= 7 && selectedMonth <= 9) {
+        return selectedYear; // Off-season, use current year as season identifier
+      } else if (selectedMonth >= 10) {
+        return selectedYear + 1; // New season starting, use next year
+      } else {
+        return selectedYear; // Regular season/playoffs, use current year
+      }
+    }
+    
+    const seasonYear = getSeasonYearForDate(date);
+    console.log(`Selected date: ${date}, calculated season year: ${seasonYear}`);
+    
+    // Get the player's team for the specific season year
+    let teamIdForSeason = currentTeamId; // Default to current team
+    try {
+      console.log(`Fetching player's team for season ${seasonYear}...`);
+      const playerSeasonResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${seasonYear}/athletes/${selectedPlayer.id}?lang=en&region=us`);
+      
+      if (playerSeasonResponse.ok) {
+        const playerSeasonData = await playerSeasonResponse.json();
+        if (playerSeasonData.teams && playerSeasonData.teams[0] && playerSeasonData.teams[0].$ref) {
+          // Extract team ID from the $ref URL
+          const teamRefMatch = playerSeasonData.teams[0].$ref.match(/teams\/(\d+)/);
+          if (teamRefMatch) {
+            teamIdForSeason = teamRefMatch[1];
+            console.log(`Player was on team ${teamIdForSeason} during ${seasonYear} season`);
+          }
+        }
+      } else {
+        console.log(`Could not fetch player's team for season ${seasonYear}, using current team`);
+      }
+    } catch (error) {
+      console.log(`Error fetching player's season team:`, error);
+      console.log(`Using current team ${currentTeamId} as fallback`);
+    }
+
     // Use the same approach as loadRecentMatches - fetch games using ESPN scoreboard API for the specific date
     const gameDate = new Date(date + 'T00:00:00'); // Add time to prevent timezone issues
     const formatDate = (date) => {
@@ -1707,13 +1816,13 @@ async function loadGameLogForDate(date) {
     const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates=${formattedDate}`);
     const data = await response.json();
 
-    // Find games for this team on this date (same logic as loadRecentMatches)
+    // Find games for this team on this date using the season-specific team ID
     const games = data.events?.filter(event => {
       const competition = event.competitions?.[0];
-      return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
+      return competition?.competitors.some(competitor => competitor.team.id === teamIdForSeason);
     }) || [];
 
-    console.log(`Found ${games.length} games for team ${currentTeamId} on ${formattedDate}`);
+    console.log(`Found ${games.length} games for team ${teamIdForSeason} on ${formattedDate}`);
 
     if (games.length === 0) {
       resultsContainer.innerHTML = `
@@ -1732,8 +1841,8 @@ async function loadGameLogForDate(date) {
     // Check if game is scheduled but not yet played
     if (['STATUS_SCHEDULED', 'STATUS_POSTPONED', 'STATUS_SUSPENDED'].includes(game.competitions[0].status.type.name)) {
       const competition = game.competitions[0];
-      const opponent = competition.competitors.find(c => c.team.id !== currentTeamId);
-      const isHomeGame = competition.competitors.find(c => c.team.id === currentTeamId).homeAway === 'home';
+      const opponent = competition.competitors.find(c => c.team.id.toString() !== teamIdForSeason.toString());
+      const isHomeGame = competition.competitors.find(c => c.team.id.toString() === teamIdForSeason.toString()).homeAway === 'home';
       
       resultsContainer.innerHTML = `
         <div style="text-align: center; padding: 40px 20px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
@@ -1757,7 +1866,7 @@ async function loadGameLogForDate(date) {
     }
 
     // For completed games, we need to get box score data
-    await displayPlayerGameStats(game, date);
+    await displayPlayerGameStats(game, date, teamIdForSeason);
 
   } catch (error) {
     console.error('Error loading game log:', error);
@@ -1771,7 +1880,7 @@ async function loadGameLogForDate(date) {
   }
 }
 
-async function displayPlayerGameStats(game, date) {
+async function displayPlayerGameStats(game, date, teamIdForSeason) {
   const resultsContainer = document.getElementById('gameLogResults');
   if (!resultsContainer || !selectedPlayer) return;
 
@@ -1802,17 +1911,35 @@ async function displayPlayerGameStats(game, date) {
 
     // Get basic game info from ESPN data (always available)
     const competition = game.competitions[0];
-    const isHomeTeam = competition.competitors.find(c => c.team.id === currentTeamId).homeAway === 'home';
-    const opponentTeam = competition.competitors.find(c => c.team.id !== currentTeamId);
-    const teamCompetitor = competition.competitors.find(c => c.team.id === currentTeamId);
-    const opponentCompetitor = competition.competitors.find(c => c.team.id !== currentTeamId);
+    const isHomeTeam = competition.competitors.find(c => c.team.id.toString() === teamIdForSeason.toString()).homeAway === 'home';
+    const opponentTeam = competition.competitors.find(c => c.team.id.toString() !== teamIdForSeason.toString());
+    const teamCompetitor = competition.competitors.find(c => c.team.id.toString() === teamIdForSeason.toString());
+    const opponentCompetitor = competition.competitors.find(c => c.team.id.toString() !== teamIdForSeason.toString());
+    
+    // Check if we found the team competitors
+    if (!teamCompetitor || !opponentCompetitor) {
+      console.error('Could not find team competitors:', { teamIdForSeason, competitors: competition.competitors });
+      resultsContainer.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px; background: #f8d7da; border-radius: 8px; border: 1px solid #f5c6cb;">
+          <div style="font-size: 1.2rem; color: #721c24; margin-bottom: 10px;">⚠️</div>
+          <div style="color: #721c24; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+            Team data not found for this game
+          </div>
+          <div style="color: #721c24; font-size: 0.9rem; line-height: 1.4;">
+            Unable to load game information
+          </div>
+        </div>
+      `;
+      return;
+    }
     
     // Access the score value properly
     const teamScore = teamCompetitor.score?.value || teamCompetitor.score || "0";
     const opponentScore = opponentCompetitor.score?.value || opponentCompetitor.score || "0";
 
-    // Get team logos
-    const teamLogo = `https://a.espncdn.com/i/teamlogos/nhl/500/${currentTeam.abbreviation}.png`;
+    // Get team logos - use the season-specific team abbreviation
+    const playerTeamForSeason = competition.competitors.find(c => c.team.id.toString() === teamIdForSeason.toString());
+    const teamLogo = `https://a.espncdn.com/i/teamlogos/nhl/500/${playerTeamForSeason.team.abbreviation}.png`;
     const opponentLogo = `https://a.espncdn.com/i/teamlogos/nhl/500/${opponentTeam.team.abbreviation}.png`;
 
     const gameDate = new Date(game.date);
@@ -1970,7 +2097,7 @@ async function displayPlayerGameStats(game, date) {
         <!-- Game Header -->
         <div id="gameHeader_${game.id}" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.15)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.1)'" ${gameLinkClick}>
           <div style="display: flex; align-items: center; gap: 15px;">
-            <img src="${teamLogo}" alt="${currentTeam.displayName}" style="height: 30px;" onerror="this.src='icon.png';">
+            <img src="${teamLogo}" alt="${playerTeamForSeason.team.displayName}" style="height: 30px;" onerror="this.src='icon.png';">
             <span style="font-size: 1.1rem; font-weight: bold; color: ${parseInt(teamScore) > parseInt(opponentScore)  ? '#fff' : '#ccc'};">${teamScore}</span>
             <span style="color: #ccc;">-</span>
             <span style="font-size: 1.1rem; font-weight: bold; color: ${parseInt(opponentScore) > parseInt(teamScore) ? '#fff' : '#ccc'};">${opponentScore}</span>

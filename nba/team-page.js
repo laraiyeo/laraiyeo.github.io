@@ -1707,8 +1707,50 @@ async function loadGameLogForDate(date) {
       document.head.appendChild(style);
     }
 
-    // Get current season year
-    const seasonYear = await getValidSeasonYear('basketball', 'nba');
+    // Get season year based on the selected date, not current date
+    function getSeasonYearForDate(dateStr) {
+      const selectedDate = new Date(dateStr);
+      const selectedMonth = selectedDate.getMonth() + 1; // 0-based, so add 1
+      const selectedYear = selectedDate.getFullYear();
+      
+      // NBA season runs from October to June
+      // If the date is from July-September, it belongs to the season ending in that year
+      // If the date is from October-June, it belongs to the season ending in the following year
+      if (selectedMonth >= 7 && selectedMonth <= 9) {
+        return selectedYear; // Off-season, use current year as season identifier
+      } else if (selectedMonth >= 10) {
+        return selectedYear + 1; // New season starting, use next year
+      } else {
+        return selectedYear; // Mid-season, use current year
+      }
+    }
+    
+    const seasonYear = getSeasonYearForDate(date);
+    console.log(`Selected date: ${date}, calculated season year: ${seasonYear}`);
+    
+    // Get the player's team for the specific season year
+    let teamIdForSeason = currentTeamId; // Default to current team
+    try {
+      console.log(`Fetching player's team for season ${seasonYear}...`);
+      const playerSeasonResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${seasonYear}/athletes/${selectedPlayer.id}?lang=en&region=us`);
+      
+      if (playerSeasonResponse.ok) {
+        const playerSeasonData = await playerSeasonResponse.json();
+        if (playerSeasonData.team && playerSeasonData.team.$ref) {
+          // Extract team ID from the $ref URL
+          const teamRefMatch = playerSeasonData.team.$ref.match(/teams\/(\d+)/);
+          if (teamRefMatch) {
+            teamIdForSeason = teamRefMatch[1];
+            console.log(`Player was on team ${teamIdForSeason} during ${seasonYear} season`);
+          }
+        }
+      } else {
+        console.log(`Could not fetch player's team for season ${seasonYear}, using current team`);
+      }
+    } catch (error) {
+      console.log(`Error fetching player's season team:`, error);
+      console.log(`Using current team ${currentTeamId} as fallback`);
+    }
     
     // Format date for ESPN API (YYYYMMDD)
     const formattedDate = date.replace(/-/g, '');
@@ -1751,7 +1793,7 @@ async function loadGameLogForDate(date) {
       try {
         console.log('Trying Summer League (nba-summer-las-vegas)');
         
-        const scheduleResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/teams/${currentTeamId}/schedule?season=${seasonYear}`);
+        const scheduleResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/teams/${teamIdForSeason}/schedule?season=${seasonYear}`);
         
         if (scheduleResponse.ok) {
           scheduleData = await scheduleResponse.json();
@@ -1780,7 +1822,7 @@ async function loadGameLogForDate(date) {
       try {
         console.log(`Trying primary season type ${primarySeasonType} (${primarySeasonType === 1 ? 'Preseason' : primarySeasonType === 2 ? 'Regular Season' : 'Postseason'})`);
         
-        const scheduleResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${currentTeamId}/schedule?season=${seasonYear}&seasontype=${primarySeasonType}`);
+        const scheduleResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamIdForSeason}/schedule?season=${seasonYear}&seasontype=${primarySeasonType}`);
         
         if (scheduleResponse.ok) {
           scheduleData = await scheduleResponse.json();
@@ -1846,7 +1888,7 @@ async function loadGameLogForDate(date) {
     }
 
     // For completed games, we need to get box score data
-    await displayPlayerGameStats(game, date);
+    await displayPlayerGameStats(game, date, teamIdForSeason);
 
   } catch (error) {
     console.error('Error loading game log:', error);
@@ -1860,9 +1902,12 @@ async function loadGameLogForDate(date) {
   }
 }
 
-async function displayPlayerGameStats(game, date) {
+async function displayPlayerGameStats(game, date, teamIdForSeason = null) {
   const resultsContainer = document.getElementById('gameLogResults');
   if (!resultsContainer || !selectedPlayer) return;
+
+  // Use the provided team ID for the season, or fall back to current team
+  const gameTeamId = teamIdForSeason || currentTeamId;
 
   try {
     // Determine if this is a Summer League game based on the date
@@ -1898,16 +1943,16 @@ async function displayPlayerGameStats(game, date) {
 
     // Find the player in the box score using the same structure as scoreboard.js
     const competition = game.competitions[0];
-    const isHomeTeam = competition.competitors.find(c => c.team.id === currentTeamId).homeAway === 'home';
+    const isHomeTeam = competition.competitors.find(c => c.team.id === gameTeamId).homeAway === 'home';
     
     // Get the correct team from boxscore players array
     const teamBoxscore = gameData.gamepackageJSON.boxscore.players.find(team => {
-      return team.team.id === currentTeamId;
+      return team.team.id === gameTeamId;
     });
     
     if (!teamBoxscore || !teamBoxscore.statistics || !teamBoxscore.statistics[0] || !teamBoxscore.statistics[0].athletes) {
       const gameDate = new Date(game.date);
-      const opponent = competition.competitors.find(c => c.team.id !== currentTeamId);
+      const opponent = competition.competitors.find(c => c.team.id !== gameTeamId);
       
       resultsContainer.innerHTML = `
         <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
@@ -1932,7 +1977,7 @@ async function displayPlayerGameStats(game, date) {
 
     if (!playerData) {
       const gameDate = new Date(game.date);
-      const opponent = competition.competitors.find(c => c.team.id !== currentTeamId);
+      const opponent = competition.competitors.find(c => c.team.id !== gameTeamId);
       
       resultsContainer.innerHTML = `
         <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
@@ -1950,15 +1995,24 @@ async function displayPlayerGameStats(game, date) {
       return;
     }
 
-    // Get team logos - use proper NBA logo URLs
-    const teamLogo = `https://a.espncdn.com/i/teamlogos/nba/500/${currentTeam.abbreviation}.png`;
-    const opponentTeam = competition.competitors.find(c => c.team.id !== currentTeamId);
+    // Get team logos - we need to figure out which team the player was on during this game
+    let playerTeamData = competition.competitors.find(c => c.team.id === gameTeamId);
+    if (!playerTeamData) {
+      // Fallback: use current team data
+      playerTeamData = competition.competitors.find(c => c.team.id === currentTeamId);
+    }
+    
+    const teamLogo = playerTeamData ? 
+      `https://a.espncdn.com/i/teamlogos/nba/500/${playerTeamData.team.abbreviation}.png` :
+      `https://a.espncdn.com/i/teamlogos/nba/500/${currentTeam.abbreviation}.png`;
+    
+    const opponentTeam = competition.competitors.find(c => c.team.id !== gameTeamId);
     const opponentLogo = `https://a.espncdn.com/i/teamlogos/nba/500/${opponentTeam.team.abbreviation}.png`;
 
     // Game info
     const gameDate = new Date(game.date);
-    const teamCompetitor = competition.competitors.find(c => c.team.id === currentTeamId);
-    const opponentCompetitor = competition.competitors.find(c => c.team.id !== currentTeamId);
+    const teamCompetitor = competition.competitors.find(c => c.team.id === gameTeamId);
+    const opponentCompetitor = competition.competitors.find(c => c.team.id !== gameTeamId);
     
     // Access the score value properly - it might be a string or number
     const teamScore = teamCompetitor.score?.value || teamCompetitor.score || "0";

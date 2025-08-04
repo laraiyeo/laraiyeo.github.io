@@ -199,7 +199,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - For streaming, you most definitely need a strong pop-up and ad blocker as the stream where the video comes from has an ad script embedded in it (I have made multiple attempts to try and remove it to no avail).
 - Last matches for all sports are currently facing issues when you try and search too far back
 - For NBA, WNBA, NFL, and NHL, the players headshots on the copied game card are squished a little if you click copy twice. On the first copy, they are normal
-
+- For player game log search, you can go back for as many years the player is active, however, if a player was traded during the season, it only shows game log for the team they were traded to. UEFA searches also don't allow for different leagues (Eg. game log for Harry Kane on March 11, 2021 won't show as Tottenham were in Europa that season)
 ---
 
 ## 🙌 Feedback & Contributions Welcome!

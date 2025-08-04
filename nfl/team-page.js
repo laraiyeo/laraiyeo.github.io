@@ -1782,14 +1782,89 @@ async function loadGameLogForDate(date) {
       document.head.appendChild(style);
     }
 
-    // Get current season year
-    const seasonYear = await getValidSeasonYear('football', 'nfl');
+    // Get season year based on the selected date, not current date
+    function getSeasonYearForDate(dateStr) {
+      const selectedDate = new Date(dateStr);
+      const selectedMonth = selectedDate.getMonth() + 1; // 0-based, so add 1
+      const selectedDay = selectedDate.getDate();
+      const selectedYear = selectedDate.getFullYear();
+      
+      // NFL season runs from August 1 to February 28/29
+      // The season is identified by the year it STARTED in
+      // So 2021-22 season = 2021, 2022-23 season = 2022, etc.
+      
+      // If the date is from March 1 to July 31, it belongs to the off-season
+      if (selectedMonth >= 3 && selectedMonth <= 7) {
+        return selectedYear; // Off-season, use current year as season identifier
+      } 
+      // If the date is from August 1 to December 31, it belongs to the season starting in that year
+      else if (selectedMonth >= 8) {
+        return selectedYear; // Season starting year
+      } 
+      // If the date is from January 1 to February 29, it belongs to the season that started the previous year
+      else {
+        return selectedYear - 1; // Season started in previous year
+      }
+    }
+    
+    function getSeasonTypeForDate(dateStr) {
+      const selectedDate = new Date(dateStr);
+      const selectedMonth = selectedDate.getMonth() + 1; // 0-based, so add 1
+      const selectedDay = selectedDate.getDate();
+      
+      // Pre-season: July to September 1
+      if (selectedMonth === 7 || (selectedMonth === 8) || (selectedMonth === 9 && selectedDay === 1)) {
+        return 1; // Preseason
+      }
+      // Regular season: September 2 to January 6
+      else if ((selectedMonth === 9 && selectedDay >= 2) || 
+               (selectedMonth >= 10 && selectedMonth <= 12) || 
+               (selectedMonth === 1 && selectedDay <= 6)) {
+        return 2; // Regular season
+      }
+      // Post-season: January 7 to February 29
+      else if ((selectedMonth === 1 && selectedDay >= 7) || selectedMonth === 2) {
+        return 3; // Playoffs
+      }
+      // Off-season: March to June
+      else {
+        return 4; // Off-season
+      }
+    }
+    
+    const seasonYear = getSeasonYearForDate(date);
+    const seasonType = getSeasonTypeForDate(date);
+    console.log(`Selected date: ${date}, calculated season year: ${seasonYear}, season type: ${seasonType}`);
+    
+    // Get the player's team for the specific season year
+    let teamIdForSeason = currentTeamId; // Default to current team
+    try {
+      console.log(`Fetching player's team for season ${seasonYear}...`);
+      const playerSeasonResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${seasonYear}/athletes/${selectedPlayer.id}?lang=en&region=us`);
+      
+      if (playerSeasonResponse.ok) {
+        const playerSeasonData = await playerSeasonResponse.json();
+        if (playerSeasonData.team && playerSeasonData.team.$ref) {
+          // Extract team ID from the $ref URL
+          const teamRefMatch = playerSeasonData.team.$ref.match(/teams\/(\d+)/);
+          if (teamRefMatch) {
+            teamIdForSeason = teamRefMatch[1];
+            console.log(`Player was on team ${teamIdForSeason} during ${seasonYear} season`);
+          }
+        }
+      } else {
+        console.log(`Could not fetch player's team for season ${seasonYear}, using current team`);
+      }
+    } catch (error) {
+      console.log(`Error fetching player's season team:`, error);
+      console.log(`Using current team ${currentTeamId} as fallback`);
+    }
     
     // Format date for ESPN API (YYYYMMDD)
     const formattedDate = date.replace(/-/g, '');
     
-    // Find games for the selected date using ESPN API
-    const scheduleResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${currentTeamId}/schedule?season=${seasonYear}`);
+    // Find games for the selected date using ESPN API with season type
+    const scheduleResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${teamIdForSeason}/schedule?season=${seasonYear}&seasontype=${seasonType}`);
     
     if (!scheduleResponse.ok) {
       throw new Error(`HTTP error! status: ${scheduleResponse.status}`);
@@ -1850,7 +1925,7 @@ async function loadGameLogForDate(date) {
     }
 
     // For completed games, we need to get box score data
-    await displayPlayerGameStats(game, date);
+    await displayPlayerGameStats(game, date, teamIdForSeason);
 
   } catch (error) {
     console.error('Error loading game log:', error);
@@ -1864,7 +1939,7 @@ async function loadGameLogForDate(date) {
   }
 }
 
-async function displayPlayerGameStats(game, date) {
+async function displayPlayerGameStats(game, date, teamIdForSeason) {
   const resultsContainer = document.getElementById('gameLogResults');
   if (!resultsContainer || !selectedPlayer) return;
 
@@ -1928,8 +2003,8 @@ async function displayPlayerGameStats(game, date) {
     if (!foundPlayer) {
       const competition = game.competitions[0];
       const gameDate = new Date(game.date);
-      const opponent = competition.competitors.find(c => c.team.id !== currentTeamId);
-      const isHomeTeam = competition.competitors.find(c => c.team.id === currentTeamId).homeAway === 'home';
+      const opponent = competition.competitors.find(c => c.team.id.toString() !== teamIdForSeason.toString());
+      const isHomeTeam = competition.competitors.find(c => c.team.id.toString() === teamIdForSeason.toString()).homeAway === 'home';
       
       resultsContainer.innerHTML = `
         <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
@@ -1951,14 +2026,32 @@ async function displayPlayerGameStats(game, date) {
     const competition = game.competitions[0];
 
     // Get team logos - use proper NFL logo URLs
-    const teamLogo = `https://a.espncdn.com/i/teamlogos/nfl/500/${currentTeam.abbreviation}.png`;
-    const opponentTeam = competition.competitors.find(c => c.team.id !== currentTeamId);
+    const playerTeamCompetitor = competition.competitors.find(c => c.team.id.toString() === teamIdForSeason.toString());
+    const teamLogo = `https://a.espncdn.com/i/teamlogos/nfl/500/${playerTeamCompetitor.team.abbreviation}.png`;
+    const opponentTeam = competition.competitors.find(c => c.team.id.toString() !== teamIdForSeason.toString());
     const opponentLogo = `https://a.espncdn.com/i/teamlogos/nfl/500/${opponentTeam.team.abbreviation}.png`;
 
     // Game info
     const gameDate = new Date(game.date);
-    const teamCompetitor = competition.competitors.find(c => c.team.id === currentTeamId);
-    const opponentCompetitor = competition.competitors.find(c => c.team.id !== currentTeamId);
+    const teamCompetitor = competition.competitors.find(c => c.team.id.toString() === teamIdForSeason.toString());
+    const opponentCompetitor = competition.competitors.find(c => c.team.id.toString() !== teamIdForSeason.toString());
+    
+    // Check if we found the team competitors
+    if (!teamCompetitor || !opponentCompetitor) {
+      console.error('Could not find team competitors:', { teamIdForSeason, competitors: competition.competitors });
+      resultsContainer.innerHTML = `
+        <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
+          <div style="font-size: 2rem; margin-bottom: 15px;">⚠️</div>
+          <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+            Team data not found for this game
+          </div>
+          <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
+            Unable to load game information
+          </div>
+        </div>
+      `;
+      return;
+    }
     
     // Access the score value properly - it might be a string or number
     const teamScore = teamCompetitor.score?.value || teamCompetitor.score || "0";

@@ -976,6 +976,33 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       headshot: null // UEFA doesn't have headshots
     };
 
+    // Fetch ESPN athlete data to get team and league info for season-aware functionality
+    try {
+      const athleteResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${currentUefaLeague}/athletes/${playerId}?lang=en&region=us`);
+      if (athleteResponse.ok) {
+        const athleteData = await athleteResponse.json();
+        console.log('ESPN Athlete API Response:', athleteData);
+        
+        // For UEFA, use team.$ref instead of defaultTeam.$ref
+        if (athleteData.team && athleteData.team.$ref) {
+          const teamRefMatch = athleteData.team.$ref.match(/teams\/(\d+)/);
+          if (teamRefMatch) {
+            selectedPlayer.defaultTeam = teamRefMatch[1];
+            console.log(`Player's current team: ${selectedPlayer.defaultTeam}`);
+          }
+          
+          // Extract league from team.$ref URL for UEFA
+          const leagueRefMatch = athleteData.team.$ref.match(/leagues\/([^\/]+)/);
+          if (leagueRefMatch) {
+            selectedPlayer.defaultLeague = leagueRefMatch[1];
+            console.log(`Player's league from team ref: ${selectedPlayer.defaultLeague}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.log('Could not fetch ESPN athlete data for team/league info:', error);
+    }
+
     // Create stats container
     const statsContainer = document.createElement('div');
     statsContainer.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
@@ -1831,14 +1858,87 @@ async function loadGameLogForDate(date) {
       document.head.appendChild(style);
     }
 
+    // Get season year based on the selected date, not current date
+    function getSeasonYearForDate(dateStr) {
+      const selectedDate = new Date(dateStr);
+      const selectedMonth = selectedDate.getMonth() + 1; // 0-based, so add 1
+      const selectedYear = selectedDate.getFullYear();
+      
+      // Season runs from August 1 to June 30
+      // Return the starting year of the season for ESPN API
+      // If the date is from August-December, it's the start of the season (use current year)
+      // If the date is from January-June, it's the end of the season (use previous year)
+      // If the date is in July, it's off-season (use previous year)
+      if (selectedMonth >= 8) {
+        return selectedYear; // Start of season (e.g., Aug 2023 = 2023-24 season = 2023)
+      } else {
+        return selectedYear - 1; // End of season (e.g., Mar 2024 = 2023-24 season = 2023)
+      }
+    }
+    
+    const seasonYear = getSeasonYearForDate(date);
+    console.log(`Selected date: ${date}, calculated season year: ${seasonYear}`);
+    
+    // Get the player's team and league for the specific season year
+    let teamIdForSeason = currentTeamId; // Default to current team
+    let leagueForSeason = currentUefaLeague; // Default to current league
+    
+    // Fetch ESPN API data for the specific season to get accurate defaultTeam and defaultLeague
+    try {
+      console.log(`Fetching ESPN API data for player ${selectedPlayer.id} in season ${seasonYear}...`);
+      const playerSeasonResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${currentUefaLeague}/seasons/${seasonYear}/athletes/${selectedPlayer.id}?lang=en&region=us`);
+      
+      if (playerSeasonResponse.ok) {
+        const playerSeasonData = await playerSeasonResponse.json();
+        console.log('ESPN Player Season API Response:', playerSeasonData);
+        
+        // For UEFA, check team.$ref instead of defaultTeam.$ref
+        if (playerSeasonData.team && playerSeasonData.team.$ref) {
+          const teamRefMatch = playerSeasonData.team.$ref.match(/teams\/(\d+)/);
+          if (teamRefMatch) {
+            teamIdForSeason = teamRefMatch[1];
+            console.log(`Player's team from season ${seasonYear} data: ${teamIdForSeason}`);
+          }
+          
+          // Extract league from team.$ref URL for UEFA
+          const leagueRefMatch = playerSeasonData.team.$ref.match(/leagues\/([^\/]+)/);
+          if (leagueRefMatch) {
+            leagueForSeason = leagueRefMatch[1];
+            console.log(`Player's league from season ${seasonYear} team ref: ${leagueForSeason}`);
+          }
+        }
+        
+      } else {
+        console.log(`Could not fetch player's team for season ${seasonYear}, using stored data or fallback`);
+        
+        // Use stored defaultTeam and defaultLeague if available from initial fetch
+        if (selectedPlayer.defaultTeam && selectedPlayer.defaultLeague) {
+          teamIdForSeason = selectedPlayer.defaultTeam;
+          leagueForSeason = selectedPlayer.defaultLeague;
+          console.log(`Using stored team ${teamIdForSeason} and league ${leagueForSeason} for game log`);
+        }
+      }
+    } catch (error) {
+      console.log(`Error fetching player's season team:`, error);
+      
+      // Use stored defaultTeam and defaultLeague if available from initial fetch
+      if (selectedPlayer.defaultTeam && selectedPlayer.defaultLeague) {
+        teamIdForSeason = selectedPlayer.defaultTeam;
+        leagueForSeason = selectedPlayer.defaultLeague;
+        console.log(`Using stored default team ${teamIdForSeason} and league ${leagueForSeason} as fallback`);
+      } else {
+        console.log(`Using current team ${currentTeamId} and league ${currentUefaLeague} as final fallback`);
+      }
+    }
+
     // Format date for API (YYYYMMDD)
     const formattedDate = date.replace(/-/g, '');
     
-    // Find games for the selected date using UEFA API
-    const scheduleResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/scoreboard?dates=${formattedDate}`);
+    // Find games for the selected date using the determined league
+    const scheduleResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueForSeason}/scoreboard?dates=${formattedDate}`);
     
     if (!scheduleResponse.ok) {
-      throw new Error(`Schedule API returned ${scheduleResponse.status}`);
+      throw new Error(`Schedule API returned ${scheduleResponse.status} for league ${leagueForSeason}`);
     }
     
     const scheduleData = await scheduleResponse.json();
@@ -1846,11 +1946,11 @@ async function loadGameLogForDate(date) {
     
     console.log('Available games for date:', games.length);
     
-    // Find game where our team participated
+    // Find game where our team participated using season-specific team ID
     const teamGame = games.find(event => {
       const competition = event.competitions?.[0];
       return competition?.competitors?.some(competitor => 
-        competitor.team.id === currentTeamId
+        competitor.team.id === teamIdForSeason
       );
     });
 
@@ -1895,7 +1995,7 @@ async function loadGameLogForDate(date) {
     }
 
     // Display player game stats
-    await displayPlayerGameStats(teamGame, date);
+    await displayPlayerGameStats(teamGame, date, teamIdForSeason, leagueForSeason);
 
   } catch (error) {
     console.error('Error loading game log:', error);
@@ -1909,7 +2009,7 @@ async function loadGameLogForDate(date) {
   }
 }
 
-async function displayPlayerGameStats(game, date) {
+async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeason = currentUefaLeague) {
   const resultsContainer = document.getElementById('gameLogResults');
   if (!resultsContainer || !selectedPlayer) return;
 
@@ -1963,8 +2063,8 @@ async function displayPlayerGameStats(game, date) {
     if (!playerData) {
       const competition = game.competitions[0];
       const gameDate = new Date(game.date);
-      const opponent = competition.competitors.find(c => c.team.id !== currentTeamId);
-      const isHomeTeam = competition.competitors.find(c => c.team.id === currentTeamId).homeAway === 'home';
+      const opponent = competition.competitors.find(c => c.team.id !== teamIdForSeason);
+      const isHomeTeam = competition.competitors.find(c => c.team.id === teamIdForSeason).homeAway === 'home';
       
       resultsContainer.innerHTML = `
         <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
@@ -1985,15 +2085,48 @@ async function displayPlayerGameStats(game, date) {
     // Extract game information
     const competition = game.competitions[0];
     const gameDate = new Date(game.date);
-    const teamCompetitor = competition.competitors.find(c => c.team.id === currentTeamId);
-    const opponentCompetitor = competition.competitors.find(c => c.team.id !== currentTeamId);
+    const teamCompetitor = competition.competitors.find(c => c.team.id === teamIdForSeason);
+    const opponentCompetitor = competition.competitors.find(c => c.team.id !== teamIdForSeason);
     
     const teamScore = teamCompetitor.score || "0";
     const opponentScore = opponentCompetitor.score || "0";
     const isHomeTeam = teamCompetitor.homeAway === 'home';
     
+    // Get season-specific team information and colors
+    let seasonTeamColor = teamColor; // Default to current team color
+    let seasonTeamName = currentTeam?.displayName || 'Team';
+    let seasonTeamAbbr = currentTeam?.abbreviation || currentTeam?.shortDisplayName || 'UNK';
+    
+    // If using a different team for this season OR different league, fetch its information
+    if (teamIdForSeason !== currentTeamId || leagueForSeason !== currentUefaLeague) {
+      try {
+        console.log(`Fetching team info for season-specific team ${teamIdForSeason} in league ${leagueForSeason}...`);
+        const seasonTeamResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueForSeason}/teams/${teamIdForSeason}?lang=en&region=us`);
+        
+        if (seasonTeamResponse.ok) {
+          const seasonTeamData = await seasonTeamResponse.json();
+          console.log('Season team data:', seasonTeamData);
+          
+          // Apply the same team color logic as in loadTeamInfo()
+          const isUsingAlternateColor = ["ffffff", "ffee00", "ffff00", "81f733", "000000"].includes(seasonTeamData.color);
+          if (isUsingAlternateColor && seasonTeamData.alternateColor) {
+            seasonTeamColor = `#${seasonTeamData.alternateColor}`;
+          } else if (seasonTeamData.color) {
+            seasonTeamColor = `#${seasonTeamData.color}`;
+          }
+          
+          seasonTeamName = seasonTeamData.displayName || seasonTeamName;
+          seasonTeamAbbr = seasonTeamData.abbreviation || seasonTeamData.shortDisplayName || seasonTeamAbbr;
+          
+          console.log(`Season team color: ${seasonTeamColor}, name: ${seasonTeamName}`);
+        }
+      } catch (error) {
+        console.log('Could not fetch season team info, using current team colors:', error);
+      }
+    }
+    
     // Team logos
-    const teamLogo = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${currentTeamId}.png`;
+    const teamLogo = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamIdForSeason}.png`;
     const opponentLogo = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${opponentCompetitor.team.id}.png`;
 
     // Game result
@@ -2101,19 +2234,19 @@ async function displayPlayerGameStats(game, date) {
         </div>
         <!-- Player Header -->
         <div style="display: flex; align-items: center; margin-bottom: 20px; gap: 15px;">
-          <div style="width: 60px; height: 60px; background: linear-gradient(135deg, ${teamColor} 0%, #cccccc 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: bold; color: white;">
+          <div style="width: 60px; height: 60px; background: linear-gradient(135deg, ${seasonTeamColor} 0%, #cccccc 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: bold; color: white;">
             ${selectedPlayer.jersey}
           </div>
           <div>
             <div style="font-size: 1.3rem; font-weight: bold; margin-bottom: 2px;">${selectedPlayer.fullName}</div>
-            <div style="color: #ccc; font-size: 0.9rem;">#${selectedPlayer.jersey} | ${position}</div>
+            <div style="color: #ccc; font-size: 0.9rem;">#${selectedPlayer.jersey} | ${position} | ${seasonTeamAbbr}</div>
           </div>
         </div>
 
         <!-- Game Header -->
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.15)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.1)'" onclick="window.open('scoreboard.html?gameId=${game.id}', '_blank')">
           <div style="display: flex; align-items: center; gap: 15px;">
-            <img src="${teamLogo}" alt="${currentTeam?.displayName}" style="height: 30px;" onerror="this.src='../soccer-ball-png-24.png';">
+            <img src="${teamLogo}" alt="${seasonTeamName}" style="height: 30px;" onerror="this.src='../soccer-ball-png-24.png';">
             <span style="font-size: 1.1rem; font-weight: bold; color: ${gameResult === 'W' ? '#fff' : '#ccc'};">${teamScore}</span>
             <span style="color: #ccc;">-</span>
             <span style="font-size: 1.1rem; font-weight: bold; color: ${gameResult === 'L' ? '#fff' : '#ccc'};">${opponentScore}</span>

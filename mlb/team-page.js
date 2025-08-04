@@ -13,6 +13,38 @@ let currentStatsMode = 'overall'; // 'overall' or 'gamelog'
 // Global variable to store all MLB players for league-wide comparison
 let allMLBPlayers = [];
 
+// Get the appropriate season year, falling back to previous year if current year has no data
+async function getValidSeasonYear(playerId = null, teamId = null) {
+  const currentYear = new Date().getFullYear();
+  const previousYear = currentYear - 1;
+  
+  // Test current year first
+  let testUrl;
+  if (playerId) {
+    testUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${currentYear}`;
+  } else if (teamId) {
+    testUrl = `https://statsapi.mlb.com/api/v1/teams/${teamId}/stats?season=${currentYear}&group=hitting&stats=season&gameType=R`;
+  } else {
+    return currentYear; // Default to current year if no specific entity to test
+  }
+  
+  try {
+    const response = await fetch(testUrl);
+    const data = await response.json();
+    
+    // Check if current year has valid stats data
+    if (response.ok && data && ((data.stats && data.stats.length > 0) || 
+        (data.people && data.people.length > 0))) {
+      return currentYear;
+    }
+  } catch (error) {
+    console.log(`Current year ${currentYear} stats not available, trying previous year`);
+  }
+  
+  // Fall back to previous year
+  return previousYear;
+}
+
 // Initialize the page
 document.addEventListener("DOMContentLoaded", () => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -1240,8 +1272,51 @@ async function loadGameLogForDate(date) {
       document.head.appendChild(style);
     }
 
-    // Find games for the selected date
-    const scheduleResponse = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&teamId=${currentTeamId}&hydrate=linescore,team`);
+    // Get season year based on the selected date, not current date
+    function getSeasonYearForDate(dateStr) {
+      const selectedDate = new Date(dateStr);
+      const selectedMonth = selectedDate.getMonth() + 1; // 0-based, so add 1
+      const selectedYear = selectedDate.getFullYear();
+      
+      // MLB season runs from March/April to October/November
+      // If the date is from November 1 to February 28/29, it belongs to the off-season
+      if (selectedMonth >= 11 || selectedMonth <= 2) {
+        return selectedYear; // Off-season, use current year as season identifier
+      } 
+      // If the date is from March 1 to October 31, it belongs to the season of that year
+      else {
+        return selectedYear; // Season year
+      }
+    }
+    
+    const seasonYear = getSeasonYearForDate(date);
+    console.log(`Selected date: ${date}, calculated season year: ${seasonYear}`);
+    
+    // Get the player's team for the specific season year
+    let teamIdForSeason = currentTeamId; // Default to current team
+    try {
+      console.log(`Fetching player's team for season ${seasonYear}...`);
+      const playerSeasonResponse = await fetch(`https://statsapi.mlb.com/api/v1/people/${selectedPlayer.person.id}/stats?stats=season&group=hitting&season=${seasonYear}`);
+      
+      if (playerSeasonResponse.ok) {
+        const playerSeasonData = await playerSeasonResponse.json();
+        // MLB API structure: stats[0].splits[0].team.id
+        if (playerSeasonData.stats && playerSeasonData.stats.length > 0 && 
+            playerSeasonData.stats[0].splits && playerSeasonData.stats[0].splits.length > 0 &&
+            playerSeasonData.stats[0].splits[0].team) {
+          teamIdForSeason = playerSeasonData.stats[0].splits[0].team.id.toString();
+          console.log(`Player was on team ${teamIdForSeason} during ${seasonYear} season`);
+        }
+      } else {
+        console.log(`Could not fetch player's team for season ${seasonYear}, using current team`);
+      }
+    } catch (error) {
+      console.log(`Error fetching player's season team:`, error);
+      console.log(`Using current team ${currentTeamId} as fallback`);
+    }
+
+    // Find games for the selected date using the season-specific team ID
+    const scheduleResponse = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&teamId=${teamIdForSeason}&hydrate=linescore,team`);
     
     if (!scheduleResponse.ok) {
       throw new Error(`HTTP error! status: ${scheduleResponse.status}`);
@@ -1279,8 +1354,8 @@ async function loadGameLogForDate(date) {
     // Check if game is scheduled but not yet played
     if (['Scheduled', 'Pre-Game', 'Warmup', 'Postponed', 'Suspended'].includes(game.status.detailedState)) {
       const gameDate = new Date(game.gameDate);
-      const opponent = game.teams.home.team.id === parseInt(currentTeamId) ? game.teams.away.team : game.teams.home.team;
-      const isHomeGame = game.teams.home.team.id === parseInt(currentTeamId);
+      const opponent = game.teams.home.team.id === parseInt(teamIdForSeason) ? game.teams.away.team : game.teams.home.team;
+      const isHomeGame = game.teams.home.team.id === parseInt(teamIdForSeason);
       
       resultsContainer.innerHTML = `
         <div style="text-align: center; padding: 40px 20px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
@@ -1323,7 +1398,7 @@ async function loadGameLogForDate(date) {
       return;
     }
 
-    await displayPlayerGameStats(boxscoreData, game);
+    await displayPlayerGameStats(boxscoreData, game, teamIdForSeason);
 
   } catch (error) {
     console.error('Error loading game log:', error);
@@ -1337,12 +1412,12 @@ async function loadGameLogForDate(date) {
   }
 }
 
-async function displayPlayerGameStats(boxscoreData, game) {
+async function displayPlayerGameStats(boxscoreData, game, teamIdForSeason) {
   const resultsContainer = document.getElementById('gameLogResults');
   if (!resultsContainer || !selectedPlayer) return;
 
   const boxscore = boxscoreData.liveData.boxscore;
-  const isHomeTeam = boxscoreData.gameData.teams.home.id === parseInt(currentTeamId);
+  const isHomeTeam = boxscoreData.gameData.teams.home.id === parseInt(teamIdForSeason);
   const teamBoxscore = isHomeTeam ? boxscore.teams.home : boxscore.teams.away;
   const opponentBoxscore = isHomeTeam ? boxscore.teams.away : boxscore.teams.home;
   
@@ -1371,10 +1446,16 @@ async function displayPlayerGameStats(boxscoreData, game) {
     return;
   }
 
-  // Get opponent info
+  // Get opponent info and team logos using season-specific team data
   const opponent = isHomeTeam ? boxscoreData.gameData.teams.away : boxscoreData.gameData.teams.home;
   const opponentLogo = await getLogoUrl(opponent.name);
-  const teamLogo = await getLogoUrl(currentTeam.name);
+  
+  // Get team logo for the season-specific team
+  const playerTeamForSeason = isHomeTeam ? boxscoreData.gameData.teams.home : boxscoreData.gameData.teams.away;
+  const teamLogo = await getLogoUrl(playerTeamForSeason.name);
+
+  console.log(`Player team for this game: ${playerTeamForSeason.name} (ID: ${playerTeamForSeason.id})`);
+  console.log(`Opponent team: ${opponent.name} (ID: ${opponent.id})`);
 
   // Game info
   const gameDate = new Date(game.gameDate);
