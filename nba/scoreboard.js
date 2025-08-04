@@ -176,16 +176,59 @@ window.toggleFullscreen = function() {
   
   if (iframe) {
     try {
-      if (iframe.requestFullscreen) {
-        iframe.requestFullscreen();
-      } else if (iframe.webkitRequestFullscreen) {
-        iframe.webkitRequestFullscreen();
-      } else if (iframe.msRequestFullscreen) {
-        iframe.msRequestFullscreen();
+      // For iOS Safari and other WebKit browsers
+      if (iframe.webkitEnterFullscreen) {
+        iframe.webkitEnterFullscreen();
+        console.log('iOS/WebKit fullscreen requested');
       }
-      console.log('Fullscreen requested');
+      // Standard fullscreen API
+      else if (iframe.requestFullscreen) {
+        iframe.requestFullscreen();
+        console.log('Standard fullscreen requested');
+      } 
+      // Chrome/Safari prefixed version
+      else if (iframe.webkitRequestFullscreen) {
+        iframe.webkitRequestFullscreen();
+        console.log('WebKit fullscreen requested');
+      } 
+      // IE/Edge prefixed version
+      else if (iframe.msRequestFullscreen) {
+        iframe.msRequestFullscreen();
+        console.log('MS fullscreen requested');
+      }
+      // Mozilla prefixed version
+      else if (iframe.mozRequestFullScreen) {
+        iframe.mozRequestFullScreen();
+        console.log('Mozilla fullscreen requested');
+      }
+      else {
+        console.log('Fullscreen API not supported on this device');
+        // Fallback: try to make the iframe larger on unsupported devices
+        if (iframe.style.position !== 'fixed') {
+          iframe.style.position = 'fixed';
+          iframe.style.top = '0';
+          iframe.style.left = '0';
+          iframe.style.width = '100vw';
+          iframe.style.height = '100vh';
+          iframe.style.zIndex = '9999';
+          iframe.style.backgroundColor = '#000';
+          console.log('Applied fullscreen-like styling as fallback');
+        } else {
+          // Exit fullscreen-like mode
+          iframe.style.position = '';
+          iframe.style.top = '';
+          iframe.style.left = '';
+          iframe.style.width = '100%';
+          iframe.style.height = '700px';
+          iframe.style.zIndex = '';
+          iframe.style.backgroundColor = '';
+          console.log('Exited fullscreen-like styling');
+        }
+      }
     } catch (e) {
-      console.log('Fullscreen not supported or failed');
+      console.log('Fullscreen request failed:', e);
+      // Additional fallback for cases where even the API calls fail
+      alert('Fullscreen not supported on this device. Try rotating your device to landscape mode for a better viewing experience.');
     }
   }
 };
