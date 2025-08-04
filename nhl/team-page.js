@@ -1893,20 +1893,36 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
     try {
       nhlGameData = await convertToNHLGameId(game);
       if (nhlGameData) {
-        // Use NHL API with CORS proxy like scoreboard.js
+        console.log(`Attempting to fetch NHL API data for game ${nhlGameData.nhlGameId}`);
+        // Use NHL API with CORS proxy - only fetch boxscore since it has all player stats
         const BASE_URL = "https://corsproxy.io/?url=https://api-web.nhle.com/v1";
-        const [boxscoreRes, playByPlayRes] = await Promise.all([
-          fetch(`${BASE_URL}/gamecenter/${nhlGameData.nhlGameId}/boxscore`),
-          fetch(`${BASE_URL}/gamecenter/${nhlGameData.nhlGameId}/play-by-play`)
-        ]);
+        
+        // Try to fetch boxscore endpoint with timeout
+        const fetchWithTimeout = (url, timeout = 10000) => {
+          return Promise.race([
+            fetch(url),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeout))
+          ]);
+        };
 
-        if (boxscoreRes.ok && playByPlayRes.ok) {
-          boxscoreData = await boxscoreRes.json();
-          playByPlayData = await playByPlayRes.json();
+        try {
+          const boxscoreRes = await fetchWithTimeout(`${BASE_URL}/gamecenter/${nhlGameData.nhlGameId}/boxscore`);
+
+          if (boxscoreRes.ok) {
+            boxscoreData = await boxscoreRes.json();
+            console.log('Successfully fetched NHL boxscore data');
+            console.log('Boxscore data structure:', boxscoreData);
+          } else {
+            console.warn(`NHL boxscore API request failed: ${boxscoreRes.status}`);
+          }
+        } catch (fetchError) {
+          console.warn('NHL API fetch failed:', fetchError.message);
         }
+      } else {
+        console.log('Could not convert ESPN game to NHL game ID');
       }
     } catch (error) {
-      console.warn('Could not fetch NHL API data, will use ESPN data only:', error);
+      console.warn('Error in NHL API data fetching process:', error);
     }
 
     // Get basic game info from ESPN data (always available)
@@ -1948,33 +1964,51 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
       gameResult = parseInt(teamScore) > parseInt(opponentScore) ? 'W' : 'L';
     }
 
-    // Try to find player stats from NHL API if available
+    // Try to find player stats from NHL boxscore API if available
     let playerStats = null;
     let isGoalie = false;
+    let playerParticipated = true; // Assume player participated since they were on the team roster
     
-    if (boxscoreData && playByPlayData) {
-      // Find the player in NHL roster spots first to get their NHL player ID
-      const rosterSpots = playByPlayData.rosterSpots || [];
-      const nhlPlayer = rosterSpots.find(spot => {
-        const fullName = `${spot.firstName.default} ${spot.lastName.default}`;
-        return fullName === `${selectedPlayer.firstName} ${selectedPlayer.lastName}` ||
-               spot.lastName.default === selectedPlayer.lastName;
+    if (boxscoreData && boxscoreData.playerByGameStats) {
+      console.log('Processing NHL boxscore data for player stats');
+      
+      // Determine which team's stats to look in
+      const teamStats = isHomeTeam ? boxscoreData.playerByGameStats.homeTeam : boxscoreData.playerByGameStats.awayTeam;
+      console.log('Team stats structure:', teamStats);
+      
+      // Find player stats by matching name in the appropriate team stats
+      const allSkaters = [...(teamStats.forwards || []), ...(teamStats.defense || [])];
+      
+      // Try to match by name - the boxscore has player names in "default" format
+      playerStats = allSkaters.find(player => {
+        const playerName = player.name?.default || '';
+        const searchName = `${selectedPlayer.firstName} ${selectedPlayer.lastName}`;
+        const lastNameMatch = playerName.includes(selectedPlayer.lastName);
+        console.log(`Checking skater: ${playerName} vs ${searchName}, last name match: ${lastNameMatch}`);
+        return lastNameMatch;
       });
-
-      if (nhlPlayer && boxscoreData.playerByGameStats) {
-        // Determine which team's stats to look in
-        const teamStats = isHomeTeam ? boxscoreData.playerByGameStats.homeTeam : boxscoreData.playerByGameStats.awayTeam;
-        
-        // Find player stats in the appropriate team stats
-        const allSkaters = [...(teamStats.forwards || []), ...(teamStats.defense || [])];
-        playerStats = allSkaters.find(player => player.playerId === nhlPlayer.playerId);
-        
-        // If not found in skaters, check goalies
-        if (!playerStats) {
-          playerStats = (teamStats.goalies || []).find(player => player.playerId === nhlPlayer.playerId);
-          isGoalie = !!playerStats;
-        }
+      
+      // If not found in skaters, check goalies
+      if (!playerStats && teamStats.goalies) {
+        playerStats = teamStats.goalies.find(player => {
+          const playerName = player.name?.default || '';
+          const searchName = `${selectedPlayer.firstName} ${selectedPlayer.lastName}`;
+          const lastNameMatch = playerName.includes(selectedPlayer.lastName);
+          console.log(`Checking goalie: ${playerName} vs ${searchName}, last name match: ${lastNameMatch}`);
+          return lastNameMatch;
+        });
+        isGoalie = !!playerStats;
       }
+      
+      if (playerStats) {
+        console.log('Found NHL player stats:', playerStats);
+      } else {
+        console.log('Player not found in NHL boxscore data');
+        console.log('Available forwards:', allSkaters.map(p => p.name?.default));
+        console.log('Available goalies:', (teamStats.goalies || []).map(p => p.name?.default));
+      }
+    } else {
+      console.log('NHL boxscore data not available, will show basic game participation');
     }
 
     // Create stats display
@@ -2054,21 +2088,45 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
         `;
       }
     } else {
-      // No detailed stats available, show basic game info
+      // No detailed stats available, show enhanced game participation info
       const gameType = game.season?.type === 3 ? 'Playoff Game' : 'Regular Season Game';
+      const playerPosition = selectedPlayer.position === 'G' ? 'Goaltender' : 'Skater';
+      
+      // Try to get some basic info from ESPN game data
+      let gameInfo = '';
+      if (game.competitions[0].notes && game.competitions[0].notes.length > 0) {
+        gameInfo = game.competitions[0].notes[0].headline || '';
+      }
+      
       statsDisplay = `
         <div style="text-align: center; padding: 30px; background: rgba(255,255,255,0.1); border-radius: 8px;">
-          <div style="font-size: 1.1rem; color: #ccc; margin-bottom: 10px;">📊</div>
-          <div style="color: #ccc; font-size: 1rem; margin-bottom: 5px;">Player appeared in this ${gameType}</div>
-          <div style="color: #999; font-size: 0.9rem;">Detailed statistics not available</div>
+          <div style="font-size: 1.1rem; color: #ccc; margin-bottom: 15px;">🏒</div>
+          <div style="color: #fff; font-size: 1.1rem; margin-bottom: 8px; font-weight: 500;">
+            ${selectedPlayer.firstName} ${selectedPlayer.lastName} appeared in this ${gameType}
+          </div>
+          <div style="color: #ccc; font-size: 0.9rem; margin-bottom: 10px;">
+            ${playerPosition} • #${selectedPlayer.jersey}
+          </div>
+          <div style="color: #999; font-size: 0.85rem; line-height: 1.4;">
+            Detailed statistics unavailable<br>
+            <span style="font-size: 0.8rem; opacity: 0.7;">
+              This may be due to API limitations or older game data
+            </span>
+          </div>
+          ${gameInfo ? `<div style="color: #FFA500; font-size: 0.8rem; margin-top: 10px; padding: 8px; background: rgba(255,165,0,0.1); border-radius: 4px;">${gameInfo}</div>` : ''}
         </div>
       `;
     }
 
     // Determine the game link - use NHL game ID if available, otherwise indicate limitation
-    const gameLinkClick = nhlGameData 
+    const hasGameDetails = nhlGameData && boxscoreData;
+    const gameLinkClick = hasGameDetails 
       ? `onclick="window.open('scoreboard.html?gameId=${nhlGameData.nhlGameId}&date=${date.replace(/-/g, '')}', '_blank')"`
-      : `onclick="alert('Game details not available for this game type')" style="cursor: not-allowed; opacity: 0.7;"`;
+      : `onclick="alert('Game details not available for this game. This may be due to API limitations or the game being from an older season.')" style="cursor: not-allowed; opacity: 0.7;"`;
+    
+    const gameDetailsText = hasGameDetails 
+      ? 'Click to view game details' 
+      : 'Game details unavailable';
     
     // Create the game stats display
     let content = `
@@ -2106,7 +2164,7 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
           </div>
           <div style="text-align: right; color: #ccc; font-size: 0.85rem;">
             ${gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-            <div class="game-details-text" style="font-size: 0.7rem; margin-top: 2px; opacity: 0.7;">${nhlGameData ? 'Click to view game details' : 'Game details unavailable'}</div>
+            <div class="game-details-text" style="font-size: 0.7rem; margin-top: 2px; opacity: 0.7;">${gameDetailsText}</div>
           </div>
         </div>
 
