@@ -140,7 +140,7 @@ function normalizeTeamName(teamName) {
     "Minnesota Twins": "minnesota-twins",
     "New York Yankees": "new-york-yankees",
     "New York Mets": "new-york-mets",
-    "Athletics": "oakland-athletics",
+    "Athletics": "athletics",
     "Philadelphia Phillies": "philadelphia-phillies",
     "Pittsburgh Pirates": "pittsburgh-pirates",
     "San Diego Padres": "san-diego-padres",
