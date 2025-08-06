@@ -4108,6 +4108,10 @@ async function captureAndCopyImage(element) {
     await new Promise(resolve => setTimeout(resolve, 500));
     
     const isSmallScreen = window.innerWidth < 525; // Adjust based on your design breakpoints
+    
+    // Check if selected player is a Two-Way Player (TWP) for height adjustment
+    const isTwoWayPlayer = selectedPlayer && selectedPlayer.position && selectedPlayer.position.abbreviation === "TWP";
+    const heightAdjustment = isTwoWayPlayer ? 80 : 30;
 
     // Capture the element with html2canvas using exact element dimensions
     const canvas = await html2canvas(element, {
@@ -4117,7 +4121,7 @@ async function captureAndCopyImage(element) {
       allowTaint: false, // Allow tainted canvas for better compatibility
       logging: false,
       width: isSmallScreen ? element.clientWidth : element.clientWidth - 30,
-      height: isSmallScreen ? element.clientHeight : element.clientHeight + 30,
+      height: isSmallScreen ? element.clientHeight : element.clientHeight + heightAdjustment,
       scrollX: 0,
       scrollY: 0,
       ignoreElements: (element) => {
