@@ -1602,7 +1602,7 @@ async function showGameLogInterface() {
     const now = new Date();
     const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
     
-    if (estNow.getHours() < 4) { // Use 4 AM for basketball (games typically end by 1 AM)
+    if (estNow.getHours() < 2) { // Use 2 AM EST cutoff for consistency
       estNow.setDate(estNow.getDate() - 1);
     }
     

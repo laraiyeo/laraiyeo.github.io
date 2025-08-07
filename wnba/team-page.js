@@ -220,10 +220,15 @@ async function loadCurrentGame() {
     function getAdjustedDateForNBA() {
       const now = new Date();
       const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-      // Remove the date adjustment that was causing the 1-day offset issue
+      
+      if (estNow.getHours() < 2) {
+        estNow.setDate(estNow.getDate() - 1);
+      }
+      
       const adjustedDate = estNow.getFullYear() +
                            String(estNow.getMonth() + 1).padStart(2, "0") +
                            String(estNow.getDate()).padStart(2, "0");
+      
       return adjustedDate;
     }
     
@@ -1043,7 +1048,13 @@ function displayRosterPlayers() {
     const headshotUrl = convertToHttps(player.headshot?.href) || "icon.png";
     
     return `
-      <div class="player-card" data-player-id="${player.id}" onclick="showPlayerDetails('${player.id}', '${firstName}', '${lastName}', '${jerseyNumber}', '${position}', '${headshotUrl}')">
+      <div class="player-card" 
+           data-player-id="${player.id}" 
+           data-first-name="${firstName}" 
+           data-last-name="${lastName}" 
+           data-jersey-number="${jerseyNumber}" 
+           data-position="${position}" 
+           data-headshot-url="${headshotUrl}">
         <img src="${headshotUrl}" alt="${firstName} ${lastName}" class="player-headshot" onerror="this.src='icon.png';">
         <div class="player-name-column">
           <div class="player-first-name">${firstName}</div>
@@ -1069,6 +1080,21 @@ function displayRosterPlayers() {
       </button>
     </div>
   `;
+  
+  // Add event listeners for player cards
+  contentDiv.querySelectorAll('.player-card').forEach(card => {
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', () => {
+      const playerId = card.getAttribute('data-player-id');
+      const firstName = card.getAttribute('data-first-name');
+      const lastName = card.getAttribute('data-last-name');
+      const jerseyNumber = card.getAttribute('data-jersey-number');
+      const position = card.getAttribute('data-position');
+      const headshotUrl = card.getAttribute('data-headshot-url');
+      
+      showPlayerDetails(playerId, firstName, lastName, jerseyNumber, position, headshotUrl);
+    });
+  });
   
   // Add pagination handlers
   const prevRosterBtn = document.getElementById('prevRosterPage');
@@ -1513,7 +1539,7 @@ async function showGameLogInterface() {
     const now = new Date();
     const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
     
-    if (estNow.getHours() < 4) { // Use 4 AM for basketball (games typically end by 1 AM)
+    if (estNow.getHours() < 2) { // Use 2 AM EST cutoff for consistency
       estNow.setDate(estNow.getDate() - 1);
     }
     
@@ -1831,15 +1857,14 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
     const gameDate = new Date(game.date);
     const teamCompetitor = competition.competitors.find(c => c.team.id === currentTeamId);
     const opponentCompetitor = competition.competitors.find(c => c.team.id !== currentTeamId);
-    
+
+    const teamScore = isHomeTeam ? gameData.__gamepackage__.homeTeam.score : gameData.__gamepackage__.awayTeam.score;
+    const opponentScore = isHomeTeam ? gameData.__gamepackage__.awayTeam.score : gameData.__gamepackage__.homeTeam.score;
+
     console.log('Team competitor full object:', teamCompetitor);
     console.log('Opponent competitor full object:', opponentCompetitor);
     console.log('Team competitor score property:', teamCompetitor.score);
     console.log('Opponent competitor score property:', opponentCompetitor.score);
-    
-    // Access the score value properly - it might be a string or number
-    const teamScore = teamCompetitor.score?.value || teamCompetitor.score || "0";
-    const opponentScore = opponentCompetitor.score?.value || opponentCompetitor.score || "0";
 
     console.log('Final scores:', { teamScore, opponentScore });
     
