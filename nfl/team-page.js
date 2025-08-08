@@ -2171,6 +2171,8 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
       // Running back stats - get from rushing and receiving
       const rushingStats = playerStats.rushing || [];
       const receivingStats = playerStats.receiving || [];
+      const kickReturnStats = playerStats.kickReturns || [];
+      const puntReturnStats = playerStats.puntReturns || [];
       
       statsDisplay = `
         <div style="margin-bottom: 20px;">
@@ -2225,6 +2227,60 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${receivingStats[5] || '0'}</div>
               <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">TGT</div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+        ${kickReturnStats.length > 0 ? `
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">🏈 Kick Return Stats</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${kickReturnStats[0] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">KR</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${kickReturnStats[1] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">KR YDS</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${kickReturnStats[2] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">KR AVG</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${kickReturnStats[3] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">KR LNG</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${kickReturnStats[4] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">KR TD</div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+        ${puntReturnStats.length > 0 ? `
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">🏈 Punt Return Stats</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${puntReturnStats[0] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">PR</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${puntReturnStats[1] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">PR YDS</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${puntReturnStats[2] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">PR AVG</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${puntReturnStats[3] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">PR LNG</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${puntReturnStats[4] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">PR TD</div>
             </div>
           </div>
         </div>
