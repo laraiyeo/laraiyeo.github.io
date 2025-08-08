@@ -2001,10 +2001,14 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
       return;
     }
 
+    // Extract competition data for use in the rest of the function
+    const competition = game.competitions[0];
+
     // Find the team that contains our player and collect all their stats
     let playerStats = {};
     let playerTeam = null;
     let foundPlayer = false;
+    const isHomeTeam = competition.competitors.find(c => c.team.id.toString() === teamIdForSeason.toString()).homeAway === 'home';
 
     for (const team of players) {
       if (!team.statistics || team.statistics.length === 0) continue;
@@ -2036,7 +2040,6 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
       const competition = game.competitions[0];
       const gameDate = new Date(game.date);
       const opponent = competition.competitors.find(c => c.team.id.toString() !== teamIdForSeason.toString());
-      const isHomeTeam = competition.competitors.find(c => c.team.id.toString() === teamIdForSeason.toString()).homeAway === 'home';
       
       resultsContainer.innerHTML = `
         <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
@@ -2053,9 +2056,6 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
       `;
       return;
     }
-
-    // Extract competition data for use in the rest of the function
-    const competition = game.competitions[0];
 
     // Get team logos - use proper NFL logo URLs
     const playerTeamCompetitor = competition.competitors.find(c => c.team.id.toString() === teamIdForSeason.toString());
@@ -2086,8 +2086,8 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
     }
     
     // Access the score value properly - it might be a string or number
-    const teamScore = teamCompetitor.score?.value || teamCompetitor.score || "0";
-    const opponentScore = opponentCompetitor.score?.value || opponentCompetitor.score || "0";
+    const teamScore = isHomeTeam ? gameData.__gamepackage__.homeTeam.score : gameData.__gamepackage__.awayTeam.score;
+    const opponentScore = isHomeTeam ? gameData.__gamepackage__.awayTeam.score : gameData.__gamepackage__.homeTeam.score;
     
     let gameResult = '';
     if (game.competitions[0].status.type.completed) {
