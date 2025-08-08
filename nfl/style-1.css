@@ -312,12 +312,12 @@ body {
 
 @media (max-width: 475px) {
   .responsive-logo {
-    width: 75px;
-    height: 75px;
+    width: 70px;
+    height: 70px;
   }
 
   .responsive-name {
-    font-size: 1.5rem;
+    font-size: 1.3rem;
   }
 
   .responsive-record {
@@ -329,11 +329,21 @@ body {
   }
 
   .responsive-game-clock {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
+  }
+
+  .responsive-text1 {
+    font-size: 1.1rem;
+    margin-top: 25px;
+  }
+
+  .responsive-text2 {
+    font-size: 1.2rem;
+    color: white;
   }
 
   .responsive-inning-status {
-    font-size: 1.7rem;
+    font-size: 1.45rem;
   }
 
   .responsive-team-box-score {

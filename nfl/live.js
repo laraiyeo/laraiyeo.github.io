@@ -55,6 +55,16 @@ async function loadLiveGames() {
       const { id: gameId, competitions } = game;
       const homeTeam = competitions[0].competitors.find(c => c.homeAway === "home").team;
       const awayTeam = competitions[0].competitors.find(c => c.homeAway === "away").team;
+      const distance = competitions[0].situation.distance || "N/A";
+      const possession = competitions[0].situation.possession || "N/A";
+      const yardLine = competitions[0].situation.yardLine || "N/A";
+      const kickoff = competitions[0].situation.shortDownDistanceText === "1st & 10" && distance === 10 && (yardLine === 65 || yardLine === 35) ? "Kickoff" : competitions[0].situation.shortDownDistanceText || "";
+
+      const possessionColor = possession === homeTeam.id ? `#${homeTeam.color}` : possession === awayTeam.id ? `#${awayTeam.color}` : "grey";
+
+      const text = competitions[0].situation.possessionText || "";
+
+      const isSmallScreen = window.innerWidth < 525;
 
       currentGameIds.add(gameId);
 
@@ -65,24 +75,25 @@ async function loadLiveGames() {
       if (!gameDiv) {
         gameDiv = document.createElement("div");
         gameDiv.className = "live-game-block";
-        gameDiv.style.width = "350px";
+        gameDiv.style.width = `${isSmallScreen ? "350px" : "400px"}`;
         gameDiv.innerHTML = `
-          <div style="display: flex; flex-direction: column; justify-content: space-between; align-items: center; height: 100%; padding: 5px;">
+          <div style="display: flex; flex-direction: column; justify-content: space-between; align-items: center; height: 100%; padding: 10px;">
             <div id="period-${gameId}" style="font-size: 1.5rem; font-weight: bold; text-align: center; color: black;"></div>
-            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-              <div style="text-align: center;">
-                <img src="${awayLogo}" alt="${awayTeam.displayName}" style="width: 140px; height: 100px;">
-                <div id="awayScore-${gameId}" style="font-size: 3.5rem; font-weight: normal; color: black;">0</div>
-                <div style="margin-top: 8px; font-weight: bold; color: black;">${awayTeam.shortDisplayName}</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 15px;">
+              <div style="text-align: center; flex: 1;">
+                <img src="${awayLogo}" alt="${awayTeam.displayName}" style="${isSmallScreen ? "width: 120px; height: 80px;" : "width: 140px; height: 100px;"}">
+                <div id="awayScore-${gameId}" style="font-size: ${isSmallScreen ? "3rem" : "3.5rem"}; font-weight: normal; color: black;">0</div>
+                <div style="margin-top: 8px; font-weight: bold; color: black; font-size: ${isSmallScreen ? "1rem" : "1.1rem"};">${awayTeam.shortDisplayName}</div>
               </div>
-              <div style="text-align: center;">
-                <div id="status-${gameId}" style="font-size: 1.75rem; font-weight: bold; color: black; text-align: center;"></div>
-                <div id="periodStatus-${gameId}" style="font-size: 1rem; color: grey; text-align: center; margin-top: 15px;"></div>
+              <div style="text-align: center; ${isSmallScreen ? "" : "flex: 1; min-width: 120px;"}">
+                <div id="status-${gameId}" style="font-size: ${isSmallScreen ? "1.75rem" : "2.2rem"}; font-weight: bold; color: black; text-align: center;"></div>
+                <div id="periodStatus-${gameId}" style="font-size: ${isSmallScreen ? "0.9rem" : "1.3rem"}; color: grey; text-align: center; margin-top: 15px;">${kickoff}</div>
+                <div id="periodStatus-${gameId}" style="font-size: ${isSmallScreen ? "0.75rem" : "1rem"}; color: ${possessionColor}; text-align: center; margin-top: 5px;">${text ? (possession === homeTeam.id ? `${text} ▶` : `◀ ${text}`) : ""}</div>
               </div>
-              <div style="text-align: center;">
-                <img src="${homeLogo}" alt="${homeTeam.displayName}" style="width: 140px; height: 100px;">
-                <div id="homeScore-${gameId}" style="font-size: 3.5rem; font-weight: normal; color: black;">0</div>
-                <div style="margin-top: 8px; font-weight: bold; color: black;">${homeTeam.shortDisplayName}</div>
+              <div style="text-align: center; flex: 1;">
+                <img src="${homeLogo}" alt="${homeTeam.displayName}" style="${isSmallScreen ? "width: 120px; height: 80px;" : "width: 140px; height: 100px;"}">
+                <div id="homeScore-${gameId}" style="font-size: ${isSmallScreen ? "3rem" : "3.5rem"}; font-weight: normal; color: black;">0</div>
+                <div style="margin-top: 8px; font-weight: bold; color: black; font-size: ${isSmallScreen ? "1rem" : "1.1rem"};">${homeTeam.shortDisplayName}</div>
               </div>
             </div>
           </div>
@@ -145,13 +156,13 @@ async function fetchGameDetails(gameId, competition) {
       const isHalftime = competition.status.type.description === "Halftime";
       const isEndOfPeriod = competition.status.type.description === "End of Period";
       const periodText = isHalftime
-        ? "Halftime"
+        ? ""
         : isEndOfPeriod
         ? `End of ${getOrdinalSuffix(competition.status.period)} Quarter`
         : `${getOrdinalSuffix(competition.status.period)} Quarter`;
       periodEl.textContent = periodText;
 
-      statusEl.textContent = isHalftime || isEndOfPeriod ? "" : competition.status.displayClock;
+      statusEl.textContent = isHalftime ? "Halftime" : isEndOfPeriod ? "End" : competition.status.displayClock;
     }
   } catch (err) {
     console.error(`Error fetching details for game ${gameId}:`, err);

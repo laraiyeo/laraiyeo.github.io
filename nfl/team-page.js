@@ -416,7 +416,18 @@ async function createCurrentGameCard(game) {
     hour12: true
   });
 
+  const getOrdinalSuffix = (num) => {
+      const j = num % 10;
+      const k = num % 100;
+      if (j === 1 && k !== 11) return num + "st";
+      if (j === 2 && k !== 12) return num + "nd";
+      if (j === 3 && k !== 13) return num + "rd";
+      return num + "th";
+    };
+
   const status = game.status.type.description;
+  const clock = game.status.displayClock || "";
+  const period = competition.status.period || "";
   let statusText = "";
   let scoreDisplay = "";
 
@@ -427,7 +438,7 @@ async function createCurrentGameCard(game) {
     statusText = "Final";
     scoreDisplay = `${teamScore || 0} - ${opponentScore || 0}`;
   } else {
-    statusText = status;
+    statusText = status + (period ? ` (${getOrdinalSuffix(period)} Q` : "(") + (clock ? ` - ${clock})` : ")");
     scoreDisplay = `${teamScore || 0} - ${opponentScore || 0}`;
   }
 
@@ -1188,7 +1199,13 @@ function displayRosterPlayers() {
     const headshotUrl = convertToHttps(player.headshot?.href) || "football.png";
     
     return `
-      <div class="player-card" data-player-id="${player.id}" onclick="showPlayerDetails('${player.id}', '${firstName}', '${lastName}', '${jerseyNumber}', '${position}', '${headshotUrl}')">
+      <div class="player-card" 
+           data-player-id="${player.id}" 
+           data-first-name="${firstName}" 
+           data-last-name="${lastName}" 
+           data-jersey-number="${jerseyNumber}" 
+           data-position="${position}" 
+           data-headshot-url="${headshotUrl}">
         <img src="${headshotUrl}" alt="${firstName} ${lastName}" class="player-headshot" onerror="this.src='football.png';">
         <div class="player-name-column">
           <div class="player-first-name">${firstName}</div>
@@ -1214,6 +1231,21 @@ function displayRosterPlayers() {
       </button>
     </div>
   `;
+
+    // Add event listeners for player cards
+  contentDiv.querySelectorAll('.player-card').forEach(card => {
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', () => {
+      const playerId = card.getAttribute('data-player-id');
+      const firstName = card.getAttribute('data-first-name');
+      const lastName = card.getAttribute('data-last-name');
+      const jerseyNumber = card.getAttribute('data-jersey-number');
+      const position = card.getAttribute('data-position');
+      const headshotUrl = card.getAttribute('data-headshot-url');
+      
+      showPlayerDetails(playerId, firstName, lastName, jerseyNumber, position, headshotUrl);
+    });
+  });
   
   // Add pagination handlers
   const prevRosterBtn = document.getElementById('prevRosterPage');
@@ -1600,7 +1632,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       console.log('Player stats data:', data);
 
       if (data.splits && data.splits.categories) {
-        displayPlayerStatsInModal(data.splits.categories, statsContainer, position);
+        displayPlayerStatsInModal(data.splits.categories, statsContainer, position, seasonYear);
       } else {
         statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Player statistics not available</div>';
       }
@@ -1756,7 +1788,7 @@ async function showOverallStats() {
   console.log('Player stats data:', data);
 
   if (data.splits && data.splits.categories) {
-    displayPlayerStatsInModal(data.splits.categories, statsContainer, selectedPlayer.position);
+    displayPlayerStatsInModal(data.splits.categories, statsContainer, selectedPlayer.position, seasonYear);
   } else {
     statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Player statistics not available</div>';
   }
@@ -2862,7 +2894,7 @@ function displayPlayerStats(categories) {
   statsDiv.innerHTML = statsHTML;
 }
 
-function displayPlayerStatsInModal(categories, container, position) {
+function displayPlayerStatsInModal(categories, container, position, seasonYear = null) {
   // Get position-specific stats
   const positionGroup = getPositionGroup(position);
   const playerStats = getPositionStats(positionGroup, categories);
@@ -2871,6 +2903,12 @@ function displayPlayerStatsInModal(categories, container, position) {
     container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No statistics available for this player</div>';
     return;
   }
+
+  // Determine season text
+  const currentYear = new Date().getFullYear();
+  const seasonText = seasonYear ? 
+    (seasonYear === currentYear ? 'current season' : `${seasonYear} season`) : 
+    'current season';
 
   // Create stats display with same styling as team stats but inline for modal
   const statsHTML = `
@@ -2891,6 +2929,9 @@ function displayPlayerStatsInModal(categories, container, position) {
         </div>
       `).join('')}
     </div>
+    <p style="text-align: center; color: #666; margin-top: 15px; font-style: italic; font-size: 0.9rem;">
+      Statistics from ${seasonText}
+    </p>
   `;
   
   container.innerHTML = statsHTML;

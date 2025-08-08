@@ -1125,7 +1125,13 @@ function displayRosterPlayers() {
     const headshotUrl = convertToHttps(player.headshot?.href) || "icon.png";
     
     return `
-      <div class="player-card" data-player-id="${player.id}" onclick="showPlayerDetails('${player.id}', '${firstName}', '${lastName}', '${jerseyNumber}', '${position}', '${headshotUrl}')">
+      <div class="player-card" 
+           data-player-id="${player.id}" 
+           data-first-name="${firstName}" 
+           data-last-name="${lastName}" 
+           data-jersey-number="${jerseyNumber}" 
+           data-position="${position}" 
+           data-headshot-url="${headshotUrl}">
         <img src="${headshotUrl}" alt="${firstName} ${lastName}" class="player-headshot" onerror="this.src='icon.png';">
         <div class="player-name-column">
           <div class="player-first-name">${firstName}</div>
@@ -1151,6 +1157,21 @@ function displayRosterPlayers() {
       </button>
     </div>
   `;
+
+    // Add event listeners for player cards
+  contentDiv.querySelectorAll('.player-card').forEach(card => {
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', () => {
+      const playerId = card.getAttribute('data-player-id');
+      const firstName = card.getAttribute('data-first-name');
+      const lastName = card.getAttribute('data-last-name');
+      const jerseyNumber = card.getAttribute('data-jersey-number');
+      const position = card.getAttribute('data-position');
+      const headshotUrl = card.getAttribute('data-headshot-url');
+      
+      showPlayerDetails(playerId, firstName, lastName, jerseyNumber, position, headshotUrl);
+    });
+  });
   
   // Add pagination handlers
   const prevRosterBtn = document.getElementById('prevRosterPage');

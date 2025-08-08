@@ -311,7 +311,7 @@ body {
 /* Live game block styling */
 .live-game-block {
   flex: 1 1 calc(33.33% - 2rem);
-  max-width: 350px;
+  max-width: 400px;
   min-height: 200px;
   border: 1px solid #ccc;
   border-radius: 12px;

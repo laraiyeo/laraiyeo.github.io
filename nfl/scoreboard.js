@@ -617,6 +617,13 @@ async function fetchAndRenderTopScoreboard() {
     const isGameOver = gameStatus === "Final";
     const isGameScheduled = gameStatus === "Scheduled";
 
+    const possession = selectedGame?.competitions[0]?.situation?.possession;
+    const text = selectedGame?.competitions[0]?.situation?.possessionText || "";
+    const distance = selectedGame?.competitions[0]?.situation?.distance || "N/A";
+    const yardLine = selectedGame?.competitions[0]?.situation?.yardLine || "N/A";
+    const kickoff = selectedGame?.competitions[0]?.situation?.shortDownDistanceText === "1st & 10" && distance === 10 && (yardLine === 65 || yardLine === 35) ? "Kickoff" : selectedGame?.competitions[0]?.situation?.shortDownDistanceText || "";
+
+
     const topScoreboardEl = document.getElementById("topScoreboard");
     if (!topScoreboardEl) {
       console.error("Error: 'topScoreboard' element not found.");
@@ -645,6 +652,8 @@ async function fetchAndRenderTopScoreboard() {
       <div class="inning-center">
         <div class="inning-status responsive-inning-status">${periodText}</div>
         <div class="time-left responsive-game-clock">${timeLeft}</div>
+        <div class="time-left responsive-text1" style="margin-top: 25px">${kickoff}</div>
+        <div class="time-left responsive-text2" style="color: white;">${text ? (possession === homeTeam.id ? `${text} ▶` : `◀ ${text}`) : ""}</div>
       </div>
       <div class="team-block">
         <div class="team-score responsive-score" style="color: ${homeScoreColor};">${homeScore}</div>
