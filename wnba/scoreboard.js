@@ -258,17 +258,6 @@ async function fetchAndRenderTopScoreboard() {
 
     renderLinescoreTable(awayLinescores, homeLinescores, awayTeam?.abbreviation, homeTeam?.abbreviation, awayScore, homeScore);
 
-    const playDescriptionDiv = document.getElementById("playDescription");
-    if (gameStatus === "Final") {
-      playDescriptionDiv.innerHTML = ""; // Clear play description
-      playDescriptionDiv.style.display = "none"; // Hide the play description area
-    } else {
-      const competitors = selectedGame.competitions[0].competitors;
-      const lastPlay = selectedGame.competitions[0].situation?.lastPlay || null; // Correctly access situation
-      playDescriptionDiv.style.display = "block"; // Ensure play description is visible
-      renderPlayDescription(lastPlay, clock, competitors);
-    }
-
     // Render the box score
     renderBoxScore(gameId, gameStatus);
 
@@ -344,40 +333,6 @@ function renderLinescoreTable(awayLinescores, homeLinescores, awayAbbr, homeAbbr
         </tr>
       </tbody>
     </table>
-  `;
-}
-
-function renderPlayDescription(lastPlay, clock, competitors) {
-  const playDescriptionDiv = document.getElementById("playDescription");
-  if (!playDescriptionDiv) {
-    console.error("Error: 'playDescription' element not found.");
-    return;
-  }
-
-  if (!lastPlay || !lastPlay.text) {
-    playDescriptionDiv.innerHTML = `
-      <div class="play-description-content">
-        <div class="play-text">No play data available</div>
-      </div>
-    `;
-    playDescriptionDiv.style.backgroundColor = "#1a1a1a"; // Default background color
-    return;
-  }
-
-  // Handle clock display
-  const displayClock = clock === "0.0" ? "End" : clock;
-
-  // Find the team in the competitors array that matches the team ID from lastPlay
-  const team = competitors.find(c => c.team.id === lastPlay.team?.id);
-
-  // Use the team's color or fallback to a default color
-  const teamColor = team?.team?.color ? `#${team.team.color}` : "#1a1a1a";
-  playDescriptionDiv.style.backgroundColor = teamColor;
-
-  playDescriptionDiv.innerHTML = `
-    <div class="play-description-content">
-      <div class="play-text">${lastPlay.text}</div>
-    </div>
   `;
 }
 
