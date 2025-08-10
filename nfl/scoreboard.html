@@ -15,17 +15,30 @@
       <!-- Inning-by-inning linescore -->
       <div id="linescoreTable" class="linescore-table"></div>
 
-      <!-- Stream Embed -->
-      <div id="streamEmbed"></div>
+      <!-- Content Toggle Slider -->
+      <div id="contentSlider" class="content-slider">
+        <button id="statsBtn" class="slider-btn active" onclick="showStats()">Stats</button>
+        <button id="playsBtn" class="slider-btn" onclick="showPlays()">Plays</button>
+      </div>
 
-      <!-- Play description -->
-      <div id="playDescription" class="play-description"></div>
+      <!-- Stats Content (Live Stream and Box Score) -->
+      <div id="statsContent" class="content-section">
+        <!-- Stream Embed -->
+        <div id="streamEmbed"></div>
 
-      <!-- Player stats -->
+        <!-- Box Score -->
+        <div id="boxScore"></div>
+      </div>
+
+      <!-- Plays Content -->
+      <div id="playsContent" class="content-section" style="display: none;">
+        <div class="plays-placeholder">
+          <h2>Plays</h2>
+        </div>
+      </div>
+
+      <!-- Player stats (kept for compatibility) -->
       <div id="playerStats" class="player-stats"></div>
-
-      <!-- Box Score -->
-      <div id="boxScore"></div>
     </div>
 
     <script src="scoreboard.js"></script>

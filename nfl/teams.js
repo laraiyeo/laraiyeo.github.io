@@ -81,7 +81,7 @@ async function buildGameCard(game, team) {
         <div class="game-headline">${headline}</div>
         <div class="game-content">
           <div class="team away-team">
-            <img src="${awayTeam.logo || ""}" alt="${awayTeam.displayName || "Unknown"}" class="card-team-logo">
+            <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation}.png` || ""}" alt="${awayTeam.displayName || "Unknown"}" class="card-team-logo">
             <div class="card-team-name">${awayTeamShortName}</div>
             <div class="card-team-record">${awayTeamRecord}</div>
           </div>
@@ -90,7 +90,7 @@ async function buildGameCard(game, team) {
             <div class="game-time">${startTime}</div>
           </div>
           <div class="team home-team">
-            <img src="${homeTeam.logo || ""}" alt="${homeTeam.displayName || "Unknown"}" class="card-team-logo">
+            <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation}.png` || ""}" alt="${homeTeam.displayName || "Unknown"}" class="card-team-logo">
             <div class="card-team-name">${homeTeamShortName}</div>
             <div class="card-team-record">${homeTeamRecord}</div>
           </div>
@@ -123,7 +123,7 @@ async function buildGameCard(game, team) {
         <div class="game-content">
           <div class="team away-team">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <img src="${awayTeam?.logo || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
+              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation}.png` || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
               <span class="card-team-score">${awayTeamScore}</span>
             </div>
             <div class="card-team-name">${awayTeamShortName}</div>
@@ -136,7 +136,7 @@ async function buildGameCard(game, team) {
           <div class="team home-team">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span class="card-team-score">${homeTeamScore}</span>
-              <img src="${homeTeam?.logo || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
+              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation}.png` || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
             </div>
             <div class="card-team-name">${homeTeamShortName}</div>
             <div class="card-team-record">${homeTeamRecord}</div>
@@ -184,7 +184,7 @@ async function buildGameCard(game, team) {
         <div class="game-content">
           <div class="team away-team">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <img src="${awayTeam?.logo || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
+              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation}.png` || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
               <span class="card-team-score">${awayTeamScore}</span>
             </div>
             <div class="card-team-name">${awayTeamShortName}</div>
@@ -200,7 +200,7 @@ async function buildGameCard(game, team) {
           <div class="team home-team">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span class="card-team-score">${homeTeamScore}</span>
-              <img src="${homeTeam?.logo || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
+              <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation}.png` || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
             </div>
             <div class="card-team-name">${homeTeamShortName}</div>
             <div class="card-team-record">${homeTeamRecord}</div>

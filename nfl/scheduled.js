@@ -61,7 +61,7 @@ async function buildScheduledGameCard(game) {
       <div class="game-headline">${headline}</div>
       <div class="game-content">
         <div class="team away-team">
-          <img src="${awayTeam?.logo || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
+          <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation}.png` || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
           <div class="card-team-name">${awayTeamShortName}</div>
           <div class="card-team-record">${awayRecord}</div>
         </div>
@@ -70,7 +70,7 @@ async function buildScheduledGameCard(game) {
           <div class="game-time">${startTime}</div>
         </div>
         <div class="team home-team">
-          <img src="${homeTeam?.logo || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
+          <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation}.png` || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
           <div class="card-team-name">${homeTeamShortName}</div>
           <div class="card-team-record">${homeRecord}</div>
         </div>

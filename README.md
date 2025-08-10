@@ -16,17 +16,33 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
   - Base runners logic for MLB (Bases light up when runner is present)
   - Visual balls/strikes/outs tracker for MLB
 
-  **Scoreboard with Live Streaming**
+  **Scoreboard with Live Streaming & Play-by-Play**
   - Visual scoreboard for MLB with inning progress, team scores, base runners, current outs, current play description and player stats. It will also grey out any player who is benched. **Now includes embedded live game streams during active games**
   - Visual scoreboard for NHL, NBA, NFL and WNBA with Period/Quarter progress, team scores, time remaining in period/quarter, play description and player stats. There will be a 🟢 beside players who are currently on the ice/court/field
+  - **Enhanced Play-by-Play System** for MLB, NFL, NBA, and WNBA featuring:
+    - **Interactive expandable plays** with detailed player information and statistics
+    - **Smart play categorization**: Non-expandable plays (timeouts, challenges) vs expandable plays (shots, fouls, substitutions)
+    - **Dynamic team colors** applied to scoring plays and play borders based on official team colors
+    - **Player headshots and statistics** with current game stats and team abbreviations
+    - **Content slider interface** allowing seamless switching between player statistics and play-by-play data
+    - **Stream visibility control** - streams automatically hide when viewing play-by-play and show when viewing stats
+    - **Sport-specific features**:
+      - **NBA/WNBA**: Mini basketball court visualization showing exact shot locations with team-colored markers
+      - **NBA/WNBA**: Real-time coordinate mapping using ESPN's 0-50 scale system for accurate shot positioning
+      - **NBA/WNBA**: Special substitution handling with "Enter" labels and appropriate player information display
+      - **MLB**: Enhanced inning-by-inning play tracking with base runner context and detailed pitch statistics
+      - **NFL**: Quarter-by-quarter play progression with drive information and location
   - Visual scoreboard for Soccer with half progress, team scores, current match time, play description, a visual football pitch with real team lineups as well as a substitute section that shows subs and will display when they come on the pitch
   - Visual race information for F1 with session details, lap counts, fastest lap times, and real-time race positions with detailed driver and constructor information. Features embedded live race streams during active race weekends
 
 - **Live Streaming Integration**
-  - **Automatic stream detection** for in-progress games across all sports
-  - **Multiple stream source testing** with automatic failover for optimal viewing experience
-  - **Smart stream embedding** that only appears during active games/races
-  - **Cross-origin stream support** with advanced iframe handling
+  - Automatic stream detection for in-progress games across all sports
+  - Multiple stream source testing with automatic failover for optimal viewing experience
+  - Smart stream embedding that only appears during active games/races (not scheduled or completed games)
+  - Cross-origin stream support with advanced iframe handling
+  - Stream visibility management - automatically hides during play-by-play viewing and shows during stats viewing
+  - Enhanced stream control with fullscreen support
+  - Dynamic stream positioning to prevent overlap with game statistics and content areas
 
 - **Game Schedules & Results**  
   - See all scheduled games for the day with start times
@@ -184,6 +200,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - **(07/31/2025) Added fully functional NFL tracker with complete standings structure (AFC/NFC conferences), live streaming integration, and position-specific player statistics**
 - (08/01/2025) Added gamelog feature for players which lets you check any players log for the current season
 - (08/02/2025) Added clipboard function to game logs that allows you to copy any game log card
+- **(08/09/2025) Major Play-by-Play Enhancement** - Added comprehensive interactive play-by-play systems for MLB, NFL, NBA, and WNBA featuring:
 
 ---
 
@@ -200,6 +217,11 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - Last matches for all sports are currently facing issues when you try and search too far back
 - For NBA, WNBA, NFL, and NHL, the players headshots on the copied game card are squished a little if you click copy twice. On the first copy, they are normal
 - For player game log search, you can go back for as many years the player is active, however, if a player was traded during the season, it only shows game log for the team they were traded to. UEFA searches also don't allow for different leagues (Eg. game log for Harry Kane on March 11, 2021 won't show as Tottenham were in Europa that season)
+- Mini Basketball Court Issues for NBA and WNBA play-by-play:
+  - Mobile court styling: The basketball court visualization on mobile screens may not display with proper proportions and element positioning
+  - Shot marker positioning: Some shot location dots may appear slightly off-center or outside court boundaries for certain play coordinates
+  - Coordinate mapping inconsistencies: Occasional misalignment between ESPN's coordinate system and visual court positioning, particularly for corner shots and free throw attempts
+  - Mobile landscape orientation: Court elements may not scale properly when switching between portrait and landscape modes on mobile devices
 ---
 
 ## 🙌 Feedback & Contributions Welcome!

@@ -1,7 +1,7 @@
 const CORS_PROXY = "https://corsproxy.io/?url=";
 
 async function getLogoUrl(teamAbbreviation) {
-  return `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${teamAbbreviation}.png`;
+  return `https://a.espncdn.com/i/teamlogos/nfl/500/${teamAbbreviation}.png`;
 }
 
 function getOrdinalSuffix(num) {

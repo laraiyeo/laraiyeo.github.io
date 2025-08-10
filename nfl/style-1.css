@@ -153,15 +153,15 @@ body {
   background: #1a1a1a;
   border-radius: 1rem;
   padding: 1rem;
-  width: 250%;
-  max-width: 1205px;
-  margin: -2rem auto 2rem; /* Reduce top margin and keep bottom margin */
-  transform: translateX(-310px); /* Default shift to the left */
+  width: 100%;
+  max-width: 1200px;
+  margin: 2rem auto; /* Normal margins */
+  transform: translateX(-15px);
   transition: transform 0.3s ease; /* Smooth transition for transform changes */
 }
 
 .team-box-score.final {
-  transform: translateX(-310px); /* Shift to the right when game state is Final */
+  transform: translateX(-15px);
 }
 
 .team-box-score + .team-box-score {
@@ -348,11 +348,428 @@ body {
 
   .responsive-team-box-score {
     width: 102%;
-    transform: translateX(-18px);
+    transform: translateX(-20px);
   }
 
   .responsive-team-box-score.final {
     width: 102%;
-    transform: translateX(-18px);
+    transform: translateX(-20px);
+  }
+}
+
+/* Content Slider Styles */
+.content-slider {
+  display: flex;
+  justify-content: center;
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 4px;
+  margin: 20px 0;
+  width: 300px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: -10px;
+}
+
+.slider-btn {
+  flex: 1;
+  padding: 12px 24px;
+  background: transparent;
+  color: #ccc;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.slider-btn:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.slider-btn.active {
+  background: #007bff;
+  color: white;
+}
+
+.content-section {
+  width: 100%;
+  max-width: 1200px;
+}
+
+.plays-placeholder {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: left;
+  color: white;
+  width: 104%;
+  transform: translateX(-21.5px);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.plays-placeholder h2 {
+  font-size: 2rem;
+  margin: 0;
+  color: #007bff;
+}
+
+/* Play by Play Styles */
+.drives-container {
+  max-height: 600px;
+  overflow-y: auto;
+  margin-top: 20px;
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+
+.drives-container::-webkit-scrollbar {
+  display: none; /* WebKit browsers */
+}
+
+.drive-container {
+  margin-bottom: 15px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #2a2a2a;
+}
+
+.drive-header {
+  background: #1e1e1e;
+  padding: 15px 50px 15px 15px; /* Add right padding for arrow space */
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  border-left: 4px solid #444;
+  position: relative;
+}
+
+.drive-header:hover {
+  background: #333;
+}
+
+.drive-header.scoring-drive {
+  border-left-color: #28a745;
+  background: linear-gradient(90deg, rgba(40, 167, 69, 0.1) 0%, #1e1e1e 100%);
+}
+
+.drive-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.drive-team {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.drive-team-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.drive-team-name {
+  font-weight: bold;
+  color: white;
+  font-size: 16px;
+}
+
+.drive-number {
+  color: #888;
+  font-size: 14px;
+}
+
+.drive-result {
+  font-weight: bold;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: #444;
+  color: white;
+  font-size: 14px;
+}
+
+.drive-result.score {
+  background: #28a745;
+  color: white;
+}
+
+.drive-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: #ccc;
+  margin-right: 30px; /* Add margin to avoid arrow overlap */
+}
+
+.drive-description {
+  flex: 1;
+}
+
+.drive-time {
+  color: #888;
+  margin-left: 10px;
+}
+
+.drive-toggle {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.toggle-icon {
+  color: #007bff;
+  font-size: 18px;
+  transition: transform 0.3s ease;
+}
+
+.drive-plays {
+  background: #2a2a2a;
+  border-top: 1px solid #444;
+}
+
+.play-item {
+  padding: 12px 15px;
+  border-bottom: 1px solid #333;
+  transition: background-color 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.play-item:hover {
+  background: #333;
+}
+
+.play-item:last-child {
+  border-bottom: none;
+}
+
+.play-item.scoring-play {
+  background: rgba(40, 167, 69, 0.1);
+  border-left: 3px solid #28a745;
+}
+
+.play-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.play-time {
+  color: #007bff;
+  font-weight: bold;
+}
+
+.play-score {
+  color: #ccc;
+  font-weight: bold;
+}
+
+.scoring-indicator {
+  background: #28a745;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.play-description {
+  color: white;
+  line-height: 1.4;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  font-size: 14px;
+}
+
+/* Yard Line Graphic */
+.yard-line-graphic {
+  display: flex;
+  align-items: center;
+  margin: 8px 0;
+  font-size: 12px;
+  color: #888;
+}
+
+.field-graphic {
+  display: flex;
+  align-items: center;
+  margin: 0 10px;
+  position: relative;
+}
+
+.field-line {
+  height: 2px;
+  background: #444;
+  width: 100px;
+  position: relative;
+  border-radius: 1px;
+}
+
+.field-progress {
+  position: absolute;
+  height: 2px;
+  border-radius: 1px;
+  top: 0;
+}
+
+.field-marker {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  top: -3px;
+  transform: translateX(-4px);
+  z-index: 2;
+}
+
+.start-marker {
+  background: #28a745;
+}
+
+.end-marker {
+  background: #dc3545;
+}
+
+.yard-info {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.yard-info.home-team {
+  flex-direction: row-reverse;
+}
+
+.yard-line-graphic.home-team {
+  flex-direction: row-reverse;
+}
+
+/* Drive layout variants */
+.drive-info.home-team {
+  flex-direction: row-reverse;
+}
+
+.drive-info.home-team .drive-team {
+  flex-direction: row-reverse;
+}
+
+.drive-summary.home-team {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.drive-summary.home-team {
+  flex-direction: row-reverse;
+}
+
+.drive-summary.home-team .drive-description {
+  text-align: right;
+}
+
+.yard-info.home-team {
+  flex-direction: row-reverse;
+}
+
+/* Fix clipping issues */
+.drives-container {
+  max-height: 600px;
+  overflow-y: auto;
+  overflow-x: hidden; /* Prevent horizontal scrolling */
+  margin-top: 20px;
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+
+.drives-container::-webkit-scrollbar {
+  display: none; /* WebKit browsers */
+}
+
+.drive-container {
+  margin-bottom: 15px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #2a2a2a;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.drive-header {
+  background: #1e1e1e;
+  padding: 15px 50px 15px 15px; /* Add right padding for arrow space */
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  border-left: 4px solid #444;
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Responsive adjustments for plays */
+@media (max-width: 768px) {
+  .drive-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .drive-info.home-team {
+    align-items: flex-end;
+  }
+  
+  .drive-summary {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    margin-right: 30px;
+  }
+  
+  .drive-summary.home-team {
+    align-items: flex-end;
+  }
+  
+  .play-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .drives-container {
+    max-height: 500px;
+  }
+  
+  .yard-info {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  
+  .yard-info.home-team {
+    align-items: flex-end;
+  }
+  
+  .field-line {
+    width: 80px;
+  }
+
+  .plays-placeholder {
+  width: 112%;
+  transform: translateX(-21.5px);
   }
 }

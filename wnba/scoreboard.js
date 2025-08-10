@@ -380,3 +380,486 @@ function renderPlayDescription(lastPlay, clock, competitors) {
     </div>
   `;
 }
+
+// Global variables for preserving play-by-play state
+let openPlays = new Set(); // Track which plays are open
+let playsScrollPosition = 0; // Track scroll position
+
+function renderMiniCourt(coordinate, isScoring = false, teamSide = 'home', teamColor = '552583') {
+  if (!coordinate || coordinate.x === undefined || coordinate.y === undefined) {
+    return ''; // Invalid coordinates
+  }
+
+  const espnX = coordinate.x; 
+  const espnY = coordinate.y; 
+  
+  console.log(`Raw coordinates for ${teamSide} team: x=${espnX}, y=${espnY}`);
+  
+  // Court dimensions in pixels (landscape orientation)
+  const COURT_WIDTH = 100; // pixels (baseline to baseline) - ESPN uses 0-50 scale
+  const COURT_HEIGHT = 50; // pixels (sideline to sideline) - ESPN uses 0-50 scale
+  
+  // Simple approach: treat coordinates as direct positions
+  // x: 26, y: 3 for a layup should be close to the attacking basket
+  
+  // Convert ESPN coordinates to pixel positions
+  // Assume ESPN uses 0-50 scale for both dimensions
+  let pixelX = espnX; // Use x coordinate directly  
+  let pixelY = espnY; // Use y coordinate directly
+  
+  console.log(`Direct pixel mapping: x=${pixelX}px, y=${pixelY}px`);
+  
+  // Convert to percentages for CSS positioning
+  let leftPercent = (pixelY / 50) * 100; // Y becomes left-right position (6% for y: 3)
+  let bottomPercent = (pixelX / 50) * 100; // X becomes bottom position (52% for x: 26)
+  
+  // For away team, flip the court positioning
+  if (teamSide === 'away') {
+    bottomPercent = 100 - bottomPercent; // Flip the court for away team
+  }
+  
+  console.log(`CSS percentages: left=${leftPercent}%, bottom=${bottomPercent}%`);
+  
+  // Constrain to court bounds
+  const finalLeftPercent = Math.max(2, Math.min(98, leftPercent));
+  const finalBottomPercent = Math.max(2, Math.min(98, bottomPercent));
+
+  const shotClass = isScoring ? 'made-shot' : 'missed-shot';
+  const isMobile = window.innerWidth <= 768;
+  
+  // Ensure team color has # prefix
+  const finalTeamColor = teamColor.startsWith('#') ? teamColor : `#${teamColor}`;
+  
+  // For mobile (landscape court), use coordinates as-is
+  // For desktop (vertical court), we need to rotate the positioning
+  let finalLeft, finalBottom;
+  
+  if (isMobile) {
+    // Mobile: landscape court, use coordinates directly
+    finalLeft = finalLeftPercent;
+    finalBottom = finalBottomPercent;
+  } else {
+    // Desktop: vertical court, rotate coordinates 90 degrees
+    // left becomes bottom, bottom becomes (100 - left)
+    finalLeft = finalBottomPercent;
+    finalBottom = finalLeftPercent;
+  }
+
+  return `
+    <div class="mini-court ${isMobile ? 'mobile-landscape' : ''}">
+      <div class="court-container">
+        <!-- Court outline -->
+        <div class="court-outline"></div>
+        <!-- Three-point lines -->
+        <div class="three-point-line top"></div>
+        <div class="three-point-line bottom"></div>
+        <!-- Free throw circles -->
+        <div class="free-throw-circle top"></div>
+        <div class="free-throw-circle bottom"></div>
+        <!-- Center circle -->
+        <div class="center-circle"></div>
+        <!-- Baskets -->
+        <div class="basket top"></div>
+        <div class="basket bottom"></div>
+        <!-- Shot location -->
+        <div class="shot-marker ${shotClass}" style="left: ${finalLeft}%; bottom: ${finalBottom}%; --team-color: ${finalTeamColor};"></div>
+      </div>
+    </div>
+  `;
+}
+
+async function getPlayerImage(playerId) {
+  try {
+    // WNBA player headshot URL pattern
+    const imageUrl = `https://a.espncdn.com/i/headshots/wnba/players/full/${playerId}.png`;
+    
+    // Check if image exists
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(imageUrl);
+      img.onerror = () => resolve(''); // Return empty string if image doesn't exist
+      img.src = imageUrl;
+    });
+  } catch (error) {
+    return '';
+  }
+}
+
+async function getPlayerName(playerId) {
+  try {
+    // You could fetch player data here if needed
+    // For now, we'll rely on the participant data from the play
+    return '';
+  } catch (error) {
+    return '';
+  }
+}
+
+async function renderPlayByPlay(gameId) {
+  try {
+    const PLAY_BY_PLAY_API_URL = `https://cdn.espn.com/core/wnba/playbyplay?xhr=1&gameId=${gameId}`;
+    console.log("Fetching play-by-play from:", PLAY_BY_PLAY_API_URL);
+    const response = await fetch(PLAY_BY_PLAY_API_URL);
+    const data = await response.json();
+
+    console.log("Play-by-play data received:", data);
+
+    const plays = data.gamepackageJSON?.plays || [];
+    console.log("Plays data:", plays);
+    
+    const playsDiv = document.querySelector("#playsContent .plays-placeholder");
+    if (!playsDiv) {
+      console.error("Error: 'plays-placeholder' element not found.");
+      return;
+    }
+
+    // Check if we have valid plays data
+    if (plays.length === 0) {
+      playsDiv.innerHTML = `
+        <h2>Plays</h2>
+        <div style="color: white; text-align: center; padding: 20px;">No play data available for this game.</div>
+      `;
+      return;
+    }
+
+    // Get team information and box score data
+    const gameDate = getQueryParam("date");
+    let awayTeam = null, homeTeam = null;
+    let boxScoreData = null;
+    
+    try {
+      const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${gameDate}`;
+      const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
+      const scoreboardData = await scoreboardResponse.json();
+      const currentGame = scoreboardData.events?.find(game => game.id === gameId);
+      
+      if (currentGame) {
+        awayTeam = currentGame.competitions[0].competitors.find(c => c.homeAway === "away")?.team;
+        homeTeam = currentGame.competitions[0].competitors.find(c => c.homeAway === "home")?.team;
+      }
+
+      // Also fetch box score data to get current player stats
+      const BOX_SCORE_API_URL = `https://cdn.espn.com/core/wnba/boxscore?xhr=1&gameId=${gameId}`;
+      const boxScoreResponse = await fetch(BOX_SCORE_API_URL);
+      boxScoreData = await boxScoreResponse.json();
+    } catch (e) {
+      console.log("Could not fetch team info or box score for plays");
+    }
+
+    // Function to get player stats from box score
+    const getPlayerStats = (playerId) => {
+      if (!boxScoreData?.gamepackageJSON?.boxscore?.players) return null;
+      
+      for (const team of boxScoreData.gamepackageJSON.boxscore.players) {
+        const athletes = team.statistics?.[0]?.athletes || [];
+        const player = athletes.find(athlete => athlete.athlete.id === playerId);
+        if (player) {
+          return {
+            points: player.stats[13] || "0", // PTS
+            assists: player.stats[7] || "0", // AST
+            rebounds: player.stats[6] || "0", // REB
+            name: player.athlete.displayName || player.athlete.shortName
+          };
+        }
+      }
+      return null;
+    };
+
+    // Store current scroll position before updating
+    const playsContainer = playsDiv.querySelector('.plays-container');
+    if (playsContainer) {
+      playsScrollPosition = playsContainer.scrollTop;
+    }
+
+    const playsHtml = await Promise.all(plays.reverse().map(async (play, index) => {
+      const teamId = play.team?.id;
+      const isHomeTeam = homeTeam && teamId === homeTeam.id;
+      const teamLogo = isHomeTeam ? homeTeam?.logo : awayTeam?.logo;
+      const teamName = isHomeTeam ? homeTeam?.shortDisplayName : awayTeam?.shortDisplayName;
+      
+      const periodDisplay = play.period?.displayValue || '';
+      const clock = play.clock?.displayValue || '';
+      const homeScore = play.homeScore || 0;
+      const awayScore = play.awayScore || 0;
+      const playText = play.text || 'No description available';
+      const isScoring = play.scoringPlay || false;
+      const scoreValue = play.scoreValue || 0;
+      
+      // Get primary participant (usually the main player)
+      const primaryParticipant = play.participants?.[0];
+      const secondaryParticipant = play.participants?.[1]; // Could be assist, steal, etc.
+      
+      // Determine if this is a non-expandable play (timeout, challenge)
+      const playTextLower = playText.toLowerCase();
+      const isNonExpandablePlay = playTextLower.includes('timeout') || 
+                                  playTextLower.includes('challenge') ||
+                                  playTextLower.includes('technical foul') ||
+                                  playTextLower.includes('flagrant foul') ||
+                                  playTextLower.includes('official timeout') ||
+                                  playTextLower.includes('tv timeout') ||
+                                  playTextLower.includes('instant replay') ||
+                                  !primaryParticipant; // No participants means it's likely a non-player event
+      
+      // Determine if this play should NOT show the mini court (free throws, substitutions, enters the game)
+      const isNoCourtPlay = playTextLower.includes('free throw') ||
+                           playTextLower.includes('enters the game') ||
+                           playTextLower.includes('substitution');
+      
+      // Determine if this play should be open (preserve open state) - only for expandable plays
+      const isOpen = !isNonExpandablePlay && openPlays.has(index);
+      const displayStyle = isOpen ? 'block' : 'none';
+      const toggleIcon = isOpen ? '▲' : '▼';
+      
+      // Mini court display for expanded view - only for plays with coordinates and not free throws/substitutions
+      const teamSide = isHomeTeam ? 'home' : 'away';
+      const teamColor = isHomeTeam ? homeTeam?.color : awayTeam?.color;
+      const miniCourt = (!isNonExpandablePlay && !isNoCourtPlay && play.coordinate) ? renderMiniCourt(play.coordinate, isScoring, teamSide, teamColor) : '';
+      
+      // Apply team color to scoring plays dynamically
+      if (isScoring && teamColor) {
+        const playColorId = `play-${index}-color`;
+        // Remove any existing style for this play
+        const existingStyle = document.getElementById(playColorId);
+        if (existingStyle) {
+          existingStyle.remove();
+        }
+        
+        // Add new style with team color
+        const style = document.createElement('style');
+        style.id = playColorId;
+        style.textContent = `
+          .play-container.scoring-play:nth-of-type(${index + 1}) {
+            border-left-color: #${teamColor} !important;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+      
+      // Get player images and stats
+      let primaryPlayerImg = '';
+      let secondaryPlayerImg = '';
+      let primaryPlayerInfo = { name: 'Unknown Player', points: '0', assists: '0' };
+      let secondaryPlayerInfo = { name: 'Unknown Player', points: '0', assists: '0' };
+      let secondaryPlayerRole = 'Assist'; // Default role
+      
+      if (primaryParticipant?.athlete?.id) {
+        primaryPlayerImg = await getPlayerImage(primaryParticipant.athlete.id);
+        const stats = getPlayerStats(primaryParticipant.athlete.id);
+        primaryPlayerInfo = {
+          name: stats?.name || primaryParticipant.athlete.displayName || primaryParticipant.athlete.fullName || 'Unknown Player',
+          points: stats?.points || '0',
+          assists: stats?.assists || '0'
+        };
+      }
+      
+      if (secondaryParticipant?.athlete?.id) {
+        secondaryPlayerImg = await getPlayerImage(secondaryParticipant.athlete.id);
+        const stats = getPlayerStats(secondaryParticipant.athlete.id);
+        secondaryPlayerInfo = {
+          name: stats?.name || secondaryParticipant.athlete.displayName || secondaryParticipant.athlete.fullName || 'Unknown Player',
+          points: stats?.points || '0',
+          assists: stats?.assists || '0'
+        };
+        
+        // Determine the role of the secondary participant based on play text
+        const playTextLower = playText.toLowerCase();
+        if (playTextLower.includes('assist')) {
+          secondaryPlayerRole = 'Assist';
+        } else if (playTextLower.includes('steal')) {
+          secondaryPlayerRole = 'Steal';
+        } else if (playTextLower.includes('block')) {
+          secondaryPlayerRole = 'Block';
+        } else if (playTextLower.includes('rebound')) {
+          secondaryPlayerRole = 'Rebound';
+        } else if (playTextLower.includes('foul')) {
+          secondaryPlayerRole = 'Foul';
+        } else {
+          // Try to determine from participant type if available
+          secondaryPlayerRole = secondaryParticipant.type || 'Assist';
+        }
+      }
+      
+      // Determine team abbreviations for players using the same logic as team color
+      const playTeamAbbreviation = isHomeTeam ? homeTeam?.abbreviation : awayTeam?.abbreviation;
+      
+      // For participants, use the play's team abbreviation since players are associated with the play's team
+      const primaryPlayerTeam = playTeamAbbreviation;
+      const secondaryPlayerTeam = playTeamAbbreviation;
+      
+      // Special handling for substitution plays
+      const isSubstitution = playTextLower.includes('enters the game');
+      let primaryPlayerDisplayName = primaryPlayerInfo.name;
+      let secondaryPlayerDisplayName = secondaryPlayerInfo.name;
+      
+      if (primaryPlayerTeam) {
+        primaryPlayerDisplayName = `${primaryPlayerInfo.name} - ${primaryPlayerTeam}`;
+      }
+      if (secondaryPlayerTeam && !isSubstitution) {
+        secondaryPlayerDisplayName = `${secondaryPlayerInfo.name} - ${secondaryPlayerTeam}`;
+      }
+      
+      // For substitutions, modify the role text
+      if (isSubstitution) {
+        secondaryPlayerRole = ''; // Make second player blank for substitutions
+      }
+      
+      return `
+        <div class="play-container ${isScoring ? 'scoring-play' : ''} ${isNonExpandablePlay ? 'non-expandable' : ''}">
+          <div class="play-header" ${!isNonExpandablePlay ? `onclick="togglePlay(${index})"` : ''}>
+            <div class="play-main-info">
+              <div class="play-teams-score">
+                <div class="team-score-display">
+                  ${awayTeam ? `<img src="${awayTeam.logo}" alt="${awayTeam.shortDisplayName}" class="team-logo-small">` : ''}
+                  <span class="score">${awayScore}</span>
+                </div>
+                <div class="score-separator">-</div>
+                <div class="team-score-display">
+                  <span class="score">${homeScore}</span>
+                  ${homeTeam ? `<img src="${homeTeam.logo}" alt="${homeTeam.shortDisplayName}" class="team-logo-small">` : ''}
+                </div>
+              </div>
+              <div class="play-summary">
+                <div class="play-time-period">
+                  <span class="period">${periodDisplay}</span>
+                  <span class="clock">${clock}</span>
+                </div>
+                <div class="play-description">${playText}</div>
+                ${isScoring ? `<div class="score-indicator">+${scoreValue} PTS</div>` : ''}
+              </div>
+            </div>
+            ${!isNonExpandablePlay ? `
+              <div class="play-toggle">
+                <span class="toggle-icon" id="toggle-${index}">${toggleIcon}</span>
+              </div>
+            ` : ''}
+          </div>
+          ${!isNonExpandablePlay ? `
+            <div class="play-details" id="play-${index}" style="display: ${displayStyle};">
+              <div class="play-details-content">
+                ${miniCourt}
+                <div class="play-participants">
+                  ${primaryParticipant ? `
+                    <div class="participant primary">
+                      <div class="player-info">
+                        <div class="player-image">
+                          ${primaryPlayerImg ? `<img src="${primaryPlayerImg}" alt="${primaryPlayerInfo.name}" class="player-headshot">` : ''}
+                        </div>
+                        <div class="player-details">
+                          <div class="player-name">${primaryPlayerDisplayName}</div>
+                          <div class="player-stats">
+                            ${isSubstitution ? '<span class="player-role">Enter</span>' : ''}
+                            ${!isSubstitution && isScoring ? `<span class="stat-highlight">+${scoreValue} Points</span> • ` : ''}
+                            ${!isSubstitution ? `<span>${primaryPlayerInfo.points} PTS</span> • <span>${primaryPlayerInfo.assists} AST</span>` : ''}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ` : ''}
+                  ${secondaryParticipant && !isSubstitution ? `
+                    <div class="participant secondary">
+                      <div class="player-info">
+                        <div class="player-image">
+                          ${secondaryPlayerImg ? `<img src="${secondaryPlayerImg}" alt="${secondaryPlayerInfo.name}" class="player-headshot">` : ''}
+                        </div>
+                        <div class="player-details">
+                          <div class="player-name">${secondaryPlayerDisplayName}</div>
+                          <div class="player-stats">
+                            <span class="player-role">${secondaryPlayerRole}</span> • 
+                            <span>${secondaryPlayerInfo.points} PTS</span> • 
+                            <span>${secondaryPlayerInfo.assists} AST</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ` : ''}
+                  ${secondaryParticipant && isSubstitution ? `
+                    <div class="participant secondary">
+                      <div class="player-info">
+                        <div class="player-image">
+                          ${secondaryPlayerImg ? `<img src="${secondaryPlayerImg}" alt="${secondaryPlayerInfo.name}" class="player-headshot">` : ''}
+                        </div>
+                        <div class="player-details">
+                          <div class="player-name">${secondaryPlayerTeam ? `${secondaryPlayerInfo.name} - ${secondaryPlayerTeam}` : secondaryPlayerInfo.name}</div>
+                          <div class="player-stats">
+                            <!-- Blank for second player in substitutions -->
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ` : ''}
+                </div>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }));
+
+    playsDiv.innerHTML = `
+      <h2>Play by Play</h2>
+      <div class="plays-container">
+        ${playsHtml.join('')}
+      </div>
+    `;
+
+    // Restore scroll position after updating
+    setTimeout(() => {
+      const newPlaysContainer = playsDiv.querySelector('.plays-container');
+      if (newPlaysContainer && playsScrollPosition > 0) {
+        newPlaysContainer.scrollTop = playsScrollPosition;
+      }
+    }, 0);
+
+  } catch (error) {
+    console.error("Error fetching WNBA play-by-play data:", error);
+    const playsDiv = document.querySelector("#playsContent .plays-placeholder");
+    if (playsDiv) {
+      playsDiv.innerHTML = `
+        <h2>Plays</h2>
+        <div style="color: white; text-align: center; padding: 20px;">Error loading play data.</div>
+      `;
+    }
+  }
+}
+
+window.togglePlay = function(index) {
+  const playDetails = document.getElementById(`play-${index}`);
+  const toggleIcon = document.getElementById(`toggle-${index}`);
+  
+  if (playDetails.style.display === 'none' || playDetails.style.display === '') {
+    playDetails.style.display = 'block';
+    toggleIcon.textContent = '▲';
+    openPlays.add(index); // Track that this play is open
+  } else {
+    playDetails.style.display = 'none';
+    toggleIcon.textContent = '▼';
+    openPlays.delete(index); // Track that this play is closed
+  }
+};
+
+// Content slider functions
+window.showStats = function() {
+  // Update button states
+  document.getElementById('statsBtn').classList.add('active');
+  document.getElementById('playsBtn').classList.remove('active');
+  
+  // Show/hide content sections
+  document.getElementById('statsContent').classList.add('active');
+  document.getElementById('playsContent').classList.remove('active');
+};
+
+window.showPlays = function() {
+  // Update button states
+  document.getElementById('playsBtn').classList.add('active');
+  document.getElementById('statsBtn').classList.remove('active');
+  
+  // Show/hide content sections
+  document.getElementById('statsContent').classList.remove('active');
+  document.getElementById('playsContent').classList.add('active');
+  
+  // Load play-by-play data when switching to plays view
+  const gameId = getQueryParam("gameId");
+  if (gameId) {
+    renderPlayByPlay(gameId);
+  }
+};

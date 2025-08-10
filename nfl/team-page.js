@@ -2290,6 +2290,8 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
       // Receiver stats - get from receiving and rushing
       const receivingStats = playerStats.receiving || [];
       const rushingStats = playerStats.rushing || [];
+      const defensiveStats = playerStats.defensive || [];
+      const interceptionStats = playerStats.interceptions || [];
       
       statsDisplay = `
         <div style="margin-bottom: 20px;">
@@ -2344,6 +2346,52 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${rushingStats[4] || '0'}</div>
               <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">LNG</div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+        ${defensiveStats.length > 0 ? `}
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">🏈 Defensive Stats</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px; margin-bottom: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${defensiveStats[0] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">TOT TCKL</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${defensiveStats[1] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">SOLO</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${defensiveStats[4] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">PD</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${defensiveStats[5] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">QB HIT</div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+        ${interceptionStats.length > 0 ? `
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #FFA500;">🏈 Interception Stats</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${interceptionStats[0] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">INT</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${interceptionStats[1] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">INT YDS</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${interceptionStats[2] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">LNG</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${interceptionStats[3] || '0'}</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">TD</div>
             </div>
           </div>
         </div>
@@ -2447,23 +2495,23 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px; margin-bottom: 15px;">
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${kickingStats[0] || '0'}</div>
-              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">FG MADE</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">FG MADE/ATT</div>
             </div>
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${kickingStats[1] || '0'}</div>
-              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">FG ATT</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">FG PCT</div>
             </div>
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${kickingStats[2] || '0'}</div>
-              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">XP MADE</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">LNG</div>
             </div>
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${kickingStats[3] || '0'}</div>
-              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">XP ATT</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">XP MADE/ATT</div>
             </div>
             <div style="text-align: center;">
               <div style="font-size: 1.4rem; font-weight: bold; color: #fff;">${kickingStats[4] || '0'}</div>
-              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">LNG</div>
+              <div style="font-size: 0.75rem; color: #ccc; margin-top: 2px;">KICK PTS</div>
             </div>
           </div>
         </div>

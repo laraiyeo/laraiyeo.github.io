@@ -346,3 +346,519 @@ body {
     transform: translateX(-58px);
   }
 }
+
+/* Content Slider Styles */
+.content-slider {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  margin: 20px 0;
+  background: #333;
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.slider-btn {
+  flex: 1;
+  padding: 12px 24px;
+  background: #333;
+  color: #ccc;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.slider-btn:hover {
+  background: #444;
+  color: white;
+}
+
+.slider-btn.active {
+  background: #007bff;
+  color: white;
+}
+
+.content-section {
+  display: none;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  transform: translateX(310px);
+}
+
+.content-section.active {
+  display: block;
+}
+
+.content-section1 {
+  display: none;
+  width: 100%;
+  max-width: 1250px;
+  margin: 0 auto;
+}
+
+.content-section1.active {
+  display: block;
+}
+
+/* Play by Play Styles */
+.plays-placeholder {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: left;
+  color: white;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.plays-placeholder h2 {
+  font-size: 2rem;
+  margin: 0 0 20px 0;
+  color: #007bff;
+}
+
+.plays-container {
+  max-height: 600px;
+  overflow-y: auto;
+  margin-top: 20px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.plays-container::-webkit-scrollbar {
+  display: none;
+}
+
+.play-container {
+  margin-bottom: 15px;
+  background: #2a2a2a;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #444;
+  transition: all 0.3s ease;
+}
+
+.play-container.scoring-play {
+  border-left: 4px solid var(--team-color, #28a745);
+  background: linear-gradient(90deg, rgba(40, 167, 69, 0.1), rgba(42, 42, 42, 1));
+}
+
+.play-header {
+  padding: 15px 20px;
+  background: #333;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background-color 0.2s ease;
+}
+
+.play-header:hover {
+  background: #3a3a3a;
+}
+
+.play-main-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.play-teams-score {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.team-score-display {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.team-logo-small {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.score {
+  font-weight: bold;
+  color: #007bff;
+  font-size: 16px;
+}
+
+.score-separator {
+  color: #ccc;
+  margin: 0 5px;
+}
+
+.play-summary {
+  flex: 1;
+}
+
+.play-time-period {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.period {
+  background: #444;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.clock {
+  color: #999;
+  font-size: 12px;
+}
+
+.play-description {
+  color: white;
+  line-height: 1.4;
+  font-size: 14px;
+}
+
+.score-indicator {
+  background: var(--team-color, #28a745);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
+  margin-top: 5px;
+  display: inline-block;
+}
+
+.play-toggle {
+  margin-left: 10px;
+}
+
+.toggle-icon {
+  transition: transform 0.3s ease;
+  font-size: 14px;
+  color: #ccc;
+}
+
+.play-details {
+  padding: 20px;
+  background: #1a1a1a;
+  border-top: 1px solid #444;
+}
+
+.play-details-content {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+/* Mini Basketball Court Styles */
+.mini-court {
+  flex-shrink: 0;
+}
+
+.court-container {
+  width: 150px;
+  height: 200px;
+  position: relative;
+  background: #8B4513;
+  border: 2px solid #654321;
+  border-radius: 4px;
+}
+
+.court-outline {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  border: 1px solid white;
+  border-radius: 2px;
+}
+
+.three-point-line {
+  position: absolute;
+  border: 1px solid white;
+  border-radius: 50px;
+}
+
+.three-point-line.top {
+  width: 80px;
+  height: 40px;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-bottom: none;
+}
+
+.three-point-line.bottom {
+  width: 80px;
+  height: 40px;
+  bottom: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-top: none;
+}
+
+.free-throw-circle {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border: 1px solid white;
+  border-radius: 50%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.free-throw-circle.top {
+  top: 25px;
+}
+
+.free-throw-circle.bottom {
+  bottom: 25px;
+}
+
+.center-circle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 1px solid white;
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.basket {
+  position: absolute;
+  width: 8px;
+  height: 2px;
+  background: orange;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 1px;
+}
+
+.basket.top {
+  top: 8px;
+}
+
+.basket.bottom {
+  bottom: 8px;
+}
+
+.shot-marker {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  border: 2px solid white;
+}
+
+.shot-marker.made-shot {
+  background: var(--team-color, #552583);
+  border-color: white;
+}
+
+.shot-marker.missed-shot {
+  background: white;
+  border-color: var(--team-color, #552583);
+}
+
+/* Mobile landscape court styles */
+.mini-court.mobile-landscape .court-container {
+  width: 200px;
+  height: 100px;
+  /* Remove rotation for mobile - keep it landscape */
+}
+
+.mini-court.mobile-landscape {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 120px; /* Adjust for landscape dimensions */
+  margin: 10px 0;
+}
+
+/* Player Information Styles */
+.play-participants {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.participant {
+  background: #333;
+  border-radius: 8px;
+  padding: 15px;
+}
+
+.participant.primary {
+  border-left: 3px solid #007bff;
+}
+
+.participant.assist {
+  border-left: 3px solid #28a745;
+}
+
+.participant.secondary {
+  border-left: 3px solid #ffc107;
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.player-image {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #555;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.player-headshot {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.player-details {
+  flex: 1;
+}
+
+.player-name {
+  font-weight: bold;
+  color: white;
+  font-size: 14px;
+  margin-bottom: 3px;
+}
+
+.player-stats {
+  font-size: 12px;
+  color: #ccc;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.player-stats span {
+  font-size: 11px;
+}
+
+.stat-highlight {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.player-role {
+  color: #2196F3;
+  font-weight: bold;
+  background: rgba(33, 150, 243, 0.2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+.points-scored {
+  color: #28a745;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.assist-info {
+  color: #2196F3;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.steal-info {
+  color: #FF9800;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.block-info {
+  color: #9C27B0;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.rebound-info {
+  color: #607D8B;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* Responsive adjustments for plays */
+@media (max-width: 768px) {
+  .play-details-content {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .court-container {
+    width: 120px;
+    height: 160px;
+    margin: 0 auto;
+  }
+  
+  .play-participants {
+    gap: 10px;
+  }
+  
+  .participant {
+    padding: 10px;
+  }
+  
+  .player-image {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 525px) {
+  .play-teams-score {
+    gap: 8px;
+  }
+  
+  .team-logo-small {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .score {
+    font-size: 14px;
+  }
+  
+  .play-description {
+    font-size: 13px;
+  }
+  
+  .play-details {
+    padding: 15px;
+  }
+}

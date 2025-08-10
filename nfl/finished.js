@@ -48,7 +48,7 @@ async function buildGameCard(game) {
       <div class="game-content">
         <div class="team away-team">
           <div style="display: flex; align-items: center; gap: 8px;">
-            <img src="${awayTeam?.logo || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
+            <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation}.png` || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
             <span class="card-team-score" style="${awayIsWinner ? "font-weight: bold;" : ""}">${awayScore}</span>
           </div>
           <div class="card-team-name">${awayTeamShortName}</div>
@@ -61,7 +61,7 @@ async function buildGameCard(game) {
         <div class="team home-team">
           <div style="display: flex; align-items: center; gap: 8px;">
             <span class="card-team-score" style="${homeIsWinner ? "font-weight: bold;" : ""}">${homeScore}</span>
-            <img src="${homeTeam?.logo || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
+            <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation}.png` || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
           </div>
           <div class="card-team-name">${homeTeamShortName}</div>
           <div class="card-team-record">${homeRecord}</div>

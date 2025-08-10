@@ -48,8 +48,8 @@ body {
   }
   
   .team-logo {
-    width: 60px;
-    height: 60px;
+    width: 120px;
+    height: 120px;
     margin: 0.5rem 0;
   }
 
@@ -157,6 +157,365 @@ body {
   text-shadow: 2px 2px 2px black;
 }
 
+/* Content Slider Styles */
+.content-slider {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  margin: 20px 0;
+  background: #333;
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.slider-btn {
+  flex: 1;
+  padding: 12px 24px;
+  background: #333;
+  color: #ccc;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.slider-btn:hover {
+  background: #444;
+  color: white;
+}
+
+.slider-btn.active {
+  background: #007bff;
+  color: white;
+}
+
+.content-section {
+  display: none;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  transform: translateX(-20px);
+}
+
+.content-section.active {
+  display: block;
+}
+
+.content-section1 {
+  display: none;
+  width: 100%;
+  max-width: 1230px;
+  margin: 0 auto;
+  transform: translateX(0px);
+}
+
+.content-section1.active {
+  display: block;
+}
+
+/* Play by Play Styles */
+.plays-placeholder {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: left;
+  color: white;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.plays-placeholder h2 {
+  font-size: 2rem;
+  margin: 0 0 20px 0;
+  color: #007bff;
+}
+
+.plays-container {
+  max-height: 600px;
+  overflow-y: auto;
+  margin-top: 20px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.plays-container::-webkit-scrollbar {
+  display: none;
+}
+
+.play-container {
+  margin-bottom: 20px;
+  background: #2a2a2a;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #444;
+  transition: all 0.3s ease;
+}
+
+.play-container[style*="background-color"] {
+  background-blend-mode: overlay;
+  opacity: 0.9;
+}
+
+.play-container[style*="background-color"] .play-header {
+  background: rgba(0, 0, 0, 0.2);
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.play-container[style*="background-color"] .play-team-name,
+.play-container[style*="background-color"] .play-result,
+.play-container[style*="background-color"] .play-score,
+.play-container[style*="background-color"] .play-inning {
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.play-header {
+  padding: 15px 20px;
+  background: #333;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background-color 0.2s ease;
+}
+
+.play-header:hover {
+  background: #3a3a3a;
+}
+
+.play-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex: 1;
+}
+
+.play-team-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.play-summary {
+  flex: 1;
+}
+
+.play-team-name {
+  font-weight: bold;
+  color: white;
+  margin-right: 10px;
+}
+
+.play-result {
+  color: #ccc;
+  font-size: 14px;
+}
+
+.play-score-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.play-inning {
+  color: #999;
+  font-size: 12px;
+  text-align: center;
+  font-weight: normal;
+}
+
+.play-score {
+  color: #007bff;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.play-toggle {
+  margin-left: 10px;
+}
+
+.toggle-icon {
+  transition: transform 0.3s ease;
+  font-size: 14px;
+  color: #ccc;
+}
+
+.play-details {
+  padding: 0;
+  background: #2a2a2a;
+  border-top: 1px solid #444;
+}
+
+.pitch-container {
+  padding: 12px 20px;
+  border-bottom: 1px solid #333;
+  transition: background-color 0.2s ease;
+}
+
+.pitch-container:hover {
+  background: #333;
+}
+
+.pitch-container:last-child {
+  border-bottom: none;
+}
+
+.pitch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.pitch-count {
+  color: #007bff;
+  font-weight: bold;
+}
+
+.pitch-speed {
+  color: #ccc;
+  font-weight: bold;
+}
+
+.pitch-type {
+  background: #444;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.pitch-description {
+  color: white;
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+
+.pitch-visualization {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.strike-zone-container {
+  width: 120px;
+  height: 120px;
+  position: relative;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  border: 1px solid #333;
+}
+
+.strike-zone-outline {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border: 2px solid #666;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.strike-zone {
+  width: 80px;
+  height: 80px;
+  border: 2px solid #666;
+  position: relative;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.pitch-location {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+.ball-pitch {
+  background: #44ff44;
+  border: 1px solid #fff;
+}
+
+.strike-pitch {
+  background: #ff4444;
+  border: 1px solid #fff;
+}
+
+.in-play-pitch {
+  background: #4444ff;
+  border: 1px solid #fff;
+}
+
+.pitch-data {
+  font-size: 12px;
+  color: #ccc;
+}
+
+.pitch-data div {
+  margin-bottom: 3px;
+}
+
+/* Small bases for play boxes */
+.play-bases {
+  margin-top: 30px;
+}
+
+.diamond-small {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  margin: 8px auto;
+}
+
+.base-small {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: #666;
+  transform: rotate(45deg);
+  border: 1px solid #999;
+  border-radius: 1px;
+}
+
+.base-small.first {
+  bottom: 50%;
+  right: -3px;
+  transform: translate(0, 50%) rotate(45deg);
+}
+
+.base-small.second {
+  top: -3px;
+  left: 50%;
+  transform: translate(-50%, 0) rotate(45deg);
+}
+
+.base-small.third {
+  bottom: 50%;
+  left: -3px;
+  transform: translate(0, 50%) rotate(45deg);
+}
+
+.base-small.occupied {
+  background: #ffdd00;
+  border-color: #ffcc00;
+  box-shadow: 0 0 4px rgba(255, 221, 0, 0.6);
+}
+
 @media (max-width: 525px) {
   .away-team-score,
   .home-team-score {
@@ -182,5 +541,10 @@ body {
   .base {
     width: 14px; /* Smaller bases for mobile */
     height: 14px;
+  }
+
+  .content-section1 {
+    width: 107.5%;
+    transform: translateX(-12.5px);
   }
 }

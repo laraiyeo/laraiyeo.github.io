@@ -45,23 +45,86 @@ async function extractVideoPlayerUrl(pageUrl) {
     // Use a CORS proxy to fetch the page content
     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(pageUrl)}`;
     const response = await fetch(proxyUrl);
-    const data = await response.json();
     
-    if (data.contents) {
-      // Look for iframe src in the page content
-      const iframeMatch = data.contents.match(/src="([^"]*castweb\.xyz[^"]*)"/);
-      if (iframeMatch) {
-        return iframeMatch[1];
+    // Check if the response is successful
+    if (!response.ok) {
+      console.log(`CORS proxy response not OK: ${response.status} ${response.statusText}`);
+      return null;
+    }
+    
+    const responseText = await response.text();
+    
+    // Check if the response looks like an error page
+    if (responseText.includes('Oops') || responseText.includes('Error') || responseText.includes('404')) {
+      console.log('CORS proxy returned an error page, skipping extraction');
+      return null;
+    }
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.log('Failed to parse CORS proxy response as JSON, skipping extraction');
+      return null;
+    }
+    
+    if (data && data.contents) {
+      console.log('Successfully got page contents, searching for video URLs...');
+      
+      // Look for castweb.xyz iframe src patterns (most specific first)
+      const iframeMatches = [
+        /src="([^"]*castweb\.xyz[^"]*)"/i,
+        /src='([^']*castweb\.xyz[^']*)'/i,
+        /<iframe[^>]*src="([^"]*castweb\.xyz[^"]*)"[^>]*>/i,
+        /<iframe[^>]*src='([^']*castweb\.xyz[^']*)'[^>]*>/i
+      ];
+      
+      for (const pattern of iframeMatches) {
+        const match = data.contents.match(pattern);
+        if (match) {
+          console.log(`Found castweb.xyz URL with pattern: ${pattern}`);
+          console.log(`Extracted URL: ${match[1]}`);
+          return match[1];
+        }
       }
       
-      // Alternative patterns to look for
-      const altMatch = data.contents.match(/iframe[^>]*src="([^"]*\.php[^"]*)"/);
-      if (altMatch) {
-        return altMatch[1];
+      // Look for other iframe patterns as fallback
+      const altMatches = [
+        /iframe[^>]*src="([^"]*\.php[^"]*)"/i,
+        /iframe[^>]*src='([^']*\.php[^']*)'/i,
+        /<iframe[^>]*src="([^"]*)"[^>]*>/i,
+        /<iframe[^>]*src='([^']*)'[^>]*>/i
+      ];
+      
+      for (const pattern of altMatches) {
+        const match = data.contents.match(pattern);
+        if (match && (match[1].includes('castweb') || match[1].includes('.php'))) {
+          console.log(`Found fallback URL with pattern: ${pattern}`);
+          console.log(`Extracted URL: ${match[1]}`);
+          return match[1];
+        }
+      }
+      
+      // Debug: Check if there are any iframes at all
+      const anyIframe = data.contents.match(/<iframe[^>]*>/i);
+      if (anyIframe) {
+        console.log('Found iframe in page but no matching patterns:', anyIframe[0]);
+      } else {
+        console.log('No iframes found in page content');
+      }
+      
+      // Debug: Check for castweb mentions
+      if (data.contents.includes('castweb')) {
+        console.log('Page contains "castweb" but extraction failed');
+        const castwebContext = data.contents.substring(
+          Math.max(0, data.contents.indexOf('castweb') - 100),
+          data.contents.indexOf('castweb') + 200
+        );
+        console.log('Context around castweb:', castwebContext);
       }
     }
   } catch (error) {
-    console.error('Error extracting video player URL:', error);
+    console.log('Error extracting video player URL:', error.message);
   }
   
   return null;
@@ -291,6 +354,14 @@ function tryNextStream() {
     const nextUrl = streamUrls[currentStreamIndex];
     currentStreamIndex++;
     
+    // Check if this URL looks like a full page rather than a video stream
+    if (nextUrl.includes('papaahd.live/') && !nextUrl.includes('.php') && !nextUrl.includes('castweb')) {
+      console.log(`Skipping full page URL: ${nextUrl}`);
+      // Skip this URL and try the next one
+      tryNextStream();
+      return;
+    }
+    
     // Reduced timeout from 8 seconds to 4 seconds
     streamTestTimeout = setTimeout(() => {
       tryNextStream();
@@ -306,6 +377,7 @@ function tryNextStream() {
     if (connectingDiv) {
       connectingDiv.style.display = 'none';
     }
+    console.log('No more streams to try, showing connecting message');
     streamUrls = [];
   }
 }
@@ -321,13 +393,21 @@ async function startStreamTesting(awayTeamName, homeTeamName) {
   
   streamUrls = [];
   
+  console.log('Starting stream testing for:', awayTeamName, 'vs', homeTeamName);
+  
   // Process URLs in parallel for faster extraction
   const extractionPromises = pageUrls.map(async (url) => {
     try {
+      console.log(`Attempting to extract video URL from: ${url}`);
       const videoUrl = await extractVideoPlayerUrl(url);
+      if (videoUrl) {
+        console.log(`Successfully extracted video URL: ${videoUrl}`);
+      } else {
+        console.log(`No video URL extracted from: ${url}`);
+      }
       return videoUrl;
     } catch (error) {
-      console.error(`Error extracting from ${url}:`, error);
+      console.log(`Error extracting from ${url}:`, error.message);
       return null;
     }
   });
@@ -338,14 +418,15 @@ async function startStreamTesting(awayTeamName, homeTeamName) {
   extractedUrls.forEach(url => {
     if (url) {
       streamUrls.push(url);
-      console.log(`Extracted video URL: ${url}`);
     }
   });
   
   // If no video URLs were extracted, fall back to original page URLs
   if (streamUrls.length === 0) {
-    console.log('No video URLs extracted, using page URLs directly');
+    console.log('No video URLs extracted, using page URLs directly as fallback');
     streamUrls = pageUrls;
+  } else {
+    console.log(`Found ${streamUrls.length} video URL(s) to test`);
   }
   
   currentStreamIndex = 0;
@@ -447,7 +528,7 @@ async function renderBoxScore(gameId, gameState) {
 
       const teamName = team.team.shortDisplayName;
       const teamColor = `#${team.team.color}`;
-      const teamLogo = team.team.logo;
+      const teamLogo = team.team.abbreviation === ("NYG" || "NYJ") ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${team.team.abbreviation}.png` : `https://a.espncdn.com/i/teamlogos/nfl/500/${team.team.abbreviation}.png`;
 
       // NFL has different stat categories: passing, rushing, receiving, etc.
       let playersHtml = '';
@@ -514,6 +595,170 @@ async function renderBoxScore(gameId, gameState) {
     `;
   } catch (error) {
     console.error("Error fetching NFL box score data:", error);
+  }
+}
+
+async function renderPlayByPlay(gameId) {
+  try {
+    const PLAY_BY_PLAY_API_URL = `https://cdn.espn.com/core/nfl/playbyplay?xhr=1&gameId=${gameId}`;
+    console.log("Fetching play-by-play from:", PLAY_BY_PLAY_API_URL);
+    const response = await fetch(PLAY_BY_PLAY_API_URL);
+    const data = await response.json();
+
+    console.log("Play-by-play data received:", data);
+
+    const drives = data.gamepackageJSON?.drives?.previous || [];
+    console.log("Drives data:", drives);
+    
+    const playsDiv = document.querySelector("#playsContent .plays-placeholder");
+    if (!playsDiv) {
+      console.error("Error: 'plays-placeholder' element not found.");
+      return;
+    }
+
+    // Check if we have valid drives data
+    if (drives.length === 0) {
+      playsDiv.innerHTML = `
+        <h2>Plays</h2>
+        <div style="color: white; text-align: center; padding: 20px;">No play data available for this game.</div>
+      `;
+      return;
+    }
+
+    // Get team information for layout decisions
+    const gameId_param = getQueryParam("gameId");
+    let homeTeamId = null;
+    let awayTeamId = null;
+    
+    // Try to get home/away team IDs from the first drive or API call
+    if (drives.length > 0) {
+      // We'll determine home/away from game data
+      try {
+        const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard`;
+        const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
+        const scoreboardData = await scoreboardResponse.json();
+        const currentGame = scoreboardData.events?.find(game => game.id === gameId_param);
+        
+        if (currentGame) {
+          homeTeamId = currentGame.competitions[0].competitors.find(c => c.homeAway === "home")?.team?.id;
+          awayTeamId = currentGame.competitions[0].competitors.find(c => c.homeAway === "away")?.team?.id;
+        }
+      } catch (e) {
+        console.log("Could not fetch team home/away info");
+      }
+    }
+
+    const drivesHtml = drives.reverse().map((drive, index) => {
+      const driveNumber = drives.length - index; // Correct numbering: first drive = 1, latest drive = highest number
+      const teamName = drive.team?.shortDisplayName || drive.team?.abbreviation || 'Unknown';
+      const teamLogo = drive.team?.logos?.[1]?.href || '';
+      const driveResult = drive.displayResult || drive.result || 'No Result';
+      const driveDescription = drive.description || '';
+      const isScore = drive.isScore || false;
+      const teamId = drive.team?.id;
+      
+      // Determine if this is the home team
+      const isHomeTeam = homeTeamId && teamId === homeTeamId;
+      
+      // Get drive summary info
+      const startText = drive.start?.text || '';
+      const endText = drive.end?.text || '';
+      const timeElapsed = drive.timeElapsed?.displayValue || '';
+      
+      // Create yard line graphic with gradient from start to end
+      const startYardLine = drive.start?.yardLine || 0;
+      const endYardLine = drive.end?.yardLine || 0;
+      const startPosition = Math.min(100, Math.max(0, startYardLine));
+      const endPosition = Math.min(100, Math.max(0, endYardLine));
+      
+      // Calculate gradient line from start to end
+      const leftPosition = Math.min(startPosition, endPosition);
+      const rightPosition = Math.max(startPosition, endPosition);
+      const width = rightPosition - leftPosition;
+      
+      // Flip gradient direction for away teams (green to red for home, red to green for away)
+      const gradientDirection = isHomeTeam ? 'linear-gradient(90deg, #28a745 0%, #dc3545 100%)' : 'linear-gradient(90deg, #dc3545 0%, #28a745 100%)';
+      
+      const yardLineGraphic = `
+        <div class="yard-line-graphic ${isHomeTeam ? 'home-team' : ''}">
+          <div class="yard-info ${isHomeTeam ? 'home-team' : ''}">
+            <span>End: ${endText}</span>
+            <div class="field-graphic">
+              <div class="field-line">
+                <div class="field-progress" style="left: ${leftPosition}%; width: ${width}%; background: ${gradientDirection};"></div>
+                <div class="field-marker start-marker" style="left: ${startPosition}%"></div>
+                <div class="field-marker end-marker" style="left: ${endPosition}%"></div>
+              </div>
+            </div>
+            <span>Start: ${startText}</span>
+          </div>
+        </div>
+      `;
+      
+      // Generate plays HTML for this drive (reverse order so latest plays first)
+      const playsHtml = (drive.plays || []).reverse().map((play, playIndex) => {
+        const playText = play.text || 'No description available';
+        const clock = play.clock?.displayValue || '';
+        const period = play.period?.number || '';
+        const homeScore = play.homeScore || 0;
+        const awayScore = play.awayScore || 0;
+        const isScoringPlay = play.scoringPlay || false;
+        const scoringType = play.scoringType?.displayName || '';
+        
+        return `
+          <div class="play-item ${isScoringPlay ? 'scoring-play' : ''}">
+            <div class="play-header">
+              <span class="play-time">Q${period} ${clock}</span>
+              <span class="play-score">${awayScore} - ${homeScore}</span>
+              ${isScoringPlay ? `<span class="scoring-indicator">${scoringType}</span>` : ''}
+            </div>
+            <div class="play-description">${playText}</div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="drive-container">
+          <div class="drive-header ${isScore ? 'scoring-drive' : ''}" onclick="toggleDrive(${index})">
+            <div class="drive-info ${isHomeTeam ? 'home-team' : ''}">
+              <div class="drive-team">
+                ${teamLogo ? `<img src="${teamLogo}" alt="${teamName}" class="drive-team-logo">` : ''}
+                <span class="drive-team-name">${teamName}</span>
+                <span class="drive-number">Drive ${driveNumber}</span>
+              </div>
+              <div class="drive-result ${isScore ? 'score' : ''}">${driveResult}</div>
+            </div>
+            <div class="drive-summary ${isHomeTeam ? 'home-team' : ''}">
+              <span class="drive-description">${driveDescription}</span>
+              ${timeElapsed ? `<span class="drive-time">${timeElapsed}</span>` : ''}
+            </div>
+            ${yardLineGraphic}
+            <div class="drive-toggle">
+              <span class="toggle-icon" id="toggle-${index}">▼</span>
+            </div>
+          </div>
+          <div class="drive-plays" id="drive-${index}" style="display: none;">
+            ${playsHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    playsDiv.innerHTML = `
+      <h2>Plays</h2>
+      <div class="drives-container">
+        ${drivesHtml}
+      </div>
+    `;
+  } catch (error) {
+    console.error("Error fetching NFL play-by-play data:", error);
+    const playsDiv = document.querySelector("#playsContent .plays-placeholder");
+    if (playsDiv) {
+      playsDiv.innerHTML = `
+        <h2>Plays</h2>
+        <div style="color: white; text-align: center; padding: 20px;">Error loading play data.</div>
+      `;
+    }
   }
 }
 
@@ -645,7 +890,7 @@ async function fetchAndRenderTopScoreboard() {
     topScoreboardEl.innerHTML = `
       <div class="team-block">
         <div class="team-score responsive-score" style="color: ${awayScoreColor};">${awayScore}</div>
-        <img class="team-logo responsive-logo" src="${awayTeam?.logo}" alt="${awayTeam?.displayName}">
+        <img class="team-logo responsive-logo" src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation}.png` || ""}" alt="${awayTeam?.displayName}">
         <div class="team-name responsive-name">${awayTeam?.shortDisplayName}</div>
         <div class="team-record responsive-record">${awayTeamRecord}</div>
       </div>
@@ -657,7 +902,7 @@ async function fetchAndRenderTopScoreboard() {
       </div>
       <div class="team-block">
         <div class="team-score responsive-score" style="color: ${homeScoreColor};">${homeScore}</div>
-        <img class="team-logo responsive-logo" src="${homeTeam?.logo}" alt="${homeTeam?.displayName}">
+        <img class="team-logo responsive-logo" src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation}.png` || ""}" alt="${homeTeam?.displayName}">
         <div class="team-name responsive-name">${homeTeam?.shortDisplayName}</div>
         <div class="team-record responsive-record">${homeTeamRecord}</div>
       </div>
@@ -681,16 +926,8 @@ async function fetchAndRenderTopScoreboard() {
       streamContainer.innerHTML = "";
     }
 
-    const playDescriptionDiv = document.getElementById("playDescription");
-    if (gameStatus === "Final") {
-      playDescriptionDiv.innerHTML = ""; // Clear play description
-      playDescriptionDiv.style.display = "none"; // Hide the play description area
-    } else {
-      const competitors = selectedGame.competitions[0].competitors;
-      const lastPlay = selectedGame.competitions[0].situation?.lastPlay || null; // Correctly access situation
-      playDescriptionDiv.style.display = "block"; // Ensure play description is visible
-      renderPlayDescription(lastPlay, clock, competitors);
-    }
+    // Remove play description functionality - no longer needed
+    // as it will be handled in the Plays section
 
     // Render the box score
     renderBoxScore(gameId, gameStatus);
@@ -802,4 +1039,47 @@ function renderPlayDescription(lastPlay, clock, competitors) {
       <div class="play-text">${lastPlay.text}</div>
     </div>
   `;
+}
+
+// Content slider functions
+function showStats() {
+  // Update button states
+  document.getElementById('statsBtn').classList.add('active');
+  document.getElementById('playsBtn').classList.remove('active');
+  
+  // Show/hide content sections
+  document.getElementById('statsContent').style.display = 'block';
+  document.getElementById('playsContent').style.display = 'none';
+}
+
+function showPlays() {
+  // Update button states
+  document.getElementById('playsBtn').classList.add('active');
+  document.getElementById('statsBtn').classList.remove('active');
+  
+  // Show/hide content sections
+  document.getElementById('statsContent').style.display = 'none';
+  document.getElementById('playsContent').style.display = 'block';
+  
+  // Load play-by-play data when switching to plays view
+  const gameId = getQueryParam("gameId");
+  if (gameId) {
+    renderPlayByPlay(gameId);
+  }
+}
+
+// Function to toggle drive visibility
+function toggleDrive(driveIndex) {
+  const driveElement = document.getElementById(`drive-${driveIndex}`);
+  const toggleIcon = document.getElementById(`toggle-${driveIndex}`);
+  
+  if (driveElement && toggleIcon) {
+    if (driveElement.style.display === 'none') {
+      driveElement.style.display = 'block';
+      toggleIcon.textContent = '▲';
+    } else {
+      driveElement.style.display = 'none';
+      toggleIcon.textContent = '▼';
+    }
+  }
 }
