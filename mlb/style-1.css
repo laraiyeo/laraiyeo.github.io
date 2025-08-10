@@ -548,3 +548,354 @@ body {
     transform: translateX(-12.5px);
   }
 }
+
+/* Enhanced Scoring Play Card Styles */
+.enhanced-scoring-play {
+  background: #333;
+  border: 2px solid #333;
+  border-radius: 12px;
+  margin: 15px 0;
+  padding: 20px;
+  box-shadow: 0 6px 20px rgba(83, 83, 83, 0.3);
+  color: white;
+  position: relative;
+}
+
+.enhanced-play-header {
+  text-align: center;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #ffffff;
+  padding-bottom: 15px;
+}
+
+.enhanced-play-header h3 {
+  margin: 0;
+  font-size: 1.5em;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(255,255,255,0.5);
+}
+
+.play-result-summary {
+  font-size: 1.1em;
+  margin-top: 8px;
+  font-weight: bold;
+}
+
+.enhanced-play-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 16px;
+  align-items: start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.batter-section, .pitcher-section {
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 15px;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  box-sizing: border-box;
+}
+
+.player-info {
+  width: 100%;
+  overflow: hidden;
+}
+
+.player-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  min-height: 40px;
+}
+
+.player-headshot-small {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255,255,255,0.3);
+  flex-shrink: 0;
+}
+
+.player-info .player-name {
+  font-size: 1.1em;
+  font-weight: bold;
+  margin: 0;
+  line-height: 1.2;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  flex: 1;
+}
+
+.player-info .player-stats {
+  font-size: 0.85em;
+  opacity: 0.9;
+  line-height: 1.3;
+  margin-top: 4px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  background: rgba(0,0,0,0.4);
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+
+.pitch-sequence-box {
+  grid-column: 1 / -1;
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 15px;
+  margin-top: 4px;
+  box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
+}
+
+.pitch-sequence-box h4 {
+  margin: 0 0 15px 0;
+  color: #ffffff;
+  text-align: center;
+}
+
+.unified-pitch-container {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.unified-pitch-left {
+  flex: 0 0 200px;
+  display: flex;
+  justify-content: center;
+}
+
+.unified-pitch-right {
+  flex: 1;
+}
+
+.unified-pitch-visualization {
+  position: relative;
+}
+
+.unified-strike-zone-container {
+  width: 180px;
+  height: 180px;
+  position: relative;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.pitch-location-numbered {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  border: 2px solid white;
+}
+
+.pitch-location-numbered.strike-pitch {
+  background-color: #f44336;
+  border-color: #d32f2f;
+}
+
+.pitch-location-numbered.ball-pitch {
+  background-color: #00a724;
+  border-color: #0b7010;
+}
+
+.pitch-location-numbered.in-play-pitch {
+  background-color: #2196f3;
+  border-color: #1976d2;
+}
+
+.pitch-descriptions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pitch-description-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.1);
+  border-left: 4px solid transparent;
+}
+
+.pitch-description-item.pitch-strike {
+  border-left-color: #f44336;
+}
+
+.pitch-description-item.pitch-ball {
+  border-left-color: #00a724;
+}
+
+.pitch-description-item.pitch-in-play {
+  border-left-color: #2196f3;
+}
+
+.pitch-number-label {
+  font-weight: bold;
+  min-width: 20px;
+  color: #ffffff;
+}
+
+.pitch-details {
+  font-size: 0.9em;
+  line-height: 1.3;
+}
+
+.pitch-count-small {
+  font-size: 0.8em;
+  opacity: 0.7;
+  margin-left: 8px;
+}
+
+.pitch-sequence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.pitch-sequence-item {
+  background: rgba(255,255,255,0.2);
+  border-radius: 6px;
+  padding: 15px;
+  min-width: 200px;
+  text-align: center;
+  border: 2px solid transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pitch-sequence-item.pitch-strike {
+  border-color: #f44336;
+  background: rgba(244, 67, 54, 0.2);
+}
+
+.pitch-sequence-item.pitch-ball {
+  border-color: #2196f3;
+  background: rgba(33, 150, 243, 0.2);
+}
+
+.pitch-sequence-item.pitch-in-play {
+  border-color: #ff9800;
+  background: rgba(255, 152, 0, 0.2);
+}
+
+.pitch-number {
+  font-weight: bold;
+  font-size: 1.1em;
+  margin-bottom: 5px;
+}
+
+.pitch-info {
+  font-size: 0.85em;
+}
+
+.pitch-type-speed {
+  font-weight: bold;
+  margin-bottom: 3px;
+}
+
+.pitch-result {
+  margin-bottom: 3px;
+  opacity: 0.9;
+}
+
+.pitch-count {
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+
+/* Adjust pitch visualization within sequence items */
+.pitch-sequence-item .pitch-visualization {
+  margin-top: 10px;
+  scale: 0.8;
+}
+
+.pitch-sequence-item .strike-zone-container {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto;
+}
+
+.pitch-sequence-item .pitch-data {
+  display: none; /* Hide detailed pitch data in sequence view */
+}
+
+.hit-details {
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 15px;
+  text-align: center;
+}
+
+.hit-stat {
+  margin: 5px 0;
+  font-weight: bold;
+}
+
+.bases-section {
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 15px;
+  text-align: center;
+}
+
+.bases-section h4 {
+  margin: 0 0 15px 0;
+  color: #ffffff;
+}
+
+/* Mobile responsive for enhanced scoring play */
+@media (max-width: 768px) {
+  .enhanced-play-content {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+  
+  .unified-pitch-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+  }
+  
+  .unified-pitch-left {
+    flex: none;
+  }
+  
+  .unified-strike-zone-container {
+    width: 150px;
+    height: 150px;
+  }
+  
+  .pitch-location-numbered {
+    width: 18px;
+    height: 18px;
+    font-size: 11px;
+  }
+  
+  .pitch-sequence-item {
+    min-width: 200px;
+  }
+}

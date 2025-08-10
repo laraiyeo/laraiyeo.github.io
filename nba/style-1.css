@@ -558,7 +558,7 @@ body {
   border-radius: 50px;
 }
 
-.three-point-line.left {
+.three-point-line.top {
   width: 80px;
   height: 40px;
   top: 5px;
@@ -567,7 +567,7 @@ body {
   border-bottom: none;
 }
 
-.three-point-line.right {
+.three-point-line.bottom {
   width: 80px;
   height: 40px;
   bottom: 5px;
@@ -586,11 +586,11 @@ body {
   transform: translateX(-50%);
 }
 
-.free-throw-circle.left {
+.free-throw-circle.top {
   top: 25px;
 }
 
-.free-throw-circle.right {
+.free-throw-circle.bottom {
   bottom: 25px;
 }
 
@@ -615,8 +615,12 @@ body {
   border-radius: 1px;
 }
 
-.basket.left {
+.basket.top {
   top: 8px;
+}
+
+.basket.bottom {
+  bottom: 8px;
 }
 
 .basket.right {

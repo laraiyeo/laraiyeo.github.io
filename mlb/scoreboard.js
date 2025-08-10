@@ -960,6 +960,220 @@ function renderPlayBases(runners) {
   `;
 }
 
+async function renderEnhancedScoringPlay(play, teamName, teamLogo, isTopInning, awayTeam, homeTeam, gameData) {
+  // Get all pitches for this at-bat (in original order, not reversed)
+  const pitchEvents = [...(play.playEvents || [])]; // Create a copy to avoid mutation
+  
+  // Get the batter and pitcher information from matchup
+  const batterFromMatchup = play.matchup?.batter || {};
+  const pitcherFromMatchup = play.matchup?.pitcher || {};
+  
+  // Find the full player objects from the box score data to get their season stats
+  let batterFullData = batterFromMatchup;
+  let pitcherFullData = pitcherFromMatchup;
+  
+  if (gameData && gameData.liveData && gameData.liveData.boxscore) {
+    const { boxscore } = gameData.liveData;
+    
+    // Look for batter in the appropriate team's players
+    const batterTeamPlayers = isTopInning ? boxscore.teams?.away?.players : boxscore.teams?.home?.players;
+    if (batterTeamPlayers && batterFromMatchup.id) {
+      const batterKey = `ID${batterFromMatchup.id}`;
+      if (batterTeamPlayers[batterKey]) {
+        batterFullData = batterTeamPlayers[batterKey];
+      }
+    }
+    
+    // Look for pitcher in the appropriate team's players (opposite team from batter)
+    const pitcherTeamPlayers = isTopInning ? boxscore.teams?.home?.players : boxscore.teams?.away?.players;
+    if (pitcherTeamPlayers && pitcherFromMatchup.id) {
+      const pitcherKey = `ID${pitcherFromMatchup.id}`;
+      if (pitcherTeamPlayers[pitcherKey]) {
+        pitcherFullData = pitcherTeamPlayers[pitcherKey];
+      }
+    }
+  }
+  
+  // Get player headshots using ESPN athlete API format
+  // Get headshots using MLB official URLs (same as team-page.js)
+  const batterHeadshot = batterFromMatchup.id ? 
+    `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${batterFromMatchup.id}/headshot/67/current` : null;
+  const pitcherHeadshot = pitcherFromMatchup.id ? 
+    `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${pitcherFromMatchup.id}/headshot/67/current` : null;
+  
+  // Get hit data from the last pitch (the one that resulted in the hit)
+  const lastPitch = pitchEvents[pitchEvents.length - 1];
+  const hitData = lastPitch?.hitData || {};
+  
+  // Get team color for background
+  const teamNameForColor = isTopInning ? awayTeam.teamName : homeTeam.teamName;
+  const fullTeamNameForColor = isTopInning ? awayTeam.name : homeTeam.name;
+  
+  // Get team abbreviations for batter and pitcher
+  const batterTeamName = isTopInning ? awayTeam.name : homeTeam.name;
+  const pitcherTeamName = isTopInning ? homeTeam.name : awayTeam.name;
+  const batterTeamAbbr = getTeamAbbreviation(batterTeamName);
+  const pitcherTeamAbbr = getTeamAbbreviation(pitcherTeamName);
+  const scoringTeamColor = teamColors[teamNameForColor] || teamColors[fullTeamNameForColor] || '#1a472a';
+  
+  // Create unified pitch visualization with all pitches in one strike zone
+  const createUnifiedPitchVisualization = (pitches) => {
+    if (!pitches || pitches.length === 0) {
+      return '<div class="unified-pitch-box">No pitch data available</div>';
+    }
+
+    // Generate all pitch dots for the unified strike zone
+    const pitchDots = pitches.map((pitch, index) => {
+      if (!pitch.pitchData || !pitch.pitchData.coordinates) {
+        return '';
+      }
+
+      const plateWidth = 17; // inches
+      const xPercent = ((pitch.pitchData.coordinates.pX + 2.0) / 4.0) * 100;
+      const yPercent = pitch.pitchData.strikeZoneTop && pitch.pitchData.strikeZoneBottom ? 
+        ((pitch.pitchData.strikeZoneTop - pitch.pitchData.coordinates.pZ) / 
+         (pitch.pitchData.strikeZoneTop - pitch.pitchData.strikeZoneBottom)) * 60 + 20 : 50;
+
+      const finalXPercent = Math.max(5, Math.min(95, xPercent));
+      const finalYPercent = Math.max(5, Math.min(95, yPercent));
+
+      // Determine pitch color
+      let pitchClass = 'ball-pitch';
+      if (pitch.details?.isStrike) {
+        pitchClass = 'strike-pitch';
+      } else if (pitch.details?.isInPlay) {
+        pitchClass = 'in-play-pitch';
+      }
+
+      return `
+        <div class="pitch-location-numbered ${pitchClass}" 
+             style="left: ${finalXPercent}%; top: ${finalYPercent}%;"
+             title="Pitch ${index + 1}: ${pitch.details?.type?.description || 'Unknown'} ${pitch.pitchData?.startSpeed?.toFixed(1) || 'N/A'} mph">
+          ${index + 1}
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="unified-pitch-visualization">
+        <div class="unified-strike-zone-container">
+          <div class="strike-zone-outline"></div>
+          ${pitchDots}
+        </div>
+      </div>
+    `;
+  };
+
+  // Create pitch descriptions list
+  const pitchDescriptionsList = pitchEvents.map((pitch, index) => {
+    const count = pitch.count || {};
+    const pitchType = pitch.details?.type?.description || 'Unknown';
+    const speed = pitch.pitchData?.startSpeed || 0;
+    const description = pitch.details?.description || '';
+    
+    let pitchClass = 'pitch-ball';
+    if (pitch.details?.isStrike) pitchClass = 'pitch-strike';
+    else if (pitch.details?.isInPlay) pitchClass = 'pitch-in-play';
+    
+    return `
+      <div class="pitch-description-item ${pitchClass}">
+        <span class="pitch-number-label">${index + 1}.</span>
+        <span class="pitch-details">
+          ${pitchType} ${speed > 0 ? speed.toFixed(0) : 'N/A'} mph - ${description}
+          <span class="pitch-count-small">(${count.balls || 0}-${count.strikes || 0})</span>
+        </span>
+      </div>
+    `;
+  }).join('');
+  
+  // Get runners on base
+  let runners = {
+    first: false,
+    second: false,
+    third: false
+  };
+  
+  if (play.matchup) {
+    if (play.matchup.postOnFirst && play.matchup.postOnFirst.id) {
+      runners.first = true;
+    }
+    if (play.matchup.postOnSecond && play.matchup.postOnSecond.id) {
+      runners.second = true;
+    }
+    if (play.matchup.postOnThird && play.matchup.postOnThird.id) {
+      runners.third = true;
+    }
+  }
+  
+  // Generate unique ID for this enhanced scoring play
+  const enhancedPlayId = `enhancedPlay_${play.atBatIndex || Math.random().toString(36).substr(2, 9)}`;
+  
+  return `
+    <div id="${enhancedPlayId}" class="enhanced-scoring-play">
+      <!-- Clipboard Icon -->
+      <div style="position: absolute; top: 12px; right: 12px; cursor: pointer; background: rgba(255,255,255,0.1); border-radius: 6px; padding: 6px; transition: background-color 0.2s ease; z-index: 10;" onclick="copyEnhancedPlayAsImage('${enhancedPlayId}')" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.2)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.1)'" title="Copy enhanced play as image">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+          <path d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"/>
+        </svg>
+      </div>
+      
+      <div class="enhanced-play-header">
+        <h3>🏆 SCORING PLAY</h3>
+        <div class="play-result-summary">${play.result?.description || play.result?.event || 'Scoring Play'}</div>
+      </div>
+      
+      <div class="enhanced-play-content">
+        <div class="batter-section">
+          <div class="player-info">
+            <div class="player-header">
+              ${batterHeadshot ? `<img src="${batterHeadshot}" alt="${batterFromMatchup.fullName}" class="player-headshot-small" onerror="this.src='icon.png';">` : ''}
+              <div class="player-name">${batterFromMatchup.fullName || 'Unknown'} (${batterTeamAbbr})</div>
+            </div>
+            <div class="player-stats">${batterFullData.stats?.batting?.summary || 0}</div>
+          </div>
+        </div>
+        
+        <div class="pitcher-section">
+          <div class="player-info">
+            <div class="player-header">
+              ${pitcherHeadshot ? `<img src="${pitcherHeadshot}" alt="${pitcherFromMatchup.fullName}" class="player-headshot-small" onerror="this.src='icon.png';">` : ''}
+              <div class="player-name">${pitcherFromMatchup.fullName || 'Unknown'} (${pitcherTeamAbbr}, P)</div>
+            </div>
+            <div class="player-stats">${pitcherFullData.stats?.pitching?.summary || 0}</div>
+          </div>
+        </div>
+        
+        <div class="pitch-sequence-box">
+          <h4>At-Bat Pitches (${pitchEvents.length} pitches)</h4>
+          <div class="unified-pitch-container">
+            <div class="unified-pitch-left">
+              ${createUnifiedPitchVisualization(pitchEvents)}
+            </div>
+            <div class="unified-pitch-right">
+              <div class="pitch-descriptions-list">
+                ${pitchDescriptionsList || '<div style="color: #ccc; text-align: center; padding: 20px;">No pitch data available</div>'}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        ${hitData.launchSpeed ? `
+        <div class="hit-details">
+          <div class="hit-stat">Exit Velocity: ${hitData.launchSpeed} mph</div>
+          <div class="hit-stat">Launch Angle: ${hitData.launchAngle}°</div>
+          <div class="hit-stat">Distance: ${hitData.totalDistance} ft</div>
+        </div>
+        ` : ''}
+        
+        <div class="bases-section">
+          <h4 style="margin-bottom: -12.75px;">Runners on Base</h4>
+          ${renderPlayBases(runners)}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 async function renderPlayByPlay(gamePk, gameData = null) {
   try {
     let data = gameData;
@@ -1001,10 +1215,31 @@ async function renderPlayByPlay(gamePk, gameData = null) {
       homeLogo = await getLogoUrl(homeTeam.name || "Unknown");
     }
 
-    const playsHtml = allPlays.reverse().map((play, index) => {
+    const playsHtml = await Promise.all(allPlays.reverse().map(async (play, index) => {
       const isTopInning = play.about?.isTopInning;
       const teamName = isTopInning ? awayTeam.teamName : homeTeam.teamName;
       const teamLogo = isTopInning ? awayLogo : homeLogo;
+      
+      // Check if this play scored a run using isScoringEvent
+      let isScoring = false;
+      let scoringTeamColor = '';
+      
+      if (play.runners) {
+        const hasScoring = play.runners.some(runner => {
+          const isScoringEvent = runner.details?.isScoringEvent === true;
+          return isScoringEvent;
+        });
+        
+        if (hasScoring) {
+          isScoring = true;
+          // Use the team color of the team that's batting (the team that scored)
+          const teamName = isTopInning ? awayTeam.teamName : homeTeam.teamName;
+          const fullTeamName = isTopInning ? awayTeam.name : homeTeam.name;
+          
+          // Try both teamName and full name to find the color
+          scoringTeamColor = teamColors[teamName] || teamColors[fullTeamName];
+        }
+      }
       
       // Show matchup info if no result, otherwise show play result
       let displayText;
@@ -1026,32 +1261,7 @@ async function renderPlayByPlay(gamePk, gameData = null) {
         `${isTopInning ? 'Top' : 'Bot'} ${ordinalSuffix(inning)}` : 
         '';
       
-      // Check if this play scored a run using isScoringEvent
-      let scoringTeamColor = '';
-      
-      if (play.runners) {
-        const hasScoring = play.runners.some(runner => {
-          const isScoringEvent = runner.details?.isScoringEvent === true;
-          return isScoringEvent;
-        });
-        
-        if (hasScoring) {
-          // Use the team color of the team that's batting (the team that scored)
-          const teamName = isTopInning ? awayTeam.teamName : homeTeam.teamName;
-          const fullTeamName = isTopInning ? awayTeam.name : homeTeam.name;
-          
-          // Try both teamName and full name to find the color
-          scoringTeamColor = teamColors[teamName] || teamColors[fullTeamName];
-        }
-      }
-      
       // Get runners on base for this play
-      // We need to show who was on base when the play started, which can come from:
-      // 1. runner.movement.start (for runners who moved during this play)
-      // 2. play.matchup.postOn* (base state before the play)
-      const runnerStartingPositions = new Map();
-      
-      // First, try to get base state from matchup data (more reliable for showing pre-play state)
       let runners = {
         first: false,
         second: false,
@@ -1073,6 +1283,8 @@ async function renderPlayByPlay(gamePk, gameData = null) {
       
       // If matchup data isn't available, fall back to runner movement start positions
       if (!play.matchup && play.runners) {
+        const runnerStartingPositions = new Map();
+        
         play.runners.forEach(runner => {
           const playerId = runner.details?.runner?.id;
           if (playerId && runner.movement && runner.movement.start) {
@@ -1091,7 +1303,7 @@ async function renderPlayByPlay(gamePk, gameData = null) {
       
       // Generate pitch events HTML for this play (reverse order for most recent first)
       const pitchEvents = play.playEvents || [];
-      const pitchesHtml = pitchEvents.reverse().map((pitch, pitchIndex) => {
+      const pitchesHtml = [...pitchEvents].reverse().map((pitch, pitchIndex) => {
         const pitchDescription = pitch.details?.description || 'Unknown pitch';
         const pitchSpeed = pitch.pitchData?.startSpeed;
         const count = pitch.count || {};
@@ -1111,6 +1323,9 @@ async function renderPlayByPlay(gamePk, gameData = null) {
           </div>
         `;
       }).join('');
+
+      // Generate the enhanced scoring play content if this is a scoring play (for inside the dropdown)
+      const enhancedContent = isScoring ? await renderEnhancedScoringPlay(play, teamName, teamLogo, isTopInning, awayTeam, homeTeam, data) : '';
 
       return `
         <div class="play-container" ${scoringTeamColor ? `style="background-color: ${scoringTeamColor}; border-left: 4px solid ${scoringTeamColor};"` : ''}>
@@ -1132,11 +1347,12 @@ async function renderPlayByPlay(gamePk, gameData = null) {
             </div>
           </div>
           <div class="play-details" id="play-${index}" style="display: ${openPlays.has(index) ? 'block' : 'none'};">
+            ${enhancedContent}
             ${pitchesHtml}
           </div>
         </div>
       `;
-    }).join('');
+    })).then(plays => plays.join(''));
 
     // Store current scroll position before updating
     const playsContainer = playsDiv.querySelector('.plays-container');
@@ -1183,6 +1399,254 @@ function startScoreboardUpdates(gamePk) {
 
   updateScoreboard(); // Initial fetch
   updateInterval = setInterval(updateScoreboard, 2000); // Poll every 2 seconds
+}
+
+// Utility function to get team abbreviations
+function getTeamAbbreviation(teamName) {
+  const teamAbbrMap = {
+    "Arizona Diamondbacks": "ARI", "Atlanta Braves": "ATL", "Baltimore Orioles": "BAL", "Boston Red Sox": "BOS",
+    "Chicago White Sox": "CWS", "Chicago Cubs": "CHC", "Cincinnati Reds": "CIN", "Cleveland Guardians": "CLE",
+    "Colorado Rockies": "COL", "Detroit Tigers": "DET", "Houston Astros": "HOU", "Kansas City Royals": "KC",
+    "Los Angeles Angels": "LAA", "Los Angeles Dodgers": "LAD", "Miami Marlins": "MIA", "Milwaukee Brewers": "MIL",
+    "Minnesota Twins": "MIN", "New York Yankees": "NYY", "New York Mets": "NYM", "Athletics": "ATH",
+    "Philadelphia Phillies": "PHI", "Pittsburgh Pirates": "PIT", "San Diego Padres": "SD", "San Francisco Giants": "SF",
+    "Seattle Mariners": "SEA", "St. Louis Cardinals": "STL", "Tampa Bay Rays": "TB", "Texas Rangers": "TEX",
+    "Toronto Blue Jays": "TOR", "Washington Nationals": "WSH"
+  };
+  
+  return teamAbbrMap[teamName] || teamName.substring(0, 3).toUpperCase();
+}
+
+// Function to copy enhanced scoring play as image
+async function copyEnhancedPlayAsImage(playId) {
+  try {
+    const playElement = document.getElementById(playId);
+    if (!playElement) {
+      console.error('Enhanced scoring play not found');
+      return;
+    }
+
+    // Import html2canvas dynamically
+    if (!window.html2canvas) {
+      // Load html2canvas library
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+      script.onload = () => {
+        captureAndCopyEnhancedPlay(playElement);
+      };
+      document.head.appendChild(script);
+    } else {
+      captureAndCopyEnhancedPlay(playElement);
+    }
+  } catch (error) {
+    console.error('Error copying enhanced play as image:', error);
+    showEnhancedPlayFeedback('Error copying image', 'error');
+  }
+}
+
+async function captureAndCopyEnhancedPlay(element) {
+  try {
+    showEnhancedPlayFeedback('Capturing image...', 'loading');
+    
+    // Replace all external images with base64 versions or remove them
+    const images = element.querySelectorAll('img');
+
+    for (const img of images) {
+      try {
+        // For MLB headshots and logos, convert to base64 for html2canvas compatibility
+        if (img.src.includes('mlbstatic.com') || img.src.includes('http')) {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Create a new image for loading
+          const tempImg = new Image();
+          tempImg.crossOrigin = 'anonymous';
+          
+          await new Promise((resolve, reject) => {
+            tempImg.onload = () => {
+              try {
+                canvas.width = tempImg.width;
+                canvas.height = tempImg.height;
+                ctx.drawImage(tempImg, 0, 0);
+                
+                // Try to convert to base64
+                try {
+                  const dataURL = canvas.toDataURL('image/png');
+                  img.src = dataURL;
+                } catch (e) {
+                  // If conversion fails, use a placeholder
+                  img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+CjwvdGV4dD4KPC9zdmc+';
+                }
+                resolve();
+              } catch (e) {
+                // Fallback to placeholder
+                img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+CjwvdGV4dD4KPC9zdmc+';
+                resolve();
+              }
+            };
+            
+            tempImg.onerror = () => {
+              // Use placeholder on error
+              img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+CjwvdGV4dD4KPC9zdmc+';
+              resolve();
+            };
+            
+            // Start loading
+            tempImg.src = img.src;
+          });
+        }
+      } catch (e) {
+        console.log('Error processing image:', e);
+        // Use placeholder on any error
+        img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+CjwvdGV4dD4KPC9zdmc+';
+      }
+    }
+    
+    // Wait a bit for images to process
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const isSmallScreen = window.innerWidth < 525;
+    
+    // Height adjustment for enhanced scoring play (similar to team-page.js approach)
+    // Count the number of pitches in the at-bat to adjust height for longer sequences
+    const pitchElements = element.querySelectorAll('.pitch-description-item');
+    const pitchCount = pitchElements.length;
+    
+    // Base height adjustment
+    let heightAdjustment = 30;
+    
+    // Add 20px for every pitch above 4
+    if (pitchCount > 4) {
+      const extraPitches = pitchCount - 4;
+      heightAdjustment += extraPitches * 30;
+    }
+
+    // Capture the element with html2canvas using exact element dimensions
+    const canvas = await html2canvas(element, {
+      backgroundColor: '#333333', // Set the actual background color to match enhanced scoring play
+      scale: 2, // Use scale 2 to avoid logo scaling issues
+      useCORS: true,
+      allowTaint: false, // Allow tainted canvas for better compatibility
+      logging: false,
+      width: isSmallScreen ? element.clientWidth : element.clientWidth,
+      height: isSmallScreen ? element.clientHeight : element.clientHeight + heightAdjustment,
+      scrollX: 0,
+      scrollY: 0,
+      ignoreElements: (element) => {
+        try {
+          // Ignore the clipboard icon itself
+          if (element && element.getAttribute && element.getAttribute('onclick') && 
+              element.getAttribute('onclick').includes('copyEnhancedPlayAsImage')) {
+            return true;
+          }
+          return false;
+        } catch (e) {
+          return false;
+        }
+      }
+    });
+    
+    // Convert to blob
+    canvas.toBlob(async (blob) => {
+      if (!blob) {
+        showEnhancedPlayFeedback('Failed to create image', 'error');
+        return;
+      }
+
+      // Check if device is mobile
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                      ('ontouchstart' in window) || 
+                      (navigator.maxTouchPoints > 0);
+
+      try {
+        if (isMobile) {
+          // On mobile, download the image
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `enhanced-scoring-play-${new Date().getTime()}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          showEnhancedPlayFeedback('Enhanced play downloaded!', 'success');
+        } else {
+          // On desktop, try to copy to clipboard using modern API
+          if (navigator.clipboard && window.ClipboardItem) {
+            const clipboardItem = new ClipboardItem({
+              'image/png': blob
+            });
+            await navigator.clipboard.write([clipboardItem]);
+            showEnhancedPlayFeedback('Enhanced play copied to clipboard!', 'success');
+          } else {
+            showEnhancedPlayFeedback('Could not copy to clipboard. Try again', 'error');
+          }
+        }
+      } catch (clipboardError) {
+        showEnhancedPlayFeedback('Could not copy to clipboard. Try again', 'error');
+      }
+    }, 'image/png', 0.95);
+    
+  } catch (error) {
+    console.error('Error capturing enhanced play:', error);
+    showEnhancedPlayFeedback('Failed to capture image: ' + error.message, 'error');
+  }
+}
+
+function showEnhancedPlayFeedback(message, type) {
+  // Remove existing feedback
+  const existingFeedback = document.getElementById('enhancedPlayFeedback');
+  if (existingFeedback) {
+    existingFeedback.remove();
+  }
+
+  // Create feedback element
+  const feedback = document.createElement('div');
+  feedback.id = 'enhancedPlayFeedback';
+  feedback.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    z-index: 10000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    transition: opacity 0.3s ease;
+  `;
+
+  // Set colors based on type
+  switch (type) {
+    case 'success':
+      feedback.style.backgroundColor = '#4CAF50';
+      break;
+    case 'error':
+      feedback.style.backgroundColor = '#f44336';
+      break;
+    case 'loading':
+      feedback.style.backgroundColor = '#2196F3';
+      break;
+    default:
+      feedback.style.backgroundColor = '#333';
+  }
+
+  feedback.textContent = message;
+  document.body.appendChild(feedback);
+
+  // Auto remove after 3 seconds (except for loading)
+  if (type !== 'loading') {
+    setTimeout(() => {
+      if (feedback && feedback.parentNode) {
+        feedback.style.opacity = '0';
+        setTimeout(() => {
+          if (feedback && feedback.parentNode) {
+            feedback.remove();
+          }
+        }, 300);
+      }
+    }, 3000);
+  }
 }
 
 const gamePk = getQueryParam("gamePk");

@@ -271,22 +271,28 @@ async function fetchAndRenderTopScoreboard() {
 
 let updateInterval;
 
-// Fetch and render the scoreboard based on the gameId in the URL
-const gameId = getQueryParam("gameId");
-if (gameId) {
-  const updateScoreboard = async () => {
-    const gameOver = await fetchAndRenderTopScoreboard();
-    if (gameOver && updateInterval) {
-      clearInterval(updateInterval);
-      console.log("Game is over. Stopped fetching updates.");
-    }
-  };
+// Wait for DOM to be ready before executing
+document.addEventListener('DOMContentLoaded', function() {
+  // Fetch and render the scoreboard based on the gameId in the URL
+  const gameId = getQueryParam("gameId");
+  if (gameId) {
+    const updateScoreboard = async () => {
+      const gameOver = await fetchAndRenderTopScoreboard();
+      if (gameOver && updateInterval) {
+        clearInterval(updateInterval);
+        console.log("Game is over. Stopped fetching updates.");
+      }
+    };
 
-  updateScoreboard(); // Initial fetch
-  updateInterval = setInterval(updateScoreboard, 2000);
-} else {
-  document.getElementById("scoreboardContainer").innerHTML = "<p>No game selected.</p>";
-}
+    updateScoreboard(); // Initial fetch
+    updateInterval = setInterval(updateScoreboard, 2000);
+  } else {
+    const scoreboardContainer = document.getElementById("scoreboardContainer");
+    if (scoreboardContainer) {
+      scoreboardContainer.innerHTML = "<p>No game selected.</p>";
+    }
+  }
+});
 
 function renderLinescoreTable(awayLinescores, homeLinescores, awayAbbr, homeAbbr, awayTotal, homeTotal) {
   const linescoreTableDiv = document.getElementById("linescoreTable");
