@@ -372,7 +372,6 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
-  font-size: 12px;
 }
 
 .pitch-count {
@@ -383,6 +382,7 @@ body {
 .pitch-speed {
   color: #ccc;
   font-weight: bold;
+  font-size: 14px;
 }
 
 .pitch-type {
@@ -390,7 +390,7 @@ body {
   color: white;
   padding: 2px 8px;
   border-radius: 12px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: bold;
 }
 

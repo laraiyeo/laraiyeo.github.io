@@ -962,7 +962,12 @@ function renderPlayBases(runners) {
 
 async function renderEnhancedScoringPlay(play, teamName, teamLogo, isTopInning, awayTeam, homeTeam, gameData) {
   // Get all pitches for this at-bat (in original order, not reversed)
-  const pitchEvents = [...(play.playEvents || [])]; // Create a copy to avoid mutation
+  // Filter to only include actual pitches (events with pitch data and speed)
+  const pitchEvents = [...(play.playEvents || [])].filter(event => 
+    event.pitchData && 
+    event.pitchData.startSpeed && 
+    event.pitchData.startSpeed > 0
+  );
   
   // Get the batter and pitcher information from matchup
   const batterFromMatchup = play.matchup?.batter || {};
@@ -1071,16 +1076,16 @@ async function renderEnhancedScoringPlay(play, teamName, teamLogo, isTopInning, 
     const speed = pitch.pitchData?.startSpeed || 0;
     const description = pitch.details?.description || '';
     
-    let pitchClass = 'pitch-ball';
-    if (pitch.details?.isStrike) pitchClass = 'pitch-strike';
-    else if (pitch.details?.isInPlay) pitchClass = 'pitch-in-play';
+    let pitchColor = '#4CAF50'; // ball (green)
+    if (pitch.details?.isStrike) pitchColor = '#f44336'; // strike (red)
+    else if (pitch.details?.isInPlay) pitchColor = '#2196F3'; // in play (blue)
     
     return `
-      <div class="pitch-description-item ${pitchClass}">
-        <span class="pitch-number-label">${index + 1}.</span>
-        <span class="pitch-details">
+      <div class="pitch-description-item" style="display: flex; align-items: flex-start; margin-bottom: 8px; padding: 8px; border-radius: 4px; background: rgba(255,255,255,0.05); border-left: 3px solid ${pitchColor};">
+        <span style="color: white; font-weight: bold; min-width: 20px;">${index + 1}.</span>
+        <span style="flex: 1; line-height: 1.3;">
           ${pitchType} ${speed > 0 ? speed.toFixed(0) : 'N/A'} mph - ${description}
-          <span class="pitch-count-small">(${count.balls || 0}-${count.strikes || 0})</span>
+          <span style="color: #ccc; font-size: 0.85em; margin-left: 8px;">(${count.balls || 0}-${count.strikes || 0})</span>
         </span>
       </div>
     `;
@@ -1126,7 +1131,15 @@ async function renderEnhancedScoringPlay(play, teamName, teamLogo, isTopInning, 
         <div class="batter-section">
           <div class="player-info">
             <div class="player-header">
-              ${batterHeadshot ? `<img src="${batterHeadshot}" alt="${batterFromMatchup.fullName}" class="player-headshot-small" onerror="this.src='icon.png';">` : ''}
+              ${batterHeadshot ? `
+                <div style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: #333; position: relative;">
+                  <img src="${batterHeadshot}" 
+                       alt="${batterFromMatchup.fullName}" 
+                       style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: auto; min-height: 100%; object-fit: cover;" 
+                       onerror="this.src='icon.png';" 
+                       crossorigin="anonymous">
+                </div>
+              ` : ''}
               <div class="player-name">${batterFromMatchup.fullName || 'Unknown'} (${batterTeamAbbr})</div>
             </div>
             <div class="player-stats">${batterFullData.stats?.batting?.summary || 0}</div>
@@ -1136,7 +1149,15 @@ async function renderEnhancedScoringPlay(play, teamName, teamLogo, isTopInning, 
         <div class="pitcher-section">
           <div class="player-info">
             <div class="player-header">
-              ${pitcherHeadshot ? `<img src="${pitcherHeadshot}" alt="${pitcherFromMatchup.fullName}" class="player-headshot-small" onerror="this.src='icon.png';">` : ''}
+              ${pitcherHeadshot ? `
+                <div style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: #333; position: relative;">
+                  <img src="${pitcherHeadshot}" 
+                       alt="${pitcherFromMatchup.fullName}" 
+                       style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: auto; min-height: 100%; object-fit: cover;" 
+                       onerror="this.src='icon.png';" 
+                       crossorigin="anonymous">
+                </div>
+              ` : ''}
               <div class="player-name">${pitcherFromMatchup.fullName || 'Unknown'} (${pitcherTeamAbbr}, P)</div>
             </div>
             <div class="player-stats">${pitcherFullData.stats?.pitching?.summary || 0}</div>
@@ -1518,13 +1539,13 @@ async function captureAndCopyEnhancedPlay(element) {
     // Add 20px for every pitch above 4
     if (pitchCount > 4) {
       const extraPitches = pitchCount - 4;
-      heightAdjustment += extraPitches * 30;
+      heightAdjustment += extraPitches * 20;
     }
 
     // Capture the element with html2canvas using exact element dimensions
     const canvas = await html2canvas(element, {
       backgroundColor: '#333333', // Set the actual background color to match enhanced scoring play
-      scale: 2, // Use scale 2 to avoid logo scaling issues
+      scale: 3, // Use scale 3 to avoid logo scaling issues
       useCORS: true,
       allowTaint: false, // Allow tainted canvas for better compatibility
       logging: false,

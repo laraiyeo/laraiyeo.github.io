@@ -3164,7 +3164,7 @@ async function captureAndCopyImage(element) {
     // Capture the element with html2canvas using exact element dimensions
     const canvas = await html2canvas(element, {
       backgroundColor: '#1a1a1a', // Set the actual background color
-      scale: 2, // Use scale 2 to avoid logo scaling issues
+      scale: 3, // Use scale 3 to avoid logo scaling issues
       useCORS: true,
       allowTaint: false, // Allow tainted canvas for better compatibility
       logging: false,
