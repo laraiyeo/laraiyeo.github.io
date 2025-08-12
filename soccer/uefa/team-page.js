@@ -20,6 +20,7 @@ const LEAGUES = {
   "Champions League": { code: "uefa.champions", logo: "2" },
   "Europa League": { code: "uefa.europa", logo: "2310" },
   "Europa Conference League": { code: "uefa.europa.conf", logo: "20296" },
+  "Super Cup": { code: "uefa.super_cup", logo: "1272" },
 };
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
@@ -34,14 +35,20 @@ function convertToHttps(url) {
 document.addEventListener("DOMContentLoaded", () => {
   const urlParams = new URLSearchParams(window.location.search);
   currentTeamId = urlParams.get('teamId');
+  const leagueParam = urlParams.get('league');
   
   if (!currentTeamId) {
     window.location.href = 'search.html';
     return;
   }
   
-  // Try to determine league from localStorage or detect from team
-  currentUefaLeague = localStorage.getItem("currentUefaLeague") || "uefa.champions";
+  // Priority order: URL parameter > localStorage > default
+  if (leagueParam && Object.values(LEAGUES).some(league => league.code === leagueParam)) {
+    currentUefaLeague = leagueParam;
+    localStorage.setItem("currentUefaLeague", currentUefaLeague);
+  } else {
+    currentUefaLeague = localStorage.getItem("currentUefaLeague") || "uefa.champions";
+  }
   
   // Clear cached player data to ensure fresh data for comparisons
   allLeaguePlayers = [];
@@ -137,17 +144,34 @@ async function loadTeamData() {
 }
 
 async function findTeamInLeagues() {
-  // Try to find the team in each league to determine the correct one
+  // First, try to find the team in the current league context
+  try {
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/teams`);
+    const data = await response.json();
+    
+    const team = data.sports[0].leagues[0].teams.find(teamData => teamData.team.id === currentTeamId);
+    if (team) {
+      console.log(`Found team in current league context: ${Object.keys(LEAGUES).find(key => LEAGUES[key].code === currentUefaLeague)}`);
+      return;
+    }
+  } catch (error) {
+    console.log(`Error checking current league context:`, error);
+  }
+
+  // If not found in current league context, try to find the team in other leagues
   for (const [leagueName, leagueData] of Object.entries(LEAGUES)) {
+    // Skip the current league since we already checked it
+    if (leagueData.code === currentUefaLeague) continue;
+    
     try {
       const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueData.code}/teams`);
       const data = await response.json();
       
       const team = data.sports[0].leagues[0].teams.find(teamData => teamData.team.id === currentTeamId);
       if (team) {
+        console.log(`Team not found in current context, found in ${leagueName} instead`);
         currentUefaLeague = leagueData.code;
         localStorage.setItem("currentUefaLeague", currentUefaLeague);
-        console.log(`Found team in ${leagueName}`);
         break;
       }
     } catch (error) {
@@ -3020,7 +3044,8 @@ function getLeagueName(leagueCode) {
   const leagueNames = {
     'uefa.champions': 'Champions League',
     'uefa.europa': 'Europa League',
-    'uefa.europa.conf': 'Europa Conference League'
+    'uefa.europa.conf': 'Europa Conference League',
+    'uefa.super_cup': 'Super Cup'
   };
   return leagueNames[leagueCode] || leagueCode;
 }

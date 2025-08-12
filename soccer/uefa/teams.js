@@ -2,6 +2,7 @@ const LEAGUES = {
   "Champions League": { code: "uefa.champions", logo: "2" },
   "Europa League": { code: "uefa.europa", logo: "2310" },
   "Europa Conference League": { code: "uefa.europa.conf", logo: "20296" },
+  "Super Cup": { code: "uefa.super_cup", logo: "1272" },
 };
 
 let currentUefaLeague = localStorage.getItem("currentUefaLeague") || "uefa.champions"; // Default to Champions League

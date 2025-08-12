@@ -1846,11 +1846,21 @@ async function loadPlayerStatsForModal(playerId, year, container) {
         content += `
           <div style="margin-bottom: 30px;">
             <h4 style="color: #333; border-bottom: 2px solid #007bff; padding-bottom: 5px;">Hitting Statistics</h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-top: 15px;">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 15px;">
               <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${hittingStats.avg || '.000'}</div>
                 <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">AVG</div>
                 ${hittingRankings.avg ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${hittingRankings.avg} in MLB</div>` : ''}
+              </div>
+              <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
+                <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${hittingStats.slg || '.000'}</div>
+                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">SLG</div>
+                ${hittingRankings.slg ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${hittingRankings.slg} in MLB</div>` : ''}
+              </div>
+              <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
+                <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${hittingStats.ops || '.000'}</div>
+                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">OPS</div>
+                ${hittingRankings.ops ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${hittingRankings.ops} in MLB</div>` : ''}
               </div>
               <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${hittingStats.homeRuns || '0'}</div>
@@ -1861,6 +1871,11 @@ async function loadPlayerStatsForModal(playerId, year, container) {
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${hittingStats.rbi || '0'}</div>
                 <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">RBI</div>
                 ${hittingRankings.rbi ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${hittingRankings.rbi} in MLB</div>` : ''}
+              </div>
+              <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
+                <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${hittingStats.hits || '0'}</div>
+                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">H</div>
+                ${hittingRankings.hits ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${hittingRankings.hits} in MLB</div>` : ''}
               </div>
             </div>
           </div>
@@ -1876,16 +1891,31 @@ async function loadPlayerStatsForModal(playerId, year, container) {
         content += `
           <div>
             <h4 style="color: #333; border-bottom: 2px solid #007bff; padding-bottom: 5px;">Pitching Statistics</h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-top: 15px;">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 15px;">
               <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${pitchingStats.era || '0.00'}</div>
                 <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">ERA</div>
                 ${pitchingRankings.era ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${pitchingRankings.era} in MLB</div>` : ''}
               </div>
               <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
+                <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${pitchingStats.whip || '0.00'}</div>
+                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">WHIP</div>
+                ${pitchingRankings.whip ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${pitchingRankings.whip} in MLB</div>` : ''}
+              </div>
+              <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
+                <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${pitchingStats.inningsPitched || '0.0'}</div>
+                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">IP</div>
+                ${pitchingRankings.inningsPitched ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${pitchingRankings.inningsPitched} in MLB</div>` : ''}
+              </div>
+              <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${pitchingStats.wins || '0'}</div>
                 <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">W</div>
                 ${pitchingRankings.wins ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${pitchingRankings.wins} in MLB</div>` : ''}
+              </div>
+              <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
+                <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${pitchingStats.losses || '0'}</div>
+                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">L</div>
+                ${pitchingRankings.losses ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${pitchingRankings.losses} in MLB</div>` : ''}
               </div>
               <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${pitchingStats.strikeOuts || '0'}</div>
