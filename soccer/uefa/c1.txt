@@ -1,0 +1,857 @@
+{
+  "$ref": "http://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/seasons/2024/types/1/teams/367/statistics/0?lang=en&region=us",
+  "season": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/seasons/2024?lang=en&region=us"
+  },
+  "team": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/seasons/2024/teams/367?lang=en&region=us"
+  },
+  "splits": {
+    "id": "0",
+    "name": "Total",
+    "abbreviation": "Total",
+    "type": "total",
+    "categories": [
+      {
+        "name": "defensive",
+        "displayName": "Defensive",
+        "shortDisplayName": "Defensive",
+        "abbreviation": "def",
+        "summary": "",
+        "stats": [
+          {
+            "name": "blockedShots",
+            "displayName": "Shots Blocked",
+            "shortDisplayName": "SHBLK",
+            "description": "The number shots blocked by a defender.",
+            "abbreviation": "SHBLK",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "effectiveClearance",
+            "displayName": "Effective Clearance",
+            "shortDisplayName": "EFFCL",
+            "description": "The number of clearances that stops the attack of the opposing team.",
+            "abbreviation": "EFFCL",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "effectiveTackles",
+            "displayName": "Tackles Won",
+            "shortDisplayName": "TKLW",
+            "description": "The number of tackles where the player wins the ball.",
+            "abbreviation": "TKLW",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "inneffectiveTackles",
+            "displayName": "Tackles Lost",
+            "shortDisplayName": "TKLL",
+            "description": "The number of tackles where the player doesn't win the ball.",
+            "abbreviation": "TKLL",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "interceptions",
+            "displayName": "Interceptions",
+            "shortDisplayName": "INT",
+            "description": "The number of interceptions.",
+            "abbreviation": "INT",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "tacklePct",
+            "displayName": "Tackle Percentage",
+            "shortDisplayName": "TACKL%",
+            "description": "The perencentage of tackles where the player wins the ball.",
+            "abbreviation": "TACKL%",
+            "value": 0,
+            "displayValue": "0.0"
+          },
+          {
+            "name": "totalClearance",
+            "displayName": "Clearances",
+            "shortDisplayName": "CLEAR",
+            "description": "The number of clearances attempted.",
+            "abbreviation": "CLEAR",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "totalTackles",
+            "displayName": "Tackles",
+            "shortDisplayName": "TACKL",
+            "description": "The number of tackles attempted.",
+            "abbreviation": "TOT",
+            "value": 0,
+            "displayValue": "0"
+          }
+        ]
+      },
+      {
+        "name": "general",
+        "displayName": "General",
+        "shortDisplayName": "General",
+        "abbreviation": "gen",
+        "summary": "",
+        "stats": [
+          {
+            "name": "appearances",
+            "displayName": "Appearances",
+            "shortDisplayName": "APP",
+            "description": "The number of times a player has made an appearance in a match.",
+            "abbreviation": "APP",
+            "value": 15,
+            "displayValue": "15"
+          },
+          {
+            "name": "avgRatingFromCorrespondent",
+            "displayName": "Average Rating From Correspondent",
+            "shortDisplayName": "RATING",
+            "description": "The rating from a correspondent for a player.",
+            "abbreviation": "RTG",
+            "value": 0,
+            "displayValue": "0.0"
+          },
+          {
+            "name": "avgRatingFromDataFeed",
+            "displayName": "Average Rating From Data Feed",
+            "shortDisplayName": "RATING",
+            "description": "The rating from the data feed for a player.",
+            "abbreviation": "RTG",
+            "value": 0,
+            "displayValue": "0.0"
+          },
+          {
+            "name": "avgRatingFromEditor",
+            "displayName": "Average Rating From Editor",
+            "shortDisplayName": "RATING",
+            "description": "The rating from the editor(s) for a player.",
+            "abbreviation": "RTG",
+            "value": 0,
+            "displayValue": "0.0"
+          },
+          {
+            "name": "avgRatingFromUser",
+            "displayName": "Average Rating From Users",
+            "shortDisplayName": "RATING",
+            "description": "The average user rating for a player.",
+            "abbreviation": "RTG",
+            "value": 0,
+            "displayValue": "0.0"
+          },
+          {
+            "name": "dnp",
+            "displayName": "Did Not Play",
+            "shortDisplayName": "DNP",
+            "description": "The number of times a player did not play in a match.",
+            "abbreviation": "DNP",
+            "value": 106,
+            "displayValue": "106"
+          },
+          {
+            "name": "draws",
+            "displayName": "Draws",
+            "shortDisplayName": "D",
+            "description": "The number of times the scored ended even for both teams in a match and there was no extra time.",
+            "abbreviation": "D",
+            "value": 3,
+            "displayValue": "3"
+          },
+          {
+            "name": "foulsCommitted",
+            "displayName": "Fouls Committed",
+            "shortDisplayName": "FC",
+            "description": "The number of fouls comitted by a player or team.",
+            "abbreviation": "FC",
+            "value": 148,
+            "displayValue": "148"
+          },
+          {
+            "name": "foulsSuffered",
+            "displayName": "Fouls Suffered",
+            "shortDisplayName": "FA",
+            "description": "The number of fouls suffered by a player or team.",
+            "abbreviation": "FA",
+            "value": 154,
+            "displayValue": "154"
+          },
+          {
+            "name": "goalDifference",
+            "displayName": "Goal Difference",
+            "shortDisplayName": "GD",
+            "description": "The difference of goals scored and goals conceded.",
+            "abbreviation": "GD",
+            "value": 15,
+            "displayValue": "15"
+          },
+          {
+            "name": "handBalls",
+            "displayName": "Handballs",
+            "shortDisplayName": "HAND",
+            "description": "The number of handball fouls committed..",
+            "abbreviation": "HAND",
+            "value": 11,
+            "displayValue": "11"
+          },
+          {
+            "name": "losses",
+            "displayName": "Losses",
+            "shortDisplayName": "L",
+            "description": "The number of times a team has lost a match.",
+            "abbreviation": "L",
+            "value": 2,
+            "displayValue": "2"
+          },
+          {
+            "name": "lostCorners",
+            "displayName": "Corners Conceded",
+            "shortDisplayName": "CC",
+            "description": "The number of corners conceded to the opposing team.",
+            "abbreviation": "CC",
+            "value": 2905,
+            "displayValue": "2905"
+          },
+          {
+            "name": "minutes",
+            "displayName": "Minutes",
+            "shortDisplayName": "MIN",
+            "description": "The number of minutes played by a player.",
+            "abbreviation": "MIN",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "ownGoals",
+            "displayName": "Own Goals",
+            "shortDisplayName": "OG",
+            "description": "The number of own goals conceded.",
+            "abbreviation": "OG",
+            "value": 1,
+            "displayValue": "1"
+          },
+          {
+            "name": "passPct",
+            "displayName": "Pass Percentage",
+            "shortDisplayName": "PASS%",
+            "description": "The percentage of passes that result in the ball finding its target.",
+            "abbreviation": "PASS%",
+            "value": 0,
+            "displayValue": "0.0"
+          },
+          {
+            "name": "redCards",
+            "displayName": "Red Cards",
+            "shortDisplayName": "RC",
+            "description": "The number of red cards that have been issued.",
+            "abbreviation": "RC",
+            "value": 2,
+            "displayValue": "2"
+          },
+          {
+            "name": "starts",
+            "displayName": "Starts",
+            "shortDisplayName": "STRT",
+            "description": "The number of starts a player has made in matches.",
+            "abbreviation": "STRT",
+            "value": 165,
+            "displayValue": "165"
+          },
+          {
+            "name": "subIns",
+            "displayName": "Substitute Appearances",
+            "shortDisplayName": "SUBIN",
+            "description": "The number of times a player has come on a sub in a match.",
+            "abbreviation": "SUB",
+            "value": 59,
+            "displayValue": "59"
+          },
+          {
+            "name": "subOuts",
+            "displayName": "Sub Out",
+            "shortDisplayName": "SUBOUT",
+            "description": "The number of times a player has been subbed off in a match.",
+            "abbreviation": "FGA",
+            "value": 59,
+            "displayValue": "59"
+          },
+          {
+            "name": "suspensions",
+            "displayName": "Suspensions",
+            "shortDisplayName": "SUS",
+            "description": "The number of matches a player has been suspended.",
+            "abbreviation": "FGA",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "winPct",
+            "displayName": "Win Percentage",
+            "shortDisplayName": "W%",
+            "description": "The percentage of matches won.",
+            "abbreviation": "W%",
+            "value": 0.667,
+            "displayValue": "0.7"
+          },
+          {
+            "name": "wins",
+            "displayName": "Wins",
+            "shortDisplayName": "W",
+            "description": "The number of matches won.",
+            "abbreviation": "WINS",
+            "value": 10,
+            "displayValue": "10"
+          },
+          {
+            "name": "wonCorners",
+            "displayName": "Corners Won",
+            "shortDisplayName": "CW",
+            "description": "The number of corners won.",
+            "abbreviation": "CW",
+            "value": 3416,
+            "displayValue": "3416"
+          },
+          {
+            "name": "yellowCards",
+            "displayName": "Yellow Cards",
+            "shortDisplayName": "YC",
+            "description": "The number of yellow cards accumulated.",
+            "abbreviation": "YC",
+            "value": 22,
+            "displayValue": "22"
+          }
+        ]
+      },
+      {
+        "name": "goalKeeping",
+        "displayName": "Goal Keeping",
+        "shortDisplayName": "Keeper",
+        "abbreviation": "gk",
+        "summary": "",
+        "stats": [
+          {
+            "name": "cleanSheet",
+            "displayName": "Clean Sheet",
+            "shortDisplayName": "CS",
+            "description": "The number of times a goalkeeper doesn't let in a goal.",
+            "abbreviation": "CS",
+            "value": 57,
+            "displayValue": "57"
+          },
+          {
+            "name": "crossesCaught",
+            "displayName": "Crosses Caught",
+            "shortDisplayName": "CC",
+            "description": "The number of crosses caught.",
+            "abbreviation": "CC",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "goalsConceded",
+            "displayName": "Goals Against",
+            "shortDisplayName": "GA",
+            "description": "The number of goals allowed by the goalkeeper.",
+            "abbreviation": "GA",
+            "value": 13,
+            "displayValue": "13"
+          },
+          {
+            "name": "partialCleenSheet",
+            "displayName": "Partial Clean Sheet",
+            "shortDisplayName": "PCS",
+            "description": "The number of times a clean sheet is kept when playing at least a part of the game.",
+            "abbreviation": "FGA",
+            "value": 38,
+            "displayValue": "38"
+          },
+          {
+            "name": "penaltyKickConceded",
+            "displayName": "Penalty Kick Conceded",
+            "shortDisplayName": "PKC",
+            "description": "The number of goals allowed when the opposing team take a penalty.",
+            "abbreviation": "PKC",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "penaltyKickSavePct",
+            "displayName": "Penalty Kick Save Percentage",
+            "shortDisplayName": "PK%",
+            "description": "The percentage of penalty kicks a goalkeeper saves.",
+            "abbreviation": "PK%",
+            "value": 0,
+            "displayValue": "0.0"
+          },
+          {
+            "name": "penaltyKicksFaced",
+            "displayName": "Penalty Kicks Faced",
+            "shortDisplayName": "PK",
+            "description": "The number of penalty kicks faced by a goalkeeper.",
+            "abbreviation": "PK",
+            "value": 1,
+            "displayValue": "1"
+          },
+          {
+            "name": "penaltyKicksSaved",
+            "displayName": "Penalty Kicks Saved",
+            "shortDisplayName": "PKS",
+            "description": "The number of penalty kicks saved by a goalkeeper.",
+            "abbreviation": "PKS",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "punches",
+            "displayName": "Punches",
+            "shortDisplayName": "P",
+            "description": "The number of punches.",
+            "abbreviation": "P",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "savePct",
+            "displayName": "Save Percentage",
+            "shortDisplayName": "SV%",
+            "description": "The percentage of shots on target that are saved by a goalkeeper.",
+            "abbreviation": "SV%",
+            "value": 0.0061,
+            "displayValue": ".006"
+          },
+          {
+            "name": "saves",
+            "displayName": "Saves",
+            "shortDisplayName": "SV",
+            "description": "The number of times a goalkeeper makes a save.",
+            "abbreviation": "SV",
+            "value": 108,
+            "displayValue": "108"
+          },
+          {
+            "name": "shootOutKicksFaced",
+            "displayName": "Penalty Shootout Kicks Faced",
+            "shortDisplayName": "PSF",
+            "description": "The number of penalty kicks faced in a penalty shootout.",
+            "abbreviation": "PSF",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "shootOutKicksSaved",
+            "displayName": "Penalty Shootout Saves",
+            "shortDisplayName": "PSS",
+            "description": "The number of penalty kicks saved in a penalty shootout.",
+            "abbreviation": "PSS",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "shootOutSavePct",
+            "displayName": "Penalty Shoot Save Percentage",
+            "shortDisplayName": "PSS%",
+            "description": "The percentage of penalty kicks saved in a penalty shootout.",
+            "abbreviation": "PSS%",
+            "value": 0,
+            "displayValue": "0.0"
+          },
+          {
+            "name": "shotsFaced",
+            "displayName": "Shots Faced",
+            "shortDisplayName": "SHF",
+            "description": "The number of shots on target a goalkeeper has faced.",
+            "abbreviation": "SHF",
+            "value": 177,
+            "displayValue": "177"
+          },
+          {
+            "name": "smothers",
+            "displayName": "Smothers",
+            "shortDisplayName": "SM",
+            "description": "The number of smothers.",
+            "abbreviation": "SM",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "unclaimedCrosses",
+            "displayName": "Unclaimed Crosses",
+            "shortDisplayName": "UC",
+            "description": "The number of crosses that were unclaimed.",
+            "abbreviation": "UC",
+            "value": 0,
+            "displayValue": "0"
+          }
+        ]
+      },
+      {
+        "name": "offensive",
+        "displayName": "Offensive",
+        "shortDisplayName": "Offensive",
+        "abbreviation": "off",
+        "summary": "",
+        "stats": [
+          {
+            "name": "accurateCrosses",
+            "displayName": "Accurate Crosses",
+            "shortDisplayName": "ACCRSS",
+            "description": "The number of crosses that find their target.",
+            "abbreviation": "AC.CRSS",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "accurateLongBalls",
+            "displayName": "Accurate Long Balls",
+            "shortDisplayName": "ACLONG",
+            "description": "The number of longballs that are completed.",
+            "abbreviation": "AC.LONG",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "accuratePasses",
+            "displayName": "Accurate Passes",
+            "shortDisplayName": "ACPASS",
+            "description": "The number of passes completed.",
+            "abbreviation": "AC.PASS",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "accurateThroughBalls",
+            "displayName": "Accurate Through Balls",
+            "shortDisplayName": "ACTHRU",
+            "description": "The number of through balls that find their target.",
+            "abbreviation": "AC.THRU",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "crossPct",
+            "displayName": "Cross Percentage",
+            "shortDisplayName": "CROSS%",
+            "description": "The percentage of crosses that find their target.",
+            "abbreviation": "FGA",
+            "value": 0,
+            "displayValue": "0.0"
+          },
+          {
+            "name": "freeKickGoals",
+            "displayName": "Free Kick Goals",
+            "shortDisplayName": "FKG",
+            "description": "The number goals scored from free kick shots.",
+            "abbreviation": "FKG",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "freeKickShots",
+            "displayName": "Free Kick Shots",
+            "shortDisplayName": "FKSH",
+            "description": "The number of free kick shots attempted.",
+            "abbreviation": "FKS",
+            "value": 2,
+            "displayValue": "2"
+          },
+          {
+            "name": "gameWinningAssists",
+            "displayName": "Game Winning Assists",
+            "shortDisplayName": "GWAST",
+            "description": "The number of game winning assists.",
+            "abbreviation": "GWAST",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "gameWinningGoals",
+            "displayName": "Game Winning Goals",
+            "shortDisplayName": "GWG",
+            "description": "The number of game winning goals.",
+            "abbreviation": "GWG",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "goalAssists",
+            "displayName": "Assists",
+            "shortDisplayName": "A",
+            "description": "The number of assists.",
+            "abbreviation": "A",
+            "value": 21,
+            "displayValue": "21"
+          },
+          {
+            "name": "headedGoals",
+            "displayName": "Headed Goals",
+            "shortDisplayName": "HEADG",
+            "description": "The number of goals scored from headers.",
+            "abbreviation": "HEADG",
+            "value": 2,
+            "displayValue": "2"
+          },
+          {
+            "name": "inaccurateCrosses",
+            "displayName": "Inaccurate Crosses",
+            "shortDisplayName": "INCRSS",
+            "description": "The number of times a cross was attempted and failed to find its target.",
+            "abbreviation": "INCRSS",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "inaccurateLongBalls",
+            "displayName": "Inaccurate Long Balls",
+            "shortDisplayName": "INLONG",
+            "description": "The number of times a long ball was attempted and failed to be completed",
+            "abbreviation": "FGA",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "inaccuratePasses",
+            "displayName": "Inaccurate Passes",
+            "shortDisplayName": "INPASS",
+            "description": "The number of times a pass was attempted and failed to find its target.",
+            "abbreviation": "FGA",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "inaccurateThroughBalls",
+            "displayName": "Inaccurate Through Balls",
+            "shortDisplayName": "INTHRU",
+            "description": "The number of times a through ball was attempted and failed to be completed.",
+            "abbreviation": "FGA",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "leftFootedShots",
+            "displayName": "Left Footed Shots",
+            "shortDisplayName": "LFTSH",
+            "description": "The number of shots attempted with a player's left foot.",
+            "abbreviation": "LFTSH",
+            "value": 164,
+            "displayValue": "164"
+          },
+          {
+            "name": "longballPct",
+            "displayName": "Long Ball Percentage",
+            "shortDisplayName": "LONG%",
+            "description": "The percentage of long balls attempted that find their target.",
+            "abbreviation": "FGA",
+            "value": 0,
+            "displayValue": "0.0"
+          },
+          {
+            "name": "offsides",
+            "displayName": "Offsides",
+            "shortDisplayName": "OF",
+            "description": "The number of times a player or team gets caught offside.",
+            "abbreviation": "OF",
+            "value": 20,
+            "displayValue": "20"
+          },
+          {
+            "name": "penaltyKickGoals",
+            "displayName": "Penalty Kick Goals",
+            "shortDisplayName": "PKG",
+            "description": "The number of goals scored from the penalty spot.",
+            "abbreviation": "PKG",
+            "value": 4,
+            "displayValue": "4"
+          },
+          {
+            "name": "penaltyKickPct",
+            "displayName": "Penatly Kick Percentage",
+            "shortDisplayName": "PK%",
+            "description": "The percentage of penalty kicks converted.",
+            "abbreviation": "FGA",
+            "value": 1,
+            "displayValue": "1.0"
+          },
+          {
+            "name": "penaltyKickShots",
+            "displayName": "Penalty Kicks",
+            "shortDisplayName": "PKAT",
+            "description": "The number of penalty kicks attempted.",
+            "abbreviation": "PKA",
+            "value": 4,
+            "displayValue": "4"
+          },
+          {
+            "name": "penaltyKicksMissed",
+            "displayName": "Penalty Kicks Missed",
+            "shortDisplayName": "PKM",
+            "description": "The number of penalty kicks missed.",
+            "abbreviation": "PKM",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "rightFootedShots",
+            "displayName": "Right Footed Shots",
+            "shortDisplayName": "RGHTSH",
+            "description": "The number of shots attempted with the right foot.",
+            "abbreviation": "RGHTSH",
+            "value": 164,
+            "displayValue": "164"
+          },
+          {
+            "name": "shootOutGoals",
+            "displayName": "Penalty Shootout Goals",
+            "shortDisplayName": "PSG",
+            "description": "The number of penalty kicks converted in penalty shootouts.",
+            "abbreviation": "PSG",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "shootOutMisses",
+            "displayName": "Penalty Shootout Misses",
+            "shortDisplayName": "PSM",
+            "description": "The number of penalty kicks missed in penalty shootouts.",
+            "abbreviation": "PSM",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "shootOutPct",
+            "displayName": "Penalty Shootout Misses",
+            "shortDisplayName": "PS%",
+            "description": "The percentage of penalty kicks in a penalty shootout that are converted.",
+            "abbreviation": "PS%",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "shotAssists",
+            "displayName": "Shot Assists",
+            "shortDisplayName": "SHAST",
+            "description": "The number of passes that directly result in a shot.",
+            "abbreviation": "SHAST",
+            "value": 140,
+            "displayValue": "140"
+          },
+          {
+            "name": "shotPct",
+            "displayName": "Shots On Target Percentage",
+            "shortDisplayName": "SOT%",
+            "description": "The percentage of shots that are on target.",
+            "abbreviation": "SOT%",
+            "value": 0.383,
+            "displayValue": "0.4"
+          },
+          {
+            "name": "shotsHeaded",
+            "displayName": "Headed Shots",
+            "shortDisplayName": "HEADSH",
+            "description": "The number of shots attempted with the head.",
+            "abbreviation": "HEADSH",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "shotsOffTarget",
+            "displayName": "Shots Off Target",
+            "shortDisplayName": "SHOFF",
+            "description": "The number shots attempted that miss the goal.",
+            "abbreviation": "SHOFF",
+            "value": 119,
+            "displayValue": "119"
+          },
+          {
+            "name": "shotsOnPost",
+            "displayName": "Shots On Post",
+            "shortDisplayName": "PSTSH",
+            "description": "The number of shots that hit the post.",
+            "abbreviation": "PSTSH",
+            "value": 7,
+            "displayValue": "7"
+          },
+          {
+            "name": "shotsOnTarget",
+            "displayName": "Shots On Target",
+            "shortDisplayName": "SG",
+            "description": "The number of shots that are on goal.",
+            "abbreviation": "ST",
+            "value": 74,
+            "displayValue": "74"
+          },
+          {
+            "name": "throughBallPct",
+            "displayName": "Through Ball Percentage",
+            "shortDisplayName": "FGA",
+            "description": "The percentage of through balls played that find their target.",
+            "abbreviation": "FGA",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "totalCrosses",
+            "displayName": "Crosses",
+            "shortDisplayName": "CROSS",
+            "description": "The number of crosses attempted.",
+            "abbreviation": "CROSS",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "totalGoals",
+            "displayName": "Total Goals",
+            "shortDisplayName": "G",
+            "description": "The number of goals scored against the opposing team.",
+            "abbreviation": "G",
+            "value": 28,
+            "displayValue": "28"
+          },
+          {
+            "name": "totalLongBalls",
+            "displayName": "Long Balls",
+            "shortDisplayName": "LONG",
+            "description": "The number of long balls attempted.",
+            "abbreviation": "FGA",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "totalPasses",
+            "displayName": "Passes",
+            "shortDisplayName": "PASS",
+            "description": "The number of passes attempted.",
+            "abbreviation": "PASS",
+            "value": 0,
+            "displayValue": "0"
+          },
+          {
+            "name": "totalShots",
+            "displayName": "Shots",
+            "shortDisplayName": "SH",
+            "description": "The number of shots attempted.",
+            "abbreviation": "SH",
+            "value": 193,
+            "displayValue": "193"
+          },
+          {
+            "name": "totalThroughBalls",
+            "displayName": "Through Balls",
+            "shortDisplayName": "THRU",
+            "description": "The number of through balls attempted.",
+            "abbreviation": "THRU",
+            "value": 0,
+            "displayValue": "0"
+          }
+        ]
+      }
+    ]
+  },
+  "seasonType": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/seasons/2024/types/1?lang=en&region=us"
+  }
+}

@@ -278,6 +278,9 @@ function applyTeamColors(teamColor) {
     .squad-member-number {
       color: ${teamColor} !important;
     }
+    .stat-value {
+      color: ${teamColor} !important;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -633,52 +636,98 @@ async function loadUpcomingMatches() {
     });
   } catch (error) {
     console.error("Error loading upcoming matches:", error);
-    document.getElementById('upcomingMatchesContent').innerHTML = '<div class="no-data">Error loading upcoming matches</div>';
+    document.getElementById('upcomingMatchesContent').innerHTML = '<div Fclass="no-data">Error loading upcoming matches</div>';
   }
 }
 
 async function loadTeamStats() {
   try {
     const contentDiv = document.getElementById('teamStatsContent');
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/teams/${currentTeamId}`);
-    const data = await response.json();
-
-    currentTeam = data.team.record;
+    contentDiv.innerHTML = '<div style="text-align: center; padding: 20px;">Loading team statistics...</div>';
     
+    // Get current year and previous year for fallback
+    const currentYear = new Date().getFullYear();
+    const previousYear = currentYear - 1;
+    
+    let statsData = null;
+    let year = currentYear;
+    
+    // Try current year first, then fallback to previous year
+    try {
+      const currentYearResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${currentUefaLeague}/seasons/${currentYear}/types/1/teams/${currentTeamId}/statistics`);
+      if (currentYearResponse.ok) {
+        statsData = await currentYearResponse.json();
+      } else {
+        throw new Error('Current year data not available');
+      }
+    } catch (error) {
+      console.log(`No data for ${currentYear}, trying ${previousYear}...`);
+      try {
+        const previousYearResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${currentUefaLeague}/seasons/${previousYear}/types/1/teams/${currentTeamId}/statistics`);
+        if (previousYearResponse.ok) {
+          statsData = await previousYearResponse.json();
+          year = previousYear;
+        } else {
+          throw new Error('Previous year data not available');
+        }
+      } catch (fallbackError) {
+        throw new Error('No statistics data available for current or previous year');
+      }
+    }
+
+    if (!statsData || !statsData.splits || !statsData.splits.categories) {
+      throw new Error('Invalid statistics data structure');
+    }
+
+    // Extract stats from different categories
+    const categories = statsData.splits.categories;
+    const generalStats = categories.find(cat => cat.name === 'general')?.stats || [];
+    const offensiveStats = categories.find(cat => cat.name === 'offensive')?.stats || [];
+    const defensiveStats = categories.find(cat => cat.name === 'defensive')?.stats || [];
+    const goalKeepingStats = categories.find(cat => cat.name === 'goalKeeping')?.stats || [];
+
+    // Helper function to get stat value
+    const getStat = (statsArray, statName) => {
+      const stat = statsArray.find(s => s.name === statName);
+      return stat ? stat.displayValue : 'N/A';
+    };
+
+    // Display only 8 most important stats like main soccer team-page
     contentDiv.innerHTML = `
       <div class="stats-grid">
         <div class="stat-item">
           <div class="stat-label">Games Played</div>
-          <div class="stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'gamesPlayed')?.value}</div>
+          <div class="stat-value">${getStat(generalStats, 'appearances')}</div>
         </div>
         <div class="stat-item">
-          <div class="stat-label">Points</div>
-          <div class="stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'points')?.value}</div>
+          <div class="stat-label">Wins</div>
+          <div class="stat-value">${getStat(generalStats, 'wins')}</div>
         </div>
         <div class="stat-item">
-          <div class="stat-label">Away Games Played</div>
-          <div class="stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'awayGamesPlayed')?.value}</div>
+          <div class="stat-label">Draws</div>
+          <div class="stat-value">${getStat(generalStats, 'draws')}</div>
         </div>
         <div class="stat-item">
-          <div class="stat-label">Away Games Record</div>
-          <div class="stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'awayWins')?.value}-${currentTeam.items[0].stats?.find(s => s.name === 'awayTies')?.value}-${currentTeam.items[0].stats?.find(s => s.name === 'awayLosses')?.value}</div>
+          <div class="stat-label">Losses</div>
+          <div class="stat-value">${getStat(generalStats, 'losses')}</div>
         </div>
         <div class="stat-item">
-          <div class="stat-label">Home Games Played</div>
-          <div class="stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'homeGamesPlayed')?.value}</div>
+          <div class="stat-label">Goals</div>
+          <div class="stat-value">${getStat(offensiveStats, 'totalGoals')}</div>
         </div>
         <div class="stat-item">
-          <div class="stat-label">Home Games Record</div>
-          <div class="stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'homeWins')?.value}-${currentTeam.items[0].stats?.find(s => s.name === 'homeTies')?.value}-${currentTeam.items[0].stats?.find(s => s.name === 'homeLosses')?.value}</div>
+          <div class="stat-label">Goals Against</div>
+          <div class="stat-value">${getStat(goalKeepingStats, 'goalsConceded')}</div>
         </div>
         <div class="stat-item">
-          <div class="stat-label">Goals Per Game</div>
-          <div class="stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'ppg')?.value}</div>
+          <div class="stat-label">Goal Difference</div>
+          <div class="stat-value">${getStat(generalStats, 'goalDifference')}</div>
         </div>
         <div class="stat-item">
-          <div class="stat-label">Rank Change</div>
-          <div class="stat-value">${currentTeam.items[0].stats?.find(s => s.name === 'rankChange')?.value}</div>
+          <div class="stat-label">Clean Sheets</div>
+          <div class="stat-value">${getStat(goalKeepingStats, 'cleanSheet')}</div>
         </div>
+      </div>
     `;
   } catch (error) {
     console.error("Error loading team stats:", error);
