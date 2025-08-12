@@ -16,6 +16,7 @@ const NOTE_COLORS = {
 };
 
 let currentLeague = localStorage.getItem("currentLeague") || "eng.1"; // Default to Premier League if not set
+let currentSeason = localStorage.getItem("currentSeason") || new Date().getFullYear().toString(); // Default to current year
 
 function hashString(str) {
   let hash = 0;
@@ -31,7 +32,7 @@ let lastStandingsHash = null;
 
 async function fetchStandings() {
   try {
-    const STANDINGS_URL = `https://cdn.espn.com/core/soccer/table?xhr=1&league=${currentLeague}`;
+    const STANDINGS_URL = `https://cdn.espn.com/core/soccer/table?xhr=1&league=${currentLeague}&season=${currentSeason}`;
     const response = await fetch(STANDINGS_URL);
     const standingsText = await response.text();
     const newHash = hashString(standingsText);
@@ -51,21 +52,94 @@ async function fetchStandings() {
       return;
     }
 
-    // Update the header to reflect the current league
+    // Update the header to reflect the current league and season
     const header = document.querySelector("#standings h2");
     const currentLeagueName = Object.keys(LEAGUES).find(
       leagueName => LEAGUES[leagueName].code === currentLeague
     );
     if (header) {
+      // Always update the header text first
       header.textContent = `${currentLeagueName} Standings`;
+      header.style.cssText = `
+        margin: 0;
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: #333;
+      `;
+      
+      // Check for existing header wrapper globally (not just as sibling)
+      let headerWrapper = document.querySelector('#headerWrapper');
+      if (!headerWrapper) {
+        headerWrapper = document.createElement('div');
+        headerWrapper.id = 'headerWrapper';
+        headerWrapper.style.cssText = `
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+          gap: 15px;
+        `;
+        
+        // Insert the wrapper before the header and move header into it
+        header.parentElement.insertBefore(headerWrapper, header);
+        headerWrapper.appendChild(header);
+      } else {
+        // HeaderWrapper exists, make sure header is inside it
+        if (header.parentElement !== headerWrapper) {
+          headerWrapper.appendChild(header);
+        }
+      }
+      
+      // Check for existing year selector globally
+      let yearSelector = document.querySelector('#headerYearSelector');
+      if (!yearSelector) {
+        yearSelector = document.createElement('div');
+        yearSelector.id = 'headerYearSelector';
+        headerWrapper.appendChild(yearSelector);
+        
+        const currentYear = new Date().getFullYear();
+        const startYear = 2020;
+        
+        yearSelector.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 10px; background: #f8f9fa; padding: 8px 15px; border-radius: 8px; border: 1px solid #ddd;">
+            <label style="font-weight: 600; color: #555; font-size: 14px; white-space: nowrap;">Season:</label>
+            <select id="seasonDropdown" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; background: white; color: #333; cursor: pointer; min-width: 80px;">
+              ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(year => 
+                `<option value="${year}" ${year.toString() === currentSeason ? 'selected' : ''}>${year}</option>`
+              ).join('')}
+            </select>
+          </div>
+        `;
+        
+        // Add event listener for season changes
+        const seasonDropdown = yearSelector.querySelector("#seasonDropdown");
+        if (seasonDropdown) {
+          seasonDropdown.addEventListener("change", () => {
+            currentSeason = seasonDropdown.value;
+            localStorage.setItem("currentSeason", currentSeason);
+            fetchStandings();
+          });
+        }
+      } else {
+        // Year selector exists, just update the selected value and ensure it's in the right place
+        if (yearSelector.parentElement !== headerWrapper) {
+          headerWrapper.appendChild(yearSelector);
+        }
+        const seasonDropdown = yearSelector.querySelector("#seasonDropdown");
+        if (seasonDropdown) {
+          seasonDropdown.value = currentSeason;
+        }
+      }
     }
 
     renderStandings(standings, "standingsContainer");
 
-    // Save the current league to localStorage
+    // Save the current league and season to localStorage
     localStorage.setItem("currentLeague", currentLeague);
+    localStorage.setItem("currentSeason", currentSeason);
   } catch (error) {
-    console.error(`Error fetching standings for league ${currentLeague}:`, error);
+    console.error(`Error fetching standings for league ${currentLeague} season ${currentSeason}:`, error);
   }
 }
 
@@ -135,7 +209,7 @@ function renderStandings(standings, containerId) {
 
     row.innerHTML = `
       <td class="team-name" style="color: ${textColor};">
-        <img src="${team.logos[0]?.href}" alt="${team.displayName}" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
+        <img src="https://a.espncdn.com/i/teamlogos/soccer/500-dark/${team.id}.png" alt="${team.displayName}" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
         ${displayName}
       </td>
       <td style="color: ${textColor};">${gamesPlayed}</td>
@@ -205,6 +279,11 @@ function setupLeagueButtons() {
   updateLeagueButtonDisplay(); // Adjust button display based on screen size
 }
 
+function setupSeasonSelector() {
+  // Season selector is now integrated into the header in fetchStandings()
+  // This function is kept for compatibility but does nothing
+}
+
 function updateLeagueButtonDisplay() {
   const isSmallScreen = window.innerWidth < 525;
   document.querySelectorAll(".league-button").forEach(button => {
@@ -223,5 +302,6 @@ function updateLeagueButtonDisplay() {
 window.addEventListener("resize", updateLeagueButtonDisplay);
 
 setupLeagueButtons();
+setupSeasonSelector();
 fetchStandings();
 setInterval(fetchStandings, 2000);

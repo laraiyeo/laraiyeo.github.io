@@ -10,6 +10,40 @@ function getAdjustedDateForSoccer() {
   return adjustedDate;
 }
 
+// Helper function to get team color using alternate color logic like team-page.js
+function getTeamColorWithAlternateLogic(team) {
+  if (!team || !team.color) return '007bff'; // Default fallback
+  
+  const isUsingAlternateColor = ["ffffff", "ffee00", "ffff00", "81f733", "000000"].includes(team.color);
+  
+  if (isUsingAlternateColor && team.alternateColor) {
+    return team.alternateColor;
+  } else {
+    return team.color;
+  }
+}
+
+// Function to apply team colors with !important (like team-page.js)
+function applyTeamColorsToCommentary() {
+  const style = document.createElement('style');
+  style.textContent = `
+    .player-event-info {
+      border-left-color: var(--team-color) !important;
+    }
+    .player-avatar {
+      background-color: var(--team-color) !important;
+    }
+    .play-container {
+      border-left: 4px solid var(--team-color) !important;
+    }
+    .scoring-play {
+      border-left: 4px solid var(--team-color) !important;
+      background-color: rgba(var(--team-color-rgb), 0.1) !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function getQueryParam(param) {
   const urlParams = new URLSearchParams(window.location.search);
   return urlParams.get(param);
@@ -291,55 +325,6 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
   `;
 }
 
-async function fetchAndRenderPlayDescription(gameId, homeTeam, awayTeam) {
-  try {
-    const PLAY_DESCRIPTION_API_URL = `https://cdn.espn.com/core/soccer/commentary?xhr=1&gameId=${gameId}`;
-    const response = await fetch(PLAY_DESCRIPTION_API_URL);
-    const commentaryData = await response.json();
-
-    const commentary = commentaryData.gamepackageJSON.commentary || [];
-    const mostRecentEntry = commentary.reverse().find(entry => entry.play || entry.sequence) || commentary[0];
-
-    const playClock = mostRecentEntry?.play?.clock?.displayValue || mostRecentEntry?.time?.displayValue || "";
-    const playText = mostRecentEntry?.text || mostRecentEntry?.play?.text || mostRecentEntry?.play?.type?.text || "No play data available";
-
-    const playDescriptionDiv = document.getElementById("playDescription");
-    if (!playDescriptionDiv) {
-      console.error("Error: 'playDescription' element not found.");
-      return;
-    }
-
-    // Determine the background color based on the play text
-    const homeTeamName = homeTeam.shortDisplayName || homeTeam.displayName;
-    const awayTeamName = awayTeam.shortDisplayName || awayTeam.displayName;
-    let backgroundColor = "#1a1a1a"; // Default background color
-
-    if (playText.includes("start") || playText.includes("end") || playText.includes("begins") || playText.includes("Lineups")) {
-      backgroundColor = `#1a1a1a`;
-    } else if (playText.toLowerCase().includes(`(${homeTeamName.toLowerCase()})`) || playText.toLowerCase().includes(homeTeamName.toLowerCase())) {
-      backgroundColor = `#${homeTeam.color}`;
-    } else if (playText.toLowerCase().includes(`(${awayTeamName.toLowerCase()})`) || playText.toLowerCase().includes(awayTeamName.toLowerCase())) {
-      backgroundColor = `#${awayTeam.color}`;
-    }
-
-    const lightColor = ["#ffffff", "#ffee00", "#ffff00", "#81f733"].includes(backgroundColor) ? "black" : "white";
-
-    playDescriptionDiv.style.backgroundColor = backgroundColor;
-    const shadowColor = lightColor === "black" ? "white" : "black";
-    playDescriptionDiv.style.textShadow = `2px 2px 2px ${shadowColor}`;
-
-    playDescriptionDiv.innerHTML = `
-      <div class="play-description-content">
-        <div class="play-clock" style="color: ${lightColor};">${playClock}</div>
-        <div class="play-text" style="color: ${lightColor};">${playText}</div>
-      </div>
-    `;
-
-  } catch (error) {
-    console.error("Error fetching play description data:", error);
-  }
-}
-
 async function fetchAndRenderTopScoreboard() {
   try {
     const gameId = getQueryParam("gameId");
@@ -425,21 +410,10 @@ async function fetchAndRenderTopScoreboard() {
       </div>
     `;
 
-    // Render play description
-    let playDescriptionDiv = document.getElementById("playDescription");
-    if (!playDescriptionDiv) {
-      playDescriptionDiv = document.createElement("div");
-      playDescriptionDiv.id = "playDescription";
-      playDescriptionDiv.className = "play-description";
-      topScoreboardEl.insertAdjacentElement("afterend", playDescriptionDiv);
-    }
-    await fetchAndRenderPlayDescription(gameId, homeTeam, awayTeam);
-
     let scorersContainer = document.querySelector(".scorers-container");
     if (!scorersContainer) {
       scorersContainer = document.createElement("div");
       scorersContainer.className = "scorers-container";
-      playDescriptionDiv.insertAdjacentElement("afterend", scorersContainer);
     }
     scorersContainer.innerHTML = renderScorersBox(homeScorers, awayScorers);
 
@@ -455,13 +429,16 @@ async function fetchAndRenderTopScoreboard() {
     const homeFormation = homeRoster?.formation || "4-3-3";
     const awayFormation = awayRoster?.formation || "4-3-3";
 
-    let pitchesContainer = document.querySelector(".pitches-container");
-    if (!pitchesContainer) {
-      pitchesContainer = document.createElement("div");
-      pitchesContainer.className = "pitches-container";
-      scorersContainer.insertAdjacentElement("afterend", pitchesContainer);
+    let formationContainer = document.getElementById("formationDisplay");
+    if (!formationContainer) {
+      formationContainer = document.createElement("div");
+      formationContainer.id = "formationDisplay";
+      const statsContent = document.getElementById("statsContent");
+      if (statsContent) {
+        statsContent.appendChild(formationContainer);
+      }
     }
-    pitchesContainer.innerHTML = renderFootballPitches(
+    formationContainer.innerHTML = renderFootballPitches(
       awayPlayers, homePlayers, awayFormation, homeFormation, awayLogo, homeLogo, awaySubs, homeSubs
     );
   } catch (error) {
@@ -469,9 +446,651 @@ async function fetchAndRenderTopScoreboard() {
   }
 }
 
+// Function to render mini soccer field with event position
+function renderMiniField(coordinate, coordinate2, eventType = 'gen', teamSide = 'home', teamColor = '#007bff', teamName = '') {
+  if (!coordinate || coordinate.x === undefined || coordinate.y === undefined) {
+    return `
+      <div class="mini-field">
+        <div class="field-container">
+          <div class="field-outline"></div>
+          <div class="center-line"></div>
+          <div class="center-circle-mini"></div>
+          <div class="penalty-area left"></div>
+          <div class="penalty-area right"></div>
+          <div class="goal-area left"></div>
+          <div class="goal-area right"></div>
+          <div class="goal left"></div>
+          <div class="goal right"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ESPN coordinates: X (0=attacking half, 1=defending half), Y (0=top, 1=bottom)
+  const espnX = coordinate.x; 
+  const espnY = coordinate.y; 
+  
+  // Convert ESPN coordinates based on team orientation
+  let leftPercent, topPercent;
+  
+  if (teamSide === 'home') {
+    // Home team attacking right to left:
+    // X=0 (attacking): right half of field
+    // X=1 (defending): left half of field  
+    // Y=0: top, Y=1: bottom
+    
+    if (espnX <= 0.5) {
+      // Attacking half (right side of field)
+      leftPercent = 50 + (0.5 - espnX) * 100; // X=0→100%, X=0.5→50%
+    } else {
+      // Defending half (left side of field)
+      leftPercent = (1 - espnX) * 100; // X=0.5→50%, X=1→0%
+    }
+    topPercent = espnY * 100; // Y=0→0%, Y=1→100%
+  } else {
+    // Away team attacking left to right:
+    // X=0 (attacking): left half of field
+    // X=1 (defending): right half of field
+    // Y=0: bottom, Y=1: top (inverted from home)
+    
+    if (espnX <= 0.5) {
+      // Attacking half (left side of field)
+      leftPercent = espnX * 100; // X=0→0%, X=0.5→50%
+    } else {
+      // Defending half (right side of field)  
+      leftPercent = 50 + (espnX - 0.5) * 100; // X=0.5→50%, X=1→100%
+    }
+    topPercent = (1 - espnY) * 100; // Y=0→100%, Y=1→0% (inverted)
+  }
+  
+  // Constrain to field bounds with some padding
+  const finalLeftPercent = Math.max(2, Math.min(98, leftPercent));
+  const finalTopPercent = Math.max(2, Math.min(98, topPercent));
+
+  // Handle second coordinate (ball end position) if available - only for goals and attempts
+  let ballEndPosition = '';
+  let trajectoryLine = '';
+  
+  if (coordinate2 && coordinate2.x !== undefined && coordinate2.y !== undefined && 
+      (eventType === 'goal' || eventType === 'attempt' || eventType === 'shot')) {
+    const espnX2 = coordinate2.x;
+    const espnY2 = coordinate2.y;
+    
+    let leftPercent2, topPercent2;
+    
+    if (teamSide === 'home') {
+      if (espnX2 <= 0.5) {
+        // Attacking half (right side of field)
+        leftPercent2 = 50 + (0.5 - espnX2) * 100; // X=0→100%, X=0.5→50%
+      } else {
+        // Defending half (left side of field)
+        leftPercent2 = (1 - espnX2) * 100; // X=0.5→50%, X=1→0%
+      }
+      topPercent2 = espnY2 * 100;
+    } else {
+      if (espnX2 <= 0.5) {
+        // Attacking half (left side of field)
+        leftPercent2 = espnX2 * 100; // X=0→0%, X=0.5→50%
+      } else {
+        // Defending half (right side of field)  
+        leftPercent2 = 50 + (espnX2 - 0.5) * 100; // X=0.5→50%, X=1→100%
+      }
+      topPercent2 = (1 - espnY2) * 100; // Y=0→100%, Y=1→0% (inverted)
+    }
+    
+    const finalLeftPercent2 = Math.max(2, Math.min(98, leftPercent2));
+    const finalTopPercent2 = Math.max(2, Math.min(98, topPercent2));
+    
+    // Create ball end position marker
+    ballEndPosition = `<div class="event-marker ball-end" style="left: ${finalLeftPercent2}%; top: ${finalTopPercent2}%; --team-color: ${teamColor.startsWith('#') ? teamColor : `#${teamColor}`};" title="Ball end: ESPN X=${espnX2.toFixed(3)}, Y=${espnY2.toFixed(3)}"></div>`;
+    
+    // Create trajectory line using SVG to properly connect the two points
+    const x1 = finalLeftPercent;
+    const y1 = finalTopPercent;
+    const x2 = finalLeftPercent2;
+    const y2 = finalTopPercent2;
+    
+    trajectoryLine = `<svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 8;">
+      <line x1="${x1}%" y1="${y1}%" x2="${x2}%" y2="${y2}%" 
+            stroke="${teamColor.startsWith('#') ? teamColor : `#${teamColor}`}" 
+            stroke-width="2" 
+            opacity="0.7" />
+    </svg>`;
+  }
+
+  const eventClass = eventType === 'goal' ? 'goal' : 
+                    eventType === 'shot' ? 'attempt' :
+                    eventType === 'card' ? 'card' : 
+                    eventType === 'red-card' ? 'red-card' :
+                    eventType === 'offside' ? 'offside' :
+                    eventType === 'substitution' ? 'substitution' : 'goal';
+  
+  // Ensure team color has # prefix
+  const finalTeamColor = teamColor.startsWith('#') ? teamColor : `#${teamColor}`;
+
+  return `
+    <div class="mini-field">
+      <div class="field-container" style="background-color: #2d5a2d !important;">
+        <div class="field-outline" style="border-color: white !important;"></div>
+        <div class="center-line" style="background-color: white !important;"></div>
+        <div class="center-circle-mini" style="border-color: white !important;"></div>
+        <div class="penalty-area left" style="border-color: white !important;"></div>
+        <div class="penalty-area right" style="border-color: white !important;"></div>
+        <div class="goal-area left" style="border-color: white !important;"></div>
+        <div class="goal-area right" style="border-color: white !important;"></div>
+        <div class="goal left" style="background-color: white !important;"></div>
+        <div class="goal right" style="background-color: white !important;"></div>
+        ${trajectoryLine}
+        <!-- Player position marker -->
+        <div class="event-marker ${eventClass}" style="left: ${finalLeftPercent}%; top: ${finalTopPercent}%; --team-color: ${finalTeamColor};" title="Player (${teamSide}): ESPN X=${espnX.toFixed(3)}, Y=${espnY.toFixed(3)} | CSS: ${finalLeftPercent.toFixed(1)}%, ${finalTopPercent.toFixed(1)}%"></div>
+        ${ballEndPosition}
+      </div>
+    </div>
+  `;
+}
+
+// Global variables for preserving play-by-play state
+let openPlays = new Set(); // Track which plays are open
+let playsScrollPosition = 0; // Track scroll position
+
+// Helper function to get team color using alternate color logic like team-page.js
+function getTeamColorWithAlternateLogic(team) {
+  if (!team || !team.color) return '007bff'; // Default fallback
+  
+  const isUsingAlternateColor = ["ffffff", "ffee00", "ffff00", "81f733", "000000"].includes(team.color);
+  
+  if (isUsingAlternateColor && team.alternateColor) {
+    return team.alternateColor;
+  } else {
+    return team.color;
+  }
+}
+
+async function renderPlayByPlay(gameId) {
+  try {
+    const COMMENTARY_API_URL = `https://cdn.espn.com/core/soccer/commentary?xhr=1&gameId=${gameId}`;
+    const response = await fetch(COMMENTARY_API_URL);
+    const data = await response.json();
+    
+    if (!data.gamepackageJSON || !data.gamepackageJSON.commentary) {
+      throw new Error("No commentary data available");
+    }
+
+    const commentary = data.gamepackageJSON.commentary;
+    const homeTeam = data.gamepackageJSON.header.competitions[0].competitors[0];
+    const awayTeam = data.gamepackageJSON.header.competitions[1] || data.gamepackageJSON.header.competitions[0].competitors[1];
+    
+    const homeTeamId = homeTeam.team.id;
+    const awayTeamId = awayTeam.team.id;
+    const homeScore = parseInt(homeTeam.score || "0");
+    const awayScore = parseInt(awayTeam.score || "0");
+    
+    const homeLogo = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${homeTeamId}.png`;
+    const awayLogo = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${awayTeamId}.png`;
+
+    // Preserve scroll position
+    const playsContainer = document.querySelector('.plays-container');
+    if (playsContainer) {
+      playsScrollPosition = playsContainer.scrollTop;
+    }
+
+    // Sort commentary by sequence number (highest to lowest for reverse chronological)
+    const sortedCommentary = [...commentary].sort((a, b) => b.sequence - a.sequence);
+    
+    // Track score throughout the match by sequence
+    let currentHomeScore = homeScore;
+    let currentAwayScore = awayScore;
+    
+    // First pass: collect all goal events with their sequences and scores
+    const goalEvents = [];
+    sortedCommentary.forEach(play => {
+      const playData = play.play || play;
+      const isScoring = play.scoringPlay === true || playData.scoringPlay === true || 
+                       (playData.type && playData.type.text && playData.type.text.toLowerCase().includes('goal')) ||
+                       (play.text && play.text.toLowerCase().includes('goal!')) ||
+                       (playData.shortText && playData.shortText.toLowerCase().includes('goal'));
+      
+      if (isScoring && play.text && play.text.includes('Goal!')) {
+        // Extract scores using regex pattern for "Team 1, Team 0" format
+        const scoreMatch = play.text.match(/(\d+),.*?(\d+)/);
+        if (scoreMatch) {
+          const homeScoreAfter = parseInt(scoreMatch[1]);
+          const awayScoreAfter = parseInt(scoreMatch[2]);
+          goalEvents.push({
+            sequence: play.sequence,
+            homeScoreAfter: homeScoreAfter,
+            awayScoreAfter: awayScoreAfter
+          });
+          console.log(`Goal at sequence ${play.sequence}: score becomes ${homeScoreAfter}-${awayScoreAfter}`);
+        }
+      }
+    });
+
+    // Sort goals by sequence to ensure chronological order
+    goalEvents.sort((a, b) => a.sequence - b.sequence);
+
+    // Function to get score at any given sequence
+    function getScoreAtSequence(sequence) {
+      // Find the most recent goal before or at this sequence
+      let mostRecentGoal = null;
+      for (const goal of goalEvents) {
+        if (goal.sequence <= sequence) {
+          mostRecentGoal = goal;
+        } else {
+          break; // Goals are sorted, so no need to continue
+        }
+      }
+      
+      if (mostRecentGoal) {
+        return { home: mostRecentGoal.homeScoreAfter, away: mostRecentGoal.awayScoreAfter };
+      } else {
+        return { home: 0, away: 0 }; // Score before any goals
+      }
+    }
+
+    const playsHtml = sortedCommentary.map((play, index) => {
+      const isOpen = openPlays.has(index);
+      
+      // Handle nested play structure - check if play.play exists
+      const playData = play.play || play;
+      
+      // Get the score at the time of this play
+      const isGoalPlay = play.scoringPlay === true || playData.scoringPlay === true ||
+                        (playData.type && playData.type.text && playData.type.text.toLowerCase().includes('goal')) ||
+                        (play.text && play.text.toLowerCase().includes('goal!')) ||
+                        (playData.shortText && playData.shortText.toLowerCase().includes('goal'));
+      let scoreAtThisTime;
+      
+      if (isGoalPlay) {
+        // For goal plays, show the score BEFORE this goal
+        let mostRecentGoal = null;
+        for (const goal of goalEvents) {
+          if (goal.sequence < play.sequence) {
+            mostRecentGoal = goal;
+          } else {
+            break; // Goals are sorted, so no need to continue
+          }
+        }
+        
+        if (mostRecentGoal) {
+          scoreAtThisTime = { home: mostRecentGoal.homeScoreAfter, away: mostRecentGoal.awayScoreAfter };
+        } else {
+          scoreAtThisTime = { home: 0, away: 0 }; // First goal of the match
+        }
+      } else {
+        // For non-goal plays, show the score up to this point (including goals at same sequence)
+        scoreAtThisTime = getScoreAtSequence(play.sequence);
+      }
+      
+      currentHomeScore = scoreAtThisTime.home;
+      currentAwayScore = scoreAtThisTime.away;
+      
+      const period = playData.period ? playData.period.number || playData.period.displayValue : '';
+      const clock = play.time ? play.time.displayValue : '';
+      const text = play.text || 'No description available';
+      
+      // Determine if this is a scoring play - check both levels and more goal patterns
+      const isScoring = play.scoringPlay === true || playData.scoringPlay === true || 
+                       (playData.type && playData.type.text && playData.type.text.toLowerCase().includes('goal')) ||
+                       (text && text.toLowerCase().includes('goal!')) ||
+                       (playData.shortText && playData.shortText.toLowerCase().includes('goal'));
+
+      // Fix goalText to use correct nested structure
+      const goalText = isScoring && playData.participants && playData.participants[1] 
+        ? playData.shortText + ' Assisted by ' + playData.participants[1].athlete.displayName 
+        : playData.shortText || text;
+      
+      // Get team colors using alternate color logic
+      const homeColor = getTeamColorWithAlternateLogic(homeTeam.team);
+      const awayColor = getTeamColorWithAlternateLogic(awayTeam.team);
+      
+      // Determine event type and team
+      let eventType = 'gen';
+      let teamSide = 'home';
+      let teamColor = homeColor;
+      
+      if (isScoring) {
+        eventType = 'goal';
+      } else if (text.toLowerCase().includes('yellow card')) {
+        eventType = 'card';
+      } else if (text.toLowerCase().includes('red card')) {
+        eventType = 'red-card';
+      } else if (text.toLowerCase().includes('substitution')) {
+        eventType = 'substitution';
+      } else if (text.toLowerCase().includes('attempt') || text.toLowerCase().includes('saved') || text.toLowerCase().includes('blocked') || text.toLowerCase().includes('missed')) {
+        eventType = 'shot';
+      } else if (text.toLowerCase().includes('offside')) {
+        eventType = 'offside';
+      }
+      
+      // Determine which team - use playData.team if available, otherwise fallback to text analysis
+      let teamDetermined = false;
+      if (playData.team && playData.team.displayName) {
+        if (playData.team.displayName === awayTeam.team.displayName) {
+          teamSide = 'away';
+          teamColor = awayColor;
+          teamDetermined = true;
+        } else {
+          teamSide = 'home';
+          teamColor = homeColor;
+          teamDetermined = true;
+        }
+      } else {
+        // Fallback: try to determine from text content
+        if (text.includes(awayTeam.team.displayName) || text.includes(awayTeam.team.shortDisplayName)) {
+          teamSide = 'away';
+          teamColor = awayColor;
+          teamDetermined = true;
+        } else if (text.includes(homeTeam.team.displayName) || text.includes(homeTeam.team.shortDisplayName)) {
+          teamSide = 'home';
+          teamColor = homeColor;
+          teamDetermined = true;
+        }
+      }
+      
+      // If no team could be determined, use greyish color
+      if (!teamDetermined) {
+        teamColor = '333'; // Greyish color for undetermined team events
+      }
+
+      // Extract field position coordinates based on event type
+      let coordinate = null;
+      let coordinate2 = null; // For ball end position
+      
+      if (playData.fieldPositionX !== undefined && playData.fieldPositionY !== undefined) {
+        // Player position (always available)
+        coordinate = {
+          x: playData.fieldPositionX,
+          y: playData.fieldPositionY
+        };
+        
+        // Ball end position (for goals and attempts)
+        if (playData.fieldPosition2X !== undefined && playData.fieldPosition2Y !== undefined) {
+          coordinate2 = {
+            x: playData.fieldPosition2X,
+            y: playData.fieldPosition2Y
+          };
+        }
+      }
+
+      const miniField = renderMiniField(coordinate, coordinate2, eventType, teamSide, `#${teamColor}`, playData.team?.displayName || '');
+
+      return `
+        <div class="play-container ${isScoring ? 'scoring-play' : ''}" style="--team-color: #${teamColor};">
+          <div class="play-header" onclick="togglePlay(${index})">
+            <div class="play-main-info">
+              <div class="play-teams-score">
+                <div class="team-score-display">
+                  <img src="${homeLogo}" alt="Home" class="team-logo-small">
+                  <span class="score">${currentHomeScore}</span>
+                </div>
+                <span class="score-separator">-</span>
+                <div class="team-score-display">
+                  <span class="score">${currentAwayScore}</span>
+                  <img src="${awayLogo}" alt="Away" class="team-logo-small">
+                </div>
+              </div>
+              
+              <div class="play-summary">
+                <div class="play-time-period">
+                  ${period ? `<span class="period">${getOrdinalSuffix(period)} Half</span>` : ''}
+                  ${clock ? `<span class="clock">${clock}</span>` : ''}
+                </div>
+                <div class="play-description-text">${text}</div>
+                ${isScoring ? `<span class="score-indicator">GOAL</span>` : ''}
+              </div>
+            </div>
+            
+            <div class="play-toggle">
+              <span class="toggle-icon" id="toggle-${index}">${isOpen ? '▲' : '▼'}</span>
+            </div>
+          </div>
+          
+          <div class="play-details" id="play-${index}" style="display: ${isOpen ? 'block' : 'none'}">
+            <div class="play-details-content">
+              ${miniField}
+              
+              <div class="play-event-info">
+                <div class="event-participant ${isScoring ? 'goal-scorer' : 'primary'}" style="--team-color: #${teamColor};">
+                  <div class="player-event-info" style="border-left-color: #${teamColor} !important;">
+                    <div class="player-avatar" style="background-color: #${teamColor} !important;">
+                      <div style="color: white; font-size: 12px; font-weight: bold;">${eventType.toUpperCase()}</div>
+                    </div>
+                    <div class="event-details">
+                      <div class="event-player-name">Match Event</div>
+                      <div class="event-description">${goalText}</div>
+                      <span class="event-type">${getOrdinalSuffix(period)} - ${clock}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const playsPlaceholder = document.querySelector('.plays-placeholder');
+    if (playsPlaceholder) {
+      playsPlaceholder.innerHTML = `
+        <h2>Commentary</h2>
+        <div class="plays-container">
+          ${playsHtml}
+        </div>
+      `;
+      
+      // Restore scroll position
+      const newPlaysContainer = playsPlaceholder.querySelector('.plays-container');
+      if (newPlaysContainer && playsScrollPosition > 0) {
+        newPlaysContainer.scrollTop = playsScrollPosition;
+      }
+      
+      // Apply team colors with !important
+      applyTeamColorsToCommentary();
+    }
+    
+  } catch (error) {
+    console.error("Error loading commentary:", error);
+    const playsPlaceholder = document.querySelector('.plays-placeholder');
+    if (playsPlaceholder) {
+      playsPlaceholder.innerHTML = `
+        <h2>Commentary</h2>
+        <div style="text-align: center; padding: 40px; color: #666;">
+          <p>Commentary not available for this match.</p>
+        </div>
+      `;
+    }
+  }
+}
+
+window.togglePlay = function(index) {
+  const playDetails = document.getElementById(`play-${index}`);
+  const toggleIcon = document.getElementById(`toggle-${index}`);
+  
+  if (playDetails.style.display === 'none' || playDetails.style.display === '') {
+    playDetails.style.display = 'block';
+    toggleIcon.textContent = '▲';
+    openPlays.add(index);
+  } else {
+    playDetails.style.display = 'none';
+    toggleIcon.textContent = '▼';
+    openPlays.delete(index);
+  }
+};
+
+// Stream functionality (adapted from NBA)
+function normalizeTeamName(teamName) {
+  // Special cases for specific team names
+  const specialCases = {
+    'paris saint germain': 'psg',
+    'paris saint-germain': 'psg'
+  };
+  
+  const lowerName = teamName.toLowerCase();
+  if (specialCases[lowerName]) {
+    return specialCases[lowerName];
+  }
+  
+  // Convert team names to streaming format
+  return teamName.toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9\-]/g, '')
+    .replace(/^fc-/, '')
+    .replace(/-fc$/, '');
+}
+
+function renderStreamEmbed(gameId) {
+  const streamContainer = document.getElementById("streamEmbed");
+  if (!streamContainer) return;
+
+  // Check if game is in progress before showing stream
+  // Get game state from the current page data
+  const gameClockElement = document.querySelector('.game-clock');
+  const gameStatus = gameClockElement ? gameClockElement.textContent.trim() : '';
+  
+  // Only show stream for in-progress games (not scheduled or finished)
+  const isGameInProgress = gameStatus && 
+    !gameStatus.toLowerCase().includes('final') && 
+    !gameStatus.toLowerCase().includes('full time') &&
+    !gameStatus.toLowerCase().includes('scheduled') &&
+    gameStatus !== 'N/A' &&
+    gameStatus !== '';
+
+  if (!isGameInProgress) {
+    streamContainer.innerHTML = '';
+    return;
+  }
+
+  // Get team names from the current scoreboard data stored globally
+  // We'll extract from the rendered content for now
+  const homeTeamElement = document.querySelector('.team-name');
+  const awayTeamElement = document.querySelectorAll('.team-name')[1];
+  
+  if (!homeTeamElement || !awayTeamElement) {
+    streamContainer.innerHTML = '';
+    return;
+  }
+
+  const homeTeamName = homeTeamElement.textContent.trim();
+  const awayTeamName = awayTeamElement.textContent.trim();
+
+  const homeNormalized = normalizeTeamName(homeTeamName);
+  const awayNormalized = normalizeTeamName(awayTeamName);
+  
+  const streamUrl = `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`;
+  const isSmallScreen = window.innerWidth < 525;
+  const screenHeight = isSmallScreen ? 250 : 700;
+  
+  streamContainer.innerHTML = `
+      <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
+        <h3 style="color: white; margin: 0;">Live Stream</h3>
+        <div class="stream-controls" style="margin-top: 10px;">
+          <button id="fullscreenButton" onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">⛶ Fullscreen</button>
+        </div>
+      </div>
+      <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; margin-bottom: 10px;">
+        <p>Connecting to stream... <span id="streamStatus"></span></p>
+      </div>
+      <div class="stream-iframe-container" style="position: relative; width: 100%; margin: 0 auto; overflow: hidden;">
+        <iframe 
+          id="streamIframe"
+          src="${streamUrl}"
+          width="100%" 
+          height="${screenHeight}"
+          style="aspect-ratio: 16/9; background: #000; display: none; margin-bottom: 50px;"
+          frameborder="0"
+          allowfullscreen
+          allow="autoplay; fullscreen; encrypted-media"
+          referrerpolicy="no-referrer-when-downgrade"
+          onload="handleStreamLoad()"
+          onerror="handleStreamError()">
+        </iframe>
+      </div>
+  `;
+}
+
+// Stream control functions (adapted from NBA)
+window.toggleFullscreen = function() {
+  const iframe = document.getElementById('streamIframe');
+  
+  if (iframe) {
+    if (iframe.requestFullscreen) {
+      iframe.requestFullscreen();
+    } else if (iframe.webkitRequestFullscreen) {
+      iframe.webkitRequestFullscreen();
+    } else if (iframe.msRequestFullscreen) {
+      iframe.msRequestFullscreen();
+    }
+  }
+};
+
+window.handleStreamLoad = function() {
+  const iframe = document.getElementById('streamIframe');
+  const connectingDiv = document.getElementById('streamConnecting');
+  
+  if (iframe && connectingDiv) {
+    setTimeout(() => {
+      connectingDiv.style.display = 'none';
+      iframe.style.display = 'block';
+    }, 2000);
+  }
+};
+
+window.handleStreamError = function() {
+  const connectingDiv = document.getElementById('streamConnecting');
+  if (connectingDiv) {
+    connectingDiv.innerHTML = '<p style="color: #ff6b6b;">Stream unavailable. Please try refreshing the page.</p>';
+  }
+};
+
+// Content slider functions
+window.showStats = function() {
+  // Update button states
+  document.getElementById('statsBtn').classList.add('active');
+  document.getElementById('playsBtn').classList.remove('active');
+  
+  // Show/hide content sections
+  document.getElementById('statsContent').classList.add('active');
+  document.getElementById('playsContent').classList.remove('active');
+  
+  // Show stream when on stats tab
+  const streamContainer = document.getElementById("streamEmbed");
+  if (streamContainer) {
+    const gameId = getQueryParam("gameId");
+    if (gameId) {
+      renderStreamEmbed(gameId);
+    }
+  }
+};
+
+window.showPlays = function() {
+  // Update button states
+  document.getElementById('playsBtn').classList.add('active');
+  document.getElementById('statsBtn').classList.remove('active');
+  
+  // Show/hide content sections
+  document.getElementById('statsContent').classList.remove('active');
+  document.getElementById('playsContent').classList.add('active');
+  
+  // Load plays when switching to plays tab
+  const gameId = getQueryParam("gameId");
+  if (gameId) {
+    renderPlayByPlay(gameId);
+  }
+};
+
 // Fetch and render the scoreboard based on the gameId in the URL
 fetchAndRenderTopScoreboard();
 setInterval(fetchAndRenderTopScoreboard, 2000);
+
+// Initialize stream on page load
+const gameId = getQueryParam("gameId");
+if (gameId) {
+  // Load stream after a short delay to ensure DOM is ready
+  setTimeout(() => {
+    renderStreamEmbed(gameId);
+  }, 1000);
+}
 
 document.addEventListener("mouseover", (event) => {
   const hoverTarget = event.target.closest("[data-hover-id]");

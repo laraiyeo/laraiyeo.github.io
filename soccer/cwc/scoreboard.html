@@ -11,7 +11,31 @@
     <div id="scoreboardContainer">
       <!-- Top Scoreboard -->
       <div id="topScoreboard" class="top-scoreboard"></div>
+      
       <!-- Scorers Box will be dynamically inserted here -->
+      <div class="scorers-container"></div>
+
+      <!-- Content Slider -->
+      <div id="contentSlider" class="content-slider">
+        <button id="statsBtn" class="slider-btn active" onclick="showStats()">Stats</button>
+        <button id="playsBtn" class="slider-btn" onclick="showPlays()">Plays</button>
+      </div>
+
+      <!-- Stats Content -->
+      <div id="statsContent" class="content-section active">
+        <!-- Stream Embed -->
+        <div id="streamEmbed"></div>
+        
+        <!-- Formation/Lineup Display -->
+        <div id="formationDisplay"></div>
+      </div>
+
+      <!-- Plays Content -->
+      <div id="playsContent" class="content-section1">
+        <div class="plays-placeholder">
+          <!-- Plays content will be rendered here -->
+        </div>
+      </div>
     </div>
 
     <script src="scoreboard.js"></script>
