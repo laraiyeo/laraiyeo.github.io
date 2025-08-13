@@ -734,6 +734,61 @@ body {
   margin: 10px 0;
 }
 
+
+/* Rotate all court elements for mobile landscape */
+.mini-court.mobile-landscape .three-point-line.top {
+  width: 40px;
+  height: 80px;
+  top: 50%;
+  left: 5px;
+  transform: translateY(-50%);
+  border-bottom: 1px solid white;
+  border-right: none;
+}
+
+.mini-court.mobile-landscape .three-point-line.bottom {
+  width: 40px;
+  height: 80px;
+  top: 50%;
+  right: 5px;
+  left: auto;
+  transform: translateY(-50%);
+  border-top: 1px solid white;
+  border-left: none;
+}
+
+.mini-court.mobile-landscape .free-throw-circle.top {
+  top: 50%;
+  left: 25px;
+  transform: translateY(-50%);
+}
+
+.mini-court.mobile-landscape .free-throw-circle.bottom {
+  top: 50%;
+  right: 25px;
+  left: auto;
+  bottom: auto;
+  transform: translateY(-50%);
+}
+
+.mini-court.mobile-landscape .basket.top {
+  top: 50%;
+  left: 8px;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 8px;
+}
+
+.mini-court.mobile-landscape .basket.bottom {
+  top: 50%;
+  right: 8px;
+  left: auto;
+  bottom: auto;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 8px;
+}
+
 /* Player Information Styles */
 .play-participants {
   flex: 1;
@@ -881,9 +936,17 @@ body {
     gap: 15px;
   }
   
-  .court-container {
+  /* Override for regular court when not using mobile-landscape class */
+  .court-container:not(.mini-court.mobile-landscape .court-container) {
     width: 120px;
     height: 160px;
+    margin: 0 auto;
+  }
+  
+  /* Ensure mobile landscape court takes precedence */
+  .mini-court.mobile-landscape .court-container {
+    width: 200px !important;
+    height: 100px !important;
     margin: 0 auto;
   }
   

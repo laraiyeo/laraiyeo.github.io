@@ -489,20 +489,67 @@ async function renderPlayByPlay(gameId) {
     let boxScoreData = null;
     
     try {
-      const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${gameDate}`;
-      const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
-      const scoreboardData = await scoreboardResponse.json();
-      const currentGame = scoreboardData.events?.find(game => game.id === gameId);
-      
-      if (currentGame) {
-        awayTeam = currentGame.competitions[0].competitors.find(c => c.homeAway === "away")?.team;
-        homeTeam = currentGame.competitions[0].competitors.find(c => c.homeAway === "home")?.team;
+      // Try to get team info from scoreboard API first (if gameDate is available)
+      if (gameDate) {
+        const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${gameDate}`;
+        const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
+        const scoreboardData = await scoreboardResponse.json();
+        const currentGame = scoreboardData.events?.find(game => game.id === gameId);
+        
+        if (currentGame) {
+          const awayTeamData = currentGame.competitions[0].competitors.find(c => c.homeAway === "away")?.team;
+          const homeTeamData = currentGame.competitions[0].competitors.find(c => c.homeAway === "home")?.team;
+          
+          // Add proper logo URLs to team objects
+          if (awayTeamData) {
+            awayTeam = {
+              ...awayTeamData,
+              logo: awayTeamData.logos?.find(logo => logo.rel.includes('primary_logo_on_black_color'))?.href || `https://a.espncdn.com/i/teamlogos/wnba/500/${awayTeamData.abbreviation}.png`
+            };
+          }
+          
+          if (homeTeamData) {
+            homeTeam = {
+              ...homeTeamData,
+              logo: homeTeamData.logos?.find(logo => logo.rel.includes('primary_logo_on_black_color'))?.href || `https://a.espncdn.com/i/teamlogos/wnba/500/${homeTeamData.abbreviation}.png`
+            };
+          }
+        }
       }
-
-      // Also fetch box score data to get current player stats
-      const BOX_SCORE_API_URL = `https://cdn.espn.com/core/wnba/boxscore?xhr=1&gameId=${gameId}`;
-      const boxScoreResponse = await fetch(BOX_SCORE_API_URL);
-      boxScoreData = await boxScoreResponse.json();
+      
+      // Fallback: Try to get team info from box score data if scoreboard API failed
+      if (!awayTeam || !homeTeam) {
+        console.log("Trying to get team info from box score as fallback...");
+        const BOX_SCORE_API_URL = `https://cdn.espn.com/core/wnba/boxscore?xhr=1&gameId=${gameId}`;
+        const boxScoreResponse = await fetch(BOX_SCORE_API_URL);
+        boxScoreData = await boxScoreResponse.json();
+        
+        // Extract team info from box score
+        const gameInfo = boxScoreData?.gamepackageJSON?.header?.competitions?.[0];
+        if (gameInfo) {
+          const awayTeamData = gameInfo.competitors?.find(c => c.homeAway === "away")?.team;
+          const homeTeamData = gameInfo.competitors?.find(c => c.homeAway === "home")?.team;
+          
+          if (awayTeamData && !awayTeam) {
+            awayTeam = {
+              ...awayTeamData,
+              logo: awayTeamData.logos?.find(logo => logo.rel.includes('primary_logo_on_black_color'))?.href || `https://a.espncdn.com/i/teamlogos/wnba/500/${awayTeamData.abbreviation}.png`
+            };
+          }
+          
+          if (homeTeamData && !homeTeam) {
+            homeTeam = {
+              ...homeTeamData,
+              logo: homeTeamData.logos?.find(logo => logo.rel.includes('primary_logo_on_black_color'))?.href || `https://a.espncdn.com/i/teamlogos/wnba/500/${homeTeamData.abbreviation}.png`
+            };
+          }
+        }
+      } else {
+        // We got teams from scoreboard, now get box score data separately
+        const BOX_SCORE_API_URL = `https://cdn.espn.com/core/wnba/boxscore?xhr=1&gameId=${gameId}`;
+        const boxScoreResponse = await fetch(BOX_SCORE_API_URL);
+        boxScoreData = await boxScoreResponse.json();
+      }
     } catch (e) {
       console.log("Could not fetch team info or box score for plays");
     }
