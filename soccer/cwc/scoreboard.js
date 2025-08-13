@@ -730,6 +730,17 @@ async function fetchAndRenderTopScoreboard() {
     const response = await fetch(SCOREBOARD_API_URL);
     const scoreboardData = await response.json();
 
+    // Also fetch commentary data for roster stats
+    const COMMENTARY_API_URL = `https://cdn.espn.com/core/soccer/commentary?xhr=1&gameId=${gameId}`;
+    const commentaryResponse = await fetch(COMMENTARY_API_URL);
+    const commentaryData = await commentaryResponse.json();
+
+    // Store data globally for other functions to use (include gamepackageJSON from commentary)
+    window.currentGameData = {
+      ...scoreboardData,
+      rosters: commentaryData.gamepackageJSON?.rosters || []
+    };
+
     const homeTeam = scoreboardData.__gamepackage__.homeTeam.team;
     const awayTeam = scoreboardData.__gamepackage__.awayTeam.team;
 
@@ -1011,21 +1022,21 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
     }
   }
   
-  // Get scorer stats from lineups data (like renderPlayer function)
+  // Get scorer stats from commentary roster data
   let scorerStats = {
     goals: 0,
     assists: 0,
     shots: 0,
     shotsOnTarget: 0,
-    saves: 0,
-    goalsAgainst: 0
+    yellowCards: 0,
+    redCards: 0
   };
   
   // Debug logging for stats
   console.log('Goal Card Debug - Scorer:', scorer);
-  console.log('Goal Card Debug - Looking for scorer ID:', scorer.id);
+  console.log('Goal Card Debug - Looking for scorer name:', scorer.displayName);
   
-  // Get stats from the roster data that was loaded for the lineups
+  // Get stats from the commentary roster data
   try {
     // Access the global roster data that should be available
     if (window.currentGameData && window.currentGameData.rosters) {
@@ -1034,7 +1045,14 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
       
       for (const roster of rosters) {
         if (roster.roster && Array.isArray(roster.roster)) {
-          const player = roster.roster.find(p => p.athlete && p.athlete.id === scorer.id);
+          // Match by athlete displayName or fullName
+          const player = roster.roster.find(p => 
+            p.athlete && (
+              p.athlete.displayName === scorer.displayName ||
+              p.athlete.fullName === scorer.displayName ||
+              p.athlete.id === scorer.id
+            )
+          );
           if (player && player.stats) {
             console.log('Goal Card Debug - Found player with stats:', player);
             const stats = player.stats.reduce((acc, stat) => {
@@ -1048,14 +1066,16 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
               goals: stats["G"] || 0,
               assists: stats["A"] || 0,
               shots: stats["SH"] || 0,
-              shotsOnTarget: stats["ST"] || 0,
-              saves: stats["SV"] || 0,
-              goalsAgainst: stats["GA"] || 0
+              shotsOnTarget: stats["ST"] || stats["SG"] || 0, // Try both ST and SG
+              yellowCards: stats["YC"] || 0,
+              redCards: stats["RC"] || 0
             };
             break;
           }
         }
       }
+    } else {
+      console.log('Goal Card Debug - No roster data available in window.currentGameData');
     }
   } catch (error) {
     console.log('Goal Card Debug - Error retrieving stats:', error);
@@ -1093,6 +1113,9 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
   
   const teamColorHex = teamColor.startsWith('#') ? teamColor : `#${teamColor}`;
   
+  // Generate a unique ID for this goal card
+  const goalCardId = `goal-card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  
   // Generate mini field for the goal card
   const miniFieldHtml = renderMiniField(coordinate, coordinate2, 'goal', teamSide, teamColorHex, team?.shortDisplayName || '');
   
@@ -1103,7 +1126,10 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
                       `https://a.espncdn.com/i/teamlogos/soccer/500/${awayTeam?.team?.id || awayTeam?.id}.png`;
   
   return `
-    <div class="goal-card" style="background: linear-gradient(135deg, ${teamColorHex}15 0%, ${teamColorHex}05 100%); border-left: 4px solid ${teamColorHex}; margin: 10px 0; padding: 20px; border-radius: 8px; color: white;">
+    <div id="${goalCardId}" class="goal-card" style="background: linear-gradient(135deg, ${teamColorHex}15 0%, ${teamColorHex}05 100%); border-left: 4px solid ${teamColorHex}; margin: 10px 0; padding: 20px; border-radius: 8px; color: white; position: relative;">
+      <div class="copy-button" onclick="copyGoalCardAsImage('${goalCardId}')" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); border: none; border-radius: 50%; width: 30px; height: 30px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; z-index: 10;">
+        📋
+      </div>
       <div class="goal-card-header" style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; margin-right: 55px; flex-wrap: wrap;">
         <div style="display: flex; align-items: center; flex: 1; min-width: 200px;">
           <img src="${teamLogo}" alt="${team?.displayName || 'Team'}" style="width: 40px; height: 40px; margin-right: 15px;">
@@ -1164,12 +1190,12 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
               <div style="font-size: 12px; color: rgba(255,255,255,0.8);">SOT</div>
             </div>
             <div style="text-align: center; background: rgba(255,255,255,0.1); padding: 8px; border-radius: 4px;">
-              <div style="font-size: 16px; font-weight: bold; color: white;">${scorerStats.saves}</div>
-              <div style="font-size: 12px; color: rgba(255,255,255,0.8);">Saves</div>
+              <div style="font-size: 16px; font-weight: bold; color: white;">${scorerStats.yellowCards}</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.8);">YC</div>
             </div>
             <div style="text-align: center; background: rgba(255,255,255,0.1); padding: 8px; border-radius: 4px;">
-              <div style="font-size: 16px; font-weight: bold; color: white;">${scorerStats.goalsAgainst}</div>
-              <div style="font-size: 12px; color: rgba(255,255,255,0.8);">GA</div>
+              <div style="font-size: 16px; font-weight: bold; color: white;">${scorerStats.redCards}</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.8);">RC</div>
             </div>
           </div>
         </div>
@@ -1180,14 +1206,30 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
           .goal-card-header {
             flex-direction: column !important;
             align-items: flex-start !important;
+            margin-right: 0 !important;
           }
           .goal-field {
             align-self: center !important;
-            margin-top: 75px !important;
+            margin-top: 15px !important;
             order: 2 !important;
+            width: 80px !important;
+            height: 56px !important;
           }
           .scorer-stats {
             grid-template-columns: repeat(2, 1fr) !important;
+          }
+          .goal-card {
+            padding: 15px !important;
+          }
+          .goal-details {
+            margin-top: 10px !important;
+          }
+          .copy-button {
+            top: 5px !important;
+            right: 5px !important;
+            width: 25px !important;
+            height: 25px !important;
+            font-size: 10px !important;
           }
         }
       </style>
@@ -1805,3 +1847,232 @@ document.addEventListener("mouseout", (event) => {
     }
   }
 });
+
+// Function to copy goal card as image (similar to MLB scoreboard)
+async function copyGoalCardAsImage(goalCardId) {
+  try {
+    const goalElement = document.getElementById(goalCardId);
+    if (!goalElement) {
+      console.error('Goal card not found');
+      return;
+    }
+
+    // Import html2canvas dynamically
+    if (!window.html2canvas) {
+      // Load html2canvas library
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+      script.onload = () => {
+        captureAndCopyGoalCard(goalElement);
+      };
+      document.head.appendChild(script);
+    } else {
+      captureAndCopyGoalCard(goalElement);
+    }
+  } catch (error) {
+    console.error('Error copying goal card as image:', error);
+    showGoalCardFeedback('Error copying image', 'error');
+  }
+}
+
+async function captureAndCopyGoalCard(element) {
+  try {
+    showGoalCardFeedback('Capturing image...', 'loading');
+    
+    // Replace all external images with base64 versions or remove them
+    const images = element.querySelectorAll('img');
+
+    for (const img of images) {
+      try {
+        // For soccer logos and images, convert to base64 for html2canvas compatibility
+        if (img.src.includes('espncdn.com') || img.src.includes('http')) {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Create a new image for loading
+          const tempImg = new Image();
+          tempImg.crossOrigin = 'anonymous';
+          
+          await new Promise((resolve, reject) => {
+            tempImg.onload = () => {
+              try {
+                canvas.width = tempImg.width;
+                canvas.height = tempImg.height;
+                ctx.drawImage(tempImg, 0, 0);
+                
+                // Try to convert to base64
+                try {
+                  const dataURL = canvas.toDataURL('image/png');
+                  img.src = dataURL;
+                } catch (e) {
+                  // If conversion fails, use a placeholder
+                  img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+PC9zdmc+';
+                }
+                resolve();
+              } catch (error) {
+                // Fallback to placeholder
+                img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+PC9zdmc+';
+                resolve();
+              }
+            };
+            
+            tempImg.onerror = () => {
+              // Use placeholder on error
+              img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjNjY2Ii8+PC9zdmc+';
+              resolve();
+            };
+            
+            tempImg.src = img.src;
+          });
+        }
+      } catch (error) {
+        console.warn('Could not process image:', img.src, error);
+      }
+    }
+
+    const isSmallScreen = window.innerWidth < 525;
+    const heightAdjustment = isSmallScreen ? 0 : 20;
+
+    // Capture the element with html2canvas
+    const canvas = await html2canvas(element, {
+      backgroundColor: '#1a1a1a', // Set the actual background color
+      scale: 3, // Use scale 3 to avoid logo scaling issues
+      useCORS: true,
+      allowTaint: false, // Allow tainted canvas for better compatibility
+      logging: false,
+      width: isSmallScreen ? element.clientWidth : element.clientWidth,
+      height: isSmallScreen ? element.clientHeight : element.clientHeight + heightAdjustment,
+      scrollX: 0,
+      scrollY: 0,
+      ignoreElements: (element) => {
+        try {
+          // Ignore the copy button itself
+          if (element && element.getAttribute && element.getAttribute('onclick') && 
+              element.getAttribute('onclick').includes('copyGoalCardAsImage')) {
+            return true;
+          }
+          return false;
+        } catch (e) {
+          return false;
+        }
+      }
+    });
+    
+    // Convert to blob
+    canvas.toBlob(async (blob) => {
+      if (!blob) {
+        showGoalCardFeedback('Failed to create image', 'error');
+        return;
+      }
+
+      // Check if device is mobile
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                      ('ontouchstart' in window) || 
+                      (navigator.maxTouchPoints > 0);
+
+      try {
+        if (isMobile) {
+          // On mobile, download the image
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `goal-card-${new Date().getTime()}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          showGoalCardFeedback('Goal card downloaded!', 'success');
+        } else {
+          // On desktop, try to copy to clipboard using modern API
+          if (navigator.clipboard && window.ClipboardItem) {
+            const clipboardItem = new ClipboardItem({
+              'image/png': blob
+            });
+            await navigator.clipboard.write([clipboardItem]);
+            showGoalCardFeedback('Goal card copied to clipboard!', 'success');
+          } else {
+            showGoalCardFeedback('Could not copy to clipboard. Try again', 'error');
+          }
+        }
+      } catch (clipboardError) {
+        showGoalCardFeedback('Could not copy to clipboard. Try again', 'error');
+      }
+    }, 'image/png', 0.95);
+    
+  } catch (error) {
+    console.error('Error capturing goal card:', error);
+    showGoalCardFeedback('Failed to capture image: ' + error.message, 'error');
+  }
+}
+
+function showGoalCardFeedback(message, type) {
+  // Remove any existing feedback
+  const existingFeedback = document.getElementById('goal-card-feedback');
+  if (existingFeedback) {
+    existingFeedback.remove();
+  }
+
+  // Create new feedback element
+  const feedback = document.createElement('div');
+  feedback.id = 'goal-card-feedback';
+  feedback.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 6px;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+    z-index: 10000;
+    animation: slideInRight 0.3s ease-out;
+    max-width: 300px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  `;
+
+  // Set background color based on type
+  if (type === 'success') {
+    feedback.style.backgroundColor = '#28a745';
+  } else if (type === 'error') {
+    feedback.style.backgroundColor = '#dc3545';
+  } else if (type === 'loading') {
+    feedback.style.backgroundColor = '#007bff';
+    message = '🔄 ' + message;
+  }
+
+  feedback.textContent = message;
+  document.body.appendChild(feedback);
+
+  // Add CSS animation
+  if (!document.getElementById('goal-card-feedback-styles')) {
+    const style = document.createElement('style');
+    style.id = 'goal-card-feedback-styles';
+    style.textContent = `
+      @keyframes slideInRight {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // Auto-remove after 3 seconds (except for loading)
+  if (type !== 'loading') {
+    setTimeout(() => {
+      if (feedback && feedback.parentNode) {
+        feedback.style.animation = 'slideInRight 0.3s ease-out reverse';
+        setTimeout(() => {
+          if (feedback && feedback.parentNode) {
+            feedback.remove();
+          }
+        }, 300);
+      }
+    }, 3000);
+  }
+}

@@ -291,8 +291,8 @@ function buildGameCard(game, team) {
               <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${formatShortDisplayName(homeTeam.team.shortDisplayName)}</div>
             </div>
             <div style="text-align: center;">
-              <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: ${isAgg ? "-10px; margin-top: 15px;" : "-18px"};">${game.status.type.shortDetail}</div>
-              <div style="font-size: 0.75rem; color: grey; margin-top: ${isAgg ? "15px; margin-bottom: 10px;" : "-10px"};">${game.status.type.description}</div>
+              <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: ${isAgg ? "-10px; margin-top: 15px;" : "50px"};">${game.status.type.shortDetail}</div>
+              <div style="font-size: 0.75rem; color: grey; margin-top: ${isAgg ? "15px; margin-bottom: 10px;" : "-45px"};">${game.status.type.description}</div>
               ${isAgg ? `<div style="font-size: 0.75rem; color: grey;">Agg: ${homeAgg} - ${awayAgg}</div>` : ""}
             </div>
             <div style="text-align: center;">
