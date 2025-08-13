@@ -1,0 +1,197 @@
+  "gamepackageJSON": {
+    "rosters": [
+      {
+        "homeAway": "home",
+        "roster": [
+          {
+            "starter": true,
+            "athlete": {
+              "uid": "s:600~a:196176",
+              "lastName": "Raya",
+              "displayName": "David Raya",
+              "guid": "917afc98-2d15-9b9d-6d92-1d4ca9c6f1ae",
+              "fullName": "David Raya",
+              "links": [
+                {
+                  "isExternal": false,
+                  "shortText": "Player Card",
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "language": "en-US",
+                  "href": "https://www.espn.com/soccer/player/_/id/196176/david-raya",
+                  "text": "Player Card",
+                  "isPremium": false
+                }
+              ],
+              "id": "196176"
+            },
+            "stats": [
+              {
+                "shortDisplayName": "APP",
+                "displayValue": "1",
+                "displayName": "Appearances",
+                "name": "appearances",
+                "description": "The number of times a player has made an appearance in a match.",
+                "abbreviation": "APP",
+                "value": 1
+              },
+              {
+                "shortDisplayName": "FC",
+                "displayValue": "0",
+                "displayName": "Fouls Committed",
+                "name": "foulsCommitted",
+                "description": "The number of fouls comitted by a player or team.",
+                "abbreviation": "FC",
+                "value": 0
+              },
+              {
+                "shortDisplayName": "FA",
+                "displayValue": "0",
+                "displayName": "Fouls Suffered",
+                "name": "foulsSuffered",
+                "description": "The number of fouls suffered by a player or team.",
+                "abbreviation": "FA",
+                "value": 0
+              },
+              {
+                "shortDisplayName": "OG",
+                "displayValue": "0",
+                "displayName": "Own Goals",
+                "name": "ownGoals",
+                "description": "The number of own goals conceded.",
+                "abbreviation": "OG",
+                "value": 0
+              },
+              {
+                "shortDisplayName": "RC",
+                "displayValue": "0",
+                "displayName": "Red Cards",
+                "name": "redCards",
+                "description": "The number of red cards that have been issued.",
+                "abbreviation": "RC",
+                "value": 0
+              },
+              {
+                "shortDisplayName": "SUBIN",
+                "displayValue": "0",
+                "displayName": "Substitute Appearances",
+                "name": "subIns",
+                "description": "The number of times a player has come on a sub in a match.",
+                "abbreviation": "SUB",
+                "value": 0
+              },
+              {
+                "shortDisplayName": "YC",
+                "displayValue": "0",
+                "displayName": "Yellow Cards",
+                "name": "yellowCards",
+                "description": "The number of yellow cards accumulated.",
+                "abbreviation": "YC",
+                "value": 0
+              },
+              {
+                "shortDisplayName": "GA",
+                "displayValue": "0",
+                "displayName": "Goals Against",
+                "name": "goalsConceded",
+                "description": "The number of goals allowed by the goalkeeper.",
+                "abbreviation": "GA",
+                "value": 0
+              },
+              {
+                "shortDisplayName": "SV",
+                "displayValue": "4",
+                "displayName": "Saves",
+                "name": "saves",
+                "description": "The number of times a goalkeeper makes a save.",
+                "abbreviation": "SV",
+                "value": 4
+              },
+              {
+                "shortDisplayName": "SHF",
+                "displayValue": "8",
+                "displayName": "Shots Faced",
+                "name": "shotsFaced",
+                "description": "The number of shots on target a goalkeeper has faced.",
+                "abbreviation": "SHF",
+                "value": 8
+              },
+              {
+                "shortDisplayName": "A",
+                "displayValue": "0",
+                "displayName": "Assists",
+                "name": "goalAssists",
+                "description": "The number of assists.",
+                "abbreviation": "A",
+                "value": 0
+              },
+              {
+                "shortDisplayName": "SG",
+                "displayValue": "0",
+                "displayName": "Shots On Target",
+                "name": "shotsOnTarget",
+                "description": "The number of shots that are on goal.",
+                "abbreviation": "ST",
+                "value": 0
+              },
+              {
+                "shortDisplayName": "G",
+                "displayValue": "0",
+                "displayName": "Total Goals",
+                "name": "totalGoals",
+                "description": "The number of goals scored against the opposing team.",
+                "abbreviation": "G",
+                "value": 0
+              },
+              {
+                "shortDisplayName": "SH",
+                "displayValue": "0",
+                "displayName": "Shots",
+                "name": "totalShots",
+                "description": "The number of shots attempted.",
+                "abbreviation": "SH",
+                "value": 0
+              }
+            ],
+            "jersey": "22",
+            "formationPlace": "1",
+            "active": true,
+            "subbedIn": false,
+            "position": {
+              "displayName": "Goalkeeper",
+              "name": "Goalkeeper",
+              "abbreviation": "G"
+            },
+            "media": {
+
+            },
+            "subbedOut": false
+          },
+          {
+            "starter": true,
+            "athlete": {
+              "uid": "s:600~a:304965",
+              "lastName": "Kiwior",
+              "displayName": "Jakub Kiwior",
+              "guid": "118972e0-00ed-3008-810b-7d6cf4337a09",
+              "fullName": "Jakub Kiwior",
+              "links": [
+                {
+                  "isExternal": false,
+                  "shortText": "Player Card",
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "language": "en-US",
+                  "href": "https://www.espn.com/soccer/player/_/id/304965/jakub-kiwior",
+                  "text": "Player Card",
+                  "isPremium": false
+                }
+              ],
+              "id": "304965"
+            },

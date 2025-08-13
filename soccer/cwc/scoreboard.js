@@ -877,42 +877,27 @@ function renderMiniField(coordinate, coordinate2, eventType = 'gen', teamSide = 
     `;
   }
 
+  // Convert coordinates for mini field display (100x80)
+  // Split field into halves: left side = away team, right side = home team
+  // X coordinates: 0-50 = left half (away), 50-100 = right half (home)
+  // Y coordinates: 0-100 = full field height
+  
   // ESPN coordinates: X (0=attacking half, 1=defending half), Y (0=top, 1=bottom)
   const espnX = coordinate.x; 
   const espnY = coordinate.y; 
   
-  // Convert ESPN coordinates based on team orientation
   let leftPercent, topPercent;
   
   if (teamSide === 'home') {
-    // Home team attacking right to left:
-    // X=0 (attacking): right half of field
-    // X=1 (defending): left half of field  
-    // Y=0: top, Y=1: bottom
-    
-    if (espnX <= 0.5) {
-      // Attacking half (right side of field)
-      leftPercent = 50 + (0.5 - espnX) * 100; // X=0→100%, X=0.5→50%
-    } else {
-      // Defending half (left side of field)
-      leftPercent = (1 - espnX) * 100; // X=0.5→50%, X=1→0%
-    }
-    topPercent = espnY * 100; // Y=0→0%, Y=1→100%
+    // Home team: use right half (50-100)
+    leftPercent = 50 + (espnX * 50);
   } else {
-    // Away team attacking left to right:
-    // X=0 (attacking): left half of field
-    // X=1 (defending): right half of field
-    // Y=0: bottom, Y=1: top (inverted from home)
-    
-    if (espnX <= 0.5) {
-      // Attacking half (left side of field)
-      leftPercent = espnX * 100; // X=0→0%, X=0.5→50%
-    } else {
-      // Defending half (right side of field)  
-      leftPercent = 50 + (espnX - 0.5) * 100; // X=0.5→50%, X=1→100%
-    }
-    topPercent = (1 - espnY) * 100; // Y=0→100%, Y=1→0% (inverted)
+    // Away team: use left half (0-50) 
+    leftPercent = espnX * 50;
   }
+  
+  // Y coordinate scaling
+  topPercent = espnY * 100;
   
   // Constrain to field bounds with some padding
   const finalLeftPercent = Math.max(2, Math.min(98, leftPercent));
@@ -930,24 +915,15 @@ function renderMiniField(coordinate, coordinate2, eventType = 'gen', teamSide = 
     let leftPercent2, topPercent2;
     
     if (teamSide === 'home') {
-      if (espnX2 <= 0.5) {
-        // Attacking half (right side of field)
-        leftPercent2 = 50 + (0.5 - espnX2) * 100; // X=0→100%, X=0.5→50%
-      } else {
-        // Defending half (left side of field)
-        leftPercent2 = (1 - espnX2) * 100; // X=0.5→50%, X=1→0%
-      }
-      topPercent2 = espnY2 * 100;
+      // Home team: use right half (50-100)
+      leftPercent2 = 50 + (espnX2 * 50);
     } else {
-      if (espnX2 <= 0.5) {
-        // Attacking half (left side of field)
-        leftPercent2 = espnX2 * 100; // X=0→0%, X=0.5→50%
-      } else {
-        // Defending half (right side of field)  
-        leftPercent2 = 50 + (espnX2 - 0.5) * 100; // X=0.5→50%, X=1→100%
-      }
-      topPercent2 = (1 - espnY2) * 100; // Y=0→100%, Y=1→0% (inverted)
+      // Away team: use left half (0-50) 
+      leftPercent2 = espnX2 * 50;
     }
+    
+    // Y coordinate scaling
+    topPercent2 = espnY2 * 100;
     
     const finalLeftPercent2 = Math.max(2, Math.min(98, leftPercent2));
     const finalTopPercent2 = Math.max(2, Math.min(98, topPercent2));
@@ -998,6 +974,299 @@ function renderMiniField(coordinate, coordinate2, eventType = 'gen', teamSide = 
       </div>
     </div>
   `;
+}
+
+// Function to render a custom goal card (similar to MLB home run card)
+function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, teamSide, homeTeam, awayTeam) {
+  const playData = play.play || play;
+  const scorer = playData.participants?.[0]?.athlete || null;
+  const assister = playData.participants?.[1]?.athlete || null;
+  
+  if (!scorer) return '';
+  
+  const scorerName = scorer.displayName || 'Unknown Player';
+  const assisterName = assister ? assister.displayName : null;
+  const minute = play.time?.displayValue || play.clock?.displayValue || '';
+  const goalType = play.text?.toLowerCase().includes('penalty') ? 'Penalty Goal' : 'Goal';
+  
+  // Get team abbreviation for the scorer
+  const scoringTeam = teamSide === 'home' ? homeTeam : awayTeam;
+  const teamAbbr = scoringTeam?.team?.abbreviation || scoringTeam?.abbreviation || '';
+  
+  // Extract field position coordinates for mini field (reverted to original)
+  let coordinate = null;
+  let coordinate2 = null;
+  
+  if (playData.fieldPositionX !== undefined && playData.fieldPositionY !== undefined) {
+    coordinate = {
+      x: playData.fieldPositionX,
+      y: playData.fieldPositionY
+    };
+    
+    if (playData.fieldPosition2X !== undefined && playData.fieldPosition2Y !== undefined) {
+      coordinate2 = {
+        x: playData.fieldPosition2X,
+        y: playData.fieldPosition2Y
+      };
+    }
+  }
+  
+  // Get scorer stats from lineups data (like renderPlayer function)
+  let scorerStats = {
+    goals: 0,
+    assists: 0,
+    shots: 0,
+    shotsOnTarget: 0,
+    saves: 0,
+    goalsAgainst: 0
+  };
+  
+  // Debug logging for stats
+  console.log('Goal Card Debug - Scorer:', scorer);
+  console.log('Goal Card Debug - Looking for scorer ID:', scorer.id);
+  
+  // Get stats from the roster data that was loaded for the lineups
+  try {
+    // Access the global roster data that should be available
+    if (window.currentGameData && window.currentGameData.rosters) {
+      const rosters = window.currentGameData.rosters;
+      console.log('Goal Card Debug - Available rosters:', rosters);
+      
+      for (const roster of rosters) {
+        if (roster.roster && Array.isArray(roster.roster)) {
+          const player = roster.roster.find(p => p.athlete && p.athlete.id === scorer.id);
+          if (player && player.stats) {
+            console.log('Goal Card Debug - Found player with stats:', player);
+            const stats = player.stats.reduce((acc, stat) => {
+              acc[stat.abbreviation] = stat.displayValue;
+              return acc;
+            }, {});
+            
+            console.log('Goal Card Debug - Processed stats:', stats);
+            
+            scorerStats = {
+              goals: stats["G"] || 0,
+              assists: stats["A"] || 0,
+              shots: stats["SH"] || 0,
+              shotsOnTarget: stats["ST"] || 0,
+              saves: stats["SV"] || 0,
+              goalsAgainst: stats["GA"] || 0
+            };
+            break;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.log('Goal Card Debug - Error retrieving stats:', error);
+  }
+  
+  console.log('Goal Card Debug - Final Scorer Stats:', scorerStats);
+  
+  
+  // Determine if this was a winning, tying, or leading goal
+  let goalSituation = '';
+  const finalHomeScore = homeScore;
+  const finalAwayScore = awayScore;
+  
+  if (teamSide === 'home') {
+    if (finalHomeScore > finalAwayScore) {
+      if (finalHomeScore - finalAwayScore === 1) {
+        goalSituation = finalAwayScore === 0 ? 'Opening Goal' : 'Go-ahead Goal';
+      } else {
+        goalSituation = 'Extends Lead';
+      }
+    } else if (finalHomeScore === finalAwayScore) {
+      goalSituation = 'Equalizer';
+    }
+  } else {
+    if (finalAwayScore > finalHomeScore) {
+      if (finalAwayScore - finalHomeScore === 1) {
+        goalSituation = finalHomeScore === 0 ? 'Opening Goal' : 'Go-ahead Goal';
+      } else {
+        goalSituation = 'Extends Lead';
+      }
+    } else if (finalAwayScore === finalHomeScore) {
+      goalSituation = 'Equalizer';
+    }
+  }
+  
+  const teamColorHex = teamColor.startsWith('#') ? teamColor : `#${teamColor}`;
+  
+  // Generate mini field for the goal card
+  const miniFieldHtml = renderMiniField(coordinate, coordinate2, 'goal', teamSide, teamColorHex, team?.shortDisplayName || '');
+  
+  // Get team logos for score display
+  const homeTeamLogo = homeTeam?.team?.logos?.find(logo => logo.rel.includes("dark"))?.href || 
+                      `https://a.espncdn.com/i/teamlogos/soccer/500/${homeTeam?.team?.id || homeTeam?.id}.png`;
+  const awayTeamLogo = awayTeam?.team?.logos?.find(logo => logo.rel.includes("dark"))?.href || 
+                      `https://a.espncdn.com/i/teamlogos/soccer/500/${awayTeam?.team?.id || awayTeam?.id}.png`;
+  
+  return `
+    <div class="goal-card" style="background: linear-gradient(135deg, ${teamColorHex}15 0%, ${teamColorHex}05 100%); border-left: 4px solid ${teamColorHex}; margin: 10px 0; padding: 20px; border-radius: 8px; color: white;">
+      <div class="goal-card-header" style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; margin-right: 55px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; flex: 1; min-width: 200px;">
+          <img src="${teamLogo}" alt="${team?.displayName || 'Team'}" style="width: 40px; height: 40px; margin-right: 15px;">
+          <div class="goal-info">
+            <div class="goal-type" style="font-size: 14px; font-weight: bold; color: white; margin-bottom: 4px;">
+              ⚽ ${goalType} ${goalSituation ? `• ${goalSituation}` : ''}
+            </div>
+            <div class="goal-time" style="font-size: 12px; color: rgba(255,255,255,0.8);">
+              ${minute}
+            </div>
+          </div>
+        </div>
+        
+        <div class="goal-field" style="width: 100px; height: 70px; flex-shrink: 0;">
+          ${miniFieldHtml}
+        </div>
+      </div>
+      
+      <div class="goal-card-body">
+        <div class="goal-details">
+          <div class="scorer-info" style="margin-bottom: 15px;">
+            <div class="scorer-name" style="font-size: 18px; font-weight: bold; color: white; margin-bottom: 4px;">
+              ${scorerName} - ${teamAbbr}
+            </div>
+            ${assisterName ? `
+              <div class="assist-info" style="font-size: 14px; color: #999;">
+                ${assisterName}
+              </div>
+            ` : ''}
+          </div>
+          
+          <div class="goal-score-line" style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; margin-bottom: 15px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <img src="${homeTeamLogo}" alt="Home" style="width: 24px; height: 24px;">
+              <span style="font-size: 16px; font-weight: bold; color: white;">${finalHomeScore} - ${finalAwayScore}</span>
+              <img src="${awayTeamLogo}" alt="Away" style="width: 24px; height: 24px;">
+            </div>
+            <div style="background: ${teamColorHex}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
+              GOAL
+            </div>
+          </div>
+          
+          <div class="scorer-stats" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 100%;">
+            <div style="text-align: center; background: rgba(255,255,255,0.1); padding: 8px; border-radius: 4px;">
+              <div style="font-size: 16px; font-weight: bold; color: white;">${scorerStats.goals}</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.8);">Goals</div>
+            </div>
+            <div style="text-align: center; background: rgba(255,255,255,0.1); padding: 8px; border-radius: 4px;">
+              <div style="font-size: 16px; font-weight: bold; color: white;">${scorerStats.assists}</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.8);">Assists</div>
+            </div>
+            <div style="text-align: center; background: rgba(255,255,255,0.1); padding: 8px; border-radius: 4px;">
+              <div style="font-size: 16px; font-weight: bold; color: white;">${scorerStats.shots}</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.8);">Shots</div>
+            </div>
+            <div style="text-align: center; background: rgba(255,255,255,0.1); padding: 8px; border-radius: 4px;">
+              <div style="font-size: 16px; font-weight: bold; color: white;">${scorerStats.shotsOnTarget}</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.8);">SOT</div>
+            </div>
+            <div style="text-align: center; background: rgba(255,255,255,0.1); padding: 8px; border-radius: 4px;">
+              <div style="font-size: 16px; font-weight: bold; color: white;">${scorerStats.saves}</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.8);">Saves</div>
+            </div>
+            <div style="text-align: center; background: rgba(255,255,255,0.1); padding: 8px; border-radius: 4px;">
+              <div style="font-size: 16px; font-weight: bold; color: white;">${scorerStats.goalsAgainst}</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.8);">GA</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <style>
+        @media (max-width: 768px) {
+          .goal-card-header {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+          }
+          .goal-field {
+            align-self: center !important;
+            margin-top: 75px !important;
+            order: 2 !important;
+          }
+          .scorer-stats {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+        }
+      </style>
+    </div>
+  `;
+}
+
+// Helper function to load player stats for goal card
+async function loadPlayerStatsForGoalCard(playerId) {
+  try {
+    // Check current loaded teams first (homeTeam/awayTeam from scoreboard data)
+    // We can get this from the global game data if available
+    
+    // For now, try to load from any available team roster
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/teams`);
+    const data = await response.json();
+    
+    for (const teamData of data.sports[0].leagues[0].teams) {
+      try {
+        const teamRosterResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/teams/${teamData.team.id}/roster`);
+        if (teamRosterResponse.ok) {
+          const teamRosterData = await teamRosterResponse.json();
+          const playerWithStats = teamRosterData.athletes?.find(athlete => {
+            const athleteData = athlete.athlete || athlete;
+            return athleteData.id === playerId;
+          });
+          
+          if (playerWithStats) {
+            const athleteData = playerWithStats.athlete || playerWithStats;
+            return athleteData.statistics || null;
+          }
+        }
+      } catch (teamError) {
+        continue; // Try next team
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`Error loading stats for player ${playerId}:`, error);
+    return null;
+  }
+}
+
+// Helper function to get stat value (similar to team-page.js)
+function getStatValue(statistics, statName) {
+  if (!statistics || !Array.isArray(statistics)) return null;
+  
+  for (const category of statistics) {
+    if (category.stats) {
+      for (const stat of category.stats) {
+        if (stat.name === statName || stat.displayName === statName) {
+          return stat.value || stat.displayValue;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+// Helper function to update goal card stats after async loading
+function updateGoalCardStats(scorerName, realStats) {
+  // Find the goal card by scorer name and update the stats
+  const goalCards = document.querySelectorAll('.goal-card');
+  goalCards.forEach(card => {
+    const nameElement = card.querySelector('.scorer-name');
+    if (nameElement && nameElement.textContent.includes(scorerName)) {
+      const statsElements = card.querySelectorAll('.scorer-stats > div');
+      if (statsElements.length >= 6) {
+        // Update the stats in order: goals, assists, shots, SOT, passes, pass%
+        statsElements[0].querySelector('div').textContent = realStats.goals;
+        statsElements[1].querySelector('div').textContent = realStats.assists;
+        statsElements[2].querySelector('div').textContent = realStats.shots;
+        statsElements[3].querySelector('div').textContent = realStats.shotsOnTarget;
+        statsElements[4].querySelector('div').textContent = realStats.passes;
+        statsElements[5].querySelector('div').textContent = realStats.passAccuracy;
+      }
+    }
+  });
 }
 
 // Global variables for preserving play-by-play state
@@ -1117,20 +1386,20 @@ async function renderPlayByPlay(gameId) {
       let scoreAtThisTime;
       
       if (isGoalPlay) {
-        // For goal plays, show the score BEFORE this goal
-        let mostRecentGoal = null;
+        // For goal plays, show the score AFTER this goal
+        let thisGoal = null;
         for (const goal of goalEvents) {
-          if (goal.sequence < play.sequence) {
-            mostRecentGoal = goal;
-          } else {
-            break; // Goals are sorted, so no need to continue
+          if (goal.sequence === play.sequence) {
+            thisGoal = goal;
+            break;
           }
         }
         
-        if (mostRecentGoal) {
-          scoreAtThisTime = { home: mostRecentGoal.homeScoreAfter, away: mostRecentGoal.awayScoreAfter };
+        if (thisGoal) {
+          scoreAtThisTime = { home: thisGoal.homeScoreAfter, away: thisGoal.awayScoreAfter };
         } else {
-          scoreAtThisTime = { home: 0, away: 0 }; // First goal of the match
+          // Fallback to general calculation
+          scoreAtThisTime = getScoreAtSequence(play.sequence);
         }
       } else {
         // For non-goal plays, show the score up to this point (including goals at same sequence)
@@ -1259,6 +1528,7 @@ async function renderPlayByPlay(gameId) {
           
           <div class="play-details" id="play-${index}" style="display: ${isOpen ? 'block' : 'none'}">
             <div class="play-details-content">
+              ${isScoring ? renderGoalCard(play, playData.team, teamColor, (teamSide === 'home' ? homeLogo : awayLogo), currentHomeScore, currentAwayScore, teamSide, homeTeam, awayTeam) : ''}
               ${miniField}
               
               <div class="play-event-info">
