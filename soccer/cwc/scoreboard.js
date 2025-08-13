@@ -172,6 +172,13 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
           "CM-L": "bottom: 60%; left: 40%; transform: translateX(-50%);", "CM-R": "bottom: 60%; left: 60%; transform: translateX(-50%);", "RM": "bottom: 60%; left: 85%; transform: translateX(-50%);", 
           "CF-L": "bottom: 85%; left: 40%; transform: translateX(-50%);", "CF-R": "bottom: 85%; left: 60%; transform: translateX(-50%);"
         };   
+              case "5-3-2":
+        return {
+          "G": "bottom: 2.5%; left: 50%; transform: translateX(-50%);", "LB": "bottom: 30%; left: 10%; transform: translateX(-50%);", "CD-L": "bottom: 20%; left: 25%; transform: translateX(-50%);",
+          "CD": "bottom: 20%; left: 50%; transform: translateX(-50%);", "CD-R": "bottom: 20%; left: 75%; transform: translateX(-50%);", "RB": "bottom: 30%; left: 90%; transform: translateX(-50%);",
+          "CM-L": "bottom: 55%; left: 30%; transform: translateX(-50%);", "CM": "bottom: 55%; left: 50%; transform: translateX(-50%);", "CM-R": "bottom: 55%; left: 70%; transform: translateX(-50%);",
+          "CF-L": "bottom: 85%; left: 40%; transform: translateX(-50%);", "CF-R": "bottom: 85%; left: 60%; transform: translateX(-50%);"
+        };
       default:
         return {
           "G": "bottom: 2.5%; left: 50%; transform: translateX(-50%);", "CD-L": "bottom: 20%; left: 30%; transform: translateX(-50%);", "CD-R": "bottom: 20%; left: 70%; transform: translateX(-50%);",
@@ -1356,8 +1363,32 @@ async function renderPlayByPlay(gameId) {
       playsScrollPosition = playsContainer.scrollTop;
     }
 
-    // Sort commentary by sequence number (highest to lowest for reverse chronological)
-    const sortedCommentary = [...commentary].sort((a, b) => b.sequence - a.sequence);
+    // Sort commentary by timestamp or sequence number (most recent first)
+    const sortedCommentary = [...commentary].sort((a, b) => {
+      // First try to sort by timestamp if available
+      const aTime = a.timestamp || (a.play && a.play.timestamp);
+      const bTime = b.timestamp || (b.play && b.play.timestamp);
+      
+      if (aTime && bTime) {
+        return new Date(bTime) - new Date(aTime); // Most recent first
+      }
+      
+      // Try to sort by clock time (higher minute = more recent)
+      const aClock = a.clock || (a.play && a.play.clock);
+      const bClock = b.clock || (b.play && b.play.clock);
+      
+      if (aClock && bClock && aClock.displayValue && bClock.displayValue) {
+        const aMinutes = parseInt(aClock.displayValue) || 0;
+        const bMinutes = parseInt(bClock.displayValue) || 0;
+        
+        if (aMinutes !== bMinutes) {
+          return bMinutes - aMinutes; // Higher minute = more recent
+        }
+      }
+      
+      // Fallback to sequence number (highest to lowest for reverse chronological)
+      return b.sequence - a.sequence;
+    });
     
     // Track score throughout the match by sequence
     let currentHomeScore = homeScore;
@@ -1936,7 +1967,7 @@ async function captureAndCopyGoalCard(element) {
     // Capture the element with html2canvas
     const canvas = await html2canvas(element, {
       backgroundColor: '#1a1a1a', // Set the actual background color
-      scale: 3, // Use scale 3 to avoid logo scaling issues
+      scale: 5, // Use scale 5 to avoid logo scaling issues
       useCORS: true,
       allowTaint: false, // Allow tainted canvas for better compatibility
       logging: false,

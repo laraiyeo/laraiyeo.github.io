@@ -1867,6 +1867,10 @@ async function showGameLogInterface() {
       }
     });
     console.log('Date picker event listener added');
+    
+    // Automatically load today's game log when interface first opens
+    console.log('Auto-loading game log for today:', todayString);
+    await loadGameLogForDate(todayString);
   } else {
     console.error('Date picker not found');
   }
@@ -2051,16 +2055,16 @@ async function loadGameLogForDate(date) {
       return;
     }
 
-    // Check if game is completed
-    if (teamGame.status.type.state !== 'post') {
+    // Check if game exists and show stats for both in-progress and completed games
+    if (teamGame.status.type.state === 'pre') {
       resultsContainer.innerHTML = `
         <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #fff3cd; text-align: center;">
           <div style="font-size: 2rem; margin-bottom: 15px;">⏰</div>
           <div style="color: #856404; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
-            Game not yet completed
+            Game not yet started
           </div>
           <div style="color: #856404; font-size: 0.95rem; line-height: 1.4;">
-            This game is scheduled or in progress. Game log data will be available after completion.
+            This game is scheduled but has not started yet. Game log data will be available after kickoff.
           </div>
         </div>
       `;
@@ -2202,8 +2206,9 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
     const teamLogo = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamIdForSeason}.png`;
     const opponentLogo = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${opponentCompetitor.team.id}.png`;
 
-    // Game result
+    // Game result and status
     let gameResult = '';
+    let gameStatus = '';
     if (game.status.type.state === 'post') {
       const teamScoreInt = parseInt(teamScore);
       const opponentScoreInt = parseInt(opponentScore);
@@ -2214,6 +2219,13 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
       } else {
         gameResult = 'D';
       }
+      gameStatus = 'Final';
+    } else if (game.status.type.state === 'in') {
+      gameStatus = 'Live';
+      gameResult = ''; // No result for in-progress games
+    } else {
+      gameStatus = 'Scheduled';
+      gameResult = '';
     }
 
     // Extract player stats if available
@@ -2327,6 +2339,7 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
             ${gameResult ? `<span style="font-weight: bold; color: ${gameResult === 'W' ? '#4CAF50' : gameResult === 'L' ? '#f44336' : '#FFA500'}; font-size: 1.1rem;">${gameResult}</span>` : ''}
           </div>
           <div style="text-align: right; color: #ccc; font-size: 0.85rem;">
+            <div style="color: ${gameStatus === 'Live' ? '#4CAF50' : gameStatus === 'Final' ? '#fff' : '#FFA500'}; font-weight: bold; margin-bottom: 2px;">${gameStatus}</div>
             ${gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
             <div class="game-details-text" style="font-size: 0.7rem; margin-top: 2px; opacity: 0.7;">Click to view game details</div>
           </div>
