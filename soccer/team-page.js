@@ -985,12 +985,12 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       console.log(`Fetching full ESPN API data for player ${playerId}...`);
       // Try current season first, then fall back to previous seasons if needed
       const currentSeason = new Date().getFullYear();
-      let espnPlayerResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${currentLeague}/seasons/${currentSeason}/athletes/${playerId}?lang=en&region=us`);
+      let espnPlayerResponse = await fetch(convertToHttps(`http://sports.core.api.espn.com/v2/sports/soccer/leagues/${currentLeague}/seasons/${currentSeason}/athletes/${playerId}?lang=en&region=us`));
       
       // If current season fails, try previous season
       if (!espnPlayerResponse.ok) {
         console.log(`Current season ${currentSeason} failed, trying ${currentSeason - 1}...`);
-        espnPlayerResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${currentLeague}/seasons/${currentSeason - 1}/athletes/${playerId}?lang=en&region=us`);
+        espnPlayerResponse = await fetch(convertToHttps(`http://sports.core.api.espn.com/v2/sports/soccer/leagues/${currentLeague}/seasons/${currentSeason - 1}/athletes/${playerId}?lang=en&region=us`));
       }
       
       if (espnPlayerResponse.ok) {
@@ -1372,7 +1372,7 @@ async function loadPlayerStatsForYear(playerId, position, contentDiv, year) {
     
     console.log(`Trying ESPN API for year ${year}...`);
     try {
-      const espnResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${currentLeague}/seasons/${year}/athletes/${playerId}?lang=en&region=us`);
+      const espnResponse = await fetch(convertToHttps(`http://sports.core.api.espn.com/v2/sports/soccer/leagues/${currentLeague}/seasons/${year}/athletes/${playerId}?lang=en&region=us`));
       if (espnResponse.ok) {
         const espnData = await espnResponse.json();
         console.log(`ESPN API response for ${year}:`, espnData);
@@ -1380,7 +1380,7 @@ async function loadPlayerStatsForYear(playerId, position, contentDiv, year) {
         // Check if we have statistics in the ESPN data
         if (espnData.statistics && espnData.statistics.$ref) {
           console.log(`Found statistics reference for ${year}, fetching detailed stats...`);
-          const statsResponse = await fetch(espnData.statistics.$ref);
+          const statsResponse = await fetch(convertToHttps(espnData.statistics.$ref));
           if (statsResponse.ok) {
             const statsData = await statsResponse.json();
             console.log(`Detailed stats for ${year}:`, statsData);
@@ -2018,7 +2018,7 @@ async function loadGameLogForDate(date) {
     // Fetch ESPN API data for the specific season to get accurate defaultTeam and defaultLeague
     try {
       console.log(`Fetching ESPN API data for player ${selectedPlayer.id} in season ${seasonYear}...`);
-      const playerSeasonResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${currentLeague}/seasons/${seasonYear}/athletes/${selectedPlayer.id}?lang=en&region=us`);
+      const playerSeasonResponse = await fetch(convertToHttps(`http://sports.core.api.espn.com/v2/sports/soccer/leagues/${currentLeague}/seasons/${seasonYear}/athletes/${selectedPlayer.id}?lang=en&region=us`));
       
       if (playerSeasonResponse.ok) {
         const playerSeasonData = await playerSeasonResponse.json();
@@ -2104,7 +2104,7 @@ async function loadGameLogForDate(date) {
       let teamDisplayName = currentTeam?.shortDisplayName || 'Team';
       if (teamIdForSeason !== currentTeamId) {
         try {
-          const teamInfoResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueForSeason}/teams/${teamIdForSeason}?lang=en&region=us`);
+          const teamInfoResponse = await fetch(convertToHttps(`http://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueForSeason}/teams/${teamIdForSeason}?lang=en&region=us`));
           if (teamInfoResponse.ok) {
             const teamInfo = await teamInfoResponse.json();
             teamDisplayName = teamInfo.shortDisplayName || teamInfo.displayName || teamDisplayName;
@@ -2256,7 +2256,7 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
     if (teamIdForSeason !== currentTeamId || leagueForSeason !== currentLeague) {
       try {
         console.log(`Fetching team info for season-specific team ${teamIdForSeason} in league ${leagueForSeason}...`);
-        const seasonTeamResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueForSeason}/teams/${teamIdForSeason}?lang=en&region=us`);
+        const seasonTeamResponse = await fetch(convertToHttps(`http://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueForSeason}/teams/${teamIdForSeason}?lang=en&region=us`));
         
         if (seasonTeamResponse.ok) {
           const seasonTeamData = await seasonTeamResponse.json();
