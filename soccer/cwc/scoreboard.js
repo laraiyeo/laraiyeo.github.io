@@ -1,8 +1,14 @@
-const LEAGUES = {
-  "Club World Cup": { code: "fifa.cwc", logo: "19" },
-};
-
-let currentCWCLeague = localStorage.getItem("currentCWCLeague") || "fifa.cwc"; // Default to Club World Cup
+function getAdjustedDateForSoccer() {
+  const now = new Date();
+  const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  if (estNow.getHours() < 2) {
+    estNow.setDate(estNow.getDate() - 1);
+  }
+  const adjustedDate = estNow.getFullYear() +
+                       String(estNow.getMonth() + 1).padStart(2, "0") +
+                       String(estNow.getDate()).padStart(2, "0");
+  return adjustedDate;
+}
 
 // Helper function to get team color using alternate color logic like team-page.js
 function getTeamColorWithAlternateLogic(team) {
@@ -38,18 +44,6 @@ function applyTeamColorsToCommentary() {
   document.head.appendChild(style);
 }
 
-function getAdjustedDateForSoccer() {
-  const now = new Date();
-  const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-  if (estNow.getHours() < 2) {
-    estNow.setDate(estNow.getDate() - 1);
-  }
-  const adjustedDate = estNow.getFullYear() +
-                       String(estNow.getMonth() + 1).padStart(2, "0") +
-                       String(estNow.getDate()).padStart(2, "0");
-  return adjustedDate;
-}
-
 function getQueryParam(param) {
   const urlParams = new URLSearchParams(window.location.search);
   return urlParams.get(param);
@@ -69,8 +63,8 @@ function renderScorersBox(awayScorers, homeScorers) {
   const formatScorer = scorer => {
     const penaltyText = scorer.penaltyKick ? " (Pen.)" : "";
     const fullName = scorer.displayName;
-    const lastName = fullName.split(" ").slice (-1).join(" ");
-    const displayName = window.innerWidth <= 525 ? lastName : fullName;
+    const lastName = fullName.split(" ").slice(-1).join(" ");
+    const displayName = window.innerWidth <= 475 ? lastName : fullName;
     return `${displayName} ${scorer.clock}${penaltyText}`;
   };
 
@@ -171,14 +165,14 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
           "CD-R": "bottom: 20%; left: 70%; transform: translateX(-50%);", "SW": "bottom: 40%; left: 50%; transform: translateX(-50%);", "LM": "bottom: 60%; left: 15%; transform: translateX(-50%);",
           "CM-L": "bottom: 60%; left: 40%; transform: translateX(-50%);", "CM-R": "bottom: 60%; left: 60%; transform: translateX(-50%);", "RM": "bottom: 60%; left: 85%; transform: translateX(-50%);", 
           "CF-L": "bottom: 85%; left: 40%; transform: translateX(-50%);", "CF-R": "bottom: 85%; left: 60%; transform: translateX(-50%);"
-        };   
-              case "5-3-2":
+        };
+      case "5-3-2":
         return {
           "G": "bottom: 2.5%; left: 50%; transform: translateX(-50%);", "LB": "bottom: 30%; left: 10%; transform: translateX(-50%);", "CD-L": "bottom: 20%; left: 25%; transform: translateX(-50%);",
           "CD": "bottom: 20%; left: 50%; transform: translateX(-50%);", "CD-R": "bottom: 20%; left: 75%; transform: translateX(-50%);", "RB": "bottom: 30%; left: 90%; transform: translateX(-50%);",
           "CM-L": "bottom: 55%; left: 30%; transform: translateX(-50%);", "CM": "bottom: 55%; left: 50%; transform: translateX(-50%);", "CM-R": "bottom: 55%; left: 70%; transform: translateX(-50%);",
           "CF-L": "bottom: 85%; left: 40%; transform: translateX(-50%);", "CF-R": "bottom: 85%; left: 60%; transform: translateX(-50%);"
-        };
+        };   
       default:
         return {
           "G": "bottom: 2.5%; left: 50%; transform: translateX(-50%);", "CD-L": "bottom: 20%; left: 30%; transform: translateX(-50%);", "CD-R": "bottom: 20%; left: 70%; transform: translateX(-50%);",
@@ -338,393 +332,6 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
   `;
 }
 
-
-// Global variables for stream testing
-let streamUrls = [];
-let currentStreamIndex = 0;
-let streamTestTimeout = null;
-let isMuted = true; // Start muted to prevent autoplay issues
-
-// Enhanced video control functions matching the iframe pattern
-window.toggleMute = function() {
-  const iframe = document.getElementById('streamIframe');
-  const muteButton = document.getElementById('muteButton');
-  
-  if (!iframe || !muteButton) return;
-  
-  // Toggle muted state
-  isMuted = !isMuted;
-  muteButton.textContent = isMuted ? '🔊 Unmute' : '🔇 Mute';
-  
-  // Multiple approaches to control video muting
-  try {
-    // Method 1: Direct iframe manipulation
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-    if (iframeDoc) {
-      const videos = iframeDoc.querySelectorAll('video');
-      videos.forEach(video => {
-        video.muted = isMuted;
-        video.volume = isMuted ? 0 : 1;
-      });
-      
-      console.log(isMuted ? 'Video muted via direct access' : 'Video unmuted via direct access');
-    }
-  } catch (e) {
-    console.log('Direct video access blocked by CORS');
-  }
-  
-  // Method 2: Enhanced PostMessage to iframe
-  try {
-    iframe.contentWindow.postMessage({
-      action: 'toggleMute',
-      muted: isMuted,
-      volume: isMuted ? 0 : 1
-    }, '*');
-    
-    iframe.contentWindow.postMessage({
-      action: 'setVideoParams',
-      autoplay: 1,
-      mute: isMuted ? 1 : 0
-    }, '*');
-    
-    console.log(isMuted ? 'Mute message sent to iframe' : 'Unmute message sent to iframe');
-  } catch (e) {
-    console.log('PostMessage failed');
-  }
-  
-  // Method 3: Simulate key events
-  try {
-    const keyEvent = new KeyboardEvent('keydown', { key: 'm', code: 'KeyM' });
-    iframe.contentWindow.dispatchEvent(keyEvent);
-    console.log('Mute key event sent to iframe');
-  } catch (e) {
-    console.log('Key event failed');
-  }
-  
-  // Method 4: Try to modify iframe src with mute parameter
-  if (iframe.src && !iframe.src.includes('mute=')) {
-    const separator = iframe.src.includes('?') ? '&' : '?';
-    const newSrc = `${iframe.src}${separator}mute=${isMuted ? 1 : 0}&autoplay=1`;
-    if (iframe.src !== newSrc) {
-      iframe.src = newSrc;
-      console.log('Updated iframe src with mute parameter');
-    }
-  }
-};
-
-window.toggleFullscreen = function() {
-  const iframe = document.getElementById('streamIframe');
-  
-  if (iframe) {
-    try {
-      // For iOS Safari and other WebKit browsers
-      if (iframe.webkitEnterFullscreen) {
-        iframe.webkitEnterFullscreen();
-        console.log('iOS/WebKit fullscreen requested');
-      }
-      // Standard fullscreen API
-      else if (iframe.requestFullscreen) {
-        iframe.requestFullscreen();
-        console.log('Standard fullscreen requested');
-      } 
-      // Chrome/Safari prefixed version
-      else if (iframe.webkitRequestFullscreen) {
-        iframe.webkitRequestFullscreen();
-        console.log('WebKit fullscreen requested');
-      } 
-      // IE/Edge prefixed version
-      else if (iframe.msRequestFullscreen) {
-        iframe.msRequestFullscreen();
-        console.log('MS fullscreen requested');
-      }
-      // Mozilla prefixed version
-      else if (iframe.mozRequestFullScreen) {
-        iframe.mozRequestFullScreen();
-        console.log('Mozilla fullscreen requested');
-      }
-      else {
-        console.log('Fullscreen API not supported on this device');
-        // Fallback: try to make the iframe larger on unsupported devices
-        if (iframe.style.position !== 'fixed') {
-          iframe.style.position = 'fixed';
-          iframe.style.top = '0';
-          iframe.style.left = '0';
-          iframe.style.width = '100vw';
-          iframe.style.height = '100vh';
-          iframe.style.zIndex = '9999';
-          iframe.style.backgroundColor = '#000';
-          console.log('Applied fullscreen-like styling as fallback');
-        } else {
-          // Exit fullscreen-like mode
-          iframe.style.position = '';
-          iframe.style.top = '';
-          iframe.style.left = '';
-          iframe.style.width = '100%';
-          iframe.style.height = '700px';
-          iframe.style.zIndex = '';
-          iframe.style.backgroundColor = '';
-          console.log('Exited fullscreen-like styling');
-        }
-      }
-    } catch (e) {
-      console.log('Fullscreen request failed:', e);
-      // Additional fallback for cases where even the API calls fail
-      alert('Fullscreen not supported on this device. Try rotating your device to landscape mode for a better viewing experience.');
-    }
-  }
-};
-
-window.loadStream = function(url) {
-  const iframe = document.getElementById('streamIframe');
-  
-  if (iframe) {
-    iframe.src = url;
-  }
-};
-
-window.handleStreamLoad = function() {
-  const iframe = document.getElementById('streamIframe');
-  const connectingDiv = document.getElementById('streamConnecting');
-  
-  // Clear any existing timeout
-  if (streamTestTimeout) {
-    clearTimeout(streamTestTimeout);
-    streamTestTimeout = null;
-  }
-  
-  if (iframe.src !== 'about:blank') {
-    setTimeout(() => {
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
-      
-      setTimeout(() => {
-        try {
-          const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-          
-          if (iframeDoc) {
-            const videos = iframeDoc.querySelectorAll('video');
-            if (videos.length > 0) {
-              videos.forEach(video => {
-                video.muted = isMuted;
-                video.volume = isMuted ? 0 : 1;
-              });
-              const muteButton = document.getElementById('muteButton');
-              if (muteButton) {
-                muteButton.textContent = isMuted ? '🔊 Unmute' : '🔇 Mute';
-              }
-              console.log(isMuted ? 'Video started muted' : 'Video started unmuted');
-            }
-          }
-        } catch (e) {
-          console.log('Cannot access iframe content (cross-origin)');
-        }
-      }, 200);
-      
-    }, 1000);
-  }
-  
-  if (streamUrls.length > 0 && iframe.src !== 'about:blank') {
-    setTimeout(() => {
-      checkStreamContent(iframe);
-    }, 1500);
-  } else {
-    if (iframe.src !== 'about:blank') {
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
-    }
-  }
-};
-
-function checkStreamContent(iframe) {
-  const connectingDiv = document.getElementById('streamConnecting');
-  
-  try {
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-    
-    const hasVideo = iframeDoc.querySelector('video') || 
-                    iframeDoc.querySelector('.video-js') || 
-                    iframeDoc.querySelector('[id*="video"]') ||
-                    iframeDoc.querySelector('[class*="player"]');
-    
-    if (hasVideo) {
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
-      streamUrls = [];
-      return;
-    }
-  } catch (e) {
-    console.log('Cannot access iframe content (cross-origin), assuming external stream');
-    iframe.style.display = 'block';
-    if (connectingDiv) {
-      connectingDiv.style.display = 'none';
-    }
-  }
-  
-  setTimeout(() => {
-    if (streamUrls.length > 0) {
-      tryNextStream();
-    } else {
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
-    }
-  }, 1000);
-}
-
-function tryNextStream() {
-  const iframe = document.getElementById('streamIframe');
-  
-  if (currentStreamIndex < streamUrls.length) {
-    const nextUrl = streamUrls[currentStreamIndex];
-    currentStreamIndex++;
-    
-    streamTestTimeout = setTimeout(() => {
-      tryNextStream();
-    }, 4000);
-    
-    if (iframe) {
-      iframe.src = nextUrl;
-    }
-  } else {
-    const connectingDiv = document.getElementById('streamConnecting');
-    iframe.style.display = 'block';
-    if (connectingDiv) {
-      connectingDiv.style.display = 'none';
-    }
-    streamUrls = [];
-  }
-}
-
-function normalizeTeamName(teamName) {
-  // Special cases for specific team names
-  const specialCases = {
-    'paris saint germain': 'psg',
-    'paris saint-germain': 'psg'
-  };
-  
-  const lowerName = teamName.toLowerCase();
-  if (specialCases[lowerName]) {
-    return specialCases[lowerName];
-  }
-  
-  // Convert team names to streaming format
-  return teamName.toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9\-]/g, '')
-    .replace(/^fc-/, '')
-    .replace(/-fc$/, '');
-}
-
-async function extractVideoPlayerUrl(pageUrl) {
-  try {
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(pageUrl)}`;
-    const response = await fetch(proxyUrl);
-    const data = await response.json();
-    
-    if (data.contents) {
-      const iframeMatch = data.contents.match(/src="([^"]*castweb\.xyz[^"]*)"/);
-      if (iframeMatch) {
-        return iframeMatch[1];
-      }
-      
-      const altMatch = data.contents.match(/iframe[^>]*src="([^"]*\.php[^"]*)"/);
-      if (altMatch) {
-        return altMatch[1];
-      }
-    }
-  } catch (error) {
-    console.error('Error extracting video player URL:', error);
-  }
-  
-  return null;
-}
-
-async function startStreamTesting(homeTeamName, awayTeamName) {
-  const homeNormalized = normalizeTeamName(homeTeamName);
-  const awayNormalized = normalizeTeamName(awayTeamName);
-  
-  const pageUrls = [
-    `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`
-  ];
-  
-  streamUrls = [];
-  
-  const extractionPromises = pageUrls.map(async (url) => {
-    try {
-      const videoUrl = await extractVideoPlayerUrl(url);
-      return videoUrl;
-    } catch (error) {
-      console.error(`Error extracting from ${url}:`, error);
-      return null;
-    }
-  });
-  
-  const extractedUrls = await Promise.all(extractionPromises);
-  
-  extractedUrls.forEach(url => {
-    if (url) {
-      streamUrls.push(url);
-      console.log(`Extracted video URL: ${url}`);
-    }
-  });
-  
-  if (streamUrls.length === 0) {
-    console.log('No video URLs extracted, using page URLs directly');
-    streamUrls = pageUrls;
-  }
-  
-  currentStreamIndex = 0;
-  
-  setTimeout(() => {
-    tryNextStream();
-  }, 300);
-}
-
-function renderStreamEmbed(homeTeamName, awayTeamName) {
-  const homeNormalized = normalizeTeamName(homeTeamName);
-  const awayNormalized = normalizeTeamName(awayTeamName);
-  
-  const streamUrl = `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`;
-  const isSmallScreen = window.innerWidth < 525;
-  const screenHeight = isSmallScreen ? 250 : 700;
-  
-  return `
-    <div class="stream-container" style="margin: 20px 0; text-align: center;">
-      <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
-        <h3 style="color: white; margin: 0;">Live Stream</h3>
-        <div class="stream-controls" style="margin-top: 10px;">
-          <button id="fullscreenButton" onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">⛶ Fullscreen</button>
-        </div>
-      </div>
-      <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; border-radius: 8px; margin-bottom: 10px;">
-        <p>Connecting to stream... <span id="streamStatus"></span></p>
-      </div>
-      <div class="stream-iframe-container" style="position: relative; width: 100%; margin: 0 auto; overflow: hidden;">
-        <iframe 
-          id="streamIframe"
-          src="about:blank"
-          width="100%" 
-          height="${screenHeight}"
-          style="aspect-ratio: 16/9; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); background: #000; display: none;"
-          frameborder="0"
-          allowfullscreen
-          allow="autoplay; fullscreen; encrypted-media"
-          referrerpolicy="no-referrer-when-downgrade"
-          onload="handleStreamLoad()"
-          onerror="handleStreamError()">
-        </iframe>
-      </div>
-    </div>
-  `;
-}
-
 async function fetchAndRenderTopScoreboard() {
   try {
     const gameId = getQueryParam("gameId");
@@ -767,9 +374,6 @@ async function fetchAndRenderTopScoreboard() {
     const shortDetail = competitions[0]?.status?.type.shortDetail || "0'";
     const gameStatus = competitions[0]?.status?.type.description || "N/A";
     const gameState = competitions[0]?.status?.type.state || "N/A";
-
-    // Determine if game is in progress
-    const isInProgress = gameState === "in";
 
     const details = competitions[0]?.details || [];
     const homeTeamId = homeTeam.id;
@@ -824,21 +428,6 @@ async function fetchAndRenderTopScoreboard() {
       </div>
     `;
 
-    const streamContainer = document.getElementById("streamEmbed");
-    if (!streamContainer && isInProgress) {
-      const streamDiv = document.createElement("div");
-      streamDiv.id = "streamEmbed";
-      streamDiv.innerHTML = renderStreamEmbed(homeTeam.displayName || "Unknown", awayTeam.displayName || "Unknown");
-      topScoreboardEl.insertAdjacentElement("afterend", streamDiv);
-
-      setTimeout(() => {
-        startStreamTesting(homeTeam.displayName || "Unknown", awayTeam.displayName || "Unknown");
-      }, 100);
-    } else if (streamContainer && !isInProgress) {
-      // Remove stream container if game is no longer in progress
-      streamContainer.remove();
-    }
-
     let scorersContainer = document.querySelector(".scorers-container");
     if (!scorersContainer) {
       scorersContainer = document.createElement("div");
@@ -858,18 +447,13 @@ async function fetchAndRenderTopScoreboard() {
     const homeFormation = homeRoster?.formation || "4-3-3";
     const awayFormation = awayRoster?.formation || "4-3-3";
 
-    let formationContainer = document.getElementById("formationDisplay");
-    if (!formationContainer) {
-      formationContainer = document.createElement("div");
-      formationContainer.id = "formationDisplay";
-      const statsContent = document.getElementById("statsContent");
-      if (statsContent) {
-        statsContent.appendChild(formationContainer);
-      }
+    // Render formation in the stats content section
+    const formationDisplay = document.getElementById("formationDisplay");
+    if (formationDisplay) {
+      formationDisplay.innerHTML = renderFootballPitches(
+        awayPlayers, homePlayers, awayFormation, homeFormation, awayLogo, homeLogo, awaySubs, homeSubs
+      );
     }
-    formationContainer.innerHTML = renderFootballPitches(
-      awayPlayers, homePlayers, awayFormation, homeFormation, awayLogo, homeLogo, awaySubs, homeSubs
-    );
   } catch (error) {
     console.error("Error fetching CWC scoreboard data:", error);
   }
@@ -895,27 +479,29 @@ function renderMiniField(coordinate, coordinate2, eventType = 'gen', teamSide = 
     `;
   }
 
-  // Convert coordinates for mini field display (100x80)
-  // Split field into halves: left side = away team, right side = home team
-  // X coordinates: 0-50 = left half (away), 50-100 = right half (home)
-  // Y coordinates: 0-100 = full field height
-  
-  // ESPN coordinates: X (0=attacking half, 1=defending half), Y (0=top, 1=bottom)
+  // Simplified coordinate system: 
+  // Field split into 2 halves - right half = home, left half = away
+  // Half line (center) = x1 for both teams
+  // X: 0 = far end, 1 = half line (center)
   const espnX = coordinate.x; 
   const espnY = coordinate.y; 
   
+  // Convert ESPN coordinates with new field logic
   let leftPercent, topPercent;
   
   if (teamSide === 'home') {
-    // Home team: use right half (50-100)
-    leftPercent = 50 + (espnX * 50);
+    // Home team on right half of field
+    // X=0 (far right) → 100% left position
+    // X=1 (center line) → 50% left position
+    leftPercent = 50 + (1 - espnX) * 50; // X=0→100%, X=1→50%
+    topPercent = espnY * 100; // Y=0→0%, Y=1→100%
   } else {
-    // Away team: use left half (0-50) 
-    leftPercent = espnX * 50;
+    // Away team on left half of field  
+    // X=0 (far left) → 0% left position
+    // X=1 (center line) → 50% left position
+    leftPercent = espnX * 50; // X=0→0%, X=1→50%
+    topPercent = (1 - espnY) * 100; // Y=0→100%, Y=1→0% (inverted)
   }
-  
-  // Y coordinate scaling
-  topPercent = espnY * 100;
   
   // Constrain to field bounds with some padding
   const finalLeftPercent = Math.max(2, Math.min(98, leftPercent));
@@ -933,15 +519,14 @@ function renderMiniField(coordinate, coordinate2, eventType = 'gen', teamSide = 
     let leftPercent2, topPercent2;
     
     if (teamSide === 'home') {
-      // Home team: use right half (50-100)
-      leftPercent2 = 50 + (espnX2 * 50);
+      // Home team on right half
+      leftPercent2 = 50 + (1 - espnX2) * 50; // X=0→100%, X=1→50%
+      topPercent2 = espnY2 * 100;
     } else {
-      // Away team: use left half (0-50) 
-      leftPercent2 = espnX2 * 50;
+      // Away team on left half
+      leftPercent2 = espnX2 * 50; // X=0→0%, X=1→50%
+      topPercent2 = (1 - espnY2) * 100; // Y=0→100%, Y=1→0% (inverted)
     }
-    
-    // Y coordinate scaling
-    topPercent2 = espnY2 * 100;
     
     const finalLeftPercent2 = Math.max(2, Math.min(98, leftPercent2));
     const finalTopPercent2 = Math.max(2, Math.min(98, topPercent2));
@@ -968,7 +553,7 @@ function renderMiniField(coordinate, coordinate2, eventType = 'gen', teamSide = 
                     eventType === 'card' ? 'card' : 
                     eventType === 'red-card' ? 'red-card' :
                     eventType === 'offside' ? 'offside' :
-                    eventType === 'sub' ? 'substitution' : 'goal';
+                    eventType === 'substitution' ? 'substitution' : 'goal';
   
   // Ensure team color has # prefix
   const finalTeamColor = teamColor.startsWith('#') ? teamColor : `#${teamColor}`;
@@ -1089,7 +674,6 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
   }
   
   console.log('Goal Card Debug - Final Scorer Stats:', scorerStats);
-  
   
   // Determine if this was a winning, tying, or leading goal
   let goalSituation = '';
@@ -1244,80 +828,6 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
   `;
 }
 
-// Helper function to load player stats for goal card
-async function loadPlayerStatsForGoalCard(playerId) {
-  try {
-    // Check current loaded teams first (homeTeam/awayTeam from scoreboard data)
-    // We can get this from the global game data if available
-    
-    // For now, try to load from any available team roster
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/teams`);
-    const data = await response.json();
-    
-    for (const teamData of data.sports[0].leagues[0].teams) {
-      try {
-        const teamRosterResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/teams/${teamData.team.id}/roster`);
-        if (teamRosterResponse.ok) {
-          const teamRosterData = await teamRosterResponse.json();
-          const playerWithStats = teamRosterData.athletes?.find(athlete => {
-            const athleteData = athlete.athlete || athlete;
-            return athleteData.id === playerId;
-          });
-          
-          if (playerWithStats) {
-            const athleteData = playerWithStats.athlete || playerWithStats;
-            return athleteData.statistics || null;
-          }
-        }
-      } catch (teamError) {
-        continue; // Try next team
-      }
-    }
-    
-    return null;
-  } catch (error) {
-    console.error(`Error loading stats for player ${playerId}:`, error);
-    return null;
-  }
-}
-
-// Helper function to get stat value (similar to team-page.js)
-function getStatValue(statistics, statName) {
-  if (!statistics || !Array.isArray(statistics)) return null;
-  
-  for (const category of statistics) {
-    if (category.stats) {
-      for (const stat of category.stats) {
-        if (stat.name === statName || stat.displayName === statName) {
-          return stat.value || stat.displayValue;
-        }
-      }
-    }
-  }
-  return null;
-}
-
-// Helper function to update goal card stats after async loading
-function updateGoalCardStats(scorerName, realStats) {
-  // Find the goal card by scorer name and update the stats
-  const goalCards = document.querySelectorAll('.goal-card');
-  goalCards.forEach(card => {
-    const nameElement = card.querySelector('.scorer-name');
-    if (nameElement && nameElement.textContent.includes(scorerName)) {
-      const statsElements = card.querySelectorAll('.scorer-stats > div');
-      if (statsElements.length >= 6) {
-        // Update the stats in order: goals, assists, shots, SOT, passes, pass%
-        statsElements[0].querySelector('div').textContent = realStats.goals;
-        statsElements[1].querySelector('div').textContent = realStats.assists;
-        statsElements[2].querySelector('div').textContent = realStats.shots;
-        statsElements[3].querySelector('div').textContent = realStats.shotsOnTarget;
-        statsElements[4].querySelector('div').textContent = realStats.passes;
-        statsElements[5].querySelector('div').textContent = realStats.passAccuracy;
-      }
-    }
-  });
-}
-
 // Global variables for preserving play-by-play state
 let openPlays = new Set(); // Track which plays are open
 let playsScrollPosition = 0; // Track scroll position
@@ -1447,32 +957,30 @@ async function renderPlayByPlay(gameId) {
       // Handle nested play structure - check if play.play exists
       const playData = play.play || play;
       
-      const period = playData.period ? playData.period.number || playData.period.displayValue : '';
-      const clock = play.time ? play.time.displayValue : '';
-      const text = play.text || 'No description available';
-
       // Get the score at the time of this play
       const isGoalPlay = play.scoringPlay === true || playData.scoringPlay === true ||
                         (playData.type && playData.type.text && playData.type.text.toLowerCase().includes('goal')) ||
-                        (text && text.toLowerCase().includes('goal!')) ||
+                        (play.text && play.text.toLowerCase().includes('goal!')) ||
                         (playData.shortText && playData.shortText.toLowerCase().includes('goal'));
       let scoreAtThisTime;
       
       if (isGoalPlay) {
         // For goal plays, show the score AFTER this goal
-        let thisGoal = null;
+        let scoreAfterGoal = null;
         for (const goal of goalEvents) {
-          if (goal.sequence === play.sequence) {
-            thisGoal = goal;
-            break;
+          if (goal.sequence <= play.sequence) {
+            scoreAfterGoal = goal;
+          } else {
+            break; // Goals are sorted, so no need to continue
           }
         }
         
-        if (thisGoal) {
-          scoreAtThisTime = { home: thisGoal.homeScoreAfter, away: thisGoal.awayScoreAfter };
+        if (scoreAfterGoal) {
+          scoreAtThisTime = { home: scoreAfterGoal.homeScoreAfter, away: scoreAfterGoal.awayScoreAfter };
         } else {
-          // Fallback to general calculation
-          scoreAtThisTime = getScoreAtSequence(play.sequence);
+          // This shouldn't happen for a goal play, but fallback to 1-0 or 0-1
+          const teamSide = playData.team?.id === homeTeamId ? 'home' : 'away';
+          scoreAtThisTime = teamSide === 'home' ? { home: 1, away: 0 } : { home: 0, away: 1 };
         }
       } else {
         // For non-goal plays, show the score up to this point (including goals at same sequence)
@@ -1481,6 +989,10 @@ async function renderPlayByPlay(gameId) {
       
       currentHomeScore = scoreAtThisTime.home;
       currentAwayScore = scoreAtThisTime.away;
+      
+      const period = playData.period ? playData.period.number || playData.period.displayValue : '';
+      const clock = play.time ? play.time.displayValue : '';
+      const text = play.text || 'No description available';
       
       // Determine if this is a scoring play - check both levels and more goal patterns
       const isScoring = play.scoringPlay === true || playData.scoringPlay === true || 
@@ -1509,7 +1021,7 @@ async function renderPlayByPlay(gameId) {
       } else if (text.toLowerCase().includes('red card')) {
         eventType = 'red-card';
       } else if (text.toLowerCase().includes('substitution')) {
-        eventType = 'sub';
+        eventType = 'substitution';
       } else if (text.toLowerCase().includes('attempt') || text.toLowerCase().includes('saved') || text.toLowerCase().includes('blocked') || text.toLowerCase().includes('missed')) {
         eventType = 'shot';
       } else if (text.toLowerCase().includes('offside')) {
@@ -1569,6 +1081,7 @@ async function renderPlayByPlay(gameId) {
       const miniField = renderMiniField(coordinate, coordinate2, eventType, teamSide, `#${teamColor}`, playData.team?.displayName || '');
 
       return `
+        ${isScoring ? renderGoalCard(play, playData.team, teamColor, (teamSide === 'home' ? homeLogo : awayLogo), currentHomeScore, currentAwayScore, teamSide, homeTeam, awayTeam) : ''}
         <div class="play-container ${isScoring ? 'scoring-play' : ''}" style="--team-color: #${teamColor};">
           <div class="play-header" onclick="togglePlay(${index})">
             <div class="play-main-info">
@@ -1601,8 +1114,7 @@ async function renderPlayByPlay(gameId) {
           
           <div class="play-details" id="play-${index}" style="display: ${isOpen ? 'block' : 'none'}">
             <div class="play-details-content">
-              ${isScoring ? renderGoalCard(play, playData.team, teamColor, (teamSide === 'home' ? homeLogo : awayLogo), currentHomeScore, currentAwayScore, teamSide, homeTeam, awayTeam) : ''}
-              ${miniField}
+              ${!isScoring ? miniField : ''}
               
               <div class="play-event-info">
                 <div class="event-participant ${isScoring ? 'goal-scorer' : 'primary'}" style="--team-color: #${teamColor};">
@@ -1677,7 +1189,15 @@ function normalizeTeamName(teamName) {
   // Special cases for specific team names
   const specialCases = {
     'paris saint germain': 'psg',
-    'paris saint-germain': 'psg'
+    'paris saint-germain': 'psg',
+    'tottenham hotspur': 'tottenham-hotspur',
+    'tottenham': 'tottenham-hotspur',
+    'manchester united': 'manchester-united',
+    'manchester city': 'manchester-city',
+    'real madrid': 'real-madrid',
+    'atletico madrid': 'atletico-madrid',
+    'bayern munich': 'bayern-munich',
+    'borussia dortmund': 'borussia-dortmund'
   };
   
   const lowerName = teamName.toLowerCase();
@@ -1693,7 +1213,157 @@ function normalizeTeamName(teamName) {
     .replace(/-fc$/, '');
 }
 
-function renderStreamEmbed(gameId) {
+// Global variables for stream testing
+let streamUrls = [];
+let currentStreamIndex = 0;
+let streamTestTimeout = null;
+let isMuted = true; // Start muted to prevent autoplay issues
+
+async function extractVideoPlayerUrl(pageUrl) {
+  try {
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(pageUrl)}`;
+    const response = await fetch(proxyUrl);
+    const data = await response.json();
+    
+    if (data.contents) {
+      const iframeMatch = data.contents.match(/src="([^"]*castweb\.xyz[^"]*)"/);
+      if (iframeMatch) {
+        return iframeMatch[1];
+      }
+      
+      const altMatch = data.contents.match(/iframe[^>]*src="([^"]*\.php[^"]*)"/);
+      if (altMatch) {
+        return altMatch[1];
+      }
+    }
+  } catch (error) {
+    console.error('Error extracting video player URL:', error);
+  }
+  
+  return null;
+}
+
+function tryNextStream() {
+  const iframe = document.getElementById('streamIframe');
+  
+  if (currentStreamIndex < streamUrls.length) {
+    const nextUrl = streamUrls[currentStreamIndex];
+    currentStreamIndex++;
+    
+    streamTestTimeout = setTimeout(() => {
+      tryNextStream();
+    }, 4000);
+    
+    if (iframe) {
+      iframe.src = nextUrl;
+    }
+  } else {
+    const connectingDiv = document.getElementById('streamConnecting');
+    iframe.style.display = 'block';
+    if (connectingDiv) {
+      connectingDiv.style.display = 'none';
+    }
+    streamUrls = [];
+  }
+}
+
+function checkStreamContent(iframe) {
+  const connectingDiv = document.getElementById('streamConnecting');
+  
+  try {
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+    
+    const hasVideo = iframeDoc.querySelector('video') || 
+                    iframeDoc.querySelector('.video-js') || 
+                    iframeDoc.querySelector('[id*="video"]') ||
+                    iframeDoc.querySelector('[class*="player"]');
+    
+    if (hasVideo) {
+      iframe.style.display = 'block';
+      if (connectingDiv) {
+        connectingDiv.style.display = 'none';
+      }
+      streamUrls = [];
+      return;
+    }
+  } catch (e) {
+    console.log('Cannot access iframe content (cross-origin), assuming external stream');
+    iframe.style.display = 'block';
+    if (connectingDiv) {
+      connectingDiv.style.display = 'none';
+    }
+  }
+  
+  setTimeout(() => {
+    if (streamUrls.length > 0) {
+      tryNextStream();
+    } else {
+      iframe.style.display = 'block';
+      if (connectingDiv) {
+        connectingDiv.style.display = 'none';
+      }
+    }
+  }, 1000);
+}
+
+async function startStreamTesting(homeTeamName, awayTeamName) {
+  const homeNormalized = normalizeTeamName(homeTeamName);
+  const awayNormalized = normalizeTeamName(awayTeamName);
+  
+  const pageUrls = [
+    `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`
+  ];
+  
+  streamUrls = [];
+  
+  const extractionPromises = pageUrls.map(async (url) => {
+    try {
+      const videoUrl = await extractVideoPlayerUrl(url);
+      return videoUrl;
+    } catch (error) {
+      console.error(`Error extracting from ${url}:`, error);
+      return null;
+    }
+  });
+  
+  const extractedUrls = await Promise.all(extractionPromises);
+  
+  extractedUrls.forEach(url => {
+    if (url) {
+      streamUrls.push(url);
+      console.log(`Extracted video URL: ${url}`);
+    }
+  });
+  
+  if (streamUrls.length === 0) {
+    console.log('No video URLs extracted, using page URLs directly');
+    streamUrls = pageUrls;
+  }
+  
+  currentStreamIndex = 0;
+  
+  setTimeout(() => {
+    tryNextStream();
+  }, 300);
+}
+
+// Function to get stream ID based on team names or default to common IDs
+function getStreamId(homeTeam, awayTeam) {
+  // Common stream IDs for different types of matches
+  const commonStreamIds = ['1011', '1012', '1013', '1014', '1015'];
+  
+  // For now, use a hash-based approach to get consistent stream ID for same teams
+  const teamString = `${homeTeam.toLowerCase()}-${awayTeam.toLowerCase()}`;
+  const hash = teamString.split('').reduce((a, b) => {
+    a = ((a << 5) - a) + b.charCodeAt(0);
+    return a & a;
+  }, 0);
+  
+  const index = Math.abs(hash) % commonStreamIds.length;
+  return commonStreamIds[index];
+}
+
+async function renderStreamEmbed(gameId) {
   const streamContainer = document.getElementById("streamEmbed");
   if (!streamContainer) return;
 
@@ -1715,23 +1385,54 @@ function renderStreamEmbed(gameId) {
     return;
   }
 
-  // Get team names from the current scoreboard data stored globally
-  // We'll extract from the rendered content for now
-  const homeTeamElement = document.querySelector('.team-name');
-  const awayTeamElement = document.querySelectorAll('.team-name')[1];
+  // Get team names from global data first, then API if needed
+  let homeTeamName = '';
+  let awayTeamName = '';
   
-  if (!homeTeamElement || !awayTeamElement) {
-    streamContainer.innerHTML = '';
-    return;
+  // Try to use globally stored data first
+  if (window.currentGameData && window.currentGameData.__gamepackage__) {
+    const homeTeam = window.currentGameData.__gamepackage__.homeTeam.team;
+    const awayTeam = window.currentGameData.__gamepackage__.awayTeam.team;
+    
+    homeTeamName = homeTeam.displayName;
+    awayTeamName = awayTeam.displayName;
+    
+    console.log('Stream Debug - Using global data - Home team:', homeTeamName);
+    console.log('Stream Debug - Using global data - Away team:', awayTeamName);
+  } else {
+    // Fallback to API call if global data not available
+    try {
+      const SCOREBOARD_API_URL = `https://cdn.espn.com/core/soccer/lineups?xhr=1&gameId=${gameId}`;
+      const response = await fetch(SCOREBOARD_API_URL);
+      const scoreboardData = await response.json();
+      
+      const homeTeam = scoreboardData.__gamepackage__.homeTeam.team;
+      const awayTeam = scoreboardData.__gamepackage__.awayTeam.team;
+      
+      homeTeamName = homeTeam.displayName;
+      awayTeamName = awayTeam.displayName;
+      
+      console.log('Stream Debug - API call - Home team:', homeTeamName);
+      console.log('Stream Debug - API call - Away team:', awayTeamName);
+      
+    } catch (error) {
+      console.error('Error fetching team names for stream:', error);
+      // Final fallback to DOM scraping
+      const homeTeamElement = document.querySelector('.team-name');
+      const awayTeamElement = document.querySelectorAll('.team-name')[1];
+      
+      if (!homeTeamElement || !awayTeamElement) {
+        streamContainer.innerHTML = '';
+        return;
+      }
+
+      homeTeamName = homeTeamElement.textContent.trim();
+      awayTeamName = awayTeamElement.textContent.trim();
+      console.log('Stream Debug - DOM fallback - Home team:', homeTeamName);
+      console.log('Stream Debug - DOM fallback - Away team:', awayTeamName);
+    }
   }
 
-  const homeTeamName = homeTeamElement.textContent.trim();
-  const awayTeamName = awayTeamElement.textContent.trim();
-
-  const homeNormalized = normalizeTeamName(homeTeamName);
-  const awayNormalized = normalizeTeamName(awayTeamName);
-  
-  const streamUrl = `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`;
   const isSmallScreen = window.innerWidth < 525;
   const screenHeight = isSmallScreen ? 250 : 700;
   
@@ -1748,7 +1449,7 @@ function renderStreamEmbed(gameId) {
       <div class="stream-iframe-container" style="position: relative; width: 100%; margin: 0 auto; overflow: hidden;">
         <iframe 
           id="streamIframe"
-          src="${streamUrl}"
+          src="about:blank"
           width="100%" 
           height="${screenHeight}"
           style="aspect-ratio: 16/9; background: #000; display: none; margin-bottom: 50px;"
@@ -1761,9 +1462,15 @@ function renderStreamEmbed(gameId) {
         </iframe>
       </div>
   `;
+
+  // Start the stream testing process
+  if (homeTeamName && awayTeamName) {
+    console.log('Starting stream testing for:', homeTeamName, 'vs', awayTeamName);
+    await startStreamTesting(homeTeamName, awayTeamName);
+  }
 }
 
-// Stream control functions (adapted from NBA)
+// Stream control functions (adapted from CWC/MLB)
 window.toggleFullscreen = function() {
   const iframe = document.getElementById('streamIframe');
   
@@ -1782,11 +1489,32 @@ window.handleStreamLoad = function() {
   const iframe = document.getElementById('streamIframe');
   const connectingDiv = document.getElementById('streamConnecting');
   
-  if (iframe && connectingDiv) {
+  // Clear any existing timeout
+  if (streamTestTimeout) {
+    clearTimeout(streamTestTimeout);
+    streamTestTimeout = null;
+  }
+  
+  if (iframe.src !== 'about:blank') {
     setTimeout(() => {
-      connectingDiv.style.display = 'none';
       iframe.style.display = 'block';
-    }, 2000);
+      if (connectingDiv) {
+        connectingDiv.style.display = 'none';
+      }
+    }, 1000);
+  }
+  
+  if (streamUrls.length > 0 && iframe.src !== 'about:blank') {
+    setTimeout(() => {
+      checkStreamContent(iframe);
+    }, 1500);
+  } else {
+    if (iframe.src !== 'about:blank') {
+      iframe.style.display = 'block';
+      if (connectingDiv) {
+        connectingDiv.style.display = 'none';
+      }
+    }
   }
 };
 
@@ -1812,7 +1540,7 @@ window.showStats = function() {
   if (streamContainer) {
     const gameId = getQueryParam("gameId");
     if (gameId) {
-      renderStreamEmbed(gameId);
+      renderStreamEmbed(gameId).catch(console.error);
     }
   }
 };
@@ -1837,22 +1565,14 @@ window.showPlays = function() {
 fetchAndRenderTopScoreboard();
 setInterval(fetchAndRenderTopScoreboard, 2000);
 
-// Initialize stream and plays functionality
-document.addEventListener("DOMContentLoaded", function() {
-  const gameId = getQueryParam("gameId");
-  
-  if (gameId) {
-    // Initialize stream on stats tab
-    renderStreamEmbed(gameId);
-    
-    // Set up content slider
-    document.getElementById('statsBtn').addEventListener('click', showStats);
-    document.getElementById('playsBtn').addEventListener('click', showPlays);
-    
-    // Default to stats tab
-    showStats();
-  }
-});
+// Initialize stream on page load
+const gameId = getQueryParam("gameId");
+if (gameId) {
+  // Load stream after a short delay to ensure DOM is ready
+  setTimeout(() => {
+    renderStreamEmbed(gameId).catch(console.error);
+  }, 1000);
+}
 
 document.addEventListener("mouseover", (event) => {
   const hoverTarget = event.target.closest("[data-hover-id]");
