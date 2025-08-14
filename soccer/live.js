@@ -4,6 +4,8 @@ const LEAGUES = {
   "Bundesliga": { code: "ger.1", logo: "10" },
   "Serie A": { code: "ita.1", logo: "12" },
   "Ligue 1": { code: "fra.1", logo: "9" },
+  "MLS": { code: "usa.1", logo: "19" },
+  "Saudi PL": { code: "ksa.1", logo: "2488" }
 };
 
 let currentLeague = localStorage.getItem("currentLeague") || "eng.1"; // Default to Premier League if not set
@@ -169,6 +171,45 @@ async function fetchGameDetails(gameId, competition) {
   }
 }
 
+function setupMobileScrolling(container) {
+  // Remove any existing mobile styles first
+  const existingStyle = document.getElementById("mobile-scroll-style");
+  if (existingStyle) {
+    existingStyle.remove();
+  }
+
+  // Add horizontal scroll styling for mobile devices
+  if (window.innerWidth < 768) {
+    // Hide scrollbar for webkit browsers and add mobile-specific styles
+    const style = document.createElement("style");
+    style.textContent = `
+      .league-buttons::-webkit-scrollbar {
+        display: none;
+      }
+      @media (max-width: 767px) {
+        .league-buttons {
+          overflow-x: auto !important;
+          justify-content: flex-start !important;
+          scroll-behavior: smooth;
+          padding: 0 10px;
+          -webkit-overflow-scrolling: touch;
+          min-height: 50px;
+        }
+        .league-button {
+          flex-shrink: 0 !important;
+          white-space: nowrap;
+        }
+      }
+    `;
+    style.id = "mobile-scroll-style";
+    document.head.appendChild(style);
+    
+    // Apply container styles directly
+    container.style.scrollbarWidth = "none"; // Firefox
+    container.style.msOverflowStyle = "none"; // IE/Edge
+  }
+}
+
 function setupLeagueButtons() {
   const leagueContainer = document.getElementById("leagueButtons");
   if (!leagueContainer) {
@@ -177,6 +218,9 @@ function setupLeagueButtons() {
   }
 
   leagueContainer.innerHTML = ""; // Clear any existing content
+  
+  // Add horizontal scroll styling for mobile
+  setupMobileScrolling(leagueContainer);
 
   for (const [leagueName, leagueData] of Object.entries(LEAGUES)) {
     const button = document.createElement("button");
@@ -206,6 +250,13 @@ function setupLeagueButtons() {
 
 function updateLeagueButtonDisplay() {
   const isSmallScreen = window.innerWidth < 525;
+  const leagueContainer = document.getElementById("leagueButtons");
+  
+  // Update mobile scrolling styles
+  if (leagueContainer) {
+    setupMobileScrolling(leagueContainer);
+  }
+  
   document.querySelectorAll(".league-button").forEach(button => {
     const text = button.querySelector(".league-text");
     const logo = button.querySelector(".league-logo");

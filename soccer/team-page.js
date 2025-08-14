@@ -22,6 +22,8 @@ const LEAGUES = {
   "Bundesliga": { code: "ger.1", logo: "10" },
   "Serie A": { code: "ita.1", logo: "12" },
   "Ligue 1": { code: "fra.1", logo: "9" },
+  "MLS": { code: "usa.1", logo: "20" },
+  "Saudi PL": { code: "ksa.1", logo: "21" }
 };
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
@@ -171,7 +173,7 @@ async function loadTeamInfo() {
     const logoUrl = getTeamLogo(currentTeam);
     
     // Get team color dynamically from API (like teams.js)
-    const isUsingAlternateColor = ["ffffff", "ffee00", "ffff00", "81f733", "000000"].includes(currentTeam.color);
+    const isUsingAlternateColor = ["ffffff", "ffee00", "ffff00", "81f733", "000000", "f7f316", "eef209", "ece83a"].includes(currentTeam.color);
     if (currentTeam) {
       if (isUsingAlternateColor && currentTeam.alternateColor) {
         teamColor = `#${currentTeam.alternateColor}`;
@@ -182,8 +184,8 @@ async function loadTeamInfo() {
     
     // Determine text color based on the actual color being used
     const actualColorHex = isUsingAlternateColor ? currentTeam.alternateColor : currentTeam.color;
-    const nameColorChange = ["ffffff", "ffee00", "ffff00", "81f733", "ffef32"].includes(actualColorHex) ? "black" : "white";
-    
+    const nameColorChange = ["ffffff", "ffee00", "ffff00", "81f733", "ffef32", "f7f316"].includes(actualColorHex) ? "black" : "white";
+
     const leagueName = Object.keys(LEAGUES).find(key => LEAGUES[key].code === currentLeague);
     
     // Set the background color of the team info section
@@ -728,13 +730,46 @@ async function loadCurrentStanding() {
 async function loadSquadInfo() {
   try {
     await loadTeamInfo(); // Ensure team info is loaded first
-    // Try to load roster data if available
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams/${currentTeamId}/roster`);
-    const data = await response.json();
+    
+    // Try to load roster data starting with current year, fallback to previous year
+    const currentYear = new Date().getFullYear();
+    const previousYear = currentYear - 1;
+    
+    let data = null;
+    let seasonUsed = currentYear;
+    
+    // First try current year
+    console.log(`Trying to load roster for season ${currentYear}...`);
+    let response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams/${currentTeamId}/roster?season=${currentYear}`);
+    
+    if (response.ok) {
+      const responseData = await response.json();
+      if (responseData.athletes && responseData.athletes.length > 0) {
+        data = responseData;
+        console.log(`Successfully loaded roster for season ${currentYear}`);
+      } else {
+        console.log(`No roster data found for season ${currentYear}, trying previous year...`);
+      }
+    }
+    
+    // If current year failed or returned empty, try previous year
+    if (!data || !data.athletes || data.athletes.length === 0) {
+      console.log(`Trying to load roster for season ${previousYear}...`);
+      response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams/${currentTeamId}/roster?season=${previousYear}`);
+      
+      if (response.ok) {
+        const responseData = await response.json();
+        if (responseData.athletes && responseData.athletes.length > 0) {
+          data = responseData;
+          seasonUsed = previousYear;
+          console.log(`Successfully loaded roster for season ${previousYear}`);
+        }
+      }
+    }
     
     const contentDiv = document.getElementById('squadInfoContent');
     
-    if (!data.athletes || data.athletes.length === 0) {
+    if (!data || !data.athletes || data.athletes.length === 0) {
       contentDiv.innerHTML = '<div class="no-data">No squad information available</div>';
       return;
     }
@@ -766,6 +801,7 @@ async function loadSquadInfo() {
         teamAbbr: currentTeam?.abbreviation || currentTeam?.shortDisplayName || 'UNK',
         teamId: currentTeamId, // Add team ID for current team players
         league: currentLeague,
+        season: seasonUsed, // Add the season that was successfully used
         // Store the complete player data including statistics for later use
         fullPlayerData: player,
         statistics: player.statistics || null
@@ -833,9 +869,17 @@ function displayRosterPlayers() {
       }
       <button onclick="clearComparison()" class="clear-btn">Clear</button>
     </div>` : '';
-  
+
+  // Create season information display
+  const seasonUsed = allRosterPlayers.length > 0 ? allRosterPlayers[0].seasonUsed : null;
+  const seasonInfo = seasonUsed ? 
+    `<div class="season-info">
+      <strong>Season:</strong> ${seasonUsed}
+    </div>` : '';
+
   contentDiv.innerHTML = `
     ${comparisonStatus}
+    ${seasonInfo}
     <div class="roster-list">
       ${playerCards}
     </div>
@@ -1409,7 +1453,7 @@ async function loadPlayerStatsForYear(playerId, position, contentDiv, year) {
         
         // Try the team roster endpoint with stats first
         try {
-          const rosterResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams/${currentTeamId}/roster`);
+          const rosterResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams/${currentTeamId}/roster?season=2025`);
           if (rosterResponse.ok) {
             const rosterData = await rosterResponse.json();
             
@@ -1433,7 +1477,7 @@ async function loadPlayerStatsForYear(playerId, position, contentDiv, year) {
         // If still no stats, try the basic roster endpoint
         if (!selectedPlayer) {
           console.log('Falling back to basic roster endpoint...');
-          const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams/${currentTeamId}/roster`);
+          const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams/${currentTeamId}/roster?season=2025`);
           const data = await response.json();
           
           const apiPlayer = data.athletes?.find(athlete => {
@@ -1703,7 +1747,7 @@ async function fetchAllSoccerPlayers() {
     if (allRosterPlayers.length === 0) {
       console.log('Current team roster not loaded, loading it now...');
       try {
-        const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams/${currentTeamId}/roster`);
+        const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams/${currentTeamId}/roster?season=2025`);
         const data = await response.json();
         
         if (data.athletes && data.athletes.length > 0) {
@@ -1789,7 +1833,7 @@ async function fetchAllSoccerPlayers() {
       const teamPromises = otherTeams.map(async (team) => {
         try {
           const teamId = team.team.id;
-          const rosterResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams/${teamId}/roster`);
+          const rosterResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams/${teamId}/roster?season=2025`);
           const rosterData = await rosterResponse.json();
           
           if (rosterData.athletes) {
@@ -2267,7 +2311,7 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
           console.log('Season team data:', seasonTeamData);
           
           // Apply the same team color logic as in loadTeamInfo()
-          const isUsingAlternateColor = ["ffffff", "ffee00", "ffff00", "81f733", "000000"].includes(seasonTeamData.color);
+          const isUsingAlternateColor = ["ffffff", "ffee00", "ffff00", "81f733", "000000", "f7f316", "eef209", "ece83a"].includes(seasonTeamData.color);
           if (isUsingAlternateColor && seasonTeamData.alternateColor) {
             seasonTeamColor = `#${seasonTeamData.alternateColor}`;
           } else if (seasonTeamData.color) {
@@ -2780,7 +2824,7 @@ async function loadPlayerStatsForComparison(playerId) {
       // Now we need to fetch the specific team's roster to get statistics
       // But only make ONE API call for the specific team, not all teams
       try {
-        const teamRosterResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams/${targetPlayer.teamId || 'unknown'}/roster`);
+        const teamRosterResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams/${targetPlayer.teamId || 'unknown'}/roster?season=2025`);
         if (teamRosterResponse.ok) {
           const teamRosterData = await teamRosterResponse.json();
           const playerWithStats = teamRosterData.athletes?.find(athlete => {
@@ -3190,7 +3234,9 @@ function getLeagueName(leagueCode) {
     'esp.1': 'La Liga',
     'ger.1': 'Bundesliga',
     'ita.1': 'Serie A',
-    'fra.1': 'Ligue 1'
+    'fra.1': 'Ligue 1',
+    'usa.1': 'MLS',
+    'ksa.1': 'Saudi PL'
   };
   return leagueNames[leagueCode] || leagueCode;
 }

@@ -53,7 +53,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 
 - **Team Tracker**  
   - All 30 teams shown at once for MLB and NBA, all 13 teams shown at once for WNBA, all 32 teams shown at once for NHL and NFL
-  - Includes all teams from Premier League, La Liga, Bundesliga, Serie A and Ligue 1. For UEFA, it includes teams currently in Champions League, Europa League and Europa Conference League
+  - Includes all teams from Premier League, La Liga, Bundesliga, Serie A, Ligue 1, MLS and Saudi Pro League. For UEFA, it includes teams currently in Champions League, Europa League and Europa Conference League
   - See each team's game status
   - Click on a team logo to get a unique URL for OBS
   - For F1: All 10 constructor teams displayed with official 2025 car liveries, team colors, driver lineups, championship positions, and detailed statistics including points, wins, and gap to championship leader. Full OBS integration with individual team overlays for streaming.

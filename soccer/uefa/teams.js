@@ -131,9 +131,9 @@ async function fetchAndDisplayTeams() {
 }
 
 function buildNoGameCard(team) {
-    const logoUrl = ["367", "2950"].includes(team.id)
-    ? team.logos?.find(logo => logo.rel.includes("default"))?.href || ""
-    : team.logos?.find(logo => logo.rel.includes("dark"))?.href || `https://a.espncdn.com/i/teamlogos/soccer/500/${team.id}.png`;
+    const logoUrl = ["367", "2950", "111"].includes(team.id)
+    ? team.logos?.find(logo => logo.rel.includes("dark"))?.href || ""
+    : team.logos?.find(logo => logo.rel.includes("default"))?.href || `https://a.espncdn.com/i/teamlogos/soccer/500/${team.id}.png`;
     
   return `
     <div class="game-card no-game-card">
@@ -184,7 +184,7 @@ function buildGameCard(game, team) {
     };
   
     const getTeamLogo = (team) => {
-      if (["367", "111"].includes(team.id)) {
+      if (["367", "111", "2950"].includes(team.id)) {
         return `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${team.id}.png`;
       } else if (team.id === "436") {
         return `https://a.espncdn.com/i/teamlogos/soccer/500/${team.id}.png`;

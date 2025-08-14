@@ -4,6 +4,8 @@ const LEAGUES = {
   "Bundesliga": { code: "ger.1", logo: "10" },
   "Serie A": { code: "ita.1", logo: "12" },
   "Ligue 1": { code: "fra.1", logo: "9" },
+  "MLS": { code: "usa.1", logo: "19" },
+  "Saudi PL": { code: "ksa.1", logo: "2488" }
 };
 
 const NOTE_COLORS = {
@@ -44,12 +46,27 @@ async function fetchStandings() {
     lastStandingsHash = newHash;
 
     const data = JSON.parse(standingsText);
-    const standings = data.content.standings.groups[0].standings.entries;
+    
+    // Check if this is MLS which has Eastern and Western conferences
+    const isMLS = currentLeague === "usa.1";
+    
+    if (isMLS && data.content.standings.groups.length >= 2) {
+      // MLS has conferences - render both Eastern and Western
+      const easternConference = data.content.standings.groups[0];
+      const westernConference = data.content.standings.groups[1];
+      
+      renderMLSConferences(easternConference, westernConference);
+    } else {
+      // Regular single table standings for other leagues
+      const standings = data.content.standings.groups[0].standings.entries;
 
-    const container = document.getElementById("standingsContainer");
-    if (!container) {
-      console.error("Error: Element with ID 'standingsContainer' not found.");
-      return;
+      const container = document.getElementById("standingsContainer");
+      if (!container) {
+        console.error("Error: Element with ID 'standingsContainer' not found.");
+        return;
+      }
+      
+      renderStandings(standings, "standingsContainer");
     }
 
     // Update the header to reflect the current league and season
@@ -133,13 +150,46 @@ async function fetchStandings() {
       }
     }
 
-    renderStandings(standings, "standingsContainer");
-
     // Save the current league and season to localStorage
     localStorage.setItem("currentLeague", currentLeague);
     localStorage.setItem("currentSeason", currentSeason);
   } catch (error) {
     console.error(`Error fetching standings for league ${currentLeague} season ${currentSeason}:`, error);
+  }
+}
+
+function renderMLSConferences(easternConference, westernConference) {
+  // Clear the main container and set up conference structure
+  const mainContainer = document.getElementById("standingsContainer");
+  if (!mainContainer) {
+    console.error("Error: Element with ID 'standingsContainer' not found.");
+    return;
+  }
+
+  mainContainer.innerHTML = `
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; max-width: 100%; overflow-x: auto;">
+      <div style="min-width: 0; max-width: calc(50vw - 40px);">
+        <h3 style="text-align: center; margin-bottom: 15px; color: #333; font-size: 1.3rem;">Eastern Conference</h3>
+        <div id="easternConferenceStandings"></div>
+      </div>
+      <div style="min-width: 0; max-width: calc(50vw - 40px);">
+        <h3 style="text-align: center; margin-bottom: 15px; color: #333; font-size: 1.3rem;">Western Conference</h3>
+        <div id="westernConferenceStandings"></div>
+      </div>
+    </div>
+  `;
+
+  // Render each conference
+  renderStandings(easternConference.standings.entries, "easternConferenceStandings");
+  renderStandings(westernConference.standings.entries, "westernConferenceStandings");
+  
+  // Make responsive for mobile
+  if (window.innerWidth <= 768) {
+    const gridContainer = mainContainer.querySelector('div[style*="grid-template-columns"]');
+    if (gridContainer) {
+      gridContainer.style.gridTemplateColumns = '1fr';
+      gridContainer.style.gap = '30px';
+    }
   }
 }
 
@@ -189,7 +239,7 @@ function renderStandings(standings, containerId) {
     const goalsAgainst = stats.find(stat => stat.name === "pointsAgainst")?.displayValue || "0";
     const points = stats.find(stat => stat.name === "points")?.displayValue || "0";
 
-    const displayName = window.innerWidth <= 475 ? team.shortDisplayName : team.displayName;
+    const displayName = window.innerWidth <= 525 ? team.shortDisplayName : team.displayName;
 
     const row = document.createElement("tr");
 
@@ -200,7 +250,7 @@ function renderStandings(standings, containerId) {
       row.style.backgroundColor = customColor;
 
       // Determine text color based on background color
-      if (["#81D6AC", "#ADD8E6", "#FFFF00"].includes(customColor)) {
+      if (["#81D6AC", "#ADD8E6", "#FFFF00", "#B5E7CE", "#B2BFD0"].includes(customColor)) {
         textColor = "black";
       }
 
@@ -209,7 +259,7 @@ function renderStandings(standings, containerId) {
 
     row.innerHTML = `
       <td class="team-name" style="color: ${textColor};">
-        <img src="https://a.espncdn.com/i/teamlogos/soccer/500-dark/${team.id}.png" alt="${team.displayName}" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
+        <img src="https://a.espncdn.com/i/teamlogos/soccer/500-dark/${team.id}.png" alt="${team.displayName}" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;" onerror="this.onerror=null; this.src='soccer-ball-png-24.png';">
         ${displayName}
       </td>
       <td style="color: ${textColor};">${gamesPlayed}</td>
@@ -244,6 +294,45 @@ function renderStandings(standings, containerId) {
   }
 }
 
+function setupMobileScrolling(container) {
+  // Remove any existing mobile styles first
+  const existingStyle = document.getElementById("mobile-scroll-style");
+  if (existingStyle) {
+    existingStyle.remove();
+  }
+
+  // Add horizontal scroll styling for mobile devices
+  if (window.innerWidth < 768) {
+    // Hide scrollbar for webkit browsers and add mobile-specific styles
+    const style = document.createElement("style");
+    style.textContent = `
+      .league-buttons::-webkit-scrollbar {
+        display: none;
+      }
+      @media (max-width: 767px) {
+        .league-buttons {
+          overflow-x: auto !important;
+          justify-content: flex-start !important;
+          scroll-behavior: smooth;
+          padding: 0 10px;
+          -webkit-overflow-scrolling: touch;
+          min-height: 50px;
+        }
+        .league-button {
+          flex-shrink: 0 !important;
+          white-space: nowrap;
+        }
+      }
+    `;
+    style.id = "mobile-scroll-style";
+    document.head.appendChild(style);
+    
+    // Apply container styles directly
+    container.style.scrollbarWidth = "none"; // Firefox
+    container.style.msOverflowStyle = "none"; // IE/Edge
+  }
+}
+
 function setupLeagueButtons() {
   const leagueContainer = document.getElementById("leagueButtons");
   if (!leagueContainer) {
@@ -252,6 +341,9 @@ function setupLeagueButtons() {
   }
 
   leagueContainer.innerHTML = ""; // Clear any existing content
+  
+  // Add horizontal scroll styling for mobile
+  setupMobileScrolling(leagueContainer);
 
   for (const [leagueName, leagueData] of Object.entries(LEAGUES)) {
     const button = document.createElement("button");
@@ -286,6 +378,13 @@ function setupSeasonSelector() {
 
 function updateLeagueButtonDisplay() {
   const isSmallScreen = window.innerWidth < 525;
+  const leagueContainer = document.getElementById("leagueButtons");
+  
+  // Update mobile scrolling styles
+  if (leagueContainer) {
+    setupMobileScrolling(leagueContainer);
+  }
+  
   document.querySelectorAll(".league-button").forEach(button => {
     const text = button.querySelector(".league-text");
     const logo = button.querySelector(".league-logo");
@@ -297,6 +396,28 @@ function updateLeagueButtonDisplay() {
       logo.style.display = "none";
     }
   });
+  
+  // Also update MLS conference layout if it exists
+  const mlsGrid = document.querySelector('#standingsContainer div[style*="grid-template-columns"]');
+  if (mlsGrid) {
+    if (window.innerWidth <= 768) {
+      mlsGrid.style.gridTemplateColumns = '1fr';
+      mlsGrid.style.gap = '30px';
+      // Reset max-width for mobile stacked layout
+      const conferenceContainers = mlsGrid.querySelectorAll('div[style*="max-width"]');
+      conferenceContainers.forEach(container => {
+        container.style.maxWidth = '100%';
+      });
+    } else {
+      mlsGrid.style.gridTemplateColumns = '1fr 1fr';
+      mlsGrid.style.gap = '15px';
+      // Apply max-width for desktop side-by-side layout
+      const conferenceContainers = mlsGrid.querySelectorAll('div[style*="min-width"]');
+      conferenceContainers.forEach(container => {
+        container.style.maxWidth = 'calc(50vw - 40px)';
+      });
+    }
+  }
 }
 
 window.addEventListener("resize", updateLeagueButtonDisplay);

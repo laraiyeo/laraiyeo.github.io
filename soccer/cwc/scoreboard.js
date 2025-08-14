@@ -346,8 +346,20 @@ async function fetchAndRenderTopScoreboard() {
 
     // Also fetch commentary data for roster stats
     const COMMENTARY_API_URL = `https://cdn.espn.com/core/soccer/commentary?xhr=1&gameId=${gameId}`;
-    const commentaryResponse = await fetch(COMMENTARY_API_URL);
-    const commentaryData = await commentaryResponse.json();
+    let commentaryData = null;
+    
+    try {
+      const commentaryResponse = await fetch(COMMENTARY_API_URL);
+      if (!commentaryResponse.ok) {
+        throw new Error(`Commentary API responded with status: ${commentaryResponse.status}`);
+      }
+      commentaryData = await commentaryResponse.json();
+    } catch (commentaryError) {
+      console.warn("Failed to fetch commentary data (CORS or network issue):", commentaryError.message);
+      console.warn("Continuing without commentary/roster data...");
+      // Set empty commentary data to avoid breaking the rest of the function
+      commentaryData = { gamepackageJSON: { rosters: [] } };
+    }
 
     // Store data globally for other functions to use (include gamepackageJSON from commentary)
     window.currentGameData = {
@@ -455,7 +467,7 @@ async function fetchAndRenderTopScoreboard() {
       );
     }
   } catch (error) {
-    console.error("Error fetching CWC scoreboard data:", error);
+    console.error("Error fetching scoreboard data:", error);
   }
 }
 
@@ -848,11 +860,41 @@ function getTeamColorWithAlternateLogic(team) {
 async function renderPlayByPlay(gameId) {
   try {
     const COMMENTARY_API_URL = `https://cdn.espn.com/core/soccer/commentary?xhr=1&gameId=${gameId}`;
-    const response = await fetch(COMMENTARY_API_URL);
-    const data = await response.json();
+    
+    let response, data;
+    try {
+      response = await fetch(COMMENTARY_API_URL);
+      if (!response.ok) {
+        throw new Error(`Commentary API responded with status: ${response.status}`);
+      }
+      data = await response.json();
+    } catch (fetchError) {
+      console.warn("Failed to fetch commentary data (CORS or network issue):", fetchError.message);
+      
+      // Hide play-by-play section and show message
+      const playsContainer = document.querySelector('.plays-container');
+      if (playsContainer) {
+        playsContainer.innerHTML = `
+          <div style="text-align: center; padding: 20px; color: #666;">
+            <p>Play-by-play commentary is currently unavailable</p>
+            <p style="font-size: 0.9em;">This may be due to CORS restrictions or network issues</p>
+          </div>
+        `;
+      }
+      return; // Exit early if commentary fetch fails
+    }
     
     if (!data.gamepackageJSON || !data.gamepackageJSON.commentary) {
-      throw new Error("No commentary data available");
+      console.warn("No commentary data available in response");
+      const playsContainer = document.querySelector('.plays-container');
+      if (playsContainer) {
+        playsContainer.innerHTML = `
+          <div style="text-align: center; padding: 20px; color: #666;">
+            <p>No commentary data available for this match</p>
+          </div>
+        `;
+      }
+      return;
     }
 
     const commentary = data.gamepackageJSON.commentary;
@@ -883,61 +925,135 @@ async function renderPlayByPlay(gameId) {
         return new Date(bTime) - new Date(aTime); // Most recent first
       }
       
-      // Try to sort by clock time (higher minute = more recent)
+      // Try to sort by clock.value (higher value = more recent)
       const aClock = a.clock || (a.play && a.play.clock);
       const bClock = b.clock || (b.play && b.play.clock);
       
-      if (aClock && bClock && aClock.displayValue && bClock.displayValue) {
-        const aMinutes = parseInt(aClock.displayValue) || 0;
-        const bMinutes = parseInt(bClock.displayValue) || 0;
-        
-        if (aMinutes !== bMinutes) {
-          return bMinutes - aMinutes; // Higher minute = more recent
-        }
+      if (aClock && bClock && aClock.value !== undefined && bClock.value !== undefined) {
+        return bClock.value - aClock.value; // Higher clock value = more recent
       }
       
-      // Fallback to sequence number (highest to lowest for reverse chronological)
-      return b.sequence - a.sequence;
+      // Fallback to sequence number if available (highest to lowest for reverse chronological)
+      if (a.sequence !== undefined && b.sequence !== undefined) {
+        return b.sequence - a.sequence;
+      }
+      
+      // Final fallback: maintain original order
+      return 0;
     });
     
-    // Track score throughout the match by sequence
-    let currentHomeScore = homeScore;
-    let currentAwayScore = awayScore;
+    // Track score throughout the match using counter logic based on type.text
+    let homeGoalCount = 0;
+    let awayGoalCount = 0;
     
-    // First pass: collect all goal events with their sequences and scores
+    // First pass: process all plays to count goals based on type.text field
     const goalEvents = [];
-    sortedCommentary.forEach(play => {
-      const playData = play.play || play;
-      const isScoring = play.scoringPlay === true || playData.scoringPlay === true || 
-                       (playData.type && playData.type.text && playData.type.text.toLowerCase().includes('goal')) ||
-                       (play.text && play.text.toLowerCase().includes('goal!')) ||
-                       (playData.shortText && playData.shortText.toLowerCase().includes('goal'));
+    
+    // Sort commentary in chronological order (oldest first) for proper goal counting
+    const chronologicalCommentary = [...sortedCommentary].sort((a, b) => {
+      // Sort by sequence number if available (ascending for chronological order)
+      if (a.sequence !== undefined && b.sequence !== undefined) {
+        return a.sequence - b.sequence;
+      }
       
-      if (isScoring && play.text && play.text.includes('Goal!')) {
-        // Extract scores using regex pattern for "Team 1, Team 0" format
-        const scoreMatch = play.text.match(/(\d+),.*?(\d+)/);
-        if (scoreMatch) {
-          const homeScoreAfter = parseInt(scoreMatch[1]);
-          const awayScoreAfter = parseInt(scoreMatch[2]);
+      // Fallback to clock.value if no sequence (ascending for chronological order)
+      const aClock = a.clock || (a.play && a.play.clock);
+      const bClock = b.clock || (b.play && b.play.clock);
+      
+      if (aClock && bClock && aClock.value !== undefined && bClock.value !== undefined) {
+        return aClock.value - bClock.value; // Lower clock value = earlier
+      }
+      
+      // Final fallback: maintain original order
+      return 0;
+    });
+    
+    chronologicalCommentary.forEach(play => {
+      const playData = play.play || play;
+      
+      // Check for goal using type.id field (70, 137, or 98)
+      const isGoal = playData.type && playData.type.id && 
+                     ['70', '137', '98'].includes(playData.type.id.toString());
+      
+      // Check for goal deletion/overturned
+      const isGoalDeleted = playData.text && playData.text.toLowerCase().includes('deleted after review');
+      
+      if (isGoal) {
+        // Determine which team scored using team.displayName
+        let scoringTeam = null;
+        
+        if (playData.team && playData.team.displayName) {
+          if (playData.team.displayName === homeTeam.team.displayName) {
+            scoringTeam = 'home';
+          } else if (playData.team.displayName === awayTeam.team.displayName) {
+            scoringTeam = 'away';
+          }
+        }
+        
+        if (scoringTeam === 'home') {
+          homeGoalCount++;
+          console.log(`Goal scored by home team (${homeTeam.team.displayName}) at sequence ${play.sequence}. Score: ${homeGoalCount}-${awayGoalCount}`);
+        } else if (scoringTeam === 'away') {
+          awayGoalCount++;
+          console.log(`Goal scored by away team (${awayTeam.team.displayName}) at sequence ${play.sequence}. Score: ${homeGoalCount}-${awayGoalCount}`);
+        }
+        
+        goalEvents.push({
+          sequence: play.sequence || null,
+          clockValue: (play.clock || (play.play && play.play.clock))?.value || null,
+          homeScoreAfter: homeGoalCount,
+          awayScoreAfter: awayGoalCount,
+          scoringTeam: scoringTeam
+        });
+      } else if (isGoalDeleted) {
+        // Handle deleted/overturned goals - subtract from the appropriate team
+        if (playData.team && playData.team.displayName) {
+          if (playData.team.displayName === homeTeam.team.displayName && homeGoalCount > 0) {
+            homeGoalCount--;
+            console.log(`Home team goal deleted at sequence ${play.sequence}. Score: ${homeGoalCount}-${awayGoalCount}`);
+          } else if (playData.team.displayName === awayTeam.team.displayName && awayGoalCount > 0) {
+            awayGoalCount--;
+            console.log(`Away team goal deleted at sequence ${play.sequence}. Score: ${homeGoalCount}-${awayGoalCount}`);
+          }
+          
           goalEvents.push({
-            sequence: play.sequence,
-            homeScoreAfter: homeScoreAfter,
-            awayScoreAfter: awayScoreAfter
+            sequence: play.sequence || null,
+            clockValue: (play.clock || (play.play && play.play.clock))?.value || null,
+            homeScoreAfter: homeGoalCount,
+            awayScoreAfter: awayGoalCount,
+            isDeleted: true
           });
-          console.log(`Goal at sequence ${play.sequence}: score becomes ${homeScoreAfter}-${awayScoreAfter}`);
         }
       }
     });
 
-    // Sort goals by sequence to ensure chronological order
-    goalEvents.sort((a, b) => a.sequence - b.sequence);
-
-    // Function to get score at any given sequence
-    function getScoreAtSequence(sequence) {
-      // Find the most recent goal before or at this sequence
+    // Function to get score at any given sequence or clock value
+    function getScoreAtSequence(play) {
+      const playSequence = play.sequence;
+      const playClockValue = (play.clock || (play.play && play.play.clock))?.value;
+      
+      // Find the most recent goal event before or at this play
       let mostRecentGoal = null;
       for (const goal of goalEvents) {
-        if (goal.sequence <= sequence) {
+        let isBeforeOrAtThisPlay = false;
+        
+        // Compare by sequence if both have sequence numbers
+        if (playSequence !== undefined && goal.sequence !== undefined) {
+          isBeforeOrAtThisPlay = goal.sequence <= playSequence;
+        }
+        // Compare by clock value if no sequence numbers
+        else if (playClockValue !== undefined && goal.clockValue !== undefined) {
+          isBeforeOrAtThisPlay = goal.clockValue <= playClockValue;
+        }
+        // If only one has sequence/clock, use what's available
+        else if (goal.sequence !== undefined && playSequence !== undefined) {
+          isBeforeOrAtThisPlay = goal.sequence <= playSequence;
+        }
+        else if (goal.clockValue !== undefined && playClockValue !== undefined) {
+          isBeforeOrAtThisPlay = goal.clockValue <= playClockValue;
+        }
+        
+        if (isBeforeOrAtThisPlay) {
           mostRecentGoal = goal;
         } else {
           break; // Goals are sorted, so no need to continue
@@ -957,48 +1073,23 @@ async function renderPlayByPlay(gameId) {
       // Handle nested play structure - check if play.play exists
       const playData = play.play || play;
       
-      // Get the score at the time of this play
-      const isGoalPlay = play.scoringPlay === true || playData.scoringPlay === true ||
-                        (playData.type && playData.type.text && playData.type.text.toLowerCase().includes('goal')) ||
-                        (play.text && play.text.toLowerCase().includes('goal!')) ||
-                        (playData.shortText && playData.shortText.toLowerCase().includes('goal'));
-      let scoreAtThisTime;
+      // Check if this is a goal play using type.id field (70, 137, or 98)
+      const isGoalPlay = playData.type && playData.type.id && 
+                         ['70', '137', '98'].includes(playData.type.id.toString());
       
-      if (isGoalPlay) {
-        // For goal plays, show the score AFTER this goal
-        let scoreAfterGoal = null;
-        for (const goal of goalEvents) {
-          if (goal.sequence <= play.sequence) {
-            scoreAfterGoal = goal;
-          } else {
-            break; // Goals are sorted, so no need to continue
-          }
-        }
-        
-        if (scoreAfterGoal) {
-          scoreAtThisTime = { home: scoreAfterGoal.homeScoreAfter, away: scoreAfterGoal.awayScoreAfter };
-        } else {
-          // This shouldn't happen for a goal play, but fallback to 1-0 or 0-1
-          const teamSide = playData.team?.id === homeTeamId ? 'home' : 'away';
-          scoreAtThisTime = teamSide === 'home' ? { home: 1, away: 0 } : { home: 0, away: 1 };
-        }
-      } else {
-        // For non-goal plays, show the score up to this point (including goals at same sequence)
-        scoreAtThisTime = getScoreAtSequence(play.sequence);
-      }
+      // Get the score at the time of this play using our counter logic
+      let scoreAtThisTime = getScoreAtSequence(play);
       
-      currentHomeScore = scoreAtThisTime.home;
-      currentAwayScore = scoreAtThisTime.away;
+      // Use the calculated scores for display
+      const currentHomeScore = scoreAtThisTime.home;
+      const currentAwayScore = scoreAtThisTime.away;
       
       const period = playData.period ? playData.period.number || playData.period.displayValue : '';
       const clock = play.time ? play.time.displayValue : '';
       const text = play.text || 'No description available';
       
-      // Determine if this is a scoring play - check both levels and more goal patterns
-      const isScoring = play.scoringPlay === true || playData.scoringPlay === true || 
-                       (playData.type && playData.type.text && playData.type.text.toLowerCase().includes('goal')) ||
-                       (text && text.toLowerCase().includes('goal!')) ||
-                       (playData.shortText && playData.shortText.toLowerCase().includes('goal'));
+      // Determine if this is a scoring play using the isGoalPlay we already calculated
+      const isScoring = isGoalPlay;
 
       // Fix goalText to use correct nested structure
       const goalText = isScoring && playData.participants && playData.participants[1] 
