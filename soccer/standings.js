@@ -168,11 +168,11 @@ function renderMLSConferences(easternConference, westernConference) {
 
   mainContainer.innerHTML = `
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; max-width: 100%; overflow-x: auto;">
-      <div style="min-width: 0; max-width: calc(50vw - 40px);">
+      <div style="min-width: 0;">
         <h3 style="text-align: center; margin-bottom: 15px; color: #333; font-size: 1.3rem;">Eastern Conference</h3>
         <div id="easternConferenceStandings"></div>
       </div>
-      <div style="min-width: 0; max-width: calc(50vw - 40px);">
+      <div style="min-width: 0;">
         <h3 style="text-align: center; margin-bottom: 15px; color: #333; font-size: 1.3rem;">Western Conference</h3>
         <div id="westernConferenceStandings"></div>
       </div>
@@ -312,6 +312,7 @@ function setupMobileScrolling(container) {
       @media (max-width: 767px) {
         .league-buttons {
           overflow-x: auto !important;
+          overflow-y: hidden !important;
           justify-content: flex-start !important;
           scroll-behavior: smooth;
           padding: 0 10px;

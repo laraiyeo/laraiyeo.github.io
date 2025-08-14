@@ -46,6 +46,7 @@ function setupMobileScrolling(container) {
       @media (max-width: 767px) {
         .league-buttons {
           overflow-x: auto !important;
+          overflow-y: hidden !important;
           justify-content: flex-start !important;
           scroll-behavior: smooth;
           padding: 0 10px;
