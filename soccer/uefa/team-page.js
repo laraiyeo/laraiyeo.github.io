@@ -375,7 +375,9 @@ async function createCurrentGameCard(game) {
   const isHomeTeam = homeTeam.team.id === currentTeamId;
   const opponent = isHomeTeam ? awayTeam : homeTeam;
   const teamScore = isHomeTeam ? homeTeam.score : awayTeam.score;
+  const teamSHTScore = isHomeTeam ? homeTeam.shootoutScore : awayTeam.shootoutScore;
   const opponentScore = isHomeTeam ? awayTeam.score : homeTeam.score;
+  const opponentSHTScore = isHomeTeam ? awayTeam.shootoutScore : homeTeam.shootoutScore;
 
   const gameDate = new Date(game.date);
   const formattedDate = gameDate.toLocaleDateString("en-US", {
@@ -393,15 +395,18 @@ async function createCurrentGameCard(game) {
   let statusText = "";
   let scoreDisplay = "";
 
+  const teamS = teamSHTScore ? `${teamScore || 0}<sup>(${teamSHTScore || 0})</sup>` : `${teamScore || 0}`;
+  const opponentS = opponentSHTScore ? `${opponentScore || 0}<sup>(${opponentSHTScore || 0})</sup>` : `${opponentScore || 0}`;
+
   if (status === "pre") {
     statusText = `${formattedDate} at ${formattedTime}`;
     scoreDisplay = isHomeTeam ? "vs" : "at";
   } else if (status === "post") {
     statusText = "Final";
-    scoreDisplay = `${teamScore || 0} - ${opponentScore || 0}`;
+    scoreDisplay = `${teamS} - ${opponentS}`;
   } else {
     statusText = game.status.type.shortDetail;
-    scoreDisplay = `${teamScore || 0} - ${opponentScore || 0}`;
+    scoreDisplay = `${teamS} - ${opponentS}`;
   }
 
   const teamLogo = getTeamLogo(currentTeam);
@@ -537,7 +542,9 @@ async function createMatchCard(game, isRecent = false) {
   const opponent = isHomeTeam ? awayTeam : homeTeam;
   const currentTeamData = isHomeTeam ? homeTeam : awayTeam;
   const teamScore = parseInt(isHomeTeam ? homeTeam.score : awayTeam.score) || 0;
+  const teamSHTScore = parseInt(isHomeTeam ? homeTeam.shootoutScore : awayTeam.shootoutScore) || 0;
   const opponentScore = parseInt(isHomeTeam ? awayTeam.score : homeTeam.score) || 0;
+  const opponentSHTScore = parseInt(isHomeTeam ? awayTeam.shootoutScore : homeTeam.shootoutScore) || 0;
 
   const gameDate = new Date(game.date);
   const formattedDate = gameDate.toLocaleDateString("en-US", {
@@ -556,16 +563,19 @@ async function createMatchCard(game, isRecent = false) {
   let resultClass = "";
   let resultText = "";
 
+  const teamS = teamSHTScore ? `${teamScore || 0}<sup>(${teamSHTScore || 0})</sup>` : `${teamScore || 0}`;
+  const opponentS = opponentSHTScore ? `${opponentScore || 0}<sup>(${opponentSHTScore || 0})</sup>` : `${opponentScore || 0}`;
+
   if (game.status.type.state === "post") {
-    if (teamScore > opponentScore) {
+    if (teamScore > opponentScore || teamSHTScore > opponentSHTScore) {
       resultClass = "win";
-      resultText = `W ${teamScore}-${opponentScore}`;
-    } else if (teamScore < opponentScore) {
+      resultText = `W ${teamS} - ${opponentS}`;
+    } else if (teamScore < opponentScore || teamSHTScore < opponentSHTScore) {
       resultClass = "loss";
-      resultText = `L ${teamScore}-${opponentScore}`;
+      resultText = `L ${teamS} - ${opponentS}`;
     } else {
       resultClass = "draw";
-      resultText = `D ${teamScore}-${opponentScore}`;
+      resultText = `D ${teamS} - ${opponentS}`;
     }
   } else {
     resultClass = "scheduled";
@@ -2167,6 +2177,11 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
     
     const teamScore = teamCompetitor.score || "0";
     const opponentScore = opponentCompetitor.score || "0";
+    const teamSHTScore = teamCompetitor.shootoutScore || "0";
+    const opponentSHTScore = opponentCompetitor.shootoutScore || "0";
+
+    const teamS = teamSHTScore ? `${teamSHTScore} <sup>(${teamScore})</sup>` : teamScore;
+    const opponentS = opponentSHTScore ? `${opponentSHTScore} <sup>(${opponentScore})</sup>` : opponentScore;
     const isHomeTeam = teamCompetitor.homeAway === 'home';
     
     // Get season-specific team information and colors
@@ -2212,9 +2227,12 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
     if (game.status.type.state === 'post') {
       const teamScoreInt = parseInt(teamScore);
       const opponentScoreInt = parseInt(opponentScore);
-      if (teamScoreInt > opponentScoreInt) {
+      const teamSHTScoreInt = parseInt(teamSHTScore);
+      const opponentSHTScoreInt = parseInt(opponentSHTScore);
+
+      if (teamScoreInt > opponentScoreInt || teamSHTScoreInt > opponentSHTScoreInt) {
         gameResult = 'W';
-      } else if (teamScoreInt < opponentScoreInt) {
+      } else if (teamScoreInt < opponentScoreInt || teamSHTScoreInt < opponentSHTScoreInt) {
         gameResult = 'L';
       } else {
         gameResult = 'D';
@@ -2332,9 +2350,9 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.15)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.1)'" onclick="window.open('scoreboard.html?gameId=${game.id}', '_blank')">
           <div style="display: flex; align-items: center; gap: 15px;">
             <img src="${teamLogo}" alt="${seasonTeamName}" style="height: 30px;" onerror="this.src='../soccer-ball-png-24.png';">
-            <span style="font-size: 1.1rem; font-weight: bold; color: ${gameResult === 'W' ? '#fff' : '#ccc'};">${teamScore}</span>
+            <span style="font-size: 1.1rem; font-weight: bold; color: ${gameResult === 'W' ? '#fff' : '#ccc'};">${teamS}</span>
             <span style="color: #ccc;">-</span>
-            <span style="font-size: 1.1rem; font-weight: bold; color: ${gameResult === 'L' ? '#fff' : '#ccc'};">${opponentScore}</span>
+            <span style="font-size: 1.1rem; font-weight: bold; color: ${gameResult === 'L' ? '#fff' : '#ccc'};">${opponentS}</span>
             <img src="${opponentLogo}" alt="${opponentCompetitor.team.displayName}" style="height: 30px;" onerror="this.src='../soccer-ball-png-24.png';">
             ${gameResult ? `<span style="font-weight: bold; color: ${gameResult === 'W' ? '#4CAF50' : gameResult === 'L' ? '#f44336' : '#FFA500'}; font-size: 1.1rem;">${gameResult}</span>` : ''}
           </div>

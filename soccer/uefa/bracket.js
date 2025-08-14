@@ -142,12 +142,16 @@ function groupMatchesByPairing(events, standings) {
 
     const homeScore = parseInt(competition.competitors.find(c => c.homeAway === "home")?.score || 0);
     const awayScore = parseInt(competition.competitors.find(c => c.homeAway === "away")?.score || 0);
+    const homeShootoutScore = parseInt(competition.competitors.find(c => c.homeAway === "home")?.shootoutScore || 0);
+    const awayShootoutScore = parseInt(competition.competitors.find(c => c.homeAway === "away")?.shootoutScore || 0);
 
     matchups[matchupKey].matches.push({
       homeTeam,
       awayTeam,
       homeScore,
       awayScore,
+      homeShootoutScore,
+      awayShootoutScore,
       leg: competition.leg?.value || 1,
       status: competition.status.type.state,
       gameId: event.id,
@@ -274,12 +278,16 @@ function groupRoundOf16ByMatchup(events) {
 
     const homeScore = parseInt(competition.competitors.find(c => c.homeAway === "home")?.score || 0);
     const awayScore = parseInt(competition.competitors.find(c => c.homeAway === "away")?.score || 0);
+    const homeShootoutScore = parseInt(competition.competitors.find(c => c.homeAway === "home")?.shootoutScore || 0);
+    const awayShootoutScore = parseInt(competition.competitors.find(c => c.homeAway === "away")?.shootoutScore || 0);
 
     matchups[matchupKey].matches.push({
       homeTeam,
       awayTeam,
       homeScore,
       awayScore,
+      homeShootoutScore,
+      awayShootoutScore,
       leg: competition.leg?.value || 1,
       status: competition.status.type.state,
       gameId: event.id,
@@ -331,15 +339,19 @@ function renderRoundOf16Card(knockoutMatchup, matchIndex, roundOf16Matchups) {
   const homeScore = roundOf16Matchup.aggregateHome;
   const awayScore = roundOf16Matchup.aggregateAway;
 
-  // Determine winner/loser by aggregate, for coloring
+  // Use getWinnerInfo to properly determine winner including shootouts
+  const { winner, loser, winnerScore, loserScore, isTie, homeShootoutScore, awayShootoutScore } = getWinnerInfo(roundOf16Matchup, homeScore, awayScore);
+  
+  // Determine winner/loser IDs for coloring
   let winnerId = null, loserId = null;
-  if (homeScore > awayScore) {
-    winnerId = homeTeam.id;
-    loserId = awayTeam.id;
-  } else if (awayScore > homeScore) {
-    winnerId = awayTeam.id;
-    loserId = homeTeam.id;
+  if (!isTie) {
+    winnerId = winner.id;
+    loserId = loser.id;
   }
+
+  // Format score display with shootout if applicable
+  const homeScoreDisplay = homeShootoutScore > 0 ? `${homeScore}<sup>(${homeShootoutScore})</sup>` : homeScore;
+  const awayScoreDisplay = awayShootoutScore > 0 ? `${awayScore}<sup>(${awayShootoutScore})</sup>` : awayScore;
 
   // Get winner color for glow
   let winnerColor = "#43a047"; // default green
@@ -370,8 +382,8 @@ function renderRoundOf16Card(knockoutMatchup, matchIndex, roundOf16Matchups) {
         </div>
       </div>
       <div class="match-score">
-        <span style="${homeTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : ''}">${homeScore}</span> : 
-        <span style="${awayTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : ''}">${awayScore}</span>
+        <span style="${homeTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : ''}">${homeScoreDisplay}</span> : 
+        <span style="${awayTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : ''}">${awayScoreDisplay}</span>
       </div>
     </div>
   `;
@@ -393,20 +405,91 @@ function findMatchingRoundOf16(knockoutMatchup, roundOf16Matchups) {
 }
 
 function getWinnerInfo(matchup, aggregateHome, aggregateAway) {
-  // Returns {winner: teamObj, loser: teamObj, winnerScore, loserScore, isTie}
+  // Returns {winner: teamObj, loser: teamObj, winnerScore, loserScore, isTie, homeShootoutScore, awayShootoutScore}
+  
+  // Check if there's a deciding match with shootout scores (use the most recent finished match)
+  let homeShootoutScore = 0;
+  let awayShootoutScore = 0;
+  
+  // Find the most recent match with shootout scores
+  const finishedMatches = matchup.matches.filter(match => match.status === "post");
+  const matchWithShootout = finishedMatches.find(match => match.homeShootoutScore > 0 || match.awayShootoutScore > 0);
+  
+  if (matchWithShootout) {
+    // Map shootout scores to matchup teams (since match teams might be reversed)
+    if (matchWithShootout.homeTeam.id === matchup.homeTeam.id) {
+      homeShootoutScore = matchWithShootout.homeShootoutScore;
+      awayShootoutScore = matchWithShootout.awayShootoutScore;
+    } else {
+      homeShootoutScore = matchWithShootout.awayShootoutScore;
+      awayShootoutScore = matchWithShootout.homeShootoutScore;
+    }
+  }
+  
+  // If aggregate scores are tied, use shootout to determine winner
+  if (aggregateHome === aggregateAway && (homeShootoutScore > 0 || awayShootoutScore > 0)) {
+    if (homeShootoutScore > awayShootoutScore) {
+      return { 
+        winner: matchup.homeTeam, 
+        loser: matchup.awayTeam, 
+        winnerScore: aggregateHome, 
+        loserScore: aggregateAway, 
+        isTie: false,
+        homeShootoutScore,
+        awayShootoutScore
+      };
+    } else if (awayShootoutScore > homeShootoutScore) {
+      return { 
+        winner: matchup.awayTeam, 
+        loser: matchup.homeTeam, 
+        winnerScore: aggregateAway, 
+        loserScore: aggregateHome, 
+        isTie: false,
+        homeShootoutScore,
+        awayShootoutScore
+      };
+    }
+  }
+  
+  // Regular aggregate score comparison
   if (aggregateHome > aggregateAway) {
-    return { winner: matchup.homeTeam, loser: matchup.awayTeam, winnerScore: aggregateHome, loserScore: aggregateAway, isTie: false };
+    return { 
+      winner: matchup.homeTeam, 
+      loser: matchup.awayTeam, 
+      winnerScore: aggregateHome, 
+      loserScore: aggregateAway, 
+      isTie: false,
+      homeShootoutScore,
+      awayShootoutScore
+    };
   } else if (aggregateAway > aggregateHome) {
-    return { winner: matchup.awayTeam, loser: matchup.homeTeam, winnerScore: aggregateAway, loserScore: aggregateHome, isTie: false };
+    return { 
+      winner: matchup.awayTeam, 
+      loser: matchup.homeTeam, 
+      winnerScore: aggregateAway, 
+      loserScore: aggregateHome, 
+      isTie: false,
+      homeShootoutScore,
+      awayShootoutScore
+    };
   } else {
-    return { winner: matchup.homeTeam, loser: matchup.awayTeam, winnerScore: aggregateHome, loserScore: aggregateAway, isTie: true };
+    return { 
+      winner: matchup.homeTeam, 
+      loser: matchup.awayTeam, 
+      winnerScore: aggregateHome, 
+      loserScore: aggregateAway, 
+      isTie: true,
+      homeShootoutScore,
+      awayShootoutScore
+    };
   }
 }
 
 function renderAggregateCard(matchup, matchTitle, aggregateHome, aggregateAway) {
   // Determine the winner and reorder teams so winner is first
   let firstTeam, secondTeam, firstScore, secondScore, firstIsWinner;
-  const { winner, loser, winnerScore, loserScore, isTie } = getWinnerInfo(matchup, aggregateHome, aggregateAway);
+  const { winner, loser, winnerScore, loserScore, isTie, homeShootoutScore, awayShootoutScore } = getWinnerInfo(matchup, aggregateHome, aggregateAway);
+  
   if (!isTie) {
     firstTeam = winner;
     secondTeam = loser;
@@ -420,6 +503,25 @@ function renderAggregateCard(matchup, matchTitle, aggregateHome, aggregateAway) 
     secondScore = aggregateAway;
     firstIsWinner = false;
   }
+  
+  // Determine which shootout score belongs to which team being displayed
+  let firstShootoutScore = 0;
+  let secondShootoutScore = 0;
+  
+  if (homeShootoutScore > 0 || awayShootoutScore > 0) {
+    if (firstTeam.id === matchup.homeTeam.id) {
+      firstShootoutScore = homeShootoutScore;
+      secondShootoutScore = awayShootoutScore;
+    } else {
+      firstShootoutScore = awayShootoutScore;
+      secondShootoutScore = homeShootoutScore;
+    }
+  }
+  
+  // Format score display with shootout if applicable
+  const firstScoreDisplay = firstShootoutScore > 0 ? `${firstScore}<sup>(${firstShootoutScore})</sup>` : firstScore;
+  const secondScoreDisplay = secondShootoutScore > 0 ? `${secondScore}<sup>(${secondShootoutScore})</sup>` : secondScore;
+  
   // Winner color for glow (smaller for playoffs)
   let winnerColor = "#43a047";
   if (!isTie && firstTeam.color && firstTeam.color.length === 6) {
@@ -448,8 +550,8 @@ function renderAggregateCard(matchup, matchTitle, aggregateHome, aggregateAway) 
         </div>
       </div>
       <div class="match-score">
-        <span style="${firstIsWinner && !isTie ? 'color:#43a047;font-weight:bold;' : ''}">${firstScore}</span> : 
-        <span style="${!firstIsWinner && !isTie ? 'color:#43a047;font-weight:bold;' : ''}">${secondScore}</span>
+        <span style="${firstIsWinner && !isTie ? 'color:#43a047;font-weight:bold;' : ''}">${firstScoreDisplay}</span> : 
+        <span style="${!firstIsWinner && !isTie ? 'color:#43a047;font-weight:bold;' : ''}">${secondScoreDisplay}</span>
       </div>
     </div>
   `;
@@ -559,9 +661,21 @@ function showLegsPopup(matchup) {
       // Winner logic for this leg (only if finished)
       let homeIsWinner = false, awayIsWinner = false;
       if (match.status === "post") {
-        if (match.homeScore > match.awayScore) homeIsWinner = true;
-        else if (match.awayScore > match.homeScore) awayIsWinner = true;
+        // Consider both regular score and shootout score for winner determination
+        if (match.homeScore > match.awayScore) {
+          homeIsWinner = true;
+        } else if (match.awayScore > match.homeScore) {
+          awayIsWinner = true;
+        } else if (match.homeShootoutScore > match.awayShootoutScore) {
+          homeIsWinner = true;
+        } else if (match.awayShootoutScore > match.homeShootoutScore) {
+          awayIsWinner = true;
+        }
       }
+
+      // Format score display with shootout
+      const homeScoreDisplay = match.homeShootoutScore > 0 ? `${match.homeScore}<sup>(${match.homeShootoutScore})</sup>` : match.homeScore;
+      const awayScoreDisplay = match.awayShootoutScore > 0 ? `${match.awayScore}<sup>(${match.awayShootoutScore})</sup>` : match.awayScore;
 
       legCard.innerHTML = `
   <div style="position: relative; display: flex; justify-content: space-between; align-items: center;">
@@ -579,9 +693,9 @@ function showLegsPopup(matchup) {
       display: flex;
       gap: 4px;
     ">
-      <span style="color: ${homeIsWinner ? '#43a047' : '#333'};">${match.homeScore}</span>
+      <span style="color: ${homeIsWinner ? '#43a047' : '#333'};">${homeScoreDisplay}</span>
       <span style="color: #222;">:</span>
-      <span style="color: ${awayIsWinner ? '#43a047' : '#333'};">${match.awayScore}</span>
+      <span style="color: ${awayIsWinner ? '#43a047' : '#333'};">${awayScoreDisplay}</span>
     </div>
 
     <!-- Away Team -->
@@ -614,29 +728,12 @@ function showLegsPopup(matchup) {
     legsContainer.appendChild(legCard);
   });
 
-  // Winner/loser logic for aggregate (for display only, not for coloring)
-  const aggHome = matchup.aggregateHome;
-  const aggAway = matchup.aggregateAway;
-  let winner = null, loser = null, winnerScore = aggHome, loserScore = aggAway, isTie = false;
-  if (aggHome > aggAway) {
-    winner = matchup.homeTeam;
-    loser = matchup.awayTeam;
-    winnerScore = aggHome;
-    loserScore = aggAway;
-    isTie = false;
-  } else if (aggAway > aggHome) {
-    winner = matchup.awayTeam;
-    loser = matchup.homeTeam;
-    winnerScore = aggAway;
-    loserScore = aggHome;
-    isTie = false;
-  } else {
-    winner = matchup.homeTeam;
-    loser = matchup.awayTeam;
-    winnerScore = aggHome;
-    loserScore = aggAway;
-    isTie = true;
-  }
+  // Winner/loser logic for aggregate using the updated getWinnerInfo function
+  const { winner, loser, winnerScore, loserScore, isTie, homeShootoutScore, awayShootoutScore } = getWinnerInfo(matchup, matchup.aggregateHome, matchup.aggregateAway);
+  
+  // Format aggregate score display with shootout
+  const homeAggregateDisplay = homeShootoutScore > 0 ? `${matchup.aggregateHome}<sup>(${homeShootoutScore})</sup>` : matchup.aggregateHome;
+  const awayAggregateDisplay = awayShootoutScore > 0 ? `${matchup.aggregateAway}<sup>(${awayShootoutScore})</sup>` : matchup.aggregateAway;
 
   // Add aggregate score (no green color)
   const aggregateDiv = document.createElement('div');
@@ -651,7 +748,7 @@ function showLegsPopup(matchup) {
     color: #1976d2;
   `;
   aggregateDiv.innerHTML = `
-    Aggregate Score: ${winnerScore} : ${loserScore}
+    Aggregate Score: ${homeAggregateDisplay} : ${awayAggregateDisplay}
   `;
 
   // Assemble modal
@@ -1055,8 +1152,12 @@ async function renderFinalsBracket(knockoutPairings, container) {
         const aggregateHome = matchup.aggregateHome || 0;
         const aggregateAway = matchup.aggregateAway || 0;
         
+        // Use getWinnerInfo to properly determine winner including shootouts
+        const { winner, loser, winnerScore, loserScore, isTie, homeShootoutScore, awayShootoutScore } = getWinnerInfo(matchup, aggregateHome, aggregateAway);
+        
         // For finals, use homeTeam (left) and awayTeam (right) directly without reordering by score
         let firstTeam, secondTeam, firstScore, secondScore, firstIsWinner = false;
+        let firstShootoutScore = 0, secondShootoutScore = 0;
         
         if (roundName === "Finals") {
           // Use positioned teams directly - don't reorder by score
@@ -1064,35 +1165,46 @@ async function renderFinalsBracket(knockoutPairings, container) {
           secondTeam = matchup.awayTeam; // Right team
           firstScore = aggregateHome;
           secondScore = aggregateAway;
-          firstIsWinner = aggregateHome > aggregateAway;
+          // Determine shootout scores for display
+          firstShootoutScore = homeShootoutScore;
+          secondShootoutScore = awayShootoutScore;
+          // Check if first team is winner (considering shootouts)
+          firstIsWinner = !isTie && winner.id === firstTeam.id;
         } else {
-          // For other rounds, reorder by winner as before
-          if (aggregateHome > aggregateAway) {
-            firstTeam = matchup.homeTeam;
-            secondTeam = matchup.awayTeam;
-            firstScore = aggregateHome;
-            secondScore = aggregateAway;
+          // For other rounds, reorder by winner as before but use getWinnerInfo result
+          if (!isTie) {
+            firstTeam = winner;
+            secondTeam = loser;
+            firstScore = winnerScore;
+            secondScore = loserScore;
             firstIsWinner = true;
-          } else if (aggregateAway > aggregateHome) {
-            firstTeam = matchup.awayTeam;
-            secondTeam = matchup.homeTeam;
-            firstScore = aggregateAway;
-            secondScore = aggregateHome;
-            firstIsWinner = true;
+            // Determine shootout scores for display based on team ordering
+            if (firstTeam.id === matchup.homeTeam.id) {
+              firstShootoutScore = homeShootoutScore;
+              secondShootoutScore = awayShootoutScore;
+            } else {
+              firstShootoutScore = awayShootoutScore;
+              secondShootoutScore = homeShootoutScore;
+            }
           } else {
             firstTeam = matchup.homeTeam;
             secondTeam = matchup.awayTeam;
             firstScore = aggregateHome;
             secondScore = aggregateAway;
             firstIsWinner = false;
+            firstShootoutScore = homeShootoutScore;
+            secondShootoutScore = awayShootoutScore;
           }
         }
+        
+        // Format score display with shootout if applicable
+        const firstScoreDisplay = firstShootoutScore > 0 ? `${firstScore}<sup>(${firstShootoutScore})</sup>` : firstScore;
+        const secondScoreDisplay = secondShootoutScore > 0 ? `${secondScore}<sup>(${secondShootoutScore})</sup>` : secondScore;
         // Winner color for glow (bigger for bracket)
         let winnerColor = "#43a047";
         if (roundName === "Finals") {
-          // For finals, determine actual winner regardless of positioning
-          const actualWinner = firstScore > secondScore ? firstTeam : 
-                              secondScore > firstScore ? secondTeam : null;
+          // For finals, determine actual winner regardless of positioning (using getWinnerInfo result)
+          const actualWinner = !isTie ? winner : null;
           if (actualWinner && actualWinner.color) {
             let color = actualWinner.color;
             if (color.toLowerCase() === "ffffff" || color.toLowerCase() === "#ffffff") {
@@ -1131,12 +1243,12 @@ async function renderFinalsBracket(knockoutPairings, container) {
                   <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
                     <img src="${firstTeamLogo}" alt="${firstTeam.shortDisplayName}" style="width: 30px; height: 30px;" onerror="this.src='../soccer-ball-png-24.png'">
                     <div style="text-align: center; font-size: 12px; color: #000; font-weight: bold;">${firstAbbrev}</div>
-                    <div style="text-align: center; font-size: 18px; font-weight: bold; color: ${firstScore > secondScore ? '#43a047' : '#333'};">${firstScore}</div>
+                    <div style="text-align: center; font-size: 18px; font-weight: bold; color: ${firstIsWinner ? '#43a047' : '#333'};">${firstScoreDisplay}</div>
                   </div>
                   <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
                     <img src="${secondTeamLogo}" alt="${secondTeam.shortDisplayName}" style="width: 30px; height: 30px;" onerror="this.src='../soccer-ball-png-24.png'">
                     <div style="text-align: center; font-size: 12px; color: #000; font-weight: bold;">${secondAbbrev}</div>
-                    <div style="text-align: center; font-size: 18px; font-weight: bold; color: ${secondScore > firstScore ? '#43a047' : '#333'};">${secondScore}</div>
+                    <div style="text-align: center; font-size: 18px; font-weight: bold; color: ${!isTie && !firstIsWinner ? '#43a047' : '#333'};">${secondScoreDisplay}</div>
                   </div>
                 </div>
               </div>
@@ -1144,10 +1256,8 @@ async function renderFinalsBracket(knockoutPairings, container) {
             
             // Determine winnerId for mobile glow (only for finals)  
             let winnerId = null;
-            if (firstScore > secondScore) {
-              winnerId = firstTeam.id;
-            } else if (secondScore > firstScore) {
-              winnerId = secondTeam.id;
+            if (!isTie) {
+              winnerId = winner.id;
             }
             
             // Add glow for winner (mobile - only finals)
@@ -1169,12 +1279,12 @@ async function renderFinalsBracket(knockoutPairings, container) {
                 <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
                   <img src="${firstTeamLogo}" alt="${firstTeam.shortDisplayName}" style="width: 30px; height: 30px;" onerror="this.src='../soccer-ball-png-24.png'">
                   <div style="text-align: center; font-size: 12px; color: #000; font-weight: bold;">${firstTeam.shortDisplayName}</div>
-                  <div style="text-align: center; font-size: 18px; font-weight: bold; color: ${firstScore > secondScore ? '#43a047' : '#333'};">${firstScore}</div>
+                  <div style="text-align: center; font-size: 18px; font-weight: bold; color: ${firstIsWinner ? '#43a047' : '#333'};">${firstScoreDisplay}</div>
                 </div>
                 <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
                   <img src="${secondTeamLogo}" alt="${secondTeam.shortDisplayName}" style="width: 30px; height: 30px;" onerror="this.src='../soccer-ball-png-24.png'">
                   <div style="text-align: center; font-size: 12px; color: #000; font-weight: bold;">${secondTeam.shortDisplayName}</div>
-                  <div style="text-align: center; font-size: 18px; font-weight: bold; color: ${secondScore > firstScore ? '#43a047' : '#333'};">${secondScore}</div>
+                  <div style="text-align: center; font-size: 18px; font-weight: bold; color: ${!isTie && !firstIsWinner ? '#43a047' : '#333'};">${secondScoreDisplay}</div>
                 </div>
               </div>
             `;
@@ -1192,14 +1302,11 @@ async function renderFinalsBracket(knockoutPairings, container) {
             const secondAbbrev = abbreviateFinalsTeamName(secondTeam) || (secondTeam?.displayName || "TBD");
             const leagueName = Object.keys(LEAGUES).find(key => LEAGUES[key].code === currentUefaLeague);
 
-            // Determine winner/loser for styling
+            // Determine winner/loser for styling (using getWinnerInfo result)
             let winnerId = null, loserId = null;
-            if (firstScore > secondScore) {
-              winnerId = firstTeam.id;
-              loserId = secondTeam.id;
-            } else if (secondScore > firstScore) {
-              winnerId = secondTeam.id;
-              loserId = firstTeam.id;
+            if (!isTie) {
+              winnerId = winner.id;
+              loserId = loser.id;
             }
 
             // Find the finals match (should be only one)
@@ -1212,14 +1319,14 @@ async function renderFinalsBracket(knockoutPairings, container) {
               <div class="finals-matchup">
                 <img src="${firstTeamLogo}" alt="${firstAbbrev}" style="width: 40px; height: 40px; margin-right: -10px;" onerror="this.src='../soccer-ball-png-24.png'">
                 <div class="team-column">
-                  <div class="record" style="${firstTeam.id === winnerId ? 'font-weight:bold;' : (firstTeam.id === loserId ? 'color:#888;' : '')}">${firstScore}</div>
+                  <div class="record" style="${firstTeam.id === winnerId ? 'font-weight:bold;' : (firstTeam.id === loserId ? 'color:#888;' : '')}">${firstScoreDisplay}</div>
                   <div class="team-line">
                     <span class="abbrev" style="${firstTeam.id === winnerId ? 'font-weight:bold;' : (firstTeam.id === loserId ? 'color:#888;' : '')}">${firstAbbrev}</span>
                   </div>
                 </div>
                 <div class="vs">vs</div>
                 <div class="team-column">
-                  <div class="record" style="${secondTeam.id === winnerId ? 'font-weight:bold;' : (secondTeam.id === loserId ? 'color:#888;' : '')}">${secondScore}</div>
+                  <div class="record" style="${secondTeam.id === winnerId ? 'font-weight:bold;' : (secondTeam.id === loserId ? 'color:#888;' : '')}">${secondScoreDisplay}</div>
                   <div class="team-line">
                     <span class="abbrev" style="${secondTeam.id === winnerId ? 'font-weight:bold;' : (secondTeam.id === loserId ? 'color:#888;' : '')}">${secondAbbrev}</span>
                   </div>
@@ -1238,26 +1345,23 @@ async function renderFinalsBracket(knockoutPairings, container) {
               }
             };
           } else {
-            // Winner/loser color for semifinals and quarterfinals
+            // Winner/loser color for semifinals and quarterfinals (using getWinnerInfo result)
             let winnerId = null, loserId = null;
-            if (firstScore > secondScore) {
-              winnerId = firstTeam.id;
-              loserId = secondTeam.id;
-            } else if (secondScore > firstScore) {
-              winnerId = secondTeam.id;
-              loserId = firstTeam.id;
+            if (!isTie) {
+              winnerId = winner.id;
+              loserId = loser.id;
             }
             matchupRow.innerHTML = `
               <div class="series-info">${statusText}</div>
               <div class="team-row">
                 <img src="${firstTeamLogo}" alt="${firstTeam.shortDisplayName}" class="team-logo-small" onerror="this.src='../soccer-ball-png-24.png'">
                 <span class="team-name" style="${firstTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : (firstTeam.id === loserId ? '' : '')}">${firstTeam.shortDisplayName}</span>
-                <span class="team-record" style="${firstTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : (firstTeam.id === loserId ? '' : '')}">${firstScore}</span>
+                <span class="team-record" style="${firstTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : (firstTeam.id === loserId ? '' : '')}">${firstScoreDisplay}</span>
               </div>
               <div class="team-row">
                 <img src="${secondTeamLogo}" alt="${secondTeam.shortDisplayName}" class="team-logo-small" onerror="this.src='../soccer-ball-png-24.png'">
                 <span class="team-name" style="${secondTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : (secondTeam.id === loserId ? '' : '')}">${secondTeam.shortDisplayName}</span>
-                <span class="team-record" style="${secondTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : (secondTeam.id === loserId ? '' : '')}">${secondScore}</span>
+                <span class="team-record" style="${secondTeam.id === winnerId ? 'color:#43a047;font-weight:bold;' : (secondTeam.id === loserId ? '' : '')}">${secondScoreDisplay}</span>
               </div>
             `;
             // Add glow for winner (desktop)
