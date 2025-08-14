@@ -149,7 +149,6 @@ async function loadTeams() {
     
     allTeams = data.sports[0].leagues[0].teams
       .map(teamData => teamData.team)
-      .filter(team => team.displayName !== team.displayName.toUpperCase())
       .sort((a, b) => a.displayName.localeCompare(b.displayName));
   } catch (error) {
     console.error("Error loading teams:", error);

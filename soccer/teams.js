@@ -4,8 +4,8 @@ const LEAGUES = {
   "Bundesliga": { code: "ger.1", logo: "10" },
   "Serie A": { code: "ita.1", logo: "12" },
   "Ligue 1": { code: "fra.1", logo: "9" },
-  "MLS": { code: "usa.1", logo: "20" },
-  "Saudi PL": { code: "ksa.1", logo: "21" }
+  "MLS": { code: "usa.1", logo: "19" },
+  "Saudi PL": { code: "ksa.1", logo: "2488" }
 };
 
 let currentLeague = localStorage.getItem("currentLeague") || "eng.1"; // Default to Premier League if not set
