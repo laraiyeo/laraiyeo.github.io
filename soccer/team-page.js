@@ -174,7 +174,7 @@ async function loadTeamInfo() {
     const logoUrl = getTeamLogo(currentTeam);
     
     // Get team color dynamically from API (like teams.js)
-    const isUsingAlternateColor = ["ffffff", "ffee00", "ffff00", "81f733", "000000", "f7f316", "eef209", "ece83a"].includes(currentTeam.color);
+    const isUsingAlternateColor = ["ffffff", "ffee00", "ffff00", "81f733", "000000", "f7f316", "eef209", "ece83a", "1c31ce", "ffd700"].includes(currentTeam.color);
     if (currentTeam) {
       if (isUsingAlternateColor && currentTeam.alternateColor) {
         teamColor = `#${currentTeam.alternateColor}`;
@@ -185,7 +185,7 @@ async function loadTeamInfo() {
     
     // Determine text color based on the actual color being used
     const actualColorHex = isUsingAlternateColor ? currentTeam.alternateColor : currentTeam.color;
-    const nameColorChange = ["ffffff", "ffee00", "ffff00", "81f733", "ffef32", "f7f316"].includes(actualColorHex) ? "black" : "white";
+    const nameColorChange = ["ffffff", "ffee00", "ffff00", "81f733", "ffef32", "f7f316", "eef209", "ece83a", "cccccc", "e3e4ed"].includes(actualColorHex) ? "black" : "white";
 
     const leagueName = Object.keys(LEAGUES).find(key => LEAGUES[key].code === currentLeague);
     
@@ -2448,7 +2448,7 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
           console.log('Season team data:', seasonTeamData);
           
           // Apply the same team color logic as in loadTeamInfo()
-          const isUsingAlternateColor = ["ffffff", "ffee00", "ffff00", "81f733", "000000", "f7f316", "eef209", "ece83a"].includes(seasonTeamData.color);
+          const isUsingAlternateColor = ["ffffff", "ffee00", "ffff00", "81f733", "000000", "f7f316", "eef209", "ece83a", "1c31ce", "ffd700"].includes(seasonTeamData.color);
           if (isUsingAlternateColor && seasonTeamData.alternateColor) {
             seasonTeamColor = `#${seasonTeamData.alternateColor}`;
           } else if (seasonTeamData.color) {

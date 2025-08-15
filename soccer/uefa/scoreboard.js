@@ -10,6 +10,19 @@ function getAdjustedDateForSoccer() {
   return adjustedDate;
 }
 
+// Function to get team logo with fallback
+function getTeamLogoWithFallback(teamId) {
+  return new Promise((resolve) => {
+    const primaryUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
+    const fallbackUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
+    
+    const img = new Image();
+    img.onload = () => resolve(primaryUrl);
+    img.onerror = () => resolve(fallbackUrl);
+    img.src = primaryUrl;
+  });
+}
+
 // Helper function to get team color using alternate color logic like team-page.js
 function getTeamColorWithAlternateLogic(team) {
   if (!team || !team.color) return '007bff'; // Default fallback
@@ -425,8 +438,8 @@ async function fetchAndRenderStatsData(gameId) {
       return;
     }
 
-    const homeLogo = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${homeTeamId}.png`;
-    const awayLogo = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${awayTeamId}.png`;
+    const homeLogo = await getTeamLogoWithFallback(homeTeamId);
+    const awayLogo = await getTeamLogoWithFallback(awayTeamId);
 
     const homeScoreColor = gameState === "post" && (homeShootoutScore || homeScore) < (awayShootoutScore || awayScore) ? "grey" : "white";
     const awayScoreColor = gameState === "post" && (awayShootoutScore || awayScore) < (homeShootoutScore || homeScore) ? "grey" : "white";
@@ -958,9 +971,9 @@ async function renderPlayByPlay(gameId) {
     const awayTeamId = awayTeam.team.id;
     const homeScore = parseInt(homeTeam.score || "0");
     const awayScore = parseInt(awayTeam.score || "0");
-    
-    const homeLogo = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${homeTeamId}.png`;
-    const awayLogo = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${awayTeamId}.png`;
+
+    const homeLogo = await getTeamLogoWithFallback(homeTeamId);
+    const awayLogo = await getTeamLogoWithFallback(awayTeamId);
 
     // Preserve scroll position
     const playsContainer = document.querySelector('.plays-container');
@@ -1339,7 +1352,9 @@ function normalizeTeamName(teamName) {
     'real madrid': 'real-madrid',
     'atletico madrid': 'atletico-madrid',
     'bayern munich': 'bayern-munich',
-    'borussia dortmund': 'borussia-dortmund'
+    'borussia dortmund': 'borussia-dortmund',
+    'stade rennais': 'rennes',
+    'marseille': 'olympique-marseille'
   };
   
   const lowerName = teamName.toLowerCase();

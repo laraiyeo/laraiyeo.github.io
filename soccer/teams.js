@@ -98,8 +98,8 @@ async function fetchAndDisplayTeams() {
 
       const teamCard = document.createElement("div");
       teamCard.className = "team-card";
-      teamCard.style.backgroundColor = ["2950", "3243"].includes(team.id) ? `#${team.alternateColor}` : `#${team.color}`;
-      nameColorChange = ["ffffff", "ffee00", "ffff00", "81f733", "f7f316", "eef209", "ece83a"].includes(team.color) ? "black" : "white";
+      teamCard.style.backgroundColor = ["2950", "3243", "21964", "929"].includes(team.id) ? `#${team.alternateColor}` : `#${team.color}`;
+      nameColorChange = ["ffffff", "ffee00", "ffff00", "81f733", "f7f316", "eef209", "ece83a", "1c31ce", "ffd700"].includes(team.color) ? "black" : "white";
 
       teamCard.innerHTML = `
         <div class="team-header">
