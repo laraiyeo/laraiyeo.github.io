@@ -10,6 +10,7 @@ let playersPerPage = 4;
 let playersForComparison = []; // Array to store players selected for comparison
 let currentStatsMode = 'overall'; // Track current stats view mode: 'overall' or 'gamelog'
 let selectedPlayer = null; // Currently selected player for details
+let selectedPlayerPosition = null; // Store the current player's position for year changes
 let teamColor = "#000000"; // Default team color, will be set dynamically
 
 // Global variable to store all league players for league-wide comparison
@@ -923,6 +924,9 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
     await loadTeamInfo();
     console.log('showPlayerDetails called with:', { playerId, firstName, lastName, jerseyNumber, position });
     
+    // Store the position globally for year changes
+    selectedPlayerPosition = position;
+    
     // Create modal overlay (NBA-style)
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -1401,6 +1405,51 @@ async function loadPlayerStatsForYear(playerId, position, contentDiv, year) {
   try {
     console.log(`loadPlayerStatsForYear called for player: ${playerId}, year: ${year}`);
     
+    // Get the player's team and league for the specific year
+    let teamIdForYear = currentTeamId; // Default to current team
+    let leagueForYear = currentLeague; // Default to current league
+    
+    // If not current year, try to get team/league for the specific year
+    if (year !== new Date().getFullYear()) {
+      try {
+        console.log(`Fetching team/league for player ${playerId} in season ${year}...`);
+        const playerSeasonResponse = await fetch(convertToHttps(`http://sports.core.api.espn.com/v2/sports/soccer/leagues/${currentLeague}/seasons/${year}/athletes/${playerId}?lang=en&region=us`));
+        
+        if (playerSeasonResponse.ok) {
+          const playerSeasonData = await playerSeasonResponse.json();
+          console.log('ESPN Player Season API Response for stats:', playerSeasonData);
+          
+          // Check for defaultTeam and defaultLeague in season-specific data
+          if (playerSeasonData.defaultTeam && playerSeasonData.defaultTeam.$ref) {
+            const teamRefMatch = playerSeasonData.defaultTeam.$ref.match(/teams\/(\d+)/);
+            if (teamRefMatch) {
+              teamIdForYear = teamRefMatch[1];
+              console.log(`Player's team for ${year} stats: ${teamIdForYear}`);
+            }
+          }
+          
+          if (playerSeasonData.defaultLeague && playerSeasonData.defaultLeague.$ref) {
+            const leagueRefMatch = playerSeasonData.defaultLeague.$ref.match(/leagues\/([^?]+)/);
+            if (leagueRefMatch) {
+              leagueForYear = leagueRefMatch[1];
+              console.log(`Player's league for ${year} stats: ${leagueForYear}`);
+            }
+          }
+          
+          // Fallback to team $ref if defaultTeam not available
+          if (!playerSeasonData.defaultTeam && playerSeasonData.team && playerSeasonData.team.$ref) {
+            const teamRefMatch = playerSeasonData.team.$ref.match(/teams\/(\d+)/);
+            if (teamRefMatch) {
+              teamIdForYear = teamRefMatch[1];
+              console.log(`Player's team for ${year} from team $ref: ${teamIdForYear}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.log(`Error fetching team/league for year ${year}:`, error);
+      }
+    }
+    
     // First check if we have cached data for this player and it's for the current year
     if (year === new Date().getFullYear()) {
       const cachedPlayer = allRosterPlayers.find(player => player.id === playerId);
@@ -1411,12 +1460,12 @@ async function loadPlayerStatsForYear(playerId, position, contentDiv, year) {
       }
     }
     
-    // Try to fetch year-specific stats from ESPN API first
+    // Try to fetch year-specific stats from ESPN API using the correct team/league
     let selectedPlayer = null;
     
-    console.log(`Trying ESPN API for year ${year}...`);
+    console.log(`Trying ESPN API for year ${year} with team ${teamIdForYear} and league ${leagueForYear}...`);
     try {
-      const espnResponse = await fetch(convertToHttps(`http://sports.core.api.espn.com/v2/sports/soccer/leagues/${currentLeague}/seasons/${year}/athletes/${playerId}?lang=en&region=us`));
+      const espnResponse = await fetch(convertToHttps(`http://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueForYear}/seasons/${year}/athletes/${playerId}?lang=en&region=us`));
       if (espnResponse.ok) {
         const espnData = await espnResponse.json();
         console.log(`ESPN API response for ${year}:`, espnData);
@@ -1451,7 +1500,7 @@ async function loadPlayerStatsForYear(playerId, position, contentDiv, year) {
       if (year === new Date().getFullYear()) {
         console.log('Falling back to roster data for current year...');
         
-        // Try the team roster endpoint with stats first
+        // Try the team roster endpoint with stats first using current team
         try {
           const rosterResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams/${currentTeamId}/roster?season=2025`);
           if (rosterResponse.ok) {
@@ -1490,20 +1539,77 @@ async function loadPlayerStatsForYear(playerId, position, contentDiv, year) {
           }
         }
       } else {
-        // For historical years, show message if no data available
+        // For historical years, show message if no data available but preserve year selector
+        const currentYear = new Date().getFullYear();
+        const startYear = 2020;
+        
+        const yearSelectorHtml = `
+          <select id="playerYearSelector" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; background: white; margin-left: auto;">
+            ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(yearOption => 
+              `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
+            ).join('')}
+          </select>
+        `;
+        
         contentDiv.innerHTML = `
+          <div class="d-flex justify-content-between align-items-center mb-3" style="border-bottom: 1px solid #ddd; padding-bottom: 10px;">
+            <h4 style="margin: 0; color: #333; font-size: 1.4rem;">Player Statistics</h4>
+            ${yearSelectorHtml}
+          </div>
           <div style="text-align: center; padding: 40px 20px; color: #666;">
             <div style="font-size: 1.2rem; margin-bottom: 10px;">📊</div>
             <div style="font-size: 1.1rem; margin-bottom: 10px;">No statistics available</div>
             <div style="font-size: 0.9rem;">Statistics for the ${year} season are not available for this player.</div>
           </div>
         `;
+        
+        // Add event listener for year selector
+        const yearSelector = contentDiv.querySelector('#playerYearSelector');
+        if (yearSelector) {
+          yearSelector.addEventListener('change', async (e) => {
+            const selectedYear = parseInt(e.target.value);
+            console.log(`Year changed to: ${selectedYear}`);
+            await loadPlayerStatsForYear(playerId, position, contentDiv, selectedYear);
+          });
+        }
+        
         return;
       }
     }
     
     if (!selectedPlayer) {
-      contentDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;"><p>Player not found</p></div>';
+      // Show message if player not found but preserve year selector
+      const currentYear = new Date().getFullYear();
+      const startYear = 2020;
+      
+      const yearSelectorHtml = `
+        <select id="playerYearSelector" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; background: white; margin-left: auto;">
+          ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(yearOption => 
+            `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
+          ).join('')}
+        </select>
+      `;
+      
+      contentDiv.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center mb-3" style="border-bottom: 1px solid #ddd; padding-bottom: 10px;">
+          <h4 style="margin: 0; color: #333; font-size: 1.4rem;">Player Statistics</h4>
+          ${yearSelectorHtml}
+        </div>
+        <div style="text-align: center; padding: 20px; color: #666;">
+          <p>Player not found</p>
+        </div>
+      `;
+      
+      // Add event listener for year selector
+      const yearSelector = contentDiv.querySelector('#playerYearSelector');
+      if (yearSelector) {
+        yearSelector.addEventListener('change', async (e) => {
+          const selectedYear = parseInt(e.target.value);
+          console.log(`Year changed to: ${selectedYear}`);
+          await loadPlayerStatsForYear(playerId, position, contentDiv, selectedYear);
+        });
+      }
+      
       return;
     }
     
@@ -1514,7 +1620,38 @@ async function loadPlayerStatsForYear(playerId, position, contentDiv, year) {
     
   } catch (error) {
     console.error("Error loading player stats:", error);
-    contentDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;"><p>Error loading player statistics</p></div>';
+    
+    // Show error message but preserve year selector
+    const currentYear = new Date().getFullYear();
+    const startYear = 2020;
+    
+    const yearSelectorHtml = `
+      <select id="playerYearSelector" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; background: white; margin-left: auto;">
+        ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(yearOption => 
+          `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
+        ).join('')}
+      </select>
+    `;
+    
+    contentDiv.innerHTML = `
+      <div class="d-flex justify-content-between align-items-center mb-3" style="border-bottom: 1px solid #ddd; padding-bottom: 10px;">
+        <h4 style="margin: 0; color: #333; font-size: 1.4rem;">Player Statistics</h4>
+        ${yearSelectorHtml}
+      </div>
+      <div style="text-align: center; padding: 20px; color: #666;">
+        <p>Error loading player statistics</p>
+      </div>
+    `;
+    
+    // Add event listener for year selector
+    const yearSelector = contentDiv.querySelector('#playerYearSelector');
+    if (yearSelector) {
+      yearSelector.addEventListener('change', async (e) => {
+        const selectedYear = parseInt(e.target.value);
+        console.log(`Year changed to: ${selectedYear}`);
+        await loadPlayerStatsForYear(playerId, position, contentDiv, selectedYear);
+      });
+    }
   }
 }
 
@@ -1615,8 +1752,8 @@ function processPlayerStats(selectedPlayer, position, contentDiv, year) {
         contentDiv.innerHTML = '<div style="text-align: center; padding: 20px;">Loading statistics for ' + selectedYear + '...</div>';
         
         // Get the current player data from the global selectedPlayer variable
-        if (selectedPlayer) {
-          await loadPlayerStatsForYear(selectedPlayer.id, selectedPlayer.position, contentDiv, selectedYear);
+        if (selectedPlayer && selectedPlayerPosition) {
+          await loadPlayerStatsForYear(selectedPlayer.id, selectedPlayerPosition, contentDiv, selectedYear);
         }
       });
     }
@@ -2008,7 +2145,7 @@ async function showOverallStats() {
   statsContainer.innerHTML = '<div style="text-align: center; padding: 20px;">Loading overall statistics...</div>';
   
   // Load the player stats for the selected year
-  await loadPlayerStatsForYear(selectedPlayer.id, selectedPlayer.position, statsContainer, selectedYear);
+  await loadPlayerStatsForYear(selectedPlayer.id, selectedPlayerPosition, statsContainer, selectedYear);
 }
 
 async function loadGameLogForDate(date) {

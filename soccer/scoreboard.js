@@ -200,10 +200,16 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
 
     const hoverCardId = `hover-card-${player.athlete.id}`;
 
-    // Add hover card to the body
-    const hoverCard = document.createElement("div");
-    hoverCard.className = "player-hover-card";
-    hoverCard.id = hoverCardId;
+    // Check if hover card already exists, if not create it
+    let hoverCard = document.getElementById(hoverCardId);
+    if (!hoverCard) {
+      hoverCard = document.createElement("div");
+      hoverCard.className = "player-hover-card";
+      hoverCard.id = hoverCardId;
+      document.body.appendChild(hoverCard);
+    }
+
+    // Update hover card content (this will happen every refresh)
     hoverCard.innerHTML = `
       <img src="${teamLogo}" alt="Team Logo" class="hover-team-logo">
       <div class="hover-player-name">
@@ -220,7 +226,6 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
           `
       }
     `;
-    document.body.appendChild(hoverCard);
 
     return `
       <div class="player-container" style="${positionStyle}" data-hover-id="${hoverCardId}">
@@ -262,10 +267,16 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
 
           const hoverCardId = `hover-card-${sub.athlete?.id || "unknown"}`;
 
-          // Add hover card to the body
-          const hoverCard = document.createElement("div");
-          hoverCard.className = "player-hover-card";
-          hoverCard.id = hoverCardId;
+          // Check if hover card already exists, if not create it
+          let hoverCard = document.getElementById(hoverCardId);
+          if (!hoverCard) {
+            hoverCard = document.createElement("div");
+            hoverCard.className = "player-hover-card";
+            hoverCard.id = hoverCardId;
+            document.body.appendChild(hoverCard);
+          }
+
+          // Update hover card content (this will happen every refresh)
           hoverCard.innerHTML = `
             <img src="${teamLogo}" alt="Team Logo" class="hover-team-logo">
             <div class="hover-player-name">
@@ -282,7 +293,6 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
                 `
             }
           `;
-          document.body.appendChild(hoverCard);
 
           return `
             <li data-hover-id="${hoverCardId}">
@@ -340,32 +350,34 @@ async function fetchAndRenderTopScoreboard() {
       return;
     }
 
+    // Determine which tab is currently active
+    const statsTabActive = document.getElementById('statsContent')?.classList.contains('active') !== false;
+    const playsTabActive = document.getElementById('playsContent')?.classList.contains('active') === true;
+
+    // Only fetch data needed for the current tab
+    if (statsTabActive && !playsTabActive) {
+      // Stats tab is active - only fetch lineup data
+      await fetchAndRenderStatsData(gameId);
+    } else if (playsTabActive) {
+      // Plays tab is active - only fetch commentary data
+      await fetchAndRenderPlaysData(gameId);
+    } else {
+      // Default to stats if we can't determine (first load)
+      await fetchAndRenderStatsData(gameId);
+    }
+  } catch (error) {
+    console.error("Error in fetchAndRenderTopScoreboard:", error);
+  }
+}
+
+async function fetchAndRenderStatsData(gameId) {
+  try {
     const SCOREBOARD_API_URL = `https://cdn.espn.com/core/soccer/lineups?xhr=1&gameId=${gameId}`;
     const response = await fetch(SCOREBOARD_API_URL);
     const scoreboardData = await response.json();
 
-    // Also fetch commentary data for roster stats
-    const COMMENTARY_API_URL = `https://cdn.espn.com/core/soccer/commentary?xhr=1&gameId=${gameId}`;
-    let commentaryData = null;
-    
-    try {
-      const commentaryResponse = await fetch(COMMENTARY_API_URL);
-      if (!commentaryResponse.ok) {
-        throw new Error(`Commentary API responded with status: ${commentaryResponse.status}`);
-      }
-      commentaryData = await commentaryResponse.json();
-    } catch (commentaryError) {
-      console.warn("Failed to fetch commentary data (CORS or network issue):", commentaryError.message);
-      console.warn("Continuing without commentary/roster data...");
-      // Set empty commentary data to avoid breaking the rest of the function
-      commentaryData = { gamepackageJSON: { rosters: [] } };
-    }
-
-    // Store data globally for other functions to use (include gamepackageJSON from commentary)
-    window.currentGameData = {
-      ...scoreboardData,
-      rosters: commentaryData.gamepackageJSON?.rosters || []
-    };
+    // Store data globally for other functions to use
+    window.currentGameData = scoreboardData;
 
     const homeTeam = scoreboardData.__gamepackage__.homeTeam.team;
     const awayTeam = scoreboardData.__gamepackage__.awayTeam.team;
@@ -468,6 +480,55 @@ async function fetchAndRenderTopScoreboard() {
     }
   } catch (error) {
     console.error("Error fetching scoreboard data:", error);
+  }
+}
+
+async function fetchAndRenderPlaysData(gameId) {
+  try {
+    // Skip update if user is actively scrolling in plays section
+    if (isUserScrolling) {
+      console.log("Skipping plays update - user is scrolling");
+      return;
+    }
+    
+    // Only fetch commentary data for plays
+    const COMMENTARY_API_URL = `https://cdn.espn.com/core/soccer/commentary?xhr=1&gameId=${gameId}`;
+    const commentaryResponse = await fetch(COMMENTARY_API_URL);
+    
+    if (!commentaryResponse.ok) {
+      throw new Error(`Commentary API responded with status: ${commentaryResponse.status}`);
+    }
+    
+    const commentaryData = await commentaryResponse.json();
+    
+    // Store commentary data globally for play-by-play rendering
+    window.currentCommentaryData = commentaryData;
+    
+    // Also ensure we have lineup data for goal card stats (if not already available)
+    if (!window.currentGameData || !window.currentGameData.rosters) {
+      try {
+        const LINEUP_API_URL = `https://cdn.espn.com/core/soccer/lineups?xhr=1&gameId=${gameId}`;
+        const lineupResponse = await fetch(LINEUP_API_URL);
+        if (lineupResponse.ok) {
+          const lineupData = await lineupResponse.json();
+          // Store the roster data from lineups for goal card stats
+          if (lineupData.gamepackageJSON && lineupData.gamepackageJSON.rosters) {
+            if (!window.currentGameData) window.currentGameData = {};
+            window.currentGameData.rosters = lineupData.gamepackageJSON.rosters;
+          }
+        }
+      } catch (error) {
+        console.warn("Could not fetch lineup data for goal card stats:", error);
+      }
+    }
+    
+    // Update play-by-play if it's visible
+    const playsContent = document.getElementById('playsContent');
+    if (playsContent && playsContent.classList.contains('active')) {
+      renderPlayByPlay(gameId);
+    }
+  } catch (error) {
+    console.error("Error fetching commentary data:", error);
   }
 }
 
@@ -636,16 +697,11 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
     redCards: 0
   };
   
-  // Debug logging for stats
-  console.log('Goal Card Debug - Scorer:', scorer);
-  console.log('Goal Card Debug - Looking for scorer name:', scorer.displayName);
-  
   // Get stats from the commentary roster data
   try {
     // Access the global roster data that should be available
     if (window.currentGameData && window.currentGameData.rosters) {
       const rosters = window.currentGameData.rosters;
-      console.log('Goal Card Debug - Available rosters:', rosters);
       
       for (const roster of rosters) {
         if (roster.roster && Array.isArray(roster.roster)) {
@@ -658,13 +714,10 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
             )
           );
           if (player && player.stats) {
-            console.log('Goal Card Debug - Found player with stats:', player);
             const stats = player.stats.reduce((acc, stat) => {
               acc[stat.abbreviation] = stat.displayValue;
               return acc;
             }, {});
-            
-            console.log('Goal Card Debug - Processed stats:', stats);
             
             scorerStats = {
               goals: stats["G"] || 0,
@@ -678,14 +731,10 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
           }
         }
       }
-    } else {
-      console.log('Goal Card Debug - No roster data available in window.currentGameData');
     }
   } catch (error) {
     console.log('Goal Card Debug - Error retrieving stats:', error);
   }
-  
-  console.log('Goal Card Debug - Final Scorer Stats:', scorerStats);
   
   // Determine if this was a winning, tying, or leading goal
   let goalSituation = '';
@@ -746,7 +795,7 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
           </div>
         </div>
         
-        <div class="goal-field" style="width: 100px; height: 70px; flex-shrink: 0;">
+        <div class="goal-field" style="width: 100px; height: 60px; flex-shrink: 0;">
           ${miniFieldHtml}
         </div>
       </div>
@@ -813,7 +862,9 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
           }
           .goal-field {
             align-self: center !important;
-            margin-top: 15px !important;
+            margin-top: 5px !important;
+            margin-bottom: 80px !important;
+            margin-right: 125px !important;
             order: 2 !important;
             width: 80px !important;
             height: 56px !important;
@@ -843,6 +894,8 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
 // Global variables for preserving play-by-play state
 let openPlays = new Set(); // Track which plays are open
 let playsScrollPosition = 0; // Track scroll position
+let isUserScrolling = false; // Track if user is actively scrolling
+let scrollTimeout = null; // Timeout for scroll detection
 
 // Helper function to get team color using alternate color logic like team-page.js
 function getTeamColorWithAlternateLogic(team) {
@@ -915,32 +968,13 @@ async function renderPlayByPlay(gameId) {
       playsScrollPosition = playsContainer.scrollTop;
     }
 
-    // Sort commentary by timestamp or sequence number (most recent first)
-    const sortedCommentary = [...commentary].sort((a, b) => {
-      // First try to sort by timestamp if available
-      const aTime = a.timestamp || (a.play && a.play.timestamp);
-      const bTime = b.timestamp || (b.play && b.play.timestamp);
-      
-      if (aTime && bTime) {
-        return new Date(bTime) - new Date(aTime); // Most recent first
-      }
-      
-      // Try to sort by clock.value (higher value = more recent)
-      const aClock = a.clock || (a.play && a.play.clock);
-      const bClock = b.clock || (b.play && b.play.clock);
-      
-      if (aClock && bClock && aClock.value !== undefined && bClock.value !== undefined) {
-        return bClock.value - aClock.value; // Higher clock value = more recent
-      }
-      
-      // Fallback to sequence number if available (highest to lowest for reverse chronological)
-      if (a.sequence !== undefined && b.sequence !== undefined) {
-        return b.sequence - a.sequence;
-      }
-      
-      // Final fallback: maintain original order
-      return 0;
-    });
+    // Simply reverse the commentary array to show most recent plays first
+    const sortedCommentary = [...commentary].reverse();
+    
+    console.log('Play order after reversal:', sortedCommentary.map(play => 
+      play.time?.displayValue || play.clock?.displayValue || 
+      (play.play && (play.play.time?.displayValue || play.play.clock?.displayValue)) || 'No time'
+    ));
     
     // Track score throughout the match using counter logic based on type.text
     let homeGoalCount = 0;
@@ -992,10 +1026,8 @@ async function renderPlayByPlay(gameId) {
         
         if (scoringTeam === 'home') {
           homeGoalCount++;
-          console.log(`Goal scored by home team (${homeTeam.team.displayName}) at sequence ${play.sequence}. Score: ${homeGoalCount}-${awayGoalCount}`);
         } else if (scoringTeam === 'away') {
           awayGoalCount++;
-          console.log(`Goal scored by away team (${awayTeam.team.displayName}) at sequence ${play.sequence}. Score: ${homeGoalCount}-${awayGoalCount}`);
         }
         
         goalEvents.push({
@@ -1010,10 +1042,8 @@ async function renderPlayByPlay(gameId) {
         if (playData.team && playData.team.displayName) {
           if (playData.team.displayName === homeTeam.team.displayName && homeGoalCount > 0) {
             homeGoalCount--;
-            console.log(`Home team goal deleted at sequence ${play.sequence}. Score: ${homeGoalCount}-${awayGoalCount}`);
           } else if (playData.team.displayName === awayTeam.team.displayName && awayGoalCount > 0) {
             awayGoalCount--;
-            console.log(`Away team goal deleted at sequence ${play.sequence}. Score: ${homeGoalCount}-${awayGoalCount}`);
           }
           
           goalEvents.push({
@@ -1216,7 +1246,7 @@ async function renderPlayByPlay(gameId) {
                     <div class="event-details">
                       <div class="event-player-name">Match Event</div>
                       <div class="event-description">${goalText}</div>
-                      <span class="event-type">${getOrdinalSuffix(period)} - ${clock}</span>
+                      ${clock ? `<span class="event-type">${period ? `${getOrdinalSuffix(period)} - ${clock}` : clock}</span>` : ''}
                     </div>
                   </div>
                 </div>
@@ -1240,6 +1270,27 @@ async function renderPlayByPlay(gameId) {
       const newPlaysContainer = playsPlaceholder.querySelector('.plays-container');
       if (newPlaysContainer && playsScrollPosition > 0) {
         newPlaysContainer.scrollTop = playsScrollPosition;
+      }
+      
+      // Add scroll event listener to detect user scrolling
+      if (newPlaysContainer) {
+        newPlaysContainer.addEventListener('scroll', function() {
+          isUserScrolling = true;
+          
+          // Clear existing timeout
+          if (scrollTimeout) {
+            clearTimeout(scrollTimeout);
+          }
+          
+          // Set timeout to reset scrolling flag after user stops scrolling
+          scrollTimeout = setTimeout(() => {
+            isUserScrolling = false;
+            console.log("User stopped scrolling - resuming updates");
+          }, 500); // Wait 0.5 seconds after scrolling stops
+
+          // Save current scroll position
+          playsScrollPosition = newPlaysContainer.scrollTop;
+        });
       }
       
       // Apply team colors with !important
@@ -1626,10 +1677,15 @@ window.showStats = function() {
   document.getElementById('statsContent').classList.add('active');
   document.getElementById('playsContent').classList.remove('active');
   
+  // Fetch stats data when switching to stats tab
+  const gameId = getQueryParam("gameId");
+  if (gameId) {
+    fetchAndRenderStatsData(gameId).catch(console.error);
+  }
+  
   // Show stream when on stats tab
   const streamContainer = document.getElementById("streamEmbed");
   if (streamContainer) {
-    const gameId = getQueryParam("gameId");
     if (gameId) {
       renderStreamEmbed(gameId).catch(console.error);
     }
@@ -1645,10 +1701,10 @@ window.showPlays = function() {
   document.getElementById('statsContent').classList.remove('active');
   document.getElementById('playsContent').classList.add('active');
   
-  // Load plays when switching to plays tab
+  // Fetch plays data when switching to plays tab
   const gameId = getQueryParam("gameId");
   if (gameId) {
-    renderPlayByPlay(gameId);
+    fetchAndRenderPlaysData(gameId).catch(console.error);
   }
 };
 
