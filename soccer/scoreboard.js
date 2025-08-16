@@ -1020,7 +1020,7 @@ async function renderPlayByPlay(gameId) {
       
       // Check for goal using type.id field (70, 137, or 98)
       const isGoal = playData.type && playData.type.id && 
-                     ['70', '137', '98'].includes(playData.type.id.toString());
+                     ['70', '137', '98', '173'].includes(playData.type.id.toString());
       
       // Check for goal deletion/overturned
       const isGoalDeleted = playData.text && playData.text.toLowerCase().includes('deleted after review');
@@ -1118,7 +1118,7 @@ async function renderPlayByPlay(gameId) {
       
       // Check if this is a goal play using type.id field (70, 137, or 98)
       const isGoalPlay = playData.type && playData.type.id && 
-                         ['70', '137', '98'].includes(playData.type.id.toString());
+                         ['70', '137', '98', '173'].includes(playData.type.id.toString());
       
       // Get the score at the time of this play using our counter logic
       let scoreAtThisTime = getScoreAtSequence(play);
