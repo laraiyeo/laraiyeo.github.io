@@ -961,6 +961,20 @@ function renderPlayBases(runners) {
 }
 
 async function renderEnhancedScoringPlay(play, teamName, teamLogo, isTopInning, awayTeam, homeTeam, gameData) {
+  // Extract score and inning information
+  const awayScore = play.result?.awayScore || 0;
+  const homeScore = play.result?.homeScore || 0;
+  const inning = play.about?.inning || 0;
+  const halfInning = play.about?.halfInning || '';
+  
+  // Format inning display (e.g., "Top 1st", "Bot 1st")
+  const inningDisplay = inning > 0 ? 
+    `${isTopInning ? 'Top' : 'Bot'} ${ordinalSuffix(inning)}` : 
+    '';
+  
+  // Get team logos for score display
+  const homeTeamLogo = homeTeam?.logo || `https://www.mlbstatic.com/team-logos/${homeTeam?.id}.svg`;
+  const awayTeamLogo = awayTeam?.logo || `https://www.mlbstatic.com/team-logos/${awayTeam?.id}.svg`;
   // Get all pitches for this at-bat (in original order, not reversed)
   // Filter to only include actual pitches (events with pitch data and speed)
   const pitchEvents = [...(play.playEvents || [])].filter(event => 
@@ -1123,6 +1137,20 @@ async function renderEnhancedScoringPlay(play, teamName, teamLogo, isTopInning, 
       </div>
       
       <div class="enhanced-play-header">
+        <div class="score-and-inning" style="display: flex; align-items: center; justify-content: center; gap: 15px; margin: 10px 0; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <img src="${homeTeamLogo}" alt="Home" style="width: 20px; height: 20px;" onerror="this.style.display='none';">
+            <span style="font-size: 16px; font-weight: bold; color: white;">${homeScore}</span>
+            <span style="color: rgba(255,255,255,0.8);">-</span>
+            <span style="font-size: 16px; font-weight: bold; color: white;">${awayScore}</span>
+            <img src="${awayTeamLogo}" alt="Away" style="width: 20px; height: 20px;" onerror="this.style.display='none';">
+          </div>
+          ${inningDisplay ? `
+            <div style="background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: white;">
+              ${inningDisplay}
+            </div>
+          ` : ''}
+        </div>
         <h3>🏆 SCORING PLAY</h3>
         <div class="play-result-summary">${play.result?.description || play.result?.event || 'Scoring Play'}</div>
       </div>

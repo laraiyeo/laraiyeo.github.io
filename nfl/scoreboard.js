@@ -665,29 +665,44 @@ async function renderPlayByPlay(gameId) {
       const endText = drive.end?.text || '';
       const timeElapsed = drive.timeElapsed?.displayValue || '';
       
+      // Get first play time and quarter information
+      const firstPlay = drive.plays?.[0]; // First play in the drive
+      const firstPlayQuarter = firstPlay?.period?.number || '';
+      const firstPlayTime = firstPlay?.clock?.displayValue || '';
+      const firstPlayTimeText = (firstPlayQuarter && firstPlayTime) ? `Q${firstPlayQuarter} ${firstPlayTime}` : '';
+      
       // Create yard line graphic with gradient from start to end
       const startYardLine = drive.start?.yardLine || 0;
-      const endYardLine = drive.end?.yardLine || 0;
+      const endYardLine = drive.end?.yardLine;
       const startPosition = Math.min(100, Math.max(0, startYardLine));
-      const endPosition = Math.min(100, Math.max(0, endYardLine));
+      const hasEndPosition = endYardLine !== undefined && endYardLine !== null;
+      const endPosition = hasEndPosition ? Math.min(100, Math.max(0, endYardLine)) : startPosition;
       
-      // Calculate gradient line from start to end
-      const leftPosition = Math.min(startPosition, endPosition);
-      const rightPosition = Math.max(startPosition, endPosition);
-      const width = rightPosition - leftPosition;
+      // Calculate gradient line from start to end (only if drive has ended)
+      let fieldProgressHtml = '';
+      let endMarkerHtml = '';
       
-      // Flip gradient direction for away teams (green to red for home, red to green for away)
-      const gradientDirection = isHomeTeam ? 'linear-gradient(90deg, #28a745 0%, #dc3545 100%)' : 'linear-gradient(90deg, #dc3545 0%, #28a745 100%)';
+      if (hasEndPosition) {
+        const leftPosition = Math.min(startPosition, endPosition);
+        const rightPosition = Math.max(startPosition, endPosition);
+        const width = rightPosition - leftPosition;
+        
+        // Flip gradient direction for away teams (green to red for home, red to green for away)
+        const gradientDirection = isHomeTeam ? 'linear-gradient(90deg, #28a745 0%, #dc3545 100%)' : 'linear-gradient(90deg, #dc3545 0%, #28a745 100%)';
+        
+        fieldProgressHtml = `<div class="field-progress" style="left: ${leftPosition}%; width: ${width}%; background: ${gradientDirection};"></div>`;
+        endMarkerHtml = `<div class="field-marker end-marker" style="left: ${endPosition}%"></div>`;
+      }
       
       const yardLineGraphic = `
         <div class="yard-line-graphic ${isHomeTeam ? 'home-team' : ''}">
           <div class="yard-info ${isHomeTeam ? 'home-team' : ''}">
-            <span>End: ${endText}</span>
+            ${hasEndPosition ? `<span>End: ${endText}</span>` : '<span>&nbsp;</span>'}
             <div class="field-graphic">
               <div class="field-line">
-                <div class="field-progress" style="left: ${leftPosition}%; width: ${width}%; background: ${gradientDirection};"></div>
+                ${fieldProgressHtml}
                 <div class="field-marker start-marker" style="left: ${startPosition}%"></div>
-                <div class="field-marker end-marker" style="left: ${endPosition}%"></div>
+                ${endMarkerHtml}
               </div>
             </div>
             <span>Start: ${startText}</span>
@@ -730,7 +745,10 @@ async function renderPlayByPlay(gameId) {
             </div>
             <div class="drive-summary ${isHomeTeam ? 'home-team' : ''}">
               <span class="drive-description">${driveDescription}</span>
-              ${timeElapsed ? `<span class="drive-time">${timeElapsed}</span>` : ''}
+              <div class="drive-timing ${isHomeTeam ? 'home-team' : ''}">
+                ${firstPlayTimeText ? `<span class="first-play-time">${firstPlayTimeText}</span>` : ''}
+                ${timeElapsed ? `<span class="drive-time">${timeElapsed}</span>` : ''}
+              </div>
             </div>
             ${yardLineGraphic}
             <div class="drive-toggle">

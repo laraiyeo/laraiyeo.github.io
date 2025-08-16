@@ -513,9 +513,29 @@ body {
   flex: 1;
 }
 
+.drive-timing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.drive-timing.home-team {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.first-play-time {
+  color: #bbb;
+  font-size: 15px;
+  font-weight: 500;
+}
+
 .drive-time {
   color: #888;
-  margin-left: 10px;
+  font-size: 12.5px;
 }
 
 .drive-toggle {
