@@ -932,7 +932,6 @@ async function copyScoringCardAsImage(cardId) {
       copyButton.style.display = originalDisplay || 'flex';
     }
     
-    showFeedback('Scoring card copied to clipboard!', 'success');
   } catch (error) {
     console.error('Error copying scoring card:', error);
     
@@ -959,15 +958,44 @@ async function captureAndCopyImage(element) {
   
   return new Promise((resolve, reject) => {
     canvas.toBlob(async (blob) => {
+      // Check if device is mobile
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                      ('ontouchstart' in window) || 
+                      (navigator.maxTouchPoints > 0);
+
       try {
-        await navigator.clipboard.write([
-          new ClipboardItem({ 'image/png': blob })
-        ]);
-        resolve();
-      } catch (err) {
-        reject(err);
+        if (isMobile) {
+          // On mobile, download the image
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `scoring-card-${new Date().getTime()}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          showFeedback('Scoring card downloaded!', 'success');
+          resolve();
+        } else {
+          // On desktop, try to copy to clipboard using modern API
+          if (navigator.clipboard && window.ClipboardItem) {
+            const clipboardItem = new ClipboardItem({
+              'image/png': blob
+            });
+            await navigator.clipboard.write([clipboardItem]);
+            showFeedback('Scoring card copied to clipboard!', 'success');
+            resolve();
+          } else {
+            showFeedback('Could not copy to clipboard. Try again', 'error');
+            reject(new Error('Clipboard API not available'));
+          }
+        }
+      } catch (clipboardError) {
+        console.error('Error handling image:', clipboardError);
+        showFeedback('Could not copy to clipboard. Try again', 'error');
+        reject(clipboardError);
       }
-    });
+    }, 'image/png', 0.95);
   });
 }
 
