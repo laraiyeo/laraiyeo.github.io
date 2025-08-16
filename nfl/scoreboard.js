@@ -874,10 +874,10 @@ function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, team
       
       <div class="scoring-card-body">
         <div class="scorer-info" style="margin-bottom: 15px;">
-          <div class="scorer-name" style="font-size: 18px; font-weight: bold; color: white; margin-bottom: 4px;">
+          <div class="scorer-name" style="font-size: 18px; font-weight: bold; color: white; margin-bottom: 7.5px;">
             ${scorerName} (${scorerPosition}) - ${teamAbbr}
           </div>
-          <div class="play-description" style="font-size: 14px; color: #ccc; margin-bottom: 10px;">
+          <div class="play-description" style="font-size: 14px; color: #eee; margin-bottom: 10px;">
             ${playText}
           </div>
         </div>
