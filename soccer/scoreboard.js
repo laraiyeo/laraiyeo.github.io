@@ -77,7 +77,7 @@ function renderScorersBox(awayScorers, homeScorers) {
     const penaltyText = scorer.penaltyKick ? " (Pen.)" : "";
     const fullName = scorer.displayName;
     const lastName = fullName.split(" ").slice(-1).join(" ");
-    const displayName = window.innerWidth <= 475 ? lastName : fullName;
+    const displayName = window.innerWidth <= 475 ? (lastName ? lastName : fullName) : fullName;
     return `${displayName} ${scorer.clock}${penaltyText}`;
   };
 
