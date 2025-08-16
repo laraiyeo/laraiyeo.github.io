@@ -744,9 +744,7 @@ body {
 /* Responsive adjustments for plays */
 @media (max-width: 768px) {
   .drive-info {
-    flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
   }
   
   .drive-info.home-team {
@@ -754,10 +752,8 @@ body {
   }
   
   .drive-summary {
-    flex-direction: column;
     align-items: flex-start;
-    gap: 4px;
-    margin-right: 30px;
+    margin-right: 0px;
   }
   
   .drive-summary.home-team {
@@ -765,9 +761,7 @@ body {
   }
   
   .play-header {
-    flex-direction: column;
     align-items: flex-start;
-    gap: 4px;
   }
   
   .drives-container {
@@ -775,8 +769,6 @@ body {
   }
   
   .yard-info {
-    flex-direction: column;
-    gap: 8px;
     align-items: flex-start;
   }
   

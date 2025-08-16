@@ -53,6 +53,12 @@ async function getValidSeasonYear(sport, league, playerId = null, teamId = null)
 
 // NFL Position Groupings for Comparisons
 function getPositionGroup(position) {
+  // Handle undefined, null, or empty position
+  if (!position || typeof position !== 'string') {
+    console.warn('Invalid position provided to getPositionGroup:', position);
+    return 'OTHER';
+  }
+  
   const positionGroups = {
     'QB': 'QB',
     'RB': 'RB', 'FB': 'RB',
@@ -64,7 +70,8 @@ function getPositionGroup(position) {
     'LS': 'LS' // Long snappers get their own group (no stats)
   };
   
-  return positionGroups[position] || 'OTHER';
+  const normalizedPosition = position.toUpperCase().trim();
+  return positionGroups[normalizedPosition] || 'OTHER';
 }
 
 // Check if position should have full stats (exclude LS)
@@ -139,10 +146,13 @@ function getPositionStats(positionGroup, categories) {
   const positionStatConfig = statMappings[positionGroup] || statMappings['DL/LB']; // Default to defensive stats
   const playerStats = [];
 
+  // Ensure categories is an array
+  const validCategories = Array.isArray(categories) ? categories : [];
+
   positionStatConfig.forEach(config => {
-    const category = categories.find(c => c.name === config.category);
-    if (category && category.stats) {
-      const stat = category.stats.find(s => s.name === config.key);
+    const category = validCategories.find(c => c && c.name === config.category);
+    if (category && category.stats && Array.isArray(category.stats)) {
+      const stat = category.stats.find(s => s && s.name === config.key);
       if (stat) {
         playerStats.push({
           label: config.label,
@@ -632,7 +642,7 @@ async function createMatchCard(game, isRecent = false) {
 }
 
 // Global variable to store all NFL players for league-wide comparison
-let allNFLPlayers = [];
+let allNFLPlayers = []; // Will be populated with complete NFL rosters
 
 async function fetchAllNFLPlayers() {
   if (allNFLPlayers.length > 0) {
@@ -646,44 +656,48 @@ async function fetchAllNFLPlayers() {
     
     const allPlayers = [];
     
-    // Fetch roster for each team
+    // Fetch roster for each team using the roster API which contains all players
     const teamPromises = teamsData.items.map(async (teamRef) => {
       try {
         const teamResponse = await fetch(convertToHttps(`${teamRef.$ref}?lang=en&region=us`));
         const teamData = await teamResponse.json();
         
-        if (teamData.athletes && teamData.athletes.$ref) {
-          const rosterResponse = await fetch(convertToHttps(`${teamData.athletes.$ref}?lang=en&region=us`));
-          const rosterData = await rosterResponse.json();
-          
-          if (rosterData.items) {
-            const playerPromises = rosterData.items.map(async (playerRef) => {
-              try {
-                const playerResponse = await fetch(convertToHttps(`${playerRef.$ref}?lang=en&region=us`));
-                const playerData = await playerResponse.json();
+        // Extract team ID from the URL
+        const teamId = teamData.id;
+        
+        // Use the roster API endpoint which gives us complete team rosters
+        const rosterResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${teamId}/roster`);
+        const rosterData = await rosterResponse.json();
+        
+        console.log(`Loading roster for ${teamData.displayName}...`);
+        
+        const teamPlayers = [];
+        
+        if (rosterData.athletes && Array.isArray(rosterData.athletes)) {
+          rosterData.athletes.forEach(positionGroup => {
+            if (positionGroup.items && Array.isArray(positionGroup.items)) {
+              positionGroup.items.forEach(player => {
+                const playerPosition = player.position?.abbreviation || positionGroup.position || 'N/A';
                 
-                return {
-                  id: playerData.id,
-                  firstName: playerData.firstName || '',
-                  lastName: playerData.lastName || playerData.displayName || 'Unknown',
-                  displayName: playerData.displayName || `${playerData.firstName || ''} ${playerData.lastName || ''}`.trim(),
-                  jersey: playerData.jersey || 'N/A',
-                  position: playerData.position?.abbreviation || 'N/A',
-                  headshot: convertToHttps(playerData.headshot?.href) || 'football.png',
+                teamPlayers.push({
+                  id: player.id,
+                  firstName: player.firstName || '',
+                  lastName: player.lastName || player.displayName || 'Unknown',
+                  displayName: player.displayName || `${player.firstName || ''} ${player.lastName || ''}`.trim(),
+                  jersey: player.jersey || 'N/A',
+                  position: playerPosition,
+                  headshot: convertToHttps(player.headshot?.href) || 'football.png',
                   team: teamData.displayName || 'Unknown Team',
                   teamId: teamData.id
-                };
-              } catch (error) {
-                console.error('Error fetching player:', error);
-                return null;
-              }
-            });
-            
-            const players = await Promise.all(playerPromises);
-            return players.filter(player => player !== null);
-          }
+                });
+              });
+            }
+          });
         }
-        return [];
+        
+        console.log(`Loaded ${teamPlayers.length} players for ${teamData.displayName}`);
+        return teamPlayers;
+        
       } catch (error) {
         console.error('Error fetching team roster:', error);
         return [];
@@ -696,7 +710,7 @@ async function fetchAllNFLPlayers() {
     });
 
     allNFLPlayers = allPlayers;
-    console.log(`Loaded ${allNFLPlayers.length} NFL players for comparison`);
+    console.log(`Loaded ${allNFLPlayers.length} total NFL players for comparison`);
     return allNFLPlayers;
   } catch (error) {
     console.error('Error fetching all NFL players:', error);
@@ -765,7 +779,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
 
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
-    searchInput.placeholder = 'Search any NFL player...';
+    searchInput.placeholder = 'Search any NFL player (min 5 characters)...';
     searchInput.style.cssText = `
       width: 100%;
       padding: 8px;
@@ -844,7 +858,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
       clearTimeout(searchTimeout);
       const query = e.target.value.trim().toLowerCase();
       
-      if (query.length < 2) {
+      if (query.length < 5) {
         searchResults.style.display = 'none';
         return;
       }
@@ -859,6 +873,11 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
             const fullName = `${player.firstName || ''} ${player.lastName || ''}`.toLowerCase();
             const teamName = player.team.toLowerCase();
             const playerPositionGroup = getPositionGroup(player.position);
+            
+            // Debug logging
+            if (query.length >= 5 && (fullName.includes(query) || teamName.includes(query))) {
+              console.log(`Player: ${player.displayName}, Position: ${player.position}, Position Group: ${playerPositionGroup}, Remaining Player Group: ${remainingPlayerPositionGroup}`);
+            }
             
             // Only show players from the same position group as the remaining player
             return (fullName.includes(query) || teamName.includes(query)) && 
@@ -1491,7 +1510,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
 
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
-    searchInput.placeholder = 'Type player name...';
+    searchInput.placeholder = 'Type player name (min 5 characters)...';
     searchInput.style.cssText = `
       width: 100%;
       padding: 10px;
@@ -1523,7 +1542,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       clearTimeout(searchTimeout);
       const query = e.target.value.trim().toLowerCase();
       
-      if (query.length < 2) {
+      if (query.length < 5) {
         searchResults.style.display = 'none';
         return;
       }
@@ -2925,15 +2944,36 @@ async function showPlayerComparison(player1, player2) {
       getValidSeasonYear('football', 'nfl', player2.id)
     ]);
 
+    console.log(`Fetching stats for ${player1.displayName} (${seasonYear1}) and ${player2.displayName} (${seasonYear2})`);
+
     const [player1Response, player2Response] = await Promise.all([
       fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${seasonYear1}/types/2/athletes/${player1.id}/statistics?lang=en&region=us`),
       fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${seasonYear2}/types/2/athletes/${player2.id}/statistics?lang=en&region=us`)
     ]);
 
+    // Check if responses are successful before parsing JSON
+    if (!player1Response.ok) {
+      console.error(`Player 1 API error: ${player1Response.status} ${player1Response.statusText}`);
+      console.error(`Player 1 URL: https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${seasonYear1}/types/2/athletes/${player1.id}/statistics?lang=en&region=us`);
+      throw new Error(`Failed to fetch statistics for ${player1.displayName}: ${player1Response.status} ${player1Response.statusText}`);
+    }
+    
+    if (!player2Response.ok) {
+      console.error(`Player 2 API error: ${player2Response.status} ${player2Response.statusText}`);
+      console.error(`Player 2 URL: https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${seasonYear2}/types/2/athletes/${player2.id}/statistics?lang=en&region=us`);
+      throw new Error(`Failed to fetch statistics for ${player2.displayName}: ${player2Response.status} ${player2Response.statusText}`);
+    }
+
     const [player1Data, player2Data] = await Promise.all([
       player1Response.json(),
       player2Response.json()
     ]);
+
+    // Debug logging to understand the data structure
+    console.log('Player 1 data:', player1Data);
+    console.log('Player 2 data:', player2Data);
+    console.log('Player 1 categories:', player1Data.splits?.categories);
+    console.log('Player 2 categories:', player2Data.splits?.categories);
 
     displayPlayerComparison(player1Data.splits?.categories, player2Data.splits?.categories, statsComparisonContainer, player1.position);
 
@@ -2947,7 +2987,30 @@ async function showPlayerComparison(player1, player2) {
 
   } catch (error) {
     console.error('Error loading player comparison:', error);
-    alert('Error loading player comparison. Please try again.');
+    console.error('Error details:', {
+      player1: player1,
+      player2: player2,
+      error: error.message
+    });
+    
+    // Provide more specific error messages
+    let errorMessage = 'Error loading player comparison.';
+    if (error.message.includes('Failed to fetch statistics')) {
+      errorMessage = `Unable to load statistics for one or both players. This may be due to:\n• Player hasn't played in the current/previous season\n• No statistical data available\n• Network connectivity issues`;
+    } else if (error.message.includes('fetch')) {
+      errorMessage = 'Network error occurred while fetching player data. Please check your connection and try again.';
+    }
+    
+    // Show error in the modal instead of an alert
+    statsComparisonContainer.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #666;">
+        <div style="font-size: 18px; margin-bottom: 10px;">⚠️ Comparison Unavailable</div>
+        <div style="line-height: 1.5;">${errorMessage}</div>
+        <div style="margin-top: 20px; font-size: 14px; color: #999;">
+          Try comparing with a different player or check back later.
+        </div>
+      </div>
+    `;
   }
 }
 
@@ -3044,8 +3107,13 @@ function displayPlayerStatsInModal(categories, container, position, seasonYear =
 function displayPlayerComparison(player1Categories, player2Categories, container, position) {
   // Get position-specific stats for both players
   const positionGroup = getPositionGroup(position);
-  const player1Stats = getPositionStats(positionGroup, player1Categories);
-  const player2Stats = getPositionStats(positionGroup, player2Categories);
+  
+  // Ensure categories are valid arrays
+  const validPlayer1Categories = Array.isArray(player1Categories) ? player1Categories : [];
+  const validPlayer2Categories = Array.isArray(player2Categories) ? player2Categories : [];
+  
+  const player1Stats = getPositionStats(positionGroup, validPlayer1Categories);
+  const player2Stats = getPositionStats(positionGroup, validPlayer2Categories);
 
   if (player1Stats.length === 0 && player2Stats.length === 0) {
     container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No statistics available for comparison</div>';

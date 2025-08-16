@@ -1,5 +1,223 @@
 const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams";
 
+// NFL Position Groupings for Scoring Cards
+function getPositionGroup(position) {
+  const positionGroups = {
+    'QB': 'QB',
+    'RB': 'RB', 'FB': 'RB',
+    'WR': 'WR/TE', 'TE': 'WR/TE',
+    'OT': 'OL', 'G': 'OL', 'C': 'OL', 'OL': 'OL',
+    'DE': 'DL/LB', 'DT': 'DL/LB', 'LB': 'DL/LB', 'OLB': 'DL/LB', 'MLB': 'DL/LB', 'ILB': 'DL/LB',
+    'CB': 'DB', 'S': 'DB', 'FS': 'DB', 'SS': 'DB', 'DB': 'DB',
+    'K': 'K/P', 'P': 'K/P', 'PK': 'K/P',
+    'LS': 'LS'
+  };
+  
+  return positionGroups[position] || 'OTHER';
+}
+
+// Get relevant stats for position group for scoring cards
+function getPositionStatsForCard(positionGroup, boxScoreData, playerName, preferredStatCategory = null) {
+  console.log('getPositionStatsForCard called with:', { positionGroup, playerName, preferredStatCategory, hasBoxScore: !!boxScoreData });
+  
+  if (!boxScoreData || !boxScoreData.gamepackageJSON?.boxscore?.players) {
+    console.log('No box score data available');
+    return [];
+  }
+
+  const players = boxScoreData.gamepackageJSON.boxscore.players;
+  let playerStats = {};
+  let foundInPreferredCategory = false;
+
+  console.log('Searching for player in box score, teams:', players.length);
+
+  // First pass: try to find player in preferred stat category
+  if (preferredStatCategory) {
+    for (const team of players) {
+      for (const statCategory of team.statistics || []) {
+        if (statCategory.name === preferredStatCategory) {
+          console.log('Checking preferred stat category:', statCategory.name, 'with labels:', statCategory.labels);
+          for (const athlete of statCategory.athletes || []) {
+            const athleteName = athlete.athlete?.displayName || '';
+            const athleteFullName = athlete.athlete?.fullName || '';
+            
+            // Check for exact match first
+            if (athleteName === playerName || athleteFullName === playerName) {
+              console.log('Found exact matching player in preferred category!', athleteName);
+              const stats = athlete.stats || [];
+              for (let i = 0; i < stats.length; i++) {
+                const statName = statCategory.labels?.[i];
+                if (statName) {
+                  playerStats[statName] = stats[i];
+                  console.log('Added preferred stat:', statName, '=', stats[i]);
+                }
+              }
+              foundInPreferredCategory = true;
+              break;
+            }
+            // Check for abbreviated name match
+            else if (playerName.includes('.') && athleteName) {
+              const [firstInitial, lastName] = playerName.split('.');
+              if (athleteName.toLowerCase().startsWith(firstInitial.toLowerCase()) && 
+                  athleteName.toLowerCase().includes(lastName.toLowerCase())) {
+                console.log('Found matching player by abbreviation in preferred category!', athleteName, 'matches', playerName);
+                const stats = athlete.stats || [];
+                for (let i = 0; i < stats.length; i++) {
+                  const statName = statCategory.labels?.[i];
+                  if (statName) {
+                    playerStats[statName] = stats[i];
+                    console.log('Added preferred stat:', statName, '=', stats[i]);
+                  }
+                }
+                foundInPreferredCategory = true;
+                break;
+              }
+            }
+          }
+          if (foundInPreferredCategory) break;
+        }
+      }
+      if (foundInPreferredCategory) break;
+    }
+  }
+
+  // If not found in preferred category or no preferred category, search all categories
+  if (!foundInPreferredCategory) {
+    console.log('Player not found in preferred category, searching all categories');
+    // Find the player in the box score data
+    for (const team of players) {
+      console.log('Checking team:', team.team?.displayName);
+      for (const statCategory of team.statistics || []) {
+        console.log('Checking stat category:', statCategory.name, 'with labels:', statCategory.labels);
+        for (const athlete of statCategory.athletes || []) {
+          const athleteName = athlete.athlete?.displayName || '';
+          const athleteFullName = athlete.athlete?.fullName || '';
+          console.log('Checking athlete:', athleteName);
+          
+          // Check for exact match first
+          if (athleteName === playerName || athleteFullName === playerName) {
+            console.log('Found exact matching player!', athleteName);
+            const stats = athlete.stats || [];
+            for (let i = 0; i < stats.length; i++) {
+              const statName = statCategory.labels?.[i];
+              if (statName) {
+                playerStats[statName] = stats[i];
+                console.log('Added stat:', statName, '=', stats[i]);
+              }
+            }
+          }
+          // Check for abbreviated name match (e.g., "G.Helm" matches "Greg Helm")
+          else if (playerName.includes('.') && athleteName) {
+            const [firstInitial, lastName] = playerName.split('.');
+            if (athleteName.toLowerCase().startsWith(firstInitial.toLowerCase()) && 
+                athleteName.toLowerCase().includes(lastName.toLowerCase())) {
+              console.log('Found matching player by abbreviation!', athleteName, 'matches', playerName);
+              const stats = athlete.stats || [];
+              for (let i = 0; i < stats.length; i++) {
+                const statName = statCategory.labels?.[i];
+                if (statName) {
+                  playerStats[statName] = stats[i];
+                  console.log('Added stat:', statName, '=', stats[i]);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  console.log('Player stats found:', playerStats);
+
+  // Map position-specific stats for scoring cards (6 stats each)
+  const statMappings = {
+    'QB': [
+      { key: 'CMP', label: 'Comp' },
+      { key: 'ATT', label: 'Att' },
+      { key: 'YDS', label: 'Pass Yds' },
+      { key: 'TD', label: 'Pass TD' },
+      { key: 'INT', label: 'INT' },
+      { key: 'QBR', label: 'QBR' }
+    ],
+    'RB': [
+      { key: 'CAR', label: 'Carries' },
+      { key: 'YDS', label: 'Rush Yds' },
+      { key: 'TD', label: 'Rush TD' },
+      { key: 'AVG', label: 'Avg' },
+      { key: 'REC', label: 'Rec' },
+      { key: 'YDS', label: 'Rec Yds' }
+    ],
+    'RB_RUSHING': [
+      { key: 'CAR', label: 'Carries' },
+      { key: 'YDS', label: 'Rush Yds' },
+      { key: 'AVG', label: 'Avg' },
+      { key: 'TD', label: 'Rush TD' },
+      { key: 'LONG', label: 'Long' }
+    ],
+    'WR': [
+      { key: 'REC', label: 'Rec' },
+      { key: 'YDS', label: 'Rec Yds' },
+      { key: 'TD', label: 'Rec TD' },
+      { key: 'AVG', label: 'Avg' },
+      { key: 'LONG', label: 'Long' },
+      { key: 'TGTS', label: 'Targets' }
+    ],
+    'WR/TE': [
+      { key: 'REC', label: 'Rec' },
+      { key: 'YDS', label: 'Rec Yds' },
+      { key: 'TD', label: 'Rec TD' },
+      { key: 'AVG', label: 'Avg' },
+      { key: 'LONG', label: 'Long' },
+      { key: 'TGTS', label: 'Targets' }
+    ],
+    'K': [
+      { key: 'FGM', label: 'FG Made' },
+      { key: 'FGA', label: 'FG Att' },
+      { key: 'XPM', label: 'XP Made' },
+      { key: 'XPA', label: 'XP Att' },
+      { key: 'PTS', label: 'Points' },
+      { key: 'LNG', label: 'Long' }
+    ],
+    'DL/LB': [
+      { key: 'SOLO', label: 'Solo' },
+      { key: 'TOT', label: 'Total' },
+      { key: 'SACKS', label: 'Sacks' },
+      { key: 'TFL', label: 'TFL' },
+      { key: 'QH', label: 'QB Hits' },
+      { key: 'PD', label: 'PD' }
+    ],
+    'DB': [
+      { key: 'SOLO', label: 'Solo' },
+      { key: 'TOT', label: 'Total' },
+      { key: 'INT', label: 'INT' },
+      { key: 'PD', label: 'PD' },
+      { key: 'SACKS', label: 'Sacks' },
+      { key: 'TFL', label: 'TFL' }
+    ],
+    'K/P': [
+      { key: 'FG', label: 'FG' },
+      { key: 'XP', label: 'XP' },
+      { key: 'PTS', label: 'Points' },
+      { key: 'AVG', label: 'Avg' },
+      { key: 'LONG', label: 'Long' },
+      { key: 'TB', label: 'TB' }
+    ]
+  };
+
+  const positionStatConfig = statMappings[positionGroup] || statMappings['DL/LB'];
+  const formattedStats = [];
+
+  positionStatConfig.forEach(config => {
+    const value = playerStats[config.key] || '0';
+    formattedStats.push({
+      label: config.label,
+      value: value
+    });
+  });
+
+  return formattedStats;
+}
+
 function normalizeTeamName(teamName) {
   // Convert team names to the format used in the streaming site URLs
   const nameMap = {
@@ -493,6 +711,314 @@ function getQueryParam(param) {
   return urlParams.get(param);
 }
 
+// Function to render NFL scoring card
+function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, teamSide, homeTeam, awayTeam, boxScoreData) {
+  console.log('renderScoringCard called with play:', play);
+  
+  // Get game state information first
+  const clock = play.clock?.displayValue || '';
+  const period = play.period?.number || '';
+  const scoringType = play.scoringType?.displayName || '';
+  const playText = play.text || '';
+  
+  // Get scorer information from play participants or extract from play text
+  let scorer = play.participants?.[0]?.athlete;
+  let scorerName = 'Unknown Player';
+  let scorerPosition = '';
+  
+  if (scorer) {
+    scorerName = scorer.displayName || 'Unknown Player';
+    scorerPosition = scorer.position?.abbreviation || '';
+    console.log('Found scorer from participants:', scorerName, scorerPosition);
+  } else {
+    // Try to extract player name from play text for NFL
+    console.log('No participants found, trying to extract from text:', playText);
+    
+    // Enhanced NFL scoring patterns - prioritize actual scorers over extra point kickers
+    const patterns = [
+      // Receiving touchdowns: "pass to PLAYER for X yards, TOUCHDOWN"
+      /pass\s+(?:deep\s+)?(?:right|left|middle)?\s*to\s+([A-Z]\.[A-Za-z]+)\s+for\s+\d+\s+yards?,?\s+TOUCHDOWN/i,
+      // Rushing touchdowns: "PLAYER run/rush/guard/tackle/end for X yards, TOUCHDOWN"
+      /([A-Z]\.[A-Za-z]+)\s+(?:run|rush|up the middle|left end|right end|left guard|right guard|left tackle|right tackle)\s+for\s+\d+\s+yards?,?\s+TOUCHDOWN/i,
+      // Generic rushing: "PLAYER for X yards, TOUCHDOWN" (before any extra point mention)
+      /([A-Z]\.[A-Za-z]+)\s+for\s+\d+\s+yards?,?\s+TOUCHDOWN/i,
+      // Field goals: "PLAYER X yard field goal is GOOD" (only for field goals, not touchdowns)
+      /([A-Z]\.[A-Za-z]+)\s+\d+\s+yard\s+field\s+goal\s+is\s+GOOD/i
+    ];
+    
+    // Special handling for extra points - only use kicker if this is specifically an extra point play
+    if (scoringType && scoringType.toLowerCase().includes('extra point')) {
+      const extraPointPattern = /([A-Z]\.[A-Za-z]+)\s+extra\s+point\s+is\s+GOOD/i;
+      const match = playText.match(extraPointPattern);
+      if (match && match[1]) {
+        scorerName = match[1].trim();
+        scorerPosition = 'K';
+        console.log('Extracted extra point kicker:', scorerName);
+      }
+    } else {
+      // For touchdowns and field goals, use the main patterns
+      for (const pattern of patterns) {
+        const match = playText.match(pattern);
+        if (match && match[1]) {
+          scorerName = match[1].trim();
+          console.log('Extracted scorer from text:', scorerName);
+          
+          // Try to determine position from play context
+          if (playText.includes('pass') && playText.includes('to ' + scorerName)) {
+            scorerPosition = 'WR'; // Receiving touchdown
+          } else if (playText.includes(scorerName + ' right guard') || 
+                     playText.includes(scorerName + ' left guard') ||
+                     playText.includes(scorerName + ' run') || 
+                     playText.includes(scorerName + ' rush') ||
+                     playText.includes(scorerName + ' up the middle') ||
+                     playText.includes(scorerName + ' left end') ||
+                     playText.includes(scorerName + ' right end') ||
+                     playText.includes(scorerName + ' left tackle') ||
+                     playText.includes(scorerName + ' right tackle')) {
+            scorerPosition = 'RB'; // Rushing touchdown
+          } else if (playText.includes('field goal')) {
+            scorerPosition = 'K'; // Kicker
+          }
+          
+          console.log('Inferred position:', scorerPosition);
+          break;
+        }
+      }
+    }
+    
+    // If still no scorer found, continue anyway for the card
+    if (scorerName === 'Unknown Player') {
+      console.log('Could not extract scorer, using team info');
+    }
+  }
+
+  // Get team abbreviation and logo
+  const scoringTeam = teamSide === 'home' ? homeTeam : awayTeam;
+  const teamAbbr = scoringTeam?.team?.abbreviation || scoringTeam?.abbreviation || '';
+  const teamLogo = `https://a.espncdn.com/i/teamlogos/nfl/500/${teamAbbr}.png`;
+
+  // Determine scoring situation
+  let scoringSituation = '';
+  if (teamSide === 'home') {
+    if (homeScore > awayScore) {
+      scoringSituation = homeScore - awayScore === 1 ? 'Go-ahead Score' : 'Extends Lead';
+    } else if (homeScore === awayScore) {
+      scoringSituation = 'Ties Game';
+    }
+  } else {
+    if (awayScore > homeScore) {
+      scoringSituation = awayScore - homeScore === 1 ? 'Go-ahead Score' : 'Extends Lead';
+    } else if (awayScore === homeScore) {
+      scoringSituation = 'Ties Game';
+    }
+  }
+
+  // Get position-specific stats
+  const positionGroup = getPositionGroup(scorerPosition);
+  console.log('Getting stats for:', { scorerName, scorerPosition, positionGroup });
+  
+  // For RBs, determine if this was a rushing or receiving touchdown to show appropriate stats
+  let adjustedPositionGroup = positionGroup;
+  let preferredStatCategory = null;
+  
+  if (positionGroup === 'RB') {
+    // Check if this was a receiving touchdown (pass play)
+    if (playText.includes('pass') && playText.includes('to ' + scorerName)) {
+      adjustedPositionGroup = 'WR/TE'; // Show receiving stats for receiving TDs
+      preferredStatCategory = 'receiving';
+      console.log('RB receiving TD detected, showing receiving stats');
+    } else {
+      adjustedPositionGroup = 'RB_RUSHING'; // Show rushing-focused stats for rushing TDs
+      preferredStatCategory = 'rushing';
+      console.log('RB rushing TD detected, showing rushing stats');
+    }
+  }
+  
+  const playerStats = getPositionStatsForCard(adjustedPositionGroup, boxScoreData, scorerName, preferredStatCategory);
+  console.log('Player stats retrieved:', playerStats);
+
+  // Get team logos for score display
+  const homeTeamLogo = `https://a.espncdn.com/i/teamlogos/nfl/500/${homeTeam?.team?.abbreviation || homeTeam?.abbreviation}.png`;
+  const awayTeamLogo = `https://a.espncdn.com/i/teamlogos/nfl/500/${awayTeam?.team?.abbreviation || awayTeam?.abbreviation}.png`;
+
+  const teamColorHex = teamColor.startsWith('#') ? teamColor : `#${teamColor}`;
+  const scoringCardId = `scoring-card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  console.log('About to render scoring card with:', {
+    scorerName,
+    scorerPosition,
+    teamAbbr,
+    scoringType,
+    playerStats: playerStats.length
+  });
+
+  return `
+    <div id="${scoringCardId}" class="scoring-card" style="background: linear-gradient(135deg, ${teamColorHex}15 0%, ${teamColorHex}05 100%); border-left: 4px solid ${teamColorHex}; margin: 10px 0; padding: 20px; border-radius: 8px; color: white; position: relative;">
+      <div class="copy-button" onclick="copyScoringCardAsImage('${scoringCardId}')" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); border: none; border-radius: 50%; width: 30px; height: 30px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; z-index: 10;">
+        📋
+      </div>
+      
+      <div class="scoring-card-header" style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 15px; margin-right: 40px;">
+        <div style="display: flex; align-items: center; flex: 1;">
+          <img src="${teamLogo}" alt="${teamInfo?.displayName || 'Team'}" style="width: 40px; height: 40px; margin-right: 15px;">
+          <div class="scoring-info">
+            <div class="scoring-type" style="font-size: 14px; font-weight: bold; color: white; margin-bottom: 4px;">
+              🏈 ${scoringType} ${scoringSituation ? `• ${scoringSituation}` : ''}
+            </div>
+            <div class="scoring-time" style="font-size: 12px; color: rgba(255,255,255,0.8);">
+              Q${period} ${clock}
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="scoring-card-body">
+        <div class="scorer-info" style="margin-bottom: 15px;">
+          <div class="scorer-name" style="font-size: 18px; font-weight: bold; color: white; margin-bottom: 4px;">
+            ${scorerName} (${scorerPosition}) - ${teamAbbr}
+          </div>
+          <div class="play-description" style="font-size: 14px; color: #ccc; margin-bottom: 10px;">
+            ${playText}
+          </div>
+        </div>
+        
+        <div class="scoring-score-line" style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; margin-bottom: 15px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <img src="${homeTeamLogo}" alt="Home" style="width: 24px; height: 24px;">
+            <span style="font-size: 16px; font-weight: bold; color: white;">${homeScore} - ${awayScore}</span>
+            <img src="${awayTeamLogo}" alt="Away" style="width: 24px; height: 24px;">
+          </div>
+          <div style="background: ${teamColorHex}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
+            ${scoringType.toUpperCase()}
+          </div>
+        </div>
+        
+        ${playerStats.length > 0 ? `
+          <div class="scorer-stats" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+            ${playerStats.map(stat => `
+              <div style="text-align: center; background: rgba(255,255,255,0.1); padding: 8px; border-radius: 4px;">
+                <div style="font-size: 16px; font-weight: bold; color: white;">${stat.value}</div>
+                <div style="font-size: 12px; color: rgba(255,255,255,0.8);">${stat.label}</div>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
+// Function to copy scoring card as image
+async function copyScoringCardAsImage(cardId) {
+  try {
+    const element = document.getElementById(cardId);
+    if (!element) {
+      console.error('Scoring card element not found');
+      return;
+    }
+    
+    // Hide the copy button before taking screenshot
+    const copyButton = element.querySelector('.copy-button');
+    const originalDisplay = copyButton ? copyButton.style.display : null;
+    if (copyButton) {
+      copyButton.style.display = 'none';
+    }
+    
+    showFeedback('Preparing image...', 'loading');
+    await captureAndCopyImage(element);
+    
+    // Restore the copy button after screenshot
+    if (copyButton) {
+      copyButton.style.display = originalDisplay || 'flex';
+    }
+    
+    showFeedback('Scoring card copied to clipboard!', 'success');
+  } catch (error) {
+    console.error('Error copying scoring card:', error);
+    
+    // Make sure to restore the copy button even if there's an error
+    const element = document.getElementById(cardId);
+    const copyButton = element?.querySelector('.copy-button');
+    if (copyButton) {
+      copyButton.style.display = 'flex';
+    }
+    
+    showFeedback('Failed to copy scoring card', 'error');
+  }
+}
+
+// Function to capture and copy element as image
+async function captureAndCopyImage(element) {
+  const { default: html2canvas } = await import('https://cdn.skypack.dev/html2canvas');
+  
+  const canvas = await html2canvas(element, {
+    backgroundColor: '#1a1a1a',
+    scale: 3,
+    useCORS: true
+  });
+  
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(async (blob) => {
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]);
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
+    });
+  });
+}
+
+// Function to show feedback messages
+function showFeedback(message, type) {
+  const existingFeedback = document.getElementById('copyFeedback');
+  if (existingFeedback) {
+    existingFeedback.remove();
+  }
+
+  const feedback = document.createElement('div');
+  feedback.id = 'copyFeedback';
+  feedback.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    z-index: 10000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    transition: opacity 0.3s ease;
+  `;
+
+  switch (type) {
+    case 'success':
+      feedback.style.backgroundColor = '#28a745';
+      break;
+    case 'error':
+      feedback.style.backgroundColor = '#dc3545';
+      break;
+    case 'loading':
+      feedback.style.backgroundColor = '#007bff';
+      break;
+    default:
+      feedback.style.backgroundColor = '#6c757d';
+  }
+
+  feedback.textContent = message;
+  document.body.appendChild(feedback);
+
+  if (type !== 'loading') {
+    setTimeout(() => {
+      if (feedback.parentNode) {
+        feedback.remove();
+      }
+    }, 3000);
+  }
+}
+
 async function renderBoxScore(gameId, gameState) {
   try {
     const BOX_SCORE_API_URL = `https://cdn.espn.com/core/nfl/boxscore?xhr=1&gameId=${gameId}`;
@@ -629,6 +1155,18 @@ async function renderPlayByPlay(gameId) {
     const gameId_param = getQueryParam("gameId");
     let homeTeamId = null;
     let awayTeamId = null;
+    let homeTeam = null;
+    let awayTeam = null;
+    let boxScoreData = null;
+    
+    // Fetch box score data for player stats
+    try {
+      const BOX_SCORE_API_URL = `https://cdn.espn.com/core/nfl/boxscore?xhr=1&gameId=${gameId_param}`;
+      const boxScoreResponse = await fetch(BOX_SCORE_API_URL);
+      boxScoreData = await boxScoreResponse.json();
+    } catch (error) {
+      console.log("Could not fetch box score data for scoring cards");
+    }
     
     // Try to get home/away team IDs from the first drive or API call
     if (drives.length > 0) {
@@ -642,6 +1180,8 @@ async function renderPlayByPlay(gameId) {
         if (currentGame) {
           homeTeamId = currentGame.competitions[0].competitors.find(c => c.homeAway === "home")?.team?.id;
           awayTeamId = currentGame.competitions[0].competitors.find(c => c.homeAway === "away")?.team?.id;
+          homeTeam = currentGame.competitions[0].competitors.find(c => c.homeAway === "home");
+          awayTeam = currentGame.competitions[0].competitors.find(c => c.homeAway === "away");
         }
       } catch (e) {
         console.log("Could not fetch team home/away info");
@@ -720,14 +1260,95 @@ async function renderPlayByPlay(gameId) {
         const isScoringPlay = play.scoringPlay || false;
         const scoringType = play.scoringType?.displayName || '';
         
+        // Also check if this is a scoring play by looking at text patterns (backup check)
+        // But distinguish between touchdowns and extra points
+        const isTouchdown = /\bTOUCHDOWN\b/i.test(playText);
+        const isFieldGoal = /\d+\s+yard\s+field\s+goal\s+is\s+GOOD/i.test(playText);
+        const isExtraPointOnly = /extra\s+point\s+is\s+GOOD/i.test(playText) && !isTouchdown;
+        const isSafety = /safety/i.test(playText);
+        
+        const isLikelyScoringPlay = isScoringPlay || isTouchdown || isFieldGoal || isSafety;
+        // Don't show cards for extra point only plays (they're usually combined with touchdown plays)
+        const shouldShowScoringCard = isLikelyScoringPlay && !isExtraPointOnly;
+        
+        console.log('Play analysis:', {
+          playText,
+          isScoringPlay,
+          isTouchdown,
+          isFieldGoal,
+          isExtraPointOnly,
+          shouldShowScoringCard,
+          scoringType,
+          hasParticipants: !!play.participants
+        });
+        
+        // Generate scoring card for scoring plays
+        let scoringCardHtml = '';
+        if (shouldShowScoringCard) {
+          console.log('Scoring play detected:', {
+            scoringType,
+            playText,
+            isScoringPlay: isLikelyScoringPlay,
+            play,
+            teamId,
+            homeTeamId,
+            awayTeamId
+          });
+          
+          try {
+            // Determine which team scored
+            const teamSide = teamId === homeTeamId ? 'home' : 'away';
+            
+            // Get team color from the appropriate team data
+            let teamColor = drive.team?.color;
+            if (!teamColor) {
+              // Fallback to get color from home/away team data
+              if (teamSide === 'home' && homeTeam?.team?.color) {
+                teamColor = homeTeam.team.color;
+              } else if (teamSide === 'away' && awayTeam?.team?.color) {
+                teamColor = awayTeam.team.color;
+              } else {
+                // Default fallback color
+                teamColor = '000000';
+              }
+            }
+            
+            console.log('Rendering scoring card with:', {
+              teamSide,
+              teamColor,
+              homeScore,
+              awayScore,
+              homeTeam,
+              awayTeam
+            });
+            
+            scoringCardHtml = renderScoringCard(
+              play, 
+              drive.team, 
+              teamColor, 
+              homeScore, 
+              awayScore, 
+              teamSide, 
+              homeTeam, 
+              awayTeam, 
+              boxScoreData
+            );
+            
+            console.log('Scoring card HTML generated:', scoringCardHtml ? 'SUCCESS' : 'EMPTY');
+          } catch (error) {
+            console.log('Error rendering scoring card:', error);
+          }
+        }
+        
         return `
-          <div class="play-item ${isScoringPlay ? 'scoring-play' : ''}">
+          <div class="play-item ${shouldShowScoringCard ? 'scoring-play' : ''}">
             <div class="play-header">
               <span class="play-time">Q${period} ${clock}</span>
               <span class="play-score">${awayScore} - ${homeScore}</span>
-              ${isScoringPlay ? `<span class="scoring-indicator">${scoringType}</span>` : ''}
+              ${shouldShowScoringCard ? `<span class="scoring-indicator">${scoringType || (isTouchdown ? 'Touchdown' : isFieldGoal ? 'Field Goal' : 'Score')}</span>` : ''}
             </div>
             <div class="play-description">${playText}</div>
+            ${scoringCardHtml}
           </div>
         `;
       }).join('');
