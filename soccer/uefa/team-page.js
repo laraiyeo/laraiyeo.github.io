@@ -2177,11 +2177,11 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
     
     const teamScore = teamCompetitor.score || "0";
     const opponentScore = opponentCompetitor.score || "0";
-    const teamSHTScore = teamCompetitor.shootoutScore || "0";
-    const opponentSHTScore = opponentCompetitor.shootoutScore || "0";
+    const teamSHTScore = teamCompetitor.shootoutScore;
+    const opponentSHTScore = opponentCompetitor.shootoutScore;
 
-    const teamS = teamSHTScore ? `${teamSHTScore} <sup>(${teamScore})</sup>` : teamScore;
-    const opponentS = opponentSHTScore ? `${opponentSHTScore} <sup>(${opponentScore})</sup>` : opponentScore;
+    const teamS = teamSHTScore ? `${teamScore} <sup>(${teamSHTScore})</sup>` : teamScore;
+    const opponentS = opponentSHTScore ? `${opponentScore} <sup>(${opponentSHTScore})</sup>` : opponentScore;
     const isHomeTeam = teamCompetitor.homeAway === 'home';
     
     // Get season-specific team information and colors
