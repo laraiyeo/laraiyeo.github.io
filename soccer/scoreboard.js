@@ -186,6 +186,13 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
           "CM-L": "bottom: 55%; left: 30%; transform: translateX(-50%);", "CM": "bottom: 55%; left: 50%; transform: translateX(-50%);", "CM-R": "bottom: 55%; left: 70%; transform: translateX(-50%);",
           "CF-L": "bottom: 85%; left: 40%; transform: translateX(-50%);", "CF-R": "bottom: 85%; left: 60%; transform: translateX(-50%);"
         };   
+      case "5-4-1":
+        return {
+          "G": "bottom: 2.5%; left: 50%; transform: translateX(-50%);", "LB": "bottom: 30%; left: 5%; transform: translateX(-50%);", "CD-L": "bottom: 20%; left: 25%; transform: translateX(-50%);",
+          "CD": "bottom: 20%; left: 50%; transform: translateX(-50%);", "CD-R": "bottom: 20%; left: 75%; transform: translateX(-50%);", "RB": "bottom: 30%; left: 95%; transform: translateX(-50%);",
+          "LM": "bottom: 55%; left: 15%; transform: translateX(-50%);", "CM-L": "bottom: 55%; left: 37.5%; transform: translateX(-50%);", "CM-R": "bottom: 55%; left: 62.5%; transform: translateX(-50%);", "RM": "bottom: 55%; left: 85%; transform: translateX(-50%);",
+          "F": "bottom: 85%; left: 50%; transform: translateX(-50%);"
+        };
       default:
         return {
           "G": "bottom: 2.5%; left: 50%; transform: translateX(-50%);", "CD-L": "bottom: 20%; left: 30%; transform: translateX(-50%);", "CD-R": "bottom: 20%; left: 70%; transform: translateX(-50%);",
@@ -1355,7 +1362,10 @@ function normalizeTeamName(teamName) {
     'borussia dortmund': 'borussia-dortmund',
     'stade rennais': 'rennes',
     'marseille': 'olympique-marseille',
-    'lafc': 'los-angeles-fc'
+    'lafc': 'los-angeles-fc',
+    'sporting kansas city': 'sporting-kc',
+    'chicago fire fc': 'chicago-fire',
+    'st. louis city sc': 'st-louis-city'
   };
   
   const lowerName = teamName.toLowerCase();

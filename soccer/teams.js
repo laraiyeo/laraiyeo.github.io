@@ -208,6 +208,8 @@ function buildGameCard(game, team) {
 
   const date = `${datePart}, ${time}`;
 
+  const isMLS = currentLeague === "usa.1";
+
   const startTime = new Date(game.date).toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
@@ -221,7 +223,7 @@ function buildGameCard(game, team) {
     
     return `
       <div class="game-card">
-        <div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${newTotal}</div>
+        ${isMLS ? '' : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${newTotal}</div>`}
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
             <img src="${getTeamLogo(homeTeam.team)}" alt="${homeTeam.team.displayName}" style="width: 60px; height: 60px; margin-bottom: 6px;">
@@ -242,7 +244,7 @@ function buildGameCard(game, team) {
     // Finished game card
     return `
       <div class="game-card">
-        <div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${total}</div>
+        ${isMLS ? '' : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${total}</div>`}
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -271,7 +273,7 @@ function buildGameCard(game, team) {
 
     return `
         <div class="game-card">
-          <div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${newTotal}</div>
+          ${isMLS ? '' : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${newTotal}</div>`}
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <div style="text-align: center;">
               <div style="display: flex; align-items: center; gap: 8px;">

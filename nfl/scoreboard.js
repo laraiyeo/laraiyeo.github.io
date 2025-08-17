@@ -795,7 +795,7 @@ function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, team
   // Get team abbreviation and logo
   const scoringTeam = teamSide === 'home' ? homeTeam : awayTeam;
   const teamAbbr = scoringTeam?.team?.abbreviation || scoringTeam?.abbreviation || '';
-  const teamLogo = `https://a.espncdn.com/i/teamlogos/nfl/500/${teamAbbr}.png`;
+  const teamLogo = (teamAbbr === "NYG" || teamAbbr === "NYJ") ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${teamAbbr}.png` : `https://a.espncdn.com/i/teamlogos/nfl/500/${teamAbbr}.png`;
 
   // Determine scoring situation
   let scoringSituation = '';
@@ -838,8 +838,8 @@ function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, team
   console.log('Player stats retrieved:', playerStats);
 
   // Get team logos for score display
-  const homeTeamLogo = `https://a.espncdn.com/i/teamlogos/nfl/500/${homeTeam?.team?.abbreviation || homeTeam?.abbreviation}.png`;
-  const awayTeamLogo = `https://a.espncdn.com/i/teamlogos/nfl/500/${awayTeam?.team?.abbreviation || awayTeam?.abbreviation}.png`;
+  const homeTeamLogo = (homeTeam.team.abbreviation === "NYG" || homeTeam.team.abbreviation === "NYJ") ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.team?.abbreviation || homeTeam?.abbreviation}.png` : `https://a.espncdn.com/i/teamlogos/nfl/500/${homeTeam?.team?.abbreviation || homeTeam?.abbreviation}.png`;
+  const awayTeamLogo = (awayTeam.team.abbreviation === "NYG" || awayTeam.team.abbreviation === "NYJ") ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.team?.abbreviation || awayTeam?.abbreviation}.png` : `https://a.espncdn.com/i/teamlogos/nfl/500/${awayTeam?.team?.abbreviation || awayTeam?.abbreviation}.png`;
 
   const teamColorHex = teamColor.startsWith('#') ? teamColor : `#${teamColor}`;
   const scoringCardId = `scoring-card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -1082,7 +1082,7 @@ async function renderBoxScore(gameId, gameState) {
 
       const teamName = team.team.shortDisplayName;
       const teamColor = `#${team.team.color}`;
-      const teamLogo = team.team.abbreviation === ("NYG" || "NYJ") ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${team.team.abbreviation}.png` : `https://a.espncdn.com/i/teamlogos/nfl/500/${team.team.abbreviation}.png`;
+      const teamLogo = (team.team.abbreviation === "NYG" || team.team.abbreviation === "NYJ") ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${team.team.abbreviation}.png` : `https://a.espncdn.com/i/teamlogos/nfl/500/${team.team.abbreviation}.png`;
 
       // NFL has different stat categories: passing, rushing, receiving, etc.
       let playersHtml = '';
