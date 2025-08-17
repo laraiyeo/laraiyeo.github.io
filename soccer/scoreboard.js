@@ -1354,7 +1354,8 @@ function normalizeTeamName(teamName) {
     'bayern munich': 'bayern-munich',
     'borussia dortmund': 'borussia-dortmund',
     'stade rennais': 'rennes',
-    'marseille': 'olympique-marseille'
+    'marseille': 'olympique-marseille',
+    'lafc': 'los-angeles-fc'
   };
   
   const lowerName = teamName.toLowerCase();
