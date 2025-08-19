@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Fantasy Soccer - Soccer Live Tracker</title>
+    <link rel="icon" href="soccer-ball-png-24.png" type="image/png" />
+    <link rel="stylesheet" href="style.css"/>
+    <link rel="stylesheet" href="fantasy.css"/>
+  </head>
+  <body>
+    <div id="navbar-container"></div>
+
+    <div id="leagueButtons" class="league-buttons"></div>
+
+    <div id="scoreboard">
+      <h2 style="color: black;">Fantasy Soccer</h2>
+      
+      <div class="fantasy-layout">
+        <!-- Team Code Section -->
+        <div class="team-code-section">
+          <div class="code-controls">
+            <button id="generateCodeBtn" onclick="generateTeamCode()">📋 Get Team Code</button>
+            <input type="text" id="teamCodeInput" placeholder="Enter team code to import..." />
+            <button id="importCodeBtn" onclick="importTeamCode()">📥 Import Team</button>
+          </div>
+        </div>
+        
+        <!-- Total Fantasy Points Display -->
+        <div class="total-points-display">
+          <span id="totalFantasyPoints">🏆 0 Fantasy Points</span>
+        </div>
+        
+        <!-- Top Row: Pitch (Left) and Team (Right) -->
+        <div class="top-row">
+        <!-- Pitch Section (Left) -->
+        <div class="pitch-section">
+          <button class="clear-team-btn" onclick="clearFantasyTeam()" title="Clear Team">×</button>
+          <div class="football-pitch">
+            <div class="center-circle"></div>
+            <div class="penalty-box"></div>
+            <div class="goal-box"></div>
+            <div class="penalty-box-circle"></div>
+            
+            <!-- Player positions - Dynamic formation system -->
+            <!-- Forward line -->
+            <div class="position-line forward-line" data-position="FWD"></div>
+            
+            <!-- Midfielder line -->
+            <div class="position-line midfielder-line" data-position="MID"></div>
+            
+            <!-- Defender line -->
+            <div class="position-line defender-line" data-position="DEF"></div>
+            
+            <!-- Goalkeeper -->
+            <div class="position-line goalkeeper-line" data-position="GK"></div>
+          </div>
+        </div>          <!-- Team Section (Right) -->
+          <div class="team-section">
+            <div class="team-card1">
+              <!-- Team content will go here -->
+            </div>
+          </div>
+        </div>
+        
+        <!-- Bottom Row: News and Standings (Full Width) -->
+        <div class="bottom-row">
+          <!-- News Section -->
+          <h3 class="section-header">News</h3>
+          <div class="news-section">
+            <!-- News content will go here -->
+          </div>
+          
+          <!-- Standings Section -->
+          <h3 class="section-header">Standings</h3>
+          <div class="standings-section">
+            <!-- Standings content will go here -->
+          </div>
+          
+          <!-- Fantasy Points Calculation Section -->
+          <h3 class="section-header">Fantasy Points Calculation</h3>
+          <div class="points-calculation-section">
+            <!-- Fantasy points explanation will go here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="navbarLoader.js"></script>
+    <script src="navbar.js"></script>
+    <script src="fantasy.js"></script>
+    <div id="footer-container"></div>
+    <script>
+      fetch("footer.html")
+        .then(response => response.text())
+        .then(html => {
+          document.getElementById("footer-container").innerHTML = html;
+        });
+    </script>
+  </body>
+</html>

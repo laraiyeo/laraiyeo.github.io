@@ -123,6 +123,9 @@ async function loadTeamData() {
     // Load all league players for comparison
     fetchAllSoccerPlayers().catch(console.error);
     
+    // Update UI elements based on current league
+    updateUIForLeague();
+    
     // First, try to find the team and determine the correct league
     await findTeamInLeagues();
     
@@ -140,6 +143,35 @@ async function loadTeamData() {
     ]);
   } catch (error) {
     console.error("Error loading team data:", error);
+  }
+}
+
+// Function to update UI elements based on current league
+function updateUIForLeague() {
+  const recentMatchesSection = document.getElementById('recentMatches');
+  if (!recentMatchesSection) return;
+  
+  const sectionHeader = recentMatchesSection.querySelector('.section-header h3');
+  const datePickerContainer = recentMatchesSection.querySelector('.date-picker-container');
+  
+  if (currentUefaLeague === "uefa.super_cup") {
+    // Update title to "Final" for Super Cup
+    if (sectionHeader) {
+      sectionHeader.textContent = "Final";
+    }
+    // Hide date picker for Super Cup
+    if (datePickerContainer) {
+      datePickerContainer.style.display = "none";
+    }
+  } else {
+    // Use "Last Matches" for other leagues
+    if (sectionHeader) {
+      sectionHeader.textContent = "Last Matches";
+    }
+    // Show date picker for other leagues
+    if (datePickerContainer) {
+      datePickerContainer.style.display = "flex";
+    }
   }
 }
 
@@ -172,6 +204,7 @@ async function findTeamInLeagues() {
         console.log(`Team not found in current context, found in ${leagueName} instead`);
         currentUefaLeague = leagueData.code;
         localStorage.setItem("currentUefaLeague", currentUefaLeague);
+        updateUIForLeague(); // Update UI when league changes
         break;
       }
     } catch (error) {
@@ -433,6 +466,31 @@ async function createCurrentGameCard(game) {
 
 async function loadRecentMatches() {
   try {
+    // Special handling for UEFA Super Cup
+    if (currentUefaLeague === "uefa.super_cup") {
+      // For Super Cup, show the final on August 13, 2025
+      const superCupDate = "20250813";
+      const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/scoreboard?dates=${superCupDate}`);
+      const data = await response.json();
+      
+      // Filter games for this team
+      const allGames = data.events?.filter(event => {
+        const competition = event.competitions?.[0];
+        return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
+      }) || [];
+      
+      allRecentMatches = allGames.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      // Reset to first page and immediately display
+      currentPage = 1;
+      
+      console.log(`Super Cup Final: Found ${allRecentMatches.length} games`);
+      
+      displayRecentMatches();
+      return;
+    }
+    
+    // Regular handling for other leagues
     const startDatePicker = document.getElementById('startDatePicker');
     const today = new Date();
     const startDate = startDatePicker ? new Date(startDatePicker.value) : new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);

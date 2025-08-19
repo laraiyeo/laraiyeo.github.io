@@ -150,6 +150,46 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
   - Click on any race (scheduled or completed) to view detailed race information and statistics
   - Constructor team colors and branding maintained throughout for authentic F1 experience
 
+- **Fantasy Soccer System**
+  - **Multi-League Fantasy Management**: Create and manage fantasy teams across 7 major soccer leagues (Premier League, La Liga, Bundesliga, Serie A, Ligue 1, MLS, Saudi Pro League)
+  - **Interactive Soccer Pitch Visualization**: 
+    - Dynamic 3D soccer field that scales with team size (500px to 580px height)
+    - Proportional field elements (penalty boxes, goal areas, center circle, penalty spot circles) that scale with pitch size
+    - Real-time formation display showing player positions (GK, DEF, MID, FWD) with jersey-style indicators
+    - Position-based player slot arrangement with automatic spacing and line positioning
+    - Formation constraints enforcement (1-2 GK, 2-6 DEF/MID/FWD, 11 total players maximum)
+  - **Advanced Player Management**:
+    - **Smart Player Search**: Real-time filtering across entire league rosters with position-specific filtering
+    - **Drag-and-Drop Interface**: Intuitive player placement with visual feedback and position validation
+    - **Position-Aware Slot Assignment**: Players automatically assigned to appropriate position slots with conflict resolution
+    - **League-Isolated Caching**: Each league maintains separate player cache to prevent cross-league data contamination
+    - **Comprehensive API Caching**: 30-minute cache expiration for all player data, stats, news, and game information to eliminate redundant API calls
+  - **Fantasy Points Calculation System**:
+    - **Position-Dependent Scoring**: Different point values for goals based on player position (GK: 10pts, DEF: 6pts, MID: 5pts, FWD: 4pts)
+    - **Comprehensive Stat Tracking**: Points for playing time, assists (3pts), clean sheets (4pts DEF/GK, 1pt MID), saves, penalty saves/misses
+    - **Defensive Contributions**: Points for tackles, interceptions, clearances, and blocked shots with position-specific multipliers
+    - **Real-Time Total Display**: Dynamic total fantasy points calculation with visual highlighting
+    - **Detailed Points Breakdown**: Expandable section explaining the complete scoring system
+  - **Team Code System**:
+    - **Efficient Team Codes**: Revolutionary short-format team codes
+    - **Format**: `league-playerid.position.slot-playerid.position.slot` (e.g., `usa.1-149945.fwd1-45843.fwd2`)
+    - **Smart Import/Export**: One-click team sharing with automatic format detection and position mapping
+    - **Slot Conflict Resolution**: Automatic fallback slot assignment when imported players conflict with existing positions
+  - **League-Specific Features**:
+    - **Persistent League Memory**: System remembers last selected league across sessions using localStorage
+    - **League-Isolated Teams**: Each league maintains separate fantasy team with independent player selections
+    - **Real-Time League Switching**: Instant league changes with proper data isolation and cache management
+    - **League-Specific News**: Automatically loads relevant news for players on your team
+  - **Advanced UI/UX**:
+    - **Mobile-First Approach**: Vertical layout stacking on mobile with proper pitch scaling and touch-friendly controls
+    - **Loading States**: Comprehensive loading indicators for player searches, team imports, and data fetching
+    - **Error Handling**: Robust error management with user-friendly messages and graceful fallbacks
+    - **Clear Team Functionality**: One-click team clearing with confirmation and proper state reset
+  - **Game Integration**:
+    - **Live Game Navigation**: Click any game card to jump directly to detailed scoreboard with team context
+    - **Player Performance Tracking**: Integration with live game stats and historical performance data
+    - **Event Log Integration**: Connect fantasy selections with real-world player performance and game events
+
 - **NFL Specific**
   - Comprehensive NFL coverage with all 32 teams across both AFC and NFC conferences
   - Real-time game tracking with quarter-by-quarter progression and time remaining display
@@ -175,7 +215,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 2. Click the team container of the team you want to integrate into obs
 3. **Open OBS Studio**
 4. Click the ➕ under *Sources*, and choose **Browser**
-5. Name it (e.g. `MLB Tracker`, `NHL Tracker`, `NBA Tracker`, `NFL Tracker`, `WNBA Tracker`, `Soccer Tracker` or  `F1 Tracker`) and paste the URL (do not change the width and height)  
+5. Name it (e.g. `MLB Tracker`, `NHL Tracker`, `NBA Tracker`, `NFL Tracker`, `WNBA Tracker`, `Soccer Tracker` or  `F1 Tracker`) and paste the URL (change width and height to 800)  
 6. Click **OK**
 7. When the card is showing properly in obs, you can shrink or enlarge the card from the profile screen
 
@@ -200,7 +240,8 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - **(07/31/2025) Added fully functional NFL tracker with complete standings structure (AFC/NFC conferences), live streaming integration, and position-specific player statistics**
 - (08/01/2025) Added gamelog feature for players which lets you check any players log for the current season
 - (08/02/2025) Added clipboard function to game logs that allows you to copy any game log card
-- **(08/09/2025) Major Play-by-Play Enhancement** - Added comprehensive interactive play-by-play systems for MLB, NFL, NBA, and WNBA featuring:
+- **(08/09/2025) Major Play-by-Play Enhancement** - Added comprehensive interactive play-by-play systems for MLB, NFL, NBA, and WNBA
+- **(08/19/2025) Added fully functional Fantasy League to soccer accross all leagues (Except UEFA and CWC)**
 
 ---
 
