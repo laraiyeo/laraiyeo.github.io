@@ -6,12 +6,74 @@
     <title>All Teams - NFL Live Tracker</title>
     <link rel="icon" href="football.png" type="image/png" />
     <link rel="stylesheet" href="style.css"/>
+    <style>
+      #customization-panel input[type="color"] {
+        cursor: pointer;
+      }
+      #customization-panel input[type="range"] {
+        cursor: pointer;
+      }
+      #customization-panel button:hover {
+        background: #b02a37 !important;
+      }
+      #customization-panel input[type="text"], #customization-panel input[type="number"] {
+        text-align: center;
+      }
+      
+      /* Hide customization panel on mobile devices */
+      @media (max-width: 768px) {
+        #customization-panel {
+          display: none !important;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="navbar-container"></div>
 
     <div id="scoreboard">
       <h2 style="color: black;">All Teams</h2>
+      
+      <!-- Customization Controls -->
+      <div id="customization-panel" style="background: #f0f0f0; border: 1px solid #ccc; border-radius: 8px; padding: 15px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: center;">
+        
+        <!-- Background Color -->
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+          <label style="font-weight: bold; color: #333; font-size: 0.9em;">Background Color</label>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="color" id="bg-color-picker" value="#1a1a1a" style="width: 40px; height: 30px; border: none; border-radius: 4px; cursor: pointer;">
+            <input type="text" id="bg-color-hex" value="#1a1a1a" placeholder="#1a1a1a" style="width: 80px; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 0.85em;">
+          </div>
+          <div id="bg-preview" style="width: 50px; height: 20px; border: 1px solid #ccc; border-radius: 3px; background-color: #1a1a1a;"></div>
+        </div>
+
+        <!-- Background Opacity -->
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+          <label style="font-weight: bold; color: #333; font-size: 0.9em;">Background Opacity</label>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="range" id="bg-opacity-slider" min="0" max="100" value="100" style="width: 100px;">
+            <input type="number" id="bg-opacity-input" min="0" max="100" value="100" style="width: 50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85em;">
+            <span style="font-size: 0.85em; color: #666;">%</span>
+          </div>
+        </div>
+
+        <!-- Text Color -->
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+          <label style="font-weight: bold; color: #333; font-size: 0.9em;">Text Color</label>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="color" id="text-color-picker" value="#ffffff" style="width: 40px; height: 30px; border: none; border-radius: 4px; cursor: pointer;">
+            <input type="text" id="text-color-hex" value="#ffffff" placeholder="#ffffff" style="width: 80px; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 0.85em;">
+          </div>
+          <div id="text-preview" style="width: 50px; height: 20px; border: 1px solid #ccc; border-radius: 3px; background-color: #ffffff;"></div>
+        </div>
+
+        <!-- Reset Button -->
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+          <label style="font-weight: bold; color: #333; font-size: 0.9em;">Reset</label>
+          <button id="reset-styles" style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em;">Reset to Default</button>
+        </div>
+      </div>
+
       <div id="teamsContainer" class="teams-container"></div>
     </div>
 

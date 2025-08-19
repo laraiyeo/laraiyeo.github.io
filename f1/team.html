@@ -576,40 +576,6 @@
       }
     }
 
-    let promoActive = false;
-
-    async function showPromoCard() {
-      const container = document.getElementById("teamCardContainer");
-      const promoCard = document.createElement("div");
-      promoCard.className = "constructor-card-wrapper promo-card";
-      promoCard.innerHTML = `
-        <div class="constructor-card" style="background-color: #000000; border: 2px solid #ffffff; display: flex; align-items: center; gap: 25px; padding: 20px;">
-          <img src="../assets/cover.jpg" alt="WOAH Cover" style="width: 48px; height: 48px; border-radius: 8px;">
-          <div style="font-weight: bold; font-size: 1.1em; color: white;">
-            Stream K S U B I <br>
-            <span style="font-size:0.8em;">by DamiV12</span>
-            <div style="margin-top: 5px; display: flex; gap: 15px;">
-              <img src="../assets/logo1.png" alt="Logo 1" style="height: 14px;">
-              <img src="../assets/logo2.png" alt="Logo 2" style="height: 14px;">
-              <img src="../assets/logo3.png" alt="Logo 3" style="height: 14px;">
-            </div>
-          </div>
-        </div>
-      `;
-      
-      const newHtml = promoCard.innerHTML;
-      if (newHtml !== currentHtml) {
-        container.innerHTML = "";
-        container.appendChild(promoCard);
-        currentHtml = newHtml;
-      }
-    }
-
-    async function fetchAndRenderTeamCardWithPromo(teamName) {
-      if (promoActive) return;
-      await fetchAndRenderTeamCard(teamName);
-    }
-
     const script = document.createElement("script");
     script.src = "teams.js";
     document.body.appendChild(script);
@@ -618,44 +584,28 @@
       console.log('teams.js loaded, team parameter:', team);
       
       if (team) {
-        let lastPromo = Date.now();
-        let showingPromo = false;
-
-        fetchAndRenderTeamCardWithPromo(team);
+        fetchAndRenderTeamCard(team);
 
         // EXACTLY like MLB team.html - proper throttling
         setInterval(async () => {
           const now = Date.now();
           
-          // Handle promo logic first
-          if (!showingPromo && now - lastPromo >= 90000) {
-            showingPromo = true;
-            promoActive = true;
-            await showPromoCard();
-            setTimeout(async () => {
-              promoActive = false;
-              showingPromo = false;
-              lastPromo = Date.now();
-              await fetchAndRenderTeamCardWithPromo(team);
-            }, 10000);
-          } else if (!showingPromo) {
-            // PROPER throttling based on session type
-            const timeSinceLastUpdate = now - lastUpdateTime;
-            
-            if (isLiveSession) {
-              // For live sessions, update every 2 seconds like MLB
-              if (timeSinceLastUpdate >= 2000) {
-                console.log("Live session update triggered (2s interval)");
-                lastUpdateTime = now;
-                await fetchAndRenderTeamCardWithPromo(team);
-              }
-            } else {
-              // For non-live sessions, update every 30 seconds like MLB
-              if (timeSinceLastUpdate >= 30000) {
-                console.log("Non-live session update triggered (30s interval)");
-                lastUpdateTime = now;
-                await fetchAndRenderTeamCardWithPromo(team);
-              }
+          // PROPER throttling based on session type
+          const timeSinceLastUpdate = now - lastUpdateTime;
+          
+          if (isLiveSession) {
+            // For live sessions, update every 2 seconds like MLB
+            if (timeSinceLastUpdate >= 2000) {
+              console.log("Live session update triggered (2s interval)");
+              lastUpdateTime = now;
+              await fetchAndRenderTeamCard(team);
+            }
+          } else {
+            // For non-live sessions, update every 30 seconds like MLB
+            if (timeSinceLastUpdate >= 30000) {
+              console.log("Non-live session update triggered (30s interval)");
+              lastUpdateTime = now;
+              await fetchAndRenderTeamCard(team);
             }
           }
         }, 2000); // Check every 2 seconds like MLB, but only update based on conditions above

@@ -1,6 +1,15 @@
 const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams";
 
-function getAdjustedDateForNBA() {
+
+// Convert hex color to rgba with opacity
+function hexToRgba(hex, opacity) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
+function getAdjustedDateForNFL() {
   const now = new Date();
   const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
   if (estNow.getHours() < 2) {
@@ -220,7 +229,7 @@ async function buildGameCard(game, team) {
 
 async function fetchAndDisplayTeams() {
   try {
-    const adjustedDate = getAdjustedDateForNBA();
+    const adjustedDate = getAdjustedDateForNFL();
     const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${adjustedDate}`;
 
     const response = await fetch(TEAMS_API_URL);
@@ -281,7 +290,14 @@ async function fetchAndDisplayTeams() {
 
       // Add OBS link copying functionality
       teamCard.addEventListener("click", async () => {
-        const url = `https://laraiyeo.github.io/nfl/team.html?team=${encodeURIComponent(team.abbreviation)}`;
+                const currentStyles = loadSavedStyles();
+        const styleParams = new URLSearchParams({
+          team: team.abbreviation,
+          bgColor: currentStyles.backgroundColor,
+          bgOpacity: currentStyles.backgroundOpacity,
+          textColor: currentStyles.textColor
+        });
+        const url = `https://laraiyeo.github.io/nfl/team.html?${styleParams.toString()}`;
         try {
           await navigator.clipboard.writeText(url);
           alert(`OBS link copied for ${team.displayName}: ${url}`);
@@ -300,3 +316,213 @@ async function fetchAndDisplayTeams() {
 
 fetchAndDisplayTeams();
 setInterval(fetchAndDisplayTeams, 2000);
+
+// Game Card Customization functionality
+const defaultStyles = {
+  backgroundColor: '#1a1a1a',
+  backgroundOpacity: 100,
+  textColor: '#ffffff'
+};
+
+// Load saved styles or use defaults, with URL parameters taking priority
+function loadSavedStyles() {
+  // Check for URL parameters first (these override localStorage)
+  const urlParams = new URLSearchParams(window.location.search);
+  const bgColor = urlParams.get('bgColor');
+  const bgOpacity = urlParams.get('bgOpacity');
+  const textColor = urlParams.get('textColor');
+  
+  // If we have URL parameters, use them
+  if (bgColor || bgOpacity || textColor) {
+    return {
+      backgroundColor: bgColor && isValidHex(bgColor) ? bgColor : defaultStyles.backgroundColor,
+      backgroundOpacity: bgOpacity !== null ? Math.max(0, Math.min(100, parseInt(bgOpacity))) : defaultStyles.backgroundOpacity,
+      textColor: textColor && isValidHex(textColor) ? textColor : defaultStyles.textColor
+    };
+  }
+  
+  // Otherwise use localStorage or defaults
+  const saved = localStorage.getItem('nfl-game-card-styles');
+  return saved ? JSON.parse(saved) : defaultStyles;
+}
+
+// Check if we're in URL parameter mode (styles are locked)
+function isUrlParameterMode() {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.has('bgColor') || urlParams.has('bgOpacity') || urlParams.has('textColor');
+}
+
+// Save styles to localStorage (only if not in URL parameter mode)
+function saveStyles(styles) {
+  if (isUrlParameterMode()) {
+    return; // Don't save to localStorage when URL parameters are present
+  }
+  localStorage.setItem('nfl-game-card-styles', JSON.stringify(styles));
+}
+
+// Apply styles to all game cards
+function applyStylesToCards(styles) {
+  const gameCards = document.querySelectorAll('.game-card');
+  gameCards.forEach(card => {
+    const opacity = styles.backgroundOpacity / 100;
+    const bgColor = hexToRgba(styles.backgroundColor, opacity);
+    card.style.setProperty('background-color', bgColor, 'important');
+    card.style.setProperty('color', styles.textColor, 'important');
+    
+    // Apply text color to all text elements within the card
+    const textElements = card.querySelectorAll('.card-team-name, .card-team-record, .game-status, .game-time, .game-headline, .game-info, .period-info, .team-score, .no-game-text');
+    textElements.forEach(element => {
+      element.style.setProperty('color', styles.textColor, 'important');
+    });
+  });
+}
+
+// Validate hex color
+function isValidHex(hex) {
+  return /^#[0-9A-F]{6}$/i.test(hex);
+}
+
+// Update preview colors
+function updatePreviews(styles) {
+  document.getElementById('bg-preview').style.backgroundColor = styles.backgroundColor;
+  document.getElementById('text-preview').style.backgroundColor = styles.textColor;
+}
+
+// Set up customization controls
+function initializeCustomization() {
+  const currentStyles = loadSavedStyles();
+  const urlMode = isUrlParameterMode();
+  
+  // Get control elements
+  const bgColorPicker = document.getElementById('bg-color-picker');
+  const bgColorHex = document.getElementById('bg-color-hex');
+  const bgOpacitySlider = document.getElementById('bg-opacity-slider');
+  const bgOpacityInput = document.getElementById('bg-opacity-input');
+  const textColorPicker = document.getElementById('text-color-picker');
+  const textColorHex = document.getElementById('text-color-hex');
+  const resetButton = document.getElementById('reset-styles');
+  const panel = document.querySelector('.customization-panel');
+
+  // If in URL parameter mode, disable the panel
+  if (urlMode && panel) {
+    panel.style.opacity = '0.5';
+    panel.style.pointerEvents = 'none';
+    panel.title = 'Customization is locked when using URL parameters';
+  }
+
+  // Set initial values
+  bgColorPicker.value = currentStyles.backgroundColor;
+  bgColorHex.value = currentStyles.backgroundColor;
+  bgOpacitySlider.value = currentStyles.backgroundOpacity;
+  bgOpacityInput.value = currentStyles.backgroundOpacity;
+  textColorPicker.value = currentStyles.textColor;
+  textColorHex.value = currentStyles.textColor;
+
+  updatePreviews(currentStyles);
+  applyStylesToCards(currentStyles);
+
+  // Background color picker change
+  bgColorPicker.addEventListener('change', (e) => {
+    if (urlMode) return;
+    const color = e.target.value;
+    bgColorHex.value = color;
+    currentStyles.backgroundColor = color;
+    updatePreviews(currentStyles);
+    applyStylesToCards(currentStyles);
+    saveStyles(currentStyles);
+  });
+
+  // Background color hex input change
+  bgColorHex.addEventListener('input', (e) => {
+    if (urlMode) return;
+    const color = e.target.value;
+    if (isValidHex(color)) {
+      bgColorPicker.value = color;
+      currentStyles.backgroundColor = color;
+      updatePreviews(currentStyles);
+      applyStylesToCards(currentStyles);
+      saveStyles(currentStyles);
+    }
+  });
+
+  // Background opacity slider change
+  bgOpacitySlider.addEventListener('input', (e) => {
+    if (urlMode) return;
+    const opacity = parseInt(e.target.value);
+    bgOpacityInput.value = opacity;
+    currentStyles.backgroundOpacity = opacity;
+    applyStylesToCards(currentStyles);
+    saveStyles(currentStyles);
+  });
+
+  // Background opacity input change
+  bgOpacityInput.addEventListener('input', (e) => {
+    if (urlMode) return;
+    const opacity = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+    bgOpacitySlider.value = opacity;
+    e.target.value = opacity;
+    currentStyles.backgroundOpacity = opacity;
+    applyStylesToCards(currentStyles);
+    saveStyles(currentStyles);
+  });
+
+  // Text color picker change
+  textColorPicker.addEventListener('change', (e) => {
+    if (urlMode) return;
+    const color = e.target.value;
+    textColorHex.value = color;
+    currentStyles.textColor = color;
+    updatePreviews(currentStyles);
+    applyStylesToCards(currentStyles);
+    saveStyles(currentStyles);
+  });
+
+  // Text color hex input change
+  textColorHex.addEventListener('input', (e) => {
+    if (urlMode) return;
+    const color = e.target.value;
+    if (isValidHex(color)) {
+      textColorPicker.value = color;
+      currentStyles.textColor = color;
+      updatePreviews(currentStyles);
+      applyStylesToCards(currentStyles);
+      saveStyles(currentStyles);
+    }
+  });
+
+  // Reset button
+  resetButton.addEventListener('click', () => {
+    if (urlMode) return;
+    // Reset to defaults
+    bgColorPicker.value = defaultStyles.backgroundColor;
+    bgColorHex.value = defaultStyles.backgroundColor;
+    bgOpacitySlider.value = defaultStyles.backgroundOpacity;
+    bgOpacityInput.value = defaultStyles.backgroundOpacity;
+    textColorPicker.value = defaultStyles.textColor;
+    textColorHex.value = defaultStyles.textColor;
+
+    // Update current styles
+    Object.assign(currentStyles, defaultStyles);
+    
+    updatePreviews(currentStyles);
+    applyStylesToCards(currentStyles);
+    saveStyles(currentStyles);
+  });
+
+  // Re-apply styles periodically to catch any dynamically created cards
+  setInterval(() => {
+    const currentStyles = loadSavedStyles();
+    applyStylesToCards(currentStyles);
+  }, 5000);
+}
+
+// Initialize customization after DOM is loaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeCustomization);
+} else {
+  initializeCustomization();
+}
+
+// Make functions available globally for the team.html page
+window.getCustomStyles = loadSavedStyles;
+window.applyCustomStyles = applyStylesToCards;

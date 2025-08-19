@@ -13,6 +13,15 @@ async function getLogoUrl(triCode) {
   return `https://assets.nhle.com/logos/nhl/svg/${triCode}_dark.svg`;
 }
 
+
+// Convert hex color to rgba with opacity
+function hexToRgba(hex, opacity) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
 function getAdjustedDateForNHL() {
   const now = new Date();
   const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
@@ -293,7 +302,14 @@ async function fetchGames() {
 
       // Add OBS link copying functionality
       teamCard.addEventListener("click", async () => {
-        const url = `https://laraiyeo.github.io/nhl/team.html?team=${encodeURIComponent(team.triCode)}`; // Use triCode
+        const currentStyles = loadSavedStyles();
+        const styleParams = new URLSearchParams({
+          team: team.triCode,
+          bgColor: currentStyles.backgroundColor,
+          bgOpacity: currentStyles.backgroundOpacity,
+          textColor: currentStyles.textColor
+        });
+        const url = `https://laraiyeo.github.io/nhl/team.html?${styleParams.toString()}`;
         try {
           await navigator.clipboard.writeText(url);
           alert(`OBS link copied for ${team.fullName}: ${url}`);
@@ -321,3 +337,209 @@ const updateGames = async () => {
 
 updateGames(); // Initial fetch
 updateInterval = setInterval(updateGames, 2000);
+
+// Game Card Customization functionality
+const defaultStyles = {
+  backgroundColor: '#000000',
+  backgroundOpacity: 100,
+  textColor: '#ffffff'
+};
+
+// Load saved styles or use defaults
+function loadSavedStyles() {
+  // Check for URL parameters first
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlBgColor = urlParams.get('bgColor');
+  const urlBgOpacity = urlParams.get('bgOpacity');
+  const urlTextColor = urlParams.get('textColor');
+
+  if (urlBgColor || urlBgOpacity || urlTextColor) {
+    return {
+      backgroundColor: urlBgColor || defaultStyles.backgroundColor,
+      backgroundOpacity: urlBgOpacity !== null ? parseInt(urlBgOpacity) : defaultStyles.backgroundOpacity,
+      textColor: urlTextColor || defaultStyles.textColor
+    };
+  }
+
+  const saved = localStorage.getItem('nhl-game-card-styles');
+  return saved ? JSON.parse(saved) : defaultStyles;
+}
+
+// Check if we're in URL parameter mode (styles locked by OBS link)
+function isUrlParameterMode() {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.has('bgColor') || urlParams.has('bgOpacity') || urlParams.has('textColor');
+}
+
+// Save styles to localStorage (only if not in URL parameter mode)
+function saveStyles(styles) {
+  if (!isUrlParameterMode()) {
+    localStorage.setItem('nhl-game-card-styles', JSON.stringify(styles));
+  }
+}
+
+// Apply styles to all game cards
+function applyStylesToCards(styles) {
+  const gameCards = document.querySelectorAll('.game-card');
+  gameCards.forEach(card => {
+    const opacity = styles.backgroundOpacity / 100;
+    const bgColor = hexToRgba(styles.backgroundColor, opacity);
+    card.style.setProperty('background-color', bgColor, 'important');
+    card.style.setProperty('color', styles.textColor, 'important');
+  });
+}
+
+// Validate hex color
+function isValidHex(hex) {
+  return /^#[0-9A-F]{6}$/i.test(hex);
+}
+
+// Update preview colors
+function updatePreviews(styles) {
+  document.getElementById('bg-preview').style.backgroundColor = styles.backgroundColor;
+  document.getElementById('text-preview').style.backgroundColor = styles.textColor;
+}
+
+// Set up customization controls
+function initializeCustomization() {
+  const currentStyles = loadSavedStyles();
+  const urlMode = isUrlParameterMode();
+  
+  // Get control elements
+  const bgColorPicker = document.getElementById('bg-color-picker');
+  const bgColorHex = document.getElementById('bg-color-hex');
+  const bgOpacitySlider = document.getElementById('bg-opacity-slider');
+  const bgOpacityInput = document.getElementById('bg-opacity-input');
+  const textColorPicker = document.getElementById('text-color-picker');
+  const textColorHex = document.getElementById('text-color-hex');
+  const resetButton = document.getElementById('reset-styles');
+
+  // If in URL parameter mode, disable all controls and show message
+  if (urlMode) {
+    const panel = document.getElementById('customization-panel') || document.querySelector('.customization-panel');
+    if (panel) {
+      panel.style.opacity = '0.6';
+      panel.style.pointerEvents = 'none';
+      const message = document.createElement('div');
+      message.style.cssText = 'background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; margin-bottom: 10px; border-radius: 4px; color: #856404; font-weight: bold; text-align: center;';
+      message.textContent = '🔒 Styles are locked by OBS link parameters. Controls are disabled.';
+      panel.insertBefore(message, panel.firstChild);
+    }
+  }
+
+  // Set initial values
+  bgColorPicker.value = currentStyles.backgroundColor;
+  bgColorHex.value = currentStyles.backgroundColor;
+  bgOpacitySlider.value = currentStyles.backgroundOpacity;
+  bgOpacityInput.value = currentStyles.backgroundOpacity;
+  textColorPicker.value = currentStyles.textColor;
+  textColorHex.value = currentStyles.textColor;
+
+  updatePreviews(currentStyles);
+  applyStylesToCards(currentStyles);
+
+  // Background color picker change
+  bgColorPicker.addEventListener('change', (e) => {
+    if (urlMode) return;
+    const color = e.target.value;
+    bgColorHex.value = color;
+    currentStyles.backgroundColor = color;
+    updatePreviews(currentStyles);
+    applyStylesToCards(currentStyles);
+    saveStyles(currentStyles);
+  });
+
+  // Background color hex input change
+  bgColorHex.addEventListener('input', (e) => {
+    if (urlMode) return;
+    const color = e.target.value;
+    if (isValidHex(color)) {
+      bgColorPicker.value = color;
+      currentStyles.backgroundColor = color;
+      updatePreviews(currentStyles);
+      applyStylesToCards(currentStyles);
+      saveStyles(currentStyles);
+    }
+  });
+
+  // Background opacity slider change
+  bgOpacitySlider.addEventListener('input', (e) => {
+    if (urlMode) return;
+    const opacity = parseInt(e.target.value);
+    bgOpacityInput.value = opacity;
+    currentStyles.backgroundOpacity = opacity;
+    applyStylesToCards(currentStyles);
+    saveStyles(currentStyles);
+  });
+
+  // Background opacity input change
+  bgOpacityInput.addEventListener('input', (e) => {
+    if (urlMode) return;
+    const opacity = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+    bgOpacitySlider.value = opacity;
+    e.target.value = opacity;
+    currentStyles.backgroundOpacity = opacity;
+    applyStylesToCards(currentStyles);
+    saveStyles(currentStyles);
+  });
+
+  // Text color picker change
+  textColorPicker.addEventListener('change', (e) => {
+    if (urlMode) return;
+    const color = e.target.value;
+    textColorHex.value = color;
+    currentStyles.textColor = color;
+    updatePreviews(currentStyles);
+    applyStylesToCards(currentStyles);
+    saveStyles(currentStyles);
+  });
+
+  // Text color hex input change
+  textColorHex.addEventListener('input', (e) => {
+    if (urlMode) return;
+    const color = e.target.value;
+    if (isValidHex(color)) {
+      textColorPicker.value = color;
+      currentStyles.textColor = color;
+      updatePreviews(currentStyles);
+      applyStylesToCards(currentStyles);
+      saveStyles(currentStyles);
+    }
+  });
+
+  // Reset button
+  resetButton.addEventListener('click', () => {
+    if (urlMode) return;
+    // Reset to defaults
+    bgColorPicker.value = defaultStyles.backgroundColor;
+    bgColorHex.value = defaultStyles.backgroundColor;
+    bgOpacitySlider.value = defaultStyles.backgroundOpacity;
+    bgOpacityInput.value = defaultStyles.backgroundOpacity;
+    textColorPicker.value = defaultStyles.textColor;
+    textColorHex.value = defaultStyles.textColor;
+
+    // Update current styles
+    Object.assign(currentStyles, defaultStyles);
+    
+    updatePreviews(currentStyles);
+    applyStylesToCards(currentStyles);
+    saveStyles(currentStyles);
+  });
+
+  // Re-apply styles periodically to catch any dynamically created cards
+  setInterval(() => {
+    const currentStyles = loadSavedStyles();
+    applyStylesToCards(currentStyles);
+  }, 5000);
+}
+
+// Initialize customization after DOM is loaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeCustomization);
+} else {
+  initializeCustomization();
+}
+
+// Make functions available globally for the team.html page
+window.getCustomStyles = loadSavedStyles;
+window.applyCustomStyles = applyStylesToCards;

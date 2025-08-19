@@ -242,6 +242,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - (08/02/2025) Added clipboard function to game logs that allows you to copy any game log card
 - **(08/09/2025) Major Play-by-Play Enhancement** - Added comprehensive interactive play-by-play systems for MLB, NFL, NBA, and WNBA
 - **(08/19/2025) Added fully functional Fantasy League to soccer accross all leagues (Except UEFA and CWC)**
+- **(08/19/2025) Game Card Customization System** - Added comprehensive styling controls for all sports with background color picker, opacity slider (0-100%), text color picker, and reset functionality. Features URL parameter locking for OBS streaming where customized styles are locked via URL parameters to prevent changes during live streams. 
 
 ---
 

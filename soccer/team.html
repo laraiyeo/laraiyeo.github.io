@@ -35,40 +35,47 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const teamId = params.get("team");
-    let promoActive = false;
     let currentHtml = "";
 
-    async function showPromoCard() {
-      const container = document.getElementById("gameBlockContainer");
-      const promoCard = document.createElement("div");
-      promoCard.className = "game-card promo-card";
-      promoCard.style.display = "flex";
-      promoCard.style.alignItems = "center";
-      promoCard.style.gap = "25px";
-      promoCard.style.padding = "20px";
-      promoCard.innerHTML = `
-        <img src="../assets/cover.jpg" alt="WOAH Cover" style="width: 48px; height: 48px; border-radius: 8px;">
-        <div style="font-weight: bold; font-size: 1.1em; margin-left:20px; margin-right:-10px;">
-          Stream K S U B I <br>
-          <span style="font-size:0.8em;">by DamiV12</span>
-          <div style="margin-top: 5px; margin-left:28px; display: flex; gap: 15px;">
-            <img src="../assets/logo1.png" alt="Logo 1" style="height: 14px;">
-            <img src="../assets/logo2.png" alt="Logo 2" style="height: 14px;">
-            <img src="../assets/logo3.png" alt="Logo 3" style="height: 14px;">
-          </div>
-        </div>
-      `;
-      const newHtml = promoCard.innerHTML;
-      if (newHtml !== currentHtml) {
-        container.innerHTML = "";
-        container.appendChild(promoCard);
-        currentHtml = newHtml;
-      }
+    // Custom styling functions
+    function hexToRgba(hex, opacity) {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
     }
 
-    async function fetchAndRenderTeamGameWithPromo(teamId) {
-      if (promoActive) return;
-      await fetchAndRenderTeamGame(teamId);
+    function loadSavedStyles() {
+      // URL parameters always take priority over localStorage
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('bgColor') || urlParams.has('bgOpacity') || urlParams.has('textColor')) {
+        const bgOpacityParam = urlParams.get('bgOpacity');
+        return {
+          backgroundColor: urlParams.get('bgColor') || '#000000',
+          backgroundOpacity: bgOpacityParam !== null ? parseInt(bgOpacityParam) : 100,
+          textColor: urlParams.get('textColor') || '#ffffff'
+        };
+      }
+      
+      // Only use localStorage if no URL parameters are present
+      const saved = localStorage.getItem('soccer-game-card-styles');
+      return saved ? JSON.parse(saved) : {
+        backgroundColor: '#000000',
+        backgroundOpacity: 100,
+        textColor: '#ffffff'
+      };
+    }
+
+    function applyCustomStylesToCard(card) {
+      const customStyles = loadSavedStyles();
+      const opacity = customStyles.backgroundOpacity / 100;
+      const bgColor = hexToRgba(customStyles.backgroundColor, opacity);
+      
+      // Remove any existing inline background-color first
+      card.style.removeProperty('background-color');
+      // Then set the new background color with important flag
+      card.style.setProperty('background-color', bgColor, 'important');
+      card.style.setProperty('color', customStyles.textColor, 'important');
     }
 
     async function fetchAndRenderTeamGame(teamId) {
@@ -115,6 +122,7 @@
           if (newHtml !== currentHtml) {
             container.innerHTML = "";
             container.appendChild(noGameCard);
+            applyCustomStylesToCard(noGameCard);
             currentHtml = newHtml;
           }
           return;
@@ -127,6 +135,9 @@
             container.innerHTML = "";
             container.innerHTML = cardHtml;
             currentHtml = newHtml;
+            // Apply custom styles to all game cards
+            const gameCards = document.querySelectorAll('.game-card');
+            gameCards.forEach(card => applyCustomStylesToCard(card));
           }
         }
       } catch (err) {
@@ -140,27 +151,11 @@
 
     script.onload = () => {
       if (teamId) {
-        let lastPromo = Date.now();
-        let showingPromo = false;
-
         // Show the game card immediately on load
-        fetchAndRenderTeamGameWithPromo(teamId);
+        fetchAndRenderTeamGame(teamId);
 
         setInterval(async () => {
-          const now = Date.now();
-          if (!showingPromo && now - lastPromo >= 900000) {
-            showingPromo = true;
-            promoActive = true;
-            await showPromoCard();
-            setTimeout(async () => {
-              promoActive = false;
-              showingPromo = false;
-              lastPromo = Date.now();
-              await fetchAndRenderTeamGameWithPromo(teamId);
-            }, 10000);
-          } else if (!showingPromo) {
-            await fetchAndRenderTeamGameWithPromo(teamId);
-          }
+          await fetchAndRenderTeamGame(teamId);
         }, 2000);
       }
     };
