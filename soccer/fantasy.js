@@ -29,6 +29,14 @@ const FORMATION_CONSTRAINTS = {
 
 const MAX_TOTAL_PLAYERS = 11;
 
+// Convert HTTP URLs to HTTPS to avoid mixed content issues
+function convertToHttps(url) {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+}
+
 // Fantasy Points calculation based on scoring system
 function calculateFantasyPoints(stats, position) {
   if (!stats || typeof stats !== 'object') return 0;
@@ -1720,13 +1728,13 @@ async function displayGameLogCards(gameEvents, player, container) {
         gameEvents.map(async (eventItem, index) => {
             try {
                 // Get event details
-                const eventResponse = await fetch(eventItem.event.$ref);
+                const eventResponse = await fetch(convertToHttps(eventItem.event.$ref));
                 const eventData = await eventResponse.json();
                 
                 // Get player stats for this game
                 let playerStats = null;
                 if (eventItem.statistics) {
-                    const statsResponse = await fetch(eventItem.statistics.$ref);
+                    const statsResponse = await fetch(convertToHttps(eventItem.statistics.$ref));
                     playerStats = await statsResponse.json();
                 }
 
@@ -1780,7 +1788,7 @@ async function createGameLogCard(eventData, playerStats, player, index) {
                 } else if (homeTeam.score.$ref) {
                     // Need to fetch from API reference
                     try {
-                        const scoreResponse = await fetch(homeTeam.score.$ref);
+                        const scoreResponse = await fetch(convertToHttps(homeTeam.score.$ref));
                         if (scoreResponse.ok) {
                             const scoreData = await scoreResponse.json();
                             homeScore = scoreData.value ? scoreData.value.toString() : '0';
@@ -1800,7 +1808,7 @@ async function createGameLogCard(eventData, playerStats, player, index) {
                 } else if (awayTeam.score.$ref) {
                     // Need to fetch from API reference
                     try {
-                        const scoreResponse = await fetch(awayTeam.score.$ref);
+                        const scoreResponse = await fetch(convertToHttps(awayTeam.score.$ref));
                         if (scoreResponse.ok) {
                             const scoreData = await scoreResponse.json();
                             awayScore = scoreData.value ? scoreData.value.toString() : '0';

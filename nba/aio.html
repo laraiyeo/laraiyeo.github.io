@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>All Games - NBA Live Tracker</title>
+    <link rel="icon" href="icon.png" type="image/png" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="navbar-container"></div>
+
+    <div id="scoreboard">
+      <h2 style="color: black;">All Games Today</h2>
+
+      <!-- Live Games Section -->
+      <div id="live-section">
+        <h3 class="section-header">🔴 Live Games</h3>
+        <div id="liveGamesContainer" class="games-container"></div>
+        <div id="no-live-games" class="no-games" style="display: none;">
+          No live games at the moment
+        </div>
+      </div>
+
+      <!-- Scheduled Games Section -->
+      <div id="scheduled-section">
+        <h3 class="section-header">📅 Scheduled Games</h3>
+        <div id="scheduledGamesContainer" class="games-container"></div>
+        <div id="no-scheduled-games" class="no-games" style="display: none;">
+          No scheduled games today
+        </div>
+      </div>
+
+      <!-- Finished Games Section -->
+      <div id="finished-section">
+        <h3 class="section-header">✅ Finished Games</h3>
+        <div id="finishedGamesContainer" class="games-container"></div>
+        <div id="no-finished-games" class="no-games" style="display: none;">
+          No finished games today
+        </div>
+      </div>
+    </div>
+
+    <script src="navbarLoader.js"></script>
+    <script src="navbar.js"></script>
+    <script src="aio.js"></script>
+    <div id="footer-container"></div>
+    <script>
+      fetch("footer.html")
+        .then(response => response.text())
+        .then(html => {
+          document.getElementById("footer-container").innerHTML = html;
+        });
+    </script>
+  </body>
+</html>

@@ -16,6 +16,17 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
   - Base runners logic for MLB (Bases light up when runner is present)
   - Visual balls/strikes/outs tracker for MLB
 
+- **All-in-One (AIO) Dashboard**
+  - **Unified Game View**: Comprehensive single-page display showing Live, Scheduled, and Finished games simultaneously for all sports (MLB, NHL, NBA, NFL, WNBA, Soccer)
+  - **Smart Date Filtering**: Only displays games for the current date using proper timezone adjustment (EST-based with 2 AM cutoff for early morning games)
+  - **Consistent Card Styling**: All sports use their respective teams.js styling for uniform visual presentation
+  - **Intelligent Sorting**: 
+    - Live games: Sorted by start time for priority viewing
+    - Scheduled games: Sorted by game time for chronological order
+    - Finished games: Sorted by date (most recent first)
+  - **Direct Navigation**: Click any game card to navigate directly to the specific game's scoreboard page with game ID parameter
+  - **Real-time Updates**: Auto-refreshes every 2 seconds to keep game statuses current
+
   **Scoreboard with Live Streaming & Play-by-Play**
   - Visual scoreboard for MLB with inning progress, team scores, base runners, current outs, current play description and player stats. It will also grey out any player who is benched. **Now includes embedded live game streams during active games**
   - Visual scoreboard for NHL, NBA, NFL and WNBA with Period/Quarter progress, team scores, time remaining in period/quarter, play description and player stats. There will be a 🟢 beside players who are currently on the ice/court/field
@@ -242,7 +253,8 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - (08/02/2025) Added clipboard function to game logs that allows you to copy any game log card
 - **(08/09/2025) Major Play-by-Play Enhancement** - Added comprehensive interactive play-by-play systems for MLB, NFL, NBA, and WNBA
 - **(08/19/2025) Added fully functional Fantasy League to soccer accross all leagues (Except UEFA and CWC)**
-- **(08/19/2025) Game Card Customization System** - Added comprehensive styling controls for all sports with background color picker, opacity slider (0-100%), text color picker, and reset functionality. Features URL parameter locking for OBS streaming where customized styles are locked via URL parameters to prevent changes during live streams. 
+- **(08/19/2025) Game Card Customization System** - Added comprehensive styling controls for all sports with background color picker, opacity slider (0-100%), text color picker, and reset functionality. Features URL parameter locking for OBS streaming where customized styles are locked via URL parameters to prevent changes during live streams.
+- **(08/19/2025) All-in-One (AIO) Dashboard Implementation** - Revolutionary unified game view across all sports showing Live, Scheduled, and Finished games on a single page with smart date filtering, responsive design, and direct scoreboard navigation. Features consistent styling and real-time updates every 2 seconds. 
 
 ---
 
