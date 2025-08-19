@@ -1118,34 +1118,48 @@ function displayTeamGames(games) {
   const finishedGames = games.filter(game => game.status.type.state === "post");
   const upcomingGames = games.filter(game => game.status.type.state === "pre");
   
+  // Sort games by date and time within each group
+  const sortGamesByDateTime = (gamesList) => {
+    return gamesList.sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return dateA - dateB; // Sort ascending (earliest first)
+    });
+  };
+  
+  // Sort each group by date and time
+  const sortedLiveGames = sortGamesByDateTime([...liveGames]);
+  const sortedFinishedGames = sortGamesByDateTime([...finishedGames]);
+  const sortedUpcomingGames = sortGamesByDateTime([...upcomingGames]);
+  
   let gamesHtml = '';
   
-  if (liveGames.length > 0) {
+  if (sortedLiveGames.length > 0) {
     gamesHtml += `
       <div class="games-section">
         <h4 style="color: white;">Live Games</h4>
         <div class="games-grid">
-          ${liveGames.map(game => createGameCard(game, 'live')).join('')}
+          ${sortedLiveGames.map(game => createGameCard(game, 'live')).join('')}
         </div>
       </div>`;
   }
   
-  if (upcomingGames.length > 0) {
+  if (sortedUpcomingGames.length > 0) {
     gamesHtml += `
       <div class="games-section">
         <h4 style="color: white;">Upcoming Games</h4>
         <div class="games-grid">
-          ${upcomingGames.map(game => createGameCard(game, 'upcoming')).join('')}
+          ${sortedUpcomingGames.map(game => createGameCard(game, 'upcoming')).join('')}
         </div>
       </div>`;
   }
   
-  if (finishedGames.length > 0) {
+  if (sortedFinishedGames.length > 0) {
     gamesHtml += `
       <div class="games-section">
         <h4 style="color: white;">Recent Games</h4>
         <div class="games-grid">
-          ${finishedGames.map(game => createGameCard(game, 'finished')).join('')}
+          ${sortedFinishedGames.map(game => createGameCard(game, 'finished')).join('')}
         </div>
       </div>`;
   }
