@@ -112,6 +112,7 @@ const teamAbbrMap = {
     const statusText = status.detailedState;
     const card = document.createElement("div");
     card.className = "game-card";
+    card.setAttribute('data-game-pk', game.gamePk.toString());
     
     // Apply custom styles if available
     if (typeof window !== 'undefined' && window.getCustomStyles) {
@@ -320,50 +321,93 @@ const teamAbbrMap = {
   
       const data = JSON.parse(text);
       const games = data.dates[0]?.games || [];
-  
+
       const gameMap = {};
       const uniqueTeams = new Set();
-  
+
       for (const game of games) {
         const away = game.teams.away.team.name;
         const home = game.teams.home.team.name;
-        gameMap[away] = game;
-        gameMap[home] = game;
+        
+        // Store arrays of games for each team to handle doubleheaders
+        if (!gameMap[away]) gameMap[away] = [];
+        if (!gameMap[home]) gameMap[home] = [];
+        
+        gameMap[away].push(game);
+        gameMap[home].push(game);
         uniqueTeams.add(away);
         uniqueTeams.add(home);
-      }
-  
-      const sortedTeams = Object.keys(teamAbbrMap).sort();
+      }      const sortedTeams = Object.keys(teamAbbrMap).sort();
   
       for (const team of sortedTeams) {
         await createTeamSection(team);
-  
+
         const section = [...document.querySelectorAll(".team-section")]
           .find(s => s.querySelector("h2")?.textContent === team);
-  
+
         const container = section.querySelector(".team-games");
-  
-        const game = gameMap[team];
-  
-        if (game) {
-          const gameKey = `${game.gamePk}-${team}`;
-          const newCard = await buildCard(game);
+
+        const teamGames = gameMap[team];
+
+        if (teamGames && teamGames.length > 0) {
+          // Sort games by game time to ensure consistent order for doubleheaders
+          teamGames.sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
+          
+          // For doubleheaders, intelligently pick which game to show
+          let gameToShow;
+          if (teamGames.length === 1) {
+            // Single game - show it
+            gameToShow = teamGames[0];
+          } else {
+            // Multiple games (doubleheader) - show the appropriate one
+            const firstGame = teamGames[0];
+            const secondGame = teamGames[1];
+            
+            // Check if first game is finished
+            const firstGameFinished = firstGame.status.detailedState === "Final" || 
+                                     firstGame.status.detailedState === "Game Over";
+            
+            // Check if second game is live or in progress
+            const secondGameLive = ["In Progress", "Manager challenge"].includes(secondGame.status.detailedState) || 
+                                  secondGame.status.codedGameState === "M";
+            
+            if (firstGameFinished && !secondGameLive) {
+              // First game finished, second game not started yet - show second game
+              gameToShow = secondGame;
+            } else if (firstGameFinished && secondGameLive) {
+              // First game finished, second game is live - show second game
+              gameToShow = secondGame;
+            } else {
+              // First game not finished yet (scheduled, in progress, etc.) - show first game
+              gameToShow = firstGame;
+            }
+          }
+          
+          const gameKey = `${gameToShow.gamePk}-${team}`;
+          const newCard = await buildCard(gameToShow);
           const newCardHtml = newCard.innerHTML;
           const prevHtml = renderedGameCards.get(gameKey);
-  
-          if (!prevHtml) {
+          
+          // Check if we need to update the display
+          const existingCard = container.querySelector(`[data-game-pk="${gameToShow.gamePk}"]`);
+          
+          if (!existingCard) {
+            // No card for this game exists, replace container content
             container.innerHTML = "";
             container.appendChild(newCard);
             renderedGameCards.set(gameKey, newCardHtml);
-          } else if (prevHtml !== newCardHtml) {
-            const existingCards = container.querySelectorAll(".game-card");
-            for (const card of existingCards) {
-              if (card.innerHTML === prevHtml) {
-                card.replaceWith(newCard);
-                renderedGameCards.set(gameKey, newCardHtml);
-                break;
+            
+            // Clean up cache for other games that are no longer displayed
+            for (const game of teamGames) {
+              if (game.gamePk !== gameToShow.gamePk) {
+                const otherGameKey = `${game.gamePk}-${team}`;
+                renderedGameCards.delete(otherGameKey);
               }
             }
+          } else if (prevHtml !== newCardHtml) {
+            // Card exists but content changed - update it
+            existingCard.replaceWith(newCard);
+            renderedGameCards.set(gameKey, newCardHtml);
           }
         } else {
           const existingNoGame = container.querySelector(".no-game-card");
