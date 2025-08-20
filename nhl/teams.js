@@ -518,8 +518,10 @@ function initializeCustomization() {
     textColorPicker.value = defaultStyles.textColor;
     textColorHex.value = defaultStyles.textColor;
 
-    // Update current styles
-    Object.assign(currentStyles, defaultStyles);
+    // Update current styles - use explicit assignment for immediate reactivity
+    currentStyles.backgroundColor = defaultStyles.backgroundColor;
+    currentStyles.backgroundOpacity = defaultStyles.backgroundOpacity;
+    currentStyles.textColor = defaultStyles.textColor;
     
     updatePreviews(currentStyles);
     applyStylesToCards(currentStyles);

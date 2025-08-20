@@ -6,6 +6,44 @@
     <title>All Games - MLB Live Tracker</title>
     <link rel="icon" href="icon.png" type="image/png" />
     <link rel="stylesheet" href="style.css" />
+    <style>
+      /* Styling panel enhancements */
+      #styling-toggle:hover {
+        background: #0056b3 !important;
+        transform: translateY(-1px);
+        transition: all 0.2s ease;
+      }
+      
+      #styling-panel input[type="color"] {
+        cursor: pointer;
+      }
+      
+      #styling-panel input[type="range"] {
+        cursor: pointer;
+      }
+      
+      #styling-panel button:hover {
+        background: #b02a37 !important;
+        transform: translateY(-1px);
+        transition: all 0.2s ease;
+      }
+      
+      #styling-panel input[type="text"], #styling-panel input[type="number"] {
+        text-align: center;
+      }
+      
+      /* Responsive design for styling panel */
+      @media (max-width: 768px) {
+        #styling-panel > div:first-of-type {
+          flex-direction: column;
+          gap: 15px;
+        }
+        
+        #styling-panel input[type="range"] {
+          width: 100px;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="navbar-container"></div>
@@ -37,6 +75,61 @@
         <div id="finishedGamesContainer" class="games-container"></div>
         <div id="no-finished-games" class="no-games" style="display: none;">
           No finished games today
+        </div>
+      </div>
+
+      <!-- Page Styling Controls -->
+      <div style="margin-top: 40px; border-top: 2px solid #ccc; padding-top: 20px;">
+        <button id="styling-toggle" style="width: 100%; padding: 15px; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1.1em;">
+          🎨 Page Styling ▼
+        </button>
+        
+        <div id="styling-panel" style="display: none; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-top: 10px;">
+          <h4 style="margin-top: 0; color: #333; text-align: center;">Customize Page Appearance</h4>
+          <p style="text-align: center; color: #666; font-size: 0.9em; margin-bottom: 20px;">
+            Note: Game cards use styling from Teams page. This controls page background and text.
+          </p>
+          
+          <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: center;">
+            
+            <!-- Page Background Color -->
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <label style="font-weight: bold; color: #333; font-size: 0.95em;">Page Background</label>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="color" id="page-bg-color-picker" value="#ebebeb" style="width: 40px; height: 35px; border: none; border-radius: 4px; cursor: pointer;">
+                <input type="text" id="page-bg-color-hex" value="#ebebeb" placeholder="#ebebeb" style="width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 0.85em;">
+              </div>
+              <div id="page-bg-preview" style="width: 50px; height: 25px; border: 1px solid #ebebeb; border-radius: 3px; background-color: #ebebeb;"></div>
+            </div>
+
+            <!-- Page Background Opacity -->
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <label style="font-weight: bold; color: #333; font-size: 0.95em;">Background Opacity</label>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="range" id="page-bg-opacity-slider" min="0" max="100" value="100" style="width: 120px;">
+                <input type="number" id="page-bg-opacity-input" min="0" max="100" value="100" style="width: 55px; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85em;">
+                <span style="font-size: 0.85em; color: #666;">%</span>
+              </div>
+            </div>
+
+            <!-- Page Text Color -->
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <label style="font-weight: bold; color: #333; font-size: 0.95em;">Text Color</label>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="color" id="page-text-color-picker" value="#000000" style="width: 40px; height: 35px; border: none; border-radius: 4px; cursor: pointer;">
+                <input type="text" id="page-text-color-hex" value="#000000" placeholder="#000000" style="width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 0.85em;">
+              </div>
+              <div id="page-text-preview" style="width: 50px; height: 25px; border: 1px solid #ccc; border-radius: 3px; background-color: #000000;"></div>
+            </div>
+
+            <!-- Reset Button -->
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <label style="font-weight: bold; color: #333; font-size: 0.95em;">Reset</label>
+              <button id="reset-page-styles" style="padding: 10px 18px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em;">
+                Reset Page Styles
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -20,6 +20,14 @@ const teamColors = {
   "Toronto Blue Jays": "#1D2D5C", "Washington Nationals": "#AB0003"
 };
 
+// Convert hex color to rgba with opacity
+function hexToRgba(hex, opacity) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
 async function getLogoUrl(teamName) {
   const abbr = teamAbbrMap[teamName];
   if (!abbr) return "";
@@ -100,6 +108,13 @@ async function buildCard(game) {
   const statusText = status.detailedState;
   const card = document.createElement("div");
   card.className = "game-card";
+
+  // Apply team card styles from teams.js
+  const teamCardStyles = getTeamCardStyles();
+  const cardOpacity = teamCardStyles.backgroundOpacity / 100;
+  const cardBgColor = hexToRgba(teamCardStyles.backgroundColor, cardOpacity);
+  card.style.backgroundColor = cardBgColor;
+  card.style.color = teamCardStyles.textColor;
 
   if (["In Progress", "Manager challenge"].includes(statusText) || status.codedGameState === "M") {
       const inningLabel = getInningLabel(game.linescore?.inningHalf) || "Inning";
@@ -323,4 +338,222 @@ async function fetchAndDisplayAllGames() {
 document.addEventListener("DOMContentLoaded", function() {
   fetchAndDisplayAllGames();
   setInterval(fetchAndDisplayAllGames, 2000); // Refresh every 2 seconds
+  initializePageStyling();
 });
+
+// Styling functionality
+const defaultTeamCardStyles = {
+  backgroundColor: '#ebebeb',
+  backgroundOpacity: 100,
+  textColor: '#ffffff'
+};
+
+const defaultPageStyles = {
+  backgroundColor: '#ebebeb',
+  backgroundOpacity: 100,
+  textColor: '#000000'
+};
+
+// Get team card styles from teams.js localStorage or defaults
+function getTeamCardStyles() {
+  const saved = localStorage.getItem('mlb-game-card-styles');
+  return saved ? JSON.parse(saved) : defaultTeamCardStyles;
+}
+
+// Load page-specific styles or use defaults
+function loadPageStyles() {
+  const saved = localStorage.getItem('mlb-aio-page-styles');
+  return saved ? JSON.parse(saved) : defaultPageStyles;
+}
+
+// Save page styles to localStorage
+function savePageStyles(styles) {
+  localStorage.setItem('mlb-aio-page-styles', JSON.stringify(styles));
+}
+
+// Apply page styles to background and text
+function applyPageStyles(styles) {
+  const body = document.body;
+  const scoreboard = document.getElementById('scoreboard');
+  const opacity = styles.backgroundOpacity / 100;
+  const bgColor = hexToRgba(styles.backgroundColor, opacity);
+  
+  // Apply background to both body and scoreboard div
+  body.style.backgroundColor = bgColor;
+  if (scoreboard) {
+    scoreboard.style.backgroundColor = bgColor;
+  }
+  
+  body.style.color = styles.textColor;
+  
+  // Apply to all headers and text elements
+  const textElements = document.querySelectorAll('h2, h3, .section-header, .no-games, p, span, div');
+  textElements.forEach(element => {
+    // Don't override game card text colors
+    if (!element.closest('.game-card') && !element.closest('#styling-panel')) {
+      element.style.color = styles.textColor;
+    }
+  });
+}
+
+// Apply team card styles to all game cards
+function applyTeamCardStyles() {
+  const teamCardStyles = getTeamCardStyles();
+  const gameCards = document.querySelectorAll('.game-card');
+  gameCards.forEach(card => {
+    const opacity = teamCardStyles.backgroundOpacity / 100;
+    const bgColor = hexToRgba(teamCardStyles.backgroundColor, opacity);
+    card.style.setProperty('background-color', bgColor, 'important');
+    card.style.setProperty('color', teamCardStyles.textColor, 'important');
+  });
+}
+
+// Validate hex color
+function isValidHex(hex) {
+  return /^#[0-9A-F]{6}$/i.test(hex);
+}
+
+// Update preview colors
+function updatePagePreviews(styles) {
+  document.getElementById('page-bg-preview').style.backgroundColor = styles.backgroundColor;
+  document.getElementById('page-text-preview').style.backgroundColor = styles.textColor;
+}
+
+// Toggle styling panel
+function toggleStylingPanel() {
+  const panel = document.getElementById('styling-panel');
+  const toggle = document.getElementById('styling-toggle');
+  const isExpanded = panel.style.display !== 'none';
+  
+  if (isExpanded) {
+    panel.style.display = 'none';
+    toggle.textContent = '🎨 Page Styling ▼';
+  } else {
+    panel.style.display = 'block';
+    toggle.textContent = '🎨 Page Styling ▲';
+  }
+}
+
+// Initialize page styling controls
+function initializePageStyling() {
+  const currentPageStyles = loadPageStyles();
+  
+  // Apply initial styles
+  applyPageStyles(currentPageStyles);
+  
+  // Also apply team card styles on load
+  setTimeout(() => {
+    applyTeamCardStyles();
+  }, 500);
+  
+  // Get control elements
+  const bgColorPicker = document.getElementById('page-bg-color-picker');
+  const bgColorHex = document.getElementById('page-bg-color-hex');
+  const bgOpacitySlider = document.getElementById('page-bg-opacity-slider');
+  const bgOpacityInput = document.getElementById('page-bg-opacity-input');
+  const textColorPicker = document.getElementById('page-text-color-picker');
+  const textColorHex = document.getElementById('page-text-color-hex');
+  const resetButton = document.getElementById('reset-page-styles');
+  const toggleButton = document.getElementById('styling-toggle');
+
+  // Set initial values
+  bgColorPicker.value = currentPageStyles.backgroundColor;
+  bgColorHex.value = currentPageStyles.backgroundColor;
+  bgOpacitySlider.value = currentPageStyles.backgroundOpacity;
+  bgOpacityInput.value = currentPageStyles.backgroundOpacity;
+  textColorPicker.value = currentPageStyles.textColor;
+  textColorHex.value = currentPageStyles.textColor;
+
+  updatePagePreviews(currentPageStyles);
+
+  // Event listeners
+  toggleButton.addEventListener('click', toggleStylingPanel);
+
+  // Background color picker change
+  bgColorPicker.addEventListener('change', (e) => {
+    const color = e.target.value;
+    bgColorHex.value = color;
+    currentPageStyles.backgroundColor = color;
+    updatePagePreviews(currentPageStyles);
+    applyPageStyles(currentPageStyles);
+    savePageStyles(currentPageStyles);
+  });
+
+  // Background color hex input change
+  bgColorHex.addEventListener('input', (e) => {
+    const color = e.target.value;
+    if (isValidHex(color)) {
+      bgColorPicker.value = color;
+      currentPageStyles.backgroundColor = color;
+      updatePagePreviews(currentPageStyles);
+      applyPageStyles(currentPageStyles);
+      savePageStyles(currentPageStyles);
+    }
+  });
+
+  // Background opacity slider change
+  bgOpacitySlider.addEventListener('input', (e) => {
+    const opacity = parseInt(e.target.value);
+    bgOpacityInput.value = opacity;
+    currentPageStyles.backgroundOpacity = opacity;
+    applyPageStyles(currentPageStyles);
+    savePageStyles(currentPageStyles);
+  });
+
+  // Background opacity input change
+  bgOpacityInput.addEventListener('input', (e) => {
+    const opacity = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+    bgOpacitySlider.value = opacity;
+    e.target.value = opacity;
+    currentPageStyles.backgroundOpacity = opacity;
+    applyPageStyles(currentPageStyles);
+    savePageStyles(currentPageStyles);
+  });
+
+  // Text color picker change
+  textColorPicker.addEventListener('change', (e) => {
+    const color = e.target.value;
+    textColorHex.value = color;
+    currentPageStyles.textColor = color;
+    updatePagePreviews(currentPageStyles);
+    applyPageStyles(currentPageStyles);
+    savePageStyles(currentPageStyles);
+  });
+
+  // Text color hex input change
+  textColorHex.addEventListener('input', (e) => {
+    const color = e.target.value;
+    if (isValidHex(color)) {
+      textColorPicker.value = color;
+      currentPageStyles.textColor = color;
+      updatePagePreviews(currentPageStyles);
+      applyPageStyles(currentPageStyles);
+      savePageStyles(currentPageStyles);
+    }
+  });
+
+  // Reset button
+  resetButton.addEventListener('click', () => {
+    // Reset to defaults
+    bgColorPicker.value = defaultPageStyles.backgroundColor;
+    bgColorHex.value = defaultPageStyles.backgroundColor;
+    bgOpacitySlider.value = defaultPageStyles.backgroundOpacity;
+    bgOpacityInput.value = defaultPageStyles.backgroundOpacity;
+    textColorPicker.value = defaultPageStyles.textColor;
+    textColorHex.value = defaultPageStyles.textColor;
+
+    // Update current styles object
+    currentPageStyles.backgroundColor = defaultPageStyles.backgroundColor;
+    currentPageStyles.backgroundOpacity = defaultPageStyles.backgroundOpacity;
+    currentPageStyles.textColor = defaultPageStyles.textColor;
+    
+    updatePagePreviews(currentPageStyles);
+    applyPageStyles(currentPageStyles);
+    savePageStyles(currentPageStyles);
+  });
+
+  // Re-apply team card styles periodically to catch new cards
+  setInterval(() => {
+    applyTeamCardStyles();
+  }, 3000);
+}
