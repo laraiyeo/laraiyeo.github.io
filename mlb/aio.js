@@ -357,7 +357,8 @@ const defaultPageStyles = {
 // Check if we're in URL parameter mode
 function isUrlParameterMode() {
   const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.has('bgColor') || urlParams.has('bgOpacity') || urlParams.has('textColor');
+  return urlParams.has('bgColor') || urlParams.has('bgOpacity') || urlParams.has('textColor') ||
+         urlParams.has('pageBgColor') || urlParams.has('pageBgOpacity') || urlParams.has('pageTextColor');
 }
 
 // Get team card styles from URL parameters, teams.js localStorage, or defaults
@@ -369,10 +370,10 @@ function getTeamCardStyles() {
   const urlTextColor = urlParams.get('textColor');
   
   // If we have URL parameters, use them (OBS mode)
-  if (urlBgColor || urlBgOpacity || urlTextColor) {
+  if (urlBgColor || urlBgOpacity !== null || urlTextColor) {
     return {
       backgroundColor: urlBgColor || defaultTeamCardStyles.backgroundColor,
-      backgroundOpacity: parseInt(urlBgOpacity) || defaultTeamCardStyles.backgroundOpacity,
+      backgroundOpacity: urlBgOpacity !== null ? parseInt(urlBgOpacity) : defaultTeamCardStyles.backgroundOpacity,
       textColor: urlTextColor || defaultTeamCardStyles.textColor
     };
   }
@@ -382,8 +383,24 @@ function getTeamCardStyles() {
   return saved ? JSON.parse(saved) : defaultTeamCardStyles;
 }
 
-// Load page-specific styles or use defaults (no URL params for page styles currently)
+// Load page-specific styles with URL parameter support
 function loadPageStyles() {
+  // Check for URL parameters first (these override localStorage for OBS)
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlPageBgColor = urlParams.get('pageBgColor');
+  const urlPageBgOpacity = urlParams.get('pageBgOpacity');
+  const urlPageTextColor = urlParams.get('pageTextColor');
+  
+  // If we have page URL parameters, use them (OBS mode)
+  if (urlPageBgColor || urlPageBgOpacity !== null || urlPageTextColor) {
+    return {
+      backgroundColor: urlPageBgColor || defaultPageStyles.backgroundColor,
+      backgroundOpacity: urlPageBgOpacity !== null ? parseInt(urlPageBgOpacity) : defaultPageStyles.backgroundOpacity,
+      textColor: urlPageTextColor || defaultPageStyles.textColor
+    };
+  }
+  
+  // Otherwise use localStorage or defaults
   const saved = localStorage.getItem('mlb-aio-page-styles');
   return saved ? JSON.parse(saved) : defaultPageStyles;
 }

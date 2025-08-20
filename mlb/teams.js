@@ -649,9 +649,16 @@ const teamAbbrMap = {
       aioObsButton.addEventListener('click', async () => {
         const currentStyles = loadSavedStyles();
         const params = new URLSearchParams();
+        
+        // Game card styling parameters
         params.set('bgColor', currentStyles.backgroundColor);
         params.set('bgOpacity', currentStyles.backgroundOpacity);
         params.set('textColor', currentStyles.textColor);
+        
+        // Page styling parameters (use defaults for AIO page background)
+        params.set('pageBgColor', '#ebebeb'); // Light gray default for page background
+        params.set('pageBgOpacity', '100'); // Full opacity for page background
+        params.set('pageTextColor', '#000000'); // Black text for page headers/labels
         
         const url = `https://laraiyeo.github.io/mlb/aio-obs.html?${params.toString()}`;
 
