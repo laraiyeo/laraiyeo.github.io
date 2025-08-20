@@ -643,6 +643,29 @@ const teamAbbrMap = {
       saveStyles(currentStyles);
     });
 
+    // AIO OBS Link button
+    const aioObsButton = document.getElementById('aio-obs-link');
+    if (aioObsButton) {
+      aioObsButton.addEventListener('click', async () => {
+        const currentStyles = loadSavedStyles();
+        const params = new URLSearchParams();
+        params.set('bgColor', currentStyles.backgroundColor);
+        params.set('bgOpacity', currentStyles.backgroundOpacity);
+        params.set('textColor', currentStyles.textColor);
+        
+        const url = `127.0.0.1:5500/mlb/aio-obs.html?${params.toString()}`;
+
+        try {
+          await navigator.clipboard.writeText(url);
+          alert(`AIO OBS link copied: ${url}`);
+        } catch (err) {
+          console.error("Failed to copy AIO OBS link:", err);
+          // Fallback: show the URL in a prompt
+          prompt("Copy this AIO OBS link:", url);
+        }
+      });
+    }
+
     // Apply styles when new cards are created (no longer needed as buildCard handles it)
     
     // Re-apply styles periodically to catch any dynamically created cards

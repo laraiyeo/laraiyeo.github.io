@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OBS All Games View - MLB Live Tracker</title>
+  <link rel="icon" href="icon.png" type="image/png" />
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      /* Hide scrollbar for WebKit browsers (Chrome, Safari, Edge) */
+      overflow: auto;
+    }
+
+    /* Hide scrollbar for WebKit browsers */
+    body::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Hide scrollbar for Firefox */
+    html {
+      scrollbar-width: none;
+    }
+
+    /* Hide scrollbar for IE and Edge legacy */
+    body {
+      -ms-overflow-style: none;
+    }
+
+    #scoreboard {
+      background: transparent;
+      padding: 0;
+      margin: 0;
+      /* Ensure content can still be scrolled */
+      overflow: visible;
+    }
+
+    h2, h3 {
+      margin: 0 0 15px 0;
+      font-weight: bold;
+    }
+
+    .section-header {
+      margin: 20px 0 10px 0;
+      padding: 8px 15px;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+
+    .games-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .no-games {
+      text-align: center;
+      padding: 20px;
+      font-style: italic;
+      opacity: 0.7;
+    }
+
+    /* Hide any styling panels or controls */
+    #styling-toggle,
+    #styling-panel,
+    .customization-panel {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="scoreboard">
+    <h2>All Games Today</h2>
+    
+    <!-- Live Games Section -->
+    <div id="live-section">
+      <h3 class="section-header">🔴 Live Games</h3>
+      <div id="liveGamesContainer" class="games-container"></div>
+      <div id="no-live-games" class="no-games" style="display: none;">
+        No live games at the moment
+      </div>
+    </div>
+
+    <!-- Scheduled Games Section -->
+    <div id="scheduled-section">
+      <h3 class="section-header">📅 Scheduled Games</h3>
+      <div id="scheduledGamesContainer" class="games-container"></div>
+      <div id="no-scheduled-games" class="no-games" style="display: none;">
+        No scheduled games today
+      </div>
+    </div>
+
+    <!-- Finished Games Section -->
+    <div id="finished-section">
+      <h3 class="section-header">✅ Finished Games</h3>
+      <div id="finishedGamesContainer" class="games-container"></div>
+      <div id="no-finished-games" class="no-games" style="display: none;">
+        No finished games today
+      </div>
+    </div>
+  </div>
+
+  <script src="aio.js"></script>
+</body>
+</html>
