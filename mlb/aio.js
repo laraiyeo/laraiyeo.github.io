@@ -354,13 +354,35 @@ const defaultPageStyles = {
   textColor: '#000000'
 };
 
-// Get team card styles from teams.js localStorage or defaults
+// Check if we're in URL parameter mode
+function isUrlParameterMode() {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.has('bgColor') || urlParams.has('bgOpacity') || urlParams.has('textColor');
+}
+
+// Get team card styles from URL parameters, teams.js localStorage, or defaults
 function getTeamCardStyles() {
+  // Check for URL parameters first (these override localStorage for OBS)
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlBgColor = urlParams.get('bgColor');
+  const urlBgOpacity = urlParams.get('bgOpacity');
+  const urlTextColor = urlParams.get('textColor');
+  
+  // If we have URL parameters, use them (OBS mode)
+  if (urlBgColor || urlBgOpacity || urlTextColor) {
+    return {
+      backgroundColor: urlBgColor || defaultTeamCardStyles.backgroundColor,
+      backgroundOpacity: parseInt(urlBgOpacity) || defaultTeamCardStyles.backgroundOpacity,
+      textColor: urlTextColor || defaultTeamCardStyles.textColor
+    };
+  }
+  
+  // Otherwise use localStorage or defaults
   const saved = localStorage.getItem('mlb-game-card-styles');
   return saved ? JSON.parse(saved) : defaultTeamCardStyles;
 }
 
-// Load page-specific styles or use defaults
+// Load page-specific styles or use defaults (no URL params for page styles currently)
 function loadPageStyles() {
   const saved = localStorage.getItem('mlb-aio-page-styles');
   return saved ? JSON.parse(saved) : defaultPageStyles;
@@ -415,8 +437,10 @@ function isValidHex(hex) {
 
 // Update preview colors
 function updatePagePreviews(styles) {
-  document.getElementById('page-bg-preview').style.backgroundColor = styles.backgroundColor;
-  document.getElementById('page-text-preview').style.backgroundColor = styles.textColor;
+  const bgPreview = document.getElementById('page-bg-preview');
+  const textPreview = document.getElementById('page-text-preview');
+  if (bgPreview) bgPreview.style.backgroundColor = styles.backgroundColor;
+  if (textPreview) textPreview.style.backgroundColor = styles.textColor;
 }
 
 // Toggle styling panel
@@ -437,11 +461,13 @@ function toggleStylingPanel() {
 // Initialize page styling controls
 function initializePageStyling() {
   const currentPageStyles = loadPageStyles();
+  const urlMode = isUrlParameterMode();
   
   // Apply initial styles
   applyPageStyles(currentPageStyles);
   
-  // Also apply team card styles on load
+  // Apply team card styles immediately and after a delay to catch dynamically loaded cards
+  applyTeamCardStyles();
   setTimeout(() => {
     applyTeamCardStyles();
   }, 500);
@@ -455,102 +481,126 @@ function initializePageStyling() {
   const textColorHex = document.getElementById('page-text-color-hex');
   const resetButton = document.getElementById('reset-page-styles');
   const toggleButton = document.getElementById('styling-toggle');
+  const panel = document.getElementById('styling-panel');
+
+  // If in URL parameter mode, hide styling controls since they're locked
+  if (urlMode && panel) {
+    panel.style.display = 'none';
+    if (toggleButton) {
+      toggleButton.style.display = 'none';
+    }
+    return; // Don't set up event listeners in URL mode
+  }
 
   // Set initial values
-  bgColorPicker.value = currentPageStyles.backgroundColor;
-  bgColorHex.value = currentPageStyles.backgroundColor;
-  bgOpacitySlider.value = currentPageStyles.backgroundOpacity;
-  bgOpacityInput.value = currentPageStyles.backgroundOpacity;
-  textColorPicker.value = currentPageStyles.textColor;
-  textColorHex.value = currentPageStyles.textColor;
+  if (bgColorPicker) bgColorPicker.value = currentPageStyles.backgroundColor;
+  if (bgColorHex) bgColorHex.value = currentPageStyles.backgroundColor;
+  if (bgOpacitySlider) bgOpacitySlider.value = currentPageStyles.backgroundOpacity;
+  if (bgOpacityInput) bgOpacityInput.value = currentPageStyles.backgroundOpacity;
+  if (textColorPicker) textColorPicker.value = currentPageStyles.textColor;
+  if (textColorHex) textColorHex.value = currentPageStyles.textColor;
 
   updatePagePreviews(currentPageStyles);
 
   // Event listeners
-  toggleButton.addEventListener('click', toggleStylingPanel);
+  if (toggleButton) toggleButton.addEventListener('click', toggleStylingPanel);
 
   // Background color picker change
-  bgColorPicker.addEventListener('change', (e) => {
-    const color = e.target.value;
-    bgColorHex.value = color;
-    currentPageStyles.backgroundColor = color;
-    updatePagePreviews(currentPageStyles);
-    applyPageStyles(currentPageStyles);
-    savePageStyles(currentPageStyles);
-  });
-
-  // Background color hex input change
-  bgColorHex.addEventListener('input', (e) => {
-    const color = e.target.value;
-    if (isValidHex(color)) {
-      bgColorPicker.value = color;
+  if (bgColorPicker) {
+    bgColorPicker.addEventListener('change', (e) => {
+      const color = e.target.value;
+      if (bgColorHex) bgColorHex.value = color;
       currentPageStyles.backgroundColor = color;
       updatePagePreviews(currentPageStyles);
       applyPageStyles(currentPageStyles);
       savePageStyles(currentPageStyles);
-    }
-  });
+    });
+  }
+
+  // Background color hex input change
+  if (bgColorHex) {
+    bgColorHex.addEventListener('input', (e) => {
+      const color = e.target.value;
+      if (isValidHex(color)) {
+        if (bgColorPicker) bgColorPicker.value = color;
+        currentPageStyles.backgroundColor = color;
+        updatePagePreviews(currentPageStyles);
+        applyPageStyles(currentPageStyles);
+        savePageStyles(currentPageStyles);
+      }
+    });
+  }
 
   // Background opacity slider change
-  bgOpacitySlider.addEventListener('input', (e) => {
-    const opacity = parseInt(e.target.value);
-    bgOpacityInput.value = opacity;
-    currentPageStyles.backgroundOpacity = opacity;
-    applyPageStyles(currentPageStyles);
-    savePageStyles(currentPageStyles);
-  });
+  if (bgOpacitySlider) {
+    bgOpacitySlider.addEventListener('input', (e) => {
+      const opacity = parseInt(e.target.value);
+      if (bgOpacityInput) bgOpacityInput.value = opacity;
+      currentPageStyles.backgroundOpacity = opacity;
+      applyPageStyles(currentPageStyles);
+      savePageStyles(currentPageStyles);
+    });
+  }
 
   // Background opacity input change
-  bgOpacityInput.addEventListener('input', (e) => {
-    const opacity = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
-    bgOpacitySlider.value = opacity;
-    e.target.value = opacity;
-    currentPageStyles.backgroundOpacity = opacity;
-    applyPageStyles(currentPageStyles);
-    savePageStyles(currentPageStyles);
-  });
+  if (bgOpacityInput) {
+    bgOpacityInput.addEventListener('input', (e) => {
+      const opacity = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+      if (bgOpacitySlider) bgOpacitySlider.value = opacity;
+      e.target.value = opacity;
+      currentPageStyles.backgroundOpacity = opacity;
+      applyPageStyles(currentPageStyles);
+      savePageStyles(currentPageStyles);
+    });
+  }
 
   // Text color picker change
-  textColorPicker.addEventListener('change', (e) => {
-    const color = e.target.value;
-    textColorHex.value = color;
-    currentPageStyles.textColor = color;
-    updatePagePreviews(currentPageStyles);
-    applyPageStyles(currentPageStyles);
-    savePageStyles(currentPageStyles);
-  });
-
-  // Text color hex input change
-  textColorHex.addEventListener('input', (e) => {
-    const color = e.target.value;
-    if (isValidHex(color)) {
-      textColorPicker.value = color;
+  if (textColorPicker) {
+    textColorPicker.addEventListener('change', (e) => {
+      const color = e.target.value;
+      if (textColorHex) textColorHex.value = color;
       currentPageStyles.textColor = color;
       updatePagePreviews(currentPageStyles);
       applyPageStyles(currentPageStyles);
       savePageStyles(currentPageStyles);
-    }
-  });
+    });
+  }
+
+  // Text color hex input change
+  if (textColorHex) {
+    textColorHex.addEventListener('input', (e) => {
+      const color = e.target.value;
+      if (isValidHex(color)) {
+        if (textColorPicker) textColorPicker.value = color;
+        currentPageStyles.textColor = color;
+        updatePagePreviews(currentPageStyles);
+        applyPageStyles(currentPageStyles);
+        savePageStyles(currentPageStyles);
+      }
+    });
+  }
 
   // Reset button
-  resetButton.addEventListener('click', () => {
-    // Reset to defaults
-    bgColorPicker.value = defaultPageStyles.backgroundColor;
-    bgColorHex.value = defaultPageStyles.backgroundColor;
-    bgOpacitySlider.value = defaultPageStyles.backgroundOpacity;
-    bgOpacityInput.value = defaultPageStyles.backgroundOpacity;
-    textColorPicker.value = defaultPageStyles.textColor;
-    textColorHex.value = defaultPageStyles.textColor;
+  if (resetButton) {
+    resetButton.addEventListener('click', () => {
+      // Reset to defaults
+      if (bgColorPicker) bgColorPicker.value = defaultPageStyles.backgroundColor;
+      if (bgColorHex) bgColorHex.value = defaultPageStyles.backgroundColor;
+      if (bgOpacitySlider) bgOpacitySlider.value = defaultPageStyles.backgroundOpacity;
+      if (bgOpacityInput) bgOpacityInput.value = defaultPageStyles.backgroundOpacity;
+      if (textColorPicker) textColorPicker.value = defaultPageStyles.textColor;
+      if (textColorHex) textColorHex.value = defaultPageStyles.textColor;
 
-    // Update current styles object
-    currentPageStyles.backgroundColor = defaultPageStyles.backgroundColor;
-    currentPageStyles.backgroundOpacity = defaultPageStyles.backgroundOpacity;
-    currentPageStyles.textColor = defaultPageStyles.textColor;
-    
-    updatePagePreviews(currentPageStyles);
-    applyPageStyles(currentPageStyles);
-    savePageStyles(currentPageStyles);
-  });
+      // Update current styles object - use explicit assignment for immediate reactivity
+      currentPageStyles.backgroundColor = defaultPageStyles.backgroundColor;
+      currentPageStyles.backgroundOpacity = defaultPageStyles.backgroundOpacity;
+      currentPageStyles.textColor = defaultPageStyles.textColor;
+      
+      updatePagePreviews(currentPageStyles);
+      applyPageStyles(currentPageStyles);
+      savePageStyles(currentPageStyles);
+    });
+  }
 
   // Re-apply team card styles periodically to catch new cards
   setInterval(() => {
