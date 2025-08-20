@@ -653,7 +653,7 @@ const teamAbbrMap = {
         params.set('bgOpacity', currentStyles.backgroundOpacity);
         params.set('textColor', currentStyles.textColor);
         
-        const url = `127.0.0.1:5500/mlb/aio-obs.html?${params.toString()}`;
+        const url = `https://laraiyeo.github.io/mlb/aio-obs.html?${params.toString()}`;
 
         try {
           await navigator.clipboard.writeText(url);
