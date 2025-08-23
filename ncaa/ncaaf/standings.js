@@ -326,7 +326,7 @@ async function fetchStandings() {
     // Show loading indicator only when we have new data to process
     const container = document.getElementById("standingsContainer");
     if (container) {
-      container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Loading standings...</div>';
+      container.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">Loading standings...</div>';
     }
     
     if (data && data.standings) {
@@ -394,7 +394,7 @@ async function fetchRankings() {
     // Show loading indicator only when we have new data to process
     const container = document.getElementById("standingsContainer");
     if (container) {
-      container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Loading rankings...</div>';
+      container.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">Loading rankings...</div>';
     }
 
     const data = JSON.parse(rankingsText);

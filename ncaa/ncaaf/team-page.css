@@ -145,13 +145,13 @@
 
 .page-info {
   font-size: 14px;
-  color: #666;
+  color: #777;
   font-weight: bold;
 }
 
 .loading {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 50px 0;
 }
@@ -165,7 +165,7 @@
 
 .no-data {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 30px 0;
 }
@@ -217,7 +217,7 @@
 }
 
 .game-score {
-  font-size: 1.5rem;
+  font-size: 3rem;
   font-weight: bold;
   color: var(--team-color, #007bff);
 }
@@ -231,8 +231,8 @@
 
 .vs {
   font-weight: bold;
-  color: #666;
-  font-size: 1.2rem;
+  color: #777;
+  font-size: 1.5rem;
 }
 
 /* Match History Styles */
@@ -367,7 +367,7 @@
 
 .stat-label {
   font-size: 0.9rem;
-  color: #666;
+  color: #777;
   margin-bottom: 5px;
 }
 
@@ -394,7 +394,7 @@
 }
 
 .standing-details {
-  color: #666;
+  color: #777;
 }
 
 /* Players Styles */
@@ -446,7 +446,7 @@
 
 .player-first-name {
   font-size: 0.9rem;
-  color: #666;
+  color: #777;
 }
 
 .player-last-name {
@@ -463,7 +463,7 @@
 
 .player-position {
   font-size: 0.9rem;
-  color: #666;
+  color: #777;
   background: #e9ecef;
   padding: 2px 8px;
   border-radius: 4px;
@@ -528,7 +528,7 @@
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #666;
+  color: #777;
 }
 
 .close-player-details:hover {
@@ -560,7 +560,7 @@
 
 .selected-player-meta {
   font-size: 1.1rem;
-  color: #666;
+  color: #777;
 }
 
 .player-stats {
@@ -599,20 +599,20 @@
 }
 
 .player-stat-label {
-  color: #666;
+  color: #777;
   font-size: 0.9rem;
 }
 
 .loading-stats {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 20px;
 }
 
 .no-stats {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 30px 20px;
 }

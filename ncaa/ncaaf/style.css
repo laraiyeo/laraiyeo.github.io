@@ -1,5 +1,11 @@
 /* Teams Page Specific Styles */
 
+/* Prevent horizontal scroll on the entire page */
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 .teams-container {
   display: flex !important;
   flex-wrap: wrap;
@@ -8,7 +14,10 @@
   padding: 20px 0;
   min-height: 200px;
   width: 100%;
+  max-width: 100%;
   background: transparent;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .team-card {
@@ -16,7 +25,9 @@
   border: 2px solid #444;
   border-radius: 15px;
   padding: 20px;
-  width: 340px;
+  width: 400px;
+  max-width: 100%;
+  box-sizing: border-box;
   /* Background color will be set by JavaScript using team colors */
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   color: white !important;
@@ -79,7 +90,9 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 0 10px rgb(255, 255, 255);
-  width: 300px;
+  width: 400px;
+  max-width: 100%;
+  box-sizing: border-box;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
@@ -218,12 +231,13 @@
   .teams-container {
     gap: 15px;
     padding: 15px 10px;
+    justify-content: center;
   }
   
   .team-card {
-    width: calc(100% - 20px);
-    max-width: 350px;
+    max-width: 400px;
     margin: 0 auto 30px auto;
+    box-sizing: border-box;
   }
   
   .team-logo {
@@ -238,7 +252,6 @@
 
 @media (max-width: 525px) {
   .team-card {
-    width: calc(100% - 10px);
     padding: 15px;
     margin-bottom: 25px;
   }
@@ -276,7 +289,7 @@
   
   .team-card {
     width: 100%;
-    max-width: 350px;
+    max-width: 400px;
     margin: 0;
   }
   
@@ -301,9 +314,13 @@
   
   .team-card {
     width: 100%;
-    max-width: 320px;
+    max-width: 350px;
     padding: 15px;
-    margin-left: -20px;
+  }
+
+  .game-card {
+    width: 100%;
+    max-width: 480px;
   }
   
   .team-logo {
@@ -356,4 +373,8 @@
   justify-content: center;
   gap: 20px;
   padding: 20px;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }

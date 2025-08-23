@@ -146,6 +146,14 @@ async function buildGameCard(game, team) {
     const awayTeamShortName = adjustTeamShortName(awayTeam?.shortDisplayName || "Unknown");
     const homeTeamShortName = adjustTeamShortName(homeTeam?.shortDisplayName || "Unknown");
 
+    let winningTeam = null;
+
+    if (homeTeamScore > awayTeamScore && homeTeamScore > 0) {
+      winningTeam = homeTeam;
+    } else if (awayTeamScore > homeTeamScore && awayTeamScore > 0) {
+      winningTeam = awayTeam;
+    }
+
     return `
       <div class="game-card final-game-card">
         <div class="game-headline">${headline}</div>
@@ -153,7 +161,7 @@ async function buildGameCard(game, team) {
           <div class="team away-team">
             <div style="display: flex; align-items: center; gap: 8px;">
               <img src="${`https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam?.id}.png` || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
-              <span class="card-team-score">${awayTeamScore}</span>
+              <span class="card-team-score" style="color: ${winningTeam === awayTeam ? '#fff' : '#777'}">${awayTeamScore}</span>
             </div>
             <div class="card-team-name">${awayTeamShortName}</div>
             <div class="card-team-record">${awayTeamRecord}</div>
@@ -164,7 +172,7 @@ async function buildGameCard(game, team) {
           </div>
           <div class="team home-team">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="card-team-score">${homeTeamScore}</span>
+              <span class="card-team-score" style="color: ${winningTeam === homeTeam ? '#fff' : '#777'}">${homeTeamScore}</span>
               <img src="${`https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam?.id}.png` || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
             </div>
             <div class="card-team-name">${homeTeamShortName}</div>
@@ -205,7 +213,16 @@ async function buildGameCard(game, team) {
     const text = game?.competitions[0]?.situation?.possessionText || "";
     const distance = game?.competitions[0]?.situation?.distance || "N/A";
     const yardLine = game?.competitions[0]?.situation?.yardLine || "N/A";
-    const kickoff = game?.competitions[0]?.situation?.shortDownDistanceText === "1st & 10" && distance === 10 && (yardLine === 65 || yardLine === 35) ? "Kickoff" : game?.competitions[0]?.situation?.shortDownDistanceText || "Finished";
+    const kickoff = game?.competitions[0]?.situation?.shortDownDistanceText === "1st & 10" && distance === 10 && (yardLine === 65 || yardLine === 35) ? "Kickoff" : game?.competitions[0]?.situation?.shortDownDistanceText || "";
+
+    let winningTeam = null;
+
+    if (homeTeamScore > awayTeamScore && homeTeamScore > 0) {
+      winningTeam = homeTeam;
+    } else if (awayTeamScore > homeTeamScore && awayTeamScore > 0) {
+      winningTeam = awayTeam;
+    }
+
 
     return `
       <div class="game-card in-progress-game-card">
@@ -214,7 +231,7 @@ async function buildGameCard(game, team) {
           <div class="team away-team">
             <div style="display: flex; align-items: center; gap: 8px;">
               <img src="${`https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam?.id}.png` || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
-              <span class="card-team-score">${awayTeamScore}</span>
+              <span class="card-team-score" style ="color: ${winningTeam === awayTeam ? '#777' : '#fff'}">${awayTeamScore}</span>
             </div>
             <div class="card-team-name">${awayTeamShortName}</div>
             <div class="card-team-record">${awayTeamRecord}</div>
@@ -224,11 +241,11 @@ async function buildGameCard(game, team) {
             <div class="line" style="margin-top: ${isHalftime ? "5px" : "35px"}"></div>
             ${isHalftime || isEndOfPeriod ? "" : `<div class="game-status">${clockTime}</div>`}
             <div class="game-status" style="margin-top: 0px; font-size: 0.9rem;">${kickoff}</div>
-            <div class="game-period" style="color: white; margin-top: -15px;">${text ? (possession === homeTeam.id ? `${text} ▶` : `◀ ${text}`) : "Finished"}</div>
+            <div class="game-period" style="color: white; margin-top: -15px;">${text ? (possession === homeTeam.id ? `${text} ▶` : `◀ ${text}`) : ""}</div>
           </div>
           <div class="team home-team">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="card-team-score">${homeTeamScore}</span>
+              <span class="card-team-score" style ="color: ${winningTeam === homeTeam ? '#777' : '#fff'}">${homeTeamScore}</span>
               <img src="${`https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam?.id}.png` || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
             </div>
             <div class="card-team-name">${homeTeamShortName}</div>
@@ -406,7 +423,7 @@ function createTeamContainer(team) {
 
   // Create team colors for styling
   const primaryColor = team.color ? `#${team.color}` : '#333';
-  const alternateColor = team.alternateColor ? `#${team.alternateColor}` : '#666';
+  const alternateColor = team.alternateColor ? `#${team.alternateColor}` : '#777';
   
   // Check if the primary color is white or very light, then use black text
   // Handle various white color formats

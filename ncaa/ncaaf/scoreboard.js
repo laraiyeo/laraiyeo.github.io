@@ -230,33 +230,36 @@ function normalizeTeamName(teamName) {
 
 async function extractVideoPlayerUrl(pageUrl) {
   try {
-    const response = await fetch(convertToHttps(pageUrl));
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(pageUrl)}`;
+    const response = await fetch(proxyUrl);
+    const data = await response.json();
     
-    const html = await response.text();
-    
-    // Look for video player patterns
-    const patterns = [
-      /src\s*=\s*["']([^"']*player[^"']*)["']/gi,
-      /iframe\s+[^>]*src\s*=\s*["']([^"']*)["']/gi
-    ];
-    
-    for (const pattern of patterns) {
-      const matches = html.match(pattern);
-      if (matches && matches.length > 0) {
-        const srcMatch = matches[0].match(/src\s*=\s*["']([^"']*)["']/);
-        if (srcMatch && srcMatch[1]) {
-          return srcMatch[1];
-        }
+    if (data.contents) {
+      const iframeMatch = data.contents.match(/src="([^"]*castweb\.xyz[^"]*)"/);
+      if (iframeMatch) {
+        return iframeMatch[1];
+      }
+      
+      const altMatch = data.contents.match(/iframe[^>]*src="([^"]*\.php[^"]*)"/);
+      if (altMatch) {
+        return altMatch[1];
       }
     }
   } catch (error) {
-    console.error('Error extracting video URL from', pageUrl, ':', error);
+    console.error('Error extracting video player URL:', error);
   }
   
   return null;
+}
+
+function generateStreamUrls(awayTeamName, homeTeamName) {
+  const awayNormalized = normalizeTeamName(awayTeamName);
+  const homeNormalized = normalizeTeamName(homeTeamName);
+  
+  // Only use away vs home format (like soccer)
+  return [
+    `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`
+  ];
 }
 
 // Global variables for stream testing
@@ -264,59 +267,6 @@ let streamUrls = [];
 let currentStreamIndex = 0;
 let streamTestTimeout = null;
 let isMuted = true; // Start muted to prevent autoplay issues
-
-// Enhanced video control functions matching the iframe pattern
-window.toggleMute = function() {
-  const iframe = document.getElementById('streamIframe');
-  const muteButton = document.getElementById('muteButton');
-  
-  if (!iframe || !muteButton) return;
-  
-  // Toggle muted state
-  isMuted = !isMuted;
-  muteButton.textContent = isMuted ? '🔊 Unmute' : '🔇 Mute';
-  
-  // Multiple approaches to control video muting
-  try {
-    // Method 1: Try to access iframe content directly
-    if (iframe.contentWindow && iframe.contentWindow.document) {
-      const videos = iframe.contentWindow.document.querySelectorAll('video');
-      videos.forEach(video => {
-        video.muted = isMuted;
-      });
-    }
-  } catch (e) {
-    console.log('Direct video access failed:', e);
-  }
-  
-  // Method 2: Enhanced PostMessage to iframe
-  try {
-    iframe.contentWindow.postMessage({
-      type: 'muteVideo',
-      muted: isMuted
-    }, '*');
-  } catch (e) {
-    console.log('PostMessage failed:', e);
-  }
-  
-  // Method 3: Simulate key events
-  try {
-    const keyEvent = new KeyboardEvent('keydown', {
-      key: 'm',
-      code: 'KeyM',
-      bubbles: true
-    });
-    iframe.contentWindow.document.dispatchEvent(keyEvent);
-  } catch (e) {
-    console.log('Key event failed:', e);
-  }
-  
-  // Method 4: Try to modify iframe src with mute parameter
-  if (iframe.src && !iframe.src.includes('mute=')) {
-    const separator = iframe.src.includes('?') ? '&' : '?';
-    iframe.src = iframe.src + separator + 'mute=' + (isMuted ? '1' : '0');
-  }
-};
 
 window.toggleFullscreen = function() {
   const iframe = document.getElementById('streamIframe');
@@ -351,53 +301,54 @@ window.handleStreamLoad = function() {
     streamTestTimeout = null;
   }
   
-  // Reduced delay from 3 seconds to 1 second
   if (iframe.src !== 'about:blank') {
     console.log('Stream loaded:', iframe.src);
     
     // Wait a bit then check content
     setTimeout(() => checkStreamContent(iframe), 1000);
   }
-  
-  // Check if this is the initial auto-test - reduced delay
-  if (streamUrls.length > 0 && iframe.src !== 'about:blank') {
-    streamTestTimeout = setTimeout(() => {
-      tryNextStream();
-    }, 3000);
-  } else {
-    if (connectingDiv) {
-      connectingDiv.style.display = 'none';
-    }
-  }
+};
+
+window.handleStreamError = function() {
+  console.log('Stream error occurred, trying next...');
+  tryNextStream();
 };
 
 function checkStreamContent(iframe) {
   const connectingDiv = document.getElementById('streamConnecting');
   
   try {
-    // Try to access iframe content
     const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
     
-    if (iframeDoc && iframeDoc.body) {
-      const bodyText = iframeDoc.body.innerText.toLowerCase();
-      
-      // Check for error indicators
-      if (bodyText.includes('error') || bodyText.includes('not found') || 
-          bodyText.includes('unavailable') || iframeDoc.body.children.length === 0) {
-        console.log('Stream appears to have errors, trying next...');
-        tryNextStream();
-        return;
+    const hasVideo = iframeDoc.querySelector('video') || 
+                    iframeDoc.querySelector('.video-js') || 
+                    iframeDoc.querySelector('[id*="video"]') ||
+                    iframeDoc.querySelector('[class*="player"]');
+    
+    if (hasVideo) {
+      iframe.style.display = 'block';
+      if (connectingDiv) {
+        connectingDiv.style.display = 'none';
       }
+      streamUrls = [];
+      return;
     }
   } catch (e) {
-    // Cross-origin restrictions prevent access - assume stream is working
-    console.log('Cannot access iframe content (cross-origin), assuming stream is working');
-  }
-  
-  // Reduced delay from 2 seconds to 1 second
-  setTimeout(() => {
+    console.log('Cannot access iframe content (cross-origin), assuming external stream');
+    iframe.style.display = 'block';
     if (connectingDiv) {
       connectingDiv.style.display = 'none';
+    }
+  }
+  
+  setTimeout(() => {
+    if (streamUrls.length > 0) {
+      tryNextStream();
+    } else {
+      iframe.style.display = 'block';
+      if (connectingDiv) {
+        connectingDiv.style.display = 'none';
+      }
     }
   }, 1000);
 }
@@ -406,93 +357,117 @@ function tryNextStream() {
   const iframe = document.getElementById('streamIframe');
   
   if (currentStreamIndex < streamUrls.length) {
+    const nextUrl = streamUrls[currentStreamIndex];
     currentStreamIndex++;
     
-    if (currentStreamIndex < streamUrls.length) {
-      console.log(`Trying stream ${currentStreamIndex + 1}/${streamUrls.length}:`, streamUrls[currentStreamIndex]);
-      iframe.src = streamUrls[currentStreamIndex];
-    } else {
-      console.log('All streams tested, using last one');
-      const connectingDiv = document.getElementById('streamConnecting');
-      if (connectingDiv) {
-        connectingDiv.innerHTML = '<p style="color: #888;">Live stream may not be available</p>';
-      }
+    streamTestTimeout = setTimeout(() => {
+      tryNextStream();
+    }, 4000);
+    
+    if (iframe) {
+      iframe.src = nextUrl;
     }
   } else {
     const connectingDiv = document.getElementById('streamConnecting');
+    iframe.style.display = 'block';
     if (connectingDiv) {
-      connectingDiv.innerHTML = '<p style="color: #888;">Live stream may not be available</p>';
+      connectingDiv.style.display = 'none';
     }
+    streamUrls = [];
   }
 }
 
 async function startStreamTesting(awayTeamName, homeTeamName) {
-  const awayNormalized = normalizeTeamName(awayTeamName);
-  const homeNormalized = normalizeTeamName(homeTeamName);
+  console.log('Starting stream testing for:', awayTeamName, 'vs', homeTeamName);
   
-  // Simplified to only use home vs away format
-  const pageUrls = [
-    `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`
-  ];
+  // Generate page URLs to extract from
+  const pageUrls = generateStreamUrls(awayTeamName, homeTeamName);
   
   streamUrls = [];
   
-  console.log('Starting stream testing for:', awayTeamName, 'vs', homeTeamName);
-  
-  // Process URLs in parallel for faster extraction
-  const extractPromises = pageUrls.map(url => extractVideoPlayerUrl(url));
-  const results = await Promise.all(extractPromises);
-  
-  streamUrls = results.filter(url => url !== null);
-  
-  console.log('Extracted stream URLs:', streamUrls);
-  
-  // Start testing streams
-  if (streamUrls.length > 0) {
-    currentStreamIndex = 0;
-    const iframe = document.getElementById('streamIframe');
-    console.log('Loading first stream:', streamUrls[0]);
-    iframe.src = streamUrls[0];
-  } else {
-    console.log('No stream URLs found');
-    const connectingDiv = document.getElementById('streamConnecting');
-    if (connectingDiv) {
-      connectingDiv.innerHTML = '<p style="color: #888;">No streams found</p>';
+  // Try to extract actual video player URLs
+  const extractionPromises = pageUrls.map(async (url) => {
+    try {
+      const videoUrl = await extractVideoPlayerUrl(url);
+      return videoUrl;
+    } catch (error) {
+      console.error(`Error extracting from ${url}:`, error);
+      return null;
     }
+  });
+  
+  const extractedUrls = await Promise.all(extractionPromises);
+  
+  extractedUrls.forEach(url => {
+    if (url) {
+      streamUrls.push(url);
+      console.log(`Extracted video URL: ${url}`);
+    }
+  });
+  
+  // If no video URLs extracted, use page URLs directly as fallback
+  if (streamUrls.length === 0) {
+    console.log('No video URLs extracted, using page URLs directly');
+    streamUrls = pageUrls;
   }
+  
+  currentStreamIndex = 0;
+  
+  // Start stream testing
+  setTimeout(() => {
+    tryNextStream();
+  }, 300);
 }
 
 function renderStreamEmbed(awayTeamName, homeTeamName) {
   const streamContainer = document.getElementById('streamEmbed');
   
   if (!streamContainer) return;
+
+  // Check if stream is already initialized and working
+  const existingIframe = document.getElementById('streamIframe');
+  if (existingIframe && existingIframe.src !== 'about:blank') {
+    console.log('Stream already initialized and running, skipping rebuild');
+    return;
+  }
+
+  const isSmallScreen = window.innerWidth < 525;
+  const screenHeight = isSmallScreen ? 250 : 400;
   
   streamContainer.innerHTML = `
     <div style="background: #1a1a1a; border-radius: 1rem; padding: 1rem; margin-bottom: 2rem;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
         <h3 style="color: white; margin: 0;">Live Stream</h3>
-        <div style="display: flex; gap: 10px;">
-          <button id="muteButton" onclick="toggleMute()" style="background: #333; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">🔊 Unmute</button>
-          <button onclick="toggleFullscreen()" style="background: #333; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">⛶ Fullscreen</button>
+        <div class="stream-controls" style="margin-top: 10px;">
+          <button id="fullscreenButton" onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">⛶ Fullscreen</button>
         </div>
       </div>
-      <div style="position: relative; width: 100%; height: 400px; background: #000; border-radius: 8px; overflow: hidden;">
-        <iframe id="streamIframe" 
-                src="about:blank" 
-                style="width: 100%; height: 100%; border: none;" 
-                onload="handleStreamLoad()"
-                allowfullscreen>
+      <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; margin-bottom: 10px; border-radius: 8px; text-align: center;">
+        <p>Connecting to stream... <span id="streamStatus"></span></p>
+      </div>
+      <div class="stream-iframe-container" style="position: relative; width: 100%; margin: 0 auto; overflow: hidden;">
+        <iframe 
+          id="streamIframe"
+          src="about:blank"
+          width="100%" 
+          height="${screenHeight}"
+          style="aspect-ratio: 16/9; background: #000; display: none; border-radius: 8px;"
+          frameborder="0"
+          allowfullscreen
+          allow="autoplay; fullscreen; encrypted-media"
+          referrerpolicy="no-referrer-when-downgrade"
+          onload="handleStreamLoad()"
+          onerror="handleStreamError()">
         </iframe>
-        <div id="streamConnecting" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center;">
-          <div style="margin-bottom: 10px;">🔍 Finding live stream...</div>
-          <div style="font-size: 0.9rem; color: #888;">This may take a moment</div>
-        </div>
       </div>
     </div>
   `;
   
   // Start stream testing
-  startStreamTesting(awayTeamName, homeTeamName);
+  if (awayTeamName && homeTeamName) {
+    console.log('Starting stream testing for:', awayTeamName, 'vs', homeTeamName);
+    startStreamTesting(awayTeamName, homeTeamName);
+  }
 }
 
 function getAdjustedDateForNCAA() {
@@ -538,16 +513,33 @@ function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, team
   } else {
     // Try to extract player name from play text for NCAA Football
     console.log('No participants found, trying to extract from text:', playText);
+    console.log('Scoring type:', scoringType);
     
     // Enhanced NCAA Football scoring patterns - prioritize actual scorers over extra point kickers
     const patterns = [
-      // More specific patterns for NCAA Football
+      // Most specific patterns first for NCAA Football format
+      // Pattern for "Player run for X yds for a TD" - like Elijah Gilliam example
+      /([A-Z][A-Za-z'\-\s\.]+?)\s+run\s+for\s+\d+\s+yds?\s+for\s+a\s+TD/i,
+      
+      // Pattern for "Player pass complete to Receiver for X yds for a TD" - like Jalon Daniels example  
+      /([A-Z][A-Za-z'\-\s\.]+?)\s+pass\s+complete\s+to\s+([A-Z][A-Za-z'\-\s\.]+?)\s+for\s+\d+\s+yds?\s+for\s+a\s+TD/i,
+      
+      // Additional NCAA-specific patterns
+      // "Player rush for X yds for a TD"
+      /([A-Z][A-Za-z'\-\s\.]+?)\s+rush\s+for\s+\d+\s+yds?\s+for\s+a\s+TD/i,
+      
+      // "Player X yd run TD" - shorter format
+      /([A-Z][A-Za-z'\-\s\.]+?)\s+\d+\s+yd\s+run\s+TD/i,
+      
+      // "Player X yd TD run"
+      /([A-Z][A-Za-z'\-\s\.]+?)\s+\d+\s+yd\s+TD\s+run/i,
+      
       // Field goals first (most reliable)
       /([A-Z][A-Za-z'\-\s\.]+?)\s+\d+\s+yd\s+FG\s+GOOD/i,
       /([A-Z][A-Za-z'\-\s\.]+?)\s+\d+\s+yard\s+field\s+goal\s+is\s+GOOD/i,
       
-      // Touchdown patterns - more specific
-      // Direct pass completions: "Riley Leonard pass complete to Jaden Greathouse for 30 yds for a TD"
+      // More touchdown patterns
+      // Direct pass completions with different wording
       /([A-Z][A-Za-z'\-\s\.]+)\s+pass\s+complete\s+to\s+([A-Z][A-Za-z'\-\s\.]+?)\s+for\s+\d+\s+yds?\s+for\s+a\s+TD/i,
       
       // Regular passing TDs: "pass to PLAYER for X yards, TOUCHDOWN"
@@ -575,15 +567,26 @@ function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, team
       }
     } else {
       // For touchdowns and field goals, use the main patterns
-      for (const pattern of patterns) {
+      for (let i = 0; i < patterns.length; i++) {
+        const pattern = patterns[i];
         const match = playText.match(pattern);
+        console.log(`Pattern ${i + 1}:`, pattern.source, '- Match:', match ? 'YES' : 'NO');
+        
         if (match && match[1]) {
-          // Special handling for pass completion patterns that capture both QB and receiver
+          console.log('Match groups:', match);
+          
+          // Special handling for different play patterns
           if (pattern.source.includes('pass\\s+complete\\s+to') && match[2]) {
             // For pass completions, we want the receiver (match[2]), not the QB (match[1])
             scorerName = match[2].trim();
             scorerPosition = 'WR'; // Receiving touchdown
             console.log('Extracted receiver from pass completion:', scorerName);
+          } else if (pattern.source.includes('run\\s+for') || pattern.source.includes('rush\\s+for') || 
+                     pattern.source.includes('yd\\s+run\\s+TD') || pattern.source.includes('yd\\s+TD\\s+run')) {
+            // For rushing TDs
+            scorerName = match[1].trim();
+            scorerPosition = 'RB'; // Rushing touchdown
+            console.log('Extracted rusher from run play:', scorerName);
           } else {
             scorerName = match[1].trim();
             console.log('Extracted scorer from text:', scorerName);
@@ -968,6 +971,9 @@ async function renderBoxScore(gameId, gameState) {
   }
 }
 
+// Global state tracking for UI preservation
+let openDrives = new Set(); // Track which drives are open
+
 async function renderPlayByPlay(gameId) {
   try {
     const PLAY_BY_PLAY_API_URL = `https://cdn.espn.com/core/college-football/playbyplay?xhr=1&gameId=${gameId}`;
@@ -1266,6 +1272,16 @@ async function renderPlayByPlay(gameId) {
         ${drivesHtml}
       </div>
     `;
+    
+    // Restore previously open drives
+    openDrives.forEach(driveIndex => {
+      const driveElement = document.getElementById(`drive-${driveIndex}`);
+      const toggleIcon = document.getElementById(`toggle-${driveIndex}`);
+      if (driveElement && toggleIcon) {
+        driveElement.style.display = 'block';
+        toggleIcon.textContent = '▲';
+      }
+    });
   } catch (error) {
     console.error("Error fetching NCAA Football play-by-play data:", error);
     const playsDiv = document.querySelector("#playsContent .plays-placeholder");
@@ -1325,12 +1341,12 @@ async function fetchAndRenderTopScoreboard() {
     let statusDisplay = gameStatus;
     if (gameState === 'in' && clock && period) {
       const quarterName = period <= 4 ? `${getOrdinal(period)} Quarter` : 'OT';
-      statusDisplay = `${clock} - ${quarterName}`;
+      statusDisplay = `${clock}<br><br>${quarterName}`;
     }
 
     // Get team colors
-    const awayColor = awayTeam.team.color ? `#${awayTeam.team.color}` : '#666';
-    const homeColor = homeTeam.team.color ? `#${homeTeam.team.color}` : '#666';
+    const awayColor = awayTeam.team.color ? `#${awayTeam.team.color}` : '#777';
+    const homeColor = homeTeam.team.color ? `#${homeTeam.team.color}` : '#777';
 
     // Store game state for other functions
     window.currentGameState = {
@@ -1351,7 +1367,7 @@ async function fetchAndRenderTopScoreboard() {
     if (isMobile) {
       // Mobile layout: Row with two team columns, each team has score above logo
       scoreboardHtml = `
-        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 140%; padding: 0 10px;">
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 140%; margin-right: -30px; padding: 0 10px;">
           <div style="display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; max-width: 120px;">
             <div class="team-score responsive-score" style="color: ${awayScore > homeScore ? awayColor : '#888'}; margin-bottom: 10px;">${awayScore}</div>
             <div class="team-block" onclick="window.open('team-page.html?teamId=${awayTeam.team.id}', '_blank')" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; text-align: center;">
@@ -1444,9 +1460,19 @@ async function fetchAndRenderTopScoreboard() {
       renderPlayDescription(lastPlay, clock, competitors);
     }
 
-    // Set up stream embed only for live games
+    // Set up stream embed only for live games - but only if not already initialized
     if (gameState === 'in') {
-      renderStreamEmbed(awayTeam.team.displayName, homeTeam.team.displayName);
+      const streamContainer = document.getElementById('streamEmbed');
+      if (streamContainer && streamContainer.innerHTML.trim() === '') {
+        // Only initialize stream if container is empty (first time)
+        renderStreamEmbed(awayTeam.team.displayName, homeTeam.team.displayName);
+      }
+    } else {
+      // Clear stream container for non-live games
+      const streamContainer = document.getElementById('streamEmbed');
+      if (streamContainer) {
+        streamContainer.innerHTML = '';
+      }
     }
 
     // Load box score and play by play
@@ -1598,7 +1624,7 @@ function showPlays() {
   document.getElementById('playsBtn').classList.add('active');
 }
 
-// Function to toggle drive visibility
+// Function to toggle drive visibility with state preservation
 function toggleDrive(driveIndex) {
   const driveElement = document.getElementById(`drive-${driveIndex}`);
   const toggleIcon = document.getElementById(`toggle-${driveIndex}`);
@@ -1607,9 +1633,11 @@ function toggleDrive(driveIndex) {
     if (driveElement.style.display === 'none') {
       driveElement.style.display = 'block';
       toggleIcon.textContent = '▲';
+      openDrives.add(driveIndex); // Track as open
     } else {
       driveElement.style.display = 'none';
       toggleIcon.textContent = '▼';
+      openDrives.delete(driveIndex); // Track as closed
     }
   }
 }

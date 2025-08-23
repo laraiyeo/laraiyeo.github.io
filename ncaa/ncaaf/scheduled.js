@@ -250,7 +250,7 @@ function renderScheduledGames(games) {
       <div class="game-content">
         <div class="team away-team">
           <img src="${convertToHttps(awayTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${awayTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam.team.id}.png`)}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
-          <div class="card-team-name">${awayTeam.team.name}</div>
+          <div class="card-team-name">${awayTeam.team.shortDisplayName}</div>
           <div class="card-team-record">${awayRecord}</div>
         </div>
         <div class="game-info">
@@ -259,7 +259,7 @@ function renderScheduledGames(games) {
         </div>
         <div class="team home-team">
           <img src="${convertToHttps(homeTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${homeTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam.team.id}.png`)}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
-          <div class="card-team-name">${homeTeam.team.name}</div>
+          <div class="card-team-name">${homeTeam.team.shortDisplayName}</div>
           <div class="card-team-record">${homeRecord}</div>
         </div>
       </div>

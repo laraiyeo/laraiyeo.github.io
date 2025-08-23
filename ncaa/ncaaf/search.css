@@ -170,26 +170,26 @@ body {
 }
 
 .team-division {
-  color: #666;
+  color: #777;
   font-size: 0.9rem;
   margin-bottom: 3px;
 }
 
 .team-record {
-  color: #666;
+  color: #777;
   font-size: 0.9rem;
 }
 
 .no-results {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   margin-top: 30px;
 }
 
 .loading {
   text-align: center;
-  color: #666;
+  color: #777;
   margin-top: 30px;
 }
 
