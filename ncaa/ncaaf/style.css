@@ -1,10 +1,6 @@
 /* Teams Page Specific Styles */
 
 /* Prevent horizontal scroll on the entire page */
-html, body {
-  overflow-x: hidden;
-  max-width: 100%;
-}
 
 .teams-container {
   display: flex !important;

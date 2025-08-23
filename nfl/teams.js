@@ -85,9 +85,11 @@ async function buildGameCard(game, team) {
     const awayTeamShortName = adjustTeamShortName(awayTeam.shortDisplayName || "Unknown");
     const homeTeamShortName = adjustTeamShortName(homeTeam.shortDisplayName || "Unknown");
 
+    const noHeadline = headline.slice(0, 5).toLowerCase() === "local";
+
     return `
       <div class="game-card scheduled-game-card">
-        <div class="game-headline">${headline}</div>
+        ${noHeadline ? '' : `<div class="game-headline">${headline}</div><br>`}
         <div class="game-content">
           <div class="team away-team">
             <img src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation}.png` || ""}" alt="${awayTeam.displayName || "Unknown"}" class="card-team-logo">
@@ -126,9 +128,11 @@ async function buildGameCard(game, team) {
     const awayTeamShortName = adjustTeamShortName(awayTeam?.shortDisplayName || "Unknown");
     const homeTeamShortName = adjustTeamShortName(homeTeam?.shortDisplayName || "Unknown");
 
+    const noHeadline = headline.slice(0, 5).toLowerCase() === "local";
+
     return `
       <div class="game-card final-game-card">
-        <div class="game-headline">${headline}</div>
+        ${noHeadline ? '' : `<div class="game-headline">${headline}</div><br>`}
         <div class="game-content">
           <div class="team away-team">
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -187,9 +191,11 @@ async function buildGameCard(game, team) {
     const yardLine = game?.competitions[0]?.situation?.yardLine || "N/A";
     const kickoff = game?.competitions[0]?.situation?.shortDownDistanceText === "1st & 10" && distance === 10 && (yardLine === 65 || yardLine === 35) ? "Kickoff" : game?.competitions[0]?.situation?.shortDownDistanceText || "";
 
+    const noHeadline = headline.slice(0, 5).toLowerCase() === "local";
+
     return `
       <div class="game-card in-progress-game-card">
-        <div class="game-headline">${headline}</div>
+        ${noHeadline ? '' : `<div class="game-headline">${headline}</div><br>`}
         <div class="game-content">
           <div class="team away-team">
             <div style="display: flex; align-items: center; gap: 8px;">
