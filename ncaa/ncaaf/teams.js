@@ -148,9 +148,9 @@ async function buildGameCard(game, team) {
 
     let winningTeam = null;
 
-    if (homeTeamScore > awayTeamScore && homeTeamScore > 0) {
+    if (parseInt(homeTeamScore) > parseInt(awayTeamScore) && parseInt(homeTeamScore) > 0) {
       winningTeam = homeTeam;
-    } else if (awayTeamScore > homeTeamScore && awayTeamScore > 0) {
+    } else if (parseInt(awayTeamScore) > parseInt(homeTeamScore) && parseInt(awayTeamScore) > 0) {
       winningTeam = awayTeam;
     }
 
@@ -217,9 +217,9 @@ async function buildGameCard(game, team) {
 
     let winningTeam = null;
 
-    if (homeTeamScore > awayTeamScore && homeTeamScore > 0) {
+    if (parseInt(homeTeamScore) > parseInt(awayTeamScore) && parseInt(homeTeamScore) > 0) {
       winningTeam = homeTeam;
-    } else if (awayTeamScore > homeTeamScore && awayTeamScore > 0) {
+    } else if (parseInt(awayTeamScore) > parseInt(homeTeamScore) && parseInt(awayTeamScore) > 0) {
       winningTeam = awayTeam;
     }
 
@@ -231,7 +231,7 @@ async function buildGameCard(game, team) {
           <div class="team away-team">
             <div style="display: flex; align-items: center; gap: 8px;">
               <img src="${`https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam?.id}.png` || ""}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
-              <span class="card-team-score" style ="color: ${winningTeam === awayTeam ? '#777' : '#fff'}">${awayTeamScore}</span>
+              <span class="card-team-score" style ="color: ${winningTeam === awayTeam ? '#fff' : '#777'}">${awayTeamScore}</span>
             </div>
             <div class="card-team-name">${awayTeamShortName}</div>
             <div class="card-team-record">${awayTeamRecord}</div>
@@ -245,7 +245,7 @@ async function buildGameCard(game, team) {
           </div>
           <div class="team home-team">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="card-team-score" style ="color: ${winningTeam === homeTeam ? '#777' : '#fff'}">${homeTeamScore}</span>
+              <span class="card-team-score" style ="color: ${winningTeam === homeTeam ? '#fff' : '#777'}">${homeTeamScore}</span>
               <img src="${`https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam?.id}.png` || ""}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
             </div>
             <div class="card-team-name">${homeTeamShortName}</div>

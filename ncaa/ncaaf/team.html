@@ -176,9 +176,9 @@
 
         let winningTeam = null;
 
-        if (homeTeamScore > awayTeamScore && homeTeamScore > 0) {
+        if (parseInt(homeTeamScore) > parseInt(awayTeamScore) && parseInt(homeTeamScore) > 0) {
           winningTeam = homeTeam;
-        } else if (awayTeamScore > homeTeamScore && awayTeamScore > 0) {
+        } else if (parseInt(awayTeamScore) > parseInt(homeTeamScore) && parseInt(awayTeamScore) > 0) {
           winningTeam = awayTeam;
         }
 
@@ -245,9 +245,9 @@
 
             let winningTeam = null;
 
-            if (homeTeamScore > awayTeamScore && homeTeamScore > 0) {
+            if (parseInt(homeTeamScore) > parseInt(awayTeamScore) && parseInt(homeTeamScore) > 0) {
               winningTeam = homeTeam;
-            } else if (awayTeamScore > homeTeamScore && awayTeamScore > 0) {
+            } else if (parseInt(awayTeamScore) > parseInt(homeTeamScore) && parseInt(awayTeamScore) > 0) {
               winningTeam = awayTeam;
             }
 
