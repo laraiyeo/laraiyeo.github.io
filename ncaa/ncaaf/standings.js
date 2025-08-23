@@ -69,13 +69,13 @@ async function cacheCurrentRankings() {
 
     let RANKINGS_URL = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${currentSeason}/types/${seasonType}/weeks/${weekNum}/rankings/1?lang=en&region=us`;
     
-    let response = await fetch(RANKINGS_URL);
+    let response = await fetch(convertToHttps(RANKINGS_URL));
     
     // If preseason fails for week 1, try regular season
     if (!response.ok && seasonType === "1") {
       seasonType = "2";
       RANKINGS_URL = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${currentSeason}/types/${seasonType}/weeks/${weekNum}/rankings/1?lang=en&region=us`;
-      response = await fetch(RANKINGS_URL);
+      response = await fetch(convertToHttps(RANKINGS_URL));
     }
     
     if (response.ok) {
@@ -136,7 +136,7 @@ async function cacheChampionshipWinners() {
     championshipWinners = {};
 
     // Get Week 15 date range from calendar - use SEC (group 8) as reference since it's reliable
-    const calendarResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=8&dates=${currentSeason}0801`);
+    const calendarResponse = await fetch(convertToHttps(`https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=8&dates=${currentSeason}0801`));
     const calendarData = await calendarResponse.json();
     
     let week15StartDate = null;

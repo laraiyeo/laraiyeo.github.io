@@ -41,7 +41,7 @@ async function fetchAthleteStats(sport, league, seasonYear, athleteId) {
   
   // Try types/3 first
   try {
-    const response = await fetch(`${baseUrl}/types/3/athletes/${athleteId}/statistics`);
+    const response = await fetch(convertToHttps(`${baseUrl}/types/3/athletes/${athleteId}/statistics`));
     if (response.ok) {
       const data = await response.json();
       return data;
@@ -52,7 +52,7 @@ async function fetchAthleteStats(sport, league, seasonYear, athleteId) {
   
   // Fallback to types/2
   try {
-    const response = await fetch(`${baseUrl}/types/2/athletes/${athleteId}/statistics`);
+    const response = await fetch(convertToHttps(`${baseUrl}/types/2/athletes/${athleteId}/statistics`));
     if (response.ok) {
       const data = await response.json();
       return data;
@@ -63,7 +63,7 @@ async function fetchAthleteStats(sport, league, seasonYear, athleteId) {
   
   // Fallback to types/1
   try {
-    const response = await fetch(`${baseUrl}/types/1/athletes/${athleteId}/statistics`);
+    const response = await fetch(convertToHttps(`${baseUrl}/types/1/athletes/${athleteId}/statistics`));
     if (response.ok) {
       const data = await response.json();
       return data;
@@ -90,7 +90,7 @@ async function getValidSeasonYear(sport, league, playerId = null, teamId = null)
   }
   
   try {
-    const response = await fetch(testUrl);
+    const response = await fetch(convertToHttps(testUrl));
     if (response.ok) {
       return currentYear;
     }
@@ -106,7 +106,7 @@ async function getValidSeasonYear(sport, league, playerId = null, teamId = null)
   }
   
   try {
-    const response = await fetch(testUrl);
+    const response = await fetch(convertToHttps(testUrl));
     if (response.ok) {
       return currentYear;
     }

@@ -14,6 +14,14 @@ const CONFERENCES = {
 
 let currentConference = localStorage.getItem("currentConference") || "8"; // Default to SEC
 
+// Convert HTTP URLs to HTTPS to avoid mixed content issues
+function convertToHttps(url) {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+}
+
 function getScoreboardUrl() {
   const adjustedDate = getAdjustedDateForNCAA();
   return `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=${currentConference}&dates=${adjustedDate}`;
@@ -49,7 +57,7 @@ function setupConferenceButtons() {
     button.className = `conference-button ${currentConference === confData.groupId ? "active" : ""}`;
     
     // Create button content with both text and logo (similar to search.js)
-    const logoUrl = `https://a.espncdn.com/i/teamlogos/ncaa_conf/500/${confData.code}.png`;
+    const logoUrl = convertToHttps(`https://a.espncdn.com/i/teamlogos/ncaa_conf/500/${confData.code}.png`);
     button.innerHTML = `
       <span class="conference-text">${confName}</span>
       <img class="conference-logo" src="${logoUrl}" alt="${confName}" style="display: none;" onerror="this.style.display='none'; this.parentElement.querySelector('.conference-text').style.display='inline';">
@@ -175,7 +183,7 @@ async function fetchScheduledGames() {
   try {
     const conferenceName = Object.keys(CONFERENCES).find(key => CONFERENCES[key].groupId === currentConference) || 'Conference';
     console.log(`Fetching scheduled games for conference: ${conferenceName} (ID: ${currentConference})`);
-    const response = await fetch(getScoreboardUrl());
+    const response = await fetch(convertToHttps(getScoreboardUrl()));
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -241,7 +249,7 @@ function renderScheduledGames(games) {
       <div class="game-headline">${headline}</div>
       <div class="game-content">
         <div class="team away-team">
-          <img src="${awayTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${awayTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam.team.id}.png`}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
+          <img src="${convertToHttps(awayTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${awayTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam.team.id}.png`)}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
           <div class="card-team-name">${awayTeam.team.name}</div>
           <div class="card-team-record">${awayRecord}</div>
         </div>
@@ -250,7 +258,7 @@ function renderScheduledGames(games) {
           <div class="game-time">${startTime}</div>
         </div>
         <div class="team home-team">
-          <img src="${homeTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${homeTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam.team.id}.png`}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
+          <img src="${convertToHttps(homeTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${homeTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam.team.id}.png`)}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
           <div class="card-team-name">${homeTeam.team.name}</div>
           <div class="card-team-record">${homeRecord}</div>
         </div>

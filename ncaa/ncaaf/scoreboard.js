@@ -1,5 +1,11 @@
 const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams";
 
+// Function to convert any URL to HTTPS
+function convertToHttps(url) {
+  if (typeof url !== 'string') return url;
+  return url.replace(/^http:\/\//i, 'https://');
+}
+
 // NCAA Football Position Groupings for Scoring Cards
 function getPositionGroup(position) {
   const positionGroups = {
@@ -224,7 +230,7 @@ function normalizeTeamName(teamName) {
 
 async function extractVideoPlayerUrl(pageUrl) {
   try {
-    const response = await fetch(pageUrl);
+    const response = await fetch(convertToHttps(pageUrl));
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -616,7 +622,7 @@ function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, team
   const scoringTeam = teamSide === 'home' ? homeTeam : awayTeam;
   const teamAbbr = scoringTeam?.team?.abbreviation || scoringTeam?.abbreviation || '';
   const teamId = scoringTeam?.team?.id || '';
-  const teamLogo = teamId === "349" ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${teamId}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${teamId}.png`;
+  const teamLogo = convertToHttps(teamId === "349" ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${teamId}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${teamId}.png`);
 
   // Determine scoring situation
   let scoringSituation = '';
@@ -659,8 +665,8 @@ function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, team
   console.log('Player stats retrieved:', playerStats);
 
   // Get team logos for score display
-  const homeTeamLogo = homeTeam?.team?.id === "349" ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${homeTeam?.team?.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam?.team?.id}.png`;
-  const awayTeamLogo = awayTeam?.team?.id === "349" ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${awayTeam?.team?.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam?.team?.id}.png`;
+  const homeTeamLogo = convertToHttps(homeTeam?.team?.id === "349" ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${homeTeam?.team?.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam?.team?.id}.png`);
+  const awayTeamLogo = convertToHttps(awayTeam?.team?.id === "349" ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${awayTeam?.team?.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam?.team?.id}.png`);
 
   const teamColorHex = teamColor.startsWith('#') ? teamColor : `#${teamColor}`;
   const scoringCardId = `scoring-card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -822,7 +828,7 @@ async function renderBoxScore(gameId, gameState) {
   try {
     const BOX_SCORE_API_URL = `https://cdn.espn.com/core/college-football/boxscore?xhr=1&gameId=${gameId}`;
     console.log("Fetching box score from:", BOX_SCORE_API_URL);
-    const response = await fetch(BOX_SCORE_API_URL);
+    const response = await fetch(convertToHttps(BOX_SCORE_API_URL));
     const data = await response.json();
 
     console.log("Box score data received:", data);
@@ -853,7 +859,7 @@ async function renderBoxScore(gameId, gameState) {
 
       const teamName = team.team.shortDisplayName;
       const teamColor = `#${team.team.color}`;
-      const teamLogo = team.team.id === "349" ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${team.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${team.team.id}.png`;
+      const teamLogo = convertToHttps(team.team.id === "349" ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${team.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${team.team.id}.png`);
 
       // NCAA Football has different stat categories: passing, rushing, receiving, etc.
       let playersHtml = '';
@@ -966,7 +972,7 @@ async function renderPlayByPlay(gameId) {
   try {
     const PLAY_BY_PLAY_API_URL = `https://cdn.espn.com/core/college-football/playbyplay?xhr=1&gameId=${gameId}`;
     console.log("Fetching play-by-play from:", PLAY_BY_PLAY_API_URL);
-    const response = await fetch(PLAY_BY_PLAY_API_URL);
+    const response = await fetch(convertToHttps(PLAY_BY_PLAY_API_URL));
     const data = await response.json();
 
     console.log("Play-by-play data received:", data);
@@ -1000,7 +1006,7 @@ async function renderPlayByPlay(gameId) {
     // Fetch box score data for player stats
     try {
       const BOX_SCORE_API_URL = `https://cdn.espn.com/core/college-football/boxscore?xhr=1&gameId=${gameId_param}`;
-      const boxScoreResponse = await fetch(BOX_SCORE_API_URL);
+      const boxScoreResponse = await fetch(convertToHttps(BOX_SCORE_API_URL));
       boxScoreData = await boxScoreResponse.json();
     } catch (error) {
       console.log("Could not fetch box score data for scoring cards");
@@ -1012,7 +1018,7 @@ async function renderPlayByPlay(gameId) {
       try {
         const GAME_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/summary?event=${gameId_param}`;
         console.log('Fetching game data from:', GAME_API_URL);
-        const gameResponse = await fetch(GAME_API_URL);
+        const gameResponse = await fetch(convertToHttps(GAME_API_URL));
         const gameData = await gameResponse.json();
         
         if (gameData?.header?.competitions?.[0]?.competitors) {
@@ -1033,7 +1039,7 @@ async function renderPlayByPlay(gameId) {
         // Fallback: try to determine from the scoreboard API
         try {
           const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard`;
-          const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
+          const scoreboardResponse = await fetch(convertToHttps(SCOREBOARD_API_URL));
           const scoreboardData = await scoreboardResponse.json();
           const currentGame = scoreboardData.events?.find(game => game.id === gameId_param);
           
@@ -1281,7 +1287,7 @@ async function fetchAndRenderTopScoreboard() {
     }
 
     // Fetch game data
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/college-football/summary?event=${gameId}`);
+    const response = await fetch(convertToHttps(`https://site.api.espn.com/apis/site/v2/sports/football/college-football/summary?event=${gameId}`));
     const data = await response.json();
 
     if (!data.header || !data.header.competitions || data.header.competitions.length === 0) {
@@ -1349,7 +1355,7 @@ async function fetchAndRenderTopScoreboard() {
           <div style="display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; max-width: 120px;">
             <div class="team-score responsive-score" style="color: ${awayScore > homeScore ? awayColor : '#888'}; margin-bottom: 10px;">${awayScore}</div>
             <div class="team-block" onclick="window.open('team-page.html?teamId=${awayTeam.team.id}', '_blank')" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; text-align: center;">
-              <img src="${awayTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${awayTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam.team.id}.png`}" 
+              <img src="${convertToHttps(awayTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${awayTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam.team.id}.png`)}" 
                    alt="${awayTeam.team.displayName}" class="team-logo responsive-logo"
                    onerror="this.src='football.png';">
               <div class="team-name responsive-name">${awayTeam.team.abbreviation}</div>
@@ -1367,7 +1373,7 @@ async function fetchAndRenderTopScoreboard() {
           <div style="display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; max-width: 120px;">
             <div class="team-score responsive-score" style="color: ${homeScore > awayScore ? homeColor : '#888'}; margin-bottom: 10px;">${homeScore}</div>
             <div class="team-block" onclick="window.open('team-page.html?teamId=${homeTeam.team.id}', '_blank')" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; text-align: center;">
-              <img src="${homeTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${homeTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam.team.id}.png`}" 
+              <img src="${convertToHttps(homeTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${homeTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam.team.id}.png`)}" 
                    alt="${homeTeam.team.displayName}" class="team-logo responsive-logo"
                    onerror="this.src='football.png';">
               <div class="team-name responsive-name">${homeTeam.team.abbreviation}</div>
@@ -1380,7 +1386,7 @@ async function fetchAndRenderTopScoreboard() {
       // Desktop layout: Keep original horizontal layout
       scoreboardHtml = `
         <div class="team-block" onclick="window.open('team-page.html?teamId=${awayTeam.team.id}', '_blank')" style="cursor: pointer;">
-          <img src="${awayTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${awayTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam.team.id}.png`}" 
+          <img src="${convertToHttps(awayTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${awayTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam.team.id}.png`)}" 
                alt="${awayTeam.team.displayName}" class="team-logo responsive-logo"
                onerror="this.src='football.png';">
           <div class="team-name responsive-name">${awayTeam.team.abbreviation}</div>
@@ -1399,7 +1405,7 @@ async function fetchAndRenderTopScoreboard() {
         <div class="team-score responsive-score" style="color: ${homeScore > awayScore ? homeColor : '#888'}">${homeScore}</div>
         
         <div class="team-block" onclick="window.open('team-page.html?teamId=${homeTeam.team.id}', '_blank')" style="cursor: pointer;">
-          <img src="${homeTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${homeTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam.team.id}.png`}" 
+          <img src="${convertToHttps(homeTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${homeTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam.team.id}.png`)}" 
                alt="${homeTeam.team.displayName}" class="team-logo responsive-logo"
                onerror="this.src='football.png';">
           <div class="team-name responsive-name">${homeTeam.team.abbreviation}</div>

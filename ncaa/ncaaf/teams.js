@@ -379,7 +379,7 @@ function updateConferenceButtonDisplay() {
 // Function to fetch team details from the reference URL
 async function fetchTeamDetails(teamRef) {
   try {
-    const httpsRef = teamRef.replace('http://', 'https://');
+    const httpsRef = convertToHttps(teamRef);
     const response = await fetch(httpsRef);
     
     if (!response.ok) {
@@ -453,7 +453,7 @@ async function fetchAndDisplayTeams() {
     console.log("Fetching teams from:", apiUrl);
 
     // Fetch the conference teams list
-    const response = await fetch(apiUrl);
+    const response = await fetch(convertToHttps(apiUrl));
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -510,7 +510,7 @@ async function updateGamesDisplay() {
 
     // Fetch games for the current conference
     const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=${currentConference}&dates=${adjustedDate}`;
-    const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
+    const scoreboardResponse = await fetch(convertToHttps(SCOREBOARD_API_URL));
     const scoreboardText = await scoreboardResponse.text();
     const newHash = hashString(scoreboardText);
 

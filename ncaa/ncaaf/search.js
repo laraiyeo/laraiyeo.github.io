@@ -185,14 +185,14 @@ function getConferenceTeamsURL(conferenceId) {
 
 async function fetchTeamDetails(teamUrl) {
   try {
-    const response = await fetch(teamUrl);
+    const response = await fetch(convertToHttps(teamUrl));
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const team = await response.json();
     return team;
   } catch (error) {
-    console.error(`Error fetching team details from ${teamUrl}:`, error);
+    console.error(`Error fetching team details from ${convertToHttps(teamUrl)}:`, error);
     return null;
   }
 }
@@ -214,7 +214,7 @@ async function loadTeams() {
     console.log("Fetching teams from:", apiUrl);
 
     // Fetch the conference teams list
-    const response = await fetch(apiUrl);
+    const response = await fetch(convertToHttps(apiUrl));
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);

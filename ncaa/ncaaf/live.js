@@ -14,6 +14,14 @@ const CONFERENCES = {
 
 let currentConference = localStorage.getItem("currentConference") || "8"; // Default to SEC
 
+// Convert HTTP URLs to HTTPS to avoid mixed content issues
+function convertToHttps(url) {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+}
+
 function setupConferenceButtons() {
   const conferenceContainer = document.getElementById("conferenceButtons");
   if (!conferenceContainer) return;
@@ -28,7 +36,7 @@ function setupConferenceButtons() {
     button.className = `conference-button ${currentConference === confData.groupId ? "active" : ""}`;
     
     // Create button content with both text and logo (similar to search.js)
-    const logoUrl = `https://a.espncdn.com/i/teamlogos/ncaa_conf/500/${confData.code}.png`;
+    const logoUrl = convertToHttps(`https://a.espncdn.com/i/teamlogos/ncaa_conf/500/${confData.code}.png`);
     button.innerHTML = `
       <span class="conference-text">${confName}</span>
       <img class="conference-logo" src="${logoUrl}" alt="${confName}" style="display: none;" onerror="this.style.display='none'; this.parentElement.querySelector('.conference-text').style.display='inline';">
@@ -137,7 +145,7 @@ function updateConferenceButtonDisplay() {
 }
 
 async function getLogoUrl(teamAbbreviation) {
-  return `https://a.espncdn.com/i/teamlogos/ncaa/500/${teamAbbreviation}.png`;
+  return convertToHttps(`https://a.espncdn.com/i/teamlogos/ncaa/500/${teamAbbreviation}.png`);
 }
 
 function getOrdinalSuffix(num) {
@@ -172,7 +180,7 @@ async function loadLiveGames() {
   try {
     const adjustedDate = getAdjustedDateForNCAA();
     const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=${currentConference}&dates=${adjustedDate}`;
-    const res = await fetch(SCOREBOARD_API_URL);
+    const res = await fetch(convertToHttps(SCOREBOARD_API_URL));
     const data = await res.json();
     const games = data.events || [];
 

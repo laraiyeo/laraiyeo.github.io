@@ -14,6 +14,14 @@ const CONFERENCES = {
 
 let currentConference = localStorage.getItem("currentConference") || "8"; // Default to SEC
 
+// Convert HTTP URLs to HTTPS to avoid mixed content issues
+function convertToHttps(url) {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+}
+
 function setupConferenceButtons() {
   const conferenceContainer = document.getElementById("conferenceButtons");
   if (!conferenceContainer) return;
@@ -28,7 +36,7 @@ function setupConferenceButtons() {
     button.className = `conference-button ${currentConference === confData.groupId ? "active" : ""}`;
     
     // Create button content with both text and logo (similar to search.js)
-    const logoUrl = `https://a.espncdn.com/i/teamlogos/ncaa_conf/500/${confData.code}.png`;
+    const logoUrl = convertToHttps(`https://a.espncdn.com/i/teamlogos/ncaa_conf/500/${confData.code}.png`);
     button.innerHTML = `
       <span class="conference-text">${confName}</span>
       <img class="conference-logo" src="${logoUrl}" alt="${confName}" style="display: none;" onerror="this.style.display='none'; this.parentElement.querySelector('.conference-text').style.display='inline';">
@@ -188,7 +196,7 @@ async function buildGameCard(game) {
       <div class="game-content">
         <div class="team away-team">
           <div style="display: flex; align-items: center; gap: 8px;">
-            <img src="${awayTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${awayTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam.team.id}.png`}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
+            <img src="${convertToHttps(awayTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${awayTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam.team.id}.png`)}" alt="${awayTeam?.displayName || "Unknown"}" class="card-team-logo">
             <span class="card-team-score" style="${awayIsWinner ? "font-weight: bold;" : ""}">${awayScore}</span>
           </div>
           <div class="card-team-name">${awayTeamShortName}</div>
@@ -201,7 +209,7 @@ async function buildGameCard(game) {
         <div class="team home-team">
           <div style="display: flex; align-items: center; gap: 8px;">
             <span class="card-team-score" style="${homeIsWinner ? "font-weight: bold;" : ""}">${homeScore}</span>
-            <img src="${homeTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${homeTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam.team.id}.png`}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
+            <img src="${convertToHttps(homeTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${homeTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam.team.id}.png`)}" alt="${homeTeam?.displayName || "Unknown"}" class="card-team-logo">
           </div>
           <div class="card-team-name">${homeTeamShortName}</div>
           <div class="card-team-record">${homeRecord}</div>
@@ -215,7 +223,7 @@ async function loadFinishedGames() {
   try {
     const adjustedDate = getAdjustedDateForNCAA();
     const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=${currentConference}&dates=${adjustedDate}`;
-    const response = await fetch(SCOREBOARD_API_URL);
+    const response = await fetch(convertToHttps(SCOREBOARD_API_URL));
     const data = await response.json();
 
     const games = data.events || [];
