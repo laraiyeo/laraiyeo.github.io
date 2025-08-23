@@ -471,8 +471,7 @@ async function fetchAndDisplayTeams() {
 
     // Fetch details for each team
     const teamPromises = data.items.map(item => {
-      console.log("Fetching team details from:", item.$ref);
-      return fetchTeamDetails(item.$ref);
+      return fetchTeamDetails(convertToHttps(item.$ref));
     });
     
     const teams = await Promise.all(teamPromises);

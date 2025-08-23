@@ -177,7 +177,7 @@ async function cacheChampionshipWinners() {
       try {
         const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=${confData.groupId}&dates=${week15StartDate}-${week15EndDate}`;
         console.log(`🔍 Checking ${confName} (${confData.groupId}) championship: ${scoreboardUrl}`);
-        const scoreboardResponse = await fetch(scoreboardUrl);
+        const scoreboardResponse = await fetch(convertToHttps(scoreboardUrl));
         const scoreboardData = await scoreboardResponse.json();
         
         // Special debugging for CUSA (group 12)
@@ -243,7 +243,7 @@ async function cacheChampionshipWinners() {
             const standingsUrl = `https://site.api.espn.com/apis/v2/sports/football/college-football/standings?group=${confData.groupId}&season=${currentSeason}`;
             console.log(`📊 Fetching ${confName} standings: ${standingsUrl}`);
             
-            const standingsResponse = await fetch(standingsUrl);
+            const standingsResponse = await fetch(convertToHttps(standingsUrl));
             const standingsData = await standingsResponse.json();
             
             if (standingsData.standings && standingsData.standings.length > 0) {
@@ -304,14 +304,14 @@ async function fetchStandings() {
 
     // Try postseason standings first (types/3/), fallback to regular season (types/2/)
     let STANDINGS_URL = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${currentSeason}/types/3/groups/${currentConference}/standings/1?lang=en&region=us`;
-    let response = await fetch(STANDINGS_URL);
+    let response = await fetch(convertToHttps(STANDINGS_URL));
     let standingsText = await response.text();
     let data = JSON.parse(standingsText);
 
     // If postseason has no standings data, try regular season
     if (!data.standings) {
       STANDINGS_URL = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${currentSeason}/types/2/groups/${currentConference}/standings/1?lang=en&region=us`;
-      response = await fetch(STANDINGS_URL);
+      response = await fetch(convertToHttps(STANDINGS_URL));
       standingsText = await response.text();
       data = JSON.parse(standingsText);
     }
@@ -374,13 +374,13 @@ async function fetchRankings() {
 
     let RANKINGS_URL = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${currentSeason}/types/${seasonType}/weeks/${weekNum}/rankings/1?lang=en&region=us`;
     
-    let response = await fetch(RANKINGS_URL);
+    let response = await fetch(convertToHttps(RANKINGS_URL));
     
     // If preseason fails for week 1, try regular season
     if (!response.ok && seasonType === "1") {
       seasonType = "2";
       RANKINGS_URL = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${currentSeason}/types/${seasonType}/weeks/${weekNum}/rankings/1?lang=en&region=us`;
-      response = await fetch(RANKINGS_URL);
+      response = await fetch(convertToHttps(RANKINGS_URL));
     }
     
     const rankingsText = await response.text();
@@ -475,7 +475,7 @@ async function renderStandings(standings) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
       
-      const teamResponse = await fetch(standing.team.$ref, { 
+      const teamResponse = await fetch(convertToHttps(standing.team.$ref), { 
         signal: controller.signal 
       });
       clearTimeout(timeoutId);
@@ -715,7 +715,7 @@ async function renderRankings(ranks, rankingData) {
   // Fetch all team data in parallel for better performance
   const teamDataPromises = ranks.map(async (rank) => {
     try {
-      const teamResponse = await fetch(rank.team.$ref);
+      const teamResponse = await fetch(convertToHttps(rank.team.$ref));
       const teamData = await teamResponse.json();
       return { rank, teamData };
     } catch (error) {

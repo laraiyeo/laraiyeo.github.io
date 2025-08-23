@@ -40,6 +40,14 @@
 <div id="scaleWrapper">
   <div id="gameBlockContainer"></div>
   <script>
+    // Convert HTTP URLs to HTTPS to avoid mixed content issues
+    function convertToHttps(url) {
+      if (url && url.startsWith('http://')) {
+        return url.replace('http://', 'https://');
+      }
+      return url;
+    }
+
     const params = new URLSearchParams(window.location.search);
     const teamIdentifier = params.get("team");
     let currentHtml = "";
@@ -270,7 +278,7 @@
     // Function to fetch team details from reference URL
     async function fetchTeamDetails(teamRef) {
       try {
-        const httpsRef = teamRef.replace('http://', 'https://');
+        const httpsRef = convertToHttps(teamRef);
         const response = await fetch(httpsRef);
         
         if (!response.ok) {
@@ -299,7 +307,7 @@
           const teamsApiUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/types/2/groups/${confData.groupId}/teams?lang=en&region=us`;
           
           try {
-            const teamsResponse = await fetch(teamsApiUrl);
+            const teamsResponse = await fetch(convertToHttps(teamsApiUrl));
             if (!teamsResponse.ok) continue;
             
             const teamsData = await teamsResponse.json();
@@ -307,7 +315,7 @@
 
             // Look for our team in this conference
             for (const teamItem of teamsData.items) {
-              const teamDetails = await fetchTeamDetails(teamItem.$ref);
+              const teamDetails = await fetchTeamDetails(convertToHttps(teamItem.$ref));
               if (teamDetails && (
                 teamDetails.abbreviation === teamIdentifier || 
                 teamDetails.id === teamIdentifier ||
@@ -348,7 +356,7 @@
         // Only fetch scoreboard data for the team's conference
         const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=${currentConference}&dates=${adjustedDate}`;
         
-        const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
+        const scoreboardResponse = await fetch(convertToHttps(SCOREBOARD_API_URL));
         const scoreboardData = await scoreboardResponse.json();
         const games = scoreboardData.events || [];
 

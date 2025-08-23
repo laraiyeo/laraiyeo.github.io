@@ -293,7 +293,7 @@ async function findTeamInConferences() {
     const directApiUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/teams/${currentTeamId}`;
     console.log(`🔗 Direct team API URL: ${directApiUrl}`);
     
-    const directResponse = await fetch(directApiUrl);
+    const directResponse = await fetch(convertToHttps(directApiUrl));
     if (directResponse.ok) {
       const team = await directResponse.json();
       console.log(`✅ Direct team fetch successful:`, team);
@@ -325,7 +325,7 @@ async function findTeamInConferences() {
       
       const apiUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/types/2/groups/${groupId}/teams?lang=en&region=us`;
       
-      const response = await fetch(apiUrl);
+      const response = await fetch(convertToHttps(apiUrl));
       
       if (!response.ok) {
         console.warn(`⚠️ Conference ${groupId} API failed with status: ${response.status}`);
@@ -367,7 +367,7 @@ async function loadTeamInfo() {
       const directApiUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/teams/${currentTeamId}`;
       console.log(`🔗 Direct team API URL: ${directApiUrl}`);
       
-      const directResponse = await fetch(directApiUrl);
+      const directResponse = await fetch(convertToHttps(directApiUrl));
       if (directResponse.ok) {
         team = await directResponse.json();
         console.log(`✅ Direct team fetch successful:`, team);
@@ -477,7 +477,7 @@ async function loadCurrentGame() {
     const apiUrl = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=${currentConference}&dates=${dateStr}`;
     console.log(`🔗 Current game API URL: ${apiUrl}`);
     
-    const response = await fetch(apiUrl);
+    const response = await fetch(convertToHttps(apiUrl));
     
     if (!response.ok) {
       console.error(`❌ Current game API failed with status: ${response.status}`);
@@ -606,7 +606,7 @@ async function loadRecentMatches() {
     const apiUrl = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=${currentConference}&dates=${startDateStr}-${endDateStr}`;
     console.log(`🔗 Recent matches API URL: ${apiUrl}`);
     
-    const response = await fetch(apiUrl);
+    const response = await fetch(convertToHttps(apiUrl));
     
     if (!response.ok) {
       console.error(`❌ Recent matches API failed with status: ${response.status}`);
@@ -778,7 +778,7 @@ async function loadUpcomingMatches() {
     const apiUrl = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=${currentConference}&dates=${startDateStr}-${endDateStr}`;
     console.log(`🔗 Upcoming matches API URL: ${apiUrl}`);
     
-    const response = await fetch(apiUrl);
+    const response = await fetch(convertToHttps(apiUrl));
     
     if (!response.ok) {
       console.error(`❌ Upcoming matches API failed with status: ${response.status}`);
@@ -888,7 +888,7 @@ async function loadTeamStats() {
     let apiUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${seasonYear}/types/3/teams/${currentTeamId}/statistics`;
     console.log(`🔗 Team stats API URL (types/3): ${apiUrl}`);
     
-    let response = await fetch(apiUrl);
+    let response = await fetch(convertToHttps(apiUrl));
     
     if (!response.ok) {
       console.warn(`⚠️ Team stats types/3 API failed with status: ${response.status}, trying types/2...`);
@@ -897,7 +897,7 @@ async function loadTeamStats() {
       apiUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${seasonYear}/types/2/teams/${currentTeamId}/statistics`;
       console.log(`🔗 Team stats API URL (types/2): ${apiUrl}`);
       
-      response = await fetch(apiUrl);
+      response = await fetch(convertToHttps(apiUrl));
       
       if (!response.ok) {
         console.warn(`⚠️ Team stats types/2 API also failed with status: ${response.status}, trying alternative team info API...`);
@@ -906,7 +906,7 @@ async function loadTeamStats() {
         apiUrl = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${currentTeamId}`;
         console.log(`🔗 Alternative team API URL: ${apiUrl}`);
         
-        response = await fetch(apiUrl);
+        response = await fetch(convertToHttps(apiUrl));
         
         if (!response.ok) {
           console.error(`❌ All team stats APIs failed with status: ${response.status}`);
@@ -1029,7 +1029,7 @@ async function loadCurrentStanding() {
     let STANDINGS_URL = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/types/3/groups/${currentConference}/standings/1?lang=en&region=us`;
     console.log(`🔗 Standings API URL (postseason): ${STANDINGS_URL}`);
     
-    let response = await fetch(STANDINGS_URL);
+    let response = await fetch(convertToHttps(STANDINGS_URL));
     let standingsText = await response.text();
     let data = JSON.parse(standingsText);
 
@@ -1039,7 +1039,7 @@ async function loadCurrentStanding() {
       STANDINGS_URL = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/types/2/groups/${currentConference}/standings/1?lang=en&region=us`;
       console.log(`🔗 Standings API URL (regular season): ${STANDINGS_URL}`);
       
-      response = await fetch(STANDINGS_URL);
+      response = await fetch(convertToHttps(STANDINGS_URL));
       standingsText = await response.text();
       data = JSON.parse(standingsText);
     }
@@ -1054,7 +1054,7 @@ async function loadCurrentStanding() {
       
       for (const standing of data.standings) {
         try {
-          const teamResponse = await fetch(standing.team.$ref);
+          const teamResponse = await fetch(convertToHttps(standing.team.$ref));
           if (!teamResponse.ok) {
             console.warn(`Failed to fetch team data:`, teamResponse.status);
             continue;
@@ -1151,7 +1151,7 @@ async function loadPlayersInfo() {
     const apiUrl = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${currentTeamId}/roster`;
     console.log(`🔗 Roster API URL: ${apiUrl}`);
     
-    const response = await fetch(apiUrl);
+    const response = await fetch(convertToHttps(apiUrl));
     
     if (!response.ok) {
       console.error(`❌ Roster API failed with status: ${response.status}`);
@@ -1739,7 +1739,7 @@ async function loadGameLogForDate(date) {
     let teamIdForSeason = currentTeamId; // Default to current team
     try {
       console.log(`Fetching player's team for season ${seasonYear}...`);
-      const playerSeasonResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${seasonYear}/athletes/${selectedPlayer.id}?lang=en&region=us`);
+      const playerSeasonResponse = await fetch(convertToHttps(`https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${seasonYear}/athletes/${selectedPlayer.id}?lang=en&region=us`));
       
       if (playerSeasonResponse.ok) {
         const playerSeasonData = await playerSeasonResponse.json();
@@ -1763,7 +1763,7 @@ async function loadGameLogForDate(date) {
     const formattedDate = date.replace(/-/g, '');
     
     // Find games for the selected date using ESPN API with season type
-    const scheduleResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${teamIdForSeason}/schedule?season=${seasonYear}&seasontype=${seasonType}`);
+    const scheduleResponse = await fetch(convertToHttps(`https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${teamIdForSeason}/schedule?season=${seasonYear}&seasontype=${seasonType}`));
     
     if (!scheduleResponse.ok) {
       throw new Error(`HTTP error! status: ${scheduleResponse.status}`);
@@ -1844,7 +1844,7 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
 
   try {
     // Get detailed game data with box score using the same API as scoreboard.js
-    const gameResponse = await fetch(`https://cdn.espn.com/core/college-football/boxscore?xhr=1&gameId=${game.id}`);
+    const gameResponse = await fetch(convertToHttps(`https://cdn.espn.com/core/college-football/boxscore?xhr=1&gameId=${game.id}`));
     const gameData = await gameResponse.json();
 
     console.log('Game data structure:', gameData); // Debug log
