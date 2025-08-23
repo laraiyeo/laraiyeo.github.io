@@ -1,13 +1,13 @@
-const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams";
+const TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams";
 
-// NFL Position Groupings for Scoring Cards
+// NCAA Football Position Groupings for Scoring Cards
 function getPositionGroup(position) {
   const positionGroups = {
     'QB': 'QB',
     'RB': 'RB', 'FB': 'RB',
     'WR': 'WR/TE', 'TE': 'WR/TE',
-    'OT': 'OL', 'G': 'OL', 'C': 'OL', 'OL': 'OL',
-    'DE': 'DL/LB', 'DT': 'DL/LB', 'LB': 'DL/LB', 'OLB': 'DL/LB', 'MLB': 'DL/LB', 'ILB': 'DL/LB',
+    'OT': 'OL', 'G': 'OL', 'C': 'OL', 'OL': 'OL', 'OG': 'OL',
+    'DE': 'DL/LB', 'DL': 'DL/LB', 'DT': 'DL/LB', 'NT': 'DL/LB', 'LB': 'DL/LB', 'OLB': 'DL/LB', 'MLB': 'DL/LB', 'ILB': 'DL/LB',
     'CB': 'DB', 'S': 'DB', 'FS': 'DB', 'SS': 'DB', 'DB': 'DB',
     'K': 'K/P', 'P': 'K/P', 'PK': 'K/P',
     'LS': 'LS'
@@ -21,7 +21,6 @@ function getPositionStatsForCard(positionGroup, boxScoreData, playerName, prefer
   console.log('getPositionStatsForCard called with:', { positionGroup, playerName, preferredStatCategory, hasBoxScore: !!boxScoreData });
   
   if (!boxScoreData || !boxScoreData.gamepackageJSON?.boxscore?.players) {
-    console.log('No box score data available');
     return [];
   }
 
@@ -219,130 +218,36 @@ function getPositionStatsForCard(positionGroup, boxScoreData, playerName, prefer
 }
 
 function normalizeTeamName(teamName) {
-  // Convert team names to the format used in the streaming site URLs
-  const nameMap = {
-    "Arizona Cardinals": "arizona-cardinals",
-    "Atlanta Falcons": "atlanta-falcons", 
-    "Baltimore Ravens": "baltimore-ravens",
-    "Buffalo Bills": "buffalo-bills",
-    "Carolina Panthers": "carolina-panthers",
-    "Chicago Bears": "chicago-bears",
-    "Cincinnati Bengals": "cincinnati-bengals",
-    "Cleveland Browns": "cleveland-browns",
-    "Dallas Cowboys": "dallas-cowboys",
-    "Denver Broncos": "denver-broncos",
-    "Detroit Lions": "detroit-lions",
-    "Green Bay Packers": "green-bay-packers",
-    "Houston Texans": "houston-texans",
-    "Indianapolis Colts": "indianapolis-colts",
-    "Jacksonville Jaguars": "jacksonville-jaguars",
-    "Kansas City Chiefs": "kansas-city-chiefs",
-    "Las Vegas Raiders": "las-vegas-raiders",
-    "Los Angeles Chargers": "los-angeles-chargers",
-    "Los Angeles Rams": "los-angeles-rams",
-    "Miami Dolphins": "miami-dolphins",
-    "Minnesota Vikings": "minnesota-vikings",
-    "New England Patriots": "new-england-patriots",
-    "New Orleans Saints": "new-orleans-saints",
-    "New York Giants": "new-york-giants",
-    "New York Jets": "new-york-jets",
-    "Philadelphia Eagles": "philadelphia-eagles",
-    "Pittsburgh Steelers": "pittsburgh-steelers",
-    "San Francisco 49ers": "san-francisco-49ers",
-    "Seattle Seahawks": "seattle-seahawks",
-    "Tampa Bay Buccaneers": "tampa-bay-buccaneers",
-    "Tennessee Titans": "tennessee-titans",
-    "Washington Commanders": "washington-commanders"
-  };
-  
-  return nameMap[teamName] || teamName.toLowerCase().replace(/\s+/g, '-');
+  // General normalization like soccer - convert to lowercase and replace spaces with hyphens
+  return teamName.toLowerCase().replace(/\s+/g, '-');
 }
 
 async function extractVideoPlayerUrl(pageUrl) {
   try {
-    // Use a CORS proxy to fetch the page content
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(pageUrl)}`;
-    const response = await fetch(proxyUrl);
-    
-    // Check if the response is successful
+    const response = await fetch(pageUrl);
     if (!response.ok) {
-      console.log(`CORS proxy response not OK: ${response.status} ${response.statusText}`);
-      return null;
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    const responseText = await response.text();
+    const html = await response.text();
     
-    // Check if the response looks like an error page
-    if (responseText.includes('Oops') || responseText.includes('Error') || responseText.includes('404')) {
-      console.log('CORS proxy returned an error page, skipping extraction');
-      return null;
-    }
+    // Look for video player patterns
+    const patterns = [
+      /src\s*=\s*["']([^"']*player[^"']*)["']/gi,
+      /iframe\s+[^>]*src\s*=\s*["']([^"']*)["']/gi
+    ];
     
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch (parseError) {
-      console.log('Failed to parse CORS proxy response as JSON, skipping extraction');
-      return null;
-    }
-    
-    if (data && data.contents) {
-      console.log('Successfully got page contents, searching for video URLs...');
-      
-      // Look for castweb.xyz iframe src patterns (most specific first)
-      const iframeMatches = [
-        /src="([^"]*castweb\.xyz[^"]*)"/i,
-        /src='([^']*castweb\.xyz[^']*)'/i,
-        /<iframe[^>]*src="([^"]*castweb\.xyz[^"]*)"[^>]*>/i,
-        /<iframe[^>]*src='([^']*castweb\.xyz[^']*)'[^>]*>/i
-      ];
-      
-      for (const pattern of iframeMatches) {
-        const match = data.contents.match(pattern);
-        if (match) {
-          console.log(`Found castweb.xyz URL with pattern: ${pattern}`);
-          console.log(`Extracted URL: ${match[1]}`);
-          return match[1];
+    for (const pattern of patterns) {
+      const matches = html.match(pattern);
+      if (matches && matches.length > 0) {
+        const srcMatch = matches[0].match(/src\s*=\s*["']([^"']*)["']/);
+        if (srcMatch && srcMatch[1]) {
+          return srcMatch[1];
         }
-      }
-      
-      // Look for other iframe patterns as fallback
-      const altMatches = [
-        /iframe[^>]*src="([^"]*\.php[^"]*)"/i,
-        /iframe[^>]*src='([^']*\.php[^']*)'/i,
-        /<iframe[^>]*src="([^"]*)"[^>]*>/i,
-        /<iframe[^>]*src='([^']*)'[^>]*>/i
-      ];
-      
-      for (const pattern of altMatches) {
-        const match = data.contents.match(pattern);
-        if (match && (match[1].includes('castweb') || match[1].includes('.php'))) {
-          console.log(`Found fallback URL with pattern: ${pattern}`);
-          console.log(`Extracted URL: ${match[1]}`);
-          return match[1];
-        }
-      }
-      
-      // Debug: Check if there are any iframes at all
-      const anyIframe = data.contents.match(/<iframe[^>]*>/i);
-      if (anyIframe) {
-        console.log('Found iframe in page but no matching patterns:', anyIframe[0]);
-      } else {
-        console.log('No iframes found in page content');
-      }
-      
-      // Debug: Check for castweb mentions
-      if (data.contents.includes('castweb')) {
-        console.log('Page contains "castweb" but extraction failed');
-        const castwebContext = data.contents.substring(
-          Math.max(0, data.contents.indexOf('castweb') - 100),
-          data.contents.indexOf('castweb') + 200
-        );
-        console.log('Context around castweb:', castwebContext);
       }
     }
   } catch (error) {
-    console.log('Error extracting video player URL:', error.message);
+    console.error('Error extracting video URL from', pageUrl, ':', error);
   }
   
   return null;
@@ -367,58 +272,43 @@ window.toggleMute = function() {
   
   // Multiple approaches to control video muting
   try {
-    // Method 1: Direct iframe manipulation
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-    if (iframeDoc) {
-      const videos = iframeDoc.querySelectorAll('video');
+    // Method 1: Try to access iframe content directly
+    if (iframe.contentWindow && iframe.contentWindow.document) {
+      const videos = iframe.contentWindow.document.querySelectorAll('video');
       videos.forEach(video => {
         video.muted = isMuted;
-        video.volume = isMuted ? 0 : 1;
       });
-      console.log(isMuted ? 'Videos muted via direct access' : 'Videos unmuted via direct access');
     }
   } catch (e) {
-    console.log('Direct video access blocked by CORS');
+    console.log('Direct video access failed:', e);
   }
   
   // Method 2: Enhanced PostMessage to iframe
   try {
     iframe.contentWindow.postMessage({
-      action: 'toggleMute',
-      muted: isMuted,
-      volume: isMuted ? 0 : 1
+      type: 'muteVideo',
+      muted: isMuted
     }, '*');
-    
-    // Also send autoplay and mute parameters
-    iframe.contentWindow.postMessage({
-      action: 'setVideoParams',
-      autoplay: 1,
-      mute: isMuted ? 1 : 0
-    }, '*');
-    
-    console.log(isMuted ? 'Mute message sent to iframe' : 'Unmute message sent to iframe');
   } catch (e) {
-    console.log('PostMessage failed');
+    console.log('PostMessage failed:', e);
   }
   
   // Method 3: Simulate key events
   try {
-    const keyEvent = new KeyboardEvent('keydown', { key: 'm', code: 'KeyM' });
-    iframe.contentWindow.dispatchEvent(keyEvent);
-    console.log('Mute key event sent to iframe');
+    const keyEvent = new KeyboardEvent('keydown', {
+      key: 'm',
+      code: 'KeyM',
+      bubbles: true
+    });
+    iframe.contentWindow.document.dispatchEvent(keyEvent);
   } catch (e) {
-    console.log('Key event failed');
+    console.log('Key event failed:', e);
   }
   
   // Method 4: Try to modify iframe src with mute parameter
   if (iframe.src && !iframe.src.includes('mute=')) {
     const separator = iframe.src.includes('?') ? '&' : '?';
-    const newSrc = `${iframe.src}${separator}mute=${isMuted ? 1 : 0}&autoplay=1`;
-    // Don't reload unless necessary
-    if (iframe.src !== newSrc) {
-      iframe.src = newSrc;
-      console.log('Iframe src updated with mute parameter');
-    }
+    iframe.src = iframe.src + separator + 'mute=' + (isMuted ? '1' : '0');
   }
 };
 
@@ -426,60 +316,12 @@ window.toggleFullscreen = function() {
   const iframe = document.getElementById('streamIframe');
   
   if (iframe) {
-    try {
-      // For iOS Safari and other WebKit browsers
-      if (iframe.webkitEnterFullscreen) {
-        iframe.webkitEnterFullscreen();
-        console.log('iOS/WebKit fullscreen requested');
-      }
-      // Standard fullscreen API
-      else if (iframe.requestFullscreen) {
-        iframe.requestFullscreen();
-        console.log('Standard fullscreen requested');
-      } 
-      // Chrome/Safari prefixed version
-      else if (iframe.webkitRequestFullscreen) {
-        iframe.webkitRequestFullscreen();
-        console.log('WebKit fullscreen requested');
-      } 
-      // IE/Edge prefixed version
-      else if (iframe.msRequestFullscreen) {
-        iframe.msRequestFullscreen();
-        console.log('MS fullscreen requested');
-      }
-      // Mozilla prefixed version
-      else if (iframe.mozRequestFullScreen) {
-        iframe.mozRequestFullScreen();
-        console.log('Mozilla fullscreen requested');
-      }
-      else {
-        console.log('Fullscreen API not supported on this device');
-        // Fallback: try to make the iframe larger on unsupported devices
-        if (iframe.style.position !== 'fixed') {
-          iframe.style.position = 'fixed';
-          iframe.style.top = '0';
-          iframe.style.left = '0';
-          iframe.style.width = '100vw';
-          iframe.style.height = '100vh';
-          iframe.style.zIndex = '9999';
-          iframe.style.backgroundColor = '#000';
-          console.log('Applied fullscreen-like styling as fallback');
-        } else {
-          // Exit fullscreen-like mode
-          iframe.style.position = '';
-          iframe.style.top = '';
-          iframe.style.left = '';
-          iframe.style.width = '100%';
-          iframe.style.height = '700px';
-          iframe.style.zIndex = '';
-          iframe.style.backgroundColor = '';
-          console.log('Exited fullscreen-like styling');
-        }
-      }
-    } catch (e) {
-      console.log('Fullscreen request failed:', e);
-      // Additional fallback for cases where even the API calls fail
-      alert('Fullscreen not supported on this device. Try rotating your device to landscape mode for a better viewing experience.');
+    if (iframe.requestFullscreen) {
+      iframe.requestFullscreen();
+    } else if (iframe.webkitRequestFullscreen) {
+      iframe.webkitRequestFullscreen();
+    } else if (iframe.msRequestFullscreen) {
+      iframe.msRequestFullscreen();
     }
   }
 };
@@ -505,22 +347,20 @@ window.handleStreamLoad = function() {
   
   // Reduced delay from 3 seconds to 1 second
   if (iframe.src !== 'about:blank') {
-    setTimeout(() => {
-      checkStreamContent(iframe);
-    }, 1000);
+    console.log('Stream loaded:', iframe.src);
+    
+    // Wait a bit then check content
+    setTimeout(() => checkStreamContent(iframe), 1000);
   }
   
   // Check if this is the initial auto-test - reduced delay
   if (streamUrls.length > 0 && iframe.src !== 'about:blank') {
-    setTimeout(() => {
-      checkStreamContent(iframe);
-    }, 1500);
+    streamTestTimeout = setTimeout(() => {
+      tryNextStream();
+    }, 3000);
   } else {
-    if (iframe.src !== 'about:blank') {
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
+    if (connectingDiv) {
+      connectingDiv.style.display = 'none';
     }
   }
 };
@@ -529,38 +369,29 @@ function checkStreamContent(iframe) {
   const connectingDiv = document.getElementById('streamConnecting');
   
   try {
+    // Try to access iframe content
     const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
     
-    const hasVideo = iframeDoc.querySelector('video') || 
-                    iframeDoc.querySelector('.video-js') || 
-                    iframeDoc.querySelector('[id*="video"]') ||
-                    iframeDoc.querySelector('[class*="player"]');
-    
-    if (hasVideo) {
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
+    if (iframeDoc && iframeDoc.body) {
+      const bodyText = iframeDoc.body.innerText.toLowerCase();
+      
+      // Check for error indicators
+      if (bodyText.includes('error') || bodyText.includes('not found') || 
+          bodyText.includes('unavailable') || iframeDoc.body.children.length === 0) {
+        console.log('Stream appears to have errors, trying next...');
+        tryNextStream();
+        return;
       }
-      console.log('Video content detected in iframe');
-      return;
     }
   } catch (e) {
-    console.log('Cannot access iframe content (cross-origin), assuming external stream');
-    iframe.style.display = 'block';
-    if (connectingDiv) {
-      connectingDiv.style.display = 'none';
-    }
+    // Cross-origin restrictions prevent access - assume stream is working
+    console.log('Cannot access iframe content (cross-origin), assuming stream is working');
   }
   
   // Reduced delay from 2 seconds to 1 second
   setTimeout(() => {
-    if (streamUrls.length > 0) {
-      tryNextStream();
-    } else {
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
+    if (connectingDiv) {
+      connectingDiv.style.display = 'none';
     }
   }, 1000);
 }
@@ -569,34 +400,23 @@ function tryNextStream() {
   const iframe = document.getElementById('streamIframe');
   
   if (currentStreamIndex < streamUrls.length) {
-    const nextUrl = streamUrls[currentStreamIndex];
     currentStreamIndex++;
     
-    // Check if this URL looks like a full page rather than a video stream
-    if (nextUrl.includes('papaahd.live/') && !nextUrl.includes('.php') && !nextUrl.includes('castweb')) {
-      console.log(`Skipping full page URL: ${nextUrl}`);
-      // Skip this URL and try the next one
-      tryNextStream();
-      return;
-    }
-    
-    // Reduced timeout from 8 seconds to 4 seconds
-    streamTestTimeout = setTimeout(() => {
-      tryNextStream();
-    }, 4000);
-    
-    if (iframe) {
-      iframe.src = nextUrl;
-      console.log(`Trying stream ${currentStreamIndex}/${streamUrls.length}: ${nextUrl}`);
+    if (currentStreamIndex < streamUrls.length) {
+      console.log(`Trying stream ${currentStreamIndex + 1}/${streamUrls.length}:`, streamUrls[currentStreamIndex]);
+      iframe.src = streamUrls[currentStreamIndex];
+    } else {
+      console.log('All streams tested, using last one');
+      const connectingDiv = document.getElementById('streamConnecting');
+      if (connectingDiv) {
+        connectingDiv.innerHTML = '<p style="color: #888;">Live stream may not be available</p>';
+      }
     }
   } else {
     const connectingDiv = document.getElementById('streamConnecting');
-    iframe.style.display = 'block';
     if (connectingDiv) {
-      connectingDiv.style.display = 'none';
+      connectingDiv.innerHTML = '<p style="color: #888;">Live stream may not be available</p>';
     }
-    console.log('No more streams to try, showing connecting message');
-    streamUrls = [];
   }
 }
 
@@ -614,92 +434,71 @@ async function startStreamTesting(awayTeamName, homeTeamName) {
   console.log('Starting stream testing for:', awayTeamName, 'vs', homeTeamName);
   
   // Process URLs in parallel for faster extraction
-  const extractionPromises = pageUrls.map(async (url) => {
-    try {
-      console.log(`Attempting to extract video URL from: ${url}`);
-      const videoUrl = await extractVideoPlayerUrl(url);
-      if (videoUrl) {
-        console.log(`Successfully extracted video URL: ${videoUrl}`);
-      } else {
-        console.log(`No video URL extracted from: ${url}`);
-      }
-      return videoUrl;
-    } catch (error) {
-      console.log(`Error extracting from ${url}:`, error.message);
-      return null;
-    }
-  });
+  const extractPromises = pageUrls.map(url => extractVideoPlayerUrl(url));
+  const results = await Promise.all(extractPromises);
   
-  const extractedUrls = await Promise.all(extractionPromises);
+  streamUrls = results.filter(url => url !== null);
   
-  // Add valid extracted URLs first
-  extractedUrls.forEach(url => {
-    if (url) {
-      streamUrls.push(url);
-    }
-  });
+  console.log('Extracted stream URLs:', streamUrls);
   
-  // If no video URLs were extracted, fall back to original page URLs
-  if (streamUrls.length === 0) {
-    console.log('No video URLs extracted, using page URLs directly as fallback');
-    streamUrls = pageUrls;
+  // Start testing streams
+  if (streamUrls.length > 0) {
+    currentStreamIndex = 0;
+    const iframe = document.getElementById('streamIframe');
+    console.log('Loading first stream:', streamUrls[0]);
+    iframe.src = streamUrls[0];
   } else {
-    console.log(`Found ${streamUrls.length} video URL(s) to test`);
+    console.log('No stream URLs found');
+    const connectingDiv = document.getElementById('streamConnecting');
+    if (connectingDiv) {
+      connectingDiv.innerHTML = '<p style="color: #888;">No streams found</p>';
+    }
   }
-  
-  currentStreamIndex = 0;
-  
-  // Reduced delay from 1 second to 300ms
-  setTimeout(() => {
-    tryNextStream();
-  }, 300);
 }
 
 function renderStreamEmbed(awayTeamName, homeTeamName) {
-  const homeNormalized = normalizeTeamName(homeTeamName);
-  const awayNormalized = normalizeTeamName(awayTeamName);
+  const streamContainer = document.getElementById('streamEmbed');
   
-  // Simplified to only use home vs away format
-  const streamUrl = `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`;
-  const isSmallScreen = window.innerWidth < 525
-  const screenHeight = isSmallScreen ? 250 : 700;
+  if (!streamContainer) return;
   
-  return `
-    <div class="stream-container" style="margin: 20px 0; text-align: center;">
-      <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
+  streamContainer.innerHTML = `
+    <div style="background: #1a1a1a; border-radius: 1rem; padding: 1rem; margin-bottom: 2rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <h3 style="color: white; margin: 0;">Live Stream</h3>
-        <div class="stream-controls" style="margin-top: 10px;">
-          <button id="fullscreenButton" onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">⛶ Fullscreen</button>
+        <div style="display: flex; gap: 10px;">
+          <button id="muteButton" onclick="toggleMute()" style="background: #333; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">🔊 Unmute</button>
+          <button onclick="toggleFullscreen()" style="background: #333; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">⛶ Fullscreen</button>
         </div>
       </div>
-      <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; border-radius: 8px; margin-bottom: 10px;">
-        <p>Connecting to stream... <span id="streamStatus"></span></p>
-      </div>
-      <div class="stream-iframe-container" style="position: relative; width: 100%; margin: 0 auto; overflow: hidden;">
-        <iframe 
-          id="streamIframe"
-          src="about:blank"
-          width="100%" 
-          height="${screenHeight}"
-          style="aspect-ratio: 16/9; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); background: #000; display: none;"
-          frameborder="0"
-          allowfullscreen
-          allow="autoplay; fullscreen; encrypted-media"
-          referrerpolicy="no-referrer-when-downgrade"
-          onload="handleStreamLoad()"
-          onerror="handleStreamError()">
+      <div style="position: relative; width: 100%; height: 400px; background: #000; border-radius: 8px; overflow: hidden;">
+        <iframe id="streamIframe" 
+                src="about:blank" 
+                style="width: 100%; height: 100%; border: none;" 
+                onload="handleStreamLoad()"
+                allowfullscreen>
         </iframe>
+        <div id="streamConnecting" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center;">
+          <div style="margin-bottom: 10px;">🔍 Finding live stream...</div>
+          <div style="font-size: 0.9rem; color: #888;">This may take a moment</div>
+        </div>
       </div>
     </div>
   `;
+  
+  // Start stream testing
+  startStreamTesting(awayTeamName, homeTeamName);
 }
 
-function getAdjustedDateForNBA() {
+function getAdjustedDateForNCAA() {
   const now = new Date();
+  // For college football, games typically start in the afternoon/evening
+  // Adjust cutoff to 6 AM EST to handle late night games
   const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-  if (estNow.getHours() < 2) {
+  
+  if (estNow.getHours() < 6) {
     estNow.setDate(estNow.getDate() - 1);
   }
+  
   const adjustedDate = estNow.getFullYear() +
                        String(estNow.getMonth() + 1).padStart(2, "0") +
                        String(estNow.getDate()).padStart(2, "0");
@@ -711,7 +510,7 @@ function getQueryParam(param) {
   return urlParams.get(param);
 }
 
-// Function to render NFL scoring card
+// Function to render NCAA Football scoring card
 function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, teamSide, homeTeam, awayTeam, boxScoreData) {
   console.log('renderScoringCard called with play:', play);
   
@@ -731,24 +530,37 @@ function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, team
     scorerPosition = scorer.position?.abbreviation || '';
     console.log('Found scorer from participants:', scorerName, scorerPosition);
   } else {
-    // Try to extract player name from play text for NFL
+    // Try to extract player name from play text for NCAA Football
     console.log('No participants found, trying to extract from text:', playText);
     
-    // Enhanced NFL scoring patterns - prioritize actual scorers over extra point kickers
+    // Enhanced NCAA Football scoring patterns - prioritize actual scorers over extra point kickers
     const patterns = [
-      // Receiving touchdowns: "pass to PLAYER for X yards, TOUCHDOWN"
-      /pass\s+(?:deep\s+)?(?:right|left|middle)?\s*to\s+([A-Z]\.[A-Za-z]+)\s+for\s+\d+\s+yards?,?\s+TOUCHDOWN/i,
-      // Rushing touchdowns: "PLAYER run/rush/guard/tackle/end for X yards, TOUCHDOWN"
-      /([A-Z]\.[A-Za-z]+)\s+(?:run|rush|up the middle|left end|right end|left guard|right guard|left tackle|right tackle)\s+for\s+\d+\s+yards?,?\s+TOUCHDOWN/i,
-      // Generic rushing: "PLAYER for X yards, TOUCHDOWN" (before any extra point mention)
-      /([A-Z]\.[A-Za-z]+)\s+for\s+\d+\s+yards?,?\s+TOUCHDOWN/i,
-      // Field goals: "PLAYER X yard field goal is GOOD" (only for field goals, not touchdowns)
-      /([A-Z]\.[A-Za-z]+)\s+\d+\s+yard\s+field\s+goal\s+is\s+GOOD/i
+      // More specific patterns for NCAA Football
+      // Field goals first (most reliable)
+      /([A-Z][A-Za-z'\-\s\.]+?)\s+\d+\s+yd\s+FG\s+GOOD/i,
+      /([A-Z][A-Za-z'\-\s\.]+?)\s+\d+\s+yard\s+field\s+goal\s+is\s+GOOD/i,
+      
+      // Touchdown patterns - more specific
+      // Direct pass completions: "Riley Leonard pass complete to Jaden Greathouse for 30 yds for a TD"
+      /([A-Z][A-Za-z'\-\s\.]+)\s+pass\s+complete\s+to\s+([A-Z][A-Za-z'\-\s\.]+?)\s+for\s+\d+\s+yds?\s+for\s+a\s+TD/i,
+      
+      // Regular passing TDs: "pass to PLAYER for X yards, TOUCHDOWN"
+      /pass\s+(?:deep\s+)?(?:right|left|middle)?\s*to\s+([A-Z][A-Za-z'\-\s\.]+?)\s+for\s+\d+\s+yards?,?\s+(?:TOUCHDOWN|TD)/i,
+      
+      // Rushing touchdowns with more context
+      /([A-Z][A-Za-z'\-\s\.]+?)\s+(?:run|rush)\s+(?:up\s+the\s+middle|left\s+end|right\s+end|left\s+guard|right\s+guard|left\s+tackle|right\s+tackle)\s+for\s+\d+\s+yards?,?\s+(?:TOUCHDOWN|TD)/i,
+      
+      // Generic rushing: "PLAYER for X yards, TOUCHDOWN"
+      /([A-Z][A-Za-z'\-\s\.]+?)\s+for\s+\d+\s+yards?,?\s+(?:TOUCHDOWN|TD)/i,
+      
+      // Short yardage patterns: "PLAYER 1 yd rush TD"
+      /([A-Z][A-Za-z'\-\s\.]+?)\s+\d+\s+yds?\s+rush\s+TD/i,
+      /([A-Z][A-Za-z'\-\s\.]+?)\s+\d+\s+yds?\s+TD/i
     ];
     
     // Special handling for extra points - only use kicker if this is specifically an extra point play
     if (scoringType && scoringType.toLowerCase().includes('extra point')) {
-      const extraPointPattern = /([A-Z]\.[A-Za-z]+)\s+extra\s+point\s+is\s+GOOD/i;
+      const extraPointPattern = /([A-Z][A-Za-z'\-\s\.]+?)\s+extra\s+point\s+is\s+GOOD/i;
       const match = playText.match(extraPointPattern);
       if (match && match[1]) {
         scorerName = match[1].trim();
@@ -760,24 +572,32 @@ function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, team
       for (const pattern of patterns) {
         const match = playText.match(pattern);
         if (match && match[1]) {
-          scorerName = match[1].trim();
-          console.log('Extracted scorer from text:', scorerName);
-          
-          // Try to determine position from play context
-          if (playText.includes('pass') && playText.includes('to ' + scorerName)) {
+          // Special handling for pass completion patterns that capture both QB and receiver
+          if (pattern.source.includes('pass\\s+complete\\s+to') && match[2]) {
+            // For pass completions, we want the receiver (match[2]), not the QB (match[1])
+            scorerName = match[2].trim();
             scorerPosition = 'WR'; // Receiving touchdown
-          } else if (playText.includes(scorerName + ' right guard') || 
-                     playText.includes(scorerName + ' left guard') ||
-                     playText.includes(scorerName + ' run') || 
-                     playText.includes(scorerName + ' rush') ||
-                     playText.includes(scorerName + ' up the middle') ||
-                     playText.includes(scorerName + ' left end') ||
-                     playText.includes(scorerName + ' right end') ||
-                     playText.includes(scorerName + ' left tackle') ||
-                     playText.includes(scorerName + ' right tackle')) {
-            scorerPosition = 'RB'; // Rushing touchdown
-          } else if (playText.includes('field goal')) {
-            scorerPosition = 'K'; // Kicker
+            console.log('Extracted receiver from pass completion:', scorerName);
+          } else {
+            scorerName = match[1].trim();
+            console.log('Extracted scorer from text:', scorerName);
+            
+            // Try to determine position from play context
+            if (playText.includes('pass') && playText.includes('to ' + scorerName)) {
+              scorerPosition = 'WR'; // Receiving touchdown
+            } else if (playText.includes(scorerName + ' right guard') || 
+                       playText.includes(scorerName + ' left guard') ||
+                       playText.includes(scorerName + ' run') || 
+                       playText.includes(scorerName + ' rush') ||
+                       playText.includes(scorerName + ' up the middle') ||
+                       playText.includes(scorerName + ' left end') ||
+                       playText.includes(scorerName + ' right end') ||
+                       playText.includes(scorerName + ' left tackle') ||
+                       playText.includes(scorerName + ' right tackle')) {
+              scorerPosition = 'RB'; // Rushing touchdown
+            } else if (playText.includes('field goal') || playText.includes('FG')) {
+              scorerPosition = 'K'; // Kicker
+            }
           }
           
           console.log('Inferred position:', scorerPosition);
@@ -795,7 +615,8 @@ function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, team
   // Get team abbreviation and logo
   const scoringTeam = teamSide === 'home' ? homeTeam : awayTeam;
   const teamAbbr = scoringTeam?.team?.abbreviation || scoringTeam?.abbreviation || '';
-  const teamLogo = (teamAbbr === "NYG" || teamAbbr === "NYJ") ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${teamAbbr}.png` : `https://a.espncdn.com/i/teamlogos/nfl/500/${teamAbbr}.png`;
+  const teamId = scoringTeam?.team?.id || '';
+  const teamLogo = teamId === "349" ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${teamId}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${teamId}.png`;
 
   // Determine scoring situation
   let scoringSituation = '';
@@ -838,8 +659,8 @@ function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, team
   console.log('Player stats retrieved:', playerStats);
 
   // Get team logos for score display
-  const homeTeamLogo = (homeTeam.team.abbreviation === "NYG" || homeTeam.team.abbreviation === "NYJ") ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.team?.abbreviation || homeTeam?.abbreviation}.png` : `https://a.espncdn.com/i/teamlogos/nfl/500/${homeTeam?.team?.abbreviation || homeTeam?.abbreviation}.png`;
-  const awayTeamLogo = (awayTeam.team.abbreviation === "NYG" || awayTeam.team.abbreviation === "NYJ") ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.team?.abbreviation || awayTeam?.abbreviation}.png` : `https://a.espncdn.com/i/teamlogos/nfl/500/${awayTeam?.team?.abbreviation || awayTeam?.abbreviation}.png`;
+  const homeTeamLogo = homeTeam?.team?.id === "349" ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${homeTeam?.team?.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam?.team?.id}.png`;
+  const awayTeamLogo = awayTeam?.team?.id === "349" ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${awayTeam?.team?.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam?.team?.id}.png`;
 
   const teamColorHex = teamColor.startsWith('#') ? teamColor : `#${teamColor}`;
   const scoringCardId = `scoring-card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -849,11 +670,13 @@ function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, team
     scorerPosition,
     teamAbbr,
     scoringType,
-    playerStats: playerStats.length
+    playerStats: playerStats.length,
+    teamColor,
+    teamColorHex
   });
 
   return `
-    <div id="${scoringCardId}" class="scoring-card" style="background: linear-gradient(135deg, ${teamColorHex}15 0%, ${teamColorHex}05 100%); border-left: 4px solid ${teamColorHex}; margin: 10px 0; padding: 20px; border-radius: 8px; color: white; position: relative;">
+    <div id="${scoringCardId}" class="scoring-card" style="background: linear-gradient(135deg, ${teamColorHex}20 0%, ${teamColorHex}08 100%); border-left: 4px solid ${teamColorHex}; margin: 10px 0; padding: 20px; border-radius: 8px; color: white; position: relative;">
       <div class="copy-button" onclick="copyScoringCardAsImage('${scoringCardId}')" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); border: none; border-radius: 50%; width: 30px; height: 30px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; z-index: 10;">
         📋
       </div>
@@ -913,143 +736,91 @@ async function copyScoringCardAsImage(cardId) {
   try {
     const element = document.getElementById(cardId);
     if (!element) {
-      console.error('Scoring card element not found');
+      showFeedback('Card not found', 'error');
       return;
     }
-    
-    // Hide the copy button before taking screenshot
-    const copyButton = element.querySelector('.copy-button');
-    const originalDisplay = copyButton ? copyButton.style.display : null;
-    if (copyButton) {
-      copyButton.style.display = 'none';
-    }
-    
-    showFeedback('Preparing image...', 'loading');
+
     await captureAndCopyImage(element);
-    
-    // Restore the copy button after screenshot
-    if (copyButton) {
-      copyButton.style.display = originalDisplay || 'flex';
-    }
-    
+    showFeedback('Scoring card copied to clipboard!', 'success');
   } catch (error) {
     console.error('Error copying scoring card:', error);
-    
-    // Make sure to restore the copy button even if there's an error
-    const element = document.getElementById(cardId);
-    const copyButton = element?.querySelector('.copy-button');
-    if (copyButton) {
-      copyButton.style.display = 'flex';
-    }
-    
-    showFeedback('Failed to copy scoring card', 'error');
+    showFeedback('Error copying card to clipboard', 'error');
   }
 }
 
 // Function to capture and copy element as image
 async function captureAndCopyImage(element) {
-  const { default: html2canvas } = await import('https://cdn.skypack.dev/html2canvas');
-  
-  const canvas = await html2canvas(element, {
-    backgroundColor: '#1a1a1a',
-    scale: 3,
-    useCORS: true
-  });
-  
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(async (blob) => {
-      // Check if device is mobile
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                      ('ontouchstart' in window) || 
-                      (navigator.maxTouchPoints > 0);
+  // Import html2canvas dynamically
+  if (!window.html2canvas) {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    document.head.appendChild(script);
+    
+    await new Promise((resolve, reject) => {
+      script.onload = resolve;
+      script.onerror = reject;
+    });
+  }
 
-      try {
-        if (isMobile) {
-          // On mobile, download the image
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `scoring-card-${new Date().getTime()}.png`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-          showFeedback('Scoring card downloaded!', 'success');
-          resolve();
-        } else {
-          // On desktop, try to copy to clipboard using modern API
-          if (navigator.clipboard && window.ClipboardItem) {
-            const clipboardItem = new ClipboardItem({
-              'image/png': blob
-            });
-            await navigator.clipboard.write([clipboardItem]);
-            showFeedback('Scoring card copied to clipboard!', 'success');
-            resolve();
-          } else {
-            showFeedback('Could not copy to clipboard. Try again', 'error');
-            reject(new Error('Clipboard API not available'));
-          }
-        }
-      } catch (clipboardError) {
-        console.error('Error handling image:', clipboardError);
-        showFeedback('Could not copy to clipboard. Try again', 'error');
-        reject(clipboardError);
-      }
-    }, 'image/png', 0.95);
+  const canvas = await html2canvas(element, {
+    backgroundColor: null,
+    scale: 2,
+    logging: false,
+    useCORS: true,
+    allowTaint: true
+  });
+
+  canvas.toBlob(async (blob) => {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+    } catch (err) {
+      console.error('Error copying to clipboard:', err);
+      throw err;
+    }
   });
 }
 
 // Function to show feedback messages
 function showFeedback(message, type) {
-  const existingFeedback = document.getElementById('copyFeedback');
-  if (existingFeedback) {
-    existingFeedback.remove();
-  }
-
   const feedback = document.createElement('div');
-  feedback.id = 'copyFeedback';
   feedback.style.cssText = `
     position: fixed;
     top: 20px;
     right: 20px;
     padding: 12px 20px;
-    border-radius: 8px;
+    border-radius: 6px;
     color: white;
-    font-weight: 500;
+    font-weight: bold;
     z-index: 10000;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    transition: opacity 0.3s ease;
+    animation: slideIn 0.3s ease;
+    ${type === 'success' ? 'background: #28a745;' : 'background: #dc3545;'}
   `;
-
-  switch (type) {
-    case 'success':
-      feedback.style.backgroundColor = '#28a745';
-      break;
-    case 'error':
-      feedback.style.backgroundColor = '#dc3545';
-      break;
-    case 'loading':
-      feedback.style.backgroundColor = '#007bff';
-      break;
-    default:
-      feedback.style.backgroundColor = '#6c757d';
-  }
-
   feedback.textContent = message;
-  document.body.appendChild(feedback);
-
-  if (type !== 'loading') {
-    setTimeout(() => {
-      if (feedback.parentNode) {
-        feedback.remove();
+  
+  if (!document.getElementById('feedbackStyles')) {
+    const style = document.createElement('style');
+    style.id = 'feedbackStyles';
+    style.textContent = `
+      @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
       }
-    }, 3000);
+    `;
+    document.head.appendChild(style);
   }
+  
+  document.body.appendChild(feedback);
+  
+  setTimeout(() => {
+    feedback.remove();
+  }, 3000);
 }
 
 async function renderBoxScore(gameId, gameState) {
   try {
-    const BOX_SCORE_API_URL = `https://cdn.espn.com/core/nfl/boxscore?xhr=1&gameId=${gameId}`;
+    const BOX_SCORE_API_URL = `https://cdn.espn.com/core/college-football/boxscore?xhr=1&gameId=${gameId}`;
     console.log("Fetching box score from:", BOX_SCORE_API_URL);
     const response = await fetch(BOX_SCORE_API_URL);
     const data = await response.json();
@@ -1082,9 +853,9 @@ async function renderBoxScore(gameId, gameState) {
 
       const teamName = team.team.shortDisplayName;
       const teamColor = `#${team.team.color}`;
-      const teamLogo = (team.team.abbreviation === "NYG" || team.team.abbreviation === "NYJ") ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${team.team.abbreviation}.png` : `https://a.espncdn.com/i/teamlogos/nfl/500/${team.team.abbreviation}.png`;
+      const teamLogo = team.team.id === "349" ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${team.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${team.team.id}.png`;
 
-      // NFL has different stat categories: passing, rushing, receiving, etc.
+      // NCAA Football has different stat categories: passing, rushing, receiving, etc.
       let playersHtml = '';
       
       team.statistics.forEach(statCategory => {
@@ -1098,6 +869,45 @@ async function renderBoxScore(gameId, gameState) {
         const categoryLabels = statCategory.labels || [];
         const categoryDescriptions = statCategory.descriptions || [];
         
+        // Handle mobile column filtering - hide specific defensive stats
+        let displayLabels = categoryLabels;
+        let labelIndices = categoryLabels.map((_, i) => i); // Track original indices
+        
+        if (isSmallScreen) {
+          console.log('Mobile filtering - Category:', categoryName, 'Labels:', categoryLabels);
+          
+          // For defensive stats, filter out QB HUR/QH and TD columns
+          if (categoryName.toLowerCase().includes('defensive') || 
+              categoryName.toLowerCase().includes('defense') ||
+              categoryLabels.some(label => ['SOLO', 'TOT', 'SACKS', 'TFL', 'QH', 'PD', 'INT'].includes(label))) {
+            
+            console.log('Detected defensive category, filtering mobile columns');
+            
+            // Filter out QB Hurries/Hits and TD for defensive stats on mobile
+            // Check for various possible label formats
+            const filteredData = categoryLabels.map((label, index) => ({ label, index }))
+              .filter(item => {
+                const labelUpper = item.label.toUpperCase();
+                const shouldHide = ['QH', 'QB HUR', 'QB HURR', 'HURR', 'HURRIES', 'TD', 'TDS'].includes(labelUpper) ||
+                                   labelUpper.includes('HURR') || 
+                                   labelUpper.includes('QB') && labelUpper.includes('HUR');
+                if (shouldHide) {
+                  console.log('Hiding defensive stat on mobile:', item.label);
+                }
+                return !shouldHide;
+              })
+              .slice(0, 3); // Show first 3 remaining stats
+            
+            displayLabels = filteredData.map(item => item.label);
+            labelIndices = filteredData.map(item => item.index);
+            console.log('Mobile defensive stats after filtering:', displayLabels);
+          } else {
+            // For non-defensive stats, show first 3 as before
+            displayLabels = categoryLabels.slice(0, 3);
+            labelIndices = [0, 1, 2];
+          }
+        }
+        
         playersHtml += `
           <div class="stat-category">
             <h4>${statCategory.text || categoryName.charAt(0).toUpperCase() + categoryName.slice(1)}</h4>
@@ -1105,14 +915,14 @@ async function renderBoxScore(gameId, gameState) {
               <thead>
                 <tr>
                   <th>Player</th>
-                  ${categoryLabels.slice(0, isSmallScreen ? 3 : categoryLabels.length).map(label => `<th>${label}</th>`).join('')}
+                  ${displayLabels.map(label => `<th>${label}</th>`).join('')}
                 </tr>
               </thead>
               <tbody>
                 ${athletes.map(playerData => {
                   const player = playerData.athlete;
                   const stats = playerData.stats || [];
-                  const displayStats = isSmallScreen ? stats.slice(0, 3) : stats;
+                  const displayStats = isSmallScreen ? labelIndices.map(i => stats[i] || '0') : stats;
                   
                   return `
                     <tr>
@@ -1148,13 +958,13 @@ async function renderBoxScore(gameId, gameState) {
       ${renderTeamRoster(team2)}
     `;
   } catch (error) {
-    console.error("Error fetching NFL box score data:", error);
+    console.error("Error fetching NCAA Football box score data:", error);
   }
 }
 
 async function renderPlayByPlay(gameId) {
   try {
-    const PLAY_BY_PLAY_API_URL = `https://cdn.espn.com/core/nfl/playbyplay?xhr=1&gameId=${gameId}`;
+    const PLAY_BY_PLAY_API_URL = `https://cdn.espn.com/core/college-football/playbyplay?xhr=1&gameId=${gameId}`;
     console.log("Fetching play-by-play from:", PLAY_BY_PLAY_API_URL);
     const response = await fetch(PLAY_BY_PLAY_API_URL);
     const data = await response.json();
@@ -1189,7 +999,7 @@ async function renderPlayByPlay(gameId) {
     
     // Fetch box score data for player stats
     try {
-      const BOX_SCORE_API_URL = `https://cdn.espn.com/core/nfl/boxscore?xhr=1&gameId=${gameId_param}`;
+      const BOX_SCORE_API_URL = `https://cdn.espn.com/core/college-football/boxscore?xhr=1&gameId=${gameId_param}`;
       const boxScoreResponse = await fetch(BOX_SCORE_API_URL);
       boxScoreData = await boxScoreResponse.json();
     } catch (error) {
@@ -1200,7 +1010,7 @@ async function renderPlayByPlay(gameId) {
     if (drives.length > 0) {
       // Use the game-specific API endpoint instead of searching through scoreboard
       try {
-        const GAME_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId_param}`;
+        const GAME_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/summary?event=${gameId_param}`;
         console.log('Fetching game data from:', GAME_API_URL);
         const gameResponse = await fetch(GAME_API_URL);
         const gameData = await gameResponse.json();
@@ -1222,7 +1032,7 @@ async function renderPlayByPlay(gameId) {
         
         // Fallback: try to determine from the scoreboard API
         try {
-          const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard`;
+          const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard`;
           const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
           const scoreboardData = await scoreboardResponse.json();
           const currentGame = scoreboardData.events?.find(game => game.id === gameId_param);
@@ -1451,7 +1261,7 @@ async function renderPlayByPlay(gameId) {
       </div>
     `;
   } catch (error) {
-    console.error("Error fetching NFL play-by-play data:", error);
+    console.error("Error fetching NCAA Football play-by-play data:", error);
     const playsDiv = document.querySelector("#playsContent .plays-placeholder");
     if (playsDiv) {
       playsDiv.innerHTML = `
@@ -1464,180 +1274,191 @@ async function renderPlayByPlay(gameId) {
 
 async function fetchAndRenderTopScoreboard() {
   try {
-    function getOrdinalSuffix(num) {
-      if (num % 100 >= 11 && num % 100 <= 13) return `${num}th`;
-      switch (num % 10) {
-        case 1: return `${num}st`;
-        case 2: return `${num}nd`;
-        case 3: return `${num}rd`;
-        default: return `${num}th`;
-      }
-    }
-
     const gameId = getQueryParam("gameId");
-    const gameDate = getQueryParam("date");
-    
     if (!gameId) {
-      console.error("No gameId provided");
+      document.getElementById('topScoreboard').innerHTML = '<div style="color: #888;">No game specified</div>';
       return;
     }
 
-    let selectedGame = null;
-    let scoreboardData = null;
+    // Fetch game data
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/college-football/summary?event=${gameId}`);
+    const data = await response.json();
 
-    if (gameDate) {
-      // Use the specific date provided
-      const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${gameDate}`;
-      
-      try {
-        const response = await fetch(SCOREBOARD_API_URL);
-        const data = await response.json();
-        const games = data.events || [];
-        
-        selectedGame = games.find(game => game.id === gameId);
-        if (selectedGame) {
-          scoreboardData = data;
-        }
-      } catch (error) {
-        console.error(`Error fetching data for date ${gameDate}:`, error);
-      }
+    if (!data.header || !data.header.competitions || data.header.competitions.length === 0) {
+      throw new Error('Invalid game data structure');
     }
 
-    // Fallback: search recent dates if specific date doesn't work
-    if (!selectedGame) {
-      const today = new Date();
-      for (let daysBack = 0; daysBack <= 30; daysBack++) {
-        const searchDate = new Date(today);
-        searchDate.setDate(today.getDate() - daysBack);
-        
-        const adjustedDate = searchDate.getFullYear() +
-                             String(searchDate.getMonth() + 1).padStart(2, "0") +
-                             String(searchDate.getDate()).padStart(2, "0");
-        
-        const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${adjustedDate}`;
+    const competition = data.header.competitions[0];
+    const competitors = competition.competitors;
+    
+    if (!competitors || competitors.length < 2) {
+      throw new Error('Missing team data');
+    }
 
-        try {
-          const response = await fetch(SCOREBOARD_API_URL);
-          const data = await response.json();
-          const games = data.events || [];
+    const awayTeam = competitors.find(team => team.homeAway === 'away');
+    const homeTeam = competitors.find(team => team.homeAway === 'home');
+
+    const awayScore = parseInt(awayTeam.score || '0');
+    const homeScore = parseInt(homeTeam.score || '0');
+    
+    console.log('DEBUG: Top scoreboard scores:', {
+      awayTeam: awayTeam.team.displayName,
+      awayScore,
+      homeTeam: homeTeam.team.displayName, 
+      homeScore,
+      awayScoreType: typeof awayScore,
+      homeScoreType: typeof homeScore
+    });
+    
+    const gameStatus = competition.status.type.description;
+    const gameState = competition.status.type.state;
+    const clock = competition.status.displayClock;
+    const period = competition.status.period;
+
+    // Format status display
+    let statusDisplay = gameStatus;
+    if (gameState === 'in' && clock && period) {
+      const quarterName = period <= 4 ? `${getOrdinal(period)} Quarter` : 'OT';
+      statusDisplay = `${clock} - ${quarterName}`;
+    }
+
+    // Get team colors
+    const awayColor = awayTeam.team.color ? `#${awayTeam.team.color}` : '#666';
+    const homeColor = homeTeam.team.color ? `#${homeTeam.team.color}` : '#666';
+
+    // Store game state for other functions
+    window.currentGameState = {
+      awayTeam: awayTeam.team,
+      homeTeam: homeTeam.team,
+      awayScore,
+      homeScore,
+      status: gameStatus,
+      clock,
+      period
+    };
+
+    // Render top scoreboard
+    const isMobile = window.innerWidth <= 475;
+    
+    let scoreboardHtml;
+    
+    if (isMobile) {
+      // Mobile layout: Row with two team columns, each team has score above logo
+      scoreboardHtml = `
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 140%; padding: 0 10px;">
+          <div style="display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; max-width: 120px;">
+            <div class="team-score responsive-score" style="color: ${awayScore > homeScore ? awayColor : '#888'}; margin-bottom: 10px;">${awayScore}</div>
+            <div class="team-block" onclick="window.open('team-page.html?teamId=${awayTeam.team.id}', '_blank')" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; text-align: center;">
+              <img src="${awayTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${awayTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam.team.id}.png`}" 
+                   alt="${awayTeam.team.displayName}" class="team-logo responsive-logo"
+                   onerror="this.src='football.png';">
+              <div class="team-name responsive-name">${awayTeam.team.abbreviation}</div>
+              <div class="team-record responsive-record">${awayTeam.record?.[0]?.summary || ''}</div>
+            </div>
+          </div>
           
-          selectedGame = games.find(game => game.id === gameId);
-          if (selectedGame) {
-            scoreboardData = data;
-            break;
-          }
-        } catch (error) {
-          console.error(`Error fetching data for date ${adjustedDate}:`, error);
-        }
-      }
+          <div class="inning-center" style="flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; margin: 0 10px;">
+            <div class="inning-status responsive-inning-status">${statusDisplay}</div>
+            <div class="game-clock responsive-game-clock" style="color: grey;">
+              ${gameState === 'pre' ? new Date(competition.date).toLocaleString() : ''}
+            </div>
+          </div>
+          
+          <div style="display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; max-width: 120px;">
+            <div class="team-score responsive-score" style="color: ${homeScore > awayScore ? homeColor : '#888'}; margin-bottom: 10px;">${homeScore}</div>
+            <div class="team-block" onclick="window.open('team-page.html?teamId=${homeTeam.team.id}', '_blank')" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; text-align: center;">
+              <img src="${homeTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${homeTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam.team.id}.png`}" 
+                   alt="${homeTeam.team.displayName}" class="team-logo responsive-logo"
+                   onerror="this.src='football.png';">
+              <div class="team-name responsive-name">${homeTeam.team.abbreviation}</div>
+              <div class="team-record responsive-record">${homeTeam.record?.[0]?.summary || ''}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      // Desktop layout: Keep original horizontal layout
+      scoreboardHtml = `
+        <div class="team-block" onclick="window.open('team-page.html?teamId=${awayTeam.team.id}', '_blank')" style="cursor: pointer;">
+          <img src="${awayTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${awayTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${awayTeam.team.id}.png`}" 
+               alt="${awayTeam.team.displayName}" class="team-logo responsive-logo"
+               onerror="this.src='football.png';">
+          <div class="team-name responsive-name">${awayTeam.team.abbreviation}</div>
+          <div class="team-record responsive-record">${awayTeam.record?.[0]?.summary || ''}</div>
+        </div>
+        
+        <div class="team-score responsive-score" style="color: ${awayScore > homeScore ? awayColor : '#888'}">${awayScore}</div>
+        
+        <div class="inning-center">
+          <div class="inning-status responsive-inning-status">${statusDisplay}</div>
+          <div class="game-clock responsive-game-clock" style="color: grey;">
+            ${gameState === 'pre' ? new Date(competition.date).toLocaleString() : ''}
+          </div>
+        </div>
+        
+        <div class="team-score responsive-score" style="color: ${homeScore > awayScore ? homeColor : '#888'}">${homeScore}</div>
+        
+        <div class="team-block" onclick="window.open('team-page.html?teamId=${homeTeam.team.id}', '_blank')" style="cursor: pointer;">
+          <img src="${homeTeam.team.id === '349' ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${homeTeam.team.id}.png` : `https://a.espncdn.com/i/teamlogos/ncaa/500-dark/${homeTeam.team.id}.png`}" 
+               alt="${homeTeam.team.displayName}" class="team-logo responsive-logo"
+               onerror="this.src='football.png';">
+          <div class="team-name responsive-name">${homeTeam.team.abbreviation}</div>
+          <div class="team-record responsive-record">${homeTeam.record?.[0]?.summary || ''}</div>
+        </div>
+      `;
     }
 
-    if (!selectedGame) {
-      console.error(`Game with ID ${gameId} not found.`);
-      return;
+    document.getElementById('topScoreboard').innerHTML = scoreboardHtml;
+
+    // Debug linescore data
+    console.log('DEBUG: Linescore data:', {
+      hasCompetitionLinescores: !!(competition.linescores && competition.linescores.length > 0),
+      competitionLinescores: competition.linescores,
+      awayTeamLinescores: awayTeam.linescores,
+      homeTeamLinescores: homeTeam.linescores
+    });
+
+    // Render linescore if available at team level
+    if ((awayTeam.linescores && awayTeam.linescores.length > 0) || 
+        (homeTeam.linescores && homeTeam.linescores.length > 0)) {
+      console.log('DEBUG: Rendering linescore table');
+      renderLinescoreTable(
+        awayTeam.linescores || [],
+        homeTeam.linescores || [],
+        awayTeam.team.abbreviation,
+        homeTeam.team.abbreviation,
+        awayScore,
+        homeScore
+      );
     }
 
-    const awayTeam = selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.team;
-    const homeTeam = selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.team;
-
-    const awayScore = selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.score || "0";
-    const homeScore = selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.score || "0";
-
-    const awayLinescores = selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.linescores || [];
-    const homeLinescores = selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.linescores || [];
-
-    const slug = selectedGame.season?.slug || "regular-season";
-
-    const homeTeamRecord = slug === "post-season"
-      ? selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "0-0"
-      : selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.records?.find(r => r.type === "total")?.summary || "0-0";
-
-    const awayTeamRecord = slug === "post-season"
-      ? selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "0-0"
-      : selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.records?.find(r => r.type === "total")?.summary || "0-0";
-
-    const period = selectedGame.status.period || 0;
-    const clock = selectedGame.status.displayClock || "00:00";
-    const gameStatus = selectedGame.status.type.description;
-    const isGameOver = gameStatus === "Final";
-    const isGameScheduled = gameStatus === "Scheduled";
-
-    const possession = selectedGame?.competitions[0]?.situation?.possession;
-    const text = selectedGame?.competitions[0]?.situation?.possessionText || "";
-    const distance = selectedGame?.competitions[0]?.situation?.distance || "N/A";
-    const yardLine = selectedGame?.competitions[0]?.situation?.yardLine || "N/A";
-    const kickoff = selectedGame?.competitions[0]?.situation?.shortDownDistanceText === "1st & 10" && distance === 10 && (yardLine === 65 || yardLine === 35) ? "Kickoff" : selectedGame?.competitions[0]?.situation?.shortDownDistanceText || "";
-
-
-    const topScoreboardEl = document.getElementById("topScoreboard");
-    if (!topScoreboardEl) {
-      console.error("Error: 'topScoreboard' element not found.");
-      return;
+    // Render last play description if available
+    if (data.drives?.current?.plays?.length > 0) {
+      const lastPlay = data.drives.current.plays[data.drives.current.plays.length - 1];
+      renderPlayDescription(lastPlay, clock, competitors);
     }
 
-    const periodText = isGameOver ? "Final"
-      : isGameScheduled ? "Scheduled"
-      : period > 4
-      ? "OT"
-      : `${getOrdinalSuffix(period)} Quarter`;
-
-    const timeLeft = isGameOver ? "End" : isGameScheduled ? `${selectedGame.status.type.shortDetail}` : clock;
-
-    // Determine score colors for the final game state
-    const awayScoreColor = gameStatus === "Final" && parseInt(awayScore) < parseInt(homeScore) ? "grey" : "white";
-    const homeScoreColor = gameStatus === "Final" && parseInt(homeScore) < parseInt(awayScore) ? "grey" : "white";
-
-    topScoreboardEl.innerHTML = `
-      <div class="team-block">
-        <div class="team-score responsive-score" style="color: ${awayScoreColor};">${awayScore}</div>
-        <img class="team-logo responsive-logo" src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam?.abbreviation}.png` || ""}" alt="${awayTeam?.displayName}">
-        <div class="team-name responsive-name">${awayTeam?.shortDisplayName}</div>
-        <div class="team-record responsive-record">${awayTeamRecord}</div>
-      </div>
-      <div class="inning-center">
-        <div class="inning-status responsive-inning-status">${periodText}</div>
-        <div class="time-left responsive-game-clock">${timeLeft}</div>
-        <div class="time-left responsive-text1" style="margin-top: 25px">${kickoff}</div>
-        <div class="time-left responsive-text2" style="color: white;">${text ? (possession === homeTeam.id ? `${text} ▶` : `◀ ${text}`) : ""}</div>
-      </div>
-      <div class="team-block">
-        <div class="team-score responsive-score" style="color: ${homeScoreColor};">${homeScore}</div>
-        <img class="team-logo responsive-logo" src="${`https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.abbreviation}.png` || ""}" alt="${homeTeam?.displayName}">
-        <div class="team-name responsive-name">${homeTeam?.shortDisplayName}</div>
-        <div class="team-record responsive-record">${homeTeamRecord}</div>
-      </div>
-    `;
-
-    renderLinescoreTable(awayLinescores, homeLinescores, awayTeam?.abbreviation, homeTeam?.abbreviation, awayScore, homeScore);
-
-    // Add stream embed after linescore (only render once and only for in-progress games)
-    const isInProgress = gameStatus !== "Final" && gameStatus !== "Scheduled";
-    const streamContainer = document.getElementById("streamEmbed");
-    if (!streamContainer.innerHTML && isInProgress) {
-      streamContainer.innerHTML = renderStreamEmbed(awayTeam?.displayName, homeTeam?.displayName);
-      
-      // Start stream testing
-      startStreamTesting(awayTeam?.displayName, homeTeam?.displayName);
-    } else if (isInProgress && !streamContainer.innerHTML) {
-      streamContainer.innerHTML = renderStreamEmbed(awayTeam?.displayName, homeTeam?.displayName);
-      startStreamTesting(awayTeam?.displayName, homeTeam?.displayName);
-    } else if (!isInProgress && streamContainer.innerHTML) {
-      // Clear stream container if game is finished
-      streamContainer.innerHTML = "";
+    // Set up stream embed only for live games
+    if (gameState === 'in') {
+      renderStreamEmbed(awayTeam.team.displayName, homeTeam.team.displayName);
     }
 
-    // Remove play description functionality - no longer needed
-    // as it will be handled in the Plays section
+    // Load box score and play by play
+    const boxScoreData = await renderBoxScore(gameId, window.currentGameState);
+    await renderPlayByPlay(gameId);
 
-    // Render the box score
-    renderBoxScore(gameId, gameStatus);
+    return { boxScoreData, gameState: window.currentGameState };
 
-    // Return true if game is over to stop further updates
-    return isGameOver;
   } catch (error) {
-    console.error("Error fetching NFL scoreboard data:", error);
-    return true; // Stop fetching on error
+    console.error('Error fetching scoreboard:', error);
+    document.getElementById('topScoreboard').innerHTML = '<div style="color: #888;">Error loading game data</div>';
   }
+}
+
+function getOrdinal(num) {
+  const suffixes = ["th", "st", "nd", "rd"];
+  const v = num % 100;
+  return num + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
 }
 
 let updateInterval;
@@ -1645,127 +1466,130 @@ let updateInterval;
 // Fetch and render the scoreboard based on the gameId in the URL
 const gameId = getQueryParam("gameId");
 if (gameId) {
-  const updateScoreboard = async () => {
-    const gameOver = await fetchAndRenderTopScoreboard();
-    if (gameOver && updateInterval) {
-      clearInterval(updateInterval);
-      console.log("Game is over. Stopped fetching updates.");
+  fetchAndRenderTopScoreboard();
+  
+  // Update every 10 seconds for live games
+  updateInterval = setInterval(() => {
+    if (window.currentGameState && window.currentGameState.status !== 'Final') {
+      fetchAndRenderTopScoreboard();
     }
-  };
-
-  updateScoreboard(); // Initial fetch
-  updateInterval = setInterval(updateScoreboard, 2000);
+  }, 10000);
+  
+  // Handle window resize to switch between mobile/desktop layouts
+  let resizeTimeout;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      if (window.currentGameState) {
+        fetchAndRenderTopScoreboard();
+      }
+    }, 250); // Debounce resize events
+  });
 } else {
-  document.getElementById("scoreboardContainer").innerHTML = "<p>No game selected.</p>";
+  document.getElementById('topScoreboard').innerHTML = '<div style="color: #888;">No game ID provided</div>';
 }
 
 function renderLinescoreTable(awayLinescores, homeLinescores, awayAbbr, homeAbbr, awayTotal, homeTotal) {
-  const linescoreTableDiv = document.getElementById("linescoreTable");
-  if (!linescoreTableDiv) {
-    console.error("Error: 'linescoreTable' element not found.");
+  console.log('DEBUG: renderLinescoreTable called with:', {
+    awayLinescores,
+    homeLinescores,
+    awayAbbr,
+    homeAbbr,
+    awayTotal,
+    homeTotal
+  });
+  
+  const linescoreContainer = document.getElementById('linescoreTable');
+  
+  if (!linescoreContainer) {
+    console.log('DEBUG: linescoreTable element not found');
+    return;
+  }
+  
+  if (!awayLinescores.length && !homeLinescores.length) {
+    console.log('DEBUG: No linescore data, hiding container');
+    linescoreContainer.style.display = 'none';
     return;
   }
 
-  const periods = [1, 2, 3, 4]; // Standard NFL periods
-  const periodHeaders = periods.map(period => `<th>${period}</th>`).join("");
+  console.log('DEBUG: Rendering linescore table with data');
 
-  const awayScores = periods.map(period => {
-    const score = awayLinescores.find(ls => ls.period === period)?.displayValue || "-";
-    return `<td>${score}</td>`;
-  }).join("");
+  const maxPeriods = Math.max(awayLinescores.length, homeLinescores.length);
+  
+  let headerHtml = '<th>Team</th>';
+  for (let i = 1; i <= maxPeriods; i++) {
+    if (i <= 4) {
+      headerHtml += `<th>${i}</th>`;
+    } else {
+      headerHtml += `<th>OT${i > 5 ? i - 4 : ''}</th>`;
+    }
+  }
+  headerHtml += '<th>T</th>';
 
-  const homeScores = periods.map(period => {
-    const score = homeLinescores.find(ls => ls.period === period)?.displayValue || "-";
-    return `<td>${score}</td>`;
-  }).join("");
+  let awayRowHtml = `<td style="font-weight: bold;">${awayAbbr}</td>`;
+  for (let i = 0; i < maxPeriods; i++) {
+    const score = awayLinescores[i]?.displayValue || awayLinescores[i]?.value || '-';
+    awayRowHtml += `<td>${score}</td>`;
+  }
+  awayRowHtml += `<td style="font-weight: bold;">${awayTotal}</td>`;
 
-  linescoreTableDiv.innerHTML = `
+  let homeRowHtml = `<td style="font-weight: bold;">${homeAbbr}</td>`;
+  for (let i = 0; i < maxPeriods; i++) {
+    const score = homeLinescores[i]?.displayValue || homeLinescores[i]?.value || '-';
+    homeRowHtml += `<td>${score}</td>`;
+  }
+  homeRowHtml += `<td style="font-weight: bold;">${homeTotal}</td>`;
+
+  linescoreContainer.innerHTML = `
     <table>
       <thead>
-        <tr>
-          <th></th>
-          ${periodHeaders}
-          <th></th> <!-- Space between periods and total -->
-          <th>T</th>
-        </tr>
+        <tr>${headerHtml}</tr>
       </thead>
       <tbody>
-        <tr>
-          <td>${awayAbbr}</td>
-          ${awayScores}
-          <td></td> <!-- Space between periods and total -->
-          <td>${awayTotal}</td>
-        </tr>
-        <tr>
-          <td>${homeAbbr}</td>
-          ${homeScores}
-          <td></td> <!-- Space between periods and total -->
-          <td>${homeTotal}</td>
-        </tr>
+        <tr>${awayRowHtml}</tr>
+        <tr>${homeRowHtml}</tr>
       </tbody>
     </table>
   `;
+  
+  linescoreContainer.style.display = 'block';
 }
 
 function renderPlayDescription(lastPlay, clock, competitors) {
-  const playDescriptionDiv = document.getElementById("playDescription");
-  if (!playDescriptionDiv) {
-    console.error("Error: 'playDescription' element not found.");
-    return;
-  }
-
+  const playContainer = document.getElementById('playDescription');
+  if (!playContainer) return;
+  
   if (!lastPlay || !lastPlay.text) {
-    playDescriptionDiv.innerHTML = `
-      <div class="play-description-content">
-        <div class="play-text">No play data available</div>
-      </div>
-    `;
-    playDescriptionDiv.style.backgroundColor = "#1a1a1a"; // Default background color
+    playContainer.style.display = 'none';
     return;
   }
 
-  // Handle clock display
-  const displayClock = clock === "0.0" ? "End" : clock;
+  const playText = lastPlay.text;
+  const timeLeft = clock || '';
 
-  // Find the team in the competitors array that matches the team ID from lastPlay
-  const team = competitors.find(c => c.team.id === lastPlay.team?.id);
-
-  // Use the team's color or fallback to a default color
-  const teamColor = team?.team?.color ? `#${team.team.color}` : "#1a1a1a";
-  playDescriptionDiv.style.backgroundColor = teamColor;
-
-  playDescriptionDiv.innerHTML = `
+  playContainer.innerHTML = `
     <div class="play-description-content">
-      <div class="play-text">${lastPlay.text}</div>
+      <div class="play-text">${playText}</div>
+      ${timeLeft ? `<div class="time-left">${timeLeft}</div>` : ''}
     </div>
   `;
+  
+  playContainer.style.display = 'flex';
 }
 
 // Content slider functions
 function showStats() {
-  // Update button states
-  document.getElementById('statsBtn').classList.add('active');
-  document.getElementById('playsBtn').classList.remove('active');
-  
-  // Show/hide content sections
   document.getElementById('statsContent').style.display = 'block';
   document.getElementById('playsContent').style.display = 'none';
+  document.getElementById('statsBtn').classList.add('active');
+  document.getElementById('playsBtn').classList.remove('active');
 }
 
 function showPlays() {
-  // Update button states
-  document.getElementById('playsBtn').classList.add('active');
-  document.getElementById('statsBtn').classList.remove('active');
-  
-  // Show/hide content sections
   document.getElementById('statsContent').style.display = 'none';
   document.getElementById('playsContent').style.display = 'block';
-  
-  // Load play-by-play data when switching to plays view
-  const gameId = getQueryParam("gameId");
-  if (gameId) {
-    renderPlayByPlay(gameId);
-  }
+  document.getElementById('statsBtn').classList.remove('active');
+  document.getElementById('playsBtn').classList.add('active');
 }
 
 // Function to toggle drive visibility

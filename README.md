@@ -263,7 +263,6 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - On the scoreboard page, if the user is on a phone screen and they turn it landscape, it will show the regular phone view (max 3 innings) in landscape until the next fetch. Vice versa for landscape to portrait.
 - For NHL scoreboard, at times it may show undefined for play-by-play. This is an issue from the api directly as it doesn't update some things immediately.
 - For Soccer, UEFA, and CWC, the top scoreboard score and time as well as the play description might not update in real time. This is a problem caused by ESPN's api
-- Bracket page style on mobile is not proper for WNBA
 - For F1, some race information may experience delays due to ESPN's F1 API update frequency during live race sessions
 - Live streaming may occasionally fail to load due to external stream source availability
 - F1 OBS overlays may show brief loading states when switching between race cards and constructor standings

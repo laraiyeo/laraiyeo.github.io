@@ -152,6 +152,10 @@ body {
     background-image: url('nfl.png');
 }
 
+.block-ncaa {
+    background-image: url('ncaa.png');
+}
+
 @media (max-width: 475px) {
     .main-container {
         grid-template-columns: 1fr; /* Single column layout on small screens */

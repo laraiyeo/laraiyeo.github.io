@@ -151,8 +151,11 @@ async function buildGameCard(game) {
       ? `End of ${currentPeriod}`
       : currentPeriod;
 
-    const possession = game.competitions[0].situation?.possession;
-    const downDistance = game.competitions[0].situation?.downDistanceText || "";
+    const possession = game?.competitions[0]?.situation?.possession;
+    const text = game?.competitions[0]?.situation?.possessionText || "";
+    const distance = game?.competitions[0]?.situation?.distance || "N/A";
+    const yardLine = game?.competitions[0]?.situation?.yardLine || "N/A";
+    const kickoff = game?.competitions[0]?.situation?.shortDownDistanceText === "1st & 10" && distance === 10 && (yardLine === 65 || yardLine === 35) ? "Kickoff" : game?.competitions[0]?.situation?.shortDownDistanceText || "";
 
     card.innerHTML = `
       <div class="game-headline">${headline}</div>
@@ -166,10 +169,11 @@ async function buildGameCard(game) {
           <div class="card-team-record">${awayTeamRecord}</div>
         </div>
         <div class="game-info">
+        <div class="game-period">${periodDescription}</div>
           <div class="line"></div>
           ${isHalftime || isEndOfPeriod ? "" : `<div class="game-status">${clock}</div>`}
-          <div class="game-period" style="margin-top:${isHalftime || isEndOfPeriod ? "0" : "-20px"};">${periodDescription}</div>
-          ${downDistance ? `<div class="down-distance">${downDistance}</div>` : ""}
+          ${kickoff ? `<div class="down-distance">${kickoff}</div>` : ""}
+          <div class="down-distance" style="color: white; margin-top: -5px;">${text ? (possession === homeTeam.id ? `${text} ▶` : `◀ ${text}`) : ""}</div>
         </div>
         <div class="team home-team ${possession === homeTeam.id ? 'has-possession' : ''}">
           <div style="display: flex; align-items: center; gap: 8px;">

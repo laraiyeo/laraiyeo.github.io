@@ -67,7 +67,7 @@ async function fetchStandings() {
     }
 
     // Fallback to default order if not found
-    if (eastOrder.length === 0) eastOrder = ["ATL", "CHI", "CONN", "IND", "NY", "WSH"];
+    if (eastOrder.length === 0) eastOrder = ["ATL", "CHI", "CON", "IND", "NY", "WSH"];
     if (westOrder.length === 0) westOrder = ["DAL", "GS", "LV", "LA", "MIN", "PHX", "SEA"];
 
     // Eastern Conference: filter by eastOrder

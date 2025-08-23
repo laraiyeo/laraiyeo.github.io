@@ -1,0 +1,359 @@
+/* Teams Page Specific Styles */
+
+.teams-container {
+  display: flex !important;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+  padding: 20px 0;
+  min-height: 200px;
+  width: 100%;
+  background: transparent;
+}
+
+.team-card {
+  margin-bottom: 40px;
+  border: 2px solid #444;
+  border-radius: 15px;
+  padding: 20px;
+  width: 340px;
+  /* Background color will be set by JavaScript using team colors */
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  color: white !important;
+}
+
+.team-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 10px rgba(255, 255, 255, 0.5);
+}
+
+.team-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 15px;
+  color: white;
+}
+
+.team-logo {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  margin-bottom: 10px;
+}
+
+.team-name {
+  font-size: 1.5rem !important;
+  font-weight: bold;
+  margin-bottom: 5px !important;
+  text-align: center;
+  color: white !important;
+}
+
+.team-games {
+  width: 100%;
+}
+
+.no-game-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  background-color: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.game-card {
+  background-color: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 10px;
+  padding: 20px;
+  margin-top: 10px;
+  color: white;
+  font-size: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 10px rgb(255, 255, 255);
+  width: 300px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.sched-game-card {
+    background-color: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 10px;
+    color: white;
+    font-size: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 10px rgb(255, 255, 255);
+    width: 300px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.game-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 12px rgba(255, 255, 255);
+}
+
+.game-headline {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.game-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.team {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.team-name {
+  font-size: 1rem;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.card-team-name {
+  margin-top: 5px;
+  font-size: 1rem;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.card-team-record {
+  font-size: 0.9rem;
+  color: #ccc;
+}
+
+.game-headline {
+    margin-top: -5px;
+    font-size: 1rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #ccc;
+}
+
+.game-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.game-info .line {
+  width: 25%;
+  height: 2px;
+  background-color: white;
+  margin: 10px 0;
+}
+
+.game-status {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.card-team-logo {
+  width: 67.5px;
+  height: 67.5px;
+}
+
+.card-team-score {
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+.no-game-text {
+  font-size: 1.2rem;
+  font-weight: bold;
+  text-align: center;
+  color: white !important;
+}
+
+/* Loading and error states */
+.loading, .no-teams, .error {
+  text-align: center;
+  padding: 40px;
+  font-size: 1.2rem;
+  color: white !important;
+  display: block !important;
+  visibility: visible !important;
+}
+
+.error {
+  color: #ff6b6b !important;
+}
+
+.no-teams {
+  color: #888 !important;
+}
+
+.loading {
+  color: #000000 !important;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .teams-container {
+    gap: 15px;
+    padding: 15px 10px;
+  }
+  
+  .team-card {
+    width: calc(100% - 20px);
+    max-width: 350px;
+    margin: 0 auto 30px auto;
+  }
+  
+  .team-logo {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .team-name {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 525px) {
+  .team-card {
+    width: calc(100% - 10px);
+    padding: 15px;
+    margin-bottom: 25px;
+  }
+  
+  .team-logo {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .team-name {
+    font-size: 1rem;
+  }
+  
+  .card-team-logo {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .no-game-text {
+    font-size: 1rem;
+  }
+
+  .game-card {
+    width: 280px;
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .teams-container {
+    gap: 15px;
+    padding: 15px;
+    justify-content: center;
+  }
+  
+  .team-card {
+    width: 100%;
+    max-width: 350px;
+    margin: 0;
+  }
+  
+  .team-logo {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .team-header h2 {
+    font-size: 1.1rem;
+  }
+  
+  .team-details {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 525px) {
+  .teams-container {
+    padding: 10px;
+  }
+  
+  .team-card {
+    width: 100%;
+    max-width: 320px;
+    padding: 15px;
+    margin-left: -20px;
+  }
+  
+  .team-logo {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .team-header h2 {
+    font-size: 1rem;
+  }
+  
+  .team-details {
+    font-size: 0.8rem;
+  }
+  
+  .team-details p {
+    margin: 6px 0;
+  }
+}
+
+.games-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .games-container {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+.no-games {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100px;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  font-size: 1rem;
+  color: #555;
+  font-weight: bold;
+}
+
+#gamesContainer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+  padding: 20px;
+}

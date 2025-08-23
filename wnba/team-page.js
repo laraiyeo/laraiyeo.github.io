@@ -18,6 +18,53 @@ function convertToHttps(url) {
   return url;
 }
 
+// Helper function to fetch athlete statistics with fallback from types/2 to types/1
+async function fetchAthleteStats(sport, league, seasonYear, athleteId) {
+  const baseUrl = `https://sports.core.api.espn.com/v2/sports/${sport}/leagues/${league}/seasons/${seasonYear}`;
+  
+  // Try types/2 first
+  try {
+    const types2Url = `${baseUrl}/types/2/athletes/${athleteId}/statistics?lang=en&region=us`;
+    const response = await fetch(types2Url);
+    
+    if (response.ok) {
+      const data = await response.json();
+      
+      // Check if the response contains the error message about no stats found
+      if (data.error && data.error.code === 404 && data.error.message === "No stats found.") {
+        console.log(`No stats found for types/2, trying types/1 for athlete ${athleteId}`);
+      } else if (data.splits && data.splits.categories) {
+        console.log(`Successfully fetched types/2 stats for athlete ${athleteId}`);
+        return { data, url: types2Url };
+      }
+    } else if (response.status === 404) {
+      console.log(`404 error for types/2, trying types/1 for athlete ${athleteId}`);
+    } else {
+      console.log(`Error ${response.status} for types/2, trying types/1 for athlete ${athleteId}`);
+    }
+  } catch (error) {
+    console.log(`Exception with types/2, trying types/1 for athlete ${athleteId}:`, error.message);
+  }
+  
+  // Fallback to types/1
+  try {
+    const types1Url = `${baseUrl}/types/1/athletes/${athleteId}/statistics?lang=en&region=us`;
+    const response = await fetch(types1Url);
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log(`Successfully fetched types/1 stats for athlete ${athleteId}`);
+      return { data, url: types1Url };
+    } else {
+      console.error(`Both types/2 and types/1 failed for athlete ${athleteId}`);
+      throw new Error(`Failed to fetch statistics: ${response.status} ${response.statusText}`);
+    }
+  } catch (error) {
+    console.error(`Exception with types/1 for athlete ${athleteId}:`, error.message);
+    throw error;
+  }
+}
+
 // Get the appropriate season year, falling back to previous year if current year has no data
 async function getValidSeasonYear(sport, league, playerId = null, teamId = null) {
   const currentYear = new Date().getFullYear();
@@ -26,24 +73,31 @@ async function getValidSeasonYear(sport, league, playerId = null, teamId = null)
   // Test current year first
   let testUrl;
   if (playerId) {
-    testUrl = `https://sports.core.api.espn.com/v2/sports/${sport}/leagues/${league}/seasons/${currentYear}/types/2/athletes/${playerId}/statistics?lang=en&region=us`;
+    try {
+      const result = await fetchAthleteStats(sport, league, currentYear, playerId);
+      if (result && result.data && ((result.data.splits && result.data.splits.categories && result.data.splits.categories.length > 0) || 
+          (result.data.statistics && result.data.statistics.length > 0))) {
+        return currentYear;
+      }
+    } catch (error) {
+      console.log(`Current year ${currentYear} stats not available, trying previous year`);
+    }
   } else if (teamId) {
     testUrl = `https://sports.core.api.espn.com/v2/sports/${sport}/leagues/${league}/seasons/${currentYear}/types/2/teams/${teamId}/statistics?lang=en&region=us`;
+    try {
+      const response = await fetch(testUrl);
+      const data = await response.json();
+      
+      // Check if current year has valid stats data
+      if (response.ok && data && ((data.splits && data.splits.categories && data.splits.categories.length > 0) || 
+          (data.statistics && data.statistics.length > 0))) {
+        return currentYear;
+      }
+    } catch (error) {
+      console.log(`Current year ${currentYear} stats not available, trying previous year`);
+    }
   } else {
     return currentYear; // Default to current year if no specific entity to test
-  }
-  
-  try {
-    const response = await fetch(testUrl);
-    const data = await response.json();
-    
-    // Check if current year has valid stats data
-    if (response.ok && data && ((data.splits && data.splits.categories && data.splits.categories.length > 0) || 
-        (data.statistics && data.statistics.length > 0))) {
-      return currentYear;
-    }
-  } catch (error) {
-    console.log(`Current year ${currentYear} stats not available, trying previous year`);
   }
   
   // Fall back to previous year
@@ -1463,13 +1517,12 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
 
     // Get valid season year and fetch player stats
     const seasonYear = await getValidSeasonYear('basketball', 'wnba', playerId);
-    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/${seasonYear}/types/2/athletes/${playerId}/statistics?lang=en&region=us`);
-    const data = await response.json();
+    const result = await fetchAthleteStats('basketball', 'wnba', seasonYear, playerId);
 
-    console.log('Player stats data:', data);
+    console.log('Player stats data:', result.data);
 
-    if (data.splits && data.splits.categories) {
-      displayPlayerStatsInModal(data.splits.categories, statsContainer);
+    if (result.data.splits && result.data.splits.categories) {
+      displayPlayerStatsInModal(result.data.splits.categories, statsContainer);
     } else {
       statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Player statistics not available</div>';
     }
@@ -1612,13 +1665,12 @@ async function showOverallStats() {
 
   // Reload the overall stats
   const seasonYear = await getValidSeasonYear('basketball', 'wnba', selectedPlayer.id);
-  const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/${seasonYear}/types/2/athletes/${selectedPlayer.id}/statistics?lang=en&region=us`);
-  const data = await response.json();
+  const result = await fetchAthleteStats('basketball', 'wnba', seasonYear, selectedPlayer.id);
 
-  console.log('Player stats data:', data);
+  console.log('Player stats data:', result.data);
 
-  if (data.splits && data.splits.categories) {
-    displayPlayerStatsInModal(data.splits.categories, statsContainer);
+  if (result.data.splits && result.data.splits.categories) {
+    displayPlayerStatsInModal(result.data.splits.categories, statsContainer);
   } else {
     statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Player statistics not available</div>';
   }
@@ -2240,17 +2292,12 @@ async function showPlayerComparison(player1, player2) {
       getValidSeasonYear('basketball', 'wnba', player2.id)
     ]);
 
-    const [player1Response, player2Response] = await Promise.all([
-      fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/${seasonYear1}/types/2/athletes/${player1.id}/statistics?lang=en&region=us`),
-      fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/${seasonYear2}/types/2/athletes/${player2.id}/statistics?lang=en&region=us`)
+    const [player1Result, player2Result] = await Promise.all([
+      fetchAthleteStats('basketball', 'wnba', seasonYear1, player1.id),
+      fetchAthleteStats('basketball', 'wnba', seasonYear2, player2.id)
     ]);
 
-    const [player1Data, player2Data] = await Promise.all([
-      player1Response.json(),
-      player2Response.json()
-    ]);
-
-    displayPlayerComparison(player1Data.splits?.categories, player2Data.splits?.categories, statsComparisonContainer);
+    displayPlayerComparison(player1Result.data.splits?.categories, player2Result.data.splits?.categories, statsComparisonContainer);
 
     // Close modal when clicking outside
     modal.addEventListener('click', (e) => {

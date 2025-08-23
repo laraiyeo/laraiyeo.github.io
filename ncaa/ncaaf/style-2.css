@@ -1,0 +1,358 @@
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: #000000;
+  color: #000000;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.navbar {
+  background-color: #000;
+  color: white;
+  padding: 10px 0;
+  display: flex;
+  justify-content: center;
+  position: sticky;
+  top: 0;
+  width: 100%;
+  z-index: 1000;
+}
+
+.footer-separator {
+  margin: 0 10px;
+  color: #888;
+}
+
+.footer-icon {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  margin-right: -2.5px;
+}
+
+.navbar-content {
+  width: 100%;
+  max-width: 100vw;
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-left {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.nav-right {
+  display: flex;
+  gap: 20px;
+}
+
+.nav-link {
+  color: white;
+  text-decoration: none;
+}
+
+.nav-link.active {
+  color: #888;
+  font-weight: bold;
+}
+
+#standings {
+  background: #ebebeb;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 1px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+#standings::-webkit-scrollbar {
+  display: none; /* For Chrome, Safari, and Edge */
+}
+
+#standings h2 {
+  font-size: 2.5rem;
+  margin-bottom: 1.5rem;
+  color: rgb(0, 0, 0);
+}
+
+.conference-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 5px;
+  margin-bottom: 15px;
+}
+
+.conference-button {
+  background-color: #444;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 10px 20px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.conference-text {
+  font-size: 1rem;
+}
+
+.conference-button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(255, 255, 255, 0.5);
+}
+
+.conference-button:active {
+  transform: scale(1.05);
+  box-shadow: 0 2px 4px rgba(255, 255, 255, 0.3);
+}
+
+.conference-button.active {
+  background-color: #888;
+  font-weight: bold;
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(255, 255, 255, 0.5);
+}
+
+#seasonSelector {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.season-select, .week-select {
+  background-color: #444;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 15px;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-left: 10px;
+}
+
+#seasonSelector label {
+  color: white;
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.division-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #1e1e1e;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.division-table th,
+.division-table td {
+  padding: 0.75rem;
+  text-align: center;
+  border-bottom: 1px solid #444;
+  color: white;
+  vertical-align: middle;
+}
+
+.division-table th {
+  background: #333;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.division-table tr:last-child td {
+  border-bottom: none;
+}
+
+.team-name {
+  text-align: left;
+  padding-left: 1rem;
+  font-weight: bold;
+  color: white;
+  position: relative;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-name img {
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.team-hover-card {
+  display: none;
+  position: absolute;
+  background: #1e1e1e;
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 0px 8px white;
+  text-align: center;
+  z-index: 1000;
+  width: 200px;
+}
+
+.team-name:hover .team-hover-card {
+  display: block;
+}
+
+.team-record {
+  color: #ccc;
+}
+
+.dropdown-link.active {
+  background-color: #444;
+  font-weight: bold;
+}
+
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  gap: 4px;
+}
+
+.nav-toggle .bars {
+  width: 25px;
+  height: 3px;
+  background-color: white;
+}
+
+.conference-button img.conference-logo {
+  width: 30px;
+  height: 30px;
+  display: none; /* Default to hidden unless on small screens */
+}
+
+.dropdown-menu {
+  display: none;
+  flex-direction: column;
+  position: absolute;
+  top: 60px;
+  right: 20px;
+  background-color: #000;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+}
+
+.dropdown-menu.active {
+  display: flex;
+}
+
+.dropdown-link {
+  color: white;
+  text-decoration: none;
+  padding: 10px 20px;
+  text-align: center;
+}
+
+.dropdown-link:hover {
+  background-color: #333;
+}
+
+.footer {
+  background-color: #000;
+  color: white;
+  text-align: center;
+  padding: 10px 0;
+  font-size: 1rem;
+  position: relative;
+  bottom: 0;
+  width: 100%;
+}
+
+.footer-link {
+  color: white;
+  text-decoration: none;
+  margin: 0 10px;
+}
+
+.footer-link:hover {
+  color: #888;
+}
+
+@media (max-width: 768px) {
+  .conference-buttons {
+    flex-direction: row;
+    overflow-x: auto;
+    justify-content: flex-start;
+    gap: 1rem;
+  }
+
+  .conference-button {
+    padding: 0.8rem;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+
+  #standings {
+    padding: 10px;
+  }
+
+  #standings h2 {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 525px) {
+  .division-table th,
+  .division-table td {
+    padding: 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  #standings h2 {
+    font-size: 1.8rem;
+  }
+
+  .nav-right {
+    display: none;
+  }
+
+  .nav-toggle {
+    display: flex;
+  }
+
+  .dropdown-menu.active {
+    display: flex;
+  }
+
+  .conference-buttons::-webkit-scrollbar {
+    display: none;
+  }
+
+  .conference-buttons {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    justify-content: flex-start !important;
+    scroll-behavior: smooth;
+    padding: 0 10px;
+    -webkit-overflow-scrolling: touch;
+    min-height: 50px;
+  }
+
+  .conference-button {
+    flex-shrink: 0 !important;
+    white-space: nowrap;
+  }
+}
