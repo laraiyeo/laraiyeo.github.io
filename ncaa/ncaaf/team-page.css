@@ -5,6 +5,13 @@
   padding: 20px;
   flex-grow: 1;
   overflow-y: auto;
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+
+#teamPageContainer::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
 }
 
 .team-info-section {
@@ -401,6 +408,13 @@
 .roster-list {
   max-height: 400px;
   overflow-y: auto;
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+
+.roster-list::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
 }
 
 .roster-list h4 {

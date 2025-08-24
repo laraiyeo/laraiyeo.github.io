@@ -272,12 +272,60 @@ window.toggleFullscreen = function() {
   const iframe = document.getElementById('streamIframe');
   
   if (iframe) {
-    if (iframe.requestFullscreen) {
-      iframe.requestFullscreen();
-    } else if (iframe.webkitRequestFullscreen) {
-      iframe.webkitRequestFullscreen();
-    } else if (iframe.msRequestFullscreen) {
-      iframe.msRequestFullscreen();
+    try {
+      // For iOS Safari and other WebKit browsers
+      if (iframe.webkitEnterFullscreen) {
+        iframe.webkitEnterFullscreen();
+        console.log('iOS/WebKit fullscreen requested');
+      }
+      // Standard fullscreen API
+      else if (iframe.requestFullscreen) {
+        iframe.requestFullscreen();
+        console.log('Standard fullscreen requested');
+      } 
+      // Chrome/Safari prefixed version
+      else if (iframe.webkitRequestFullscreen) {
+        iframe.webkitRequestFullscreen();
+        console.log('WebKit fullscreen requested');
+      } 
+      // IE/Edge prefixed version
+      else if (iframe.msRequestFullscreen) {
+        iframe.msRequestFullscreen();
+        console.log('MS fullscreen requested');
+      }
+      // Mozilla prefixed version
+      else if (iframe.mozRequestFullScreen) {
+        iframe.mozRequestFullScreen();
+        console.log('Mozilla fullscreen requested');
+      }
+      else {
+        console.log('Fullscreen API not supported on this device');
+        // Fallback: try to make the iframe larger on unsupported devices
+        if (iframe.style.position !== 'fixed') {
+          iframe.style.position = 'fixed';
+          iframe.style.top = '0';
+          iframe.style.left = '0';
+          iframe.style.width = '100vw';
+          iframe.style.height = '100vh';
+          iframe.style.zIndex = '9999';
+          iframe.style.backgroundColor = '#000';
+          console.log('Applied fullscreen-like styling as fallback');
+        } else {
+          // Exit fullscreen-like mode
+          iframe.style.position = '';
+          iframe.style.top = '';
+          iframe.style.left = '';
+          iframe.style.width = '100%';
+          iframe.style.height = '400px';
+          iframe.style.zIndex = '';
+          iframe.style.backgroundColor = '';
+          console.log('Exited fullscreen-like styling');
+        }
+      }
+    } catch (e) {
+      console.log('Fullscreen request failed:', e);
+      // Additional fallback for cases where even the API calls fail
+      alert('Fullscreen not supported on this device. Try rotating your device to landscape mode for a better viewing experience.');
     }
   }
 };
@@ -1344,6 +1392,8 @@ async function fetchAndRenderTopScoreboard() {
       statusDisplay = `${clock}<br><br>${quarterName}`;
     }
 
+    const finished = gameState === 'post';
+
     // Get team colors
     const awayColor = awayTeam.team.color ? `#${awayTeam.team.color}` : '#777';
     const homeColor = homeTeam.team.color ? `#${homeTeam.team.color}` : '#777';
@@ -1367,7 +1417,7 @@ async function fetchAndRenderTopScoreboard() {
     if (isMobile) {
       // Mobile layout: Row with two team columns, each team has score above logo
       scoreboardHtml = `
-        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 140%; margin-right: -30px; padding: 0 10px;">
+        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 140%; margin-right: ${finished ? '-5px;' : '-30px;'} padding: 0 10px;">
           <div style="display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; max-width: 120px;">
             <div class="team-score responsive-score" style="color: ${awayScore > homeScore ? awayColor : '#888'}; margin-bottom: 10px;">${awayScore}</div>
             <div class="team-block" onclick="window.open('team-page.html?teamId=${awayTeam.team.id}', '_blank')" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; text-align: center;">
