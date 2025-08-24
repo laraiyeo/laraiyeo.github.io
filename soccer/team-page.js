@@ -2466,8 +2466,8 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
     }
     
     // Team logos
-    const teamLogo = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamIdForSeason}.png`;
-    const opponentLogo = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${opponentCompetitor.team.id}.png`;
+    const teamLogo = [“367”, “2960”, “92”].includes(teamCompetitor.team.id) ? `https://a.espncdn.com/i/teamlogos/soccer/500/${teamCompetitor.team.id}.png` : `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamCompetitor.team.id}.png`;
+    const opponentLogo = [“367”, “2960”, “92”].includes(opponentCompetitor.team.id) ? `https://a.espncdn.com/i/teamlogos/soccer/500/${opponentCompetitor.team.id}.png` : `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${opponentCompetitor.team.id}.png`;
 
     // Game result and status
     let gameResult = '';
