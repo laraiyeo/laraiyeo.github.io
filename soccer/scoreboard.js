@@ -10,15 +10,37 @@ function getAdjustedDateForSoccer() {
   return adjustedDate;
 }
 
-// Function to get team logo with fallback
+// Logo cache to prevent repeated fetches
+let logoCache = new Map();
+
+// Function to get team logo with fallback and caching
 function getTeamLogoWithFallback(teamId) {
+  // Check cache first
+  if (logoCache.has(teamId)) {
+    return Promise.resolve(logoCache.get(teamId));
+  }
+
   return new Promise((resolve) => {
     const primaryUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
     const fallbackUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
     
     const img = new Image();
-    img.onload = () => resolve(primaryUrl);
-    img.onerror = () => resolve(fallbackUrl);
+    img.onload = () => {
+      logoCache.set(teamId, primaryUrl);
+      resolve(primaryUrl);
+    };
+    img.onerror = () => {
+      const fallbackImg = new Image();
+      fallbackImg.onload = () => {
+        logoCache.set(teamId, fallbackUrl);
+        resolve(fallbackUrl);
+      };
+      fallbackImg.onerror = () => {
+        logoCache.set(teamId, 'soccer-ball-png-24.png');
+        resolve('soccer-ball-png-24.png');
+      };
+      fallbackImg.src = fallbackUrl;
+    };
     img.src = primaryUrl;
   });
 }
@@ -231,7 +253,7 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
 
     // Update hover card content (this will happen every refresh)
     hoverCard.innerHTML = `
-      <img src="${teamLogo}" alt="Team Logo" class="hover-team-logo">
+      <img src="${teamLogo}" alt="Team Logo" class="hover-team-logo" onerror="this.src='soccer-ball-png-24.png'">
       <div class="hover-player-name">
         <span style="color: grey;">${jersey}</span> 
         <span style="color: ${playerNameColor};">${name}</span>
@@ -264,7 +286,7 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
   const renderSubstitutes = (subs, teamLogo) => `
     <div class="subs-box">
       <div class="subs-header">
-        <img src="${teamLogo}" alt="Team Logo" class="subs-team-logo">
+        <img src="${teamLogo}" alt="Team Logo" class="subs-team-logo" onerror="this.src='soccer-ball-png-24.png'">
         <span class="subs-title">Subs</span>
       </div>
       <ul class="subs-list">
@@ -298,7 +320,7 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
 
           // Update hover card content (this will happen every refresh)
           hoverCard.innerHTML = `
-            <img src="${teamLogo}" alt="Team Logo" class="hover-team-logo">
+            <img src="${teamLogo}" alt="Team Logo" class="hover-team-logo" onerror="this.src='soccer-ball-png-24.png'">
             <div class="hover-player-name">
               <span style="color: grey;">${jersey}</span> 
               <span style="color: ${playerNameColor};">${name}</span>
@@ -332,7 +354,7 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
     <div class="pitches-wrapper">
       <div class="pitch-container">
         <div class="team-info">
-          <img src="${awayLogo}" alt="Away Team Logo" class="form-team-logo" style="margin-right: 10px;">
+          <img src="${awayLogo}" alt="Away Team Logo" class="form-team-logo" style="margin-right: 10px;" onerror="this.src='soccer-ball-png-24.png'">
           <span class="team-formation">${awayFormation}</span>
         </div>
         <div class="football-pitch">
@@ -347,7 +369,7 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
       <div class="pitch-container">
         <div class="team-info">
           <span class="team-formation">${homeFormation}</span>
-          <img src="${homeLogo}" alt="Home Team Logo" class="form-team-logo" style="margin-left: 10px;">
+          <img src="${homeLogo}" alt="Home Team Logo" class="form-team-logo" style="margin-left: 10px;" onerror="this.src='soccer-ball-png-24.png'">
         </div>
         <div class="football-pitch">
           <div class="center-circle"></div>
@@ -456,7 +478,7 @@ async function fetchAndRenderStatsData(gameId) {
         <div class="team-score responsive-score" style="color: ${homeScoreColor};">
           ${homeScore}${homeShootoutScore > 0 ? `<sup style="font-size: 0.5em;">(${homeShootoutScore})</sup>` : ""}
         </div>
-        <img class="team-logo responsive-logo" src="${homeLogo}" alt="${homeTeam.displayName}">
+        <img class="team-logo responsive-logo" src="${homeLogo}" alt="${homeTeam.displayName}" onerror="this.src='soccer-ball-png-24.png'">
         <div class="team-name responsive-name">${homeTeam.shortDisplayName}</div>
       </div>
       <div class="inning-center">
@@ -467,7 +489,7 @@ async function fetchAndRenderStatsData(gameId) {
         <div class="team-score responsive-score" style="color: ${awayScoreColor};">
         ${awayScore}${awayShootoutScore > 0 ? `<sup style="font-size: 0.5em;">(${awayShootoutScore})</sup>` : ""}
         </div>
-        <img class="team-logo responsive-logo" src="${awayLogo}" alt="${awayTeam.displayName}">
+        <img class="team-logo responsive-logo" src="${awayLogo}" alt="${awayTeam.displayName}" onerror="this.src='soccer-ball-png-24.png'">
         <div class="team-name responsive-name">${awayTeam.shortDisplayName}</div>
       </div>
     `;
@@ -545,7 +567,7 @@ async function fetchAndRenderPlaysData(gameId) {
     // Update play-by-play if it's visible
     const playsContent = document.getElementById('playsContent');
     if (playsContent && playsContent.classList.contains('active')) {
-      renderPlayByPlay(gameId);
+      renderPlayByPlay(gameId, commentaryData);
     }
   } catch (error) {
     console.error("Error fetching commentary data:", error);
@@ -791,11 +813,11 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
   // Generate mini field for the goal card
   const miniFieldHtml = renderMiniField(coordinate, coordinate2, 'goal', teamSide, teamColorHex, team?.shortDisplayName || '');
   
-  // Get team logos for score display
-  const homeTeamLogo = homeTeam?.team?.logos?.find(logo => logo.rel.includes("dark"))?.href || 
-                      `https://a.espncdn.com/i/teamlogos/soccer/500/${homeTeam?.team?.id || homeTeam?.id}.png`;
-  const awayTeamLogo = awayTeam?.team?.logos?.find(logo => logo.rel.includes("dark"))?.href || 
-                      `https://a.espncdn.com/i/teamlogos/soccer/500/${awayTeam?.team?.id || awayTeam?.id}.png`;
+  // Get team logos using cached fallback function
+  const homeTeamLogo = logoCache.get(homeTeam?.team?.id || homeTeam?.id) || 
+                       `https://a.espncdn.com/i/teamlogos/soccer/500/${homeTeam?.team?.id || homeTeam?.id}.png`;
+  const awayTeamLogo = logoCache.get(awayTeam?.team?.id || awayTeam?.id) || 
+                       `https://a.espncdn.com/i/teamlogos/soccer/500/${awayTeam?.team?.id || awayTeam?.id}.png`;
   
   return `
     <div id="${goalCardId}" class="goal-card" style="background: linear-gradient(135deg, ${teamColorHex}15 0%, ${teamColorHex}05 100%); border-left: 4px solid ${teamColorHex}; margin: 10px 0; padding: 20px; border-radius: 8px; color: white; position: relative;">
@@ -804,7 +826,7 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
       </div>
       <div class="goal-card-header" style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; margin-right: 55px; flex-wrap: wrap;">
         <div style="display: flex; align-items: center; flex: 1; min-width: 200px;">
-          <img src="${teamLogo}" alt="${team?.displayName || 'Team'}" style="width: 40px; height: 40px; margin-right: 15px;">
+          <img src="${teamLogo}" alt="${team?.displayName || 'Team'}" style="width: 40px; height: 40px; margin-right: 15px;" onerror="this.src='soccer-ball-png-24.png'">
           <div class="goal-info">
             <div class="goal-type" style="font-size: 14px; font-weight: bold; color: white; margin-bottom: 4px;">
               ⚽ ${goalType} ${goalSituation ? `• ${goalSituation}` : ''}
@@ -835,9 +857,9 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
           
           <div class="goal-score-line" style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; margin-bottom: 15px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <img src="${homeTeamLogo}" alt="Home" style="width: 24px; height: 24px;">
+              <img src="${homeTeamLogo}" alt="Home" style="width: 24px; height: 24px;" onerror="this.src='soccer-ball-png-24.png'">
               <span style="font-size: 16px; font-weight: bold; color: white;">${finalHomeScore} - ${finalAwayScore}</span>
-              <img src="${awayTeamLogo}" alt="Away" style="width: 24px; height: 24px;">
+              <img src="${awayTeamLogo}" alt="Away" style="width: 24px; height: 24px;" onerror="this.src='soccer-ball-png-24.png'">
             </div>
             <div style="background: ${teamColorHex}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
               GOAL
@@ -930,31 +952,38 @@ function getTeamColorWithAlternateLogic(team) {
   }
 }
 
-async function renderPlayByPlay(gameId) {
+async function renderPlayByPlay(gameId, existingCommentaryData = null) {
   try {
-    const COMMENTARY_API_URL = `https://cdn.espn.com/core/soccer/commentary?xhr=1&gameId=${gameId}`;
+    let data;
     
-    let response, data;
-    try {
-      response = await fetch(COMMENTARY_API_URL);
-      if (!response.ok) {
-        throw new Error(`Commentary API responded with status: ${response.status}`);
-      }
-      data = await response.json();
-    } catch (fetchError) {
-      console.warn("Failed to fetch commentary data (CORS or network issue):", fetchError.message);
+    // Use existing data if provided, otherwise fetch it
+    if (existingCommentaryData) {
+      data = existingCommentaryData;
+    } else {
+      const COMMENTARY_API_URL = `https://cdn.espn.com/core/soccer/commentary?xhr=1&gameId=${gameId}`;
       
-      // Hide play-by-play section and show message
-      const playsContainer = document.querySelector('.plays-container');
-      if (playsContainer) {
-        playsContainer.innerHTML = `
-          <div style="text-align: center; padding: 20px; color: #666;">
-            <p>Play-by-play commentary is currently unavailable</p>
-            <p style="font-size: 0.9em;">This may be due to CORS restrictions or network issues</p>
-          </div>
-        `;
+      let response;
+      try {
+        response = await fetch(COMMENTARY_API_URL);
+        if (!response.ok) {
+          throw new Error(`Commentary API responded with status: ${response.status}`);
+        }
+        data = await response.json();
+      } catch (fetchError) {
+        console.warn("Failed to fetch commentary data (CORS or network issue):", fetchError.message);
+        
+        // Hide play-by-play section and show message
+        const playsContainer = document.querySelector('.plays-container');
+        if (playsContainer) {
+          playsContainer.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: #666;">
+              <p>Play-by-play commentary is currently unavailable</p>
+              <p style="font-size: 0.9em;">This may be due to CORS restrictions or network issues</p>
+            </div>
+          `;
+        }
+        return; // Exit early if commentary fetch fails
       }
-      return; // Exit early if commentary fetch fails
     }
     
     if (!data.gamepackageJSON || !data.gamepackageJSON.commentary) {
@@ -1228,13 +1257,13 @@ async function renderPlayByPlay(gameId) {
             <div class="play-main-info">
               <div class="play-teams-score">
                 <div class="team-score-display">
-                  <img src="${homeLogo}" alt="Home" class="team-logo-small">
+                  <img src="${homeLogo}" alt="Home" class="team-logo-small" onerror="this.src='soccer-ball-png-24.png'">
                   <span class="score">${currentHomeScore}</span>
                 </div>
                 <span class="score-separator">-</span>
                 <div class="team-score-display">
                   <span class="score">${currentAwayScore}</span>
-                  <img src="${awayLogo}" alt="Away" class="team-logo-small">
+                  <img src="${awayLogo}" alt="Away" class="team-logo-small" onerror="this.src='soccer-ball-png-24.png'">
                 </div>
               </div>
               
@@ -1784,7 +1813,7 @@ window.showPlays = function() {
 
 // Fetch and render the scoreboard based on the gameId in the URL
 fetchAndRenderTopScoreboard();
-setInterval(fetchAndRenderTopScoreboard, 2000);
+setInterval(fetchAndRenderTopScoreboard, 6000);
 
 // Initialize stream on page load
 const gameId = getQueryParam("gameId");

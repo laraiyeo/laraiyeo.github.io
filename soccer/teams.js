@@ -523,7 +523,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
 setupLeagueButtons();
 fetchAndDisplayTeams();
-setInterval(fetchAndDisplayTeams, 2000);
+setInterval(fetchAndDisplayTeams, 6000);
 
 // Game Card Customization functionality
 // Convert hex color to rgba with opacity

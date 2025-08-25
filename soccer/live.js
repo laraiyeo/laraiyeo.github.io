@@ -394,4 +394,4 @@ window.addEventListener("resize", updateLeagueButtonDisplay);
 
 setupLeagueButtons();
 loadLiveGames();
-setInterval(loadLiveGames, 2000);
+setInterval(loadLiveGames, 6000);

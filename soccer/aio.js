@@ -412,5 +412,5 @@ window.addEventListener("resize", updateLeagueButtonDisplay);
 document.addEventListener("DOMContentLoaded", function() {
   setupLeagueButtons();
   fetchAndDisplayAllGames();
-  setInterval(fetchAndDisplayAllGames, 2000); // Refresh every 2 seconds
+  setInterval(fetchAndDisplayAllGames, 6000); // Refresh every 6 seconds
 });

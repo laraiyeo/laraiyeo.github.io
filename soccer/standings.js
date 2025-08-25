@@ -426,4 +426,4 @@ window.addEventListener("resize", updateLeagueButtonDisplay);
 setupLeagueButtons();
 setupSeasonSelector();
 fetchStandings();
-setInterval(fetchStandings, 2000);
+setInterval(fetchStandings, 6000);

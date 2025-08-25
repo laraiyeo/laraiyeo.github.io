@@ -293,4 +293,4 @@ setupLeagueButtons();
 updateLeagueButtonDisplay(); // Ensure buttons are displayed correctly on load
 fetchAndDisplayScheduledGames();
 window.addEventListener("resize", updateLeagueButtonDisplay);
-setInterval(fetchAndDisplayScheduledGames, 2000);
+setInterval(fetchAndDisplayScheduledGames, 6000);
