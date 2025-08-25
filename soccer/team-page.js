@@ -27,6 +27,36 @@ const LEAGUES = {
   "Saudi PL": { code: "ksa.1", logo: "21" }
 };
 
+// Competition configurations for domestic cups and other tournaments
+const LEAGUE_COMPETITIONS = {
+  "eng.1": [
+    { code: "eng.fa", name: "FA Cup", logo: "40" },
+    { code: "eng.league_cup", name: "EFL Cup", logo: "41" }
+  ],
+  "esp.1": [
+    { code: "esp.copa_del_rey", name: "Copa del Rey", logo: "80" },
+    { code: "esp.super_cup", name: "Spanish Supercopa", logo: "431" }
+  ],
+  "ger.1": [
+    { code: "ger.dfb_pokal", name: "DFB Pokal", logo: "2061" },
+    { code: "ger.super_cup", name: "German Super Cup", logo: "2315" }
+  ],
+  "ita.1": [
+    { code: "ita.coppa_italia", name: "Coppa Italia", logo: "2192" },
+    { code: "ita.super_cup", name: "Italian Supercoppa", logo: "2316" }
+  ],
+  "fra.1": [
+    { code: "fra.coupe_de_france", name: "Coupe de France", logo: "182" },
+    { code: "fra.league_cup", name: "Trophee des Champions", logo: "2345" }
+  ],
+  "usa.1": [
+    { code: "usa.open", name: "US Open Cup", logo: "69" }
+  ],
+  "ksa.1": [
+    { code: "ksa.kings.cup", name: "Saudi King's Cup", logo: "2490" }
+  ]
+};
+
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
 function convertToHttps(url) {
   if (url && url.startsWith('http://')) {
@@ -263,6 +293,86 @@ function applyTeamColors(teamColor) {
   document.head.appendChild(style);
 }
 
+// Helper function to get competition name from league code
+function getCompetitionName(leagueCode) {
+  // Check if it's the main league
+  const mainLeague = Object.values(LEAGUES).find(league => league.code === leagueCode);
+  if (mainLeague) {
+    return Object.keys(LEAGUES).find(key => LEAGUES[key].code === leagueCode);
+  }
+  
+  // Check domestic competitions
+  for (const [mainLeagueCode, competitions] of Object.entries(LEAGUE_COMPETITIONS)) {
+    const competition = competitions.find(comp => comp.code === leagueCode);
+    if (competition) {
+      return competition.name;
+    }
+  }
+  
+  return "Unknown Competition";
+}
+
+// Helper function to determine if a match is from a domestic cup (not main league)
+function isDomesticCup(leagueCode) {
+  // Check if this is NOT the main league
+  const isMainLeague = Object.values(LEAGUES).some(league => league.code === leagueCode);
+  return !isMainLeague;
+}
+
+// Helper function to fetch matches from all competitions (main league + domestic cups)
+async function fetchMatchesFromAllCompetitions(dateRange, leagueCode = null, teamId = null) {
+  const allMatches = [];
+  
+  // Use provided league code or fall back to current league
+  const targetLeague = leagueCode || currentLeague;
+  
+  // Use provided team ID or fall back to current team
+  const targetTeamId = teamId || currentTeamId;
+  
+  // Get competitions for target league
+  const competitions = LEAGUE_COMPETITIONS[targetLeague] || [];
+  const allCompetitionsToCheck = [
+    { code: targetLeague, name: "League" }, // Main league
+    ...competitions // Domestic cups
+  ];
+  
+  console.log(`Fetching matches from ${allCompetitionsToCheck.length} competitions:`, allCompetitionsToCheck.map(c => c.code));
+  
+  // Fetch from each competition
+  for (const competition of allCompetitionsToCheck) {
+    try {
+      console.log(`Fetching matches from ${competition.code}...`);
+      const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition.code}/scoreboard?dates=${dateRange}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        const competitionMatches = data.events?.filter(event => {
+          const comp = event.competitions?.[0];
+          return comp?.competitors.some(competitor => competitor.team.id === targetTeamId);
+        }) || [];
+        
+        // Add competition information to each match
+        competitionMatches.forEach(match => {
+          match.competitionCode = competition.code;
+          match.competitionName = getCompetitionName(competition.code);
+          match.isDomesticCup = isDomesticCup(competition.code);
+          match.leaguesData = data.leagues[0];
+        });
+        
+        console.log(`Found ${competitionMatches.length} matches in ${competition.code}`);
+        allMatches.push(...competitionMatches);
+      } else {
+        console.log(`Failed to fetch from ${competition.code}: ${response.status}`);
+      }
+    } catch (error) {
+      console.log(`Error fetching from ${competition.code}:`, error.message);
+    }
+  }
+  
+  console.log(`Total matches found across all competitions: ${allMatches.length}`);
+  return allMatches;
+}
+
 async function loadCurrentGame() {
   try {
     const today = new Date();
@@ -274,13 +384,13 @@ async function loadCurrentGame() {
     
     const todayFormatted = formatDate(today);
     
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/scoreboard?dates=${todayFormatted}`);
-    const data = await response.json();
+    // Fetch from all competitions for today
+    const allTodayMatches = await fetchMatchesFromAllCompetitions(todayFormatted);
     
     const contentDiv = document.getElementById('currentGameContent');
     
     // Check if there's a game today for this team
-    const todayGame = data.events?.find(event => {
+    const todayGame = allTodayMatches.find(event => {
       const competition = event.competitions?.[0];
       return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
     });
@@ -305,18 +415,15 @@ async function loadCurrentGame() {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 14); // Look ahead 14 days instead of 30
+      endDate.setDate(endDate.getDate() + 14); // Look ahead 14 days
       
       const dateRange = `${formatDate(tomorrow)}-${formatDate(endDate)}`;
-      const upcomingResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/scoreboard?dates=${dateRange}`);
-      const upcomingData = await upcomingResponse.json();
+      
+      // Fetch from all competitions for upcoming games
+      const allUpcomingMatches = await fetchMatchesFromAllCompetitions(dateRange);
       
       // Find the next scheduled game for this team
-      const nextGame = upcomingData.events
-        ?.filter(event => {
-          const competition = event.competitions?.[0];
-          return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
-        })
+      const nextGame = allUpcomingMatches
         .filter(event => event.status.type.state === "pre")
         .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
       
@@ -353,7 +460,9 @@ async function createCurrentGameCard(game) {
   const isHomeTeam = homeTeam.team.id === currentTeamId;
   const opponent = isHomeTeam ? awayTeam : homeTeam;
   const teamScore = isHomeTeam ? homeTeam.score : awayTeam.score;
+  const teamSHTScore = isHomeTeam ? homeTeam.shootoutScore : awayTeam.shootoutScore;
   const opponentScore = isHomeTeam ? awayTeam.score : homeTeam.score;
+  const opponentSHTScore = isHomeTeam ? awayTeam.shootoutScore : homeTeam.shootoutScore;
 
   const gameDate = new Date(game.date);
   const formattedDate = gameDate.toLocaleDateString("en-US", {
@@ -367,26 +476,49 @@ async function createCurrentGameCard(game) {
     hour12: true
   });
 
+  const round = game.isDomesticCup
+    ? (game.leaguesData?.season?.type?.name || "")
+    : "";
+
   const status = game.status.type.state;
   let statusText = "";
   let scoreDisplay = "";
+
+  // Format scores with shootout if available (UEFA style)
+  const teamS = teamSHTScore ? `${teamScore || 0}<sup>(${teamSHTScore})</sup>` : `${teamScore || 0}`;
+  const opponentS = opponentSHTScore ? `${opponentScore || 0}<sup>(${opponentSHTScore})</sup>` : `${opponentScore || 0}`;
 
   if (status === "pre") {
     statusText = `${formattedDate} at ${formattedTime}`;
     scoreDisplay = isHomeTeam ? "vs" : "at";
   } else if (status === "post") {
     statusText = "Final";
-    scoreDisplay = `${teamScore || 0} - ${opponentScore || 0}`;
+    scoreDisplay = `${teamS} - ${opponentS}`;
   } else {
     statusText = game.status.type.shortDetail;
-    scoreDisplay = `${teamScore || 0} - ${opponentScore || 0}`;
+    scoreDisplay = `${teamS} - ${opponentS}`;
   }
 
   const teamLogo = getTeamLogo(currentTeam);
   const opponentLogo = getTeamLogo(opponent.team);
 
+  // Add competition header for domestic cups
+  const competitionHeader = game.isDomesticCup ? `
+    <div class="competition-header" style="
+      color: ${teamColor || '#000'};
+      font-size: 15px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 5px;
+      margin-top: -7.5px;
+    ">
+      ${game.competitionName || 'Cup Competition'}, ${round}
+    </div>
+  ` : '';
+
   return `
-    <div class="current-game-card" data-game-id="${game.id}">
+    <div class="current-game-card ${game.isDomesticCup ? 'cup-match' : ''}" data-game-id="${game.id}" style="${game.isDomesticCup ? 'border-radius: 0 0 8px 8px;' : ''}">
+      ${competitionHeader}
       <div class="game-status">${statusText}</div>
       <div class="game-teams">
         <div class="game-team">
@@ -419,14 +551,8 @@ async function loadRecentMatches() {
     
     const dateRange = `${formatDate(startDate)}-${formatDate(today)}`;
     
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/scoreboard?dates=${dateRange}`);
-    const data = await response.json();
-    
-    // Filter games for this team and completed games
-    const allGames = data.events?.filter(event => {
-      const competition = event.competitions?.[0];
-      return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
-    }) || [];
+    // Fetch from all competitions (main league + domestic cups)
+    const allGames = await fetchMatchesFromAllCompetitions(dateRange);
     
     allRecentMatches = allGames
       .filter(game => game.status.type.state === "post")
@@ -435,7 +561,7 @@ async function loadRecentMatches() {
     // Reset to first page and immediately display
     currentPage = 1;
     
-    console.log(`Date range: ${dateRange}, Found ${allRecentMatches.length} completed games`);
+    console.log(`Date range: ${dateRange}, Found ${allRecentMatches.length} completed games across all competitions`);
     
     displayRecentMatches();
   } catch (error) {
@@ -515,13 +641,19 @@ async function createMatchCard(game, isRecent = false) {
   const opponent = isHomeTeam ? awayTeam : homeTeam;
   const currentTeamData = isHomeTeam ? homeTeam : awayTeam;
   const teamScore = parseInt(isHomeTeam ? homeTeam.score : awayTeam.score) || 0;
+  const teamSHTScore = parseInt(isHomeTeam ? homeTeam.shootoutScore : awayTeam.shootoutScore) || 0;
   const opponentScore = parseInt(isHomeTeam ? awayTeam.score : homeTeam.score) || 0;
+  const opponentSHTScore = parseInt(isHomeTeam ? awayTeam.shootoutScore : homeTeam.shootoutScore) || 0;
 
   const gameDate = new Date(game.date);
   const formattedDate = gameDate.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric"
   });
+
+    const round = game.isDomesticCup
+    ? (game.leaguesData?.season?.type?.name || "")
+    : "";
 
   // Try to get team logo from the loaded team data, fallback to ESPN CDN with team logos format
   const teamLogo = currentTeam && currentTeam.logos ? getTeamLogo(currentTeam) : 
@@ -534,24 +666,47 @@ async function createMatchCard(game, isRecent = false) {
   let resultClass = "";
   let resultText = "";
 
+  // Format scores with shootout if available (UEFA style)
+  const teamS = teamSHTScore ? `${teamScore}<sup>(${teamSHTScore})</sup>` : `${teamScore}`;
+  const opponentS = opponentSHTScore ? `${opponentScore}<sup>(${opponentSHTScore})</sup>` : `${opponentScore}`;
+
   if (game.status.type.state === "post") {
-    if (teamScore > opponentScore) {
+    // Determine winner considering shootout scores
+    const teamFinalScore = teamSHTScore || teamScore;
+    const opponentFinalScore = opponentSHTScore || opponentScore;
+    
+    if (teamFinalScore > opponentFinalScore) {
       resultClass = "win";
-      resultText = `W ${teamScore}-${opponentScore}`;
-    } else if (teamScore < opponentScore) {
+      resultText = `W ${teamS}-${opponentS}`;
+    } else if (teamFinalScore < opponentFinalScore) {
       resultClass = "loss";
-      resultText = `L ${teamScore}-${opponentScore}`;
+      resultText = `L ${teamS}-${opponentS}`;
     } else {
       resultClass = "draw";
-      resultText = `D ${teamScore}-${opponentScore}`;
+      resultText = `D ${teamS}-${opponentS}`;
     }
   } else {
     resultClass = "scheduled";
     resultText = isHomeTeam ? "vs" : "at";
   }
 
+  // Add competition header for domestic cups
+  const competitionHeader = game.isDomesticCup ? `
+    <div class="competition-header" style="
+      color: ${teamColor || '#000'};
+      font-size: 15px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 5px;
+      margin-top: -7.5px;
+    ">
+      ${game.competitionName || 'Cup Competition'}, ${round}
+    </div>
+  ` : '';
+
   return `
-    <div class="match-item" data-game-id="${game.id}">
+    <div class="match-item ${game.isDomesticCup ? 'cup-match' : ''}" data-game-id="${game.id}" style="${game.isDomesticCup ? 'border-radius: 0 0 8px 8px;' : ''}">
+      ${competitionHeader}
       <div class="match-teams">
         <div class="match-team-info">
           <img src="${teamLogo}" alt="${currentTeamData.team.abbreviation}" class="match-team-logo" onerror="this.src='soccer-ball-png-24.png';">
@@ -581,18 +736,15 @@ async function loadUpcomingMatches() {
     };
     
     const dateRange = `${formatDate(today)}-${formatDate(endDate)}`;
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/scoreboard?dates=${dateRange}`);
-    const data = await response.json();
     
-    const upcomingGames = data.events
-      ?.filter(event => {
-        const competition = event.competitions?.[0];
-        return competition?.competitors.some(competitor => competitor.team.id === currentTeamId);
-      })
+    // Fetch from all competitions (main league + domestic cups)
+    const allMatches = await fetchMatchesFromAllCompetitions(dateRange);
+    
+    const upcomingGames = allMatches
       .filter(event => event.status.type.state === "pre")
       .sort((a, b) => new Date(a.date) - new Date(b.date))
-      .slice(0, 5); // Next 5 matches
-    
+      .slice(0, 3); // Next 3 matches
+
     const contentDiv = document.getElementById('upcomingMatchesContent');
     
     if (!upcomingGames || upcomingGames.length === 0) {
@@ -1010,7 +1162,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
           ${lastName ? `${firstName} ${lastName}` : firstName}
         </div>
         <div style="font-size: 1.1rem; opacity: 0.9;">
-          #${jerseyNumber} | ${position} | ${currentTeam?.abbreviation || currentTeam?.shortDisplayName || 'UNK'}
+          #${jerseyNumber} | ${position} | <span class="team-abbreviation">${currentTeam?.abbreviation || currentTeam?.shortDisplayName || 'UNK'}</span>
         </div>
       </div>
     `;
@@ -1153,7 +1305,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       cursor: pointer;
       font-size: 14px;
       font-weight: 500;
-      color: #666;
+      color: #777;
       position: relative;
       z-index: 2;
       width: 96px;
@@ -1170,7 +1322,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       console.log('Overall option clicked');
       sliderBackground.style.transform = 'translateX(0)';
       overallOption.style.color = 'white';
-      gameLogOption.style.color = '#666';
+      gameLogOption.style.color = '#777';
       currentStatsMode = 'overall';
       showOverallStats();
     });
@@ -1178,7 +1330,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
     gameLogOption.addEventListener('click', () => {
       console.log('Game log option clicked');
       sliderBackground.style.transform = 'translateX(96px)';
-      overallOption.style.color = '#666';
+      overallOption.style.color = '#777';
       gameLogOption.style.color = 'white';
       currentStatsMode = 'gamelog';
       showGameLogInterface();
@@ -1295,7 +1447,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
             " onmouseover="this.style.backgroundColor='#f0f0f0'" onmouseout="this.style.backgroundColor='white'">
               <div>
                 <div style="font-weight: bold; color: #333;">${player.displayName}</div>
-                <div style="font-size: 12px; color: #666;">${player.team} | #${player.jersey} | ${player.position}</div>
+                <div style="font-size: 12px; color: #777;">${player.team} | #${player.jersey} | ${player.position}</div>
               </div>
             </div>
           `).join('');
@@ -1354,7 +1506,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
           });
         } else {
           const positionText = selectedPlayerType === 'goalkeeper' ? 'goalkeepers' : 'field players';
-          searchResults.innerHTML = `<div style="padding: 10px; color: #666; text-align: center;">No ${positionText} found</div>`;
+          searchResults.innerHTML = `<div style="padding: 10px; color: #777; text-align: center;">No ${positionText} found</div>`;
           searchResults.style.display = 'block';
         }
       }, 300);
@@ -1455,7 +1607,7 @@ async function loadPlayerStatsForYear(playerId, position, contentDiv, year) {
       const cachedPlayer = allRosterPlayers.find(player => player.id === playerId);
       if (cachedPlayer && cachedPlayer.fullPlayerData) {
         console.log('Using cached player data for current year stats');
-        processPlayerStats(cachedPlayer.fullPlayerData, position, contentDiv, year);
+        await processPlayerStats(cachedPlayer.fullPlayerData, position, contentDiv, year, currentLeague);
         return;
       }
     }
@@ -1556,7 +1708,7 @@ async function loadPlayerStatsForYear(playerId, position, contentDiv, year) {
             <h4 style="margin: 0; color: #333; font-size: 1.4rem;">Player Statistics</h4>
             ${yearSelectorHtml}
           </div>
-          <div style="text-align: center; padding: 40px 20px; color: #666;">
+          <div style="text-align: center; padding: 40px 20px; color: #777;">
             <div style="font-size: 1.2rem; margin-bottom: 10px;">📊</div>
             <div style="font-size: 1.1rem; margin-bottom: 10px;">No statistics available</div>
             <div style="font-size: 0.9rem;">Statistics for the ${year} season are not available for this player.</div>
@@ -1595,7 +1747,7 @@ async function loadPlayerStatsForYear(playerId, position, contentDiv, year) {
           <h4 style="margin: 0; color: #333; font-size: 1.4rem;">Player Statistics</h4>
           ${yearSelectorHtml}
         </div>
-        <div style="text-align: center; padding: 20px; color: #666;">
+        <div style="text-align: center; padding: 20px; color: #777;">
           <p>Player not found</p>
         </div>
       `;
@@ -1615,8 +1767,8 @@ async function loadPlayerStatsForYear(playerId, position, contentDiv, year) {
     
     console.log(`Processing player stats for ${year}:`, selectedPlayer);
     
-    // Process player stats with the year
-    processPlayerStats(selectedPlayer, position, contentDiv, year);
+    // Process player stats with the year and league
+    await processPlayerStats(selectedPlayer, position, contentDiv, year, leagueForYear);
     
   } catch (error) {
     console.error("Error loading player stats:", error);
@@ -1638,7 +1790,7 @@ async function loadPlayerStatsForYear(playerId, position, contentDiv, year) {
         <h4 style="margin: 0; color: #333; font-size: 1.4rem;">Player Statistics</h4>
         ${yearSelectorHtml}
       </div>
-      <div style="text-align: center; padding: 20px; color: #666;">
+      <div style="text-align: center; padding: 20px; color: #777;">
         <p>Error loading player statistics</p>
       </div>
     `;
@@ -1655,10 +1807,277 @@ async function loadPlayerStatsForYear(playerId, position, contentDiv, year) {
   }
 }
 
-function processPlayerStats(selectedPlayer, position, contentDiv, year) {
+// Function to fetch competition statistics for a player
+async function fetchCompetitionStats(playerId, competitions, year) {
+  console.log(`[COMPETITION DEBUG] Starting fetch for player ${playerId}, year ${year}`);
+  console.log(`[COMPETITION DEBUG] Competitions to check:`, competitions);
+  const competitionStats = [];
+  
+  for (const competition of competitions) {
+    try {
+      // Use the same API structure as the main league stats (like ESPN core API)
+      const url = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition.code}/seasons/${year}/athletes/${playerId}?lang=en&region=us`;
+      console.log(`[COMPETITION DEBUG] Fetching ${competition.name} from: ${url}`);
+      
+      const response = await fetch(url);
+      console.log(`[COMPETITION DEBUG] ${competition.name} response status: ${response.status}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`[COMPETITION DEBUG] ${competition.name} data structure:`, data);
+        
+        // Check if we have statistics reference like the main league stats
+        let statsData = null;
+        if (data.statistics && data.statistics.$ref) {
+          console.log(`[COMPETITION DEBUG] ${competition.name} has statistics reference, fetching detailed stats...`);
+          const statsResponse = await fetch(data.statistics.$ref);
+          if (statsResponse.ok) {
+            statsData = await statsResponse.json();
+            console.log(`[COMPETITION DEBUG] ${competition.name} detailed stats:`, statsData);
+          }
+        } else if (data.statistics) {
+          console.log(`[COMPETITION DEBUG] ${competition.name} has inline statistics`);
+          statsData = data.statistics;
+        }
+        
+        // Extract basic stats from the competition data using the same pattern as main stats
+        if (statsData?.splits?.categories) {
+          const stats = statsData.splits.categories;
+          console.log(`[COMPETITION DEBUG] ${competition.name} has stats categories:`, stats.map(c => c.name));
+          
+          const generalStats = stats.find(c => c.name === 'general')?.stats || [];
+          const offensiveStats = stats.find(c => c.name === 'offensive')?.stats || [];
+          const defensiveStats = stats.find(c => c.name === 'defensive')?.stats || [];
+          const goalkeepingStats = stats.find(c => c.name === 'goalKeeping')?.stats || [];
+          
+          const appearances = generalStats.find(s => s.name === 'appearances')?.value || "0";
+          const minutesPlayed = generalStats.find(s => s.name === 'minutes')?.value || "0";
+          const goals = offensiveStats.find(s => s.name === 'totalGoals')?.value || "0";
+          const assists = offensiveStats.find(s => s.name === 'goalAssists')?.value || "0";
+          
+          // Goalkeeper-specific stats
+          const cleanSheets = goalkeepingStats.find(s => s.name === 'cleanSheet')?.value || 
+                             defensiveStats.find(s => s.name === 'cleanSheet')?.value || "0";
+          const goalsAgainst = goalkeepingStats.find(s => s.name === 'goalsConceded')?.value || 
+                              defensiveStats.find(s => s.name === 'goalsConceded')?.value || "0";
+          
+          console.log(`[COMPETITION DEBUG] ${competition.name} extracted stats:`, {
+            appearances, minutesPlayed, goals, assists, cleanSheets, goalsAgainst
+          });
+          
+          // Only add competition if player has at least one appearance
+          if (parseInt(appearances) > 0) {
+            console.log(`[COMPETITION DEBUG] Adding ${competition.name} to results`);
+            competitionStats.push({
+              competition: competition,
+              appearances: appearances,
+              minutesPlayed: minutesPlayed,
+              goals: goals,
+              assists: assists,
+              cleanSheets: cleanSheets,
+              goalsAgainst: goalsAgainst
+            });
+          } else {
+            console.log(`[COMPETITION DEBUG] ${competition.name} - no appearances, skipping`);
+          }
+        } else {
+          console.log(`[COMPETITION DEBUG] ${competition.name} - no stats categories found in structure:`, statsData);
+        }
+      } else {
+        console.log(`[COMPETITION DEBUG] ${competition.name} - API call failed with status ${response.status}`);
+      }
+    } catch (error) {
+      console.error(`[COMPETITION DEBUG] Error fetching stats for ${competition.name}:`, error);
+    }
+  }
+  
+  console.log(`[COMPETITION DEBUG] Final results:`, competitionStats);
+  return competitionStats;
+}
+
+async function processPlayerStats(selectedPlayer, position, contentDiv, year, playerLeagueForYear = null) {
   console.log('processPlayerStats called with selectedPlayer:', selectedPlayer);
+  console.log('Player league for year:', playerLeagueForYear);
   
   const displayYear = year || new Date().getFullYear();
+  
+  // Determine which league to use for competition stats
+  // Priority: 1) playerLeagueForYear (from API), 2) currentLeague (fallback)
+  const leagueForCompetitions = playerLeagueForYear || currentLeague;
+  console.log(`Using league for competitions: ${leagueForCompetitions}`);
+  
+  // Fetch player's team information for the selected year
+  let playerTeamForYear = null;
+  let playerTeamColor = teamColor; // Default to current team color
+  let playerTeamAbbr = currentTeam?.abbreviation || currentTeam?.shortDisplayName || 'UNK';
+  let playerJerseyForYear = selectedPlayer.jersey || selectedPlayer.number || 'N/A';
+  let playerPositionForYear = selectedPlayer.position?.abbreviation || selectedPlayer.position?.name || position;
+  
+  try {
+    // Try to get team information from the selectedPlayer data first
+    if (selectedPlayer?.team?.$ref) {
+      const teamRefMatch = selectedPlayer.team.$ref.match(/teams\/(\d+)/);
+      if (teamRefMatch) {
+        const playerTeamId = teamRefMatch[1];
+        console.log(`[TEAM INFO] Player's team ID for ${displayYear}: ${playerTeamId}`);
+        
+        // Fetch team information
+        const teamResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueForCompetitions}/teams/${playerTeamId}`);
+        if (teamResponse.ok) {
+          const teamData = await teamResponse.json();
+          playerTeamForYear = teamData.team;
+          console.log(`[TEAM INFO] Player's team data for ${displayYear}:`, playerTeamForYear);
+          
+          // Get team color and abbreviation
+          const isUsingAlternateColor = ["ffffff", "ffee00", "ffff00", "81f733", "000000", "f7f316", "eef209", "ece83a", "1c31ce", "ffd700"].includes(playerTeamForYear.color);
+          if (isUsingAlternateColor && playerTeamForYear.alternateColor) {
+            playerTeamColor = `#${playerTeamForYear.alternateColor}`;
+          } else if (playerTeamForYear.color) {
+            playerTeamColor = `#${playerTeamForYear.color}`;
+          }
+          
+          playerTeamAbbr = playerTeamForYear.abbreviation || playerTeamForYear.shortDisplayName || playerTeamForYear.displayName;
+          console.log(`[TEAM INFO] Using team color: ${playerTeamColor}, abbreviation: ${playerTeamAbbr}`);
+          
+          // Try to get player-specific jersey and position for this team
+          try {
+            const rosterResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueForCompetitions}/teams/${playerTeamId}/roster?season=${displayYear}`);
+            if (rosterResponse.ok) {
+              const rosterData = await rosterResponse.json();
+              const playerInRoster = rosterData.athletes?.find(athlete => {
+                const athleteData = athlete.athlete || athlete;
+                return athleteData.id === selectedPlayer.id;
+              });
+              
+              if (playerInRoster) {
+                const athleteData = playerInRoster.athlete || playerInRoster;
+                playerJerseyForYear = athleteData.jersey || athleteData.number || playerJerseyForYear;
+                playerPositionForYear = athleteData.position?.abbreviation || athleteData.position?.name || playerPositionForYear;
+                
+                console.log(`[TEAM INFO] Found player in roster - Jersey: ${playerJerseyForYear}, Position: ${playerPositionForYear}`);
+              }
+            }
+          } catch (rosterError) {
+            console.log(`[TEAM INFO] Could not fetch roster data:`, rosterError);
+          }
+        }
+      }
+    }
+    
+    // If we couldn't get team from selectedPlayer, try ESPN API directly
+    if (!playerTeamForYear && selectedPlayer?.id) {
+      try {
+        const playerResponse = await fetch(convertToHttps(`http://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueForCompetitions}/seasons/${displayYear}/athletes/${selectedPlayer.id}?lang=en&region=us`));
+        if (playerResponse.ok) {
+          const playerData = await playerResponse.json();
+          if (playerData.defaultTeam && playerData.defaultTeam.$ref) {
+            const teamRefMatch = playerData.defaultTeam.$ref.match(/teams\/(\d+)/);
+            if (teamRefMatch) {
+              const playerTeamId = teamRefMatch[1];
+              console.log(`[TEAM INFO] Found team ID from ESPN API: ${playerTeamId}`);
+              
+              const teamResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueForCompetitions}/teams/${playerTeamId}`);
+              if (teamResponse.ok) {
+                const teamData = await teamResponse.json();
+                playerTeamForYear = teamData.team;
+                
+                const isUsingAlternateColor = ["ffffff", "ffee00", "ffff00", "81f733", "000000", "f7f316", "eef209", "ece83a", "1c31ce", "ffd700"].includes(playerTeamForYear.color);
+                if (isUsingAlternateColor && playerTeamForYear.alternateColor) {
+                  playerTeamColor = `#${playerTeamForYear.alternateColor}`;
+                } else if (playerTeamForYear.color) {
+                  playerTeamColor = `#${playerTeamForYear.color}`;
+                }
+                
+                playerTeamAbbr = playerTeamForYear.abbreviation || playerTeamForYear.shortDisplayName || playerTeamForYear.displayName;
+                console.log(`[TEAM INFO] From ESPN API - team color: ${playerTeamColor}, abbreviation: ${playerTeamAbbr}`);
+                
+                // Try to get player-specific jersey and position for this team
+                try {
+                  const rosterResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueForCompetitions}/teams/${playerTeamId}/roster?season=${displayYear}`);
+                  if (rosterResponse.ok) {
+                    const rosterData = await rosterResponse.json();
+                    const playerInRoster = rosterData.athletes?.find(athlete => {
+                      const athleteData = athlete.athlete || athlete;
+                      return athleteData.id === selectedPlayer.id;
+                    });
+                    
+                    if (playerInRoster) {
+                      const athleteData = playerInRoster.athlete || playerInRoster;
+                      playerJerseyForYear = athleteData.jersey || athleteData.number || playerJerseyForYear;
+                      playerPositionForYear = athleteData.position?.abbreviation || athleteData.position?.name || playerPositionForYear;
+                      
+                      console.log(`[TEAM INFO] From ESPN API roster - Jersey: ${playerJerseyForYear}, Position: ${playerPositionForYear}`);
+                    }
+                  }
+                } catch (rosterError) {
+                  console.log(`[TEAM INFO] Could not fetch roster data from ESPN API:`, rosterError);
+                }
+              }
+            }
+          }
+        }
+      } catch (apiError) {
+        console.log(`[TEAM INFO] Could not fetch team info from ESPN API:`, apiError);
+      }
+    }
+  } catch (error) {
+    console.log(`[TEAM INFO] Error fetching team information:`, error);
+    // Fall back to current team info
+  }
+  
+  // Update the player header with the correct team information
+  const modal = document.querySelector('.modal-overlay');
+  if (modal) {
+    const playerHeader = modal.querySelector('.selected-player-header');
+    if (playerHeader) {
+      // Determine text color based on the team color
+      const actualColorHex = playerTeamColor.replace('#', '');
+      const nameColorChange = ["ffffff", "ffee00", "ffff00", "81f733", "ffef32", "f7f316", "eef209", "ece83a", "cccccc", "e3e4ed"].includes(actualColorHex) ? "black" : "white";
+      
+      playerHeader.style.background = `linear-gradient(135deg, ${playerTeamColor} 0%, #cccccc 100%)`;
+      playerHeader.style.color = nameColorChange;
+      
+      // Update the team abbreviation in the header
+      const teamAbbreviation = playerHeader.querySelector('.team-abbreviation');
+      if (teamAbbreviation) {
+        teamAbbreviation.textContent = playerTeamAbbr;
+      }
+      
+      // Update jersey number in the circle
+      const jerseyCircle = playerHeader.querySelector('div[style*="border-radius: 50%"]');
+      if (jerseyCircle) {
+        jerseyCircle.textContent = playerJerseyForYear;
+      }
+      
+      // Update the subtitle with jersey, position, and team
+      const subtitleDiv = playerHeader.querySelector('div[style*="font-size: 1.1rem"]');
+      if (subtitleDiv) {
+        subtitleDiv.innerHTML = `#${playerJerseyForYear} | ${playerPositionForYear} | <span class="team-abbreviation">${playerTeamAbbr}</span>`;
+      }
+      
+      // If elements don't exist, recreate the entire header
+      if (!teamAbbreviation || !jerseyCircle || !subtitleDiv) {
+        const firstName = selectedPlayer.firstName || 'Unknown';
+        const lastName = selectedPlayer.lastName || '';
+        
+        playerHeader.innerHTML = `
+          <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: bold;">
+            ${playerJerseyForYear}
+          </div>
+          <div>
+            <div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 5px;">
+              ${lastName ? `${firstName} ${lastName}` : firstName}
+            </div>
+            <div style="font-size: 1.1rem; opacity: 0.9;">
+              #${playerJerseyForYear} | ${playerPositionForYear} | <span class="team-abbreviation">${playerTeamAbbr}</span>
+            </div>
+          </div>
+        `;
+      }
+      
+      console.log(`[TEAM INFO] Updated player header - Team: ${playerTeamAbbr}, Jersey: ${playerJerseyForYear}, Position: ${playerPositionForYear}, Color: ${playerTeamColor}`);
+    }
+  }
   
   // Create year selector HTML for the header
   const currentYear = new Date().getFullYear();
@@ -1672,6 +2091,96 @@ function processPlayerStats(selectedPlayer, position, contentDiv, year) {
     </select>
   `;
   
+  // Fetch competition statistics based on player's league for that year
+  let competitionStatsHtml = '';
+  console.log(`[DEBUG] Player's league for ${displayYear}: ${leagueForCompetitions}`);
+  console.log(`[DEBUG] Available competitions for ${leagueForCompetitions}:`, LEAGUE_COMPETITIONS[leagueForCompetitions]);
+  console.log(`[DEBUG] Selected player ID:`, selectedPlayer?.id);
+  
+  try {
+    if (selectedPlayer?.id && leagueForCompetitions && LEAGUE_COMPETITIONS[leagueForCompetitions]) {
+      console.log(`[DEBUG] Fetching competition stats for league: ${leagueForCompetitions}`);
+      const competitions = LEAGUE_COMPETITIONS[leagueForCompetitions];
+      const competitionStats = await fetchCompetitionStats(selectedPlayer.id, competitions, displayYear);
+      
+      console.log(`[DEBUG] Competition stats fetched:`, competitionStats);
+      
+      if (competitionStats.length > 0) {
+        // Get the league name for display
+        const leagueName = Object.keys(LEAGUES).find(key => LEAGUES[key].code === leagueForCompetitions) || leagueForCompetitions;
+        
+        console.log(`[DEBUG] Generating HTML for ${competitionStats.length} competitions`);
+        
+        // Determine if the player is a goalkeeper
+        const isGoalkeeper = getPlayerType(playerPositionForYear) === 'goalkeeper';
+        console.log(`[DEBUG] Player is goalkeeper: ${isGoalkeeper}, Position: ${playerPositionForYear}`);
+        
+        competitionStatsHtml = `
+          <div style="margin-top: 20px; margin-bottom: 15px;">
+            <h4 style="color: #333; margin: 0 0 15px 0; font-size: 1.1rem; font-weight: bold; border-bottom: 1px solid #ddd; padding-bottom: 8px;">
+              ${leagueName} Domestic Cup Competitions
+            </h4>
+            ${competitionStats.map(stat => `
+              <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; flex: 1;">
+                  <img src="https://a.espncdn.com/i/leaguelogos/soccer/500/${stat.competition.logo}.png" 
+                       alt="${stat.competition.name}" 
+                       style="width: 40px; height: 40px; margin-right: 15px; border-radius: 4px;"
+                       onerror="this.style.display='none'">
+                  <div>
+                    <div style="font-size: 1rem; font-weight: 600; color: #333; margin-bottom: 2px;">
+                      ${stat.competition.name}
+                    </div>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 20px; align-items: center;">
+                  <div style="text-align: center;">
+                    <div style="font-size: 1.3rem; font-weight: bold; color: #333;">${stat.appearances}</div>
+                    <div style="font-size: 0.8rem; color: #777;">APP</div>
+                  </div>
+                  <div style="text-align: center;">
+                    <div style="font-size: 1.3rem; font-weight: bold; color: #333;">${stat.minutesPlayed}</div>
+                    <div style="font-size: 0.8rem; color: #777;">MIN</div>
+                  </div>
+                  ${isGoalkeeper ? `
+                    <div style="text-align: center;">
+                      <div style="font-size: 1.3rem; font-weight: bold; color: #333;">${stat.cleanSheets}</div>
+                      <div style="font-size: 0.8rem; color: #777;">CLS</div>
+                    </div>
+                    <div style="text-align: center;">
+                      <div style="font-size: 1.3rem; font-weight: bold; color: #333;">${stat.goalsAgainst}</div>
+                      <div style="font-size: 0.8rem; color: #777;">GA</div>
+                    </div>
+                  ` : `
+                    <div style="text-align: center;">
+                      <div style="font-size: 1.3rem; font-weight: bold; color: #333;">${stat.goals}</div>
+                      <div style="font-size: 0.8rem; color: #777;">GLS</div>
+                    </div>
+                    <div style="text-align: center;">
+                      <div style="font-size: 1.3rem; font-weight: bold; color: #333;">${stat.assists}</div>
+                      <div style="font-size: 0.8rem; color: #777;">AST</div>
+                    </div>
+                  `}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } else {
+        console.log(`[DEBUG] No competition stats found for player`);
+      }
+    } else {
+      console.log(`[DEBUG] Competition stats conditions not met:`, {
+        hasPlayerId: !!selectedPlayer?.id,
+        hasLeagueForCompetitions: !!leagueForCompetitions,
+        hasCompetitions: !!LEAGUE_COMPETITIONS[leagueForCompetitions]
+      });
+    }
+  } catch (error) {
+    console.error('[DEBUG] Error fetching competition statistics:', error);
+    // If there's an error, just continue without competition stats
+  }
+  
   // Define stats to show based on position, mapped to actual API field names from c1.txt
   let statsToShow = [];
   
@@ -1683,7 +2192,7 @@ function processPlayerStats(selectedPlayer, position, contentDiv, year) {
       { key: 'shotsFaced', label: 'Shots Faced', category: 'goalKeeping' },
       { key: 'goalsConceded', label: 'Goals Against', category: 'goalKeeping' },
       { key: 'ownGoals', label: 'Own Goals', category: 'general' },
-      { key: 'foulsCommitted', label: 'Fouls Committed', category: 'general' },
+      { key: 'foulsCommitted', label: 'Fouls', category: 'general' },
       { key: 'yellowCards', label: 'Yellow Cards', category: 'general' },
       { key: 'redCards', label: 'Red Cards', category: 'general' }
     ];
@@ -1695,7 +2204,7 @@ function processPlayerStats(selectedPlayer, position, contentDiv, year) {
       { key: 'goalAssists', label: 'Assists', category: 'offensive' },
       { key: 'totalShots', label: 'Shots', category: 'offensive' },
       { key: 'shotsOnTarget', label: 'Shots on Target', category: 'offensive' },
-      { key: 'foulsCommitted', label: 'Fouls Committed', category: 'general' },
+      { key: 'foulsCommitted', label: 'Fouls', category: 'general' },
       { key: 'offsides', label: 'Offsides', category: 'offensive' },
       { key: 'subIns', label: 'Subbed In', category: 'general' }
     ];
@@ -1705,14 +2214,15 @@ function processPlayerStats(selectedPlayer, position, contentDiv, year) {
   const statsHtml = statsToShow.map(statConfig => {
     // Use your exact pattern for extracting values directly
     const value = selectedPlayer?.statistics?.splits?.categories?.find(c => c.name === statConfig.category)?.stats?.find(s => s.name === statConfig.key)?.value || "0";
-    console.log(`Extracting ${statConfig.key} from ${statConfig.category}: ${value}`);
+    console.log(`[MAIN STATS] Extracting ${statConfig.key} from ${statConfig.category}: ${value}`);
+    console.log(`[MAIN STATS] Available categories:`, selectedPlayer?.statistics?.splits?.categories?.map(c => c.name));
     
     return `
       <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
         <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">
           ${value}
         </div>
-        <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">
+        <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">
           ${statConfig.label}
         </div>
       </div>
@@ -1730,7 +2240,10 @@ function processPlayerStats(selectedPlayer, position, contentDiv, year) {
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px;">
         ${statsHtml}
       </div>
-      <p style="text-align: center; color: #666; margin-top: 10px; font-style: italic; font-size: 0.9rem;">
+      
+      ${competitionStatsHtml}
+      
+      <p style="text-align: center; color: #777; margin-top: 10px; font-style: italic; font-size: 0.9rem;">
         Statistics from ${displayYear} season
       </p>
     </div>
@@ -2157,7 +2670,7 @@ async function loadGameLogForDate(date) {
     resultsContainer.innerHTML = `
       <div style="text-align: center; padding: 40px 20px;">
         <div style="font-size: 2rem; margin-bottom: 15px;">⚽</div>
-        <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px;">Loading game data...</div>
+        <div style="color: #777; font-size: 1.1rem; margin-bottom: 15px;">Loading game data...</div>
         <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid ${teamColor}; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
       </div>
     `;
@@ -2260,20 +2773,13 @@ async function loadGameLogForDate(date) {
     // Format date for API (YYYYMMDD)
     const formattedDate = date.replace(/-/g, '');
     
-    // Find games for the selected date using the determined league
-    const scheduleResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueForSeason}/scoreboard?dates=${formattedDate}`);
+    // Find games for the selected date using all competitions (main league + domestic cups)
+    const allGames = await fetchMatchesFromAllCompetitions(formattedDate, leagueForSeason, teamIdForSeason);
     
-    if (!scheduleResponse.ok) {
-      throw new Error(`Schedule API returned ${scheduleResponse.status} for league ${leagueForSeason}`);
-    }
-    
-    const scheduleData = await scheduleResponse.json();
-    const games = scheduleData.events || [];
-    
-    console.log(`Available games for date in league ${leagueForSeason}:`, games.length);
+    console.log(`Available games for date across all competitions:`, allGames.length);
     
     // Find game where our team participated using season-specific team ID
-    const teamGame = games.find(event => {
+    const teamGame = allGames.find(event => {
       const competition = event.competitions?.[0];
       return competition?.competitors?.some(competitor => 
         competitor.team.id === teamIdForSeason
@@ -2302,7 +2808,7 @@ async function loadGameLogForDate(date) {
       resultsContainer.innerHTML = `
         <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
           <div style="font-size: 2rem; margin-bottom: 15px;">📅</div>
-          <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+          <div style="color: #777; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
             No game found for this date
           </div>
           <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
@@ -2368,7 +2874,7 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
       resultsContainer.innerHTML = `
         <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
           <div style="font-size: 2rem; margin-bottom: 15px;">📊</div>
-          <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+          <div style="color: #777; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
             No lineup data for this game
           </div>
           <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
@@ -2409,7 +2915,7 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
       resultsContainer.innerHTML = `
         <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
           <div style="font-size: 2rem; margin-bottom: 15px;">⚽</div>
-          <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+          <div style="color: #777; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
             Player not found in match squad
           </div>
           <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
@@ -2430,6 +2936,11 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
     
     const teamScore = teamCompetitor.score || "0";
     const opponentScore = opponentCompetitor.score || "0";
+    const teamSHTScore = teamCompetitor.shootoutScore;
+    const opponentSHTScore = opponentCompetitor.shootoutScore;
+
+    const teamS = teamSHTScore ? `${teamScore} <sup style="font-size: 0.6em; margin-left: 2px;">(${teamSHTScore})</sup>` : teamScore;
+    const opponentS = opponentSHTScore ? `${opponentScore} <sup style="font-size: 0.6em; margin-left: 2px;">(${opponentSHTScore})</sup>` : opponentScore;
     const isHomeTeam = teamCompetitor.homeAway === 'home';
     
     // Get season-specific team information and colors
@@ -2475,9 +2986,12 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
     if (game.status.type.state === 'post') {
       const teamScoreInt = parseInt(teamScore);
       const opponentScoreInt = parseInt(opponentScore);
-      if (teamScoreInt > opponentScoreInt) {
+      const teamSHTScoreInt = parseInt(teamSHTScore) || 0;
+      const opponentSHTScoreInt = parseInt(opponentSHTScore) || 0;
+
+      if (teamScoreInt > opponentScoreInt || (teamScoreInt === opponentScoreInt && teamSHTScoreInt > opponentSHTScoreInt)) {
         gameResult = 'W';
-      } else if (teamScoreInt < opponentScoreInt) {
+      } else if (teamScoreInt < opponentScoreInt || (teamScoreInt === opponentScoreInt && teamSHTScoreInt < opponentSHTScoreInt)) {
         gameResult = 'L';
       } else {
         gameResult = 'D';
@@ -2501,6 +3015,7 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
     // Create position-specific stats display
     let statsDisplay = '';
     const position = playerData.position?.abbreviation || selectedPlayer.position;
+    const seasonJersey = playerData.athlete?.jersey || playerData.jersey || selectedPlayer.jersey;
     
     if (position === 'G') {
       // Goalkeeper stats
@@ -2583,11 +3098,11 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
         <!-- Player Header -->
         <div style="display: flex; align-items: center; margin-bottom: 20px; gap: 15px;">
           <div style="width: 60px; height: 60px; background: linear-gradient(135deg, ${seasonTeamColor} 0%, #cccccc 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: bold; color: white;">
-            ${selectedPlayer.jersey}
+            ${seasonJersey}
           </div>
           <div>
             <div style="font-size: 1.3rem; font-weight: bold; margin-bottom: 2px;">${selectedPlayer.fullName}</div>
-            <div style="color: #ccc; font-size: 0.9rem;">#${selectedPlayer.jersey} | ${position} | ${seasonTeamAbbr}</div>
+            <div style="color: #ccc; font-size: 0.9rem;">#${seasonJersey} | ${position} | ${seasonTeamAbbr}</div>
           </div>
         </div>
 
@@ -2595,9 +3110,9 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.15)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.1)'" onclick="window.open('scoreboard.html?gameId=${game.id}', '_blank')">
           <div style="display: flex; align-items: center; gap: 15px;">
             <img src="${teamLogo}" alt="${seasonTeamName}" style="height: 30px;" onerror="this.src='soccer-ball-png-24.png';">
-            <span style="font-size: 1.1rem; font-weight: bold; color: ${gameResult === 'W' ? '#fff' : '#ccc'};">${teamScore}</span>
+            <span style="font-size: 1.1rem; font-weight: bold; color: ${gameResult === 'W' ? '#fff' : '#ccc'};">${teamS}</span>
             <span style="color: #ccc;">-</span>
-            <span style="font-size: 1.1rem; font-weight: bold; color: ${gameResult === 'L' ? '#fff' : '#ccc'};">${opponentScore}</span>
+            <span style="font-size: 1.1rem; font-weight: bold; color: ${gameResult === 'L' ? '#fff' : '#ccc'};">${opponentS}</span>
             <img src="${opponentLogo}" alt="${opponentCompetitor.team.displayName}" style="height: 30px;" onerror="this.src='soccer-ball-png-24.png';">
             ${gameResult ? `<span style="font-weight: bold; color: ${gameResult === 'W' ? '#4CAF50' : gameResult === 'L' ? '#f44336' : '#FFA500'}; font-size: 1.1rem;">${gameResult}</span>` : ''}
           </div>
@@ -2759,7 +3274,7 @@ async function showPlayerComparison(player1, player2) {
         <div class="player-name-display" style="font-size: 1.2rem; font-weight: bold; color: #333;">
           ${player1.firstName} ${player1.lastName}
         </div>
-        <div style="font-size: 0.9rem; color: #666; margin-top: 5px;">
+        <div style="font-size: 0.9rem; color: #777; margin-top: 5px;">
           #${player1.jersey || 'N/A'} | ${player1.position} | ${player1.teamAbbr || 'Unknown'}
         </div>
       </div>
@@ -2810,7 +3325,7 @@ async function showPlayerComparison(player1, player2) {
         <div class="player-name-display" style="font-size: 1.2rem; font-weight: bold; color: #333;">
           ${player2.firstName} ${player2.lastName}
         </div>
-        <div style="font-size: 0.9rem; color: #666; margin-top: 5px;">
+        <div style="font-size: 0.9rem; color: #777; margin-top: 5px;">
           #${player2.jersey || 'N/A'} | ${player2.position} | ${player2.teamAbbr || 'Unknown'}
         </div>
       </div>
@@ -3002,7 +3517,7 @@ function createStatsComparisonDisplay(player1, player2, player1Stats, player2Sta
       { key: 'shotsFaced', label: 'Shots Faced', category: 'goalKeeping' },
       { key: 'goalsConceded', label: 'Goals Against', category: 'goalKeeping' },
       { key: 'ownGoals', label: 'Own Goals', category: 'general' },
-      { key: 'foulsCommitted', label: 'Fouls Committed', category: 'general' },
+      { key: 'foulsCommitted', label: 'Fouls', category: 'general' },
       { key: 'yellowCards', label: 'Yellow Cards', category: 'general' },
       { key: 'redCards', label: 'Red Cards', category: 'general' }
     ];
@@ -3014,7 +3529,7 @@ function createStatsComparisonDisplay(player1, player2, player1Stats, player2Sta
       { key: 'goalAssists', label: 'Assists', category: 'offensive' },
       { key: 'totalShots', label: 'Shots', category: 'offensive' },
       { key: 'shotsOnTarget', label: 'Shots on Target', category: 'offensive' },
-      { key: 'foulsCommitted', label: 'Fouls Committed', category: 'general' },
+      { key: 'foulsCommitted', label: 'Fouls', category: 'general' },
       { key: 'offsides', label: 'Offsides', category: 'offensive' },
       { key: 'subIns', label: 'Subbed In', category: 'general' }
     ];
@@ -3110,7 +3625,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
     // Clear the stats comparison container when a player is removed
     const statsComparisonContainer = modalContent.querySelector('#stats-comparison-container');
     if (statsComparisonContainer) {
-      statsComparisonContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Select players to compare their statistics</div>';
+      statsComparisonContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">Select players to compare their statistics</div>';
     }
 
     // Create replacement interface
@@ -3207,7 +3722,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
     // Clear the comparison stats as well
     const statsContainer = modalContent.querySelector('#comparison-stats-container');
     if (statsContainer) {
-      statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Select a player to start comparison</div>';
+      statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">Select a player to start comparison</div>';
     }
 
     // Add button hover effects
@@ -3297,7 +3812,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
             " onmouseover="this.style.backgroundColor='#f0f0f0'" onmouseout="this.style.backgroundColor='white'">
               <div>
                 <div style="font-weight: bold; color: #333;">${player.displayName}</div>
-                <div style="font-size: 12px; color: #666;">${player.team} | #${player.jersey} | ${player.position}</div>
+                <div style="font-size: 12px; color: #777;">${player.team} | #${player.jersey} | ${player.position}</div>
               </div>
             </div>
           `).join('');
@@ -3344,7 +3859,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
         } else {
           const positionText = needsGoalkeeper ? 'goalkeepers' : 'field players';
           const leagueName = getLeagueName(remainingPlayer.league);
-          searchResults.innerHTML = `<div style="padding: 10px; color: #666; text-align: center;">No ${positionText} found in ${leagueName}</div>`;
+          searchResults.innerHTML = `<div style="padding: 10px; color: #777; text-align: center;">No ${positionText} found in ${leagueName}</div>`;
           searchResults.style.display = 'block';
         }
       }, 300);

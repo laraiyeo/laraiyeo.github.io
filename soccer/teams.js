@@ -8,6 +8,108 @@ const LEAGUES = {
   "Saudi PL": { code: "ksa.1", logo: "2488" }
 };
 
+// Competition configurations for domestic cups and other tournaments
+const LEAGUE_COMPETITIONS = {
+  "eng.1": [
+    { code: "eng.fa", name: "FA Cup", logo: "40" },
+    { code: "eng.league_cup", name: "EFL Cup", logo: "41" }
+  ],
+  "esp.1": [
+    { code: "esp.copa_del_rey", name: "Copa del Rey", logo: "80" },
+    { code: "esp.super_cup", name: "Spanish Supercopa", logo: "431" }
+  ],
+  "ger.1": [
+    { code: "ger.dfb_pokal", name: "DFB Pokal", logo: "2061" },
+    { code: "ger.super_cup", name: "German Super Cup", logo: "2315" }
+  ],
+  "ita.1": [
+    { code: "ita.coppa_italia", name: "Coppa Italia", logo: "2192" },
+    { code: "ita.super_cup", name: "Italian Supercoppa", logo: "2316" }
+  ],
+  "fra.1": [
+    { code: "fra.coupe_de_france", name: "Coupe de France", logo: "182" },
+    { code: "fra.league_cup", name: "Trophee des Champions", logo: "2345" }
+  ],
+  "usa.1": [
+    { code: "usa.open", name: "US Open Cup", logo: "69" }
+  ],
+  "ksa.1": [
+    { code: "ksa.kings.cup", name: "Saudi King's Cup", logo: "2490" }
+  ]
+};
+
+// Helper function to get competition name from league code
+function getCompetitionName(leagueCode) {
+  // Check if it's the main league
+  const mainLeague = Object.values(LEAGUES).find(league => league.code === leagueCode);
+  if (mainLeague) {
+    return Object.keys(LEAGUES).find(key => LEAGUES[key].code === leagueCode);
+  }
+  
+  // Check domestic competitions
+  for (const [mainLeagueCode, competitions] of Object.entries(LEAGUE_COMPETITIONS)) {
+    const competition = competitions.find(comp => comp.code === leagueCode);
+    if (competition) {
+      return competition.name;
+    }
+  }
+  
+  return "Unknown Competition";
+}
+
+// Helper function to determine if a match is from a domestic cup (not main league)
+function isDomesticCup(leagueCode) {
+  // Check if this is NOT the main league
+  const isMainLeague = Object.values(LEAGUES).some(league => league.code === leagueCode);
+  return !isMainLeague;
+}
+
+// Helper function to fetch games from all competitions (main league + domestic cups)
+async function fetchGamesFromAllCompetitions(tuesdayRange) {
+  const allGames = [];
+  
+  // Get competitions for current league
+  const competitions = LEAGUE_COMPETITIONS[currentLeague] || [];
+  const allCompetitionsToCheck = [
+    { code: currentLeague, name: "League" }, // Main league
+    ...competitions // Domestic cups
+  ];
+  
+  console.log(`Fetching games from ${allCompetitionsToCheck.length} competitions:`, allCompetitionsToCheck.map(c => c.code));
+  
+  // Fetch from each competition
+  for (const competition of allCompetitionsToCheck) {
+    try {
+      console.log(`Fetching games from ${competition.code}...`);
+      const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition.code}/scoreboard?dates=${tuesdayRange}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        const competitionGames = data.events || [];
+        
+        // Add competition information to each game
+        competitionGames.forEach(game => {
+          game.competitionCode = competition.code;
+          game.competitionName = getCompetitionName(competition.code);
+          game.isDomesticCup = isDomesticCup(competition.code);
+          // Add leagues data for round information
+          game.leaguesData = data.leagues[0];
+        });
+        
+        console.log(`Found ${competitionGames.length} games in ${competition.code}`);
+        allGames.push(...competitionGames);
+      } else {
+        console.log(`Failed to fetch from ${competition.code}: ${response.status}`);
+      }
+    } catch (error) {
+      console.log(`Error fetching from ${competition.code}:`, error.message);
+    }
+  }
+  
+  console.log(`Total games found across all competitions: ${allGames.length}`);
+  return allGames;
+}
+
 let currentLeague = localStorage.getItem("currentLeague") || "eng.1"; // Default to Premier League if not set
 
 function getTuesdayRange() {
@@ -50,18 +152,18 @@ async function fetchAndDisplayTeams() {
     const teamsData = await teamsResponse.json();
     const teams = teamsData.sports[0].leagues[0].teams.map(teamData => teamData.team);
 
-    const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
-    const scoreboardText = await scoreboardResponse.text();
-    const newHash = hashString(scoreboardText);
+    // Fetch games from all competitions (main league + domestic cups)
+    const games = await fetchGamesFromAllCompetitions(tuesdayRange);
+    
+    // Calculate hash for change detection
+    const gamesText = JSON.stringify(games);
+    const newHash = hashString(gamesText);
 
     if (newHash === lastScheduleHash) {
       console.log("No changes detected in the schedule.");
       return;
     }
     lastScheduleHash = newHash;
-
-    const scoreboardData = JSON.parse(scoreboardText);
-    const games = scoreboardData.events || [];
 
     const container = document.getElementById("teamsContainer");
     if (!container) {
@@ -139,7 +241,7 @@ async function fetchAndDisplayTeams() {
 
 function buildNoGameCard(team) {
   const logoUrl = ["367", "2950", "92"].includes(team.id)
-  ? team.logos?.find(logo => logo.rel.includes("default"))?.href || ""
+  ? team.logos?.find(logo => logo.rel.includes("dark"))?.href || `https://a.espncdn.com/i/teamlogos/soccer/500/${team.id}.png`
   : team.logos?.find(logo => logo.rel.includes("dark"))?.href || "soccer-ball-png-24.png";
 
 return `
@@ -150,13 +252,18 @@ return `
 `;
 }
 
-function buildGameCard(game, team) {
+function buildGameCard(game, team, data) {
   const homeTeam = game.competitions[0].competitors.find(c => c.homeAway === "home");
   const awayTeam = game.competitions[0].competitors.find(c => c.homeAway === "away");
 
-  const leagueName = Object.keys(LEAGUES).find(
+  const leagueName = game.isDomesticCup ? game.competitionName : Object.keys(LEAGUES).find(
     leagueName => LEAGUES[leagueName].code === currentLeague
   );
+
+  // Get round information from the game object - for domestic cups, use round data if available
+  const round = game.isDomesticCup 
+    ? (game.leaguesData?.season?.type?.name || "")
+    : "";
 
   const formatShortDisplayName = (name) => {
     if (name === "Bournemouth") return "B'Mouth";
@@ -176,8 +283,11 @@ function buildGameCard(game, team) {
     return team.logo;
   };
 
-  const awayIsWinner = awayTeam.score > homeTeam.score;
-  const homeIsWinner = homeTeam.score > awayTeam.score;
+  const homeShootoutScore = homeTeam.shootoutScore;
+  const awayShootoutScore = awayTeam.shootoutScore;
+
+  const awayIsWinner = (awayShootoutScore || awayTeam.score) > (homeShootoutScore || homeTeam.score);
+  const homeIsWinner = (homeShootoutScore || homeTeam.score) > (awayShootoutScore || awayTeam.score);
 
   function getOrdinalSuffix(num) {
     if (num % 100 >= 11 && num % 100 <= 13) return `${num}th`;
@@ -189,7 +299,8 @@ function buildGameCard(game, team) {
     }
   }
 
-  const record = game.competitions[0].competitors.map(c => c.homeAway === "home" ? c.records[0].summary : c.records[0].summary)[0];
+
+  const record = game?.competitions?.[0]?.competitors?.find(c => c.homeAway === "home")?.records?.[0]?.summary || "No record available";
   const numbers = record.split("-").map(Number);
   const total = numbers.reduce((sum, num) => sum + num, 0);
 
@@ -225,12 +336,11 @@ function buildGameCard(game, team) {
 
   if (game.status.type.state === "pre") {
     // Scheduled game card
-
     const newTotal = total + 1;
     
     return `
       <div class="game-card">
-        ${isMLS ? '' : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${newTotal}</div>`}
+        ${isMLS || game.isDomesticCup ? `<div style="font-size: 0.8rem; color: grey; text-align: center;">${game.competitionName}, ${round}</div>` : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${newTotal}</div>`}
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
             <img src="${getTeamLogo(homeTeam.team)}" alt="${homeTeam.team.displayName}" style="width: 60px; height: 60px; margin-bottom: 6px;">
@@ -251,12 +361,12 @@ function buildGameCard(game, team) {
     // Finished game card
     return `
       <div class="game-card">
-        ${isMLS ? '' : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${total}</div>`}
+        ${isMLS || game.isDomesticCup ? `<div style="font-size: 0.8rem; color: grey; text-align: center;">${game.competitionName}, ${round}</div>` : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${total}</div>`}
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
               <img src="${getTeamLogo(homeTeam.team)}" alt="${homeTeam.team.displayName}" style="width: 60px; height: 60px;">
-              <span style="font-size: 2.3rem; ${homeIsWinner ? "font-weight: bold;" : ""}">${homeTeam.score}</span>
+              <span style="font-size: 2.3rem; ${awayShootoutScore > 0 ? "margin-left: -10px;": "" } ${homeIsWinner ? "font-weight: bold;" : ""}">${homeTeam.score}${homeShootoutScore > 0 ? `<sup style="font-size: 0.5em;">(${homeShootoutScore})</sup>` : ""}</span>
             </div>
             <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${formatShortDisplayName(homeTeam.team.shortDisplayName)}</div>
           </div>
@@ -266,7 +376,7 @@ function buildGameCard(game, team) {
           </div>
           <div style="text-align: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 2.3rem; ${awayIsWinner ? "font-weight: bold;" : ""}">${awayTeam.score}</span>
+              <span style="font-size: 2.3rem; ${awayIsWinner ? "font-weight: bold;" : ""}">${awayTeam.score}${awayShootoutScore > 0 ? `<sup style="font-size: 0.5em; margin-right:-10px;">(${awayShootoutScore})</sup>` : ""}</span>
               <img src="${getTeamLogo(awayTeam.team)}" alt="${awayTeam.team.displayName}" style="width: 60px; height: 60px;">
             </div>
             <div style="margin-top: 6px; ${awayIsWinner ? "font-weight: bold;" : ""}">${formatShortDisplayName(awayTeam.team.shortDisplayName)}</div>
@@ -277,15 +387,14 @@ function buildGameCard(game, team) {
   } else {
     // Live game card
     const newTotal = total + 1;
-
     return `
         <div class="game-card">
-          ${isMLS ? '' : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${newTotal}</div>`}
+          ${isMLS || game.isDomesticCup ? `<div style="font-size: 0.8rem; color: grey; text-align: center;">${game.competitionName}, ${round}</div>` : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${newTotal}</div>`}
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <div style="text-align: center;">
               <div style="display: flex; align-items: center; gap: 8px;">
                 <img src="${getTeamLogo(homeTeam.team)}" alt="${homeTeam.team.displayName}" style="width: 60px; height: 60px;">
-                <span style="font-size: 2.3rem; ${homeIsWinner ? "font-weight: bold;" : ""}">${homeTeam.score}</span>
+                <span style="font-size: 2.3rem; ${awayShootoutScore > 0 ? "margin-left: -10px;": "" } ${homeIsWinner ? "font-weight: bold;" : ""}">${homeTeam.score}${homeShootoutScore > 0 ? `<sup style="font-size: 0.5em;">(${homeShootoutScore})</sup>` : ""}</span>
               </div>
               <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${formatShortDisplayName(homeTeam.team.shortDisplayName)}</div>
             </div>
@@ -295,7 +404,7 @@ function buildGameCard(game, team) {
             </div>
             <div style="text-align: center;">
               <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 2.3rem; ${awayIsWinner ? "font-weight: bold;" : ""}">${awayTeam.score}</span>
+                <span style="font-size: 2.3rem; ${awayIsWinner ? "font-weight: bold;" : ""}">${awayTeam.score}${awayShootoutScore > 0 ? `<sup style="font-size: 0.5em; margin-right:-10px;">(${awayShootoutScore})</sup>` : ""}</span>
                 <img src="${getTeamLogo(awayTeam.team)}" alt="${awayTeam.team.displayName}" style="width: 60px; height: 60px;">
               </div>
               <div style="margin-top: 6px; ${awayIsWinner ? "font-weight: bold;" : ""}">${formatShortDisplayName(awayTeam.team.shortDisplayName)}</div>
@@ -305,6 +414,7 @@ function buildGameCard(game, team) {
       `;
   }
 }
+
 
 function setupMobileScrolling(container) {
   // Remove any existing mobile styles first

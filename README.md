@@ -135,6 +135,13 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
   - There's no need to be re-clicking the league button when going to a new page through the navbar as it saves the league you're on to your local storage
   - In the navbar of the soccer page, you will see UEFA and CWC. Clicking on it will take you to the UEFA or CWC Live Tracker page
   - Just like the other sports, you can click on a live game to see the scoreboard of that game. Hover over a players circle or name and you will see their current game stats.
+  - **Enhanced Domestic Competition Coverage**: 
+    - **Multi-Competition Game Tracking**: Live games, team cards, and player statistics include matches from domestic cup competitions alongside main league games
+    - **Comprehensive Competition Support**: Covers major domestic tournaments including FA Cup, Copa del Rey, DFB Pokal, Coppa Italia, Coupe de France, US Open Cup, Saudi King's Cup and more
+    - **Intelligent Competition Detection**: Automatically fetches and displays games from all relevant competitions for each league (e.g., Premier League teams also show FA Cup and EFL Cup matches)
+    - **Visual Competition Indicators**: Domestic cup matches display with distinct competition headers and team-colored styling to differentiate from league games
+    - **Historical Match Coverage**: Player game logs and team statistics include comprehensive coverage of domestic competition matches across all seasons
+    - **Cross-Season Player Tracking**: Game logs properly handle players who changed teams, showing accurate jersey numbers, positions, and team affiliations for each specific season/competition
 
 - **UEFA Specific**
   - Just like soccer, UEFA has league buttons at the top
@@ -218,6 +225,22 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
   - Advanced NFL metrics including passer rating, yards per attempt, completion percentage, and other football-specific analytics
   - Real-time play-by-play descriptions with team-colored backgrounds for enhanced visual context
 
+- **NCAAF (College Football) Specific**
+  - **Comprehensive College Football Coverage**: Full NCAA Division I FBS tracking with all major conferences and teams
+  - **Live Game Tracking**: Real-time college football games with quarter-by-quarter progression, time remaining, and down/distance information
+  - **Advanced Play-by-Play System**: Interactive expandable plays with detailed player information and college-specific statistics
+  - **Team Dashboard Integration**: Complete college team pages with roster management, player statistics, and conference standings
+  - **College-Specific Features**:
+    - **Conference-Based Standings**: Proper college football conference structure with division alignment where applicable
+    - **Student-Athlete Statistics**: Position-specific stats tailored for college football including academic year indicators
+    - **Recruiting Class Integration**: Support for roster changes due to transfers and recruiting cycles
+    - **Bowl Game Tracking**: Enhanced coverage during bowl season and College Football Playoff games
+  - **Live Streaming Support**: Embedded streams for nationally televised college football games during active contests
+  - **Mobile-Optimized Interface**: Responsive design optimized for college football's unique scheduling patterns and game formats
+  - **OBS Integration Ready**: College team cards compatible with streaming software for game day broadcasts
+  - **Historical Game Data**: Complete season tracking with game logs, player performance history, and team statistics
+  - **Player Comparison System**: College-specific player comparisons with position-aware filtering and academic context
+
 ---
 
 ## 🖥️ How to Use in OBS
@@ -255,6 +278,8 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - **(08/19/2025) Added fully functional Fantasy League to soccer accross all leagues (Except UEFA and CWC)**
 - **(08/19/2025) Game Card Customization System** - Added comprehensive styling controls for all sports with background color picker, opacity slider (0-100%), text color picker, and reset functionality. Features URL parameter locking for OBS streaming where customized styles are locked via URL parameters to prevent changes during live streams.
 - **(08/19/2025) All-in-One (AIO) Dashboard Implementation** - Revolutionary unified game view across all sports showing Live, Scheduled, and Finished games on a single page with smart date filtering, responsive design, and direct scoreboard navigation. Features consistent styling and real-time updates every 2 seconds. 
+- **(08/23/2025) Added fully functional NCAAF (College Football) tracker** - Complete NCAA Division I FBS coverage with live game tracking, advanced play-by-play system, team dashboards, conference-based standings, and OBS integration. Includes college-specific features like student-athlete statistics, recruiting class support, and bowl game tracking. 
+- **(08/25/2025) Soccer Domestic Competition Integration** - Enhanced soccer coverage with comprehensive domestic cup competition support including FA Cup, Copa del Rey, DFB Pokal, Coppa Italia, Coupe de France, and more. Features multi-competition game tracking, visual competition indicators, and cross-season player tracking with accurate historical data for players who changed teams.
 
 ---
 
