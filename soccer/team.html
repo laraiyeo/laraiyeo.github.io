@@ -81,17 +81,20 @@
 
     async function fetchAndRenderTeamGame(teamId) {
       const tuesdayRange = getTuesdayRange();
-      const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/scoreboard?dates=${tuesdayRange}`;
 
       try {
-        const res = await fetch(SCOREBOARD_API_URL);
-        const data = await res.json();
-        const games = data.events || [];
+        // Use the same comprehensive game fetching as teams.js
+        const games = await fetchGamesFromAllCompetitions(tuesdayRange);
 
         const container = document.getElementById("gameBlockContainer");
-        const game = games.find(g =>
-          g.competitions[0].competitors.some(c => c.team.id === teamId)
+        
+        // Find all games for this team
+        const teamGames = games.filter(game =>
+          game.competitions[0].competitors.some(competitor => competitor.team.id === teamId)
         );
+
+        // Use the same game selection logic as teams.js
+        const game = selectBestGameForTeam(teamGames);
 
         if (!game) {
           const TEAMS_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams`;
@@ -130,7 +133,10 @@
         }
 
         if (typeof buildGameCard === "function") {
-          const cardHtml = await buildGameCard(game, game.competitions[0].competitors[0]?.team || {});
+          // Find the team object for the specific teamId we're displaying
+          const team = game.competitions[0].competitors.find(c => c.team.id === teamId)?.team || 
+                       game.competitions[0].competitors[0]?.team || {};
+          const cardHtml = await buildGameCard(game, team);
           const newHtml = cardHtml;
           if (newHtml !== currentHtml) {
             container.innerHTML = "";
