@@ -102,8 +102,20 @@ async function loadLiveGames() {
       let gameDiv = liveGameElements.get(gameId);
       if (!gameDiv) {
         // Add qualification indicator if it's a qualification game
+        let backgroundColor;
+
+        if (currentUefaLeague === 'uefa.champions') {
+          backgroundColor = '#3562A6';
+        } else if (currentUefaLeague === 'uefa.europa') {
+          backgroundColor = '#E58004';
+        } else if (currentUefaLeague === 'uefa.europa.conf') {
+          backgroundColor = '#72a53b ';
+        } else {
+          backgroundColor = '#000000'; // Default color for unknown competitions
+        }
+
         const competitionLabel = game.isQualification ? 
-          `<div style="background: #ff6b35; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; margin-bottom: 5px; text-align: center;">QUALIFICATION</div>` : 
+          `<div style="background: ${backgroundColor}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; margin-bottom: 5px; text-align: center;">QUALIFICATION</div>` : 
           '';
 
         gameDiv = document.createElement("div");
