@@ -65,19 +65,20 @@ function isDomesticCup(leagueCode) {
 }
 
 // Helper function to fetch games from all competitions (main league + domestic cups)
+// Prioritize league competitions first, then main league games
 async function fetchGamesFromAllCompetitions(tuesdayRange) {
   const allGames = [];
   
   // Get competitions for current league
   const competitions = LEAGUE_COMPETITIONS[currentLeague] || [];
   const allCompetitionsToCheck = [
-    { code: currentLeague, name: "League" }, // Main league
-    ...competitions // Domestic cups
+    ...competitions, // Domestic cups FIRST (prioritized)
+    { code: currentLeague, name: "League" } // Main league LAST
   ];
   
-  console.log(`Fetching games from ${allCompetitionsToCheck.length} competitions:`, allCompetitionsToCheck.map(c => c.code));
+  console.log(`Fetching games from ${allCompetitionsToCheck.length} competitions (priority order):`, allCompetitionsToCheck.map(c => c.code));
   
-  // Fetch from each competition
+  // Fetch from each competition in priority order
   for (const competition of allCompetitionsToCheck) {
     try {
       console.log(`Fetching games from ${competition.code}...`);
@@ -92,6 +93,7 @@ async function fetchGamesFromAllCompetitions(tuesdayRange) {
           game.competitionCode = competition.code;
           game.competitionName = getCompetitionName(competition.code);
           game.isDomesticCup = isDomesticCup(competition.code);
+          game.priority = isDomesticCup(competition.code) ? 1 : 2; // Competition = 1, League = 2
           // Add leagues data for round information
           game.leaguesData = data.leagues[0];
         });
@@ -108,6 +110,81 @@ async function fetchGamesFromAllCompetitions(tuesdayRange) {
   
   console.log(`Total games found across all competitions: ${allGames.length}`);
   return allGames;
+}
+
+// Helper function to select the best game to display for a team
+// Priority: 1. Active league competition games, 2. League games when competitions are finished
+function selectBestGameForTeam(teamGames) {
+  if (teamGames.length === 0) return null;
+  
+  // Separate games by type
+  const competitionGames = teamGames.filter(game => game.isDomesticCup);
+  const leagueGames = teamGames.filter(game => !game.isDomesticCup);
+  
+  console.log(`Team has ${competitionGames.length} competition games and ${leagueGames.length} league games`);
+  
+  // Check if there are any active or upcoming competition games
+  const activeCompetitionGames = competitionGames.filter(game => 
+    game.status.type.state === "in" || game.status.type.state === "pre"
+  );
+  
+  // Check if all competition games are finished
+  const allCompetitionGamesFinished = competitionGames.length > 0 && 
+    competitionGames.every(game => game.status.type.state === "post");
+  
+  console.log(`Active competition games: ${activeCompetitionGames.length}, All finished: ${allCompetitionGamesFinished}`);
+  
+  // Priority 1: Show active or upcoming competition games first
+  if (activeCompetitionGames.length > 0) {
+    // Sort by status: live games first, then upcoming
+    const sortedCompetitionGames = activeCompetitionGames.sort((a, b) => {
+      if (a.status.type.state === "in" && b.status.type.state !== "in") return -1;
+      if (b.status.type.state === "in" && a.status.type.state !== "in") return 1;
+      // If both are same status, sort by date
+      return new Date(a.date) - new Date(b.date);
+    });
+    console.log(`Showing competition game: ${sortedCompetitionGames[0].competitionName}`);
+    return sortedCompetitionGames[0];
+  }
+  
+  // Priority 2: If all competitions are finished, show league games
+  if (allCompetitionGamesFinished || competitionGames.length === 0) {
+    if (leagueGames.length > 0) {
+      // Sort league games: live first, then upcoming, then most recent finished
+      const sortedLeagueGames = leagueGames.sort((a, b) => {
+        // Live games first
+        if (a.status.type.state === "in" && b.status.type.state !== "in") return -1;
+        if (b.status.type.state === "in" && a.status.type.state !== "in") return 1;
+        
+        // Then upcoming games
+        if (a.status.type.state === "pre" && b.status.type.state !== "pre") return -1;
+        if (b.status.type.state === "pre" && a.status.type.state !== "pre") return 1;
+        
+        // Then by date (upcoming games by earliest, finished games by most recent)
+        if (a.status.type.state === "pre" && b.status.type.state === "pre") {
+          return new Date(a.date) - new Date(b.date);
+        }
+        if (a.status.type.state === "post" && b.status.type.state === "post") {
+          return new Date(b.date) - new Date(a.date); // Most recent first
+        }
+        
+        return new Date(a.date) - new Date(b.date);
+      });
+      console.log(`Showing league game (competitions finished): ${sortedLeagueGames[0].competitionName}`);
+      return sortedLeagueGames[0];
+    }
+  }
+  
+  // Priority 3: If there are finished competition games but no league games, show most recent competition game
+  if (competitionGames.length > 0) {
+    const sortedFinishedGames = competitionGames.sort((a, b) => new Date(b.date) - new Date(a.date));
+    console.log(`Showing most recent finished competition game: ${sortedFinishedGames[0].competitionName}`);
+    return sortedFinishedGames[0];
+  }
+  
+  // Fallback: return the first available game
+  console.log(`Fallback: showing first available game`);
+  return teamGames[0];
 }
 
 let currentLeague = localStorage.getItem("currentLeague") || "eng.1"; // Default to Premier League if not set
@@ -340,7 +417,7 @@ function buildGameCard(game, team, data) {
     
     return `
       <div class="game-card">
-        ${isMLS || game.isDomesticCup ? `<div style="font-size: 0.8rem; color: grey; text-align: center;">${game.competitionName}, ${round}</div>` : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${newTotal}</div>`}
+        ${isMLS ? "" : game.isDomesticCup ? `<div style="font-size: 0.8rem; color: grey; text-align: center;">${game.competitionName}, ${round}</div>` : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${newTotal}</div>`}
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
             <img src="${getTeamLogo(homeTeam.team)}" alt="${homeTeam.team.displayName}" style="width: 60px; height: 60px; margin-bottom: 6px;">
@@ -361,7 +438,7 @@ function buildGameCard(game, team, data) {
     // Finished game card
     return `
       <div class="game-card">
-        ${isMLS || game.isDomesticCup ? `<div style="font-size: 0.8rem; color: grey; text-align: center;">${game.competitionName}, ${round}</div>` : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${total}</div>`}
+        ${isMLS ? "" : game.isDomesticCup ? `<div style="font-size: 0.8rem; color: grey; text-align: center;">${game.competitionName}, ${round}</div>` : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${total}</div>`}
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -389,7 +466,7 @@ function buildGameCard(game, team, data) {
     const newTotal = total + 1;
     return `
         <div class="game-card">
-          ${isMLS || game.isDomesticCup ? `<div style="font-size: 0.8rem; color: grey; text-align: center;">${game.competitionName}, ${round}</div>` : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${newTotal}</div>`}
+          ${isMLS ? "" : game.isDomesticCup ? `<div style="font-size: 0.8rem; color: grey; text-align: center;">${game.competitionName}, ${round}</div>` : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${newTotal}</div>`}
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <div style="text-align: center;">
               <div style="display: flex; align-items: center; gap: 8px;">

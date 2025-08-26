@@ -158,14 +158,15 @@ async function loadLiveGames() {
 
     const currentGameIds = new Set();
 
-    const round = game.isDomesticCup 
-      ? (game.leaguesData?.season?.type?.name || "")
-      : "";
-
     for (const game of liveGames) {
       const { id: gameId, competitions } = game;
       const homeTeam = competitions?.[0]?.competitors?.find(c => c.homeAway === "home")?.team;
       const awayTeam = competitions?.[0]?.competitors?.find(c => c.homeAway === "away")?.team;
+
+      // Move round calculation inside the loop where game is defined
+      const round = game.isDomesticCup 
+        ? (game.leaguesData?.season?.type?.name || "")
+        : "";
 
       if (!homeTeam || !awayTeam) {
         console.error(`Error: Missing team data for game ID ${gameId}`);
