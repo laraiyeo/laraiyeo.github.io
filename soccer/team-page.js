@@ -1931,7 +1931,7 @@ async function fetchCompetitionStats(playerId, competitions, year) {
         let statsData = null;
         if (data.statistics && data.statistics.$ref) {
           console.log(`[COMPETITION DEBUG] ${competition.name} has statistics reference, fetching detailed stats...`);
-          const statsResponse = await fetch(data.statistics.$ref);
+          const statsResponse = await fetch(convertToHttps(data.statistics.$ref));
           if (statsResponse.ok) {
             statsData = await statsResponse.json();
             console.log(`[COMPETITION DEBUG] ${competition.name} detailed stats:`, statsData);
