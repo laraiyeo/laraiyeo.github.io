@@ -16,6 +16,10 @@ let teamColor = "#000000"; // Default team color, will be set dynamically
 // Global variable to store all league players for league-wide comparison
 let allLeaguePlayers = [];
 
+// Simple cache to avoid redundant API calls
+const dataCache = new Map();
+const CACHE_DURATION = 30000; // 30 seconds
+
 // League configurations matching search.js
 const LEAGUES = {
   "Premier League": { code: "eng.1", logo: "23" },
@@ -145,11 +149,27 @@ function setupEventHandlers() {
 
 async function loadTeamData() {
   try {
+    // Show loading indicators for all sections
+    const sections = [
+      'currentGameContent', 'recentMatchesContent', 'upcomingMatchesContent',
+      'teamStatsContent', 'currentStandingContent', 'squadInfoContent'
+    ];
+    
+    sections.forEach(sectionId => {
+      const element = document.getElementById(sectionId);
+      if (element) {
+        element.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Loading...</div>';
+      }
+    });
+
     // Clear any existing player comparison when loading new team
     clearComparison();
     
-    // Load all league players for comparison
+    // Load all league players for comparison (in background)
     fetchAllSoccerPlayers().catch(console.error);
+    
+    console.log("Starting parallel team data loading...");
+    const startTime = performance.now();
     
     // First, try to find the team and determine the correct league
     await findTeamInLeagues();
@@ -157,7 +177,7 @@ async function loadTeamData() {
     // Load team information first (needed for other functions)
     await loadTeamInfo();
     
-    // Load all other sections after team info is loaded
+    // Load all other sections in parallel after team info is loaded
     await Promise.all([
       loadCurrentGame(),
       loadRecentMatches(),
@@ -166,28 +186,78 @@ async function loadTeamData() {
       loadCurrentStanding(),
       loadSquadInfo()
     ]);
+    
+    const endTime = performance.now();
+    console.log(`Team data loaded in ${Math.round(endTime - startTime)}ms`);
   } catch (error) {
     console.error("Error loading team data:", error);
+    // Show error messages in sections that failed to load
+    const sections = [
+      'currentGameContent', 'recentMatchesContent', 'upcomingMatchesContent',
+      'teamStatsContent', 'currentStandingContent', 'squadInfoContent'
+    ];
+    
+    sections.forEach(sectionId => {
+      const element = document.getElementById(sectionId);
+      if (element && element.innerHTML.includes('Loading...')) {
+        element.innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">Error loading data</div>';
+      }
+    });
   }
 }
 
 async function findTeamInLeagues() {
+  // Check cache first
+  const cacheKey = `team-league-${currentTeamId}`;
+  if (dataCache.has(cacheKey)) {
+    const cached = dataCache.get(cacheKey);
+    if (Date.now() - cached.timestamp < CACHE_DURATION) {
+      console.log("Using cached league information for team", currentTeamId);
+      currentLeague = cached.league;
+      localStorage.setItem("currentLeague", currentLeague);
+      return;
+    } else {
+      dataCache.delete(cacheKey); // Remove expired cache
+    }
+  }
+
   // Try to find the team in each league to determine the correct one
-  for (const [leagueName, leagueData] of Object.entries(LEAGUES)) {
+  // Use parallel requests for better performance
+  console.log("Finding team league across all leagues in parallel...");
+  const leagueChecks = Object.entries(LEAGUES).map(async ([leagueName, leagueData]) => {
     try {
       const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueData.code}/teams`);
       const data = await response.json();
       
       const team = data.sports[0].leagues[0].teams.find(teamData => teamData.team.id === currentTeamId);
       if (team) {
-        currentLeague = leagueData.code;
-        localStorage.setItem("currentLeague", currentLeague);
-        console.log(`Found team in ${leagueName}`);
-        break;
+        return { leagueName, leagueData, found: true };
       }
+      return { leagueName, leagueData, found: false };
     } catch (error) {
       console.log(`Error checking league ${leagueName}:`, error);
+      return { leagueName, leagueData, found: false };
     }
+  });
+
+  // Wait for all league checks to complete
+  const results = await Promise.all(leagueChecks);
+  
+  // Find the first league where the team was found
+  const foundLeague = results.find(result => result.found);
+  
+  if (foundLeague) {
+    currentLeague = foundLeague.leagueData.code;
+    localStorage.setItem("currentLeague", currentLeague);
+    console.log(`Found team in ${foundLeague.leagueName}`);
+    
+    // Cache the result
+    dataCache.set(cacheKey, {
+      league: currentLeague,
+      timestamp: Date.now()
+    });
+  } else {
+    console.log("Team not found in any league, using default");
   }
 }
 
@@ -336,12 +406,12 @@ async function fetchMatchesFromAllCompetitions(dateRange, leagueCode = null, tea
     ...competitions // Domestic cups
   ];
   
-  console.log(`Fetching matches from ${allCompetitionsToCheck.length} competitions:`, allCompetitionsToCheck.map(c => c.code));
+  console.log(`Fetching matches from ${allCompetitionsToCheck.length} competitions in parallel:`, allCompetitionsToCheck.map(c => c.code));
   
-  // Fetch from each competition
-  for (const competition of allCompetitionsToCheck) {
+  // Create all fetch promises in parallel
+  const fetchPromises = allCompetitionsToCheck.map(async (competition) => {
     try {
-      console.log(`Fetching matches from ${competition.code}...`);
+      console.log(`Starting fetch for ${competition.code}...`);
       const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition.code}/scoreboard?dates=${dateRange}`);
       
       if (response.ok) {
@@ -360,14 +430,24 @@ async function fetchMatchesFromAllCompetitions(dateRange, leagueCode = null, tea
         });
         
         console.log(`Found ${competitionMatches.length} matches in ${competition.code}`);
-        allMatches.push(...competitionMatches);
+        return competitionMatches;
       } else {
         console.log(`Failed to fetch from ${competition.code}: ${response.status}`);
+        return [];
       }
     } catch (error) {
       console.log(`Error fetching from ${competition.code}:`, error.message);
+      return [];
     }
-  }
+  });
+  
+  // Wait for all API calls to complete
+  const allResults = await Promise.all(fetchPromises);
+  
+  // Combine all results
+  allResults.forEach(matches => {
+    allMatches.push(...matches);
+  });
   
   console.log(`Total matches found across all competitions: ${allMatches.length}`);
   return allMatches;
@@ -551,12 +631,33 @@ async function loadRecentMatches() {
     
     const dateRange = `${formatDate(startDate)}-${formatDate(today)}`;
     
+    // Check cache for recent matches
+    const cacheKey = `recent-matches-${currentTeamId}-${dateRange}`;
+    if (dataCache.has(cacheKey)) {
+      const cached = dataCache.get(cacheKey);
+      if (Date.now() - cached.timestamp < CACHE_DURATION) {
+        console.log("Using cached recent matches data");
+        allRecentMatches = cached.matches;
+        currentPage = 1;
+        displayRecentMatches();
+        return;
+      } else {
+        dataCache.delete(cacheKey); // Remove expired cache
+      }
+    }
+    
     // Fetch from all competitions (main league + domestic cups)
     const allGames = await fetchMatchesFromAllCompetitions(dateRange);
     
     allRecentMatches = allGames
       .filter(game => game.status.type.state === "post")
       .sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    // Cache the results
+    dataCache.set(cacheKey, {
+      matches: allRecentMatches,
+      timestamp: Date.now()
+    });
     
     // Reset to first page and immediately display
     currentPage = 1;

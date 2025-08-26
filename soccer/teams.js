@@ -65,7 +65,7 @@ function isDomesticCup(leagueCode) {
 }
 
 // Helper function to fetch games from all competitions (main league + domestic cups)
-// Prioritize league competitions first, then main league games
+// Fetch all competitions in parallel for better performance
 async function fetchGamesFromAllCompetitions(tuesdayRange) {
   const allGames = [];
   
@@ -76,12 +76,12 @@ async function fetchGamesFromAllCompetitions(tuesdayRange) {
     { code: currentLeague, name: "League" } // Main league LAST
   ];
   
-  console.log(`Fetching games from ${allCompetitionsToCheck.length} competitions (priority order):`, allCompetitionsToCheck.map(c => c.code));
+  console.log(`Fetching games from ${allCompetitionsToCheck.length} competitions in parallel:`, allCompetitionsToCheck.map(c => c.code));
   
-  // Fetch from each competition in priority order
-  for (const competition of allCompetitionsToCheck) {
+  // Create all fetch promises in parallel
+  const fetchPromises = allCompetitionsToCheck.map(async (competition) => {
     try {
-      console.log(`Fetching games from ${competition.code}...`);
+      console.log(`Starting fetch for ${competition.code}...`);
       const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition.code}/scoreboard?dates=${tuesdayRange}`);
       
       if (response.ok) {
@@ -99,86 +99,103 @@ async function fetchGamesFromAllCompetitions(tuesdayRange) {
         });
         
         console.log(`Found ${competitionGames.length} games in ${competition.code}`);
-        allGames.push(...competitionGames);
+        return competitionGames;
       } else {
         console.log(`Failed to fetch from ${competition.code}: ${response.status}`);
+        return [];
       }
     } catch (error) {
       console.log(`Error fetching from ${competition.code}:`, error.message);
+      return [];
     }
-  }
+  });
+  
+  // Wait for all API calls to complete
+  const allResults = await Promise.all(fetchPromises);
+  
+  // Combine all results
+  allResults.forEach(games => {
+    allGames.push(...games);
+  });
   
   console.log(`Total games found across all competitions: ${allGames.length}`);
   return allGames;
 }
 
 // Helper function to select the best game to display for a team
-// Priority: 1. Active league competition games, 2. League games when competitions are finished
+// Priority: 1. Current/upcoming games (live > upcoming), 2. Most recent if all are finished
 function selectBestGameForTeam(teamGames) {
   if (teamGames.length === 0) return null;
   
-  // Separate games by type
+  const now = new Date();
+  
+  // Separate games by type and status
   const competitionGames = teamGames.filter(game => game.isDomesticCup);
   const leagueGames = teamGames.filter(game => !game.isDomesticCup);
   
   console.log(`Team has ${competitionGames.length} competition games and ${leagueGames.length} league games`);
   
-  // Check if there are any active or upcoming competition games
+  // Get current/upcoming games (live or future)
   const activeCompetitionGames = competitionGames.filter(game => 
     game.status.type.state === "in" || game.status.type.state === "pre"
   );
   
-  // Check if all competition games are finished
-  const allCompetitionGamesFinished = competitionGames.length > 0 && 
-    competitionGames.every(game => game.status.type.state === "post");
+  const activeLeagueGames = leagueGames.filter(game => 
+    game.status.type.state === "in" || game.status.type.state === "pre"
+  );
   
-  console.log(`Active competition games: ${activeCompetitionGames.length}, All finished: ${allCompetitionGamesFinished}`);
+  // Combine all active games and sort by priority and timing
+  const allActiveGames = [...activeCompetitionGames, ...activeLeagueGames];
   
-  // Priority 1: Show active or upcoming competition games first
-  if (activeCompetitionGames.length > 0) {
-    // Sort by status: live games first, then upcoming
-    const sortedCompetitionGames = activeCompetitionGames.sort((a, b) => {
+  if (allActiveGames.length > 0) {
+    // Sort by: 1. Live games first, 2. Earliest upcoming games, 3. Prefer competitions only if same day
+    const sortedActiveGames = allActiveGames.sort((a, b) => {
+      // Live games always come first
       if (a.status.type.state === "in" && b.status.type.state !== "in") return -1;
       if (b.status.type.state === "in" && a.status.type.state !== "in") return 1;
-      // If both are same status, sort by date
-      return new Date(a.date) - new Date(b.date);
+      
+      // For upcoming games, sort by date first (earliest first)
+      const dateComparison = new Date(a.date) - new Date(b.date);
+      
+      // If dates are very close (same day), prefer competitions over league matches
+      const timeDiff = Math.abs(new Date(a.date) - new Date(b.date));
+      const sameDayThreshold = 24 * 60 * 60 * 1000; // 24 hours
+      
+      if (timeDiff < sameDayThreshold) {
+        if (a.isDomesticCup && !b.isDomesticCup) return -1;
+        if (b.isDomesticCup && !a.isDomesticCup) return 1;
+      }
+      
+      // Otherwise, sort by date (earliest first)
+      return dateComparison;
     });
-    console.log(`Showing competition game: ${sortedCompetitionGames[0].competitionName}`);
-    return sortedCompetitionGames[0];
+    
+    console.log(`Showing active game: ${sortedActiveGames[0].competitionName} (${sortedActiveGames[0].status.type.state}) on ${new Date(sortedActiveGames[0].date).toLocaleDateString()}`);
+    return sortedActiveGames[0];
   }
   
-  // Priority 2: If all competitions are finished, show league games
-  if (allCompetitionGamesFinished || competitionGames.length === 0) {
-    if (leagueGames.length > 0) {
-      // Sort league games: live first, then upcoming, then most recent finished
-      const sortedLeagueGames = leagueGames.sort((a, b) => {
-        // Live games first
-        if (a.status.type.state === "in" && b.status.type.state !== "in") return -1;
-        if (b.status.type.state === "in" && a.status.type.state !== "in") return 1;
-        
-        // Then upcoming games
-        if (a.status.type.state === "pre" && b.status.type.state !== "pre") return -1;
-        if (b.status.type.state === "pre" && a.status.type.state !== "pre") return 1;
-        
-        // Then by date (upcoming games by earliest, finished games by most recent)
-        if (a.status.type.state === "pre" && b.status.type.state === "pre") {
-          return new Date(a.date) - new Date(b.date);
-        }
-        if (a.status.type.state === "post" && b.status.type.state === "post") {
-          return new Date(b.date) - new Date(a.date); // Most recent first
-        }
-        
-        return new Date(a.date) - new Date(b.date);
-      });
-      console.log(`Showing league game (competitions finished): ${sortedLeagueGames[0].competitionName}`);
-      return sortedLeagueGames[0];
-    }
-  }
+  // If no active games, show the most recent finished game
+  // Prefer competitions if they happened more recently than league games
+  const allFinishedGames = teamGames.filter(game => game.status.type.state === "post");
   
-  // Priority 3: If there are finished competition games but no league games, show most recent competition game
-  if (competitionGames.length > 0) {
-    const sortedFinishedGames = competitionGames.sort((a, b) => new Date(b.date) - new Date(a.date));
-    console.log(`Showing most recent finished competition game: ${sortedFinishedGames[0].competitionName}`);
+  if (allFinishedGames.length > 0) {
+    const sortedFinishedGames = allFinishedGames.sort((a, b) => {
+      // Sort by most recent first
+      const dateComparison = new Date(b.date) - new Date(a.date);
+      
+      // If dates are very close (same day), prefer competitions
+      const timeDiff = Math.abs(new Date(a.date) - new Date(b.date));
+      const sameDayThreshold = 24 * 60 * 60 * 1000; // 24 hours
+      
+      if (timeDiff < sameDayThreshold) {
+        if (a.isDomesticCup && !b.isDomesticCup) return -1;
+        if (b.isDomesticCup && !a.isDomesticCup) return 1;
+      }
+      
+      return dateComparison;
+    });
+    
+    console.log(`Showing most recent finished game: ${sortedFinishedGames[0].competitionName}`);
     return sortedFinishedGames[0];
   }
   
@@ -218,23 +235,64 @@ function hashString(str) {
 }
 
 let lastScheduleHash = null;
+// Simple cache to avoid refetching the same league data
+const dataCache = new Map();
+const CACHE_DURATION = 30000; // 30 seconds
 
 async function fetchAndDisplayTeams() {
   try {
+    const cacheKey = `${currentLeague}-${getTuesdayRange()}`;
+    const now = Date.now();
+    
+    // Check cache first
+    if (dataCache.has(cacheKey)) {
+      const cached = dataCache.get(cacheKey);
+      if (now - cached.timestamp < CACHE_DURATION) {
+        console.log("Using cached data for", currentLeague);
+        await displayTeamsData(cached.teams, cached.games);
+        return;
+      } else {
+        dataCache.delete(cacheKey); // Remove expired cache
+      }
+    }
+
     const TEAMS_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams`;
     const tuesdayRange = getTuesdayRange();
-    const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/scoreboard?dates=${tuesdayRange}`;
 
-    const teamsResponse = await fetch(TEAMS_API_URL);
+    // Start both API calls in parallel for better performance
+    console.log("Starting parallel fetch of teams and games data...");
+    const [teamsResponse, games] = await Promise.all([
+      fetch(TEAMS_API_URL),
+      fetchGamesFromAllCompetitions(tuesdayRange)
+    ]);
+
     const teamsData = await teamsResponse.json();
     const teams = teamsData.sports[0].leagues[0].teams.map(teamData => teamData.team);
 
-    // Fetch games from all competitions (main league + domestic cups)
-    const games = await fetchGamesFromAllCompetitions(tuesdayRange);
+    console.log(`Fetched ${teams.length} teams and ${games.length} games`);
     
-    // Calculate hash for change detection
-    const gamesText = JSON.stringify(games);
-    const newHash = hashString(gamesText);
+    // Cache the results
+    dataCache.set(cacheKey, {
+      teams,
+      games,
+      timestamp: now
+    });
+    
+    await displayTeamsData(teams, games);
+  } catch (error) {
+    console.error("Error fetching teams:", error);
+    const container = document.getElementById("teamsContainer");
+    if (container) {
+      container.innerHTML = '<div style="text-align: center; padding: 20px; color: red;">Error loading teams. Please try again.</div>';
+    }
+  }
+}
+
+async function displayTeamsData(teams, games) {
+  try {
+    // Calculate hash for change detection (simplified for better performance)
+    const hashInput = `${currentLeague}-${games.length}-${games.map(g => g.id).join(',')}`;
+    const newHash = hashString(hashInput);
 
     if (newHash === lastScheduleHash) {
       console.log("No changes detected in the schedule.");
@@ -272,7 +330,7 @@ async function fetchAndDisplayTeams() {
         : team.displayName;
         
       const gameCardHtml = teamGames.length > 0
-        ? await buildGameCard(teamGames[0], team) // Use the first game for now
+        ? await buildGameCard(selectBestGameForTeam(teamGames), team) // Use the best game selection logic
         : buildNoGameCard(team);
 
       const teamCard = document.createElement("div");
@@ -357,7 +415,7 @@ function buildGameCard(game, team, data) {
     if (["367", "111"].includes(team.id)) {
       return `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${team.id}.png`;
     }
-    return team.logo;
+    return team.logo || "soccer-ball-png-24.png";
   };
 
   const homeShootoutScore = homeTeam.shootoutScore;
@@ -552,7 +610,10 @@ function setupLeagueButtons() {
       <span class="league-text">${leagueName}</span>
       <img class="league-logo" src="https://a.espncdn.com/i/leaguelogos/soccer/500-dark/${leagueData.logo}.png" alt="${leagueName}" style="display: none;">
     `;
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
+      // Prevent multiple clicks during loading
+      if (button.disabled) return;
+      
       currentLeague = leagueData.code;
 
       // Save the current league to localStorage
@@ -562,7 +623,21 @@ function setupLeagueButtons() {
       document.querySelectorAll(".league-button").forEach(btn => btn.classList.remove("active"));
       button.classList.add("active");
 
-      fetchAndDisplayTeams();
+      // Show loading state
+      const container = document.getElementById("teamsContainer");
+      if (container) {
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: white;">Loading teams...</div>';
+      }
+
+      // Disable all buttons during loading to prevent race conditions
+      document.querySelectorAll(".league-button").forEach(btn => btn.disabled = true);
+
+      try {
+        await fetchAndDisplayTeams();
+      } finally {
+        // Re-enable buttons after loading
+        document.querySelectorAll(".league-button").forEach(btn => btn.disabled = false);
+      }
     });
 
     leagueContainer.appendChild(button);
