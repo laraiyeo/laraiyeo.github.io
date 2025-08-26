@@ -1368,7 +1368,8 @@ function normalizeTeamName(teamName) {
     'bayern munich': 'bayern-munich',
     'borussia dortmund': 'borussia-dortmund',
     'stade rennais': 'rennes',
-    'marseille': 'olympique-marseille'
+    'marseille': 'olympique-marseille',
+    'kairat almaty': 'kairat'
   };
   
   const lowerName = teamName.toLowerCase();
@@ -1397,14 +1398,22 @@ async function extractVideoPlayerUrl(pageUrl) {
     const data = await response.json();
     
     if (data.contents) {
-      const iframeMatch = data.contents.match(/src="([^"]*castweb\.xyz[^"]*)"/);
-      if (iframeMatch) {
-        return iframeMatch[1];
-      }
-      
-      const altMatch = data.contents.match(/iframe[^>]*src="([^"]*\.php[^"]*)"/);
-      if (altMatch) {
-        return altMatch[1];
+      // Look for iframe src URLs that contain video streaming domains
+      const iframeMatches = data.contents.match(/iframe[^>]*src="([^"]*)"/g);
+      if (iframeMatches) {
+        for (const match of iframeMatches) {
+          const srcMatch = match.match(/src="([^"]*)"/);
+          if (srcMatch && srcMatch[1]) {
+            const url = srcMatch[1];
+            // Check if it's a streaming URL (not the page itself)
+            if (url.includes('vuen.link') || url.includes('ch?id=') || 
+                url.includes('castweb.xyz') || url.includes('.php') ||
+                url.includes('stream') || url.includes('player')) {
+              console.log('Found streaming iframe URL:', url);
+              return url;
+            }
+          }
+        }
       }
     }
   } catch (error) {
@@ -1421,19 +1430,43 @@ function tryNextStream() {
     const nextUrl = streamUrls[currentStreamIndex];
     currentStreamIndex++;
     
+    console.log(`Trying stream URL: ${nextUrl}`);
+    
     streamTestTimeout = setTimeout(() => {
       tryNextStream();
-    }, 4000);
+    }, 3000); // Reduced timeout for faster switching
     
     if (iframe) {
       iframe.src = nextUrl;
+      iframe.style.display = 'block';
+      
+      // Hide connecting message immediately for iframe streams
+      const connectingDiv = document.getElementById('streamConnecting');
+      if (connectingDiv) {
+        connectingDiv.style.display = 'none';
+      }
     }
   } else {
+    // No more streams to try, show a refresh option
     const connectingDiv = document.getElementById('streamConnecting');
-    iframe.style.display = 'block';
+    const iframe = document.getElementById('streamIframe');
+    
     if (connectingDiv) {
-      connectingDiv.style.display = 'none';
+      connectingDiv.innerHTML = `
+        <div style="text-align: center; padding: 20px;">
+          <p>No streams available at the moment.</p>
+          <button onclick="location.reload()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
+            Refresh Page
+          </button>
+        </div>
+      `;
+      connectingDiv.style.display = 'block';
     }
+    
+    if (iframe) {
+      iframe.style.display = 'none';
+    }
+    
     streamUrls = [];
   }
 }
@@ -1441,40 +1474,25 @@ function tryNextStream() {
 function checkStreamContent(iframe) {
   const connectingDiv = document.getElementById('streamConnecting');
   
-  try {
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-    
-    const hasVideo = iframeDoc.querySelector('video') || 
-                    iframeDoc.querySelector('.video-js') || 
-                    iframeDoc.querySelector('[id*="video"]') ||
-                    iframeDoc.querySelector('[class*="player"]');
-    
-    if (hasVideo) {
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
-      streamUrls = [];
-      return;
-    }
-  } catch (e) {
-    console.log('Cannot access iframe content (cross-origin), assuming external stream');
+  // For iframe streaming URLs, we assume they work and show them immediately
+  // Cross-origin restrictions prevent us from checking the content anyway
+  console.log('Stream iframe loaded, displaying content');
+  
+  if (iframe) {
     iframe.style.display = 'block';
-    if (connectingDiv) {
-      connectingDiv.style.display = 'none';
-    }
   }
   
-  setTimeout(() => {
-    if (streamUrls.length > 0) {
-      tryNextStream();
-    } else {
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
-    }
-  }, 1000);
+  if (connectingDiv) {
+    connectingDiv.style.display = 'none';
+  }
+  
+  // Clear any remaining stream timeouts since we found a working stream
+  if (streamTestTimeout) {
+    clearTimeout(streamTestTimeout);
+    streamTestTimeout = null;
+  }
+  
+  streamUrls = []; // Clear the queue since we have a working stream
 }
 
 async function startStreamTesting(homeTeamName, awayTeamName) {
