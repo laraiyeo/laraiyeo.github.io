@@ -2317,7 +2317,7 @@ async function processPlayerStats(selectedPlayer, position, contentDiv, year, pl
     const value = selectedPlayer?.statistics?.splits?.categories?.find(c => c.name === statConfig.category)?.stats?.find(s => s.name === statConfig.key)?.value || "0";
     console.log(`[MAIN STATS] Extracting ${statConfig.key} from ${statConfig.category}: ${value}`);
     console.log(`[MAIN STATS] Available categories:`, selectedPlayer?.statistics?.splits?.categories?.map(c => c.name));
-    
+
     return `
       <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
         <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">
@@ -2331,12 +2331,32 @@ async function processPlayerStats(selectedPlayer, position, contentDiv, year, pl
   }).join('');
   
   contentDiv.innerHTML = `
-    <div>
+    <div id="playerStatsCard" style="position: relative;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px;">
         <h3 style="color: #333; margin: 0; font-size: 1.3rem; font-weight: bold;">
           ${position === 'G' || position === 'Goalkeeper' ? 'Goalkeeper' : 'Field Player'} Statistics
         </h3>
-        ${yearSelectorHtml}
+        <div style="display: flex; align-items: center; gap: 15px;">
+          <button onclick="copyPlayerStatsAsImage('playerStatsCard')" style="
+            background: ${teamColor || '#007bff'}; 
+            color: white; 
+            border: none; 
+            padding: 8px 16px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 14px; 
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background-color 0.2s;
+          " onmouseover="this.style.backgroundColor='${teamColor ? teamColor + 'CC' : '#0056b3'}'" onmouseout="this.style.backgroundColor='${teamColor || '#007bff'}'" title="Copy statistics as image">
+            📋 Copy ${window.innerWidth < 525 ? '' : ' as Image'}
+          </button>
+          <div id="yearSelectorContainer">
+            ${yearSelectorHtml}
+          </div>
+        </div>
       </div>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px;">
         ${statsHtml}
@@ -3078,8 +3098,8 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
     }
     
     // Team logos
-    const teamLogo = ["367", "2950", "92"].includes(teamIdForSeason) ? `https://a.espncdn.com/i/teamlogos/soccer/500/${teamIdForSeason}.png` : `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamIdForSeason}.png`;
-    const opponentLogo = ["367", "2950", "92"].includes(opponentCompetitor.team.id) ? `https://a.espncdn.com/i/teamlogos/soccer/500/${opponentCompetitor.team.id}.png` : `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${opponentCompetitor.team.id}.png`;
+    const teamLogo = ["2950", "92"].includes(teamIdForSeason) ? `https://a.espncdn.com/i/teamlogos/soccer/500/${teamIdForSeason}.png` : `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamIdForSeason}.png`;
+    const opponentLogo = ["2950", "92"].includes(opponentCompetitor.team.id) ? `https://a.espncdn.com/i/teamlogos/soccer/500/${opponentCompetitor.team.id}.png` : `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${opponentCompetitor.team.id}.png`;
 
     // Game result and status
     let gameResult = '';
@@ -3995,6 +4015,304 @@ function getLeagueName(leagueCode) {
 }
 
 // Function to copy game log card as image
+async function copyPlayerStatsAsImage(cardId) {
+  try {
+    const cardElement = document.getElementById(cardId);
+    if (!cardElement) {
+      console.error('Player stats card not found');
+      return;
+    }
+
+    // Import html2canvas dynamically
+    if (!window.html2canvas) {
+      // Load html2canvas library
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+      script.onload = () => {
+        capturePlayerStatsAsImage(cardElement);
+      };
+      document.head.appendChild(script);
+    } else {
+      capturePlayerStatsAsImage(cardElement);
+    }
+  } catch (error) {
+    console.error('Error copying player stats as image:', error);
+    showFeedback('Error copying image', 'error');
+  }
+}
+
+async function capturePlayerStatsAsImage(element) {
+  try {
+    showFeedback('Capturing player statistics...', 'loading');
+    
+    // Get the modal to access player information
+    const modal = document.querySelector('.modal-overlay');
+    if (!modal) {
+      showFeedback('Player information not found', 'error');
+      return;
+    }
+
+    // Get player information from the modal header
+    const modalContent = modal.querySelector('.modal-content');
+    const children = Array.from(modalContent.children);
+    const playerHeader = children[1]; // Player header is the 2nd child
+    
+    if (!playerHeader || !selectedPlayer) {
+      showFeedback('Player information not available', 'error');
+      return;
+    }
+
+    // Extract player information
+    const playerName = selectedPlayer.fullName || selectedPlayer.firstName + ' ' + selectedPlayer.lastName;
+    const jerseyNumber = selectedPlayer.jersey || selectedPlayer.number || 'N/A';
+    const position = selectedPlayerPosition || selectedPlayer.position || 'N/A';
+    const teamName = currentTeam?.displayName || 'Unknown Team';
+    const teamAbbr = currentTeam?.abbreviation || currentTeam?.shortDisplayName || 'UNK';
+    
+    // Get the selected year
+    const yearSelector = document.getElementById('playerYearSelector');
+    const selectedYear = yearSelector ? yearSelector.value : new Date().getFullYear();
+
+    // Get team logo
+    const teamLogo = getTeamLogo(currentTeam);
+
+    // Create a styled container specifically for the image capture
+    const captureContainer = document.createElement('div');
+    captureContainer.style.cssText = `
+      background: linear-gradient(135deg, ${teamColor || '#1a1a1a'} 0%, ${teamColor ? teamColor + '88' : '#333'} 100%);
+      color: white;
+      padding: 30px;
+      border-radius: 16px;
+      width: 600px;
+      max-width: 600px;
+      min-width: 600px;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      position: fixed;
+      top: -9999px;
+      left: -9999px;
+      z-index: -1;
+      overflow: hidden;
+    `;
+
+    // Create player header section
+    const playerHeaderHtml = `
+      <div style="display: flex; align-items: center; margin-bottom: 25px; background: rgba(255,255,255,0.1); padding: 20px; border-radius: 12px;">
+        <div style="background: white; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; margin-right: 20px; font-size: 24px; font-weight: bold; color: ${teamColor || '#1a1a1a'};">
+          ${jerseyNumber}
+        </div>
+        <div style="flex: 1;">
+          <h2 style="margin: 0 0 8px 0; font-size: 26px; font-weight: bold;">${playerName}</h2>
+          <div style="font-size: 16px; opacity: 0.9; margin-bottom: 4px;">${position} | ${teamAbbr}</div>
+          <div style="font-size: 14px; opacity: 0.8;">${teamName}</div>
+        </div>
+        <img src="${teamLogo}" alt="${teamName}" style="width: 60px; height: 60px; border-radius: 8px;" onerror="this.style.display='none';">
+      </div>
+    `;
+
+    // Get the current stats content and clean it up for the image
+    const statsContent = element.cloneNode(true);
+    
+    // Remove the copy button from the cloned content
+    const copyButton = statsContent.querySelector('[onclick*="copyPlayerStatsAsImage"]');
+    if (copyButton) {
+      copyButton.remove();
+    }
+
+    // Remove the year selector container from the cloned content
+    const yearSelectorContainer = statsContent.querySelector('#yearSelectorContainer');
+    if (yearSelectorContainer) {
+      yearSelectorContainer.remove();
+    }
+
+    // Also remove any select elements (year selector) directly
+    const yearSelectors = statsContent.querySelectorAll('select');
+    yearSelectors.forEach(selector => selector.remove());
+
+    // Clean up the header layout after removing elements
+    const headerDiv = statsContent.querySelector('[style*="justify-content: space-between"]');
+    if (headerDiv) {
+      // Remove the flex layout and just center the title
+      headerDiv.style.display = 'block';
+      headerDiv.style.textAlign = 'center';
+      // Find any remaining flex containers and clean them up
+      const flexContainers = headerDiv.querySelectorAll('[style*="flex"]');
+      flexContainers.forEach(container => {
+        if (container.children.length === 0) {
+          container.remove();
+        }
+      });
+    }
+
+    // Update the stats styling for better image appearance
+    const statsGrid = statsContent.querySelector('[style*="grid-template-columns"]');
+    if (statsGrid) {
+      statsGrid.style.gridTemplateColumns = 'repeat(4, 1fr)';
+      statsGrid.style.gap = '15px';
+    }
+
+    // Style individual stat cards for better image appearance
+    const statCards = statsContent.querySelectorAll('[style*="background: #f8f9fa"]');
+    statCards.forEach(card => {
+      card.style.background = 'rgba(255,255,255,0.15)';
+      card.style.border = '1px solid rgba(255,255,255,0.2)';
+      card.style.color = 'white';
+    });
+
+    // Style competition sections
+    const competitionSections = statsContent.querySelectorAll('[style*="background: #f8f9fa"][style*="border: 1px solid #ddd"]');
+    competitionSections.forEach(section => {
+      section.style.background = 'rgba(255,255,255,0.1)';
+      section.style.border = '1px solid rgba(255,255,255,0.2)';
+      section.style.color = 'white';
+    });
+
+    // Style headers and text for dark background
+    const headers = statsContent.querySelectorAll('h3, h4');
+    headers.forEach(header => {
+      header.style.color = 'white';
+      header.style.borderBottomColor = 'rgba(255,255,255,0.3)';
+    });
+
+    const text = statsContent.querySelectorAll('div, p');
+    text.forEach(textEl => {
+      if (textEl.style.color === '#333' || textEl.style.color === '#777') {
+        textEl.style.color = 'white';
+      }
+      if (textEl.style.color === 'rgb(51, 51, 51)' || textEl.style.color === 'rgb(119, 119, 119)') {
+        textEl.style.color = 'white';
+      }
+    });
+
+    // Combine everything
+    captureContainer.innerHTML = playerHeaderHtml + statsContent.innerHTML;
+
+    // Add watermark
+    const watermark = document.createElement('div');
+    watermark.style.cssText = `
+      position: absolute;
+      bottom: 15px;
+      right: 20px;
+      font-size: 12px;
+      opacity: 0.6;
+      color: white;
+    `;
+    watermark.textContent = `${selectedYear} Season Stats`;
+    captureContainer.appendChild(watermark);
+
+    // Add to document temporarily for capture
+    document.body.appendChild(captureContainer);
+
+    // Replace all external images with base64 versions or remove them
+    const images = captureContainer.querySelectorAll('img');
+    for (const img of images) {
+      try {
+        if (img.src.includes('espncdn.com') || img.src.includes('http')) {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const tempImg = new Image();
+          tempImg.crossOrigin = 'anonymous';
+          
+          await new Promise((resolve, reject) => {
+            tempImg.onload = () => {
+              try {
+                canvas.width = tempImg.width;
+                canvas.height = tempImg.height;
+                ctx.drawImage(tempImg, 0, 0);
+                const dataURL = canvas.toDataURL('image/png');
+                img.src = dataURL;
+              } catch (e) {
+                img.style.display = 'none';
+              }
+              resolve();
+            };
+            tempImg.onerror = () => {
+              img.style.display = 'none';
+              resolve();
+            };
+            tempImg.src = img.src;
+          });
+        }
+      } catch (e) {
+        img.style.display = 'none';
+      }
+    }
+    
+    // Wait a bit for images to process
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Capture the element with html2canvas
+    const canvas = await html2canvas(captureContainer, {
+      backgroundColor: null,
+      scale: 2,
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      width: 600,
+      height: captureContainer.scrollHeight,
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: 600,
+      windowHeight: captureContainer.scrollHeight
+    });
+    
+    // Remove the temporary container
+    document.body.removeChild(captureContainer);
+    
+    // Convert to blob and copy/download
+    canvas.toBlob(async (blob) => {
+      if (!blob) {
+        showFeedback('Failed to create image', 'error');
+        return;
+      }
+
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                      ('ontouchstart' in window) || 
+                      (navigator.maxTouchPoints > 0);
+
+      try {
+        if (isMobile) {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${playerName.replace(/\s+/g, '-')}-stats-${selectedYear}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          showFeedback('Player stats downloaded!', 'success');
+        } else {
+          if (navigator.clipboard && window.ClipboardItem) {
+            const clipboardItem = new ClipboardItem({
+              'image/png': blob
+            });
+            await navigator.clipboard.write([clipboardItem]);
+            showFeedback('Player stats copied to clipboard!', 'success');
+          } else {
+            // Fallback for older browsers
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${playerName.replace(/\s+/g, '-')}-stats-${selectedYear}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showFeedback('Player stats downloaded!', 'success');
+          }
+        }
+      } catch (error) {
+        console.error('Error handling image:', error);
+        showFeedback('Error copying/downloading image', 'error');
+      }
+    }, 'image/png', 0.95);
+    
+  } catch (error) {
+    console.error('Error capturing player stats:', error);
+    showFeedback('Error capturing image', 'error');
+  }
+}
+
 async function copyGameLogAsImage(cardId) {
   try {
     const cardElement = document.getElementById(cardId);

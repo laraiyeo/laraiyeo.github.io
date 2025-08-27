@@ -151,7 +151,7 @@ html::-webkit-scrollbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-top: 0px;
 }
 
 .section-header h3 {
@@ -169,6 +169,7 @@ html::-webkit-scrollbar {
 .date-picker-container label {
   font-weight: bold;
   color: #333;
+  font-size: 16px;
 }
 
 .date-picker {

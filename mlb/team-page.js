@@ -1812,6 +1812,337 @@ async function displayPlayerGameStats(boxscoreData, game, teamIdForSeason) {
   resultsContainer.innerHTML = content;
 }
 
+// Function to copy player stats as image
+// Function to copy player stats as image
+window.copyPlayerStatsAsImage = async function() {
+  try {
+    const cardElement = document.getElementById('playerStatsCard');
+    if (!cardElement) {
+      console.error('Player stats card not found');
+      return;
+    }
+
+    // Import html2canvas dynamically
+    if (!window.html2canvas) {
+      // Load html2canvas library
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+      script.onload = () => {
+        capturePlayerStatsAsImage(cardElement);
+      };
+      document.head.appendChild(script);
+    } else {
+      capturePlayerStatsAsImage(cardElement);
+    }
+  } catch (error) {
+    console.error('Error copying player stats as image:', error);
+    showFeedback('Error copying image', 'error');
+  }
+}
+
+// Function to capture player stats as image (for download)
+window.capturePlayerStatsAsImage = async function(element) {
+  try {
+    showFeedback('Capturing player statistics...', 'loading');
+
+    // Get the modal to access player information
+    const modal = document.querySelector('.modal-overlay');
+    if (!modal) {
+      showFeedback('Player information not found', 'error');
+      return;
+    }
+
+    // Extract player information from selectedPlayer (more reliable than modal structure)
+    const playerName = selectedPlayer.person.fullName || selectedPlayer.person.firstName + ' ' + selectedPlayer.person.lastName;
+    const jerseyNumber = selectedPlayer.jerseyNumber || selectedPlayer.number || 'N/A';
+    const position = selectedPlayer.position.abbreviation || selectedPlayer.position.name || 'N/A';
+    const teamName = currentTeam?.name || 'Unknown Team';
+    const teamAbbr = currentTeam?.abbreviation || currentTeam?.shortDisplayName || 'UNK';
+
+    // Get player headshot URL
+    const playerHeadshotUrl = selectedPlayer.person.id ?
+      `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${selectedPlayer.person.id}/headshot/67/current` :
+      'icon.png';
+
+    // Get the selected year from the year selector or use current year
+    const yearSelector = document.getElementById('modalYearSelector');
+    const selectedYear = yearSelector ? yearSelector.value : new Date().getFullYear();
+
+    // Get team logo
+    const teamLogo = await getTeamLogo();
+
+    // Create a styled container specifically for the image capture
+    const captureContainer = document.createElement('div');
+    captureContainer.style.cssText = `
+      background: linear-gradient(135deg, ${getTeamColor() || '#1a1a1a'} 0%, ${getTeamColor() ? getTeamColor() + '88' : '#333'} 100%);
+      color: white;
+      padding: 30px;
+      border-radius: 16px;
+      width: 600px;
+      max-width: 600px;
+      min-width: 600px;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      position: fixed;
+      top: -9999px;
+      left: -9999px;
+      z-index: -1;
+      overflow: hidden;
+    `;
+
+    // Create player header section
+    const playerHeaderHtml = `
+      <div style="display: flex; align-items: center; margin-bottom: 25px; background: rgba(255,255,255,0.1); padding: 20px; border-radius: 12px;">
+        <div style="width: 80px; height: 80px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: #333; position: relative; margin-right: 20px;">
+          <img src="${playerHeadshotUrl}" alt="${playerName}" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: auto; min-height: 100%; object-fit: cover; onerror="this.src='icon.png';">
+        </div>
+        <div style="flex: 1; min-width: 0;">
+          <h2 style="margin: 0 0 8px 0; font-size: 26px; font-weight: bold;">${playerName}</h2>
+          <div style="font-size: 16px; opacity: 0.9; margin-bottom: 4px;">#${jerseyNumber} | ${position} | ${teamAbbr}</div>
+          <div style="font-size: 14px; opacity: 0.8;">${teamName}</div>
+        </div>
+        <div style="width: 80px; height: 80px; flex-shrink: 0; position: relative; margin-left: 20px;">
+          <img src="${teamLogo}" alt="${teamName}" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: auto; min-height: 100%; object-fit: cover;" onerror="this.style.display='none';">
+        </div>
+      </div>
+    `;
+
+    // Get the current stats content and clean it up for the image
+    const statsContent = element.cloneNode(true);
+
+    // Remove the copy button from the cloned content
+    const copyButton = statsContent.querySelector('[onclick*="copyPlayerStatsAsImage"]');
+    if (copyButton) {
+      copyButton.remove();
+    }
+
+    // Remove the year selector container from the cloned content
+    const yearSelectorContainer = statsContent.querySelector('#yearSelectorContainer');
+    if (yearSelectorContainer) {
+      yearSelectorContainer.remove();
+    }
+
+    // Also remove any select elements (year selector) directly
+    const yearSelectors = statsContent.querySelectorAll('select');
+    yearSelectors.forEach(selector => selector.remove());
+
+    // Remove "Year:" labels from the cloned content
+    const yearLabels = statsContent.querySelectorAll('label');
+    yearLabels.forEach(label => {
+      if (label.textContent.includes('Year:')) {
+        label.remove();
+      }
+    });
+
+    // Clean up the header layout after removing elements
+    const headerDiv = statsContent.querySelector('[style*="justify-content: space-between"]');
+    if (headerDiv) {
+      // Remove the flex layout and just center the title
+      headerDiv.style.display = 'block';
+      headerDiv.style.textAlign = 'center';
+      // Find any remaining flex containers and clean them up
+      const flexContainers = headerDiv.querySelectorAll('[style*="flex"]');
+      flexContainers.forEach(container => {
+        if (container.children.length === 0) {
+          container.remove();
+        }
+      });
+    }
+
+    // Update the stats styling for better image appearance
+    const statsGrid = statsContent.querySelector('[style*="grid-template-columns"]');
+    if (statsGrid) {
+      statsGrid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+      statsGrid.style.gap = '15px';
+    }
+
+    // Style individual stat cards for better image appearance
+    const statCards = statsContent.querySelectorAll('[style*="background: #f8f9fa"]');
+    statCards.forEach(card => {
+      card.style.background = 'rgba(255,255,255,0.15)';
+      card.style.border = '1px solid rgba(255,255,255,0.2)';
+      card.style.color = 'white';
+    });
+
+    // Style stat labels (AVG, HR, RBI, etc.) to be white
+    const statLabels = statsContent.querySelectorAll('[style*="color: #666"]');
+    statLabels.forEach(label => {
+      label.style.color = 'white';
+    });
+
+    // Style competition sections
+    const competitionSections = statsContent.querySelectorAll('[style*="background: #f8f9fa"][style*="border: 1px solid #ddd"]');
+    competitionSections.forEach(section => {
+      section.style.background = 'rgba(255,255,255,0.1)';
+      section.style.border = '1px solid rgba(255,255,255,0.2)';
+      section.style.color = 'white';
+    });
+
+    // Style headers and text for dark background
+    const headers = statsContent.querySelectorAll('h3, h4');
+    headers.forEach(header => {
+      header.style.color = 'white';
+      header.style.borderBottomColor = 'rgba(255,255,255,0.3)';
+    });
+
+    const text = statsContent.querySelectorAll('div, p');
+    text.forEach(textEl => {
+      if (textEl.style.color === '#333' || textEl.style.color === '#777') {
+        textEl.style.color = 'white';
+      }
+      if (textEl.style.color === 'rgb(51, 51, 51)' || textEl.style.color === 'rgb(119, 119, 119)') {
+        textEl.style.color = 'white';
+      }
+    });
+
+    // Style stat rankings to be white
+    const rankings = statsContent.querySelectorAll('[style*="color: #28a745"]');
+    rankings.forEach(ranking => {
+      ranking.style.color = 'white';
+    });
+
+    // Combine everything
+    captureContainer.innerHTML = playerHeaderHtml + statsContent.innerHTML;
+
+    // Add watermark
+    const watermark = document.createElement('div');
+    watermark.style.cssText = `
+      position: absolute;
+      bottom: 15px;
+      right: 20px;
+      font-size: 12px;
+      opacity: 0.6;
+      color: white;
+    `;
+    watermark.textContent = `${selectedYear} Season Stats`;
+    captureContainer.appendChild(watermark);
+
+    // Add to document temporarily for capture
+    document.body.appendChild(captureContainer);
+
+    // Replace all external images with base64 versions or remove them
+    const images = captureContainer.querySelectorAll('img');
+    for (const img of images) {
+      try {
+        if (img.src.includes('espncdn.com') || img.src.includes('mlbstatic.com') || img.src.includes('http')) {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const tempImg = new Image();
+          tempImg.crossOrigin = 'anonymous';
+
+          await new Promise((resolve, reject) => {
+            tempImg.onload = () => {
+              try {
+                canvas.width = tempImg.width;
+                canvas.height = tempImg.height;
+                ctx.drawImage(tempImg, 0, 0);
+                const dataURL = canvas.toDataURL('image/png');
+                img.src = dataURL;
+              } catch (e) {
+                img.style.display = 'none';
+              }
+              resolve();
+            };
+            tempImg.onerror = () => {
+              img.style.display = 'none';
+              resolve();
+            };
+            tempImg.src = img.src;
+          });
+        }
+      } catch (e) {
+        img.style.display = 'none';
+      }
+    }
+
+    // Wait a bit for images to process
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Capture the element with html2canvas
+    const canvas = await html2canvas(captureContainer, {
+      backgroundColor: null,
+      scale: 3, // Use scale 3 to avoid logo scaling issues like game log
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      width: 600,
+      height: captureContainer.scrollHeight + 50, // Add height adjustment to prevent clipping
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: 600,
+      windowHeight: captureContainer.scrollHeight + 50
+    });
+
+    // Remove the temporary container
+    document.body.removeChild(captureContainer);
+
+    // Convert to blob and copy/download
+    canvas.toBlob(async (blob) => {
+      if (!blob) {
+        showFeedback('Failed to create image', 'error');
+        return;
+      }
+
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                      ('ontouchstart' in window) ||
+                      (navigator.maxTouchPoints > 0);
+
+      try {
+        if (isMobile) {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${playerName.replace(/\s+/g, '-')}-stats-${selectedYear}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          showFeedback('Player stats downloaded!', 'success');
+        } else {
+          if (navigator.clipboard && window.ClipboardItem) {
+            const clipboardItem = new ClipboardItem({
+              'image/png': blob
+            });
+            await navigator.clipboard.write([clipboardItem]);
+            showFeedback('Player stats copied to clipboard!', 'success');
+          } else {
+            // Fallback for older browsers
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${playerName.replace(/\s+/g, '-')}-stats-${selectedYear}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showFeedback('Player stats downloaded!', 'success');
+          }
+        }
+      } catch (error) {
+        console.error('Error handling image:', error);
+        showFeedback('Error copying/downloading image', 'error');
+      }
+    }, 'image/png', 0.95);
+
+  } catch (error) {
+    console.error('Error capturing player stats:', error);
+    showFeedback('Error capturing image', 'error');
+  }
+};
+
+// Helper function to get team color
+function getTeamColor() {
+  return teamColors[currentTeam?.name] || teamColors[currentTeam?.abbreviation] || '#0066cc';
+}
+
+// Helper function to get team logo
+async function getTeamLogo() {
+  if (currentTeam) {
+    return await getStandardLogoUrl(currentTeam.name);
+  }
+  return 'icon.png';
+}
+
 async function loadPlayerStatsForModal(playerId, year, container) {
   try {
     // Check if player is a pitcher or TWP player
@@ -1835,7 +2166,29 @@ async function loadPlayerStatsForModal(playerId, year, container) {
         allPitchersResponse.json()
       ]);
       
-      let content = `<div style="margin-bottom: 20px;"><h3 style="margin: 0; color: #333;">${year} Two-Way Player Statistics</h3></div>`;
+      const teamColor = getTeamColor();
+      
+      let content = `
+        <div id="playerStatsCard" style="position: relative;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #333;">${year} Two-Way Player Statistics</h3>
+            <button class="copy-stats-btn" onclick="copyPlayerStatsAsImage()" style="
+              background: ${teamColor};
+              color: white;
+              border: none;
+              padding: 8px 16px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: 500;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+            ">
+              📋 Copy ${window.innerWidth < 525 ? '' : 'as Image'}
+            </button>
+          </div>
+      `;
       
       // Show hitting stats if available
       if (hittingData.stats && hittingData.stats.length > 0 && hittingData.stats[0].splits && hittingData.stats[0].splits.length > 0) {
@@ -1961,26 +2314,43 @@ async function loadPlayerStatsForModal(playerId, year, container) {
         
         const currentYear = new Date().getFullYear();
         const startYear = 2022;
+
+        const teamColor = getTeamColor();
         
         // Show stats in modal format
         container.innerHTML = `
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <img src="${teamLogoUrl}" alt="${teamNameForYear}" 
-                   style="height:40px;max-width:60px;" 
-                   onerror="this.src='icon.png';">
-              <h3 style="margin: 0; color: #333;">${year} Hitting Statistics</h3>
+          <div id="playerStatsCard" style="position: relative;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <img src="${teamLogoUrl}" alt="${teamNameForYear}" 
+                     style="height:40px;max-width:60px;" 
+                     onerror="this.src='icon.png';">
+                <h3 style="margin: 0; color: #333;">${year} Hitting Statistics</h3>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <button class="copy-stats-btn" onclick="copyPlayerStatsAsImage()" style="
+                  background: ${teamColor};
+                  color: white;
+                  border: none;
+                  padding: 8px 16px;
+                  border-radius: 4px;
+                  cursor: pointer;
+                  font-size: 14px;
+                  font-weight: 500;
+                  display: flex;
+                  align-items: center;
+                  gap: 6px;
+                ">
+                  📋 Copy ${window.innerWidth < 525 ? '' : 'as Image'}
+                </button>
+                <select id="modalYearSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                  ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(yearOption => 
+                    `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
+                  ).join('')}
+                </select>
+              </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <label style="font-weight: bold; color: #333;">Year:</label>
-              <select id="modalYearSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
-                ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(yearOption => 
-                  `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
-                ).join('')}
-              </select>
-            </div>
-          </div>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.avg || '.000'}</div>
               <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">AVG</div>
@@ -2055,7 +2425,6 @@ async function loadPlayerStatsForModal(playerId, year, container) {
               <h3 style="margin: 0; color: #333;">${year} Hitting Statistics</h3>
             </div>
             <div style="display: flex; align-items: center; gap: 10px;">
-              <label style="font-weight: bold; color: #333;">Year:</label>
               <select id="modalYearSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
                 ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(yearOption => 
                   `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
@@ -2111,26 +2480,43 @@ async function loadPlayerStatsForModal(playerId, year, container) {
         
         const currentYear = new Date().getFullYear();
         const startYear = 2022;
-        
+
+        const teamColor = getTeamColor();
+
         // Show stats in modal format
         container.innerHTML = `
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <img src="${teamLogoUrl}" alt="${teamNameForYear}" 
-                   style="height:40px;max-width:60px;" 
-                   onerror="this.src='icon.png';">
-              <h3 style="margin: 0; color: #333;">${year} Pitching Statistics</h3>
+          <div id="playerStatsCard" style="position: relative;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <img src="${teamLogoUrl}" alt="${teamNameForYear}" 
+                     style="height:40px;max-width:60px;" 
+                     onerror="this.src='icon.png';">
+                <h3 style="margin: 0; color: #333;">${year} Pitching Statistics</h3>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <button class="copy-stats-btn" onclick="copyPlayerStatsAsImage()" style="
+                  background: ${teamColor};
+                  color: white;
+                  border: none;
+                  padding: 8px 16px;
+                  border-radius: 4px;
+                  cursor: pointer;
+                  font-size: 14px;
+                  font-weight: 500;
+                  display: flex;
+                  align-items: center;
+                  gap: 6px;
+                ">
+                  📋 Copy ${window.innerWidth < 525 ? '' : 'as Image'}
+                </button>
+                <select id="modalYearSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                  ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(yearOption => 
+                    `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
+                  ).join('')}
+                </select>
+              </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <label style="font-weight: bold; color: #333;">Year:</label>
-              <select id="modalYearSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
-                ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(yearOption => 
-                  `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
-                ).join('')}
-              </select>
-            </div>
-          </div>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.era || '0.00'}</div>
               <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">ERA</div>
@@ -2200,7 +2586,7 @@ async function loadPlayerStatsForModal(playerId, year, container) {
               <h3 style="margin: 0; color: #333;">${year} Pitching Statistics</h3>
             </div>
             <div style="display: flex; align-items: center; gap: 10px;">
-              <label style="font-weight: bold; color: #333;">Year:</label>
+              
               <select id="modalYearSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
                 ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(yearOption => 
                   `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
@@ -3200,7 +3586,7 @@ async function showPlayerComparison(player1, player2) {
         </div>
       </div>
       <div style="display: flex; align-items: center; gap: 10px;">
-        <label style="font-weight: bold; color: #333;">Year:</label>
+        
         <select id="player1YearSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
           ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(year => 
             `<option value="${year}" ${year === currentYear ? 'selected' : ''}>${year}</option>`
@@ -3264,7 +3650,7 @@ async function showPlayerComparison(player1, player2) {
         </div>
       </div>
       <div style="display: flex; align-items: center; gap: 10px;">
-        <label style="font-weight: bold; color: #333;">Year:</label>
+        
         <select id="player2YearSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
           ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(year => 
             `<option value="${year}" ${year === currentYear ? 'selected' : ''}>${year}</option>`
