@@ -471,7 +471,7 @@ async function startStreamTesting(awayTeamName, homeTeamName) {
   
   // Simplified to only use home vs away format
   const pageUrls = [
-    `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}-2/`
+    `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}/`
   ];
   
   streamUrls = [];
@@ -628,7 +628,7 @@ function renderStreamEmbed(awayTeamName, homeTeamName) {
   const awayNormalized = normalizeTeamName(awayTeamName);
   
   // Simplified to only use home vs away format
-  const streamUrl = `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}-2/`;
+  const streamUrl = `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}/`;
   const isSmallScreen = window.innerWidth < 525
   const screenHeight = isSmallScreen ? 250 : 700;
   

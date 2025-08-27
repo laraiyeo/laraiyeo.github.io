@@ -1438,7 +1438,16 @@ async function extractVideoPlayerUrl(pageUrl) {
   try {
     console.log(`Attempting to extract video URL from: ${pageUrl}`);
     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(pageUrl)}`;
-    const response = await fetch(proxyUrl);
+
+    // Add timeout to prevent long delays
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+    const response = await fetch(proxyUrl, {
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.error(`Proxy request failed with status: ${response.status}`);
@@ -1512,22 +1521,27 @@ async function extractVideoPlayerUrl(pageUrl) {
     return null;
 
   } catch (error) {
-    console.error('Error extracting video player URL:', error);
+    if (error.name === 'AbortError') {
+      console.log(`Request timeout for: ${pageUrl}`);
+    } else {
+      console.error('Error extracting video player URL:', error);
+    }
     return null;
   }
 }
 
 function tryNextStream() {
   const iframe = document.getElementById('streamIframe');
-  
+
   if (currentStreamIndex < streamUrls.length) {
     const nextUrl = streamUrls[currentStreamIndex];
     currentStreamIndex++;
-    
+
+    // Reduced timeout from 4000ms to 2000ms
     streamTestTimeout = setTimeout(() => {
       tryNextStream();
-    }, 4000);
-    
+    }, 2000);
+
     if (iframe) {
       iframe.src = nextUrl;
     }
@@ -1593,7 +1607,7 @@ function checkStreamContent(iframe) {
         connectingDiv.style.display = 'none';
       }
     }
-  }, 1000);
+  }, 500); // Reduced from 1000ms to 500ms
 }
 
 async function startStreamTesting(homeTeamName, awayTeamName) {
@@ -1603,12 +1617,10 @@ async function startStreamTesting(homeTeamName, awayTeamName) {
   console.log(`Starting stream testing for: ${homeTeamName} vs ${awayTeamName}`);
   console.log(`Normalized names: ${homeNormalized} vs ${awayNormalized}`);
 
-  // Multiple streaming sources to try
+  // Prioritize the most likely URL first, try fewer variations
   const pageUrls = [
     `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`,
-    `https://papaahd.live/${awayNormalized}-vs-${homeNormalized}/`, // Try reverse order
-    `https://papaahd.live/${homeNormalized}-${awayNormalized}/`, // Try without 'vs'
-    `https://papaahd.live/${awayNormalized}-${homeNormalized}/`  // Try reverse without 'vs'
+    `https://papaahd.live/${awayNormalized}-vs-${homeNormalized}/`
   ];
 
   streamUrls = [];
@@ -1616,36 +1628,36 @@ async function startStreamTesting(homeTeamName, awayTeamName) {
   console.log(`Attempting to extract from ${pageUrls.length} potential URLs:`);
   pageUrls.forEach((url, index) => console.log(`${index + 1}. ${url}`));
 
-  const extractionPromises = pageUrls.map(async (url, index) => {
+  // Try to extract from the first URL immediately
+  try {
+    console.log(`Extracting from primary URL: ${pageUrls[0]}`);
+    const videoUrl = await extractVideoPlayerUrl(pageUrls[0]);
+    if (videoUrl) {
+      console.log(`Successfully extracted from primary URL: ${videoUrl}`);
+      streamUrls.push(videoUrl);
+    }
+  } catch (error) {
+    console.error(`Error extracting from primary URL:`, error);
+  }
+
+  // If no URL found, try the second variation
+  if (streamUrls.length === 0) {
     try {
-      console.log(`Extracting from URL ${index + 1}: ${url}`);
-      const videoUrl = await extractVideoPlayerUrl(url);
+      console.log(`Extracting from secondary URL: ${pageUrls[1]}`);
+      const videoUrl = await extractVideoPlayerUrl(pageUrls[1]);
       if (videoUrl) {
-        console.log(`Successfully extracted from URL ${index + 1}: ${videoUrl}`);
-        return videoUrl;
-      } else {
-        console.log(`No video URL found in URL ${index + 1}`);
-        return null;
+        console.log(`Successfully extracted from secondary URL: ${videoUrl}`);
+        streamUrls.push(videoUrl);
       }
     } catch (error) {
-      console.error(`Error extracting from URL ${index + 1} (${url}):`, error);
-      return null;
+      console.error(`Error extracting from secondary URL:`, error);
     }
-  });
-
-  const extractedUrls = await Promise.all(extractionPromises);
-
-  extractedUrls.forEach((url, index) => {
-    if (url) {
-      streamUrls.push(url);
-      console.log(`Added to stream URLs from source ${index + 1}: ${url}`);
-    }
-  });
+  }
 
   console.log(`Total extracted URLs: ${streamUrls.length}`);
 
   if (streamUrls.length === 0) {
-    console.log('No video URLs extracted from any source, using page URLs as fallback');
+    console.log('No video URLs extracted, using page URL as fallback');
     // Use the first page URL as fallback
     streamUrls = [pageUrls[0]];
   } else {
@@ -1654,9 +1666,10 @@ async function startStreamTesting(homeTeamName, awayTeamName) {
 
   currentStreamIndex = 0;
 
+  // Reduced delay from 300ms to 100ms
   setTimeout(() => {
     tryNextStream();
-  }, 300);
+  }, 100);
 }
 
 // Debug function to test streaming extraction
@@ -1897,13 +1910,13 @@ window.handleStreamLoad = function() {
       if (connectingDiv) {
         connectingDiv.style.display = 'none';
       }
-    }, 1000);
+    }, 500); // Reduced from 1000ms to 500ms
 
     // Check content after a delay
     if (streamUrls.length > 0 && iframe.src !== 'about:blank') {
       setTimeout(() => {
         checkStreamContent(iframe);
-      }, 1500);
+      }, 800); // Reduced from 1500ms to 800ms
     } else {
       // No more URLs to try, show the iframe
       setTimeout(() => {
@@ -1913,7 +1926,7 @@ window.handleStreamLoad = function() {
             connectingDiv.style.display = 'none';
           }
         }
-      }, 2000);
+      }, 1000); // Reduced from 2000ms to 1000ms
     }
   }
 };
