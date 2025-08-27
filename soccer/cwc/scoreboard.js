@@ -683,7 +683,14 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
   const scorerName = scorer.displayName || 'Unknown Player';
   const assisterName = assister ? assister.displayName : null;
   const minute = play.time?.displayValue || play.clock?.displayValue || '';
-  const goalType = play.text?.toLowerCase().includes('penalty') ? 'Penalty Goal' : 'Goal';
+  
+  // Determine goal type: Own Goal, Penalty Goal, or regular Goal
+  let goalType = 'Goal';
+  if (playData.type && playData.type.id && playData.type.id.toString() === '97') {
+    goalType = 'Own Goal';
+  } else if (play.text?.toLowerCase().includes('penalty')) {
+    goalType = 'Penalty Goal';
+  }
   
   // Get team abbreviation for the scorer
   const scoringTeam = teamSide === 'home' ? homeTeam : awayTeam;
@@ -1032,17 +1039,20 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
     chronologicalCommentary.forEach(play => {
       const playData = play.play || play;
       
-      // Check for goal using type.id field (70, 137, or 98)
-      const isGoal = playData.type && playData.type.id && 
-                     ['70', '137', '98', '173'].includes(playData.type.id.toString());
-      
+      // Check for goal using type.id field (70, 137, 98, 173 for goals, 97 for own goals)
+      const isGoal = playData.type && playData.type.id &&
+                     ['70', '137', '98', '173', '97'].includes(playData.type.id.toString());
+
+      // Check if this is an own goal (ID 97)
+      const isOwnGoal = playData.type && playData.type.id && playData.type.id.toString() === '97';
+
       // Check for goal deletion/overturned
       const isGoalDeleted = playData.text && playData.text.toLowerCase().includes('deleted after review');
-      
+
       if (isGoal) {
         // Determine which team scored using team.displayName
         let scoringTeam = null;
-        
+
         if (playData.team && playData.team.displayName) {
           if (playData.team.displayName === homeTeam.team.displayName) {
             scoringTeam = 'home';
@@ -1050,19 +1060,26 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
             scoringTeam = 'away';
           }
         }
-        
+
+        // Handle own goals - they count for the OPPOSING team
+        if (isOwnGoal && scoringTeam) {
+          scoringTeam = scoringTeam === 'home' ? 'away' : 'home';
+          console.log(`Own goal detected: ${playData.team.displayName} scored own goal, counting for ${scoringTeam} team`);
+        }
+
         if (scoringTeam === 'home') {
           homeGoalCount++;
         } else if (scoringTeam === 'away') {
           awayGoalCount++;
         }
-        
+
         goalEvents.push({
           sequence: play.sequence || null,
           clockValue: (play.clock || (play.play && play.play.clock))?.value || null,
           homeScoreAfter: homeGoalCount,
           awayScoreAfter: awayGoalCount,
-          scoringTeam: scoringTeam
+          scoringTeam: scoringTeam,
+          isOwnGoal: isOwnGoal
         });
       } else if (isGoalDeleted) {
         // Handle deleted/overturned goals - subtract from the appropriate team
@@ -1072,7 +1089,7 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
           } else if (playData.team.displayName === awayTeam.team.displayName && awayGoalCount > 0) {
             awayGoalCount--;
           }
-          
+
           goalEvents.push({
             sequence: play.sequence || null,
             clockValue: (play.clock || (play.play && play.play.clock))?.value || null,
@@ -1130,9 +1147,9 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
       // Handle nested play structure - check if play.play exists
       const playData = play.play || play;
       
-      // Check if this is a goal play using type.id field (70, 137, or 98)
-      const isGoalPlay = playData.type && playData.type.id && 
-                         ['70', '137', '98', '173'].includes(playData.type.id.toString());
+      // Check if this is a goal play using type.id field (70, 137, 98, 173 for goals, 97 for own goals)
+      const isGoalPlay = playData.type && playData.type.id &&
+                         ['70', '137', '98', '173', '97'].includes(playData.type.id.toString());
       
       // Get the score at the time of this play using our counter logic
       let scoreAtThisTime = getScoreAtSequence(play);
@@ -1199,6 +1216,19 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
           teamColor = homeColor;
           teamDetermined = true;
         }
+      }
+      
+      // Handle own goals - reverse the team for display purposes
+      if (teamDetermined && isScoring && playData.type && playData.type.id && playData.type.id.toString() === '97') {
+        // Reverse the team assignment for own goals
+        if (teamSide === 'away') {
+          teamSide = 'home';
+          teamColor = homeColor;
+        } else {
+          teamSide = 'away';
+          teamColor = awayColor;
+        }
+        console.log(`Own goal display: Original team ${playData.team.displayName}, displaying as ${teamSide} team`);
       }
       
       // If no team could be determined, use greyish color

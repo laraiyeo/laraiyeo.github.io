@@ -2138,7 +2138,7 @@ function getTeamColor() {
 // Helper function to get team logo
 async function getTeamLogo() {
   if (currentTeam) {
-    return await getStandardLogoUrl(currentTeam.name);
+    return await getLogoUrl(currentTeam.name);
   }
   return 'icon.png';
 }

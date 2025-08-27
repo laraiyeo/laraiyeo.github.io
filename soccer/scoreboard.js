@@ -226,21 +226,22 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
   };
 
   const renderPlayer = (player, positionStyle, teamLogo) => {
-    const name = player.athlete.lastName ? player.athlete.lastName : player.athlete.displayName;
+    const name = player.athlete && (player.athlete.lastName || player.athlete.displayName) ? 
+                 (player.athlete.lastName || player.athlete.displayName) : 'Unknown Player';
     const substitution = player.subbedOutFor?.athlete ? `
       <span class="sub-arrow red-arrow">←</span>
       ` : "";
-    const jersey = player.jersey;
-    const stats = player.stats.reduce((acc, stat) => {
+    const jersey = player.jersey || 'N/A';
+    const stats = player.stats && Array.isArray(player.stats) ? player.stats.reduce((acc, stat) => {
       acc[stat.abbreviation] = stat.displayValue;
       return acc;
-    }, {});
+    }, {}) : {};
 
     const yellowCard = stats["YC"] === "1";
     const redCard = stats["RC"] === "1";
     const playerNameColor = redCard ? "red" : yellowCard ? "yellow" : "white";
 
-    const hoverCardId = `hover-card-${player.athlete.id}`;
+    const hoverCardId = `hover-card-${player.athlete && player.athlete.id ? player.athlete.id : 'unknown'}`;
 
     // Check if hover card already exists, if not create it
     let hoverCard = document.getElementById(hoverCardId);
@@ -280,7 +281,7 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
   const renderTeamPlayers = (players, positionStyles, teamLogo) =>
     players
       .filter(player => player.starter)
-      .map(player => renderPlayer(player, positionStyles[player.position.abbreviation] || "", teamLogo))
+      .map(player => renderPlayer(player, positionStyles[player.position && player.position.abbreviation ? player.position.abbreviation : ""] || "", teamLogo))
       .join("");
 
   const renderSubstitutes = (subs, teamLogo) => `
@@ -291,17 +292,18 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
       </div>
       <ul class="subs-list">
         ${subs.map(sub => {
-          const name = sub.athlete?.lastName || sub.athlete?.displayName || "Unknown";
+          const name = sub.athlete && (sub.athlete.lastName || sub.athlete.displayName) ? 
+                       (sub.athlete.lastName || sub.athlete.displayName) : "Unknown";
           const subbedInFor = sub.subbedInFor?.athlete ? `
             <span class="sub-arrow green-arrow">→</span>
             <span class="sub-time">${sub.plays?.[0]?.clock?.displayValue || ""}</span>
-            <span class="sub-out">Out: #${sub.subbedInFor.jersey || ""}, ${sub.subbedInFor.athlete.displayName || "Unknown"}</span>
+            <span class="sub-out">Out: #${sub.subbedInFor.jersey || ""}, ${sub.subbedInFor.athlete && sub.subbedInFor.athlete.displayName ? sub.subbedInFor.athlete.displayName : "Unknown"}</span>
           ` : "";
           const jersey = sub.jersey || "N/A";
-          const stats = (sub.stats || []).reduce((acc, stat) => {
+          const stats = sub.stats && Array.isArray(sub.stats) ? sub.stats.reduce((acc, stat) => {
             acc[stat.abbreviation] = stat.displayValue;
             return acc;
-          }, {});
+          }, {}) : {};
 
           const yellowCard = stats["YC"] === "1";
           const redCard = stats["RC"] === "1";
@@ -1054,17 +1056,20 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
     chronologicalCommentary.forEach(play => {
       const playData = play.play || play;
       
-      // Check for goal using type.id field (70, 137, or 98)
-      const isGoal = playData.type && playData.type.id && 
-                     ['70', '137', '98', '173'].includes(playData.type.id.toString());
-      
+      // Check for goal using type.id field (70, 137, 98, 173 for goals, 97 for own goals)
+      const isGoal = playData.type && playData.type.id &&
+                     ['70', '137', '98', '173', '97'].includes(playData.type.id.toString());
+
+      // Check if this is an own goal (ID 97)
+      const isOwnGoal = playData.type && playData.type.id && playData.type.id.toString() === '97';
+
       // Check for goal deletion/overturned
       const isGoalDeleted = playData.text && playData.text.toLowerCase().includes('deleted after review');
-      
+
       if (isGoal) {
         // Determine which team scored using team.displayName
         let scoringTeam = null;
-        
+
         if (playData.team && playData.team.displayName) {
           if (playData.team.displayName === homeTeam.team.displayName) {
             scoringTeam = 'home';
@@ -1072,19 +1077,19 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
             scoringTeam = 'away';
           }
         }
-        
         if (scoringTeam === 'home') {
           homeGoalCount++;
         } else if (scoringTeam === 'away') {
           awayGoalCount++;
         }
-        
+
         goalEvents.push({
           sequence: play.sequence || null,
           clockValue: (play.clock || (play.play && play.play.clock))?.value || null,
           homeScoreAfter: homeGoalCount,
           awayScoreAfter: awayGoalCount,
-          scoringTeam: scoringTeam
+          scoringTeam: scoringTeam,
+          isOwnGoal: isOwnGoal
         });
       } else if (isGoalDeleted) {
         // Handle deleted/overturned goals - subtract from the appropriate team
@@ -1094,7 +1099,7 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
           } else if (playData.team.displayName === awayTeam.team.displayName && awayGoalCount > 0) {
             awayGoalCount--;
           }
-          
+
           goalEvents.push({
             sequence: play.sequence || null,
             clockValue: (play.clock || (play.play && play.play.clock))?.value || null,
@@ -1154,7 +1159,7 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
       
       // Check if this is a goal play using type.id field (70, 137, or 98)
       const isGoalPlay = playData.type && playData.type.id && 
-                         ['70', '137', '98', '173'].includes(playData.type.id.toString());
+                         ['70', '137', '98', '173', '97'].includes(playData.type.id.toString());
       
       // Get the score at the time of this play using our counter logic
       let scoreAtThisTime = getScoreAtSequence(play);
@@ -1221,6 +1226,19 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
           teamColor = homeColor;
           teamDetermined = true;
         }
+      }
+      
+      // Handle own goals - reverse the team for display purposes
+      if (teamDetermined && isScoring && playData.type && playData.type.id && playData.type.id.toString() === '97') {
+        // Reverse the team assignment for own goals
+        if (teamSide === 'away') {
+          teamSide = 'home';
+          teamColor = homeColor;
+        } else {
+          teamSide = 'away';
+          teamColor = awayColor;
+        }
+        console.log(`Own goal display: Original team ${playData.team.displayName}, displaying as ${teamSide} team`);
       }
       
       // If no team could be determined, use greyish color
@@ -1418,26 +1436,85 @@ let isMuted = true; // Start muted to prevent autoplay issues
 
 async function extractVideoPlayerUrl(pageUrl) {
   try {
+    console.log(`Attempting to extract video URL from: ${pageUrl}`);
     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(pageUrl)}`;
     const response = await fetch(proxyUrl);
+
+    if (!response.ok) {
+      console.error(`Proxy request failed with status: ${response.status}`);
+      return null;
+    }
+
     const data = await response.json();
-    
-    if (data.contents) {
-      const iframeMatch = data.contents.match(/src="([^"]*castweb\.xyz[^"]*)"/);
-      if (iframeMatch) {
-        return iframeMatch[1];
-      }
-      
-      const altMatch = data.contents.match(/iframe[^>]*src="([^"]*\.php[^"]*)"/);
-      if (altMatch) {
-        return altMatch[1];
+
+    if (!data.contents) {
+      console.error('No content received from proxy');
+      return null;
+    }
+
+    console.log(`Received page content, length: ${data.contents.length}`);
+
+    // More comprehensive regex patterns for different streaming providers
+    const patterns = [
+      // Original patterns
+      /src="([^"]*castweb\.xyz[^"]*)"/i,
+      /iframe[^>]*src="([^"]*\.php[^"]*)"/i,
+
+      // Common streaming patterns
+      /src="([^"]*\.m3u8[^"]*)"/i,  // HLS streams
+      /src="([^"]*\.mp4[^"]*)"/i,   // MP4 streams
+      /src="([^"]*embed[^"]*\.php[^"]*)"/i,  // Embed PHP files
+      /iframe[^>]*src="([^"]*player[^"]*\.php[^"]*)"/i,  // Player PHP files
+      /src="([^"]*stream[^"]*\.php[^"]*)"/i,  // Stream PHP files
+
+      // Alternative streaming providers
+      /src="([^"]*vidplay[^"]*)"/i,
+      /src="([^"]*streamtape[^"]*)"/i,
+      /src="([^"]*doodstream[^"]*)"/i,
+      /src="([^"]*mixdrop[^"]*)"/i,
+      /src="([^"]*upstream[^"]*)"/i,
+
+      // Generic iframe sources
+      /<iframe[^>]*src="([^"]+)"/i,
+      /<embed[^>]*src="([^"]+)"/i,
+      /<video[^>]*src="([^"]+)"/i,
+
+      // Data attributes that might contain URLs
+      /data-src="([^"]+)"/i,
+      /data-url="([^"]+)"/i,
+      /data-stream="([^"]+)"/i
+    ];
+
+    for (let i = 0; i < patterns.length; i++) {
+      const pattern = patterns[i];
+      const match = data.contents.match(pattern);
+      if (match && match[1]) {
+        const extractedUrl = match[1];
+        console.log(`Pattern ${i} matched: ${extractedUrl}`);
+
+        // Validate the URL
+        try {
+          new URL(extractedUrl);
+          return extractedUrl;
+        } catch (urlError) {
+          console.log(`Invalid URL format: ${extractedUrl}, trying next pattern`);
+          continue;
+        }
       }
     }
+
+    console.log('No video URLs found with any pattern');
+
+    // Log a sample of the content for debugging
+    const contentSample = data.contents.substring(0, 500);
+    console.log('Page content sample:', contentSample);
+
+    return null;
+
   } catch (error) {
     console.error('Error extracting video player URL:', error);
+    return null;
   }
-  
-  return null;
 }
 
 function tryNextStream() {
@@ -1466,35 +1543,51 @@ function tryNextStream() {
 
 function checkStreamContent(iframe) {
   const connectingDiv = document.getElementById('streamConnecting');
-  
+
+  console.log('Checking stream content for iframe:', iframe.src);
+
   try {
     const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-    
-    const hasVideo = iframeDoc.querySelector('video') || 
-                    iframeDoc.querySelector('.video-js') || 
+
+    // More comprehensive video detection
+    const hasVideo = iframeDoc.querySelector('video') ||
+                    iframeDoc.querySelector('.video-js') ||
                     iframeDoc.querySelector('[id*="video"]') ||
-                    iframeDoc.querySelector('[class*="player"]');
-    
+                    iframeDoc.querySelector('[class*="player"]') ||
+                    iframeDoc.querySelector('[class*="stream"]') ||
+                    iframeDoc.querySelector('iframe') || // Nested iframe might indicate content
+                    iframeDoc.querySelector('[src*="mp4"]') ||
+                    iframeDoc.querySelector('[src*="m3u8"]') ||
+                    iframeDoc.querySelector('[src*="stream"]');
+
     if (hasVideo) {
+      console.log('Video content detected in iframe');
       iframe.style.display = 'block';
       if (connectingDiv) {
         connectingDiv.style.display = 'none';
       }
       streamUrls = [];
       return;
+    } else {
+      console.log('No video content detected in iframe');
     }
   } catch (e) {
-    console.log('Cannot access iframe content (cross-origin), assuming external stream');
+    console.log('Cannot access iframe content (cross-origin), assuming external stream is working');
+    console.log('Cross-origin error details:', e.message);
+
+    // Since we can't inspect the content, assume it's working if the iframe loaded
     iframe.style.display = 'block';
     if (connectingDiv) {
       connectingDiv.style.display = 'none';
     }
   }
-  
+
   setTimeout(() => {
     if (streamUrls.length > 0) {
+      console.log('Trying next stream URL');
       tryNextStream();
     } else {
+      console.log('No more stream URLs to try, showing current iframe');
       iframe.style.display = 'block';
       if (connectingDiv) {
         connectingDiv.style.display = 'none';
@@ -1506,59 +1599,110 @@ function checkStreamContent(iframe) {
 async function startStreamTesting(homeTeamName, awayTeamName) {
   const homeNormalized = normalizeTeamName(homeTeamName);
   const awayNormalized = normalizeTeamName(awayTeamName);
-  
+
+  console.log(`Starting stream testing for: ${homeTeamName} vs ${awayTeamName}`);
+  console.log(`Normalized names: ${homeNormalized} vs ${awayNormalized}`);
+
+  // Multiple streaming sources to try
   const pageUrls = [
-    `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`
+    `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`,
+    `https://papaahd.live/${awayNormalized}-vs-${homeNormalized}/`, // Try reverse order
+    `https://papaahd.live/${homeNormalized}-${awayNormalized}/`, // Try without 'vs'
+    `https://papaahd.live/${awayNormalized}-${homeNormalized}/`  // Try reverse without 'vs'
   ];
-  
+
   streamUrls = [];
-  
-  const extractionPromises = pageUrls.map(async (url) => {
+
+  console.log(`Attempting to extract from ${pageUrls.length} potential URLs:`);
+  pageUrls.forEach((url, index) => console.log(`${index + 1}. ${url}`));
+
+  const extractionPromises = pageUrls.map(async (url, index) => {
     try {
+      console.log(`Extracting from URL ${index + 1}: ${url}`);
       const videoUrl = await extractVideoPlayerUrl(url);
-      return videoUrl;
+      if (videoUrl) {
+        console.log(`Successfully extracted from URL ${index + 1}: ${videoUrl}`);
+        return videoUrl;
+      } else {
+        console.log(`No video URL found in URL ${index + 1}`);
+        return null;
+      }
     } catch (error) {
-      console.error(`Error extracting from ${url}:`, error);
+      console.error(`Error extracting from URL ${index + 1} (${url}):`, error);
       return null;
     }
   });
-  
+
   const extractedUrls = await Promise.all(extractionPromises);
-  
-  extractedUrls.forEach(url => {
+
+  extractedUrls.forEach((url, index) => {
     if (url) {
       streamUrls.push(url);
-      console.log(`Extracted video URL: ${url}`);
+      console.log(`Added to stream URLs from source ${index + 1}: ${url}`);
     }
   });
-  
+
+  console.log(`Total extracted URLs: ${streamUrls.length}`);
+
   if (streamUrls.length === 0) {
-    console.log('No video URLs extracted, using page URLs directly');
-    streamUrls = pageUrls;
+    console.log('No video URLs extracted from any source, using page URLs as fallback');
+    // Use the first page URL as fallback
+    streamUrls = [pageUrls[0]];
+  } else {
+    console.log('Successfully extracted video URLs:', streamUrls);
   }
-  
+
   currentStreamIndex = 0;
-  
+
   setTimeout(() => {
     tryNextStream();
   }, 300);
 }
 
-// Function to get stream ID based on team names or default to common IDs
-function getStreamId(homeTeam, awayTeam) {
-  // Common stream IDs for different types of matches
-  const commonStreamIds = ['1011', '1012', '1013', '1014', '1015'];
-  
-  // For now, use a hash-based approach to get consistent stream ID for same teams
-  const teamString = `${homeTeam.toLowerCase()}-${awayTeam.toLowerCase()}`;
-  const hash = teamString.split('').reduce((a, b) => {
-    a = ((a << 5) - a) + b.charCodeAt(0);
-    return a & a;
-  }, 0);
-  
-  const index = Math.abs(hash) % commonStreamIds.length;
-  return commonStreamIds[index];
+// Debug function to test streaming extraction
+async function debugStreamExtraction(homeTeamName, awayTeamName) {
+  console.log('=== STREAM DEBUGGING START ===');
+  console.log(`Testing extraction for: ${homeTeamName} vs ${awayTeamName}`);
+
+  const homeNormalized = normalizeTeamName(homeTeamName);
+  const awayNormalized = normalizeTeamName(awayTeamName);
+
+  console.log(`Normalized names: ${homeNormalized} vs ${awayNormalized}`);
+
+  const testUrls = [
+    `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`,
+    `https://papaahd.live/${awayNormalized}-vs-${homeNormalized}/`,
+    `https://papaahd.live/${homeNormalized}-${awayNormalized}/`,
+    `https://papaahd.live/${awayNormalized}-${homeNormalized}/`
+  ];
+
+  console.log('Testing URL variations:');
+  for (let i = 0; i < testUrls.length; i++) {
+    console.log(`${i + 1}. ${testUrls[i]}`);
+  }
+
+  // Test extraction from each URL
+  for (let i = 0; i < testUrls.length; i++) {
+    const url = testUrls[i];
+    console.log(`\n--- Testing URL ${i + 1}: ${url} ---`);
+
+    try {
+      const extractedUrl = await extractVideoPlayerUrl(url);
+      if (extractedUrl) {
+        console.log(`✅ SUCCESS: Extracted ${extractedUrl}`);
+      } else {
+        console.log(`❌ FAILED: No video URL found`);
+      }
+    } catch (error) {
+      console.log(`❌ ERROR: ${error.message}`);
+    }
+  }
+
+  console.log('=== STREAM DEBUGGING END ===');
 }
+
+// Make debug function available globally for console testing
+window.debugStreamExtraction = debugStreamExtraction;
 
 async function renderStreamEmbed(gameId) {
   const streamContainer = document.getElementById("streamEmbed");
@@ -1733,40 +1877,69 @@ window.toggleFullscreen = function() {
 window.handleStreamLoad = function() {
   const iframe = document.getElementById('streamIframe');
   const connectingDiv = document.getElementById('streamConnecting');
-  
+
+  console.log('Stream iframe loaded, src:', iframe.src);
+
   // Clear any existing timeout
   if (streamTestTimeout) {
     clearTimeout(streamTestTimeout);
     streamTestTimeout = null;
   }
-  
+
   if (iframe.src !== 'about:blank') {
+    // Update connecting message
+    if (connectingDiv) {
+      connectingDiv.innerHTML = '<p style="color: #4CAF50;">🔄 Loading stream...</p>';
+    }
+
     setTimeout(() => {
       iframe.style.display = 'block';
       if (connectingDiv) {
         connectingDiv.style.display = 'none';
       }
     }, 1000);
-  }
-  
-  if (streamUrls.length > 0 && iframe.src !== 'about:blank') {
-    setTimeout(() => {
-      checkStreamContent(iframe);
-    }, 1500);
-  } else {
-    if (iframe.src !== 'about:blank') {
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
+
+    // Check content after a delay
+    if (streamUrls.length > 0 && iframe.src !== 'about:blank') {
+      setTimeout(() => {
+        checkStreamContent(iframe);
+      }, 1500);
+    } else {
+      // No more URLs to try, show the iframe
+      setTimeout(() => {
+        if (iframe.src !== 'about:blank') {
+          iframe.style.display = 'block';
+          if (connectingDiv) {
+            connectingDiv.style.display = 'none';
+          }
+        }
+      }, 2000);
     }
   }
 };
 
 window.handleStreamError = function() {
   const connectingDiv = document.getElementById('streamConnecting');
+  const iframe = document.getElementById('streamIframe');
+
+  console.error('Stream failed to load');
+
   if (connectingDiv) {
-    connectingDiv.innerHTML = '<p style="color: #ff6b6b;">Stream unavailable. Please try refreshing the page.</p>';
+    connectingDiv.innerHTML = `
+      <p style="color: #ff6b6b;">⚠️ Stream temporarily unavailable</p>
+      <p style="font-size: 0.9em; color: #ccc;">This can happen due to:</p>
+      <ul style="font-size: 0.8em; color: #ccc; text-align: left; margin: 10px 0;">
+        <li>• Network restrictions</li>
+        <li>• Streaming service maintenance</li>
+        <li>• Match not yet available</li>
+      </ul>
+      <p style="font-size: 0.9em; color: #ccc;">Try refreshing the page in a few minutes.</p>
+    `;
+  }
+
+  // Hide the iframe if it's showing an error
+  if (iframe) {
+    iframe.style.display = 'none';
   }
 };
 

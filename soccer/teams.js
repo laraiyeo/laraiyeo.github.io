@@ -117,8 +117,20 @@ async function fetchGamesFromAllCompetitions(tuesdayRange) {
   allResults.forEach(games => {
     allGames.push(...games);
   });
-  
+
+  // Log breakdown of games by type
+  const competitionGames = allGames.filter(game => game.isDomesticCup);
+  const leagueGames = allGames.filter(game => !game.isDomesticCup);
+
   console.log(`Total games found across all competitions: ${allGames.length}`);
+  console.log(`- League games: ${leagueGames.length}`);
+  console.log(`- Competition games: ${competitionGames.length}`);
+
+  if (competitionGames.length > 0) {
+    const competitions = [...new Set(competitionGames.map(g => g.competitionName))];
+    console.log(`- Competitions found: ${competitions.join(', ')}`);
+  }
+
   return allGames;
 }
 
@@ -241,14 +253,22 @@ const CACHE_DURATION = 30000; // 30 seconds
 
 async function fetchAndDisplayTeams() {
   try {
-    const cacheKey = `${currentLeague}-${getTuesdayRange()}`;
+    // Include competition information in cache key
+    const competitions = LEAGUE_COMPETITIONS[currentLeague] || [];
+    const allCompetitionsToCheck = [
+      ...competitions, // Domestic cups FIRST (prioritized)
+      { code: currentLeague, name: "League" } // Main league LAST
+    ];
+    const competitionCodes = allCompetitionsToCheck.map(c => c.code).sort().join(',');
+
+    const cacheKey = `${currentLeague}-${competitionCodes}-${getTuesdayRange()}`;
     const now = Date.now();
-    
+
     // Check cache first
     if (dataCache.has(cacheKey)) {
       const cached = dataCache.get(cacheKey);
       if (now - cached.timestamp < CACHE_DURATION) {
-        console.log("Using cached data for", currentLeague);
+        console.log("Using cached data for", currentLeague, "with competitions:", cached.competitions || competitionCodes);
         await displayTeamsData(cached.teams, cached.games);
         return;
       } else {
@@ -270,14 +290,15 @@ async function fetchAndDisplayTeams() {
     const teams = teamsData.sports[0].leagues[0].teams.map(teamData => teamData.team);
 
     console.log(`Fetched ${teams.length} teams and ${games.length} games`);
-    
-    // Cache the results
+
+    // Cache the results with competition information
     dataCache.set(cacheKey, {
       teams,
       games,
+      competitions: competitionCodes,
       timestamp: now
     });
-    
+
     await displayTeamsData(teams, games);
   } catch (error) {
     console.error("Error fetching teams:", error);
@@ -290,14 +311,44 @@ async function fetchAndDisplayTeams() {
 
 async function displayTeamsData(teams, games) {
   try {
-    // Calculate hash for change detection (simplified for better performance)
-    const hashInput = `${currentLeague}-${games.length}-${games.map(g => g.id).join(',')}`;
+    // Calculate comprehensive hash for change detection
+    // Include competition information to detect changes in domestic cups
+    const competitions = LEAGUE_COMPETITIONS[currentLeague] || [];
+    const allCompetitionsToCheck = [
+      ...competitions, // Domestic cups FIRST (prioritized)
+      { code: currentLeague, name: "League" } // Main league LAST
+    ];
+
+    // Create detailed hash that includes:
+    // - Current league
+    // - All competitions that were checked
+    // - Competition games count
+    // - League games count
+    // - All game IDs with their competition codes
+    const competitionGames = games.filter(game => game.isDomesticCup);
+    const leagueGames = games.filter(game => !game.isDomesticCup);
+
+    const competitionCodes = allCompetitionsToCheck.map(c => c.code).sort().join(',');
+    const competitionGameIds = competitionGames.map(g => `${g.competitionCode}:${g.id}`).sort().join(',');
+    const leagueGameIds = leagueGames.map(g => g.id).sort().join(',');
+
+    const hashInput = `${currentLeague}|${competitionCodes}|${competitionGames.length}|${leagueGames.length}|${competitionGameIds}|${leagueGameIds}`;
     const newHash = hashString(hashInput);
 
     if (newHash === lastScheduleHash) {
       console.log("No changes detected in the schedule.");
       return;
     }
+
+    console.log(`Schedule changed - updating display`);
+    console.log(`Competitions checked: ${competitionCodes}`);
+    console.log(`Competition games: ${competitionGames.length}, League games: ${leagueGames.length}`);
+
+    // Log details about competition games for debugging
+    if (competitionGames.length > 0) {
+      console.log(`Competition games found:`, competitionGames.map(g => `${g.competitionName}: ${g.competitions[0].competitors[0].team.displayName} vs ${g.competitions[0].competitors[1].team.displayName} (${new Date(g.date).toLocaleDateString()})`));
+    }
+
     lastScheduleHash = newHash;
 
     const container = document.getElementById("teamsContainer");
@@ -615,6 +666,10 @@ function setupLeagueButtons() {
       if (button.disabled) return;
       
       currentLeague = leagueData.code;
+
+      // Clear cache when switching leagues to ensure fresh competition data
+      dataCache.clear();
+      console.log(`Switched to league ${currentLeague}, cleared cache`);
 
       // Save the current league to localStorage
       localStorage.setItem("currentLeague", currentLeague);
