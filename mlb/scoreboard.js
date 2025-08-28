@@ -167,35 +167,109 @@ function normalizeTeamName(teamName) {
 
 async function extractVideoPlayerUrl(pageUrl) {
   try {
-    // Use a CORS proxy to fetch the page content
+    console.log('Extracting video URL from:', pageUrl);
+
+    // Use a CORS proxy to fetch the page content with timeout
     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(pageUrl)}`;
-    const response = await fetch(proxyUrl);
+
+    // Add timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+
+    const response = await fetch(proxyUrl, {
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.error('Proxy request failed:', response.status);
+      return null;
+    }
+
     const data = await response.json();
-    
-    if (data.contents) {
-      // Look for iframe src in the page content
-      const iframeMatch = data.contents.match(/src="([^"]*castweb\.xyz[^"]*)"/);
-      if (iframeMatch) {
-        return iframeMatch[1];
-      }
-      
-      // Alternative patterns to look for
-      const altMatch = data.contents.match(/iframe[^>]*src="([^"]*\.php[^"]*)"/);
-      if (altMatch) {
-        return altMatch[1];
+
+    if (!data.contents) {
+      console.error('No content received from proxy');
+      return null;
+    }
+
+    console.log('Received page content, length:', data.contents.length);
+
+    // More comprehensive regex patterns for different streaming providers
+    const patterns = [
+      // Original patterns
+      /src="([^"]*castweb\.xyz[^"]*)"/i,
+      /iframe[^>]*src="([^"]*\.php[^"]*)"/i,
+
+      // Common streaming patterns
+      /src="([^"]*\.m3u8[^"]*)"/i,  // HLS streams
+      /src="([^"]*\.mp4[^"]*)"/i,   // MP4 streams
+      /src="([^"]*embed[^"]*\.php[^"]*)"/i,  // Embed PHP files
+      /iframe[^>]*src="([^"]*player[^"]*\.php[^"]*)"/i,  // Player PHP files
+      /src="([^"]*stream[^"]*\.php[^"]*)"/i,  // Stream PHP files
+
+      // Alternative streaming providers
+      /src="([^"]*vidplay[^"]*)"/i,
+      /src="([^"]*streamtape[^"]*)"/i,
+      /src="([^"]*doodstream[^"]*)"/i,
+      /src="([^"]*mixdrop[^"]*)"/i,
+      /src="([^"]*upstream[^"]*)"/i,
+
+      // Generic iframe sources
+      /<iframe[^>]*src="([^"]+)"/i,
+      /<embed[^>]*src="([^"]+)"/i,
+      /<video[^>]*src="([^"]+)"/i,
+
+      // Data attributes that might contain URLs
+      /data-src="([^"]+)"/i,
+      /data-url="([^"]+)"/i,
+      /data-stream="([^"]+)"/i
+    ];
+
+    for (let i = 0; i < patterns.length; i++) {
+      const pattern = patterns[i];
+      const match = data.contents.match(pattern);
+      if (match && match[1]) {
+        const extractedUrl = match[1];
+        console.log(`Pattern ${i} matched: ${extractedUrl}`);
+
+        // Validate the URL
+        try {
+          new URL(extractedUrl);
+          return extractedUrl;
+        } catch (urlError) {
+          console.log(`Invalid URL format: ${extractedUrl}, trying next pattern`);
+          continue;
+        }
       }
     }
+
+    console.log('No video URLs found with any pattern');
+
+    // Log a sample of the content for debugging
+    const contentSample = data.contents.substring(0, 500);
+    console.log('Page content sample:', contentSample);
+
+    return null;
+
   } catch (error) {
-    console.error('Error extracting video player URL:', error);
+    if (error.name === 'AbortError') {
+      console.log('Request timeout for:', pageUrl);
+    } else {
+      console.error('Error extracting video player URL:', error);
+    }
+    return null;
   }
-  
-  return null;
 }
 
 // Global variables for stream testing
 let streamUrls = [];
 let currentStreamIndex = 0;
 let streamTestTimeout = null;
+let currentStreamVersion = 1; // Track which stream version is active (1 or 2)
+let currentAwayTeam = ''; // Store current away team name
+let currentHomeTeam = ''; // Store current home team name
 let isMuted = true; // Start muted to prevent autoplay issues
 
 // Enhanced video control functions matching the iframe pattern
@@ -330,7 +404,90 @@ window.toggleFullscreen = function() {
   }
 };
 
-// Add these functions to handle stream loading
+window.toggleStreamVersion = function() {
+  // Toggle between stream 1 and 2
+  currentStreamVersion = currentStreamVersion === 1 ? 2 : 1;
+
+  console.log('Toggling to stream version:', currentStreamVersion);
+  console.log('Current team names:', currentAwayTeam, currentHomeTeam);
+
+  // Update the button text
+  const button = document.getElementById('streamToggleButton');
+  if (button) {
+    button.textContent = `Test Stream ${currentStreamVersion === 1 ? '2' : '1'}`;
+  }
+
+  // If team names are not available, try to get them from other sources
+  if (!currentAwayTeam || !currentHomeTeam) {
+    console.log('Team names not available, attempting to retrieve them...');
+
+    // Try to get team names from the current game data by looking at the scoreboard
+    const awayTeamElement = document.querySelector('.scoreboard-away .team-name, [data-away-team]');
+    const homeTeamElement = document.querySelector('.scoreboard-home .team-name, [data-home-team]');
+
+    if (awayTeamElement) {
+      currentAwayTeam = awayTeamElement.textContent?.trim() ||
+                       awayTeamElement.getAttribute('data-away-team') || 'away';
+    }
+
+    if (homeTeamElement) {
+      currentHomeTeam = homeTeamElement.textContent?.trim() ||
+                       homeTeamElement.getAttribute('data-home-team') || 'home';
+    }
+
+    // Also try to get from the linescore table
+    if (!currentAwayTeam || !currentHomeTeam) {
+      const linescoreTable = document.getElementById('linescoreTable');
+      if (linescoreTable) {
+        const rows = linescoreTable.querySelectorAll('tr');
+        if (rows.length >= 2) {
+          const awayRow = rows[0];
+          const homeRow = rows[1];
+
+          if (awayRow && awayRow.cells && awayRow.cells[0]) {
+            currentAwayTeam = awayRow.cells[0].textContent?.trim() || 'away';
+          }
+          if (homeRow && homeRow.cells && homeRow.cells[0]) {
+            currentHomeTeam = homeRow.cells[0].textContent?.trim() || 'home';
+          }
+        }
+      }
+    }
+
+    console.log('Retrieved team names:', currentAwayTeam, currentHomeTeam);
+  }
+
+  // Update the iframe src with the new stream URL
+  if (currentAwayTeam && currentHomeTeam) {
+    const homeNormalized = normalizeTeamName(currentHomeTeam);
+    const awayNormalized = normalizeTeamName(currentAwayTeam);
+    const suffix = currentStreamVersion === 2 ? '-2' : '';
+    const newStreamUrl = `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}${suffix}/`;
+
+    console.log('New stream URL:', newStreamUrl);
+
+    const iframe = document.getElementById('streamIframe');
+    if (iframe) {
+      // Reset the iframe and restart stream testing
+      iframe.src = 'about:blank';
+
+      // Show connecting message
+      const connectingDiv = document.getElementById('streamConnecting');
+      if (connectingDiv) {
+        connectingDiv.style.display = 'block';
+        iframe.style.display = 'none';
+      }
+
+      // Restart the stream testing process with the new stream version
+      setTimeout(() => {
+        startStreamTesting(currentAwayTeam, currentHomeTeam, currentStreamVersion);
+      }, 100);
+    }
+  } else {
+    console.error('Team names still not available for stream toggle');
+    alert('Unable to toggle stream: team names not available. Please refresh the page and try again.');
+  }
+};// Add these functions to handle stream loading
 window.loadStream = function(url) {
   const iframe = document.getElementById('streamIframe');
   
@@ -402,42 +559,71 @@ window.handleStreamLoad = function() {
 
 function checkStreamContent(iframe) {
   const connectingDiv = document.getElementById('streamConnecting');
-  
+
+  console.log('Checking stream content for iframe:', iframe.src);
+
   try {
     const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-    
-    const hasVideo = iframeDoc.querySelector('video') || 
-                    iframeDoc.querySelector('.video-js') || 
+
+    // More comprehensive video detection
+    const hasVideo = iframeDoc.querySelector('video') ||
+                    iframeDoc.querySelector('.video-js') ||
                     iframeDoc.querySelector('[id*="video"]') ||
-                    iframeDoc.querySelector('[class*="player"]');
-    
+                    iframeDoc.querySelector('[class*="player"]') ||
+                    iframeDoc.querySelector('[class*="stream"]') ||
+                    iframeDoc.querySelector('iframe') || // Nested iframe might indicate content
+                    iframeDoc.querySelector('[src*="mp4"]') ||
+                    iframeDoc.querySelector('[src*="m3u8"]') ||
+                    iframeDoc.querySelector('[src*="stream"]');
+
     if (hasVideo) {
+      console.log('Video content detected in iframe');
       iframe.style.display = 'block';
       if (connectingDiv) {
         connectingDiv.style.display = 'none';
       }
       streamUrls = [];
       return;
+    } else {
+      console.log('No video content detected in iframe');
     }
   } catch (e) {
-    console.log('Cannot access iframe content (cross-origin), assuming external stream');
-    iframe.style.display = 'block';
-    if (connectingDiv) {
-      connectingDiv.style.display = 'none';
+    console.log('Cannot access iframe content (cross-origin), checking URL pattern');
+
+    // If we can't access the content, check if the URL looks like a video stream
+    const url = iframe.src;
+    const isVideoUrl = url.includes('.m3u8') ||
+                      url.includes('.mp4') ||
+                      url.includes('stream') ||
+                      url.includes('video') ||
+                      url.includes('player');
+
+    if (isVideoUrl) {
+      console.log('URL appears to be a video stream, showing iframe');
+      iframe.style.display = 'block';
+      if (connectingDiv) {
+        connectingDiv.style.display = 'none';
+      }
+      streamUrls = [];
+      return;
+    } else {
+      console.log('URL does not appear to be a video stream:', url);
     }
   }
-  
-  // Reduced delay from 2 seconds to 1 second
+
+  // If we reach here, either no video was found or the URL doesn't look like a video stream
   setTimeout(() => {
     if (streamUrls.length > 0) {
+      console.log('Trying next stream URL');
       tryNextStream();
     } else {
+      console.log('No more stream URLs to try, showing current iframe');
       iframe.style.display = 'block';
       if (connectingDiv) {
         connectingDiv.style.display = 'none';
       }
     }
-  }, 1000);
+  }, 1000); // Reduced from 2 seconds to 1 second
 }
 
 function tryNextStream() {
@@ -465,50 +651,82 @@ function tryNextStream() {
   }
 }
 
-async function startStreamTesting(awayTeamName, homeTeamName) {
+async function startStreamTesting(awayTeamName, homeTeamName, streamVersion = 1) {
+  console.log('Starting stream testing with:', awayTeamName, homeTeamName, 'version:', streamVersion);
+
+  // Validate team names
+  if (!awayTeamName || !homeTeamName || awayTeamName === 'Unknown' || homeTeamName === 'Unknown') {
+    console.error('Invalid team names:', awayTeamName, homeTeamName);
+    return;
+  }
+
   const awayNormalized = normalizeTeamName(awayTeamName);
   const homeNormalized = normalizeTeamName(homeTeamName);
-  
-  // Simplified to only use home vs away format
+
+  console.log('Normalized names:', awayNormalized, homeNormalized);
+
+  // Validate normalized names
+  if (!awayNormalized || !homeNormalized) {
+    console.error('Failed to normalize team names');
+    return;
+  }
+
+  // Generate URL based on stream version
+  const suffix = streamVersion === 2 ? '-2' : '';
   const pageUrls = [
-    `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}-2/`
+    `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}${suffix}/`
   ];
-  
+
+  console.log('Stream URLs to test:', pageUrls);
+
+  // Validate URLs
+  for (const url of pageUrls) {
+    try {
+      new URL(url);
+    } catch (e) {
+      console.error('Invalid URL generated:', url);
+      return;
+    }
+  }
+
   streamUrls = [];
-  
+
   // Process URLs in parallel for faster extraction
   const extractionPromises = pageUrls.map(async (url) => {
     try {
+      console.log('Extracting from:', url);
       const videoUrl = await extractVideoPlayerUrl(url);
+      console.log('Extracted video URL:', videoUrl);
       return videoUrl;
     } catch (error) {
       console.error(`Error extracting from ${url}:`, error);
       return null;
     }
   });
-  
+
   const extractedUrls = await Promise.all(extractionPromises);
-  
+
   // Add valid extracted URLs first
   extractedUrls.forEach(url => {
     if (url) {
       streamUrls.push(url);
-      console.log(`Extracted video URL: ${url}`);
+      console.log(`Added extracted URL: ${url}`);
     }
   });
-  
-  // If no video URLs were extracted, fall back to original page URLs
+
+  // If no video URLs were extracted, use the page URLs as fallback but mark them as potentially non-video
   if (streamUrls.length === 0) {
-    console.log('No video URLs extracted, using page URLs directly');
+    console.log('No video URLs extracted, using page URLs directly:', pageUrls);
     streamUrls = pageUrls;
   }
-  
+
+  console.log('Final stream URLs:', streamUrls);
+
   currentStreamIndex = 0;
-  
-  // Reduced delay from 1 second to 300ms
+
   setTimeout(() => {
     tryNextStream();
-  }, 300);
+  }, 100);
 }
 
 function renderLinescoreTable(linescore, awayName, homeName) {
@@ -623,12 +841,20 @@ function hashString(str) {
 }
 
 
-function renderStreamEmbed(awayTeamName, homeTeamName) {
+function renderStreamEmbed(awayTeamName, homeTeamName, streamVersion = 1) {
   const homeNormalized = normalizeTeamName(homeTeamName);
   const awayNormalized = normalizeTeamName(awayTeamName);
   
-  // Simplified to only use home vs away format
-  const streamUrl = `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}-2/`;
+  // Store current team names for toggle function
+  currentAwayTeam = awayTeamName;
+  currentHomeTeam = homeTeamName;
+  
+  console.log('Storing team names in renderStreamEmbed:', awayTeamName, homeTeamName);
+  console.log('Current stored names:', currentAwayTeam, currentHomeTeam);
+  
+  // Generate URL based on stream version
+  const suffix = streamVersion === 2 ? '-2' : '';
+  const streamUrl = `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}${suffix}/`;
   const isSmallScreen = window.innerWidth < 525
   const screenHeight = isSmallScreen ? 250 : 700;
   
@@ -638,6 +864,7 @@ function renderStreamEmbed(awayTeamName, homeTeamName) {
         <h3 style="color: white; margin: 0;">Live Stream</h3>
         <div class="stream-controls" style="margin-top: 10px;">
           <button id="fullscreenButton" onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">⛶ Fullscreen</button>
+          <button id="streamToggleButton" onclick="toggleStreamVersion()" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Test Stream ${currentStreamVersion === 1 ? '2' : '1'}</button>
         </div>
       </div>
       <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; border-radius: 8px; margin-bottom: 10px;">
@@ -736,12 +963,22 @@ async function fetchAndUpdateScoreboard(gamePk) {
       if (contentSlider) {
         const streamDiv = document.createElement("div");
         streamDiv.id = "streamEmbed";
-        streamDiv.innerHTML = renderStreamEmbed(away.team?.name || "Unknown", home.team?.name || "Unknown");
+        streamDiv.innerHTML = renderStreamEmbed(away.team?.name || "Unknown", home.team?.name || "Unknown", currentStreamVersion);
         contentSlider.parentNode.insertBefore(streamDiv, contentSlider);
+        
+        console.log('Initial stream setup - Team names:', away.team?.name, home.team?.name);
+        console.log('Stored team names:', currentAwayTeam, currentHomeTeam);
+        
+        // Ensure team names are stored
+        if (away.team?.name && home.team?.name) {
+          currentAwayTeam = away.team.name;
+          currentHomeTeam = home.team.name;
+          console.log('Team names stored successfully:', currentAwayTeam, currentHomeTeam);
+        }
         
         // Reduced delay from 500ms to 100ms
         setTimeout(() => {
-          startStreamTesting(away.team?.name || "Unknown", home.team?.name || "Unknown");
+          startStreamTesting(away.team?.name || "Unknown", home.team?.name || "Unknown", currentStreamVersion);
         }, 100);
       }
     } else if (streamContainer && !isInProgress) {
