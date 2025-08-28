@@ -141,7 +141,7 @@
 }
 
 .pagination-btn {
-  background-color: #ccc;
+  background-color: #333;
   color: white;
   border: none;
   border-radius: 6px;
@@ -156,7 +156,7 @@
 }
 
 .pagination-btn:disabled {
-  background-color: #333;
+  background-color: #ccc;
   cursor: not-allowed;
 }
 
