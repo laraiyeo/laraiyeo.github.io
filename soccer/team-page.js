@@ -2126,15 +2126,15 @@ async function processPlayerStats(selectedPlayer, position, contentDiv, year, pl
     // Fall back to current team info
   }
   
+  // Determine text color based on the team color for copy button
+  const actualColorHex = playerTeamColor.replace('#', '');
+  const nameColorChange = ["ffffff", "ffee00", "ffff00", "81f733", "ffef32", "f7f316", "eef209", "ece83a", "cccccc", "e3e4ed"].includes(actualColorHex) ? "black" : "white";
+  
   // Update the player header with the correct team information
   const modal = document.querySelector('.modal-overlay');
   if (modal) {
     const playerHeader = modal.querySelector('.selected-player-header');
     if (playerHeader) {
-      // Determine text color based on the team color
-      const actualColorHex = playerTeamColor.replace('#', '');
-      const nameColorChange = ["ffffff", "ffee00", "ffff00", "81f733", "ffef32", "f7f316", "eef209", "ece83a", "cccccc", "e3e4ed"].includes(actualColorHex) ? "black" : "white";
-      
       playerHeader.style.background = `linear-gradient(135deg, ${playerTeamColor} 0%, #cccccc 100%)`;
       playerHeader.style.color = nameColorChange;
       
@@ -2218,11 +2218,11 @@ async function processPlayerStats(selectedPlayer, position, contentDiv, year, pl
         
         competitionStatsHtml = `
           <div style="margin-top: 20px; margin-bottom: 15px;">
-            <h4 style="color: #333; margin: 0 0 15px 0; font-size: 1.1rem; font-weight: bold; border-bottom: 1px solid #ddd; padding-bottom: 8px;">
+            <h4 style="color: #333; margin: 0 0 15px 0; font-size: 1.1rem; font-weight: bold; border-bottom: 1px solid ${nameColorChange === 'black' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.2)'}; padding-bottom: 8px;">
               ${leagueName} Domestic Cup Competitions
             </h4>
             ${competitionStats.map(stat => `
-              <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+              <div style="background: #f8f9fa; border: 1px solid ${nameColorChange === 'black' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.2)'}; border-radius: 8px; padding: 15px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; flex: 1;">
                   <img src="https://a.espncdn.com/i/leaguelogos/soccer/500/${stat.competition.logo}.png" 
                        alt="${stat.competition.name}" 
@@ -2332,14 +2332,14 @@ async function processPlayerStats(selectedPlayer, position, contentDiv, year, pl
   
   contentDiv.innerHTML = `
     <div id="playerStatsCard" style="position: relative;">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid ${nameColorChange === 'black' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.3)'}; padding-bottom: 10px;">
         <h3 style="color: #333; margin: 0; font-size: 1.3rem; font-weight: bold;">
           ${position === 'G' || position === 'Goalkeeper' ? 'Goalkeeper' : 'Field Player'} Statistics
         </h3>
         <div style="display: flex; align-items: center; gap: 15px;">
           <button onclick="copyPlayerStatsAsImage('playerStatsCard')" style="
             background: ${teamColor || '#007bff'}; 
-            color: white; 
+            color: ${nameColorChange}; 
             border: none; 
             padding: 8px 16px; 
             border-radius: 6px; 
@@ -4068,6 +4068,9 @@ async function capturePlayerStatsAsImage(element) {
     const position = selectedPlayerPosition || selectedPlayer.position || 'N/A';
     const teamName = currentTeam?.displayName || 'Unknown Team';
     const teamAbbr = currentTeam?.abbreviation || currentTeam?.shortDisplayName || 'UNK';
+
+    const actualColorHex = (teamColor || '#1a1a1a').replace('#', '');
+    const nameColorChange = ["ffffff", "ffee00", "ffff00", "81f733", "ffef32", "f7f316", "eef209", "ece83a", "cccccc", "e3e4ed"].includes(actualColorHex) ? "black" : "white";
     
     // Get the selected year
     const yearSelector = document.getElementById('playerYearSelector');
@@ -4080,7 +4083,7 @@ async function capturePlayerStatsAsImage(element) {
     const captureContainer = document.createElement('div');
     captureContainer.style.cssText = `
       background: linear-gradient(135deg, ${teamColor || '#1a1a1a'} 0%, ${teamColor ? teamColor + '88' : '#333'} 100%);
-      color: white;
+      color: ${nameColorChange};
       padding: 30px;
       border-radius: 16px;
       width: 600px;
@@ -4098,7 +4101,7 @@ async function capturePlayerStatsAsImage(element) {
     // Create player header section
     const playerHeaderHtml = `
       <div style="display: flex; align-items: center; margin-bottom: 25px; background: rgba(255,255,255,0.1); padding: 20px; border-radius: 12px;">
-        <div style="background: white; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; margin-right: 20px; font-size: 24px; font-weight: bold; color: ${teamColor || '#1a1a1a'};">
+        <div style="background: ${nameColorChange}; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; margin-right: 20px; font-size: 24px; font-weight: bold; color: ${teamColor || '#1a1a1a'};">
           ${jerseyNumber}
         </div>
         <div style="flex: 1;">
@@ -4155,32 +4158,32 @@ async function capturePlayerStatsAsImage(element) {
     const statCards = statsContent.querySelectorAll('[style*="background: #f8f9fa"]');
     statCards.forEach(card => {
       card.style.background = 'rgba(255,255,255,0.15)';
-      card.style.border = '1px solid rgba(255,255,255,0.2)';
-      card.style.color = 'white';
+      card.style.border = `1px solid ${nameColorChange === 'black' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.2)'}`;
+      card.style.color = `${nameColorChange}`;
     });
 
     // Style competition sections
     const competitionSections = statsContent.querySelectorAll('[style*="background: #f8f9fa"][style*="border: 1px solid #ddd"]');
     competitionSections.forEach(section => {
       section.style.background = 'rgba(255,255,255,0.1)';
-      section.style.border = '1px solid rgba(255,255,255,0.2)';
-      section.style.color = 'white';
+      section.style.border = `1px solid ${nameColorChange === 'black' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.2)'}`;
+      section.style.color = `${nameColorChange}`;
     });
 
     // Style headers and text for dark background
     const headers = statsContent.querySelectorAll('h3, h4');
     headers.forEach(header => {
-      header.style.color = 'white';
-      header.style.borderBottomColor = 'rgba(255,255,255,0.3)';
+      header.style.color = `${nameColorChange}`;
+      header.style.borderBottomColor = nameColorChange === 'black' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.3)';
     });
 
     const text = statsContent.querySelectorAll('div, p');
     text.forEach(textEl => {
       if (textEl.style.color === '#333' || textEl.style.color === '#777') {
-        textEl.style.color = 'white';
+        textEl.style.color = `${nameColorChange}`;
       }
       if (textEl.style.color === 'rgb(51, 51, 51)' || textEl.style.color === 'rgb(119, 119, 119)') {
-        textEl.style.color = 'white';
+        textEl.style.color = `${nameColorChange}`;
       }
     });
 
@@ -4195,7 +4198,7 @@ async function capturePlayerStatsAsImage(element) {
       right: 20px;
       font-size: 12px;
       opacity: 0.6;
-      color: white;
+      color: ${nameColorChange};
     `;
     watermark.textContent = `${selectedYear} Season Stats`;
     captureContainer.appendChild(watermark);
