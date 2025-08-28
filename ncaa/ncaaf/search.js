@@ -12,7 +12,7 @@ const CONFERENCES = {
   "Sun Belt": { groupId: "37", name: "Sun Belt Conference", code: "sun_belt" }
 };
 
-let currentConference = localStorage.getItem("currentConference") || "8"; // Default to SEC
+let currentConference = localStorage.getItem("currentConference") || "151";
 let allTeams = [];
 let selectedTeam = null;
 let filteredTeams = [];

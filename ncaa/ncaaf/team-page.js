@@ -199,7 +199,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   
   // Try to determine conference from localStorage or detect from team
-  currentConference = localStorage.getItem("currentConference") || "8";
+  currentConference = localStorage.getItem("currentConference") || "151";
   
   loadTeamData();
   setupEventHandlers();
@@ -353,7 +353,7 @@ async function findTeamInConferences() {
   }
   
   console.warn(`⚠️ Team ${currentTeamId} not found in any conference, using default`);
-  currentConference = "8"; // Default to SEC if not found
+  currentConference = "151";
   return null;
 }
 

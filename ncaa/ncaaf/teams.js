@@ -11,7 +11,7 @@ const CONFERENCES = {"American": { groupId: "151", name: "American Athletic Conf
   "Sun Belt": { groupId: "37", name: "Sun Belt Conference", code: "sun_belt" }
 };
 
-let currentConference = localStorage.getItem("currentConference") || "8"; // Default to SEC
+let currentConference = localStorage.getItem("currentConference") || "151";
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
 function convertToHttps(url) {
@@ -237,7 +237,7 @@ async function buildGameCard(game, team) {
             <div class="card-team-record">${awayTeamRecord}</div>
           </div>
           <div class="game-info">
-            <div class="game-period" style="margin-top: ${isHalftime ? "-50px" : "-10px"}; font-size: 0.9rem;">${periodDescription}</div>
+            <div class="game-period" style="margin-top: ${isHalftime ? "-20px" : "-10px"}; font-size: 0.9rem;">${periodDescription}</div>
             <div class="line" style="margin-top: ${isHalftime ? "5px" : "35px"}"></div>
             ${isHalftime || isEndOfPeriod ? "" : `<div class="game-status">${clockTime}</div>`}
             <div class="game-status" style="margin-top: 0px; font-size: 0.9rem;">${kickoff}</div>

@@ -793,86 +793,165 @@ async function copyScoringCardAsImage(cardId) {
   try {
     const element = document.getElementById(cardId);
     if (!element) {
-      showFeedback('Card not found', 'error');
+      console.error('Scoring card element not found');
       return;
     }
-
+    
+    // Hide the copy button before taking screenshot
+    const copyButton = element.querySelector('.copy-button');
+    const originalDisplay = copyButton ? copyButton.style.display : null;
+    if (copyButton) {
+      copyButton.style.display = 'none';
+    }
+    
+    showFeedback('Preparing image...', 'loading');
     await captureAndCopyImage(element);
-    showFeedback('Scoring card copied to clipboard!', 'success');
+    
+    // Restore the copy button after screenshot
+    if (copyButton) {
+      copyButton.style.display = originalDisplay || 'flex';
+    }
+    
   } catch (error) {
     console.error('Error copying scoring card:', error);
-    showFeedback('Error copying card to clipboard', 'error');
+    
+    // Make sure to restore the copy button even if there's an error
+    const element = document.getElementById(cardId);
+    const copyButton = element?.querySelector('.copy-button');
+    if (copyButton) {
+      copyButton.style.display = 'flex';
+    }
+    
+    showFeedback('Failed to copy scoring card', 'error');
   }
 }
 
 // Function to capture and copy element as image
 async function captureAndCopyImage(element) {
-  // Import html2canvas dynamically
-  if (!window.html2canvas) {
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-    document.head.appendChild(script);
-    
-    await new Promise((resolve, reject) => {
-      script.onload = resolve;
-      script.onerror = reject;
-    });
-  }
-
+  const { default: html2canvas } = await import('https://cdn.skypack.dev/html2canvas');
+  
   const canvas = await html2canvas(element, {
-    backgroundColor: null,
-    scale: 2,
-    logging: false,
-    useCORS: true,
-    allowTaint: true
+    backgroundColor: '#1a1a1a',
+    scale: 3,
+    useCORS: true
   });
+  
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(async (blob) => {
+      // Check if device is mobile
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                      ('ontouchstart' in window) || 
+                      (navigator.maxTouchPoints > 0);
 
-  canvas.toBlob(async (blob) => {
-    try {
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': blob })
-      ]);
-    } catch (err) {
-      console.error('Error copying to clipboard:', err);
-      throw err;
-    }
+      try {
+        if (isMobile) {
+          // On mobile, download the image
+          console.log('Mobile device detected, attempting download...');
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `scoring-card-${new Date().getTime()}.png`;
+          link.style.display = 'none';
+          
+          // Add to DOM and trigger download
+          document.body.appendChild(link);
+          
+          // Use a timeout to ensure the link is properly added to DOM
+          setTimeout(() => {
+            try {
+              link.click();
+              console.log('Download triggered successfully');
+              showFeedback('Scoring card downloaded!', 'success');
+              resolve();
+            } catch (clickError) {
+              console.error('Error triggering download:', clickError);
+              
+              // Fallback: try to open in new tab for mobile browsers
+              try {
+                console.log('Trying fallback: open in new tab');
+                window.open(url, '_blank');
+                showFeedback('Image opened in new tab', 'success');
+                resolve();
+              } catch (fallbackError) {
+                console.error('Fallback also failed:', fallbackError);
+                showFeedback('Download failed. Try again', 'error');
+                reject(clickError);
+              }
+            } finally {
+              // Clean up
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+            }
+          }, 100);
+        } else {
+          // On desktop, try to copy to clipboard using modern API
+          if (navigator.clipboard && window.ClipboardItem) {
+            const clipboardItem = new ClipboardItem({
+              'image/png': blob
+            });
+            await navigator.clipboard.write([clipboardItem]);
+            showFeedback('Scoring card copied to clipboard!', 'success');
+            resolve();
+          } else {
+            showFeedback('Could not copy to clipboard. Try again', 'error');
+            reject(new Error('Clipboard API not available'));
+          }
+        }
+      } catch (clipboardError) {
+        console.error('Error handling image:', clipboardError);
+        showFeedback('Could not copy to clipboard. Try again', 'error');
+        reject(clipboardError);
+      }
+    }, 'image/png', 0.95);
   });
 }
 
 // Function to show feedback messages
 function showFeedback(message, type) {
+  const existingFeedback = document.getElementById('copyFeedback');
+  if (existingFeedback) {
+    existingFeedback.remove();
+  }
+
   const feedback = document.createElement('div');
+  feedback.id = 'copyFeedback';
   feedback.style.cssText = `
     position: fixed;
     top: 20px;
     right: 20px;
     padding: 12px 20px;
-    border-radius: 6px;
+    border-radius: 8px;
     color: white;
-    font-weight: bold;
+    font-weight: 500;
     z-index: 10000;
-    animation: slideIn 0.3s ease;
-    ${type === 'success' ? 'background: #28a745;' : 'background: #dc3545;'}
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    transition: opacity 0.3s ease;
   `;
-  feedback.textContent = message;
-  
-  if (!document.getElementById('feedbackStyles')) {
-    const style = document.createElement('style');
-    style.id = 'feedbackStyles';
-    style.textContent = `
-      @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-      }
-    `;
-    document.head.appendChild(style);
+
+  switch (type) {
+    case 'success':
+      feedback.style.backgroundColor = '#28a745';
+      break;
+    case 'error':
+      feedback.style.backgroundColor = '#dc3545';
+      break;
+    case 'loading':
+      feedback.style.backgroundColor = '#007bff';
+      break;
+    default:
+      feedback.style.backgroundColor = '#6c757d';
   }
-  
+
+  feedback.textContent = message;
   document.body.appendChild(feedback);
-  
-  setTimeout(() => {
-    feedback.remove();
-  }, 3000);
+
+  if (type !== 'loading') {
+    setTimeout(() => {
+      if (feedback.parentNode) {
+        feedback.remove();
+      }
+    }, 3000);
+  }
 }
 
 async function renderBoxScore(gameId, gameState) {
