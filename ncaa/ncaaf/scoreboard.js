@@ -224,8 +224,24 @@ function getPositionStatsForCard(positionGroup, boxScoreData, playerName, prefer
 }
 
 function normalizeTeamName(teamName) {
-  // General normalization like soccer - convert to lowercase and replace spaces with hyphens
-  return teamName.toLowerCase().replace(/\s+/g, '-');
+  // Special cases for specific team names
+  const specialCases = {
+    'nc state wolfpack': 'north-carolina-state-wolfpack',
+    'north carolina state': 'north-carolina-state-wolfpack',
+    'north carolina state wolfpack': 'north-carolina-state-wolfpack'
+  };
+  
+  const lowerName = teamName.toLowerCase();
+  if (specialCases[lowerName]) {
+    return specialCases[lowerName];
+  }
+  
+  // Convert team names to streaming format
+  return teamName.toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9\-]/g, '')
+    .replace(/^fc-/, '')
+    .replace(/-fc$/, '');
 }
 
 async function extractVideoPlayerUrl(pageUrl) {
