@@ -1,0 +1,263 @@
+.fixtures-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+.team-card {
+  margin-bottom: 40px;
+  border: 2px solid #444;
+  border-radius: 15px;
+  padding: 20px;
+  width: 340px;
+  background-color: #000000;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.team-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 10px rgba(255, 255, 255, 0.5);
+}
+
+.team-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 15px;
+  color: white;
+}
+
+.team-logo {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+}
+
+.team-header h2 {
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-align: center;
+}
+
+.team-games {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* Match List Styles - Matching team-page.css */
+.match-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.match-item {
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.match-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.match-teams {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.match-team-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.match-team-logo {
+  width: 30px;
+  height: 30px;
+}
+
+.match-team-name {
+  font-weight: bold;
+  color: #333;
+}
+
+.match-result {
+  font-weight: bold;
+  padding: 5px 10px;
+  border-radius: 4px;
+  text-align: center;
+  min-width: 80px;
+}
+
+.match-result.win {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.match-result.loss {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.match-result.draw {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.match-result.scheduled {
+  background-color: #e2e3e5;
+  color: #383d41;
+}
+
+.match-result.live {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.match-date {
+  font-size: 0.9rem;
+  color: #666;
+  text-align: center;
+}
+
+/* Pagination Styles */
+.fixture-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #ddd;
+}
+
+.pagination-btn {
+  background-color: #ccc;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background-color: #218838;
+}
+
+.pagination-btn:disabled {
+  background-color: #333;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 14px;
+  color: #ccc;
+  font-weight: bold;
+}
+
+.game-card {
+  background-color: #000000;
+  border: 1px solid #444;
+  border-radius: 10px;
+  padding: 16px 20px;
+  width: 100%;
+  font-family: Arial, sans-serif;
+  color: white;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 0 10px rgb(255, 255, 255);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.game-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 12px rgba(255, 255, 255);
+}
+
+.no-game-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  font-size: 1.2rem;
+  color: white;
+  font-weight: bold;
+  margin-top: 0px;
+}
+
+.game-card .card-team-score.bold {
+  font-weight: bold;
+}
+
+/* Responsive Design - Matching team-page.css */
+@media (max-width: 768px) {
+  .match-teams {
+    flex-direction: row;
+    gap: 10px;
+  }
+  
+  .match-team-info {
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .match-team-name {
+    font-size: 0.9rem;
+  }
+  
+  .match-result {
+    min-width: 60px;
+    padding: 3px 8px;
+  }
+  
+  .match-date {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 525px) {
+  .fixtures-container {
+    gap: 15px;
+  }
+  
+  .team-card {
+    width: 300px;
+    padding: 15px;
+  }
+  
+  .match-item {
+    padding: 10px;
+  }
+  
+  .match-teams {
+    gap: 8px;
+  }
+  
+  .match-team-logo {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .match-team-name {
+    font-size: 1rem;
+  }
+  
+  .match-result {
+    min-width: 50px;
+    padding: 2px 6px;
+    font-size: 1.3rem;
+  }
+}

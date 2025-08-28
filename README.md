@@ -145,6 +145,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 
 - **UEFA Specific**
   - Just like soccer, UEFA has league buttons at the top
+  - Has a fixtures page that shows every teams fixture for the 8 League Phase matches
   - Features a comprehensive Bracket page showing the complete tournament structure from group stage to finals
   - Interactive bracket navigation allows you to click on any match to view detailed scoreboards
   - Real-time bracket updates as teams advance through each round
@@ -280,6 +281,7 @@ Welcome to **Live Sports Tracker**, a free, web-based scoreboard designed for re
 - **(08/19/2025) All-in-One (AIO) Dashboard Implementation** - Revolutionary unified game view across all sports showing Live, Scheduled, and Finished games on a single page with smart date filtering, responsive design, and direct scoreboard navigation. Features consistent styling and real-time updates every 2 seconds. 
 - **(08/23/2025) Added fully functional NCAAF (College Football) tracker** - Complete NCAA Division I FBS coverage with live game tracking, advanced play-by-play system, team dashboards, conference-based standings, and OBS integration. Includes college-specific features like student-athlete statistics, recruiting class support, and bowl game tracking. 
 - **(08/25/2025) Soccer Domestic Competition Integration** - Enhanced soccer coverage with comprehensive domestic cup competition support including FA Cup, Copa del Rey, DFB Pokal, Coppa Italia, Coupe de France, and more. Features multi-competition game tracking, visual competition indicators, and cross-season player tracking with accurate historical data for players who changed teams.
+- (08/28/2025) Added fixtures page to UEFA for League Phase matches
 
 ---
 

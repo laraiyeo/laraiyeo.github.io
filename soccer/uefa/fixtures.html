@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Fixtures - UEFA Live Tracker</title>
+    <link rel="icon" href="../soccer-ball-png-24.png" type="image/png" />
+    <link rel="stylesheet" href="../style.css"/>
+    <link rel="stylesheet" href="fixtures.css"/>
+    <script src="../../assets/analytics.js"></script>
+  </head>
+  <body>
+    <div id="navbar-container"></div>
+
+    <div id="leagueButtons" class="league-buttons"></div>
+
+    <div id="scoreboard">
+      <h2 style="color: black;">Fixtures</h2>
+      <div id="fixturesContainer" class="fixtures-container"></div>
+    </div>
+
+    <script src="navbarLoader.js"></script>
+    <script src="navbar.js"></script>
+    <script src="fixtures.js"></script>
+    <div id="footer-container"></div>
+    <script>
+      fetch("footer.html")
+        .then(response => response.text())
+        .then(html => {
+          document.getElementById("footer-container").innerHTML = html;
+        });
+    </script>
+  </body>
+</html>
