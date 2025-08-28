@@ -173,8 +173,8 @@ function buildGameCard(game, team, roundNumber) {
     leagueName => LEAGUES[leagueName].code === currentUefaLeague
   );
 
-  const homeShootoutScore = homeTeam?.shootoutScore?.value;
-  const awayShootoutScore = awayTeam?.shootoutScore?.value;
+  const homeShootoutScore = homeTeam?.score?.shootoutScore;
+  const awayShootoutScore = awayTeam?.score?.shootoutScore;
 
   const homeScore = homeTeam?.score?.value || 0;
   const awayScore = awayTeam?.score?.value || 0;
@@ -208,10 +208,10 @@ function buildGameCard(game, team, roundNumber) {
     const isCurrentTeamAway = awayTeam.team.id === team.id;
 
     // Calculate result from current team's perspective
-    if (homeScore > awayScore) {
+    if (homeScore > awayScore || homeShootoutScore > awayShootoutScore) {
       // Home team won
       resultClass = isCurrentTeamHome ? "win" : "loss";
-    } else if (homeScore < awayScore) {
+    } else if (homeScore < awayScore || homeShootoutScore < awayShootoutScore) {
       // Away team won
       resultClass = isCurrentTeamAway ? "win" : "loss";
     } else {
