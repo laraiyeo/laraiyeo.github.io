@@ -229,7 +229,9 @@ function normalizeTeamName(teamName) {
     'nc state wolfpack': 'north-carolina-state-wolfpack',
     'north carolina state': 'north-carolina-state-wolfpack',
     'north carolina state wolfpack': 'north-carolina-state-wolfpack',
-    'miami (oh) redhawks': 'miami-oh-red-hawks'
+    'miami (oh) redhawks': 'miami-oh-red-hawks',
+    'saint francis red flash': 'st-francis-red-flash',
+    'ul monroe warhawks': 'louisiana-monroe-warhawks'
   };
   
   const lowerName = teamName.toLowerCase();
