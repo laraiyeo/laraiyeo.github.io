@@ -228,7 +228,8 @@ function normalizeTeamName(teamName) {
   const specialCases = {
     'nc state wolfpack': 'north-carolina-state-wolfpack',
     'north carolina state': 'north-carolina-state-wolfpack',
-    'north carolina state wolfpack': 'north-carolina-state-wolfpack'
+    'north carolina state wolfpack': 'north-carolina-state-wolfpack',
+    'miami (oh) redhawks': 'miami-oh-red-hawks'
   };
   
   const lowerName = teamName.toLowerCase();
