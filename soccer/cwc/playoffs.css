@@ -232,7 +232,7 @@ body {
 .tba-card {
   background-color: #f9f9f9;
   border: 2px dashed #ccc;
-  color: #666;
+  color: #777;
   text-align: center;
   padding: 20px;
   border-radius: 10px;
@@ -274,7 +274,7 @@ body {
 }
 
 .team-seed {
-  color: #666;
+  color: #777;
   font-size: 0.9rem;
   font-weight: normal;
   min-width: 15px;
@@ -354,7 +354,7 @@ body {
 .vs {
   font-size: 1.2rem;
   font-weight: bold;
-  color: #666;
+  color: #777;
   align-self: center;
 }
 

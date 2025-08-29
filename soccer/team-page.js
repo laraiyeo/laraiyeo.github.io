@@ -13,6 +13,13 @@ let selectedPlayer = null; // Currently selected player for details
 let selectedPlayerPosition = null; // Store the current player's position for year changes
 let teamColor = "#000000"; // Default team color, will be set dynamically
 
+// Player-specific team information for selected season
+let playerTeamForYear = null; // Player's team data for selected year
+let playerTeamColor = "#000000"; // Player's team color for selected year
+let playerTeamAbbr = "UNK"; // Player's team abbreviation for selected year
+let playerJerseyForYear = "N/A"; // Player's jersey number for selected year
+let playerPositionForYear = null; // Player's position for selected year
+
 // Global variable to store all league players for league-wide comparison
 let allLeaguePlayers = [];
 
@@ -158,7 +165,7 @@ async function loadTeamData() {
     sections.forEach(sectionId => {
       const element = document.getElementById(sectionId);
       if (element) {
-        element.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Loading...</div>';
+        element.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">Loading...</div>';
       }
     });
 
@@ -2008,11 +2015,11 @@ async function processPlayerStats(selectedPlayer, position, contentDiv, year, pl
   console.log(`Using league for competitions: ${leagueForCompetitions}`);
   
   // Fetch player's team information for the selected year
-  let playerTeamForYear = null;
-  let playerTeamColor = teamColor; // Default to current team color
-  let playerTeamAbbr = currentTeam?.abbreviation || currentTeam?.shortDisplayName || 'UNK';
-  let playerJerseyForYear = selectedPlayer.jersey || selectedPlayer.number || 'N/A';
-  let playerPositionForYear = selectedPlayer.position?.abbreviation || selectedPlayer.position?.name || position;
+  playerTeamForYear = null;
+  playerTeamColor = teamColor; // Default to current team color
+  playerTeamAbbr = currentTeam?.abbreviation || currentTeam?.shortDisplayName || 'UNK';
+  playerJerseyForYear = selectedPlayer.jersey || selectedPlayer.number || 'N/A';
+  playerPositionForYear = selectedPlayer.position?.abbreviation || selectedPlayer.position?.name || position;
   
   try {
     // Try to get team information from the selectedPlayer data first
@@ -4064,12 +4071,12 @@ async function capturePlayerStatsAsImage(element) {
 
     // Extract player information
     const playerName = selectedPlayer.fullName || selectedPlayer.firstName + ' ' + selectedPlayer.lastName;
-    const jerseyNumber = selectedPlayer.jersey || selectedPlayer.number || 'N/A';
-    const position = selectedPlayerPosition || selectedPlayer.position || 'N/A';
-    const teamName = currentTeam?.displayName || 'Unknown Team';
-    const teamAbbr = currentTeam?.abbreviation || currentTeam?.shortDisplayName || 'UNK';
+    const jerseyNumber = playerJerseyForYear || selectedPlayer.jersey || selectedPlayer.number || 'N/A';
+    const position = playerPositionForYear || selectedPlayerPosition || selectedPlayer.position || 'N/A';
+    const teamName = playerTeamForYear?.displayName || currentTeam?.displayName || 'Unknown Team';
+    const teamAbbr = playerTeamAbbr || currentTeam?.abbreviation || currentTeam?.shortDisplayName || 'UNK';
 
-    const actualColorHex = (teamColor || '#1a1a1a').replace('#', '');
+    const actualColorHex = (playerTeamColor || '#1a1a1a').replace('#', '');
     const nameColorChange = ["ffffff", "ffee00", "ffff00", "81f733", "ffef32", "f7f316", "eef209", "ece83a", "cccccc", "e3e4ed"].includes(actualColorHex) ? "black" : "white";
     
     // Get the selected year
@@ -4077,12 +4084,12 @@ async function capturePlayerStatsAsImage(element) {
     const selectedYear = yearSelector ? yearSelector.value : new Date().getFullYear();
 
     // Get team logo
-    const teamLogo = getTeamLogo(currentTeam);
+    const teamLogo = getTeamLogo(playerTeamForYear || currentTeam);
 
     // Create a styled container specifically for the image capture
     const captureContainer = document.createElement('div');
     captureContainer.style.cssText = `
-      background: linear-gradient(135deg, ${teamColor || '#1a1a1a'} 0%, ${teamColor ? teamColor + '88' : '#333'} 100%);
+      background: linear-gradient(135deg, ${playerTeamColor || '#1a1a1a'} 0%, ${playerTeamColor ? playerTeamColor + '88' : '#333'} 100%);
       color: ${nameColorChange};
       padding: 30px;
       border-radius: 16px;
@@ -4101,7 +4108,7 @@ async function capturePlayerStatsAsImage(element) {
     // Create player header section
     const playerHeaderHtml = `
       <div style="display: flex; align-items: center; margin-bottom: 25px; background: rgba(255,255,255,0.1); padding: 20px; border-radius: 12px;">
-        <div style="background: ${nameColorChange}; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; margin-right: 20px; font-size: 24px; font-weight: bold; color: ${teamColor || '#1a1a1a'};">
+        <div style="background: ${nameColorChange}; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; margin-right: 20px; font-size: 24px; font-weight: bold; color: ${playerTeamColor || '#1a1a1a'};">
           ${jerseyNumber}
         </div>
         <div style="flex: 1;">

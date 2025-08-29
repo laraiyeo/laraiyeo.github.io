@@ -178,13 +178,13 @@ body {
 
 .match-competition {
   font-size: 0.9rem;
-  color: #666;
+  color: #777;
   font-weight: bold;
 }
 
 .match-date {
   font-size: 0.9rem;
-  color: #666;
+  color: #777;
 }
 
 .match-teams {
@@ -254,20 +254,20 @@ body {
 .match-status {
   text-align: center;
   font-size: 0.9rem;
-  color: #666;
+  color: #777;
   margin-top: 5px;
 }
 
 .no-results {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   margin-top: 30px;
 }
 
 .loading {
   text-align: center;
-  color: #666;
+  color: #777;
   margin-top: 30px;
 }
 
@@ -302,7 +302,7 @@ body {
 
 .pagination-info {
   font-size: 14px;
-  color: #666;
+  color: #777;
   margin: 0 15px;
 }
 
@@ -396,7 +396,7 @@ body {
 
 .team-division {
   font-size: 1rem;
-  color: #666;
+  color: #777;
   margin-bottom: 5px;
 }
 

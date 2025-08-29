@@ -249,7 +249,7 @@ body {
 .vs-text {
   font-size: 1.5rem;
   font-weight: bold;
-  color: #666;
+  color: #777;
 }
 
 .aggregate-score {
@@ -318,7 +318,7 @@ body {
 
 .team-seed {
   font-size: 0.8rem;
-  color: #666;
+  color: #777;
   font-weight: normal;
 }
 
@@ -333,7 +333,7 @@ body {
 .tba-matchup {
   background-color: #f8f9fa;
   border: 2px dashed #ccc;
-  color: #666;
+  color: #777;
   cursor: default;
 }
 
@@ -344,7 +344,7 @@ body {
 
 .match-status {
   font-size: 0.8rem;
-  color: #666;
+  color: #777;
   text-align: center;
   margin-top: 5px;
 }
@@ -446,7 +446,7 @@ body {
 .bracket-section .tba-card {
   background-color: #f9f9f9;
   border: 2px dashed #ccc;
-  color: #666;
+  color: #777;
   text-align: center;
   padding: 20px;
   border-radius: 10px;
@@ -558,7 +558,7 @@ body {
 .bracket-section .vs {
   font-size: 1.2rem;
   font-weight: bold;
-  color: #666;
+  color: #777;
   align-self: center;
 }
 

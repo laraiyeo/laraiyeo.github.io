@@ -684,13 +684,15 @@ async function createMatchCard(game, isRecent = false) {
           <img src="${teamLogo}" alt="${isHomeTeam ? homeTeam.team.abbreviation : awayTeam.team.abbreviation}" class="match-team-logo" onerror="this.src='football.png';">
           <div class="match-team-name">${isHomeTeam ? homeTeam.team.abbreviation : awayTeam.team.abbreviation}</div>
         </div>
-        <div class="match-result ${resultClass}">${resultText}</div>
+        <div class="match-result ${resultClass}">
+        ${resultText}
+        <div class="match-date" style="margin-top: 10px;">${formattedDate}</div>
+        </div>
         <div class="match-team-info">
           <div class="match-team-name">${opponent.team.abbreviation}</div>
           <img src="${opponentLogo}" alt="${opponent.team.abbreviation}" class="match-team-logo" onerror="this.src='football.png';">
         </div>
       </div>
-      <div class="match-date">${formattedDate}</div>
     </div>
   `;
 }
@@ -957,7 +959,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
                    onerror="this.src='football.png';">
               <div>
                 <div style="font-weight: bold; color: #333;">${player.displayName}</div>
-                <div style="font-size: 12px; color: #666;">${player.team} | #${player.jersey} | ${player.position}</div>
+                <div style="font-size: 12px; color: #777;">${player.team} | #${player.jersey} | ${player.position}</div>
               </div>
             </div>
           `).join('');
@@ -986,7 +988,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
             });
           });
         } else {
-          searchResults.innerHTML = '<div style="padding: 10px; color: #666; text-align: center;">No players found</div>';
+          searchResults.innerHTML = '<div style="padding: 10px; color: #777; text-align: center;">No players found</div>';
           searchResults.style.display = 'block';
         }
       }, 300);
@@ -1436,7 +1438,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
         <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 5px;">
           ${firstName} ${lastName}
         </div>
-        <div style="font-size: 1.1rem; color: #666;">
+        <div style="font-size: 1.1rem; color: #777;">
           #${jerseyNumber} | ${position}
         </div>
       </div>
@@ -1512,7 +1514,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       cursor: pointer;
       font-size: 14px;
       font-weight: 500;
-      color: #666;
+      color: #777;
       position: relative;
       z-index: 2;
       width: 96px;
@@ -1529,7 +1531,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       console.log('Overall option clicked');
       sliderBackground.style.transform = 'translateX(0)';
       overallOption.style.color = 'white';
-      gameLogOption.style.color = '#666';
+      gameLogOption.style.color = '#777';
       currentStatsMode = 'overall';
       showOverallStats();
     });
@@ -1537,7 +1539,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
     gameLogOption.addEventListener('click', () => {
       console.log('Game log option clicked');
       sliderBackground.style.transform = 'translateX(96px)';
-      overallOption.style.color = '#666';
+      overallOption.style.color = '#777';
       gameLogOption.style.color = 'white';
       currentStatsMode = 'gamelog';
       showGameLogInterface();
@@ -1637,7 +1639,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
                    onerror="this.src='football.png';">
               <div>
                 <div style="font-weight: bold; color: #333;">${player.displayName}</div>
-                <div style="font-size: 12px; color: #666;">${player.team} | #${player.jersey} | ${player.position}</div>
+                <div style="font-size: 12px; color: #777;">${player.team} | #${player.jersey} | ${player.position}</div>
               </div>
             </div>
           `).join('');
@@ -1669,7 +1671,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
             });
           });
         } else {
-          searchResults.innerHTML = '<div style="padding: 10px; color: #666; text-align: center;">No players found</div>';
+          searchResults.innerHTML = '<div style="padding: 10px; color: #777; text-align: center;">No players found</div>';
           searchResults.style.display = 'block';
         }
       }, 300);
@@ -1695,7 +1697,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
 
     // Check if position should show full stats (exclude LS)
     if (!shouldShowFullStats(position)) {
-      statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Statistics not available for this position</div>';
+      statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">Statistics not available for this position</div>';
     } else {
       // Get valid season year and fetch player stats
       const seasonYear = await getValidSeasonYear('football', 'nfl', playerId);
@@ -1706,7 +1708,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       if (result.data.splits && result.data.splits.categories) {
         displayPlayerStatsInModal(result.data.splits.categories, statsContainer, position, seasonYear);
       } else {
-        statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Player statistics not available</div>';
+        statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">Player statistics not available</div>';
       }
     }
 
@@ -1848,7 +1850,7 @@ async function showOverallStats() {
 
   // Check if position should show full stats (exclude LS)
   if (!shouldShowFullStats(selectedPlayer.position)) {
-    statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Statistics not available for this position</div>';
+    statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">Statistics not available for this position</div>';
     return;
   }
 
@@ -1861,7 +1863,7 @@ async function showOverallStats() {
   if (result.data.splits && result.data.splits.categories) {
     displayPlayerStatsInModal(result.data.splits.categories, statsContainer, selectedPlayer.position, seasonYear);
   } else {
-    statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Player statistics not available</div>';
+    statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">Player statistics not available</div>';
   }
 }
 
@@ -1870,7 +1872,7 @@ async function loadGameLogForDate(date) {
   if (!resultsContainer || !selectedPlayer) return;
 
   try {
-    resultsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;"><div style="display: inline-block; width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #013369; border-radius: 50%; animation: spin 1s linear infinite;"></div><br>Loading game data...</div>';
+    resultsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;"><div style="display: inline-block; width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #013369; border-radius: 50%; animation: spin 1s linear infinite;"></div><br>Loading game data...</div>';
 
     // Add the spinner animation
     const style = document.createElement('style');
@@ -1991,8 +1993,8 @@ async function loadGameLogForDate(date) {
     if (!game) {
       resultsContainer.innerHTML = `
         <div style="text-align: center; padding: 40px 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #ddd;">
-          <div style="font-size: 1.2rem; color: #666; margin-bottom: 10px;">📅</div>
-          <div style="color: #666; font-size: 1rem;">No games found for this date</div>
+          <div style="font-size: 1.2rem; color: #777; margin-bottom: 10px;">📅</div>
+          <div style="color: #777; font-size: 1rem;">No games found for this date</div>
           <div style="color: #999; font-size: 0.9rem; margin-top: 5px;">Try selecting a different date during the season</div>
         </div>
       `;
@@ -2061,7 +2063,7 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
       resultsContainer.innerHTML = `
         <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
           <div style="font-size: 2rem; margin-bottom: 15px;">📊</div>
-          <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+          <div style="color: #777; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
             No box score data for this game
           </div>
           <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
@@ -2115,7 +2117,7 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
       resultsContainer.innerHTML = `
         <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
           <div style="font-size: 2rem; margin-bottom: 15px;">🏈</div>
-          <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+          <div style="color: #777; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
             Player not found in game statistics
           </div>
           <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
@@ -2145,7 +2147,7 @@ async function displayPlayerGameStats(game, date, teamIdForSeason) {
       resultsContainer.innerHTML = `
         <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
           <div style="font-size: 2rem; margin-bottom: 15px;">⚠️</div>
-          <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+          <div style="color: #777; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
             Team data not found for this game
           </div>
           <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
@@ -2884,7 +2886,7 @@ async function showPlayerComparison(player1, player2) {
         <div class="player-name-display" style="font-size: 1.2rem; font-weight: bold; color: #333;">
           ${player1.firstName} ${player1.lastName}
         </div>
-        <div style="font-size: 1rem; color: #666;">
+        <div style="font-size: 1rem; color: #777;">
           #${player1.jersey} | ${player1.position}
         </div>
       </div>
@@ -2938,7 +2940,7 @@ async function showPlayerComparison(player1, player2) {
         <div class="player-name-display" style="font-size: 1.2rem; font-weight: bold; color: #333;">
           ${player2.firstName} ${player2.lastName}
         </div>
-        <div style="font-size: 1rem; color: #666;">
+        <div style="font-size: 1rem; color: #777;">
           #${player2.jersey} | ${player2.position}
         </div>
       </div>
@@ -3037,7 +3039,7 @@ async function showPlayerComparison(player1, player2) {
     
     // Show error in the modal instead of an alert
     statsComparisonContainer.innerHTML = `
-      <div style="text-align: center; padding: 40px; color: #666;">
+      <div style="text-align: center; padding: 40px; color: #777;">
         <div style="font-size: 18px; margin-bottom: 10px;">⚠️ Comparison Unavailable</div>
         <div style="line-height: 1.5;">${errorMessage}</div>
         <div style="margin-top: 20px; font-size: 14px; color: #999;">
@@ -3101,7 +3103,7 @@ function displayPlayerStatsInModal(categories, container, position, seasonYear =
   const playerStats = getPositionStats(positionGroup, categories);
 
   if (playerStats.length === 0) {
-    container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No statistics available for this player</div>';
+    container.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">No statistics available for this player</div>';
     return;
   }
 
@@ -3119,7 +3121,7 @@ function displayPlayerStatsInModal(categories, container, position, seasonYear =
           <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">
             ${stat.value}
           </div>
-          <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">
+          <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">
             ${stat.label}
           </div>
           ${stat.rank ? `
@@ -3130,7 +3132,7 @@ function displayPlayerStatsInModal(categories, container, position, seasonYear =
         </div>
       `).join('')}
     </div>
-    <p style="text-align: center; color: #666; margin-top: 15px; font-style: italic; font-size: 0.9rem;">
+    <p style="text-align: center; color: #777; margin-top: 15px; font-style: italic; font-size: 0.9rem;">
       Statistics from ${seasonText}
     </p>
   `;
@@ -3150,7 +3152,7 @@ function displayPlayerComparison(player1Categories, player2Categories, container
   const player2Stats = getPositionStats(positionGroup, validPlayer2Categories);
 
   if (player1Stats.length === 0 && player2Stats.length === 0) {
-    container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No statistics available for comparison</div>';
+    container.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">No statistics available for comparison</div>';
     return;
   }
 

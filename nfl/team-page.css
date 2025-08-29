@@ -165,13 +165,13 @@ html::-webkit-scrollbar {
 
 .page-info {
   font-size: 14px;
-  color: #666;
+  color: #777;
   font-weight: bold;
 }
 
 .loading {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 50px 0;
 }
@@ -229,7 +229,7 @@ html::-webkit-scrollbar {
 }
 
 .game-info {
-  color: #666;
+  color: #777;
   font-size: 0.9rem;
 }
 
@@ -278,7 +278,6 @@ html::-webkit-scrollbar {
 
 .match-team-info:last-child {
   justify-content: flex-end;
-  flex-direction: row-reverse;
 }
 
 .match-team-logo {
@@ -295,6 +294,7 @@ html::-webkit-scrollbar {
 }
 
 .match-result {
+  margin-top: -5px;
   margin-left: -10px;
   font-weight: bold;
   color: #333;
@@ -304,7 +304,7 @@ html::-webkit-scrollbar {
 }
 
 .match-date {
-  color: #666;
+  color: #777;
   font-size: 0.9rem;
   white-space: nowrap;
 }
@@ -319,6 +319,7 @@ html::-webkit-scrollbar {
 
 .scheduled {
   color: #000000;
+  font-size: 1.125rem;
 }
 
 /* Stats Styles */
@@ -344,7 +345,7 @@ html::-webkit-scrollbar {
 }
 
 .stat-label {
-  color: #666;
+  color: #777;
   font-size: 0.9rem;
 }
 
@@ -372,7 +373,7 @@ html::-webkit-scrollbar {
 }
 
 .standing-details {
-  color: #666;
+  color: #777;
 }
 
 /* Players Styles */
@@ -427,7 +428,7 @@ html::-webkit-scrollbar {
 
 .player-last-name {
   font-size: 0.9rem;
-  color: #666;
+  color: #777;
 }
 
 .player-number {
@@ -456,7 +457,7 @@ html::-webkit-scrollbar {
 /* No Data Styles */
 .no-data {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 30px 0;
 }
@@ -662,7 +663,7 @@ html::-webkit-scrollbar {
   cursor: pointer;
   font-size: 20px;
   font-weight: bold;
-  color: #666;
+  color: #777;
   transition: all 0.2s ease;
 }
 
@@ -689,7 +690,7 @@ html::-webkit-scrollbar {
 
 .loading-stats {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 20px;
 }
@@ -726,14 +727,14 @@ html::-webkit-scrollbar {
 }
 
 .stat-label-player {
-  color: #666;
+  color: #777;
   font-size: 0.8rem;
   font-weight: bold;
 }
 
 .no-stats {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 30px 20px;
 }
@@ -809,7 +810,7 @@ html::-webkit-scrollbar {
 
 .selected-player-meta {
   font-size: 1rem;
-  color: #666;
+  color: #777;
 }
 
 .player-stats-container {
@@ -851,7 +852,7 @@ html::-webkit-scrollbar {
 }
 
 .team-stat-label {
-  color: #666;
+  color: #777;
   font-size: 0.9rem;
 }
 
@@ -870,7 +871,7 @@ html::-webkit-scrollbar {
 
 .stat-label {
   font-size: 0.9rem;
-  color: #666;
+  color: #777;
   margin-bottom: 5px;
 }
 
@@ -888,7 +889,7 @@ html::-webkit-scrollbar {
 
 .loading {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 20px;
 }

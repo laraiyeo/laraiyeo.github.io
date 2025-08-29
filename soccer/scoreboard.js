@@ -978,7 +978,7 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
         const playsContainer = document.querySelector('.plays-container');
         if (playsContainer) {
           playsContainer.innerHTML = `
-            <div style="text-align: center; padding: 20px; color: #666;">
+            <div style="text-align: center; padding: 20px; color: #777;">
               <p>Play-by-play commentary is currently unavailable</p>
               <p style="font-size: 0.9em;">This may be due to CORS restrictions or network issues</p>
             </div>
@@ -993,7 +993,7 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
       const playsContainer = document.querySelector('.plays-container');
       if (playsContainer) {
         playsContainer.innerHTML = `
-          <div style="text-align: center; padding: 20px; color: #666;">
+          <div style="text-align: center; padding: 20px; color: #777;">
             <p>No commentary data available for this match</p>
           </div>
         `;
@@ -1370,7 +1370,7 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
     if (playsPlaceholder) {
       playsPlaceholder.innerHTML = `
         <h2>Commentary</h2>
-        <div style="text-align: center; padding: 40px; color: #666;">
+        <div style="text-align: center; padding: 40px; color: #777;">
           <p>Commentary not available for this match.</p>
         </div>
       `;

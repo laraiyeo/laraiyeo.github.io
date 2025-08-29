@@ -99,7 +99,7 @@ async function showTeamMatchesPopup(teamId, teamName, teamLogo) {
     border: none;
     font-size: 28px;
     cursor: pointer;
-    color: #666;
+    color: #777;
     width: 30px;
     height: 30px;
     display: flex;
@@ -116,7 +116,7 @@ async function showTeamMatchesPopup(teamId, teamName, teamLogo) {
   
   closeButton.addEventListener('mouseleave', () => {
     closeButton.style.backgroundColor = 'transparent';
-    closeButton.style.color = '#666';
+    closeButton.style.color = '#777';
   });
   
   closeButton.addEventListener('click', () => {
@@ -139,7 +139,7 @@ async function showTeamMatchesPopup(teamId, teamName, teamLogo) {
     <img src="${logoSrc}" alt="${teamName}" style="width: 40px; height: 40px; object-fit: contain;">
     <div>
       <h3 style="margin: 0; color: #333; font-size: 1.4rem;">${teamName}</h3>
-      <p style="margin: 5px 0 0 0; color: #666; font-size: 0.9rem;">Group Stage Matches</p>
+      <p style="margin: 5px 0 0 0; color: #777; font-size: 0.9rem;">Group Stage Matches</p>
     </div>
   `;
 
@@ -148,7 +148,7 @@ async function showTeamMatchesPopup(teamId, teamName, teamLogo) {
   matchesContainer.style.cssText = `
     text-align: center;
     padding: 20px;
-    color: #666;
+    color: #777;
   `;
   matchesContainer.innerHTML = 'Loading matches...';
 
@@ -174,7 +174,7 @@ async function showTeamMatchesPopup(teamId, teamName, teamLogo) {
     
     if (matches.length === 0) {
       matchesContainer.innerHTML = `
-        <div style="text-align: center; padding: 20px; color: #666;">
+        <div style="text-align: center; padding: 20px; color: #777;">
           <p>No group stage matches found for this team.</p>
         </div>
       `;
@@ -228,7 +228,7 @@ async function showTeamMatchesPopup(teamId, teamName, teamLogo) {
       
       // Get result colors and background colors (using team-page.js logic)
       let resultColor = "#fff"; // White text
-      let backgroundColor = "#666"; // Default gray
+      let backgroundColor = "#777"; // Default gray
       
       switch(resultClass) {
         case "win":
@@ -257,7 +257,7 @@ async function showTeamMatchesPopup(teamId, teamName, teamLogo) {
       
       return `
       
-        <span style="font-weight: bold; color: #666; min-width: 60px;">Match ${index + 1}</span>
+        <span style="font-weight: bold; color: #777; min-width: 60px;">Match ${index + 1}</span>
         <div style="
           display: flex;
           align-items: center;
@@ -290,7 +290,7 @@ async function showTeamMatchesPopup(teamId, teamName, teamLogo) {
               min-width: 80px;
               font-size: 0.9rem;
             ">${scoreDisplay}</div>
-            <div style="font-size: 0.8rem; color: #666;">${statusText}</div>
+            <div style="font-size: 0.8rem; color: #777;">${statusText}</div>
           </div>
           
           <div style="display: flex; align-items: center; gap: 10px; flex: 1; justify-content: flex-end;">
@@ -313,7 +313,7 @@ async function showTeamMatchesPopup(teamId, teamName, teamLogo) {
   } catch (error) {
     console.error("Error loading team matches:", error);
     matchesContainer.innerHTML = `
-      <div style="text-align: center; padding: 20px; color: #666;">
+      <div style="text-align: center; padding: 20px; color: #777;">
         <p>Error loading matches. Please try again.</p>
       </div>
     `;

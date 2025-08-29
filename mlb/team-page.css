@@ -165,13 +165,13 @@ html::-webkit-scrollbar {
 
 .page-info {
   font-size: 14px;
-  color: #666;
+  color: #777;
   font-weight: bold;
 }
 
 .loading {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 50px 0;
 }
@@ -229,7 +229,7 @@ html::-webkit-scrollbar {
 }
 
 .game-info {
-  color: #666;
+  color: #777;
   font-size: 0.9rem;
 }
 
@@ -295,6 +295,7 @@ html::-webkit-scrollbar {
 }
 
 .match-result {
+  margin-top: -5px;
   font-weight: bold;
   color: #333;
   text-align: center;
@@ -303,7 +304,7 @@ html::-webkit-scrollbar {
 }
 
 .match-date {
-  color: #666;
+  color: #777;
   font-size: 0.9rem;
   white-space: nowrap;
 }
@@ -317,7 +318,8 @@ html::-webkit-scrollbar {
 }
 
 .scheduled {
-  color: #ffffff;
+  color: #000;
+  font-size: 1.125rem;
 }
 
 /* Stats Styles */
@@ -343,7 +345,7 @@ html::-webkit-scrollbar {
 }
 
 .stat-label {
-  color: #666;
+  color: #777;
   font-size: 0.9rem;
 }
 
@@ -371,7 +373,7 @@ html::-webkit-scrollbar {
 }
 
 .standing-details {
-  color: #666;
+  color: #777;
 }
 
 /* Players Styles */
@@ -426,7 +428,7 @@ html::-webkit-scrollbar {
 
 .player-last-name {
   font-size: 0.9rem;
-  color: #666;
+  color: #777;
 }
 
 .player-number {
@@ -519,7 +521,7 @@ html::-webkit-scrollbar {
 /* No Data Styles */
 .no-data {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 30px 0;
 }
@@ -715,7 +717,7 @@ html::-webkit-scrollbar {
   cursor: pointer;
   font-size: 20px;
   font-weight: bold;
-  color: #666;
+  color: #777;
   transition: all 0.2s ease;
 }
 
@@ -742,7 +744,7 @@ html::-webkit-scrollbar {
 
 .loading-stats {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 20px;
 }
@@ -779,14 +781,14 @@ html::-webkit-scrollbar {
 }
 
 .stat-label-player {
-  color: #666;
+  color: #777;
   font-size: 0.8rem;
   font-weight: bold;
 }
 
 .no-stats {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 30px 20px;
 }
@@ -875,7 +877,7 @@ html::-webkit-scrollbar {
 }
 
 .close {
-  color: #666;
+  color: #777;
   font-size: 28px;
   font-weight: bold;
   cursor: pointer;
@@ -1008,7 +1010,7 @@ html::-webkit-scrollbar {
 
 .comparison-stat-label {
   font-size: 0.8rem;
-  color: #666;
+  color: #777;
   margin-bottom: 2px;
   font-weight: bold;
 }
@@ -1021,14 +1023,14 @@ html::-webkit-scrollbar {
 
 .loading {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 40px 20px;
 }
 
 .no-stats {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 40px 20px;
 }

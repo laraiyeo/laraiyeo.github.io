@@ -217,13 +217,13 @@ html::-webkit-scrollbar {
 
 .page-info {
   font-size: 14px;
-  color: #666;
+  color: #777;
   font-weight: bold;
 }
 
 .loading {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 50px 0;
 }
@@ -289,7 +289,7 @@ html::-webkit-scrollbar {
 
 .game-info {
   font-size: 0.9rem;
-  color: #666;
+  color: #777;
 }
 
 /* Match List Styles */
@@ -366,7 +366,7 @@ html::-webkit-scrollbar {
 
 .match-date {
   font-size: 0.9rem;
-  color: #666;
+  color: #777;
   text-align: center;
 }
 
@@ -393,7 +393,7 @@ html::-webkit-scrollbar {
 }
 
 .standing-details {
-  color: #666;
+  color: #777;
 }
 
 .stat-item {
@@ -405,7 +405,7 @@ html::-webkit-scrollbar {
 
 .stat-label {
   font-size: 0.9rem;
-  color: #666;
+  color: #777;
   margin-bottom: 5px;
 }
 
@@ -516,7 +516,7 @@ html::-webkit-scrollbar {
 
 .squad-member-position {
   font-size: 0.9rem;
-  color: #666;
+  color: #777;
   margin-bottom: 5px;
 }
 
@@ -708,7 +708,7 @@ html::-webkit-scrollbar {
 
 .player-last-name {
   font-size: 0.9rem;
-  color: #666;
+  color: #777;
 }
 
 .player-number {
@@ -737,7 +737,7 @@ html::-webkit-scrollbar {
 /* No Data Styles */
 .no-data {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 30px 0;
 }
@@ -822,7 +822,7 @@ html::-webkit-scrollbar {
   cursor: pointer;
   font-size: 20px;
   font-weight: bold;
-  color: #666;
+  color: #777;
   transition: all 0.2s ease;
 }
 
@@ -849,7 +849,7 @@ html::-webkit-scrollbar {
 
 .loading-stats {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 20px;
 }
@@ -886,14 +886,14 @@ html::-webkit-scrollbar {
 }
 
 .stat-label-player {
-  color: #666;
+  color: #777;
   font-size: 0.8rem;
   font-weight: bold;
 }
 
 .no-stats {
   text-align: center;
-  color: #666;
+  color: #777;
   font-style: italic;
   padding: 30px 20px;
 }

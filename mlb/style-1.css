@@ -440,7 +440,7 @@ body {
   position: absolute;
   width: 60px;
   height: 60px;
-  border: 2px solid #666;
+  border: 2px solid #777;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 2px;
   top: 50%;
@@ -451,7 +451,7 @@ body {
 .strike-zone {
   width: 80px;
   height: 80px;
-  border: 2px solid #666;
+  border: 2px solid #777;
   position: relative;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 4px;
@@ -506,7 +506,7 @@ body {
   position: absolute;
   width: 8px;
   height: 8px;
-  background: #666;
+  background: #777;
   transform: rotate(45deg);
   border: 1px solid #999;
   border-radius: 1px;

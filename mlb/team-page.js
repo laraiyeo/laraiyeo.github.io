@@ -10,6 +10,13 @@ let selectedPlayer = null;
 let playersForComparison = []; // Array to store players selected for comparison
 let currentStatsMode = 'overall'; // 'overall' or 'gamelog'
 
+// Player-specific team information for selected season
+let playerTeamForYear = null; // Player's team data for selected year
+let playerTeamColor = "#000000"; // Player's team color for selected year
+let playerTeamAbbr = "UNK"; // Player's team abbreviation for selected year
+let playerJerseyForYear = "N/A"; // Player's jersey number for selected year
+let playerPositionForYear = null; // Player's position for selected year
+
 // Global variable to store all MLB players for league-wide comparison
 let allMLBPlayers = [];
 
@@ -517,7 +524,7 @@ async function loadCurrentStanding() {
           <div class="standing-position">--</div>
           <div class="standing-details">
             <div>Position in ${currentTeam?.division?.name || 'Division'}</div>
-            <div style="margin-top: 10px; color: #666;">
+            <div style="margin-top: 10px; color: #777;">
               Unable to load standings data
             </div>
           </div>
@@ -531,7 +538,7 @@ async function loadCurrentStanding() {
         <div class="standing-position">--</div>
         <div class="standing-details">
           <div>Position in ${currentTeam?.division?.name || 'Division'}</div>
-          <div style="margin-top: 10px; color: #666;">
+          <div style="margin-top: 10px; color: #777;">
             Error loading standings data
           </div>
         </div>
@@ -778,7 +785,7 @@ async function showPlayerDetails(playerId) {
         <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 5px;">
           ${fullName}
         </div>
-        <div style="font-size: 1.1rem; color: #666;">
+        <div style="font-size: 1.1rem; color: #777;">
           #${jerseyNumber} | ${position}
         </div>
       </div>
@@ -908,7 +915,7 @@ async function showPlayerDetails(playerId) {
                    onerror="this.src='icon.png';">
               <div>
                 <div style="font-weight: bold; color: #333;">${player.displayName}${player.isTwoWayPlayer ? ` (${player.twoWayRole})` : ''}</div>
-                <div style="font-size: 12px; color: #666;">${player.team} | #${player.jersey} | ${player.position}</div>
+                <div style="font-size: 12px; color: #777;">${player.team} | #${player.jersey} | ${player.position}</div>
               </div>
             </div>
           `).join('');
@@ -994,7 +1001,7 @@ async function showPlayerDetails(playerId) {
           });
         } else {
           const positionText = selectedPlayerIsPitcher ? 'pitchers' : 'hitters';
-          searchResults.innerHTML = `<div style="padding: 10px; color: #666; text-align: center;">No ${positionText} found</div>`;
+          searchResults.innerHTML = `<div style="padding: 10px; color: #777; text-align: center;">No ${positionText} found</div>`;
           searchResults.style.display = 'block';
         }
       }, 300);
@@ -1073,7 +1080,7 @@ sliderBackground.style.cssText = `
       cursor: pointer;
       font-size: 14px;
       font-weight: 500;
-      color: #666;
+      color: #777;
       position: relative;
       z-index: 2;
       width: 96px;
@@ -1090,7 +1097,7 @@ sliderBackground.style.cssText = `
       console.log('Overall option clicked');
       sliderBackground.style.transform = 'translateX(0)';
       overallOption.style.color = 'white';
-      gameLogOption.style.color = '#666';
+      gameLogOption.style.color = '#777';
       currentStatsMode = 'overall';
       showOverallStats();
     });
@@ -1098,7 +1105,7 @@ sliderBackground.style.cssText = `
     gameLogOption.addEventListener('click', () => {
       console.log('Game log option clicked');
       sliderBackground.style.transform = 'translateX(96px)';
-      overallOption.style.color = '#666';
+      overallOption.style.color = '#777';
       gameLogOption.style.color = 'white';
       currentStatsMode = 'gamelog';
       showGameLogInterface();
@@ -1257,7 +1264,7 @@ async function loadGameLogForDate(date) {
   if (!resultsContainer || !selectedPlayer) return;
 
   try {
-    resultsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;"><div style="display: inline-block; width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #333; border-radius: 50%; animation: spin 1s linear infinite;"></div><br>Loading game data...</div>';
+    resultsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;"><div style="display: inline-block; width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #333; border-radius: 50%; animation: spin 1s linear infinite;"></div><br>Loading game data...</div>';
 
     // Add the spinner animation
     const style = document.createElement('style');
@@ -1327,8 +1334,8 @@ async function loadGameLogForDate(date) {
     if (!scheduleData.dates || scheduleData.dates.length === 0) {
       resultsContainer.innerHTML = `
         <div style="text-align: center; padding: 40px 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #ddd;">
-          <div style="font-size: 1.2rem; color: #666; margin-bottom: 10px;">📅</div>
-          <div style="color: #666; font-size: 1rem;">No games found for this date</div>
+          <div style="font-size: 1.2rem; color: #777; margin-bottom: 10px;">📅</div>
+          <div style="color: #777; font-size: 1rem;">No games found for this date</div>
           <div style="color: #999; font-size: 0.9rem; margin-top: 5px;">Try selecting a different date during the season</div>
         </div>
       `;
@@ -1339,8 +1346,8 @@ async function loadGameLogForDate(date) {
     if (games.length === 0) {
       resultsContainer.innerHTML = `
         <div style="text-align: center; padding: 40px 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #ddd;">
-          <div style="font-size: 1.2rem; color: #666; margin-bottom: 10px;">📅</div>
-          <div style="color: #666; font-size: 1rem;">No games found for this date</div>
+          <div style="font-size: 1.2rem; color: #777; margin-bottom: 10px;">📅</div>
+          <div style="color: #777; font-size: 1rem;">No games found for this date</div>
           <div style="color: #999; font-size: 0.9rem; margin-top: 5px;">Try selecting a different date during the season</div>
         </div>
       `;
@@ -1433,7 +1440,7 @@ async function displayPlayerGameStats(boxscoreData, game, teamIdForSeason) {
     resultsContainer.innerHTML = `
       <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
         <div style="font-size: 2rem; margin-bottom: 15px;">�</div>
-        <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+        <div style="color: #777; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
           No box score data for this game
         </div>
         <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
@@ -1476,7 +1483,7 @@ async function displayPlayerGameStats(boxscoreData, game, teamIdForSeason) {
     resultsContainer.innerHTML = `
       <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
         <div style="font-size: 2rem; margin-bottom: 15px;">📊</div>
-        <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+        <div style="color: #777; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
           No box score data for this game
         </div>
         <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
@@ -1854,10 +1861,10 @@ window.capturePlayerStatsAsImage = async function(element) {
 
     // Extract player information from selectedPlayer (more reliable than modal structure)
     const playerName = selectedPlayer.person.fullName || selectedPlayer.person.firstName + ' ' + selectedPlayer.person.lastName;
-    const jerseyNumber = selectedPlayer.jerseyNumber || selectedPlayer.number || 'N/A';
-    const position = selectedPlayer.position.abbreviation || selectedPlayer.position.name || 'N/A';
-    const teamName = currentTeam?.name || 'Unknown Team';
-    const teamAbbr = currentTeam?.abbreviation || currentTeam?.shortDisplayName || 'UNK';
+    const jerseyNumber = playerJerseyForYear || selectedPlayer.jerseyNumber || selectedPlayer.number || 'N/A';
+    const position = playerPositionForYear || selectedPlayer.position.abbreviation || selectedPlayer.position.name || 'N/A';
+    const teamName = playerTeamForYear?.name || currentTeam?.name || 'Unknown Team';
+    const teamAbbr = playerTeamAbbr || currentTeam?.abbreviation || currentTeam?.shortDisplayName || 'UNK';
 
     // Get player headshot URL
     const playerHeadshotUrl = selectedPlayer.person.id ?
@@ -1869,12 +1876,12 @@ window.capturePlayerStatsAsImage = async function(element) {
     const selectedYear = yearSelector ? yearSelector.value : new Date().getFullYear();
 
     // Get team logo
-    const teamLogo = await getTeamLogo();
+    const teamLogo = await getTeamLogo(playerTeamForYear || currentTeam);
 
     // Create a styled container specifically for the image capture
     const captureContainer = document.createElement('div');
     captureContainer.style.cssText = `
-      background: linear-gradient(135deg, ${getTeamColor() || '#1a1a1a'} 0%, ${getTeamColor() ? getTeamColor() + '88' : '#333'} 100%);
+      background: linear-gradient(135deg, ${playerTeamColor || '#1a1a1a'} 0%, ${playerTeamColor ? playerTeamColor + '88' : '#333'} 100%);
       color: white;
       padding: 30px;
       border-radius: 16px;
@@ -1965,7 +1972,7 @@ window.capturePlayerStatsAsImage = async function(element) {
     });
 
     // Style stat labels (AVG, HR, RBI, etc.) to be white
-    const statLabels = statsContent.querySelectorAll('[style*="color: #666"]');
+    const statLabels = statsContent.querySelectorAll('[style*="color: #777"]');
     statLabels.forEach(label => {
       label.style.color = 'white';
     });
@@ -2136,37 +2143,135 @@ function getTeamColor() {
 }
 
 // Helper function to get team logo
-async function getTeamLogo() {
-  if (currentTeam) {
-    return await getLogoUrl(currentTeam.name);
+async function getTeamLogo(team = null) {
+  const teamToUse = team || currentTeam;
+  if (teamToUse) {
+    return await getLogoUrl(teamToUse.name);
   }
   return 'icon.png';
 }
 
 async function loadPlayerStatsForModal(playerId, year, container) {
   try {
-    // Check if player is a pitcher or TWP player
-    const isPitcher = selectedPlayer.position.code === "1" || selectedPlayer.position.abbreviation === "TWP";
-    const isTwoWayPlayer = selectedPlayer.position.abbreviation === "TWP";
+    // Determine player type based on position
+    const playerPosition = selectedPlayer.position?.abbreviation || selectedPlayer.position?.name || '';
+    const isPitcher = playerPosition.includes('P') || playerPosition === 'SP' || playerPosition === 'RP' || playerPosition === 'LHP' || playerPosition === 'RHP';
+    
+    // Check if player is a Two-Way Player by testing both hitting and pitching stats
+    let isTwoWayPlayer = false;
+    let twpHittingData = null;
+    let twpPitchingData = null;
+    
+    try {
+      const [hittingTest, pitchingTest] = await Promise.all([
+        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${year}`),
+        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${year}`)
+      ]);
+      
+      if (hittingTest.ok && pitchingTest.ok) {
+        [twpHittingData, twpPitchingData] = await Promise.all([
+          hittingTest.json(),
+          pitchingTest.json()
+        ]);
+        
+        const hasHittingStats = twpHittingData.stats && twpHittingData.stats.length > 0 && twpHittingData.stats[0].splits && twpHittingData.stats[0].splits.length > 0;
+        const hasPitchingStats = twpPitchingData.stats && twpPitchingData.stats.length > 0 && twpPitchingData.stats[0].splits && twpPitchingData.stats[0].splits.length > 0;
+        
+        isTwoWayPlayer = hasHittingStats && hasPitchingStats;
+        console.log(`[MLB TWP DETECTION] Player ${selectedPlayer.person.fullName} - Hitting: ${hasHittingStats}, Pitching: ${hasPitchingStats}, TWP: ${isTwoWayPlayer}`);
+      }
+    } catch (error) {
+      console.log(`[MLB TWP DETECTION] Error checking TWP status:`, error);
+    }
+    
+    // Fetch player's team information for the selected year
+    playerTeamForYear = null;
+    playerTeamColor = getTeamColor(); // Default to current team color
+    playerTeamAbbr = currentTeam?.abbreviation || currentTeam?.shortDisplayName || 'UNK';
+    playerJerseyForYear = selectedPlayer.jerseyNumber || 'N/A';
+    playerPositionForYear = selectedPlayer.position?.abbreviation || selectedPlayer.position?.name || 'N/A';
+    
+    try {
+      console.log(`[MLB TEAM INFO] Fetching player's team for season ${year}...`);
+      
+      // Try to get team information from the player's season stats
+      let playerSeasonResponse;
+      if (isTwoWayPlayer && twpHittingData) {
+        // For TWP players, use the already fetched hitting data
+        playerSeasonResponse = { ok: true, json: () => Promise.resolve(twpHittingData) };
+      } else if (isTwoWayPlayer) {
+        // Fallback: fetch hitting data for team information
+        playerSeasonResponse = await fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${year}`);
+      } else if (isPitcher) {
+        // For pitchers, we need to fetch hitting stats to get team info (since pitchers don't always have hitting stats)
+        playerSeasonResponse = await fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${year}`);
+      } else {
+        // For regular hitters, fetch hitting stats to get team info
+        playerSeasonResponse = await fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${year}`);
+      }
+      
+      if (playerSeasonResponse && playerSeasonResponse.ok) {
+        const playerSeasonData = playerSeasonResponse.json ? await playerSeasonResponse.json() : playerSeasonResponse;
+        
+        // MLB API structure: stats[0].splits[0].team
+        if (playerSeasonData.stats && playerSeasonData.stats.length > 0 && 
+            playerSeasonData.stats[0].splits && playerSeasonData.stats[0].splits.length > 0 &&
+            playerSeasonData.stats[0].splits[0].team) {
+          
+          const seasonTeam = playerSeasonData.stats[0].splits[0].team;
+          playerTeamForYear = seasonTeam;
+          console.log(`[MLB TEAM INFO] Player's team data for ${year}:`, seasonTeam);
+          console.log(`[MLB TEAM INFO] Team name: "${seasonTeam.name}", abbreviation: "${seasonTeam.abbreviation}"`);
+          
+          // Get team color and abbreviation
+          playerTeamColor = teamColors[seasonTeam.name] || teamColors[seasonTeam.abbreviation] || '#000000';
+          playerTeamAbbr = seasonTeam.abbreviation || seasonTeam.shortDisplayName || seasonTeam.name;
+          console.log(`[MLB TEAM INFO] Using team color: ${playerTeamColor}, abbreviation: ${playerTeamAbbr}`);
+          
+          // Try to get player-specific jersey and position for this team
+          try {
+            const rosterResponse = await fetch(`https://statsapi.mlb.com/api/v1/teams/${seasonTeam.id}/roster?season=${year}`);
+            if (rosterResponse.ok) {
+              const rosterData = await rosterResponse.json();
+              const playerInRoster = rosterData.roster?.find(rosterPlayer => rosterPlayer.person.id === playerId);
+              
+              if (playerInRoster) {
+                playerJerseyForYear = playerInRoster.jerseyNumber || playerJerseyForYear;
+                playerPositionForYear = playerInRoster.position?.abbreviation || playerInRoster.position?.name || playerPositionForYear;
+                
+                console.log(`[MLB TEAM INFO] Found player in roster - Jersey: ${playerJerseyForYear}, Position: ${playerPositionForYear}`);
+              }
+            }
+          } catch (rosterError) {
+            console.log(`[MLB TEAM INFO] Could not fetch roster data:`, rosterError);
+          }
+        }
+      } else {
+        console.log(`[MLB TEAM INFO] Could not fetch player's team for season ${year}, using current team`);
+      }
+    } catch (error) {
+      console.log(`[MLB TEAM INFO] Error fetching team information:`, error);
+      // Fall back to current team info
+    }
     
     // For TWP players, show both hitting and pitching stats
     if (isTwoWayPlayer) {
-      // Load both hitting and pitching stats for TWP players
-      const [hittingResponse, pitchingResponse, allHittersResponse, allPitchersResponse] = await Promise.all([
-        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${year}`),
-        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${year}`),
+      // Use stored data from TWP detection, fetch league-wide stats
+      const [allHittersResponse, allPitchersResponse] = await Promise.all([
         fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting&season=${year}&gameType=R&sportId=1&limit=2000&playerPool=all`),
         fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=pitching&season=${year}&gameType=R&sportId=1&limit=2000&playerPool=all`)
       ]);
       
-      const [hittingData, pitchingData, allHittersData, allPitchersData] = await Promise.all([
-        hittingResponse.json(),
-        pitchingResponse.json(),
+      const [allHittersData, allPitchersData] = await Promise.all([
         allHittersResponse.json(),
         allPitchersResponse.json()
       ]);
       
-      const teamColor = getTeamColor();
+      // Use the data we already fetched for TWP detection
+      const hittingData = twpHittingData;
+      const pitchingData = twpPitchingData;
+      
+      const teamColor = playerTeamColor;
       
       let content = `
         <div id="playerStatsCard" style="position: relative;">
@@ -2202,32 +2307,32 @@ async function loadPlayerStatsForModal(playerId, year, container) {
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 15px;">
               <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${hittingStats.avg || '.000'}</div>
-                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">AVG</div>
+                <div style="font-size: 0.8rem; color: #777; margin-bottom: 3px;">AVG</div>
                 ${hittingRankings.avg ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${hittingRankings.avg} in MLB</div>` : ''}
               </div>
               <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${hittingStats.slg || '.000'}</div>
-                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">SLG</div>
+                <div style="font-size: 0.8rem; color: #777; margin-bottom: 3px;">SLG</div>
                 ${hittingRankings.slg ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${hittingRankings.slg} in MLB</div>` : ''}
               </div>
               <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${hittingStats.ops || '.000'}</div>
-                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">OPS</div>
+                <div style="font-size: 0.8rem; color: #777; margin-bottom: 3px;">OPS</div>
                 ${hittingRankings.ops ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${hittingRankings.ops} in MLB</div>` : ''}
               </div>
               <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${hittingStats.homeRuns || '0'}</div>
-                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">HR</div>
+                <div style="font-size: 0.8rem; color: #777; margin-bottom: 3px;">HR</div>
                 ${hittingRankings.homeRuns ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${hittingRankings.homeRuns} in MLB</div>` : ''}
               </div>
               <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${hittingStats.rbi || '0'}</div>
-                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">RBI</div>
+                <div style="font-size: 0.8rem; color: #777; margin-bottom: 3px;">RBI</div>
                 ${hittingRankings.rbi ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${hittingRankings.rbi} in MLB</div>` : ''}
               </div>
               <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${hittingStats.hits || '0'}</div>
-                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">H</div>
+                <div style="font-size: 0.8rem; color: #777; margin-bottom: 3px;">H</div>
                 ${hittingRankings.hits ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${hittingRankings.hits} in MLB</div>` : ''}
               </div>
             </div>
@@ -2247,32 +2352,32 @@ async function loadPlayerStatsForModal(playerId, year, container) {
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 15px;">
               <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${pitchingStats.era || '0.00'}</div>
-                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">ERA</div>
+                <div style="font-size: 0.8rem; color: #777; margin-bottom: 3px;">ERA</div>
                 ${pitchingRankings.era ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${pitchingRankings.era} in MLB</div>` : ''}
               </div>
               <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${pitchingStats.whip || '0.00'}</div>
-                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">WHIP</div>
+                <div style="font-size: 0.8rem; color: #777; margin-bottom: 3px;">WHIP</div>
                 ${pitchingRankings.whip ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${pitchingRankings.whip} in MLB</div>` : ''}
               </div>
               <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${pitchingStats.inningsPitched || '0.0'}</div>
-                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">IP</div>
+                <div style="font-size: 0.8rem; color: #777; margin-bottom: 3px;">IP</div>
                 ${pitchingRankings.inningsPitched ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${pitchingRankings.inningsPitched} in MLB</div>` : ''}
               </div>
               <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${pitchingStats.wins || '0'}</div>
-                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">W</div>
+                <div style="font-size: 0.8rem; color: #777; margin-bottom: 3px;">W</div>
                 ${pitchingRankings.wins ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${pitchingRankings.wins} in MLB</div>` : ''}
               </div>
               <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${pitchingStats.losses || '0'}</div>
-                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">L</div>
+                <div style="font-size: 0.8rem; color: #777; margin-bottom: 3px;">L</div>
                 ${pitchingRankings.losses ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${pitchingRankings.losses} in MLB</div>` : ''}
               </div>
               <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center;">
                 <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-bottom: 5px;">${pitchingStats.strikeOuts || '0'}</div>
-                <div style="font-size: 0.8rem; color: #666; margin-bottom: 3px;">K</div>
+                <div style="font-size: 0.8rem; color: #777; margin-bottom: 3px;">K</div>
                 ${pitchingRankings.strikeOuts ? `<div style="font-size: 0.7rem; color: #28a745; font-weight: 500;">#${pitchingRankings.strikeOuts} in MLB</div>` : ''}
               </div>
             </div>
@@ -2281,7 +2386,7 @@ async function loadPlayerStatsForModal(playerId, year, container) {
       }
       
       if (!hittingData.stats?.length && !pitchingData.stats?.length) {
-        content += '<div style="text-align: center; color: #666; font-style: italic; padding: 30px 20px;">No statistics available for this year.</div>';
+        content += '<div style="text-align: center; color: #777; font-style: italic; padding: 30px 20px;">No statistics available for this year.</div>';
       }
       
       container.innerHTML = content;
@@ -2304,6 +2409,14 @@ async function loadPlayerStatsForModal(playerId, year, container) {
         
         // Get team name and logo for the chosen year
         let teamNameForYear = splitForYear.team && splitForYear.team.name ? splitForYear.team.name : (currentTeam && currentTeam.name ? currentTeam.name : "");
+        
+        // Update global team variables if we have team data from stats
+        if (splitForYear.team) {
+          playerTeamForYear = splitForYear.team;
+          playerTeamColor = teamColors[splitForYear.team.name] || teamColors[splitForYear.team.abbreviation] || playerTeamColor;
+          playerTeamAbbr = splitForYear.team.abbreviation || splitForYear.team.shortDisplayName || splitForYear.team.name;
+        }
+        
         let teamLogoUrl = "";
         if (teamNameForYear) {
           teamLogoUrl = await getStandardLogoUrl(teamNameForYear);
@@ -2315,7 +2428,7 @@ async function loadPlayerStatsForModal(playerId, year, container) {
         const currentYear = new Date().getFullYear();
         const startYear = 2022;
 
-        const teamColor = getTeamColor();
+        const teamColor = playerTeamColor;
         
         // Show stats in modal format
         container.innerHTML = `
@@ -2353,47 +2466,47 @@ async function loadPlayerStatsForModal(playerId, year, container) {
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.avg || '.000'}</div>
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">AVG</div>
+              <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">AVG</div>
               ${rankings.avg ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.avg} in MLB</div>` : ''}
             </div>
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.homeRuns || 0}</div>
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">HR</div>
+              <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">HR</div>
               ${rankings.homeRuns ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.homeRuns} in MLB</div>` : ''}
             </div>
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.rbi || 0}</div>
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">RBI</div>
+              <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">RBI</div>
               ${rankings.rbi ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.rbi} in MLB</div>` : ''}
             </div>
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.obp || '.000'}</div>
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">OBP</div>
+              <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">OBP</div>
               ${rankings.obp ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.obp} in MLB</div>` : ''}
             </div>
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.slg || '.000'}</div>
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">SLG</div>
+              <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">SLG</div>
               ${rankings.slg ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.slg} in MLB</div>` : ''}
             </div>
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.ops || '.000'}</div>
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">OPS</div>
+              <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">OPS</div>
               ${rankings.ops ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.ops} in MLB</div>` : ''}
             </div>
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.hits || 0}</div>
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">H</div>
+              <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">H</div>
               ${rankings.hits ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.hits} in MLB</div>` : ''}
             </div>
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.runs || 0}</div>
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">R</div>
+              <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">R</div>
               ${rankings.runs ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.runs} in MLB</div>` : ''}
             </div>
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.stolenBases || 0}</div>
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">SB</div>
+              <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">SB</div>
               ${rankings.stolenBases ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.stolenBases} in MLB</div>` : ''}
             </div>
           </div>
@@ -2432,7 +2545,7 @@ async function loadPlayerStatsForModal(playerId, year, container) {
               </select>
             </div>
           </div>
-          <div style="text-align: center; padding: 20px; color: #666;">
+          <div style="text-align: center; padding: 20px; color: #777;">
             No hitting statistics available for the ${year} season.
           </div>
         `;
@@ -2470,6 +2583,14 @@ async function loadPlayerStatsForModal(playerId, year, container) {
         
         // Get team name and logo for the chosen year
         let teamNameForYear = splitForYear.team && splitForYear.team.name ? splitForYear.team.name : (currentTeam && currentTeam.name ? currentTeam.name : "");
+        
+        // Update global team variables if we have team data from stats
+        if (splitForYear.team) {
+          playerTeamForYear = splitForYear.team;
+          playerTeamColor = teamColors[splitForYear.team.name] || teamColors[splitForYear.team.abbreviation] || playerTeamColor;
+          playerTeamAbbr = splitForYear.team.abbreviation || splitForYear.team.shortDisplayName || splitForYear.team.name;
+        }
+        
         let teamLogoUrl = "";
         if (teamNameForYear) {
           teamLogoUrl = await getStandardLogoUrl(teamNameForYear);
@@ -2481,7 +2602,7 @@ async function loadPlayerStatsForModal(playerId, year, container) {
         const currentYear = new Date().getFullYear();
         const startYear = 2022;
 
-        const teamColor = getTeamColor();
+        const teamColor = playerTeamColor;
 
         // Show stats in modal format
         container.innerHTML = `
@@ -2519,42 +2640,42 @@ async function loadPlayerStatsForModal(playerId, year, container) {
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.era || '0.00'}</div>
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">ERA</div>
+              <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">ERA</div>
               ${rankings.era ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.era} in MLB</div>` : ''}
             </div>
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.whip || '0.00'}</div>
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">WHIP</div>
+              <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">WHIP</div>
               ${rankings.whip ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.whip} in MLB</div>` : ''}
             </div>
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.wins || 0}</div>
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">W</div>
+              <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">W</div>
               ${rankings.wins ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.wins} in MLB</div>` : ''}
             </div>
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.losses || 0}</div>
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">L</div>
+              <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">L</div>
               ${rankings.losses ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.losses} in MLB</div>` : ''}
             </div>
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.saves || 0}</div>
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">SV</div>
+              <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">SV</div>
               ${rankings.saves ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.saves} in MLB</div>` : ''}
             </div>
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.strikeOuts || 0}</div>
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">K</div>
+              <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">K</div>
               ${rankings.strikeOuts ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.strikeOuts} in MLB</div>` : ''}
             </div>
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.inningsPitched || '0.0'}</div>
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">IP</div>
+              <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">IP</div>
               ${rankings.inningsPitched ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.inningsPitched} in MLB</div>` : ''}
             </div>
             <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">${playerStats.baseOnBalls || 0}</div>
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">BB</div>
+              <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">BB</div>
               ${rankings.baseOnBalls ? `<div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">#${rankings.baseOnBalls} in MLB</div>` : ''}
             </div>
           </div>
@@ -2594,7 +2715,7 @@ async function loadPlayerStatsForModal(playerId, year, container) {
               </select>
             </div>
           </div>
-          <div style="text-align: center; padding: 20px; color: #666;">
+          <div style="text-align: center; padding: 20px; color: #777;">
             No pitching statistics available for the ${year} season.
           </div>
         `;
@@ -3249,13 +3370,13 @@ async function createMatchCard(game, isCompleted) {
         </div>
         <span class="match-result ${resultClass}">
           ${isCompleted ? `${resultText} ${teamScore}-${opponentScore}` : resultText}
+          <div class="match-date" style="margin-top: 10px;">${formattedDate}</div>
         </span>
         <div class="match-team-info">
           <img src="${opponentLogo}" alt="${opponent.team.name}" class="match-team-logo" onerror="this.src='icon.png';">
           <span class="match-team-name">${getTeamAbbreviation(opponent.team.name)}</span>
         </div>
       </div>
-      <div class="match-date">${formattedDate}</div>
     </div>
   `;
 }
@@ -3266,7 +3387,7 @@ const teamColors = {
   "Chicago White Sox": "#000000", "Chicago Cubs": "#0E3386", "Cincinnati Reds": "#C6011F", "Cleveland Guardians": "#0F223E",
   "Colorado Rockies": "#333366", "Detroit Tigers": "#0C2340", "Houston Astros": "#002D62", "Kansas City Royals": "#004687",
   "Los Angeles Angels": "#BA0021", "Los Angeles Dodgers": "#A5ACAF", "Miami Marlins": "#00A3E0", "Milwaukee Brewers": "#FFC52F",
-  "Minnesota Twins": "#002B5C", "New York Yankees": "#003087", "New York Mets": "#002D72", "Athletics": "#EFB21E",
+  "Minnesota Twins": "#002B5C", "New York Yankees": "#003087", "New York Mets": "#002D72", "Athletics": "#EFB21E", "Oakland Athletics": "#EFB21E",
   "Philadelphia Phillies": "#E81828", "Pittsburgh Pirates": "#27251F", "San Diego Padres": "#2F241D", "San Francisco Giants": "#000000",
   "Seattle Mariners": "#005C5C", "St. Louis Cardinals": "#C41E3A", "Tampa Bay Rays": "#092C5C", "Texas Rangers": "#003278",
   "Toronto Blue Jays": "#1D2D5C", "Washington Nationals": "#AB0003"
@@ -3279,7 +3400,7 @@ async function getLogoUrl(teamName) {
     "Chicago White Sox": "cws_d", "Chicago Cubs": "chc_d", "Cincinnati Reds": "cin_d", "Cleveland Guardians": "cle_l",
     "Colorado Rockies": "col_d", "Detroit Tigers": "det_d", "Houston Astros": "hou_d", "Kansas City Royals": "kc_d",
     "Los Angeles Angels": "laa_d", "Los Angeles Dodgers": "lad_l", "Miami Marlins": "mia_d", "Milwaukee Brewers": "mil_d",
-    "Minnesota Twins": "min_d", "New York Yankees": "nyy_d", "New York Mets": "nym_d", "Athletics": "oak_l",
+    "Minnesota Twins": "min_d", "New York Yankees": "nyy_d", "New York Mets": "nym_d", "Athletics": "oak_l", "Oakland Athletics": "oak_l",
     "Philadelphia Phillies": "phi_l", "Pittsburgh Pirates": "pit_d", "San Diego Padres": "sd_d", "San Francisco Giants": "sf_d",
     "Seattle Mariners": "sea_d", "St. Louis Cardinals": "stl_d", "Tampa Bay Rays": "tb_d", "Texas Rangers": "tex_d",
     "Toronto Blue Jays": "tor_l", "Washington Nationals": "wsh_d"
@@ -3304,7 +3425,7 @@ async function getStandardLogoUrl(teamName) {
     "Chicago White Sox": "cws_l", "Chicago Cubs": "chc_l", "Cincinnati Reds": "cin_l", "Cleveland Guardians": "cle_l",
     "Colorado Rockies": "col_l", "Detroit Tigers": "det_l", "Houston Astros": "hou_l", "Kansas City Royals": "kc_l",
     "Los Angeles Angels": "laa_l", "Los Angeles Dodgers": "lad_l", "Miami Marlins": "mia_l", "Milwaukee Brewers": "mil_l",
-    "Minnesota Twins": "min_l", "New York Yankees": "nyy_l", "New York Mets": "nym_l", "Athletics": "oak_l",
+    "Minnesota Twins": "min_l", "New York Yankees": "nyy_l", "New York Mets": "nym_l", "Athletics": "oak_l", "Oakland Athletics": "oak_l",
     "Philadelphia Phillies": "phi_l", "Pittsburgh Pirates": "pit_l", "San Diego Padres": "sd_l", "San Francisco Giants": "sf_l",
     "Seattle Mariners": "sea_l", "St. Louis Cardinals": "stl_l", "Tampa Bay Rays": "tb_l", "Texas Rangers": "tex_l",
     "Toronto Blue Jays": "tor_l", "Washington Nationals": "wsh_l"
@@ -3580,7 +3701,7 @@ async function showPlayerComparison(player1, player2) {
           <div class="player-name-display" style="font-size: 1.2rem; font-weight: bold; color: #333;">
             ${player1.firstName} ${player1.lastName}
           </div>
-          <div style="font-size: 1rem; color: #666;">
+          <div style="font-size: 1rem; color: #777;">
             #${player1.jersey} | ${player1.position}
           </div>
         </div>
@@ -3644,7 +3765,7 @@ async function showPlayerComparison(player1, player2) {
           <div class="player-name-display" style="font-size: 1.2rem; font-weight: bold; color: #333;">
             ${player2.firstName} ${player2.lastName}
           </div>
-          <div style="font-size: 1rem; color: #666;">
+          <div style="font-size: 1rem; color: #777;">
             #${player2.jersey} | ${player2.position}
           </div>
         </div>
@@ -3798,7 +3919,7 @@ async function displayPlayerComparison(player1, player2, year1, year2, container
       const player2Stats = player2Data.stats?.[0]?.splits?.[0]?.stat;
 
       if (!player1Stats && !player2Stats) {
-        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No statistics available for comparison</div>';
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">No statistics available for comparison</div>';
         return;
       }
 
@@ -3886,7 +4007,7 @@ async function displayPlayerComparison(player1, player2, year1, year2, container
       const player2Stats = player2Data.stats?.[0]?.splits?.[0]?.stat;
 
       if (!player1Stats && !player2Stats) {
-        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">No statistics available for comparison</div>';
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">No statistics available for comparison</div>';
         return;
       }
 
@@ -4073,7 +4194,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
     // Clear the comparison stats as well
     const statsContainer = modalContent.querySelector('#comparison-stats-container');
     if (statsContainer) {
-      statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Select a player to start comparison</div>';
+      statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">Select a player to start comparison</div>';
     }
 
     // Add button hover effects
@@ -4165,7 +4286,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
                    onerror="this.src='icon.png';">
               <div>
                 <div style="font-weight: bold; color: #333;">${player.displayName}${player.isTwoWayPlayer ? ` (${player.twoWayRole})` : ''}</div>
-                <div style="font-size: 12px; color: #666;">${player.team} | #${player.jersey} | ${player.position}</div>
+                <div style="font-size: 12px; color: #777;">${player.team} | #${player.jersey} | ${player.position}</div>
               </div>
             </div>
           `).join('');
@@ -4219,7 +4340,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
           });
         } else {
           const positionText = needsPitcher ? 'pitchers' : 'hitters';
-          searchResults.innerHTML = `<div style="padding: 10px; color: #666; text-align: center;">No ${positionText} found</div>`;
+          searchResults.innerHTML = `<div style="padding: 10px; color: #777; text-align: center;">No ${positionText} found</div>`;
           searchResults.style.display = 'block';
         }
       }, 300);

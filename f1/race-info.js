@@ -1917,12 +1917,26 @@ async function updateRaceResults(raceId) {
       
       // Only update if content has changed to avoid flickering (like MLB)
       if (statsContainer.innerHTML !== newResultsHtml) {
-        // Store current active tab before updating
+        // Store current active tab and scroll position before updating
         const activeTab = statsContainer.querySelector('.competition-tab.active');
         const activeCompetition = activeTab ? activeTab.dataset.competition : null;
-        
+
+        // Store scroll position of the results table container
+        const resultsTableContainer = statsContainer.querySelector('.results-table-container');
+        const scrollLeft = resultsTableContainer ? resultsTableContainer.scrollLeft : 0;
+
         statsContainer.innerHTML = newResultsHtml;
-        
+
+        // Restore scroll position after updating (use requestAnimationFrame for better reliability)
+        if (resultsTableContainer && scrollLeft > 0) {
+          requestAnimationFrame(() => {
+            const newResultsTableContainer = statsContainer.querySelector('.results-table-container');
+            if (newResultsTableContainer) {
+              newResultsTableContainer.scrollLeft = scrollLeft;
+            }
+          });
+        }
+
         // Restore active tab if it still exists
         if (activeCompetition) {
           const newActiveTab = statsContainer.querySelector(`[data-competition="${activeCompetition}"]`);

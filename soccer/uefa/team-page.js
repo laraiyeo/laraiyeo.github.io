@@ -1214,7 +1214,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       cursor: pointer;
       font-size: 14px;
       font-weight: 500;
-      color: #666;
+      color: #777;
       position: relative;
       z-index: 2;
       width: 96px;
@@ -1231,7 +1231,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
       console.log('Overall option clicked');
       sliderBackground.style.transform = 'translateX(0)';
       overallOption.style.color = 'white';
-      gameLogOption.style.color = '#666';
+      gameLogOption.style.color = '#777';
       currentStatsMode = 'overall';
       showOverallStats();
     });
@@ -1239,7 +1239,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
     gameLogOption.addEventListener('click', () => {
       console.log('Game log option clicked');
       sliderBackground.style.transform = 'translateX(96px)';
-      overallOption.style.color = '#666';
+      overallOption.style.color = '#777';
       gameLogOption.style.color = 'white';
       currentStatsMode = 'gamelog';
       showGameLogInterface();
@@ -1356,7 +1356,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
             " onmouseover="this.style.backgroundColor='#f0f0f0'" onmouseout="this.style.backgroundColor='white'">
               <div>
                 <div style="font-weight: bold; color: #333;">${player.displayName}</div>
-                <div style="font-size: 12px; color: #666;">${player.team} | #${player.jersey} | ${player.position}</div>
+                <div style="font-size: 12px; color: #777;">${player.team} | #${player.jersey} | ${player.position}</div>
               </div>
             </div>
           `).join('');
@@ -1415,7 +1415,7 @@ async function showPlayerDetails(playerId, firstName, lastName, jerseyNumber, po
           });
         } else {
           const positionText = selectedPlayerType === 'goalkeeper' ? 'goalkeepers' : 'field players';
-          searchResults.innerHTML = `<div style="padding: 10px; color: #666; text-align: center;">No ${positionText} found</div>`;
+          searchResults.innerHTML = `<div style="padding: 10px; color: #777; text-align: center;">No ${positionText} found</div>`;
           searchResults.style.display = 'block';
         }
       }, 300);
@@ -1509,7 +1509,7 @@ async function loadPlayerStats(playerId, position, contentDiv) {
       });
       
       if (!apiPlayer) {
-        contentDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;"><p>Player not found</p></div>';
+        contentDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;"><p>Player not found</p></div>';
         return;
       }
       
@@ -1523,7 +1523,7 @@ async function loadPlayerStats(playerId, position, contentDiv) {
     
   } catch (error) {
     console.error("Error loading player stats:", error);
-    contentDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;"><p>Error loading player statistics</p></div>';
+    contentDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;"><p>Error loading player statistics</p></div>';
   }
 }
 
@@ -1570,7 +1570,7 @@ function processPlayerStats(selectedPlayer, position, contentDiv) {
         <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">
           ${value}
         </div>
-        <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">
+        <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">
           ${statConfig.label}
         </div>
       </div>
@@ -1603,7 +1603,7 @@ function processPlayerStats(selectedPlayer, position, contentDiv) {
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px;">
         ${statsHtml}
       </div>
-      <p style="text-align: center; color: #666; margin-top: 10px; font-style: italic; font-size: 0.9rem;">
+      <p style="text-align: center; color: #777; margin-top: 10px; font-style: italic; font-size: 0.9rem;">
         Statistics from current season
       </p>
     </div>
@@ -2003,7 +2003,7 @@ async function loadGameLogForDate(date) {
     resultsContainer.innerHTML = `
       <div style="text-align: center; padding: 40px 20px;">
         <div style="font-size: 2rem; margin-bottom: 15px;">⚽</div>
-        <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px;">Loading game data...</div>
+        <div style="color: #777; font-size: 1.1rem; margin-bottom: 15px;">Loading game data...</div>
         <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid ${teamColor}; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
       </div>
     `;
@@ -2125,7 +2125,7 @@ async function loadGameLogForDate(date) {
       resultsContainer.innerHTML = `
         <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
           <div style="font-size: 2rem; margin-bottom: 15px;">📅</div>
-          <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+          <div style="color: #777; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
             No game found for this date
           </div>
           <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
@@ -2191,7 +2191,7 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
       resultsContainer.innerHTML = `
         <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
           <div style="font-size: 2rem; margin-bottom: 15px;">📊</div>
-          <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+          <div style="color: #777; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
             No lineup data for this game
           </div>
           <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
@@ -2232,7 +2232,7 @@ async function displayPlayerGameStats(game, date, teamIdForSeason, leagueForSeas
       resultsContainer.innerHTML = `
         <div style="border: 1px solid #ddd; border-radius: 12px; padding: 40px; background: #f8f9fa; text-align: center;">
           <div style="font-size: 2rem; margin-bottom: 15px;">⚽</div>
-          <div style="color: #666; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
+          <div style="color: #777; font-size: 1.1rem; margin-bottom: 15px; font-weight: 500;">
             Player not found in match squad
           </div>
           <div style="color: #999; font-size: 0.95rem; line-height: 1.4;">
@@ -2590,7 +2590,7 @@ async function showPlayerComparison(player1, player2) {
         <div class="player-name-display" style="font-size: 1.2rem; font-weight: bold; color: #333;">
           ${player1.firstName} ${player1.lastName}
         </div>
-        <div style="font-size: 0.9rem; color: #666; margin-top: 5px;">
+        <div style="font-size: 0.9rem; color: #777; margin-top: 5px;">
           #${player1.jersey || 'N/A'} | ${player1.position} | ${player1.teamAbbr || 'Unknown'}
         </div>
       </div>
@@ -2641,7 +2641,7 @@ async function showPlayerComparison(player1, player2) {
         <div class="player-name-display" style="font-size: 1.2rem; font-weight: bold; color: #333;">
           ${player2.firstName} ${player2.lastName}
         </div>
-        <div style="font-size: 0.9rem; color: #666; margin-top: 5px;">
+        <div style="font-size: 0.9rem; color: #777; margin-top: 5px;">
           #${player2.jersey || 'N/A'} | ${player2.position} | ${player2.teamAbbr || 'Unknown'}
         </div>
       </div>
@@ -2941,7 +2941,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
     // Clear the stats comparison container when a player is removed
     const statsComparisonContainer = modalContent.querySelector('#stats-comparison-container');
     if (statsComparisonContainer) {
-      statsComparisonContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Select players to compare their statistics</div>';
+      statsComparisonContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">Select players to compare their statistics</div>';
     }
 
     // Create replacement interface
@@ -3038,7 +3038,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
     // Clear the comparison stats as well
     const statsContainer = modalContent.querySelector('#comparison-stats-container');
     if (statsContainer) {
-      statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Select a player to start comparison</div>';
+      statsContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">Select a player to start comparison</div>';
     }
 
     // Add button hover effects
@@ -3128,7 +3128,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
             " onmouseover="this.style.backgroundColor='#f0f0f0'" onmouseout="this.style.backgroundColor='white'">
               <div>
                 <div style="font-weight: bold; color: #333;">${player.displayName}</div>
-                <div style="font-size: 12px; color: #666;">${player.team} | #${player.jersey} | ${player.position}</div>
+                <div style="font-size: 12px; color: #777;">${player.team} | #${player.jersey} | ${player.position}</div>
               </div>
             </div>
           `).join('');
@@ -3175,7 +3175,7 @@ async function showPlayerSelectionInterface(playerNumber, modal, modalContent, c
         } else {
           const positionText = needsGoalkeeper ? 'goalkeepers' : 'field players';
           const leagueName = getLeagueName(remainingPlayer.league);
-          searchResults.innerHTML = `<div style="padding: 10px; color: #666; text-align: center;">No ${positionText} found in ${leagueName}</div>`;
+          searchResults.innerHTML = `<div style="padding: 10px; color: #777; text-align: center;">No ${positionText} found in ${leagueName}</div>`;
           searchResults.style.display = 'block';
         }
       }, 300);
@@ -3348,7 +3348,7 @@ async function capturePlayerStatsAsImage(element) {
 
     const text = statsContent.querySelectorAll('div, p');
     text.forEach(textEl => {
-      if (textEl.style.color === '#333' || textEl.style.color === '#666') {
+      if (textEl.style.color === '#333' || textEl.style.color === '#777') {
         textEl.style.color = 'white';
       }
       if (textEl.style.color === 'rgb(51, 51, 51)' || textEl.style.color === 'rgb(102, 102, 102)') {
