@@ -319,6 +319,7 @@ body {
 
 .pos-header,
 .pos-cell {
+  font-size: 1.1rem;
   width: 60px;
   text-align: center;
   font-weight: bold;
@@ -330,19 +331,20 @@ body {
 
 .driver-cell .driver-name {
   font-weight: bold;
-  font-size: 0.9rem;
+  font-size: 1rem;
   color: white;
   margin-bottom: 2px;
 }
 
 .driver-cell .driver-team {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 500;
   text-transform: uppercase;
 }
 
 .time-header,
 .time-cell {
+  font-size: 1.1rem;
   width: 120px;
   text-align: center;
   font-family: monospace;
@@ -350,12 +352,14 @@ body {
 
 .laps-header,
 .laps-cell {
+  font-size: 1.3rem;
   width: 80px;
   text-align: center;
 }
 
 .pits-header,
 .pits-cell {
+  font-size: 1.3rem;
   width: 80px;
   text-align: center;
 }
@@ -365,12 +369,12 @@ body {
   width: 120px;
   text-align: center;
   font-family: monospace;
-  font-size: 0.85rem;
+  font-size: 1.05rem;
 }
 
 .fastest-cell small {
   color: #ccc;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
 }
 
 .q-header,
