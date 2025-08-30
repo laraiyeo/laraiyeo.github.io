@@ -14,12 +14,94 @@ const CONFERENCES = {
 
 let currentConference = localStorage.getItem("currentConference") || "151";
 
+// Cache for team rankings: {teamId: rank}
+let rankingsCache = {};
+
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
 function convertToHttps(url) {
   if (url && url.startsWith('http://')) {
     return url.replace('http://', 'https://');
   }
   return url;
+}
+
+// Fetch and cache current AP25 rankings
+async function cacheCurrentRankings() {
+  try {
+    const currentSeason = new Date().getFullYear();
+    const currentWeek = "1"; // Default to week 1, can be made dynamic later
+    
+    // Check if we already have cached rankings
+    const cacheKey = `rankings_${currentSeason}_${currentWeek}`;
+    const cachedData = localStorage.getItem(cacheKey);
+    const cacheTimestamp = localStorage.getItem(`${cacheKey}_timestamp`);
+    
+    // Use cached data if it's less than 5 minutes old
+    if (cachedData && cacheTimestamp) {
+      const age = Date.now() - parseInt(cacheTimestamp);
+      if (age < 5 * 60 * 1000) { // 5 minutes
+        rankingsCache = JSON.parse(cachedData);
+        return;
+      }
+    }
+
+    // Determine the season type
+    let seasonType = "2"; // Default to regular season
+    let weekNum = currentWeek;
+    
+    if (currentWeek === "1") {
+      seasonType = "1"; // Try preseason first
+    }
+
+    let RANKINGS_URL = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${currentSeason}/types/${seasonType}/weeks/${weekNum}/rankings/1?lang=en&region=us`;
+    
+    let response = await fetch(convertToHttps(RANKINGS_URL));
+    
+    // If preseason fails for week 1, try regular season
+    if (!response.ok && seasonType === "1") {
+      seasonType = "2";
+      RANKINGS_URL = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${currentSeason}/types/${seasonType}/weeks/${weekNum}/rankings/1?lang=en&region=us`;
+      response = await fetch(convertToHttps(RANKINGS_URL));
+    }
+    
+    if (response.ok) {
+      const data = await response.json();
+      
+      if (data && data.ranks) {
+        // Clear previous cache
+        rankingsCache = {};
+        
+        // Cache team rankings
+        for (const rank of data.ranks) {
+          if (rank.team && rank.team.$ref) {
+            const teamIdMatch = rank.team.$ref.match(/teams\/(\d+)/);
+            if (teamIdMatch) {
+              const teamId = teamIdMatch[1];
+              rankingsCache[teamId] = rank.current;
+            }
+          }
+        }
+        
+        // Save to localStorage
+        localStorage.setItem(cacheKey, JSON.stringify(rankingsCache));
+        localStorage.setItem(`${cacheKey}_timestamp`, Date.now().toString());
+      }
+    }
+  } catch (error) {
+    console.error("Error caching rankings:", error);
+  }
+}
+
+// Get formatted team name with ranking
+function getTeamNameWithRanking(team) {
+  const teamRank = rankingsCache[team.id];
+  const baseName = team.shortDisplayName || team.displayName || "Unknown";
+  
+  if (teamRank) {
+    return `<span style="color: #777;">(${teamRank})</span> ${baseName}`;
+  }
+  
+  return baseName;
 }
 
 function setupConferenceButtons() {
@@ -237,7 +319,7 @@ async function loadLiveGames() {
               <div style="text-align: center; flex: 1;">
                 <img src="${awayLogo}" alt="${awayTeam.displayName}" style="${isSmallScreen ? "width: 120px; height: 80px;" : "width: 140px; height: 100px;"}">
                 <div id="awayScore-${gameId}" style="font-size: ${isSmallScreen ? "3rem" : "3.5rem"}; font-weight: normal; color: black;">0</div>
-                <div style="margin-top: 8px; font-weight: bold; color: black; font-size: ${isSmallScreen ? "1rem" : "1.1rem"};">${awayTeam.shortDisplayName}</div>
+                <div style="margin-top: 8px; font-weight: bold; color: black; font-size: ${isSmallScreen ? "1rem" : "1.1rem"};">${getTeamNameWithRanking(awayTeam)}</div>
               </div>
               <div style="text-align: center; ${isSmallScreen ? "" : "flex: 1; min-width: 120px;"}">
                 <div id="status-${gameId}" style="font-size: ${isSmallScreen ? "1.75rem" : "2.2rem"}; font-weight: bold; color: black; text-align: center;"></div>
@@ -247,7 +329,7 @@ async function loadLiveGames() {
               <div style="text-align: center; flex: 1;">
                 <img src="${homeLogo}" alt="${homeTeam.displayName}" style="${isSmallScreen ? "width: 120px; height: 80px;" : "width: 140px; height: 100px;"}">
                 <div id="homeScore-${gameId}" style="font-size: ${isSmallScreen ? "3rem" : "3.5rem"}; font-weight: normal; color: black;">0</div>
-                <div style="margin-top: 8px; font-weight: bold; color: black; font-size: ${isSmallScreen ? "1rem" : "1.1rem"};">${homeTeam.shortDisplayName}</div>
+                <div style="margin-top: 8px; font-weight: bold; color: black; font-size: ${isSmallScreen ? "1rem" : "1.1rem"};">${getTeamNameWithRanking(homeTeam)}</div>
               </div>
             </div>
           </div>
@@ -320,7 +402,8 @@ async function fetchGameDetails(gameId, competition) {
 }
 
 // Initialize conference buttons and load games
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await cacheCurrentRankings(); // Cache rankings first
   setupConferenceButtons();
   loadLiveGames();
 });

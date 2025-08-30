@@ -12,6 +12,9 @@ let playersForComparison = []; // Array to store players selected for comparison
 let currentStatsMode = 'overall'; // Track current stats view mode: 'overall' or 'gamelog'
 let teamColor = "#000000"; // Default team color
 
+// Cache for team rankings: {teamId: rank}
+let rankingsCache = {};
+
 // NCAA Football conferences mapping
 const CONFERENCES = {
   "American": { groupId: "151", name: "American Athletic Conference", code: "american" },
@@ -33,6 +36,85 @@ function convertToHttps(url) {
     return url.replace('http://', 'https://');
   }
   return url;
+}
+
+// Fetch and cache current AP25 rankings
+async function cacheCurrentRankings() {
+  try {
+    const currentSeason = new Date().getFullYear();
+    const currentWeek = "1"; // Default to week 1, can be made dynamic later
+    
+    // Check if we already have cached rankings
+    const cacheKey = `rankings_${currentSeason}_${currentWeek}`;
+    const cachedData = localStorage.getItem(cacheKey);
+    const cacheTimestamp = localStorage.getItem(`${cacheKey}_timestamp`);
+    
+    // Use cached data if it's less than 5 minutes old
+    if (cachedData && cacheTimestamp) {
+      const age = Date.now() - parseInt(cacheTimestamp);
+      if (age < 5 * 60 * 1000) { // 5 minutes
+        rankingsCache = JSON.parse(cachedData);
+        return;
+      }
+    }
+
+    // Determine the season type
+    let seasonType = "2"; // Default to regular season
+    let weekNum = currentWeek;
+    
+    if (currentWeek === "1") {
+      seasonType = "1"; // Try preseason first
+    }
+
+    let RANKINGS_URL = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${currentSeason}/types/${seasonType}/weeks/${weekNum}/rankings/1?lang=en&region=us`;
+    
+    let response = await fetch(convertToHttps(RANKINGS_URL));
+    
+    // If preseason fails for week 1, try regular season
+    if (!response.ok && seasonType === "1") {
+      seasonType = "2";
+      RANKINGS_URL = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${currentSeason}/types/${seasonType}/weeks/${weekNum}/rankings/1?lang=en&region=us`;
+      response = await fetch(convertToHttps(RANKINGS_URL));
+    }
+    
+    if (response.ok) {
+      const data = await response.json();
+      
+      if (data && data.ranks) {
+        // Clear previous cache
+        rankingsCache = {};
+        
+        // Cache team rankings
+        for (const rank of data.ranks) {
+          if (rank.team && rank.team.$ref) {
+            const teamIdMatch = rank.team.$ref.match(/teams\/(\d+)/);
+            if (teamIdMatch) {
+              const teamId = teamIdMatch[1];
+              rankingsCache[teamId] = rank.current;
+            }
+          }
+        }
+        
+        // Save to localStorage
+        localStorage.setItem(cacheKey, JSON.stringify(rankingsCache));
+        localStorage.setItem(`${cacheKey}_timestamp`, Date.now().toString());
+      }
+    }
+  } catch (error) {
+    console.error("Error caching rankings:", error);
+  }
+}
+
+// Get formatted team name with ranking
+function getTeamNameWithRanking(team) {
+  const teamRank = rankingsCache[team.id];
+  const baseName = team.displayName || "Unknown";
+  
+  if (teamRank) {
+    return `<span style="color: #777;">(${teamRank})</span> ${baseName}`;
+  }
+  
+  return baseName;
 }
 
 // Helper function to fetch athlete statistics with fallback from types/3 to types/2 to types/1
@@ -188,7 +270,7 @@ function getPositionStats(positionGroup, categories) {
 }
 
 // Initialize the page
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const urlParams = new URLSearchParams(window.location.search);
   currentTeamId = urlParams.get('teamId');
   
@@ -201,6 +283,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Try to determine conference from localStorage or detect from team
   currentConference = localStorage.getItem("currentConference") || "151";
   
+  await cacheCurrentRankings(); // Cache rankings first
   loadTeamData();
   setupEventHandlers();
 });
@@ -415,7 +498,7 @@ async function loadTeamInfo() {
       <div class="team-header">
         <img src="${logoUrl}" alt="${team.displayName}" class="team-logo-header" onerror="this.src='football.png';">
         <div class="team-details-header">
-          <h1 class="team-name-header">${team.displayName}</h1>
+          <h1 class="team-name-header">${getTeamNameWithRanking(team)}</h1>
           <div class="team-division-header">${team.abbreviation} - ${conferenceName}</div>
           <div class="team-record-header">NCAA Division I FBS</div>
         </div>

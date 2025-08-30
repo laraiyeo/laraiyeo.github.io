@@ -162,7 +162,32 @@ function normalizeTeamName(teamName) {
     "National League All-Stars": "national-league-all-stars"
   };
   
-  return nameMap[teamName] || teamName.toLowerCase().replace(/\s+/g, '-');
+  // First check if we have a direct mapping
+  if (nameMap[teamName]) {
+    return nameMap[teamName];
+  }
+  
+  // Convert team names to streaming format with proper special character handling
+  return teamName.toLowerCase()
+    .replace(/á/g, 'a')
+    .replace(/é/g, 'e')
+    .replace(/í/g, 'i')
+    .replace(/ó/g, 'o')
+    .replace(/ú/g, 'u')
+    .replace(/ü/g, 'u')
+    .replace(/ñ/g, 'n')
+    .replace(/ç/g, 'c')
+    .replace(/ß/g, 'ss')
+    .replace(/ë/g, 'e')
+    .replace(/ï/g, 'i')
+    .replace(/ö/g, 'o')
+    .replace(/ä/g, 'a')
+    .replace(/å/g, 'a')
+    .replace(/ø/g, 'o')
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9\-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 async function extractVideoPlayerUrl(pageUrl) {
@@ -271,6 +296,147 @@ let currentStreamVersion = 1; // Track which stream version is active (1 or 2)
 let currentAwayTeam = ''; // Store current away team name
 let currentHomeTeam = ''; // Store current home team name
 let isMuted = true; // Start muted to prevent autoplay issues
+let availableStreams = {}; // Store available streams from API
+
+// API functions for streamed.pk
+const STREAM_API_BASE = 'https://streamed.pk/api';
+
+// Cache for API responses to reduce data transfer
+let liveMatchesCache = null;
+let cacheTimestamp = 0;
+const CACHE_DURATION = 30000; // 30 seconds cache
+
+// Function to clear cache (useful for debugging or forcing fresh data)
+function clearStreamCache() {
+  liveMatchesCache = null;
+  cacheTimestamp = 0;
+  console.log('Stream cache cleared');
+}
+
+// Make cache clearing function available globally
+window.clearStreamCache = clearStreamCache;
+
+async function fetchLiveMatches() {
+  try {
+    // Check cache first
+    const now = Date.now();
+    if (liveMatchesCache && (now - cacheTimestamp) < CACHE_DURATION) {
+      console.log('Using cached live matches data');
+      return liveMatchesCache;
+    }
+
+    console.log('Fetching live matches from API...');
+    const response = await fetch(`${STREAM_API_BASE}/matches/live`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Live matches API response:', data);
+    
+    // Cache the response
+    liveMatchesCache = data;
+    cacheTimestamp = now;
+    
+    return data;
+  } catch (error) {
+    console.error('Error fetching live matches:', error);
+    return null;
+  }
+}
+
+async function fetchStreamsForSource(source, sourceId) {
+  try {
+    console.log(`Fetching streams for source: ${source}, ID: ${sourceId}`);
+    const response = await fetch(`${STREAM_API_BASE}/streams/${source}/${sourceId}`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Streams API response:', data);
+    return data;
+  } catch (error) {
+    console.error('Error fetching streams for source:', error);
+    return null;
+  }
+}
+
+async function findMatchStreams(homeTeamName, awayTeamName) {
+  try {
+    console.log(`Finding streams for: ${awayTeamName} vs ${homeTeamName}`);
+    
+    const liveMatches = await fetchLiveMatches();
+    if (!liveMatches || !liveMatches.matches) {
+      console.log('No live matches data available');
+      return {};
+    }
+    
+    // Normalize team names for comparison
+    const homeNormalized = normalizeTeamName(homeTeamName).toLowerCase();
+    const awayNormalized = normalizeTeamName(awayTeamName).toLowerCase();
+    
+    console.log(`Normalized team names: ${awayNormalized} vs ${homeNormalized}`);
+    
+    // Find matching game in live matches
+    let matchedGame = null;
+    for (const match of liveMatches.matches) {
+      // Check if this is baseball/MLB
+      if (match.category !== 'baseball' && match.sport !== 'baseball') {
+        continue;
+      }
+      
+      const matchHomeNormalized = normalizeTeamName(match.home_team || '').toLowerCase();
+      const matchAwayNormalized = normalizeTeamName(match.away_team || '').toLowerCase();
+      
+      console.log(`Checking match: ${matchAwayNormalized} vs ${matchHomeNormalized}`);
+      
+      // Check for team name matches (allowing for some flexibility)
+      const homeMatch = matchHomeNormalized.includes(homeNormalized) || homeNormalized.includes(matchHomeNormalized);
+      const awayMatch = matchAwayNormalized.includes(awayNormalized) || awayNormalized.includes(matchAwayNormalized);
+      
+      if (homeMatch && awayMatch) {
+        matchedGame = match;
+        console.log('Found matching game:', match);
+        break;
+      }
+    }
+    
+    if (!matchedGame) {
+      console.log('No matching game found in API');
+      return {};
+    }
+    
+    // Fetch streams for the matched game
+    const streamsData = await fetchStreamsForSource(matchedGame.source || 'espn', matchedGame.source_id || matchedGame.id);
+    
+    if (!streamsData || !streamsData.streams) {
+      console.log('No streams data available for matched game');
+      return {};
+    }
+    
+    // Extract available streams
+    const availableStreams = {};
+    
+    if (streamsData.streams.alpha) {
+      availableStreams.alpha = streamsData.streams.alpha;
+      console.log('Found alpha stream:', streamsData.streams.alpha);
+    }
+    
+    if (streamsData.streams.bravo) {
+      availableStreams.bravo = streamsData.streams.bravo;
+      console.log('Found bravo stream:', streamsData.streams.bravo);
+    }
+    
+    return availableStreams;
+    
+  } catch (error) {
+    console.error('Error finding match streams:', error);
+    return {};
+  }
+}
 
 // Enhanced video control functions matching the iframe pattern
 window.toggleMute = function() {
@@ -459,12 +625,29 @@ window.toggleStreamVersion = function() {
 
   // Update the iframe src with the new stream URL
   if (currentAwayTeam && currentHomeTeam) {
-    const homeNormalized = normalizeTeamName(currentHomeTeam);
-    const awayNormalized = normalizeTeamName(currentAwayTeam);
-    const suffix = currentStreamVersion === 2 ? '-2' : '';
-    const newStreamUrl = `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}${suffix}/`;
+    let newStreamUrl = '';
 
-    console.log('New stream URL:', newStreamUrl);
+    // Try to use API streams first
+    if (availableStreams.alpha && currentStreamVersion === 1) {
+      newStreamUrl = availableStreams.alpha.replace(/\/1$/, '/1');
+    } else if (availableStreams.alpha && currentStreamVersion === 2) {
+      newStreamUrl = availableStreams.alpha.replace(/\/1$/, '/2');
+    } else if (availableStreams.bravo && currentStreamVersion === 1) {
+      newStreamUrl = availableStreams.bravo.replace(/\/1$/, '/1');
+    } else if (availableStreams.bravo && currentStreamVersion === 2) {
+      newStreamUrl = availableStreams.bravo.replace(/\/1$/, '/2');
+    }
+
+    // Fallback to manual URL construction if API doesn't have the stream
+    if (!newStreamUrl) {
+      const homeNormalized = normalizeTeamName(currentHomeTeam);
+      const awayNormalized = normalizeTeamName(currentAwayTeam);
+      const suffix = currentStreamVersion === 2 ? '-2' : '';
+      newStreamUrl = `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}${suffix}/`;
+      console.log('Using fallback URL construction:', newStreamUrl);
+    } else {
+      console.log('Using API stream URL:', newStreamUrl);
+    }
 
     const iframe = document.getElementById('streamIframe');
     if (iframe) {
@@ -478,9 +661,10 @@ window.toggleStreamVersion = function() {
         iframe.style.display = 'none';
       }
 
-      // Restart the stream testing process with the new stream version
+      // Load the new stream URL directly
       setTimeout(() => {
-        startStreamTesting(currentAwayTeam, currentHomeTeam, currentStreamVersion);
+        iframe.src = newStreamUrl;
+        console.log('Updated iframe src to:', newStreamUrl);
       }, 100);
     }
   } else {
@@ -841,7 +1025,7 @@ function hashString(str) {
 }
 
 
-function renderStreamEmbed(awayTeamName, homeTeamName, streamVersion = 1) {
+async function renderStreamEmbed(awayTeamName, homeTeamName, streamVersion = 1) {
   const homeNormalized = normalizeTeamName(homeTeamName);
   const awayNormalized = normalizeTeamName(awayTeamName);
   
@@ -852,12 +1036,35 @@ function renderStreamEmbed(awayTeamName, homeTeamName, streamVersion = 1) {
   console.log('Storing team names in renderStreamEmbed:', awayTeamName, homeTeamName);
   console.log('Current stored names:', currentAwayTeam, currentHomeTeam);
   
-  // Generate URL based on stream version
-  const suffix = streamVersion === 2 ? '-2' : '';
-  const streamUrl = `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}${suffix}/`;
-  const isSmallScreen = window.innerWidth < 525
+  const isSmallScreen = window.innerWidth < 525;
   const screenHeight = isSmallScreen ? 250 : 700;
-  
+
+  // Try to fetch streams from API first
+  console.log('Attempting to fetch streams from API...');
+  availableStreams = await findMatchStreams(homeTeamName, awayTeamName);
+
+  // Generate embed URL based on stream version and available streams
+  let embedUrl = '';
+
+  if (availableStreams.alpha && streamVersion === 1) {
+    embedUrl = availableStreams.alpha.replace(/\/1$/, '/1'); // Keep as /1 for stream version 1
+  } else if (availableStreams.alpha && streamVersion === 2) {
+    embedUrl = availableStreams.alpha.replace(/\/1$/, '/2'); // Change to /2 for stream version 2
+  } else if (availableStreams.bravo && streamVersion === 1) {
+    embedUrl = availableStreams.bravo.replace(/\/1$/, '/1'); // Use bravo as /1 for stream version 1
+  } else if (availableStreams.bravo && streamVersion === 2) {
+    embedUrl = availableStreams.bravo.replace(/\/1$/, '/2'); // Use bravo as /2 for stream version 2
+  }
+
+  // Fallback to manual URL construction if API doesn't have the stream
+  if (!embedUrl) {
+    const suffix = streamVersion === 2 ? '-2' : '';
+    embedUrl = `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}${suffix}/`;
+    console.log('Using fallback URL construction:', embedUrl);
+  } else {
+    console.log('Using API stream URL:', embedUrl);
+  }
+
   return `
     <div class="stream-container" style="margin: 20px 0; text-align: center;">
       <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
@@ -871,10 +1078,10 @@ function renderStreamEmbed(awayTeamName, homeTeamName, streamVersion = 1) {
         <p>Connecting to stream... <span id="streamStatus"></span></p>
       </div>
       <div class="stream-iframe-container" style="position: relative; width: 100%; margin: 0 auto; overflow: hidden;">
-        <iframe 
+        <iframe
           id="streamIframe"
-          src="about:blank"
-          width="100%" 
+          src="${embedUrl}"
+          width="100%"
           height="${screenHeight}"
           style="aspect-ratio: 16/9; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); background: #000; display: none;"
           frameborder="0"

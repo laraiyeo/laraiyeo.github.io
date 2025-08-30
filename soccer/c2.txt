@@ -1,0 +1,113 @@
+Streams API
+The Streams API provides access to live streaming sources for sports events. These endpoints return stream details that can be used to embed or access video streams for matches.
+
+Stream Object Structure
+interface Stream {
+    id: string;        // Unique identifier for the stream
+    streamNo: number;  // Stream number/index
+    language: string;  // Stream language (e.g., "English", "Spanish")
+    hd: boolean;       // Whether the stream is in HD quality
+    embedUrl: string;  // URL that can be used to embed the stream
+    source: string;    // Source identifier (e.g., "alpha", "bravo")
+}
+Available Endpoints
+Source-Specific Stream Endpoints
+Get streams from a specific source for a match:
+
+Source	Endpoint
+Alpha	GET /api/stream/alpha/[id]
+Bravo	GET /api/stream/bravo/[id]
+Charlie	GET /api/stream/charlie/[id]
+Delta	GET /api/stream/delta/[id]
+Echo	GET /api/stream/echo/[id]
+Foxtrot	GET /api/stream/foxtrot/[id]
+Golf	GET /api/stream/golf/[id]
+Hotel	GET /api/stream/hotel/[id]
+Intel	GET /api/stream/intel/[id]
+Note: Replace [id] with the source-specific match ID from the match's sources array.
+
+How to Use
+To access streams for a match:
+
+First, get a match object from the Matches API
+Extract the source and id from the match's sources array
+Use these values to request streams from the appropriate endpoint
+Usage Example
+// First, get match data to find available sources
+fetch('https://streamed.pk/api/matches/live')
+  .then(response => response.json())
+  .then(matches => {
+    if (matches.length > 0) {
+      // Get the first match
+      const match = matches[0];
+      console.log(`Found match: ${match.title}`);
+      
+      // Check if the match has sources
+      if (match.sources && match.sources.length > 0) {
+        // Get the first source
+        const source = match.sources[0];
+        console.log(`Using source: ${source.source}, ID: ${source.id}`);
+        
+        // Request streams for this source
+        return fetch(`https://streamed.pk/api/stream/${source.source}/${source.id}`);
+      } else {
+        throw new Error('No sources available for this match');
+      }
+    } else {
+      throw new Error('No matches found');
+    }
+  })
+  .then(response => response.json())
+  .then(streams => {
+    // Process the streams
+    console.log(`Found ${streams.length} streams`);
+    
+    streams.forEach(stream => {
+      console.log(`Stream #${stream.streamNo}: ${stream.language} (${stream.hd ? 'HD' : 'SD'})`);
+      console.log(`Embed URL: ${stream.embedUrl}`);
+      
+      // Here you would typically use the embedUrl to display the stream
+      // For example, in an iframe:
+      // document.getElementById('player').src = stream.embedUrl;
+    });
+  })
+  .catch(error => console.error('Error:', error));
+Response Format
+All endpoints return an array of stream objects:
+
+// Example response from /api/stream/alpha/match123
+[
+  {
+    "id": "stream_456",
+    "streamNo": 1,
+    "language": "English",
+    "hd": true,
+    "embedUrl": "https://embed.example.com/watch?v=abcd1234",
+    "source": "alpha"
+  },
+  {
+    "id": "stream_457",
+    "streamNo": 2,
+    "language": "Spanish",
+    "hd": false,
+    "embedUrl": "https://embed.example.com/watch?v=efgh5678",
+    "source": "alpha"
+  }
+  // More stream objects...
+]
+Embedding a Stream
+To embed a stream in your website, use the embedUrl in an iframe:
+
+// HTML
+<iframe 
+  id="stream-player" 
+  width="640" 
+  height="360" 
+  frameborder="0" 
+  allowfullscreen>
+</iframe>
+
+// JavaScript
+function loadStream(embedUrl) {
+  document.getElementById('stream-player').src = embedUrl;
+}

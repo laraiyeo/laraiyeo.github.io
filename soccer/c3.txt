@@ -1,0 +1,96 @@
+Sports API
+The Sports API provides access to all available sport categories on the Streamed platform. These sport IDs are used to filter matches by category in the Matches API.
+
+Sport Object Structure
+interface Sport {
+    id: string;    // Sport identifier (used in Matches API endpoints)
+    name: string;  // Display name of the sport
+}
+Available Endpoint
+Get All Sports
+Retrieves all available sport categories:
+
+GET /api/sports
+
+Usage Example
+// Get all available sports
+fetch('https://streamed.pk/api/sports')
+  .then(response => response.json())
+  .then(sports => {
+    // Create a sport selection dropdown
+    const select = document.createElement('select');
+    select.id = 'sport-selector';
+    
+    // Add a default option
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Select a sport';
+    select.appendChild(defaultOption);
+    
+    // Add an option for each sport
+    sports.forEach(sport => {
+      const option = document.createElement('option');
+      option.value = sport.id;
+      option.textContent = sport.name;
+      select.appendChild(option);
+    });
+    
+    // Add event listener to load matches when a sport is selected
+    select.addEventListener('change', (event) => {
+      const sportId = event.target.value;
+      if (sportId) {
+        // Fetch matches for the selected sport
+        fetch(`https://streamed.pk/api/matches/${sportId}`)
+          .then(response => response.json())
+          .then(matches => {
+            console.log(`Found ${matches.length} matches for ${sportId}`);
+            // Process matches...
+          })
+          .catch(error => console.error('Error fetching matches:', error));
+      }
+    });
+    
+    // Add the select element to the page
+    document.getElementById('sports-container').appendChild(select);
+  })
+  .catch(error => console.error('Error fetching sports:', error));
+Response Format
+The endpoint returns an array of sport objects:
+
+// Example response from /api/sports
+[
+  {
+    "id": "football",
+    "name": "Football"
+  },
+  {
+    "id": "basketball",
+    "name": "Basketball"
+  },
+  {
+    "id": "tennis",
+    "name": "Tennis"
+  },
+  {
+    "id": "hockey",
+    "name": "Hockey"
+  },
+  {
+    "id": "baseball",
+    "name": "Baseball"
+  },
+  {
+    "id": "mma",
+    "name": "MMA"
+  },
+  {
+    "id": "boxing",
+    "name": "Boxing"
+  }
+  // More sport objects...
+]
+Common Use Cases
+Building sport category navigation menus
+Filtering match listings by sport
+Creating sport-specific pages or sections
+Implementing search filters for matches

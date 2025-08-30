@@ -1,0 +1,119 @@
+Matches API
+The Matches API provides access to sports events data, including match details, team information, and available stream sources.
+
+Match Object Structure
+interface APIMatch {
+    id: string;               // Unique identifier for the match
+    title: string;            // Match title (e.g. "Team A vs Team B")
+    category: string;         // Sport category (e.g. "football", "basketball")
+    date: number;             // Unix timestamp in milliseconds
+    poster?: string;          // URL path to match poster image
+    popular: boolean;         // Whether the match is marked as popular
+    teams?: {
+        home?: {
+            name: string;     // Home team name
+            badge: string;    // URL path to home team badge
+        },
+        away?: {
+            name: string;     // Away team name
+            badge: string;    // URL path to away team badge
+        }
+    };
+    sources: {
+        source: string;       // Stream source identifier (e.g. "alpha", "bravo")
+        id: string;           // Source-specific match ID
+    }[];
+}
+Available Endpoints
+Sport-Specific Matches
+Get matches for a specific sport category:
+
+GET /api/matches/[SPORT]
+
+GET /api/matches/[SPORT]/popular
+
+Note: Replace [SPORT] with a sport ID from the Sports API.
+
+All Matches
+Get all available matches across all sports:
+
+GET /api/matches/all
+
+GET /api/matches/all/popular
+
+Today's Matches
+Get matches scheduled for today:
+
+GET /api/matches/all-today
+
+GET /api/matches/all-today/popular
+
+Live Matches
+Get currently live matches:
+
+GET /api/matches/live
+
+GET /api/matches/live/popular
+
+Usage Example
+// Example: Get all live matches
+fetch('https://streamed.pk/api/matches/live')
+  .then(response => {
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    return response.json();
+  })
+  .then(matches => {
+    // Process the matches data
+    matches.forEach(match => {
+      console.log(`Match: ${match.title}, Time: ${new Date(match.date).toLocaleString()}`);
+      
+      // Access team information if available
+      if (match.teams) {
+        if (match.teams.home) console.log(`Home: ${match.teams.home.name}`);
+        if (match.teams.away) console.log(`Away: ${match.teams.away.name}`);
+      }
+      
+      // Get stream sources
+      console.log('Available sources:', match.sources.map(s => s.source).join(', '));
+    });
+  })
+  .catch(error => console.error('Error fetching matches:', error));
+To get stream details for a specific match, use the sources from the match object with the Streams API.
+
+Response Format
+All endpoints return an array of match objects:
+
+// Example response from /api/matches/football
+[
+  {
+    "id": "match_123",
+    "title": "Manchester United vs Liverpool",
+    "category": "football",
+    "date": 1720598400000,
+    "poster": "man-utd-liverpool-poster",
+    "popular": true,
+    "teams": {
+      "home": {
+        "name": "Manchester United",
+        "badge": "man-utd-badge"
+      },
+      "away": {
+        "name": "Liverpool",
+        "badge": "liverpool-badge"
+      }
+    },
+    "sources": [
+      {
+        "source": "alpha",
+        "id": "mu-liv-123"
+      },
+      {
+        "source": "bravo",
+        "id": "456-mu-liv"
+      }
+    ]
+  },
+  // More match objects...
+]
