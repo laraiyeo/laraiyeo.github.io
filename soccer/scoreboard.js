@@ -1432,7 +1432,144 @@ function normalizeTeamName(teamName) {
 let streamUrls = [];
 let currentStreamIndex = 0;
 let streamTestTimeout = null;
+let currentStreamVersion = 1; // Track which stream version is active (1 or 2)
+let currentAwayTeam = ''; // Store current away team name
+let currentHomeTeam = ''; // Store current home team name
 let isMuted = true; // Start muted to prevent autoplay issues
+
+// Enhanced video control functions matching the iframe pattern
+window.toggleMute = function() {
+  const iframe = document.getElementById('streamIframe');
+  const muteButton = document.getElementById('muteButton');
+  
+  if (!iframe || !muteButton) return;
+  
+  // Toggle muted state
+  isMuted = !isMuted;
+  muteButton.textContent = isMuted ? '🔊 Unmute' : '🔇 Mute';
+  
+  // Multiple approaches to control video muting
+  try {
+    // Method 1: Direct iframe manipulation
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+    if (iframeDoc) {
+      const videos = iframeDoc.querySelectorAll('video');
+      videos.forEach(video => {
+        video.muted = isMuted;
+        // Also try to control volume
+        video.volume = isMuted ? 0 : 1;
+      });
+      
+      console.log(isMuted ? 'Video muted via direct access' : 'Video unmuted via direct access');
+    }
+  } catch (e) {
+    console.log('Direct video access blocked by CORS');
+  }
+  
+  // Method 2: Enhanced PostMessage to iframe
+  try {
+    iframe.contentWindow.postMessage({
+      action: 'toggleMute',
+      muted: isMuted,
+      volume: isMuted ? 0 : 1
+    }, '*');
+    
+    // Also send autoplay and mute parameters
+    iframe.contentWindow.postMessage({
+      action: 'setVideoParams',
+      autoplay: 1,
+      mute: isMuted ? 1 : 0
+    }, '*');
+    
+    console.log(isMuted ? 'Mute message sent to iframe' : 'Unmute message sent to iframe');
+  } catch (e) {
+    console.log('PostMessage failed');
+  }
+  
+  // Method 3: Simulate key events
+  try {
+    const keyEvent = new KeyboardEvent('keydown', { key: 'm', code: 'KeyM' });
+    iframe.contentWindow.dispatchEvent(keyEvent);
+    console.log('Mute key event sent to iframe');
+  } catch (e) {
+    console.log('Key event failed');
+  }
+  
+  // Method 4: Try to modify iframe src with mute parameter
+  if (iframe.src && !iframe.src.includes('mute=')) {
+    const separator = iframe.src.includes('?') ? '&' : '?';
+    const newSrc = `${iframe.src}${separator}mute=${isMuted ? 1 : 0}&autoplay=1`;
+    // Don't reload unless necessary
+    if (iframe.src !== newSrc) {
+      iframe.src = newSrc;
+      console.log('Updated iframe src with mute parameter');
+    }
+  }
+};
+
+window.toggleStreamVersion = function() {
+  // Toggle between stream 1 and 2
+  currentStreamVersion = currentStreamVersion === 1 ? 2 : 1;
+
+  console.log('Toggling to stream version:', currentStreamVersion);
+  console.log('Current team names:', currentAwayTeam, currentHomeTeam);
+
+  // Update the button text
+  const button = document.getElementById('streamToggleButton');
+  if (button) {
+    button.textContent = `Test Stream ${currentStreamVersion === 1 ? '2' : '1'}`;
+  }
+
+  // If team names are not available, try to get them from other sources
+  if (!currentAwayTeam || !currentHomeTeam) {
+    console.log('Team names not available, attempting to retrieve them...');
+
+    // Try to get team names from the current game data by looking at the scoreboard
+    const awayTeamElement = document.querySelector('.team-name');
+    const homeTeamElement = document.querySelectorAll('.team-name')[1];
+
+    if (awayTeamElement) {
+      currentAwayTeam = awayTeamElement.textContent?.trim() || 'away';
+    }
+
+    if (homeTeamElement) {
+      currentHomeTeam = homeTeamElement.textContent?.trim() || 'home';
+    }
+
+    console.log('Retrieved team names:', currentAwayTeam, currentHomeTeam);
+  }
+
+  // Update the iframe src with the new stream URL
+  if (currentAwayTeam && currentHomeTeam) {
+    const homeNormalized = normalizeTeamName(currentHomeTeam);
+    const awayNormalized = normalizeTeamName(currentAwayTeam);
+    const suffix = currentStreamVersion === 2 ? '-2' : '';
+    const newStreamUrl = `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}${suffix}/`;
+
+    console.log('New stream URL:', newStreamUrl);
+
+    const iframe = document.getElementById('streamIframe');
+    if (iframe) {
+      // Reset the iframe and restart stream testing
+      iframe.src = 'about:blank';
+
+      // Show connecting message
+      const connectingDiv = document.getElementById('streamConnecting');
+      if (connectingDiv) {
+        connectingDiv.style.display = 'block';
+        iframe.style.display = 'none';
+      }
+
+      // Restart the stream testing process with the new stream version
+      setTimeout(() => {
+        startStreamTesting(currentHomeTeam, currentAwayTeam, currentStreamVersion);
+      }, 100);
+    }
+  } else {
+    console.error('Team names still not available for stream toggle');
+    alert('Unable to toggle stream: team names not available. Please refresh the page and try again.');
+  }
+};
 
 async function extractVideoPlayerUrl(pageUrl) {
   try {
@@ -1532,16 +1669,16 @@ async function extractVideoPlayerUrl(pageUrl) {
 
 function tryNextStream() {
   const iframe = document.getElementById('streamIframe');
-
+  
   if (currentStreamIndex < streamUrls.length) {
     const nextUrl = streamUrls[currentStreamIndex];
     currentStreamIndex++;
-
-    // Reduced timeout from 4000ms to 2000ms
+    
+    // Reduced timeout from 8 seconds to 4 seconds
     streamTestTimeout = setTimeout(() => {
       tryNextStream();
-    }, 2000);
-
+    }, 4000);
+    
     if (iframe) {
       iframe.src = nextUrl;
     }
@@ -1586,16 +1723,30 @@ function checkStreamContent(iframe) {
       console.log('No video content detected in iframe');
     }
   } catch (e) {
-    console.log('Cannot access iframe content (cross-origin), assuming external stream is working');
-    console.log('Cross-origin error details:', e.message);
+    console.log('Cannot access iframe content (cross-origin), checking URL pattern');
 
-    // Since we can't inspect the content, assume it's working if the iframe loaded
-    iframe.style.display = 'block';
-    if (connectingDiv) {
-      connectingDiv.style.display = 'none';
+    // If we can't access the content, check if the URL looks like a video stream
+    const url = iframe.src;
+    const isVideoUrl = url.includes('.m3u8') ||
+                      url.includes('.mp4') ||
+                      url.includes('stream') ||
+                      url.includes('video') ||
+                      url.includes('player');
+
+    if (isVideoUrl) {
+      console.log('URL appears to be a video stream, showing iframe');
+      iframe.style.display = 'block';
+      if (connectingDiv) {
+        connectingDiv.style.display = 'none';
+      }
+      streamUrls = [];
+      return;
+    } else {
+      console.log('URL does not appear to be a video stream:', url);
     }
   }
 
+  // If we reach here, either no video was found or the URL doesn't look like a video stream
   setTimeout(() => {
     if (streamUrls.length > 0) {
       console.log('Trying next stream URL');
@@ -1607,86 +1758,104 @@ function checkStreamContent(iframe) {
         connectingDiv.style.display = 'none';
       }
     }
-  }, 500); // Reduced from 1000ms to 500ms
+  }, 1000); // Reduced from 2 seconds to 1 second
 }
 
-async function startStreamTesting(homeTeamName, awayTeamName) {
+async function startStreamTesting(homeTeamName, awayTeamName, streamVersion = 1) {
+  console.log('Starting stream testing with:', homeTeamName, 'vs', awayTeamName, 'version:', streamVersion);
+
+  // Validate team names
+  if (!homeTeamName || !awayTeamName || homeTeamName === 'Unknown' || awayTeamName === 'Unknown') {
+    console.error('Invalid team names:', homeTeamName, awayTeamName);
+    return;
+  }
+
   const homeNormalized = normalizeTeamName(homeTeamName);
   const awayNormalized = normalizeTeamName(awayTeamName);
 
-  console.log(`Starting stream testing for: ${homeTeamName} vs ${awayTeamName}`);
-  console.log(`Normalized names: ${homeNormalized} vs ${awayNormalized}`);
+  console.log('Normalized names:', homeNormalized, awayNormalized);
 
-  // Prioritize the most likely URL first, try fewer variations
+  // Validate normalized names
+  if (!homeNormalized || !awayNormalized) {
+    console.error('Failed to normalize team names');
+    return;
+  }
+
+  // Generate URL based on stream version
+  const suffix = streamVersion === 2 ? '-2' : '';
   const pageUrls = [
-    `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`,
-    `https://papaahd.live/${awayNormalized}-vs-${homeNormalized}/`
+    `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}${suffix}/`,
+    `https://papahhdd.sbs/${awayNormalized}-vs-${homeNormalized}${suffix}/`
   ];
+
+  console.log('Stream URLs to test:', pageUrls);
+
+  // Validate URLs
+  for (const url of pageUrls) {
+    try {
+      new URL(url);
+    } catch (e) {
+      console.error('Invalid URL generated:', url);
+      return;
+    }
+  }
 
   streamUrls = [];
 
-  console.log(`Attempting to extract from ${pageUrls.length} potential URLs:`);
-  pageUrls.forEach((url, index) => console.log(`${index + 1}. ${url}`));
-
-  // Try to extract from the first URL immediately
-  try {
-    console.log(`Extracting from primary URL: ${pageUrls[0]}`);
-    const videoUrl = await extractVideoPlayerUrl(pageUrls[0]);
-    if (videoUrl) {
-      console.log(`Successfully extracted from primary URL: ${videoUrl}`);
-      streamUrls.push(videoUrl);
-    }
-  } catch (error) {
-    console.error(`Error extracting from primary URL:`, error);
-  }
-
-  // If no URL found, try the second variation
-  if (streamUrls.length === 0) {
+  // Process URLs in parallel for faster extraction
+  const extractionPromises = pageUrls.map(async (url) => {
     try {
-      console.log(`Extracting from secondary URL: ${pageUrls[1]}`);
-      const videoUrl = await extractVideoPlayerUrl(pageUrls[1]);
-      if (videoUrl) {
-        console.log(`Successfully extracted from secondary URL: ${videoUrl}`);
-        streamUrls.push(videoUrl);
-      }
+      console.log('Extracting from:', url);
+      const videoUrl = await extractVideoPlayerUrl(url);
+      console.log('Extracted video URL:', videoUrl);
+      return videoUrl;
     } catch (error) {
-      console.error(`Error extracting from secondary URL:`, error);
+      console.error(`Error extracting from ${url}:`, error);
+      return null;
     }
-  }
+  });
 
-  console.log(`Total extracted URLs: ${streamUrls.length}`);
+  const extractedUrls = await Promise.all(extractionPromises);
 
+  // Add valid extracted URLs first
+  extractedUrls.forEach(url => {
+    if (url) {
+      streamUrls.push(url);
+      console.log(`Added extracted URL: ${url}`);
+    }
+  });
+
+  // If no video URLs were extracted, use the page URLs as fallback but mark them as potentially non-video
   if (streamUrls.length === 0) {
-    console.log('No video URLs extracted, using page URL as fallback');
-    // Use the first page URL as fallback
-    streamUrls = [pageUrls[0]];
-  } else {
-    console.log('Successfully extracted video URLs:', streamUrls);
+    console.log('No video URLs extracted, using page URLs directly:', pageUrls);
+    streamUrls = pageUrls;
   }
+
+  console.log('Final stream URLs:', streamUrls);
 
   currentStreamIndex = 0;
 
-  // Reduced delay from 300ms to 100ms
   setTimeout(() => {
     tryNextStream();
   }, 100);
 }
 
 // Debug function to test streaming extraction
-async function debugStreamExtraction(homeTeamName, awayTeamName) {
+async function debugStreamExtraction(homeTeamName, awayTeamName, streamVersion = 1) {
   console.log('=== STREAM DEBUGGING START ===');
-  console.log(`Testing extraction for: ${homeTeamName} vs ${awayTeamName}`);
+  console.log(`Testing extraction for: ${homeTeamName} vs ${awayTeamName}, version: ${streamVersion}`);
 
   const homeNormalized = normalizeTeamName(homeTeamName);
   const awayNormalized = normalizeTeamName(awayTeamName);
 
   console.log(`Normalized names: ${homeNormalized} vs ${awayNormalized}`);
 
+  const suffix = streamVersion === 2 ? '-2' : '';
   const testUrls = [
-    `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`,
-    `https://papaahd.live/${awayNormalized}-vs-${homeNormalized}/`,
-    `https://papaahd.live/${homeNormalized}-${awayNormalized}/`,
-    `https://papaahd.live/${awayNormalized}-${homeNormalized}/`
+    `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}${suffix}/`,
+    `https://papahhdd.sbs/${awayNormalized}-vs-${homeNormalized}${suffix}/`,
+    `https://papahhdd.sbs/${homeNormalized}-${awayNormalized}${suffix}/`,
+    `https://papahhdd.sbs/${awayNormalized}-${homeNormalized}${suffix}/`
   ];
 
   console.log('Testing URL variations:');
@@ -1787,6 +1956,13 @@ async function renderStreamEmbed(gameId) {
     }
   }
 
+  // Store current team names for toggle function
+  currentAwayTeam = awayTeamName;
+  currentHomeTeam = homeTeamName;
+  
+  console.log('Storing team names in renderStreamEmbed:', awayTeamName, homeTeamName);
+  console.log('Current stored names:', currentAwayTeam, currentHomeTeam);
+
   const isSmallScreen = window.innerWidth < 525;
   const screenHeight = isSmallScreen ? 250 : 700;
   
@@ -1795,6 +1971,7 @@ async function renderStreamEmbed(gameId) {
         <h3 style="color: white; margin: 0;">Live Stream</h3>
         <div class="stream-controls" style="margin-top: 10px;">
           <button id="fullscreenButton" onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">⛶ Fullscreen</button>
+          <button id="streamToggleButton" onclick="toggleStreamVersion()" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Test Stream ${currentStreamVersion === 1 ? '2' : '1'}</button>
         </div>
       </div>
       <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; margin-bottom: 10px;">
@@ -1820,7 +1997,7 @@ async function renderStreamEmbed(gameId) {
   // Start the stream testing process
   if (homeTeamName && awayTeamName) {
     console.log('Starting stream testing for:', homeTeamName, 'vs', awayTeamName);
-    await startStreamTesting(homeTeamName, awayTeamName);
+    await startStreamTesting(homeTeamName, awayTeamName, currentStreamVersion);
   }
 }
 
@@ -1890,43 +2067,56 @@ window.toggleFullscreen = function() {
 window.handleStreamLoad = function() {
   const iframe = document.getElementById('streamIframe');
   const connectingDiv = document.getElementById('streamConnecting');
-
-  console.log('Stream iframe loaded, src:', iframe.src);
-
+  
   // Clear any existing timeout
   if (streamTestTimeout) {
     clearTimeout(streamTestTimeout);
     streamTestTimeout = null;
   }
-
+  
+  // Reduced delay from 3 seconds to 1 second
   if (iframe.src !== 'about:blank') {
-    // Update connecting message
-    if (connectingDiv) {
-      connectingDiv.innerHTML = '<p style="color: #4CAF50;">🔄 Loading stream...</p>';
-    }
-
     setTimeout(() => {
       iframe.style.display = 'block';
       if (connectingDiv) {
         connectingDiv.style.display = 'none';
       }
-    }, 500); // Reduced from 1000ms to 500ms
-
-    // Check content after a delay
-    if (streamUrls.length > 0 && iframe.src !== 'about:blank') {
+      
+      // Reduced delay from 1 second to 200ms
       setTimeout(() => {
-        checkStreamContent(iframe);
-      }, 800); // Reduced from 1500ms to 800ms
-    } else {
-      // No more URLs to try, show the iframe
-      setTimeout(() => {
-        if (iframe.src !== 'about:blank') {
-          iframe.style.display = 'block';
-          if (connectingDiv) {
-            connectingDiv.style.display = 'none';
+        try {
+          const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+          
+          if (iframeDoc) {
+            // Start with muted state
+            const videos = iframeDoc.querySelectorAll('video');
+            if (videos.length > 0) {
+              videos.forEach(video => {
+                video.muted = isMuted;
+                video.volume = isMuted ? 0 : 1;
+              });
+              console.log(isMuted ? 'Video started muted' : 'Video started unmuted');
+            }
           }
+        } catch (e) {
+          console.log('Cannot access iframe content (cross-origin)');
         }
-      }, 1000); // Reduced from 2000ms to 1000ms
+      }, 200);
+      
+    }, 1000);
+  }
+  
+  // Check if this is the initial auto-test - reduced delay
+  if (streamUrls.length > 0 && iframe.src !== 'about:blank') {
+    setTimeout(() => {
+      checkStreamContent(iframe);
+    }, 1500);
+  } else {
+    if (iframe.src !== 'about:blank') {
+      iframe.style.display = 'block';
+      if (connectingDiv) {
+        connectingDiv.style.display = 'none';
+      }
     }
   }
 };

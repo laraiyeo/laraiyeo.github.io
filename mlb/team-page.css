@@ -278,7 +278,6 @@ html::-webkit-scrollbar {
 
 .match-team-info:last-child {
   justify-content: flex-end;
-  flex-direction: row-reverse;
 }
 
 .match-team-logo {

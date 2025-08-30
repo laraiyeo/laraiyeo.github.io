@@ -3373,8 +3373,8 @@ async function createMatchCard(game, isCompleted) {
           <div class="match-date" style="margin-top: 10px;">${formattedDate}</div>
         </span>
         <div class="match-team-info">
-          <img src="${opponentLogo}" alt="${opponent.team.name}" class="match-team-logo" onerror="this.src='icon.png';">
           <span class="match-team-name">${getTeamAbbreviation(opponent.team.name)}</span>
+          <img src="${opponentLogo}" alt="${opponent.team.name}" class="match-team-logo" onerror="this.src='icon.png';">
         </div>
       </div>
     </div>
