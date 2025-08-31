@@ -959,4 +959,9 @@ body {
     width: 110%;
     transform: translateX(-19px);
   }
+
+  .stream-embed {
+  transform: translateX(0px);
+  margin-bottom: 80px;
+}
 }

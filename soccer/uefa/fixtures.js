@@ -110,7 +110,7 @@ async function fetchAndDisplayFixtures() {
             const roundNumber = leaguePhaseEvents.length - originalIndex;
             return buildGameCard(game, team, roundNumber);
           }).join('')}</div>`
-        : `<div class="no-game-card">No league phase fixtures available</div>`;
+        : `<div class="no-game-card" style="color: ${nameColorChange};">No league phase fixtures available</div>`;
 
       const paginationHtml = leaguePhaseEvents.length > fixturesPerPage
         ? `<div class="fixture-pagination" id="pagination-${team.id}">

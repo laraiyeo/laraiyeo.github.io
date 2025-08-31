@@ -987,8 +987,8 @@ async function fetchAndRenderTopScoreboard() {
     // Render the box score
     renderBoxScore(gameId, gameStatus);
 
-    // Render the live stream only if teams have changed or no stream exists
-    if (awayTeam && homeTeam) {
+    // Render the live stream only if teams have changed or no stream exists AND game is not over
+    if (awayTeam && homeTeam && !isGameOver) {
       const currentTeamsKey = `${awayTeam.displayName}-${homeTeam.displayName}`;
       const storedTeamsKey = `${currentAwayTeam}-${currentHomeTeam}`;
 
@@ -999,6 +999,14 @@ async function fetchAndRenderTopScoreboard() {
         renderStreamEmbed(awayTeam.displayName, homeTeam.displayName);
       } else {
         console.log('Teams unchanged, skipping stream embed render to prevent jittering');
+      }
+    } else if (isGameOver) {
+      // Clear stream container for finished games
+      const streamContainer = document.getElementById('streamEmbed');
+      if (streamContainer) {
+        streamContainer.innerHTML = '';
+        streamContainer.style.marginBottom = '35px';
+        console.log('Game is finished, cleared stream container');
       }
     }
 
