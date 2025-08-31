@@ -793,15 +793,25 @@ async function findMatchStreams(homeTeamName, awayTeamName) {
     const matchedHomeTeam = bestMatch.teams?.home?.name?.toLowerCase() || '';
     const matchedAwayTeam = bestMatch.teams?.away?.name?.toLowerCase() || '';
 
-    const hasHomeInTitle = matchedTitle.includes(homeNormalized) ||
-                          matchedHomeTeam.includes(homeNormalized);
-    const hasAwayInTitle = matchedTitle.includes(awayNormalized) ||
-                          matchedAwayTeam.includes(awayNormalized);
+    // Check if both teams appear in the title (using flexible word matching like relevance check)
+    const homeWords = homeNormalized.split('-').filter(word => word.length > 2);
+    const awayWords = awayNormalized.split('-').filter(word => word.length > 2);
 
-    if (!hasHomeInTitle || !hasAwayInTitle) {
+    let homeInTitle = false;
+    let awayInTitle = false;
+
+    // Check if significant words from each team appear in title or API team names
+    homeWords.forEach(word => {
+      if (matchedTitle.includes(word) || matchedHomeTeam.includes(word)) homeInTitle = true;
+    });
+    awayWords.forEach(word => {
+      if (matchedTitle.includes(word) || matchedAwayTeam.includes(word)) awayInTitle = true;
+    });
+
+    if (!homeInTitle || !awayInTitle) {
       console.log(`WARNING: Matched game "${bestMatch.title}" doesn't contain both teams!`);
       console.log(`Expected: ${homeNormalized} vs ${awayNormalized}`);
-      console.log(`Found in title: Home=${hasHomeInTitle}, Away=${hasAwayInTitle}`);
+      console.log(`Found in title: Home=${homeInTitle}, Away=${awayInTitle}`);
       console.log(`API teams: Home="${matchedHomeTeam}", Away="${matchedAwayTeam}"`);
 
       // If this is a same-city scenario and validation fails, reject the match

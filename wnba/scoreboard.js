@@ -364,26 +364,25 @@ async function findMatchStreams(homeTeamName, awayTeamName) {
     const matchedHomeTeam = bestMatch.teams?.home?.name?.toLowerCase() || '';
     const matchedAwayTeam = bestMatch.teams?.away?.name?.toLowerCase() || '';
 
-    // Helper function to check if team name matches (handles spaces vs hyphens)
-    const teamNameMatches = (apiName, normalizedName) => {
-      // Direct match
-      if (apiName.includes(normalizedName)) return true;
-      // Match with spaces instead of hyphens
-      if (apiName.includes(normalizedName.replace(/-/g, ' '))) return true;
-      // Match with hyphens instead of spaces
-      if (apiName.includes(normalizedName.replace(/ /g, '-'))) return true;
-      return false;
-    };
+    // Check if both teams appear in the title (using flexible word matching like relevance check)
+    const homeWords = homeNormalized.split('-').filter(word => word.length > 2);
+    const awayWords = awayNormalized.split('-').filter(word => word.length > 2);
 
-    const hasHomeInTitle = teamNameMatches(matchedTitle, homeNormalized) ||
-                          teamNameMatches(matchedHomeTeam, homeNormalized);
-    const hasAwayInTitle = teamNameMatches(matchedTitle, awayNormalized) ||
-                          teamNameMatches(matchedAwayTeam, awayNormalized);
+    let homeInTitle = false;
+    let awayInTitle = false;
 
-    if (!hasHomeInTitle || !hasAwayInTitle) {
+    // Check if significant words from each team appear in title or API team names
+    homeWords.forEach(word => {
+      if (matchedTitle.includes(word) || matchedHomeTeam.includes(word)) homeInTitle = true;
+    });
+    awayWords.forEach(word => {
+      if (matchedTitle.includes(word) || matchedAwayTeam.includes(word)) awayInTitle = true;
+    });
+
+    if (!homeInTitle || !awayInTitle) {
       console.log(`WARNING: Matched game "${bestMatch.title}" doesn't contain both teams!`);
       console.log(`Expected: ${homeNormalized} vs ${awayNormalized}`);
-      console.log(`Found in title: Home=${hasHomeInTitle}, Away=${hasAwayInTitle}`);
+      console.log(`Found in title: Home=${homeInTitle}, Away=${awayInTitle}`);
       console.log(`API teams: Home="${matchedHomeTeam}", Away="${matchedAwayTeam}"`);
 
       // If this is a same-city scenario and validation fails, reject the match

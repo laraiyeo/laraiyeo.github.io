@@ -1706,15 +1706,25 @@ async function findMatchStreams(homeTeamName, awayTeamName) {
             }
           } else {
             // Normal case: check if major parts of team names appear in title
-            const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
-            const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+            // Be more strict - require longer words and better matches
+            const homeParts = homeNormalized.split('-').filter(word => word.length > 3); // Increased from 2 to 3
+            const awayParts = awayNormalized.split('-').filter(word => word.length > 3); // Increased from 2 to 3
+
+            let homeScore = 0;
+            let awayScore = 0;
 
             homeParts.forEach(part => {
-              if (titleWords.some(word => word.includes(part) || part.includes(word))) score += 0.4;
+              if (titleWords.some(word => word.includes(part) && word.length > 2)) homeScore += 0.3;
+              if (part.length > 4) homeScore += 0.2; // Bonus for longer, more specific words
             });
             awayParts.forEach(part => {
-              if (titleWords.some(word => word.includes(part) || part.includes(word))) score += 0.4;
+              if (titleWords.some(word => word.includes(part) && word.length > 2)) awayScore += 0.3;
+              if (part.length > 4) awayScore += 0.2; // Bonus for longer, more specific words
             });
+
+            // Require at least one significant match for each team
+            if (homeParts.length > 0 && homeScore > 0) score += Math.min(homeScore, 0.8);
+            if (awayParts.length > 0 && awayScore > 0) score += Math.min(awayScore, 0.8);
           }
 
           return score;
@@ -1754,15 +1764,25 @@ async function findMatchStreams(homeTeamName, awayTeamName) {
               }
             } else {
               // Normal case: rough matching against API team names
-              const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
-              const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+              const homeParts = homeNormalized.split('-').filter(word => word.length > 3); // Increased from 2 to 3
+              const awayParts = awayNormalized.split('-').filter(word => word.length > 3); // Increased from 2 to 3
+
+              let homeMatches = 0;
+              let awayMatches = 0;
 
               homeParts.forEach(part => {
-                if (homeApiName.includes(part)) score += 0.6;
+                if (homeApiName.includes(part) && part.length > 2) homeMatches++;
               });
               awayParts.forEach(part => {
-                if (awayApiName.includes(part)) score += 0.6;
+                if (awayApiName.includes(part) && part.length > 2) awayMatches++;
               });
+
+              // Require more specific matches
+              if (homeMatches > 0 && awayMatches > 0) {
+                score += 0.4; // Reduced from 0.6
+              } else if (homeMatches > 0 || awayMatches > 0) {
+                score += 0.2; // Reduced from 0.6
+              }
             }
           }
           return score;
@@ -1820,22 +1840,28 @@ async function findMatchStreams(homeTeamName, awayTeamName) {
           let score = 0;
           const titleWords = matchTitle.split(/[\s\-]+/);
 
-          // Check home team abbreviations
+          // Check home team abbreviations (be more selective)
           const homeParts = homeNormalized.split('-');
           homeParts.forEach(part => {
             if (abbreviations[part]) {
+              // Only give points if the abbreviation appears as a complete word, not just substring
               abbreviations[part].forEach(abbr => {
-                if (titleWords.some(word => word.includes(abbr) || abbr.includes(word))) score += 0.3;
+                if (titleWords.some(word => word === abbr || (word.includes(abbr) && abbr.length > 3))) {
+                  score += 0.2; // Reduced from 0.3
+                }
               });
             }
           });
 
-          // Check away team abbreviations
+          // Check away team abbreviations (be more selective)
           const awayParts = awayNormalized.split('-');
           awayParts.forEach(part => {
             if (abbreviations[part]) {
+              // Only give points if the abbreviation appears as a complete word, not just substring
               abbreviations[part].forEach(abbr => {
-                if (titleWords.some(word => word.includes(abbr) || abbr.includes(word))) score += 0.3;
+                if (titleWords.some(word => word === abbr || (word.includes(abbr) && abbr.length > 3))) {
+                  score += 0.2; // Reduced from 0.3
+                }
               });
             }
           });
@@ -1855,15 +1881,15 @@ async function findMatchStreams(homeTeamName, awayTeamName) {
         bestScore = totalScore;
         bestMatch = match;
 
-        // Early exit if we find a very good match (score >= 1.0 for rough matching)
-        if (bestScore >= 1.0) {
+        // Early exit if we find a very good match (increased threshold to prevent wrong matches)
+        if (bestScore >= 2.0) {
           console.log(`Found excellent match with score ${bestScore}, stopping search early`);
           break;
         }
       }
     }
 
-    if (!bestMatch || bestScore < 0.3) {
+    if (!bestMatch || bestScore < 0.5) { // Increased from 0.3 to 0.5 for stricter matching
       console.log(`No good matching live match found in API (best score: ${bestScore.toFixed(2)})`);
       console.log(`Searched for: ${homeNormalized} vs ${awayNormalized}`);
       console.log(`Processed: ${matchesToProcess.length} matches out of ${matches.length} total`);
@@ -1872,29 +1898,55 @@ async function findMatchStreams(homeTeamName, awayTeamName) {
 
     console.log(`Found matching match: ${bestMatch.title} (score: ${bestScore.toFixed(2)})`);
 
-    // VALIDATION: Ensure the matched game actually contains both teams
+    // VALIDATION: Ensure the matched game actually contains both teams with stricter checking
     const matchedTitle = bestMatch.title.toLowerCase();
     const matchedHomeTeam = bestMatch.teams?.home?.name?.toLowerCase() || '';
     const matchedAwayTeam = bestMatch.teams?.away?.name?.toLowerCase() || '';
 
-    const hasHomeInTitle = matchedTitle.includes(homeNormalized) ||
-                          matchedHomeTeam.includes(homeNormalized);
-    const hasAwayInTitle = matchedTitle.includes(awayNormalized) ||
-                          matchedAwayTeam.includes(awayNormalized);
+    // Check if both teams appear in the title (using flexible word matching like relevance check)
+    const homeWords = homeNormalized.split('-').filter(word => word.length > 2);
+    const awayWords = awayNormalized.split('-').filter(word => word.length > 2);
 
-    if (!hasHomeInTitle || !hasAwayInTitle) {
-      console.log(`WARNING: Matched game "${bestMatch.title}" doesn't contain both teams!`);
+    let homeInTitle = false;
+    let awayInTitle = false;
+
+    // Check if significant words from each team appear in title or API team names
+    homeWords.forEach(word => {
+      if (matchedTitle.includes(word) || matchedHomeTeam.includes(word)) homeInTitle = true;
+    });
+    awayWords.forEach(word => {
+      if (matchedTitle.includes(word) || matchedAwayTeam.includes(word)) awayInTitle = true;
+    });
+
+    // Additional validation: ensure the matched teams are actually relevant
+    // For example, if we're looking for "Manchester City", don't match "Montevideo City Torque"
+    let relevantHomeMatches = 0;
+    let relevantAwayMatches = 0;
+
+    homeWords.forEach(word => {
+      if (matchedTitle.includes(word) || matchedHomeTeam.includes(word)) relevantHomeMatches++;
+    });
+    awayWords.forEach(word => {
+      if (matchedTitle.includes(word) || matchedAwayTeam.includes(word)) relevantAwayMatches++;
+    });
+
+    // Require at least 50% of significant words to match for each team
+    const homeRelevanceRatio = relevantHomeMatches / Math.max(1, homeWords.length);
+    const awayRelevanceRatio = relevantAwayMatches / Math.max(1, awayWords.length);
+
+    if (!homeInTitle || !awayInTitle || homeRelevanceRatio < 0.5 || awayRelevanceRatio < 0.5) {
+      console.log(`WARNING: Matched game "${bestMatch.title}" doesn't contain both teams or isn't relevant enough!`);
       console.log(`Expected: ${homeNormalized} vs ${awayNormalized}`);
-      console.log(`Found in title: Home=${hasHomeInTitle}, Away=${hasAwayInTitle}`);
+      console.log(`Found in title: Home=${homeInTitle}, Away=${awayInTitle}`);
       console.log(`API teams: Home="${matchedHomeTeam}", Away="${matchedAwayTeam}"`);
+      console.log(`Relevance: Home=${homeRelevanceRatio.toFixed(2)}, Away=${awayRelevanceRatio.toFixed(2)}`);
 
-      // If this is a same-city scenario and validation fails, reject the match
-      if (hasSameCity) {
-        console.log('Rejecting match due to same-city validation failure');
-        return {};
-      }
+      // Reject the match if validation fails
+      console.log('Rejecting match due to validation failure - teams do not match or are not relevant');
+      return {};
     } else {
-      console.log(`✓ Validation passed: Matched game contains both teams`);
+      console.log(`✓ Validation passed: Matched game contains both teams and is relevant`);
+      console.log(`Relevance scores: Home=${homeRelevanceRatio.toFixed(2)}, Away=${awayRelevanceRatio.toFixed(2)}`);
     }
 
     // Fetch streams for each source
