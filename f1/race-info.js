@@ -10,6 +10,424 @@ let competitionResultsCache = {};
 let cacheExpiry = {};
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+// Add caching for athlete information (driver details)
+let athleteCache = {};
+let athleteCacheExpiry = {};
+const ATHLETE_CACHE_DURATION = 60 * 60 * 1000; // 1 hour - athlete info changes less frequently
+
+// Add caching for event log data (should only be fetched once per race)
+let eventLogCache = {};
+let eventLogCacheExpiry = {};
+const EVENT_LOG_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours - event log rarely changes
+
+// Add caching for competition information (structure, not live stats)
+let competitionInfoCache = {};
+let competitionInfoCacheExpiry = {};
+const COMPETITION_INFO_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes - competition structure changes infrequently
+
+// Add caching for driver standings (should be fetched less frequently)
+let driverStandingsCache = null;
+let driverStandingsCacheExpiry = 0;
+const DRIVER_STANDINGS_CACHE_DURATION = 15 * 60 * 1000; // 15 minutes - standings don't change rapidly
+
+// Function to fetch driver standings with caching
+async function fetchDriverStandings() {
+  const now = Date.now();
+  
+  // Check if we have cached data and it's still valid
+  if (driverStandingsCache && driverStandingsCacheExpiry > now) {
+    return driverStandingsCache;
+  }
+
+  try {
+    const response = await fetch(DRIVERS_STANDINGS_URL);
+    const data = await response.json();
+    
+    // Cache the standings data
+    driverStandingsCache = data;
+    driverStandingsCacheExpiry = now + DRIVER_STANDINGS_CACHE_DURATION;
+    
+    return data;
+  } catch (error) {
+    console.error('Error fetching driver standings:', error);
+    return null;
+  }
+}
+
+// Function to fetch event log data with caching
+async function fetchEventLogData(raceId) {
+  const cacheKey = `eventlog_${raceId}`;
+  const now = Date.now();
+  
+  // Check if we have cached data and it's still valid
+  if (eventLogCache[cacheKey] && eventLogCacheExpiry[cacheKey] && now < eventLogCacheExpiry[cacheKey]) {
+    return eventLogCache[cacheKey];
+  }
+
+  try {
+    
+    // Get driver standings (cached)
+    const standingsData = await fetchDriverStandings();
+    if (!standingsData || !standingsData.standings || standingsData.standings.length === 0) {
+      return null;
+    }
+
+    // Get event log from first driver (using cached athlete data)
+    const firstDriverData = await fetchAthleteData(standingsData.standings[0].athlete.$ref);
+    
+    if (!firstDriverData || !firstDriverData.eventLog?.$ref) {
+      return null;
+    }
+
+    const eventLogResponse = await fetch(convertToHttps(firstDriverData.eventLog.$ref));
+    const eventLogData = await eventLogResponse.json();
+    
+    // Cache the event log data
+    eventLogCache[cacheKey] = eventLogData;
+    eventLogCacheExpiry[cacheKey] = now + EVENT_LOG_CACHE_DURATION;
+    
+    return eventLogData;
+  } catch (error) {
+    console.error('Error fetching event log data:', error);
+    return null;
+  }
+}
+
+// Function to fetch competition information with caching
+async function fetchCompetitionInfo(raceId) {
+  const cacheKey = `competition_info_${raceId}`;
+  const now = Date.now();
+  
+  // Check if we have cached data and it's still valid
+  if (competitionInfoCache[cacheKey] && competitionInfoCacheExpiry[cacheKey] && now < competitionInfoCacheExpiry[cacheKey]) {
+    return competitionInfoCache[cacheKey];
+  }
+
+  try {
+    
+    // Get event log data (cached)
+    const eventLogData = await fetchEventLogData(raceId);
+    if (!eventLogData) {
+      return null;
+    }
+    
+    // Find the specific race by competition ID
+    const raceEvent = eventLogData.events?.items?.find(event => 
+      event.competitionId === raceId
+    );
+    
+    if (!raceEvent) {
+      return null;
+    }
+
+    // Get event details
+    const eventResponse = await fetch(convertToHttps(raceEvent.event.$ref));
+    const eventData = await eventResponse.json();
+    
+    const competitionInfo = {
+      eventData: eventData,
+      raceEvent: raceEvent,
+      competitions: []
+    };
+    
+    // Process competitions and cache their basic info
+    for (const competition of (eventData.competitions || [])) {
+      try {
+        const compResponse = await fetch(convertToHttps(competition.$ref));
+        const compData = await compResponse.json();
+        
+        // Get competition type and create display name
+        const compType = compData.type || {};
+        let competitionName = compType.text || compType.displayName || compType.name || 'Unknown';
+        let competitionKey = competitionName.toLowerCase().replace(/\s+/g, '_');
+        
+        // Map abbreviations to full names for better display
+        const typeMap = {
+          'FP1': 'Free Practice 1',
+          'FP2': 'Free Practice 2', 
+          'FP3': 'Free Practice 3',
+          'Qual': 'Qualifying',
+          'Race': 'Race'
+        };
+        
+        if (compType.abbreviation && typeMap[compType.abbreviation]) {
+          competitionName = typeMap[compType.abbreviation];
+          competitionKey = compType.abbreviation.toLowerCase();
+        }
+        
+        competitionInfo.competitions.push({
+          key: competitionKey,
+          name: competitionName,
+          ref: competition.$ref,
+          compData: compData,
+          competitors: compData.competitors || []
+        });
+        
+      } catch (error) {
+        console.error('Error fetching competition data:', error);
+      }
+    }
+    
+    // Cache the competition info
+    competitionInfoCache[cacheKey] = competitionInfo;
+    competitionInfoCacheExpiry[cacheKey] = now + COMPETITION_INFO_CACHE_DURATION;
+    
+    return competitionInfo;
+  } catch (error) {
+    console.error('Error fetching competition info:', error);
+    return null;
+  }
+}
+
+// Function to fetch only live statistics for active competitions
+async function fetchLiveStatistics(raceId) {
+  try {
+    // Get cached competition info
+    const competitionInfo = await fetchCompetitionInfo(raceId);
+    if (!competitionInfo) {
+      return null;
+    }
+    
+    const competitions = {};
+    
+    // Only process competitions that are in progress
+    for (const compInfo of competitionInfo.competitions) {
+      try {
+        const competition = compInfo.compData;
+        const competitionKey = compInfo.key;
+        const competitionName = compInfo.name;
+        
+        // Check competition status first
+        let shouldInclude = false;
+        let isInProgress = false;
+        
+        if (competition.status?.$ref) {
+          try {
+            const statusResponse = await fetch(convertToHttps(competition.status.$ref));
+            const statusData = await statusResponse.json();
+            
+            // Only include competitions that are "in" (in progress)
+            if (statusData.type?.state === 'in') {
+              shouldInclude = true;
+              isInProgress = true;
+            }
+          } catch (error) {
+            console.error('Error fetching competition status:', error);
+            // If we can't get status, assume it's not active
+            shouldInclude = false;
+          }
+        }
+        
+        if (!shouldInclude) {
+          continue; // Skip this competition
+        }
+        
+        // Determine if this is a session that should use Gap To Leader for live timing
+        const useGapToLeader = isInProgress && 
+          (competitionKey === 'fp1' || competitionKey === 'fp2' || competitionKey === 'fp3' || competitionKey === 'race');
+        
+        let maxLaps = 0;
+        
+        // Process competitors and fetch only their statistics
+        const competitorPromises = (compInfo.competitors || []).map(async (competitor) => {
+          try {
+            // Only fetch statistics (athlete data is cached)
+            const statsResponse = competitor.statistics?.$ref ? 
+              await fetch(convertToHttps(competitor.statistics.$ref)) : null;
+            
+            // Get athlete info from cached data
+            const athleteData = competitor.athlete?.$ref ? 
+              await fetchAthleteData(competitor.athlete.$ref) : null;
+            
+            let driverName = 'Unknown';
+            if (athleteData) {
+              driverName = athleteData.fullName || athleteData.displayName || athleteData.shortName || 'Unknown';
+            }
+            
+            // Get team info
+            const team = competitor.vehicle?.manufacturer || 'Unknown Team';
+            const teamColor = `#${getTeamColor(team)}`;
+            
+            // Get statistics with Gap To Leader support
+            let stats = {
+              position: 'N/A',
+              time: 'N/A',
+              laps: 'N/A',
+              pits: 'N/A',
+              fastestLap: 'N/A',
+              fastestLapNumber: 'N/A'
+            };
+            
+            if (statsResponse) {
+              const statsData = await statsResponse.json();
+              
+              // Check for Gap To Leader data first if it's a live session
+              if (useGapToLeader && statsData.splits?.categories) {
+                const gapToLeaderStats = statsData.splits.categories.find(cat => cat.name === 'gapToLeader');
+                if (gapToLeaderStats && gapToLeaderStats.stats) {
+                  const gapStatMap = {};
+                  gapToLeaderStats.stats.forEach(stat => {
+                    gapStatMap[stat.name] = stat.displayValue || stat.value;
+                  });
+                  
+                  // Use Gap To Leader position and timing for live sessions
+                  if (gapStatMap.position) {
+                    stats.position = gapStatMap.position;
+                  }
+                  if (gapStatMap.gapToLeader) {
+                    // Format gap time - leader shows interval, others show gap
+                    stats.time = stats.position === '1' || stats.position === 1 ? 
+                      'LEADER' : gapStatMap.gapToLeader;
+                  }
+                }
+              }
+              
+              // Fall back to general stats if no Gap To Leader data or not a live session
+              const generalStats = statsData.splits?.categories?.find(cat => cat.name === 'general');
+              
+              if (generalStats && generalStats.stats) {
+                const statMap = {};
+                generalStats.stats.forEach(stat => {
+                  statMap[stat.name] = stat.displayValue || stat.value;
+                });
+                
+                // Only override if we didn't get Gap To Leader data
+                if (stats.position === 'N/A') {
+                  stats.position = statMap.place || statMap.position || competitor.order || 'N/A';
+                }
+                
+                if (stats.time === 'N/A') {
+                  stats.time = statMap.behindTime || statMap.totalTime || 'N/A';
+                }
+                
+                // Always get other stats from general
+                stats.laps = statMap.lapsCompleted || 'N/A';
+                stats.pits = statMap.pitsTaken || '0';
+                stats.fastestLap = statMap.fastestLap || '-';
+                stats.fastestLapNumber = statMap.fastestLapNum || '-';
+                stats.q1Time = statMap.qual1TimeMS && statMap.qual1TimeMS !== '0.000' ? statMap.qual1TimeMS : null;
+                stats.q2Time = statMap.qual2TimeMS && statMap.qual2TimeMS !== '0.000' ? statMap.qual2TimeMS : null;
+                stats.q3Time = statMap.qual3TimeMS && statMap.qual3TimeMS !== '0.000' ? statMap.qual3TimeMS : null;
+                
+                // Track max laps for race competitions
+                if ((competitionKey === 'race' || competitionName.toLowerCase().includes('race')) && 
+                    stats.laps !== 'N/A' && !isNaN(parseInt(stats.laps))) {
+                  maxLaps = Math.max(maxLaps, parseInt(stats.laps));
+                }
+                
+                // For qualifying, set the best time as the main time
+                if (competitionKey === 'qual' || competitionName.toLowerCase().includes('qualifying')) {
+                  if (stats.q3Time) {
+                    stats.time = stats.q3Time;
+                  } else if (stats.q2Time) {
+                    stats.time = stats.q2Time;
+                  } else if (stats.q1Time) {
+                    stats.time = stats.q1Time;
+                  }
+                }
+              }
+            }
+            
+            return {
+              driverName,
+              team,
+              teamColor,
+              stats,
+              position: parseInt(stats.position) || competitor.order || 999,
+              winner: competitor.winner || false
+            };
+            
+          } catch (error) {
+            console.error('Error processing competitor:', error);
+            return null;
+          }
+        });
+        
+        const competitorData = (await Promise.all(competitorPromises)).filter(data => data !== null);
+        
+        // Process times and calculate laps behind for race competitions
+        const results = competitorData.map(data => {
+          let finalTime = data.stats.time;
+          
+          // For race competitions, if no time and has lap data, calculate laps behind
+          if ((competitionKey === 'race' || competitionName.toLowerCase().includes('race')) && 
+              (finalTime === 'N/A' || finalTime === '' || finalTime === null) && 
+              data.stats.laps !== 'N/A' && !isNaN(parseInt(data.stats.laps))) {
+            
+            const driverLaps = parseInt(data.stats.laps);
+            const lapsBehind = maxLaps - driverLaps;
+            
+            if (lapsBehind > 0) {
+              finalTime = `+${lapsBehind} Lap${lapsBehind > 1 ? 's' : ''}`;
+            }
+          }
+          
+          return {
+            position: data.position,
+            driverName: data.driverName,
+            team: data.team,
+            teamColor: data.teamColor,
+            time: finalTime,
+            laps: data.stats.laps,
+            pits: data.stats.pits,
+            fastestLap: data.stats.fastestLap,
+            fastestLapNumber: data.stats.fastestLapNumber,
+            q1Time: data.stats.q1Time,
+            q2Time: data.stats.q2Time,
+            q3Time: data.stats.q3Time,
+            winner: data.winner
+          };
+        });
+        
+        // Sort by position
+        results.sort((a, b) => a.position - b.position);
+        
+        competitions[competitionKey] = {
+          name: competitionName,
+          results: results,
+          isLive: isInProgress
+        };
+        
+      } catch (error) {
+        console.error('Error processing competition:', error);
+      }
+    }
+    
+    return competitions;
+  } catch (error) {
+    console.error('Error fetching live statistics:', error);
+    return null;
+  }
+}
+
+// Function to fetch athlete data with caching
+async function fetchAthleteData(athleteRef) {
+  if (!athleteRef) {
+    return null;
+  }
+
+  const now = Date.now();
+  
+  // Check if we have cached data and it's still valid
+  if (athleteCache[athleteRef] && athleteCacheExpiry[athleteRef] && now < athleteCacheExpiry[athleteRef]) {
+    return athleteCache[athleteRef];
+  }
+
+  try {
+    const response = await fetch(convertToHttps(athleteRef));
+    const athleteData = await response.json();
+    
+    // Cache the athlete data
+    athleteCache[athleteRef] = athleteData;
+    athleteCacheExpiry[athleteRef] = now + ATHLETE_CACHE_DURATION;
+    
+    return athleteData;
+  } catch (error) {
+    console.error('Error fetching athlete data:', error);
+    return null;
+  }
+}
+
 // Global variables for stream testing
 let streamUrls = [];
 let currentStreamIndex = 0;
@@ -288,24 +706,11 @@ function getTeamColor(constructorName) {
 
 async function fetchRaceWinner(raceId) {
   try {
-    // Get driver standings to access event log
-    const response = await fetch(DRIVERS_STANDINGS_URL);
-    const data = await response.json();
-    
-    if (!data.standings || data.standings.length === 0) {
+    // Get event log data (cached)
+    const eventLogData = await fetchEventLogData(raceId);
+    if (!eventLogData) {
       return null;
     }
-
-    // Get event log from first driver
-    const firstDriverResponse = await fetch(convertToHttps(data.standings[0].athlete.$ref));
-    const firstDriverData = await firstDriverResponse.json();
-    
-    if (!firstDriverData.eventLog?.$ref) {
-      return null;
-    }
-
-    const eventLogResponse = await fetch(convertToHttps(firstDriverData.eventLog.$ref));
-    const eventLogData = await eventLogResponse.json();
     
     // Find the specific race by competition ID
     const raceEvent = eventLogData.events?.items?.find(event => 
@@ -338,9 +743,8 @@ async function fetchRaceWinner(raceId) {
           let winnerTime = 'TBD';
           
           if (winnerCompetitor.athlete?.$ref) {
-            const athleteResponse = await fetch(convertToHttps(winnerCompetitor.athlete.$ref));
-            const athleteData = await athleteResponse.json();
-            winner = athleteData.shortName || athleteData.displayName || athleteData.fullName || 'Unknown';
+            const athleteData = await fetchAthleteData(winnerCompetitor.athlete.$ref);
+            winner = athleteData ? (athleteData.shortName || athleteData.displayName || athleteData.fullName || 'Unknown') : 'Unknown';
           }
           
           // Get winner time from statistics
@@ -376,24 +780,11 @@ async function fetchRaceWinner(raceId) {
 
 async function fetchAdditionalRaceDetails(raceId) {
   try {
-    // Get driver standings to access event log
-    const response = await fetch(DRIVERS_STANDINGS_URL);
-    const data = await response.json();
-    
-    if (!data.standings || data.standings.length === 0) {
+    // Get event log data (cached)
+    const eventLogData = await fetchEventLogData(raceId);
+    if (!eventLogData) {
       return;
     }
-
-    // Get event log from first driver
-    const firstDriverResponse = await fetch(convertToHttps(data.standings[0].athlete.$ref));
-    const firstDriverData = await firstDriverResponse.json();
-    
-    if (!firstDriverData.eventLog?.$ref) {
-      return;
-    }
-
-    const eventLogResponse = await fetch(convertToHttps(firstDriverData.eventLog.$ref));
-    const eventLogData = await eventLogResponse.json();
     
     // Find the specific race by competition ID
     const raceEvent = eventLogData.events?.items?.find(event => 
@@ -467,24 +858,11 @@ async function fetchAdditionalRaceDetails(raceId) {
 
 async function fetchNextRace() {
   try {
-    // Get driver standings to access event log
-    const response = await fetch(DRIVERS_STANDINGS_URL);
-    const data = await response.json();
-    
-    if (!data.standings || data.standings.length === 0) {
-      throw new Error("No standings data found");
-    }
-
-    // Get event log from first driver
-    const firstDriverResponse = await fetch(convertToHttps(data.standings[0].athlete.$ref));
-    const firstDriverData = await firstDriverResponse.json();
-    
-    if (!firstDriverData.eventLog?.$ref) {
+    // Get event log data (cached) - use a dummy raceId to get general event log
+    const eventLogData = await fetchEventLogData('next_race');
+    if (!eventLogData) {
       throw new Error("No event log found");
     }
-
-    const eventLogResponse = await fetch(convertToHttps(firstDriverData.eventLog.$ref));
-    const eventLogData = await eventLogResponse.json();
     
     // Find the next upcoming race
     const upcomingEvents = eventLogData.events?.items?.filter(event => !event.played) || [];
@@ -706,47 +1084,25 @@ async function fetchCompetitionResults(raceId) {
     if (competitionResultsCache[cacheKey] && 
         cacheExpiry[cacheKey] && 
         now < cacheExpiry[cacheKey]) {
-      console.log('Using cached competition results');
       return competitionResultsCache[cacheKey];
     }
 
-    // Get driver standings to access event log
-    const response = await fetch(DRIVERS_STANDINGS_URL);
-    const data = await response.json();
-    
-    if (!data.standings || data.standings.length === 0) {
+    // Get competition info (cached)
+    const competitionInfo = await fetchCompetitionInfo(raceId);
+    if (!competitionInfo) {
       return null;
     }
-
-    // Get event log from first driver
-    const firstDriverResponse = await fetch(convertToHttps(data.standings[0].athlete.$ref));
-    const firstDriverData = await firstDriverResponse.json();
     
-    if (!firstDriverData.eventLog?.$ref) {
-      return null;
-    }
-
-    const eventLogResponse = await fetch(convertToHttps(firstDriverData.eventLog.$ref));
-    const eventLogData = await eventLogResponse.json();
+    const competitions = {};
     
-    // Find the specific race by competition ID
-    const raceEvent = eventLogData.events?.items?.find(event => 
-      event.competitionId === raceId
-    );
-    
-    if (raceEvent) {
-      // Get event details
-      const eventResponse = await fetch(convertToHttps(raceEvent.event.$ref));
-      const eventData = await eventResponse.json();
-      
-      const competitions = {};
-      
-      // Process competitions in parallel for better performance
-      const competitionPromises = (eventData.competitions || []).map(async (competition) => {
-        try {
-          // Check competition status first from the competition level
-          let shouldInclude = false;
-          let isInProgress = false;
+    // Process competitions in parallel for better performance
+    const competitionPromises = competitionInfo.competitions.map(async (compInfo) => {
+      try {
+        const competition = compInfo.compData;
+        const competitionKey = compInfo.key;
+        const competitionName = compInfo.name;
+        let shouldInclude = false;
+        let isInProgress = false;
           
           if (competition.status?.$ref) {
             try {
@@ -773,27 +1129,8 @@ async function fetchCompetitionResults(raceId) {
             return null;
           }
 
-          const compResponse = await fetch(convertToHttps(competition.$ref));
-          const compData = await compResponse.json();
-          
-          // Get competition type and create display name
-          const compType = compData.type || {};
-          let competitionName = compType.text || compType.displayName || compType.name || 'Unknown';
-          let competitionKey = competitionName.toLowerCase().replace(/\s+/g, '_');
-          
-          // Map abbreviations to full names for better display
-          const typeMap = {
-            'FP1': 'Free Practice 1',
-            'FP2': 'Free Practice 2', 
-            'FP3': 'Free Practice 3',
-            'Qual': 'Qualifying',
-            'Race': 'Race'
-          };
-          
-          if (compType.abbreviation && typeMap[compType.abbreviation]) {
-            competitionName = typeMap[compType.abbreviation];
-            competitionKey = compType.abbreviation.toLowerCase();
-          }
+          // Get competition data (already cached in compInfo.compData)
+          const compData = competition;
           
           // Determine if this is a session that should use Gap To Leader for live timing
           const useGapToLeader = isInProgress && 
@@ -804,16 +1141,15 @@ async function fetchCompetitionResults(raceId) {
           // Process competitors in parallel
           const competitorPromises = (compData.competitors || []).map(async (competitor) => {
             try {
-              // Fetch athlete and statistics in parallel
-              const [athleteResponse, statsResponse] = await Promise.all([
-                competitor.athlete?.$ref ? fetch(convertToHttps(competitor.athlete.$ref)) : Promise.resolve(null),
+              // Fetch athlete data (cached) and statistics (always fresh) in parallel
+              const [athleteData, statsResponse] = await Promise.all([
+                competitor.athlete?.$ref ? fetchAthleteData(competitor.athlete.$ref) : Promise.resolve(null),
                 competitor.statistics?.$ref ? fetch(convertToHttps(competitor.statistics.$ref)) : Promise.resolve(null)
               ]);
               
-              // Get athlete info
+              // Get athlete info from cached data
               let driverName = 'Unknown';
-              if (athleteResponse) {
-                const athleteData = await athleteResponse.json();
+              if (athleteData) {
                 driverName = athleteData.fullName || athleteData.displayName || athleteData.shortName || 'Unknown';
               }
               
@@ -982,8 +1318,7 @@ async function fetchCompetitionResults(raceId) {
       cacheExpiry[cacheKey] = now + CACHE_DURATION;
       
       return competitions;
-    }
-    
+      
     return null;
   } catch (error) {
     console.error('Error fetching competition results:', error);
@@ -1037,7 +1372,6 @@ function renderCompetitionResults(competitions) {
       
       if (hasResults) {
         defaultKey = sessionKey;
-        console.log(`Selected default tab: ${sessionKey} (${competitions[sessionKey].name})`);
         break;
       }
     }
@@ -1163,24 +1497,11 @@ function renderCompetitionResults(competitions) {
 
 async function getCurrentCompetitionInfo(raceId) {
   try {
-    // Get driver standings to access event log
-    const response = await fetch(DRIVERS_STANDINGS_URL);
-    const data = await response.json();
-    
-    if (!data.standings || data.standings.length === 0) {
+    // Get event log data (cached)
+    const eventLogData = await fetchEventLogData(raceId);
+    if (!eventLogData) {
       return null;
     }
-
-    // Get event log from first driver
-    const firstDriverResponse = await fetch(convertToHttps(data.standings[0].athlete.$ref));
-    const firstDriverData = await firstDriverResponse.json();
-    
-    if (!firstDriverData.eventLog?.$ref) {
-      return null;
-    }
-
-    const eventLogResponse = await fetch(convertToHttps(firstDriverData.eventLog.$ref));
-    const eventLogData = await eventLogResponse.json();
     
     // Find the specific race by competition ID
     const raceEvent = eventLogData.events?.items?.find(event => 
@@ -1464,7 +1785,6 @@ window.toggleFullscreen = function() {
           iframe.style.height = '100vh';
           iframe.style.zIndex = '9999';
           iframe.style.backgroundColor = '#000';
-          console.log('Applied fullscreen-like styling as fallback');
         } else {
           // Exit fullscreen-like mode
           const isSmallScreen = window.innerWidth < 525;
@@ -1476,7 +1796,6 @@ window.toggleFullscreen = function() {
           iframe.style.height = screenHeight + 'px';
           iframe.style.zIndex = '';
           iframe.style.backgroundColor = '';
-          console.log('Exited fullscreen-like styling');
         }
       }
     } catch (e) {
@@ -1632,13 +1951,11 @@ async function renderRaceInfo() {
         resultsUpdateInterval = setInterval(() => {
           updateRaceResults(raceId);
         }, 2000);
-        console.log("Started live timing updates every 2 seconds");
       } else if (countdown.status === "finished") {
         // Update every 30 seconds for finished races
         resultsUpdateInterval = setInterval(() => {
           updateRaceResults(raceId);
         }, 30000);
-        console.log("Started finished race updates every 30 seconds");
       }
     }
   } else {
@@ -1674,7 +1991,7 @@ async function updateRaceResults(raceId) {
     delete competitionResultsCache[cacheKey];
     delete cacheExpiry[cacheKey];
     
-    const competitions = await fetchCompetitionResults(raceId);
+    const competitions = await fetchLiveStatistics(raceId);
     if (competitions) {
       const newResultsHtml = renderCompetitionResults(competitions);
       
@@ -1738,8 +2055,6 @@ async function updateRaceResults(raceId) {
             });
           });
         });
-        
-        console.log('Race results updated with fresh data');
       }
     } else {
       // If no competitions data, show appropriate message
