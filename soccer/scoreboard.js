@@ -1592,6 +1592,13 @@ async function findMatchStreams(homeTeamName, awayTeamName) {
 
     console.log(`Normalized names: ${homeNormalized} vs ${awayNormalized}`);
 
+    // Check if both teams have the same first word (city name) - this causes confusion
+    const homeFirstWord = homeNormalized.split('-')[0];
+    const awayFirstWord = awayNormalized.split('-')[0];
+    const hasSameCity = homeFirstWord === awayFirstWord;
+
+    console.log(`Team analysis: Home first word: "${homeFirstWord}", Away first word: "${awayFirstWord}", Same city: ${hasSameCity}`);
+
     let bestMatch = null;
     let bestScore = 0;
 
@@ -1613,11 +1620,26 @@ async function findMatchStreams(homeTeamName, awayTeamName) {
     // Quick pre-filter to reduce processing - look for obvious matches first
     const quickMatches = matches.slice(0, Math.min(matches.length, 100)).filter(match => {
       const title = match.title.toLowerCase();
-      // Look for either team name in the title
-      return title.includes(homeNormalized.split('-')[0]) ||
-             title.includes(awayNormalized.split('-')[0]) ||
-             (match.teams?.home?.name?.toLowerCase().includes(homeNormalized.split('-')[0])) ||
-             (match.teams?.away?.name?.toLowerCase().includes(awayNormalized.split('-')[0]));
+
+      if (hasSameCity) {
+        // If teams have same city, require BOTH full team names to be present
+        const hasHomeTeam = title.includes(homeNormalized) ||
+                           (match.teams?.home?.name?.toLowerCase().includes(homeNormalized));
+        const hasAwayTeam = title.includes(awayNormalized) ||
+                           (match.teams?.away?.name?.toLowerCase().includes(awayNormalized));
+        return hasHomeTeam && hasAwayTeam;
+      } else {
+        // Normal case: require BOTH teams to have some match, not just one
+        const homeHasMatch = title.includes(homeNormalized.split('-')[0]) ||
+                            title.includes(homeNormalized.split('-')[1] || '') ||
+                            (match.teams?.home?.name?.toLowerCase().includes(homeNormalized.split('-')[0]));
+        const awayHasMatch = title.includes(awayNormalized.split('-')[0]) ||
+                            title.includes(awayNormalized.split('-')[1] || '') ||
+                            (match.teams?.away?.name?.toLowerCase().includes(awayNormalized.split('-')[0]));
+
+        // Require BOTH teams to match, not just one
+        return homeHasMatch && awayHasMatch;
+      }
     });
 
     // If we found quick matches, prioritize them
@@ -1656,16 +1678,44 @@ async function findMatchStreams(homeTeamName, awayTeamName) {
           let score = 0;
           const titleWords = matchTitle.split(/[\s\-]+/);
 
-          // Check if major parts of team names appear in title
-          const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
-          const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+          if (hasSameCity) {
+            // For same-city teams, require both full team names to be present
+            if (matchTitle.includes(homeNormalized) && matchTitle.includes(awayNormalized)) {
+              score += 1.0; // High score for exact matches
+            } else {
+              // Check for partial matches but be more strict
+              const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
+              const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
 
-          homeParts.forEach(part => {
-            if (titleWords.some(word => word.includes(part) || part.includes(word))) score += 0.4;
-          });
-          awayParts.forEach(part => {
-            if (titleWords.some(word => word.includes(part) || part.includes(word))) score += 0.4;
-          });
+              let homeMatches = 0;
+              let awayMatches = 0;
+
+              homeParts.forEach(part => {
+                if (titleWords.some(word => word.includes(part))) homeMatches++;
+              });
+              awayParts.forEach(part => {
+                if (titleWords.some(word => word.includes(part))) awayMatches++;
+              });
+
+              // Require at least 2 parts to match for each team when they have same city
+              if (homeMatches >= 2 && awayMatches >= 2) {
+                score += 0.8;
+              } else if (homeMatches >= 1 && awayMatches >= 1) {
+                score += 0.4;
+              }
+            }
+          } else {
+            // Normal case: check if major parts of team names appear in title
+            const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
+            const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+
+            homeParts.forEach(part => {
+              if (titleWords.some(word => word.includes(part) || part.includes(word))) score += 0.4;
+            });
+            awayParts.forEach(part => {
+              if (titleWords.some(word => word.includes(part) || part.includes(word))) score += 0.4;
+            });
+          }
 
           return score;
         },
@@ -1676,16 +1726,44 @@ async function findMatchStreams(homeTeamName, awayTeamName) {
             const homeApiName = match.teams.home?.name?.toLowerCase() || '';
             const awayApiName = match.teams.away?.name?.toLowerCase() || '';
 
-            // Rough matching against API team names
-            const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
-            const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+            if (hasSameCity) {
+              // For same-city teams, require both API team names to match our normalized names
+              if (homeApiName.includes(homeNormalized) && awayApiName.includes(awayNormalized)) {
+                score += 1.2; // Very high score for exact API matches
+              } else {
+                // Check for partial matches but be more strict
+                const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
+                const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
 
-            homeParts.forEach(part => {
-              if (homeApiName.includes(part)) score += 0.6;
-            });
-            awayParts.forEach(part => {
-              if (awayApiName.includes(part)) score += 0.6;
-            });
+                let homeMatches = 0;
+                let awayMatches = 0;
+
+                homeParts.forEach(part => {
+                  if (homeApiName.includes(part)) homeMatches++;
+                });
+                awayParts.forEach(part => {
+                  if (awayApiName.includes(part)) awayMatches++;
+                });
+
+                // Require at least 2 parts to match for each team when they have same city
+                if (homeMatches >= 2 && awayMatches >= 2) {
+                  score += 0.9;
+                } else if (homeMatches >= 1 && awayMatches >= 1) {
+                  score += 0.5;
+                }
+              }
+            } else {
+              // Normal case: rough matching against API team names
+              const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
+              const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+
+              homeParts.forEach(part => {
+                if (homeApiName.includes(part)) score += 0.6;
+              });
+              awayParts.forEach(part => {
+                if (awayApiName.includes(part)) score += 0.6;
+              });
+            }
           }
           return score;
         },
@@ -1793,6 +1871,31 @@ async function findMatchStreams(homeTeamName, awayTeamName) {
     }
 
     console.log(`Found matching match: ${bestMatch.title} (score: ${bestScore.toFixed(2)})`);
+
+    // VALIDATION: Ensure the matched game actually contains both teams
+    const matchedTitle = bestMatch.title.toLowerCase();
+    const matchedHomeTeam = bestMatch.teams?.home?.name?.toLowerCase() || '';
+    const matchedAwayTeam = bestMatch.teams?.away?.name?.toLowerCase() || '';
+
+    const hasHomeInTitle = matchedTitle.includes(homeNormalized) ||
+                          matchedHomeTeam.includes(homeNormalized);
+    const hasAwayInTitle = matchedTitle.includes(awayNormalized) ||
+                          matchedAwayTeam.includes(awayNormalized);
+
+    if (!hasHomeInTitle || !hasAwayInTitle) {
+      console.log(`WARNING: Matched game "${bestMatch.title}" doesn't contain both teams!`);
+      console.log(`Expected: ${homeNormalized} vs ${awayNormalized}`);
+      console.log(`Found in title: Home=${hasHomeInTitle}, Away=${hasAwayInTitle}`);
+      console.log(`API teams: Home="${matchedHomeTeam}", Away="${matchedAwayTeam}"`);
+
+      // If this is a same-city scenario and validation fails, reject the match
+      if (hasSameCity) {
+        console.log('Rejecting match due to same-city validation failure');
+        return {};
+      }
+    } else {
+      console.log(`✓ Validation passed: Matched game contains both teams`);
+    }
 
     // Fetch streams for each source
     const streams = {};

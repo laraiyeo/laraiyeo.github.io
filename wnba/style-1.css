@@ -411,6 +411,11 @@ body {
   transform: translateX(310px);
 }
 
+.stream-embed {
+  transform: translateX(-300px);
+  margin-bottom: 80px;
+}
+
 .content-section.active {
   display: block;
 }

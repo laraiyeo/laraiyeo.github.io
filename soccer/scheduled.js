@@ -179,7 +179,7 @@ function buildGameCard(game) {
         <div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${total}</div>
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
-            <img src="${getTeamLogo(homeTeam.team)}" alt="${homeTeam.team.displayName}" style="width: 60px; height: 60px; margin-bottom: 6px;">
+            <img src="${getTeamLogo(homeTeam.team)}" alt="${homeTeam.team.displayName}" style="width: 60px; height: 60px; margin-bottom: 6px;" onerror="this.onerror=null; this.src='soccer-ball-png-24.png';">
             <div style="font-weight: bold;">${formatShortDisplayName(homeTeam.team.shortDisplayName)}</div>
           </div>
           <div style="text-align: center;">
@@ -187,7 +187,7 @@ function buildGameCard(game) {
             <div style="font-size: 0.75rem; color: grey; margin-top: 25px;">${date}</div>
           </div>
           <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
-            <img src="${getTeamLogo(awayTeam.team)}" alt="${awayTeam.team.displayName}" style="width: 60px; height: 60px; margin-bottom: 6px;">
+            <img src="${getTeamLogo(awayTeam.team)}" alt="${awayTeam.team.displayName}" style="width: 60px; height: 60px; margin-bottom: 6px;" onerror="this.onerror=null; this.src='soccer-ball-png-24.png';">
             <div style="font-weight: bold;">${formatShortDisplayName(awayTeam.team.shortDisplayName)}</div>
           </div>
         </div>

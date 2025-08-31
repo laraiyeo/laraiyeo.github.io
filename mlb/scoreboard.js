@@ -288,11 +288,8 @@ async function extractVideoPlayerUrl(pageUrl) {
   }
 }
 
-// Global variables for stream testing
-let streamUrls = [];
-let currentStreamIndex = 0;
-let streamTestTimeout = null;
-let currentStreamVersion = 1; // Track which stream version is active (1 or 2)
+// Global variables for stream functionality
+let currentStreamType = 'alpha1'; // Track which stream type is active ('alpha1', 'alpha2', 'bravo')
 let currentAwayTeam = ''; // Store current away team name
 let currentHomeTeam = ''; // Store current home team name
 let isMuted = true; // Start muted to prevent autoplay issues
@@ -332,14 +329,35 @@ async function fetchLiveMatches() {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    const data = await response.json();
-    console.log('Live matches API response:', data);
-    
+    const allMatches = await response.json();
+    console.log(`Found ${allMatches.length} total live matches`);
+
+    // Debug: Check what sport values are in the API response
+    if (allMatches.length > 0) {
+      const uniqueSports = [...new Set(allMatches.map(match => match.sport || match.category).filter(sport => sport))];
+      console.log('Available sports in API:', uniqueSports);
+
+      // Show sample of matches with their sport values
+      console.log('Sample matches with sport values:');
+      for (let i = 0; i < Math.min(5, allMatches.length); i++) {
+        const match = allMatches[i];
+        const sportValue = match.sport || match.category || 'unknown';
+        console.log(`  ${i+1}. "${match.title}" - Sport: "${sportValue}"`);
+      }
+    }
+
+    // Filter matches by baseball
+    const matches = allMatches.filter(match => {
+      const matchSport = match.sport || match.category;
+      return matchSport === 'baseball';
+    });
+    console.log(`Filtered to ${matches.length} MLB matches`);
+
     // Cache the response
-    liveMatchesCache = data;
+    liveMatchesCache = matches;
     cacheTimestamp = now;
     
-    return data;
+    return matches;
   } catch (error) {
     console.error('Error fetching live matches:', error);
     return null;
@@ -348,93 +366,365 @@ async function fetchLiveMatches() {
 
 async function fetchStreamsForSource(source, sourceId) {
   try {
-    console.log(`Fetching streams for source: ${source}, ID: ${sourceId}`);
-    const response = await fetch(`${STREAM_API_BASE}/streams/${source}/${sourceId}`);
-    
+    console.log(`Fetching streams for ${source}/${sourceId}...`);
+    const response = await fetch(`${STREAM_API_BASE}/stream/${source}/${sourceId}`);
+
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      throw new Error(`Stream API request failed: ${response.status}`);
     }
-    
-    const data = await response.json();
-    console.log('Streams API response:', data);
-    return data;
+
+    const streams = await response.json();
+    console.log(`Found ${streams.length} streams for ${source}`);
+    return streams;
   } catch (error) {
-    console.error('Error fetching streams for source:', error);
-    return null;
+    console.error(`Error fetching streams for ${source}/${sourceId}:`, error);
+    return [];
   }
 }
 
 async function findMatchStreams(homeTeamName, awayTeamName) {
   try {
     console.log(`Finding streams for: ${awayTeamName} vs ${homeTeamName}`);
-    
+
     const liveMatches = await fetchLiveMatches();
-    if (!liveMatches || !liveMatches.matches) {
+    if (!liveMatches || !Array.isArray(liveMatches) || liveMatches.length === 0) {
       console.log('No live matches data available');
       return {};
     }
-    
-    // Normalize team names for comparison
+
+    // Try to find our match
     const homeNormalized = normalizeTeamName(homeTeamName).toLowerCase();
     const awayNormalized = normalizeTeamName(awayTeamName).toLowerCase();
-    
-    console.log(`Normalized team names: ${awayNormalized} vs ${homeNormalized}`);
-    
-    // Find matching game in live matches
-    let matchedGame = null;
-    for (const match of liveMatches.matches) {
-      // Check if this is baseball/MLB
-      if (match.category !== 'baseball' && match.sport !== 'baseball') {
-        continue;
+
+    console.log(`Normalized names: ${homeNormalized} vs ${awayNormalized}`);
+
+    // Check if both teams have the same first word (city name) - this causes confusion
+    const homeFirstWord = homeNormalized.split('-')[0];
+    const awayFirstWord = awayNormalized.split('-')[0];
+    const hasSameCity = homeFirstWord === awayFirstWord;
+
+    console.log(`Team analysis: Home first word: "${homeFirstWord}", Away first word: "${awayFirstWord}", Same city: ${hasSameCity}`);
+
+    let bestMatch = null;
+    let bestScore = 0;
+
+    // Quick pre-filter to reduce processing - look for obvious matches first
+    const quickMatches = liveMatches.slice(0, Math.min(liveMatches.length, 100)).filter(match => {
+      const title = match.title.toLowerCase();
+
+      if (hasSameCity) {
+        // If teams have same city, require BOTH full team names to be present
+        const hasHomeTeam = title.includes(homeNormalized) ||
+                           (match.teams?.home?.name?.toLowerCase().includes(homeNormalized));
+        const hasAwayTeam = title.includes(awayNormalized) ||
+                           (match.teams?.away?.name?.toLowerCase().includes(awayNormalized));
+        return hasHomeTeam && hasAwayTeam;
+      } else {
+        // Normal case: require BOTH teams to have some match, not just one
+        const homeHasMatch = title.includes(homeNormalized.split('-')[0]) ||
+                            title.includes(homeNormalized.split('-')[1] || '') ||
+                            (match.teams?.home?.name?.toLowerCase().includes(homeNormalized.split('-')[0]));
+        const awayHasMatch = title.includes(awayNormalized.split('-')[0]) ||
+                            title.includes(awayNormalized.split('-')[1] || '') ||
+                            (match.teams?.away?.name?.toLowerCase().includes(awayNormalized.split('-')[0]));
+
+        // Require BOTH teams to match, not just one
+        return homeHasMatch && awayHasMatch;
       }
-      
-      const matchHomeNormalized = normalizeTeamName(match.home_team || '').toLowerCase();
-      const matchAwayNormalized = normalizeTeamName(match.away_team || '').toLowerCase();
-      
-      console.log(`Checking match: ${matchAwayNormalized} vs ${matchHomeNormalized}`);
-      
-      // Check for team name matches (allowing for some flexibility)
-      const homeMatch = matchHomeNormalized.includes(homeNormalized) || homeNormalized.includes(matchHomeNormalized);
-      const awayMatch = matchAwayNormalized.includes(awayNormalized) || awayNormalized.includes(matchAwayNormalized);
-      
-      if (homeMatch && awayMatch) {
-        matchedGame = match;
-        console.log('Found matching game:', match);
-        break;
+    });
+
+    // If we found quick matches, prioritize them
+    const matchesToProcess = quickMatches.length > 0 ? quickMatches : liveMatches.slice(0, Math.min(liveMatches.length, 100));
+
+    console.log(`Processing ${matchesToProcess.length} matches (${quickMatches.length > 0 ? 'pre-filtered' : 'full set'})`);
+
+    // Debug: Show first few matches to understand API format
+    if (liveMatches.length > 0) {
+      console.log('Sample matches from API:');
+      for (let i = 0; i < Math.min(5, liveMatches.length); i++) {
+        const match = liveMatches[i];
+        console.log(`  ${i+1}. Title: "${match.title}"`);
+        if (match.teams) {
+          console.log(`     Home: ${match.teams.home?.name}, Away: ${match.teams.away?.name}`);
+        }
+        if (match.sources) {
+          console.log(`     Sources: ${match.sources.map(s => s.source).join(', ')}`);
+        }
       }
     }
-    
-    if (!matchedGame) {
-      console.log('No matching game found in API');
+
+    // Process the filtered matches
+    for (let i = 0; i < matchesToProcess.length; i++) {
+      const match = matchesToProcess[i];
+
+      if (!match.sources || match.sources.length === 0) continue;
+
+      const matchTitle = match.title.toLowerCase();
+      let totalScore = 0;
+
+      // Multiple matching strategies with rough/fuzzy matching
+      const strategies = [
+        // Strategy 1: Rough name matching in title (more flexible)
+        () => {
+          let score = 0;
+          const titleWords = matchTitle.split(/[\s\-]+/);
+
+          if (hasSameCity) {
+            // For same-city teams, require both full team names to be present
+            if (matchTitle.includes(homeNormalized) && matchTitle.includes(awayNormalized)) {
+              score += 1.0; // High score for exact matches
+            } else {
+              // Check for partial matches but be more strict
+              const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
+              const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+
+              let homeMatches = 0;
+              let awayMatches = 0;
+
+              homeParts.forEach(part => {
+                if (titleWords.some(word => word.includes(part))) homeMatches++;
+              });
+              awayParts.forEach(part => {
+                if (titleWords.some(word => word.includes(part))) awayMatches++;
+              });
+
+              // Require at least 2 parts to match for each team when they have same city
+              if (homeMatches >= 2 && awayMatches >= 2) {
+                score += 0.8;
+              } else if (homeMatches >= 1 && awayMatches >= 1) {
+                score += 0.4;
+              }
+            }
+          } else {
+            // Normal case: check if major parts of team names appear in title
+            const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
+            const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+
+            homeParts.forEach(part => {
+              if (titleWords.some(word => word.includes(part) || part.includes(word))) score += 0.4;
+            });
+            awayParts.forEach(part => {
+              if (titleWords.some(word => word.includes(part) || part.includes(word))) score += 0.4;
+            });
+          }
+
+          return score;
+        },
+        // Strategy 2: Check team objects if available (rough matching)
+        () => {
+          let score = 0;
+          if (match.teams) {
+            const homeApiName = match.teams.home?.name?.toLowerCase() || '';
+            const awayApiName = match.teams.away?.name?.toLowerCase() || '';
+
+            if (hasSameCity) {
+              // For same-city teams, require both API team names to match our normalized names
+              if (homeApiName.includes(homeNormalized) && awayApiName.includes(awayNormalized)) {
+                score += 1.2; // Very high score for exact API matches
+              } else {
+                // Check for partial matches but be more strict
+                const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
+                const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+
+                let homeMatches = 0;
+                let awayMatches = 0;
+
+                homeParts.forEach(part => {
+                  if (homeApiName.includes(part)) homeMatches++;
+                });
+                awayParts.forEach(part => {
+                  if (awayApiName.includes(part)) awayMatches++;
+                });
+
+                // Require at least 2 parts to match for each team when they have same city
+                if (homeMatches >= 2 && awayMatches >= 2) {
+                  score += 0.9;
+                } else if (homeMatches >= 1 && awayMatches >= 1) {
+                  score += 0.5;
+                }
+              }
+            } else {
+              // Normal case: rough matching against API team names
+              const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
+              const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+
+              homeParts.forEach(part => {
+                if (homeApiName.includes(part)) score += 0.6;
+              });
+              awayParts.forEach(part => {
+                if (awayApiName.includes(part)) score += 0.6;
+              });
+            }
+          }
+          return score;
+        },
+        // Strategy 3: MLB-specific abbreviations and common names
+        () => {
+          const abbreviations = {
+            'arizona': ['arizona', 'diamondbacks', 'arizona-diamondbacks'],
+            'atlanta': ['atlanta', 'braves', 'atlanta-braves'],
+            'baltimore': ['baltimore', 'orioles', 'baltimore-orioles'],
+            'boston': ['boston', 'red-sox', 'boston-red-sox'],
+            'chicago': ['chicago', 'white-sox', 'cubs', 'chicago-white-sox', 'chicago-cubs'],
+            'cincinnati': ['cincinnati', 'reds', 'cincinnati-reds'],
+            'cleveland': ['cleveland', 'guardians', 'cleveland-guardians'],
+            'colorado': ['colorado', 'rockies', 'colorado-rockies'],
+            'detroit': ['detroit', 'tigers', 'detroit-tigers'],
+            'houston': ['houston', 'astros', 'houston-astros'],
+            'kansas': ['kansas', 'royals', 'kansas-city-royals'],
+            'los-angeles': ['los-angeles', 'angels', 'dodgers', 'los-angeles-angels', 'los-angeles-dodgers'],
+            'miami': ['miami', 'marlins', 'miami-marlins'],
+            'milwaukee': ['milwaukee', 'brewers', 'milwaukee-brewers'],
+            'minnesota': ['minnesota', 'twins', 'minnesota-twins'],
+            'new-york': ['new-york', 'yankees', 'mets', 'new-york-yankees', 'new-york-mets'],
+            'oakland': ['oakland', 'athletics', 'oakland-athletics'],
+            'philadelphia': ['philadelphia', 'phillies', 'philadelphia-phillies'],
+            'pittsburgh': ['pittsburgh', 'pirates', 'pittsburgh-pirates'],
+            'san-diego': ['san-diego', 'padres', 'san-diego-padres'],
+            'san-francisco': ['san-francisco', 'giants', 'san-francisco-giants'],
+            'seattle': ['seattle', 'mariners', 'seattle-mariners'],
+            'st-louis': ['st-louis', 'cardinals', 'st-louis-cardinals'],
+            'tampa': ['tampa', 'rays', 'tampa-bay-rays'],
+            'texas': ['texas', 'rangers', 'texas-rangers'],
+            'toronto': ['toronto', 'blue-jays', 'toronto-blue-jays'],
+            'washington': ['washington', 'nationals', 'washington-nationals']
+          };
+
+          let score = 0;
+          const titleWords = matchTitle.split(/[\s\-]+/);
+
+          // Check home team abbreviations
+          const homeParts = homeNormalized.split('-');
+          homeParts.forEach(part => {
+            if (abbreviations[part]) {
+              abbreviations[part].forEach(abbr => {
+                if (titleWords.some(word => word.includes(abbr) || abbr.includes(word))) score += 0.3;
+              });
+            }
+          });
+
+          // Check away team abbreviations
+          const awayParts = awayNormalized.split('-');
+          awayParts.forEach(part => {
+            if (abbreviations[part]) {
+              abbreviations[part].forEach(abbr => {
+                if (titleWords.some(word => word.includes(abbr) || abbr.includes(word))) score += 0.3;
+              });
+            }
+          });
+
+          return score;
+        }
+      ];
+
+      // Apply all strategies and sum scores
+      strategies.forEach(strategy => {
+        totalScore += strategy();
+      });
+
+      console.log(`Match "${match.title.substring(0, 50)}..." score: ${totalScore.toFixed(2)}`);
+
+      if (totalScore > bestScore) {
+        bestScore = totalScore;
+        bestMatch = match;
+
+        // Early exit if we find a very good match (score >= 1.0 for rough matching)
+        if (bestScore >= 1.0) {
+          console.log(`Found excellent match with score ${bestScore}, stopping search early`);
+          break;
+        }
+      }
+    }
+
+    if (!bestMatch || bestScore < 0.3) {
+      console.log(`No good matching live match found in API (best score: ${bestScore.toFixed(2)})`);
+      console.log(`Searched for: ${homeNormalized} vs ${awayNormalized}`);
+      console.log(`Processed: ${matchesToProcess.length} matches out of ${liveMatches.length} total`);
       return {};
     }
-    
-    // Fetch streams for the matched game
-    const streamsData = await fetchStreamsForSource(matchedGame.source || 'espn', matchedGame.source_id || matchedGame.id);
-    
-    if (!streamsData || !streamsData.streams) {
-      console.log('No streams data available for matched game');
-      return {};
+
+    console.log(`Found matching match: ${bestMatch.title} (score: ${bestScore.toFixed(2)})`);
+
+    // Validate that the matched game actually contains both team names
+    const matchTitle = bestMatch.title.toLowerCase();
+    const homeApiName = bestMatch.teams?.home?.name?.toLowerCase() || '';
+    const awayApiName = bestMatch.teams?.away?.name?.toLowerCase() || '';
+
+    const titleHasHome = matchTitle.includes(homeNormalized) || homeApiName.includes(homeNormalized);
+    const titleHasAway = matchTitle.includes(awayNormalized) || awayApiName.includes(awayNormalized);
+
+    if (!titleHasHome || !titleHasAway) {
+      console.log(`WARNING: Matched game "${bestMatch.title}" doesn't contain both team names!`);
+      console.log(`Expected: ${homeNormalized} vs ${awayNormalized}`);
+      console.log(`Found: ${homeApiName} vs ${awayApiName}`);
+
+      // Try to find a better match by being more strict
+      let betterMatch = null;
+      let betterScore = 0;
+
+      for (const match of matchesToProcess) {
+        if (match === bestMatch) continue; // Skip the one we already found
+
+        const mTitle = match.title.toLowerCase();
+        const mHomeApi = match.teams?.home?.name?.toLowerCase() || '';
+        const mAwayApi = match.teams?.away?.name?.toLowerCase() || '';
+
+        const mTitleHasHome = mTitle.includes(homeNormalized) || mHomeApi.includes(homeNormalized);
+        const mTitleHasAway = mTitle.includes(awayNormalized) || mAwayApi.includes(awayNormalized);
+
+        if (mTitleHasHome && mTitleHasAway) {
+          // This match has both teams, calculate its score
+          let score = 0;
+          if (mTitle.includes(homeNormalized) && mTitle.includes(awayNormalized)) score += 2.0;
+          if (mHomeApi.includes(homeNormalized) && mAwayApi.includes(awayNormalized)) score += 2.0;
+
+          if (score > betterScore) {
+            betterMatch = match;
+            betterScore = score;
+          }
+        }
+      }
+
+      if (betterMatch && betterScore > 0) {
+        console.log(`Found better match: ${betterMatch.title} (score: ${betterScore})`);
+        bestMatch = betterMatch;
+        bestScore = betterScore;
+      }
     }
-    
-    // Extract available streams
-    const availableStreams = {};
-    
-    if (streamsData.streams.alpha) {
-      availableStreams.alpha = streamsData.streams.alpha;
-      console.log('Found alpha stream:', streamsData.streams.alpha);
+
+    // Fetch streams for each source
+    const streams = {};
+
+    for (const source of bestMatch.sources) {
+      const sourceStreams = await fetchStreamsForSource(source.source, source.id);
+
+      // Store the first stream for each source (usually the best quality)
+      if (sourceStreams.length > 0) {
+        streams[source.source] = sourceStreams[0];
+        console.log(`Got stream for ${source.source}: ${sourceStreams[0].embedUrl}`);
+      }
     }
-    
-    if (streamsData.streams.bravo) {
-      availableStreams.bravo = streamsData.streams.bravo;
-      console.log('Found bravo stream:', streamsData.streams.bravo);
-    }
-    
-    return availableStreams;
-    
+
+    return streams;
+
   } catch (error) {
     console.error('Error finding match streams:', error);
-    return {};
+
+    // Fallback: try to create a basic embed URL using the match ID
+    console.log('Trying fallback stream URL construction');
+    try {
+      const homeNormalized = normalizeTeamName(homeTeamName);
+      const awayNormalized = normalizeTeamName(awayTeamName);
+      const fallbackUrl = `https://streamed.pk/embed/${homeNormalized}-vs-${awayNormalized}`;
+
+      return {
+        alpha: fallbackUrl,
+        fallback: true
+      };
+    } catch (fallbackError) {
+      console.error('Fallback URL construction failed:', fallbackError);
+      return {};
+    }
   }
 }
 
@@ -570,174 +860,21 @@ window.toggleFullscreen = function() {
   }
 };
 
-window.toggleStreamVersion = function() {
-  // Toggle between stream 1 and 2
-  currentStreamVersion = currentStreamVersion === 1 ? 2 : 1;
-
-  console.log('Toggling to stream version:', currentStreamVersion);
-  console.log('Current team names:', currentAwayTeam, currentHomeTeam);
-
-  // Update the button text
-  const button = document.getElementById('streamToggleButton');
-  if (button) {
-    button.textContent = `Test Stream ${currentStreamVersion === 1 ? '2' : '1'}`;
-  }
-
-  // If team names are not available, try to get them from other sources
-  if (!currentAwayTeam || !currentHomeTeam) {
-    console.log('Team names not available, attempting to retrieve them...');
-
-    // Try to get team names from the current game data by looking at the scoreboard
-    const awayTeamElement = document.querySelector('.scoreboard-away .team-name, [data-away-team]');
-    const homeTeamElement = document.querySelector('.scoreboard-home .team-name, [data-home-team]');
-
-    if (awayTeamElement) {
-      currentAwayTeam = awayTeamElement.textContent?.trim() ||
-                       awayTeamElement.getAttribute('data-away-team') || 'away';
-    }
-
-    if (homeTeamElement) {
-      currentHomeTeam = homeTeamElement.textContent?.trim() ||
-                       homeTeamElement.getAttribute('data-home-team') || 'home';
-    }
-
-    // Also try to get from the linescore table
-    if (!currentAwayTeam || !currentHomeTeam) {
-      const linescoreTable = document.getElementById('linescoreTable');
-      if (linescoreTable) {
-        const rows = linescoreTable.querySelectorAll('tr');
-        if (rows.length >= 2) {
-          const awayRow = rows[0];
-          const homeRow = rows[1];
-
-          if (awayRow && awayRow.cells && awayRow.cells[0]) {
-            currentAwayTeam = awayRow.cells[0].textContent?.trim() || 'away';
-          }
-          if (homeRow && homeRow.cells && homeRow.cells[0]) {
-            currentHomeTeam = homeRow.cells[0].textContent?.trim() || 'home';
-          }
-        }
-      }
-    }
-
-    console.log('Retrieved team names:', currentAwayTeam, currentHomeTeam);
-  }
-
-  // Update the iframe src with the new stream URL
-  if (currentAwayTeam && currentHomeTeam) {
-    let newStreamUrl = '';
-
-    // Try to use API streams first
-    if (availableStreams.alpha && currentStreamVersion === 1) {
-      newStreamUrl = availableStreams.alpha.replace(/\/1$/, '/1');
-    } else if (availableStreams.alpha && currentStreamVersion === 2) {
-      newStreamUrl = availableStreams.alpha.replace(/\/1$/, '/2');
-    } else if (availableStreams.bravo && currentStreamVersion === 1) {
-      newStreamUrl = availableStreams.bravo.replace(/\/1$/, '/1');
-    } else if (availableStreams.bravo && currentStreamVersion === 2) {
-      newStreamUrl = availableStreams.bravo.replace(/\/1$/, '/2');
-    }
-
-    // Fallback to manual URL construction if API doesn't have the stream
-    if (!newStreamUrl) {
-      const homeNormalized = normalizeTeamName(currentHomeTeam);
-      const awayNormalized = normalizeTeamName(currentAwayTeam);
-      const suffix = currentStreamVersion === 2 ? '-2' : '';
-      newStreamUrl = `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}${suffix}/`;
-      console.log('Using fallback URL construction:', newStreamUrl);
-    } else {
-      console.log('Using API stream URL:', newStreamUrl);
-    }
-
-    const iframe = document.getElementById('streamIframe');
-    if (iframe) {
-      // Reset the iframe and restart stream testing
-      iframe.src = 'about:blank';
-
-      // Show connecting message
-      const connectingDiv = document.getElementById('streamConnecting');
-      if (connectingDiv) {
-        connectingDiv.style.display = 'block';
-        iframe.style.display = 'none';
-      }
-
-      // Load the new stream URL directly
-      setTimeout(() => {
-        iframe.src = newStreamUrl;
-        console.log('Updated iframe src to:', newStreamUrl);
-      }, 100);
-    }
-  } else {
-    console.error('Team names still not available for stream toggle');
-    alert('Unable to toggle stream: team names not available. Please refresh the page and try again.');
-  }
-};// Add these functions to handle stream loading
-window.loadStream = function(url) {
-  const iframe = document.getElementById('streamIframe');
-  
-  if (iframe) {
-    iframe.src = url;
+window.handleStreamError = function() {
+  console.log('Stream error occurred');
+  const connectingDiv = document.getElementById('streamConnecting');
+  if (connectingDiv) {
+    connectingDiv.innerHTML = '<p>Stream unavailable. Please try another stream option.</p>';
   }
 };
 
 window.handleStreamLoad = function() {
   const iframe = document.getElementById('streamIframe');
   const connectingDiv = document.getElementById('streamConnecting');
-  
-  // Clear any existing timeout
-  if (streamTestTimeout) {
-    clearTimeout(streamTestTimeout);
-    streamTestTimeout = null;
-  }
-  
-  // Reduced delay from 3 seconds to 1 second
-  if (iframe.src !== 'about:blank') {
-    setTimeout(() => {
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
-      
-      // Reduced delay from 1 second to 200ms
-      setTimeout(() => {
-        try {
-          const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-          
-          if (iframeDoc) {
-            // Start with muted state
-            const videos = iframeDoc.querySelectorAll('video');
-            if (videos.length > 0) {
-              videos.forEach(video => {
-                video.muted = isMuted;
-                video.volume = isMuted ? 0 : 1;
-              });
-              const muteButton = document.getElementById('muteButton');
-              if (muteButton) {
-                muteButton.textContent = isMuted ? '🔊 Unmute' : '🔇 Mute';
-              }
-              console.log(isMuted ? 'Video started muted' : 'Video started unmuted');
-            }
-          }
-        } catch (e) {
-          console.log('Cannot access iframe content (cross-origin)');
-        }
-      }, 200);
-      
-    }, 1000);
-  }
-  
-  // Check if this is the initial auto-test - reduced delay
-  if (streamUrls.length > 0 && iframe.src !== 'about:blank') {
-    setTimeout(() => {
-      checkStreamContent(iframe);
-    }, 1500);
-  } else {
-    if (iframe.src !== 'about:blank') {
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
-    }
+
+  if (iframe && connectingDiv) {
+    iframe.style.display = 'block';
+    connectingDiv.style.display = 'none';
   }
 };
 
@@ -749,16 +886,11 @@ function checkStreamContent(iframe) {
   try {
     const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
 
-    // More comprehensive video detection
+    // Simple video detection
     const hasVideo = iframeDoc.querySelector('video') ||
                     iframeDoc.querySelector('.video-js') ||
                     iframeDoc.querySelector('[id*="video"]') ||
-                    iframeDoc.querySelector('[class*="player"]') ||
-                    iframeDoc.querySelector('[class*="stream"]') ||
-                    iframeDoc.querySelector('iframe') || // Nested iframe might indicate content
-                    iframeDoc.querySelector('[src*="mp4"]') ||
-                    iframeDoc.querySelector('[src*="m3u8"]') ||
-                    iframeDoc.querySelector('[src*="stream"]');
+                    iframeDoc.querySelector('[class*="player"]');
 
     if (hasVideo) {
       console.log('Video content detected in iframe');
@@ -766,152 +898,25 @@ function checkStreamContent(iframe) {
       if (connectingDiv) {
         connectingDiv.style.display = 'none';
       }
-      streamUrls = [];
       return;
-    } else {
-      console.log('No video content detected in iframe');
     }
   } catch (e) {
-    console.log('Cannot access iframe content (cross-origin), checking URL pattern');
-
-    // If we can't access the content, check if the URL looks like a video stream
-    const url = iframe.src;
-    const isVideoUrl = url.includes('.m3u8') ||
-                      url.includes('.mp4') ||
-                      url.includes('stream') ||
-                      url.includes('video') ||
-                      url.includes('player');
-
-    if (isVideoUrl) {
-      console.log('URL appears to be a video stream, showing iframe');
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
-      streamUrls = [];
-      return;
-    } else {
-      console.log('URL does not appear to be a video stream:', url);
-    }
-  }
-
-  // If we reach here, either no video was found or the URL doesn't look like a video stream
-  setTimeout(() => {
-    if (streamUrls.length > 0) {
-      console.log('Trying next stream URL');
-      tryNextStream();
-    } else {
-      console.log('No more stream URLs to try, showing current iframe');
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
-    }
-  }, 1000); // Reduced from 2 seconds to 1 second
-}
-
-function tryNextStream() {
-  const iframe = document.getElementById('streamIframe');
-  
-  if (currentStreamIndex < streamUrls.length) {
-    const nextUrl = streamUrls[currentStreamIndex];
-    currentStreamIndex++;
-    
-    // Reduced timeout from 8 seconds to 4 seconds
-    streamTestTimeout = setTimeout(() => {
-      tryNextStream();
-    }, 4000);
-    
-    if (iframe) {
-      iframe.src = nextUrl;
-    }
-  } else {
-    const connectingDiv = document.getElementById('streamConnecting');
+    console.log('Cannot access iframe content (cross-origin), assuming external stream');
     iframe.style.display = 'block';
     if (connectingDiv) {
       connectingDiv.style.display = 'none';
     }
-    streamUrls = [];
-  }
-}
-
-async function startStreamTesting(awayTeamName, homeTeamName, streamVersion = 1) {
-  console.log('Starting stream testing with:', awayTeamName, homeTeamName, 'version:', streamVersion);
-
-  // Validate team names
-  if (!awayTeamName || !homeTeamName || awayTeamName === 'Unknown' || homeTeamName === 'Unknown') {
-    console.error('Invalid team names:', awayTeamName, homeTeamName);
     return;
   }
 
-  const awayNormalized = normalizeTeamName(awayTeamName);
-  const homeNormalized = normalizeTeamName(homeTeamName);
-
-  console.log('Normalized names:', awayNormalized, homeNormalized);
-
-  // Validate normalized names
-  if (!awayNormalized || !homeNormalized) {
-    console.error('Failed to normalize team names');
-    return;
+  // If no video detected, still show the iframe (external stream)
+  console.log('No video detected or cross-origin, showing iframe anyway');
+  iframe.style.display = 'block';
+  if (connectingDiv) {
+    connectingDiv.style.display = 'none';
   }
-
-  // Generate URL based on stream version
-  const suffix = streamVersion === 2 ? '-2' : '';
-  const pageUrls = [
-    `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}${suffix}/`
-  ];
-
-  console.log('Stream URLs to test:', pageUrls);
-
-  // Validate URLs
-  for (const url of pageUrls) {
-    try {
-      new URL(url);
-    } catch (e) {
-      console.error('Invalid URL generated:', url);
-      return;
-    }
-  }
-
-  streamUrls = [];
-
-  // Process URLs in parallel for faster extraction
-  const extractionPromises = pageUrls.map(async (url) => {
-    try {
-      console.log('Extracting from:', url);
-      const videoUrl = await extractVideoPlayerUrl(url);
-      console.log('Extracted video URL:', videoUrl);
-      return videoUrl;
-    } catch (error) {
-      console.error(`Error extracting from ${url}:`, error);
-      return null;
-    }
-  });
-
-  const extractedUrls = await Promise.all(extractionPromises);
-
-  // Add valid extracted URLs first
-  extractedUrls.forEach(url => {
-    if (url) {
-      streamUrls.push(url);
-      console.log(`Added extracted URL: ${url}`);
-    }
-  });
-
-  // If no video URLs were extracted, use the page URLs as fallback but mark them as potentially non-video
-  if (streamUrls.length === 0) {
-    console.log('No video URLs extracted, using page URLs directly:', pageUrls);
-    streamUrls = pageUrls;
-  }
-
-  console.log('Final stream URLs:', streamUrls);
-
-  currentStreamIndex = 0;
-
-  setTimeout(() => {
-    tryNextStream();
-  }, 100);
 }
+
 
 function renderLinescoreTable(linescore, awayName, homeName) {
   const table = document.getElementById("linescoreTable");
@@ -1025,57 +1030,120 @@ function hashString(str) {
 }
 
 
-async function renderStreamEmbed(awayTeamName, homeTeamName, streamVersion = 1) {
-  const homeNormalized = normalizeTeamName(homeTeamName);
-  const awayNormalized = normalizeTeamName(awayTeamName);
-  
+async function renderStreamEmbed(awayTeamName, homeTeamName) {
+  const streamContainer = document.getElementById('streamEmbed');
+
+  if (!streamContainer) {
+    console.error('Stream container not found');
+    return;
+  }
+
   // Store current team names for toggle function
   currentAwayTeam = awayTeamName;
   currentHomeTeam = homeTeamName;
-  
+
   console.log('Storing team names in renderStreamEmbed:', awayTeamName, homeTeamName);
   console.log('Current stored names:', currentAwayTeam, currentHomeTeam);
-  
+
   const isSmallScreen = window.innerWidth < 525;
   const screenHeight = isSmallScreen ? 250 : 700;
 
   // Try to fetch streams from API first
   console.log('Attempting to fetch streams from API...');
-  availableStreams = await findMatchStreams(homeTeamName, awayTeamName);
+  availableStreams = await findMatchStreams(awayTeamName, homeTeamName);
 
-  // Generate embed URL based on stream version and available streams
+  // Generate embed URL based on stream type and available streams
   let embedUrl = '';
 
-  if (availableStreams.alpha && streamVersion === 1) {
-    embedUrl = availableStreams.alpha.replace(/\/1$/, '/1'); // Keep as /1 for stream version 1
-  } else if (availableStreams.alpha && streamVersion === 2) {
-    embedUrl = availableStreams.alpha.replace(/\/1$/, '/2'); // Change to /2 for stream version 2
-  } else if (availableStreams.bravo && streamVersion === 1) {
-    embedUrl = availableStreams.bravo.replace(/\/1$/, '/1'); // Use bravo as /1 for stream version 1
-  } else if (availableStreams.bravo && streamVersion === 2) {
-    embedUrl = availableStreams.bravo.replace(/\/1$/, '/2'); // Use bravo as /2 for stream version 2
+  if (availableStreams.alpha1 && currentStreamType === 'alpha1') {
+    embedUrl = availableStreams.alpha1.embedUrl;
+  } else if (availableStreams.alpha2 && currentStreamType === 'alpha2') {
+    embedUrl = availableStreams.alpha2.embedUrl;
+  } else if (availableStreams.bravo && currentStreamType === 'bravo') {
+    embedUrl = availableStreams.bravo.embedUrl;
+  } else if (availableStreams.alpha1) {
+    // Default to alpha1 if available
+    embedUrl = availableStreams.alpha1.embedUrl;
+    currentStreamType = 'alpha1';
+  } else if (availableStreams.alpha2) {
+    // Default to alpha2 if available
+    embedUrl = availableStreams.alpha2.embedUrl;
+    currentStreamType = 'alpha2';
+  } else if (availableStreams.bravo) {
+    // Default to bravo if available
+    embedUrl = availableStreams.bravo.embedUrl;
+    currentStreamType = 'bravo';
   }
 
   // Fallback to manual URL construction if API doesn't have the stream
   if (!embedUrl) {
-    const suffix = streamVersion === 2 ? '-2' : '';
-    embedUrl = `https://papahhdd.sbs/${homeNormalized}-vs-${awayNormalized}${suffix}/`;
-    console.log('Using fallback URL construction:', embedUrl);
+    console.log('No streams available from API');
+    // Show message that no streams are available
+    const streamContainer = document.getElementById('streamEmbed');
+    if (streamContainer) {
+      streamContainer.innerHTML = `
+        <div style="background: #1a1a1a; border-radius: 1rem; padding: 1rem; margin-bottom: 2rem;">
+          <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
+            <h3 style="color: white; margin: 0;">Live Stream</h3>
+          </div>
+          <div style="color: white; padding: 20px; background: #333; border-radius: 8px; text-align: center;">
+            <p>No streams available at this time. Please try again later.</p>
+          </div>
+        </div>
+      `;
+    }
+    return;
   } else {
     console.log('Using API stream URL:', embedUrl);
   }
 
-  return `
-    <div class="stream-container" style="margin: 20px 0; text-align: center;">
+  // Determine which buttons to show based on current stream type and available streams
+  let button1Text = '';
+  let button2Text = '';
+  let button1Action = '';
+  let button2Action = '';
+
+  if (currentStreamType === 'alpha1') {
+    if (availableStreams.alpha2) {
+      button1Text = 'Alpha2';
+      button1Action = "switchToStream('alpha2')";
+    }
+    if (availableStreams.bravo) {
+      button2Text = 'Bravo';
+      button2Action = "switchToStream('bravo')";
+    }
+  } else if (currentStreamType === 'alpha2') {
+    if (availableStreams.alpha1) {
+      button1Text = 'Alpha1';
+      button1Action = "switchToStream('alpha1')";
+    }
+    if (availableStreams.bravo) {
+      button2Text = 'Bravo';
+      button2Action = "switchToStream('bravo')";
+    }
+  } else if (currentStreamType === 'bravo') {
+    if (availableStreams.alpha1) {
+      button1Text = 'Alpha1';
+      button1Action = "switchToStream('alpha1')";
+    }
+    if (availableStreams.alpha2) {
+      button2Text = 'Alpha2';
+      button2Action = "switchToStream('alpha2')";
+    }
+  }
+
+  streamContainer.innerHTML = `
+    <div style="background: #1a1a1a; border-radius: 1rem; padding: 1rem; margin-bottom: 2rem;">
       <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
-        <h3 style="color: white; margin: 0;">Live Stream</h3>
+        <h3 style="color: white; margin: 0;">Live Stream (${currentStreamType.toUpperCase()})</h3>
         <div class="stream-controls" style="margin-top: 10px;">
           <button id="fullscreenButton" onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">⛶ Fullscreen</button>
-          <button id="streamToggleButton" onclick="toggleStreamVersion()" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Test Stream ${currentStreamVersion === 1 ? '2' : '1'}</button>
+          ${button1Text ? `<button id="streamButton1" onclick="${button1Action}" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">${button1Text}</button>` : ''}
+          ${button2Text ? `<button id="streamButton2" onclick="${button2Action}" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">${button2Text}</button>` : ''}
         </div>
       </div>
-      <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; border-radius: 8px; margin-bottom: 10px;">
-        <p>Connecting to stream... <span id="streamStatus"></span></p>
+      <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; margin-bottom: 10px; border-radius: 8px; text-align: center;">
+        <p>Loading stream... <span id="streamStatus"></span></p>
       </div>
       <div class="stream-iframe-container" style="position: relative; width: 100%; margin: 0 auto; overflow: hidden;">
         <iframe
@@ -1083,18 +1151,198 @@ async function renderStreamEmbed(awayTeamName, homeTeamName, streamVersion = 1) 
           src="${embedUrl}"
           width="100%"
           height="${screenHeight}"
-          style="aspect-ratio: 16/9; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); background: #000; display: none;"
+          style="aspect-ratio: 16/9; background: #000; display: none; border-radius: 8px;"
           frameborder="0"
           allowfullscreen
-          allow="autoplay; fullscreen; encrypted-media"
+          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
           referrerpolicy="no-referrer-when-downgrade"
           onload="handleStreamLoad()"
-          onerror="handleStreamError()">
+          onerror="handleStreamError()"
+          title="${homeTeamName} vs ${awayTeamName} Player">
         </iframe>
       </div>
     </div>
   `;
+
+  // Show the iframe immediately since we're using direct embed
+  setTimeout(() => {
+    const iframe = document.getElementById('streamIframe');
+    if (iframe) {
+      iframe.style.display = 'block';
+      const connectingDiv = document.getElementById('streamConnecting');
+      if (connectingDiv) {
+        connectingDiv.style.display = 'none';
+      }
+    }
+  }, 1000);
 }
+
+window.switchToStream = function(streamType) {
+  console.log('Switching to stream type:', streamType);
+  console.log('Current team names:', currentAwayTeam, currentHomeTeam);
+
+  // Update current stream type
+  currentStreamType = streamType;
+
+  // If team names are not available, try to get them from other sources
+  if (!currentAwayTeam || !currentHomeTeam) {
+    console.error('Team names not available for stream switching');
+    return;
+  }
+
+  // Generate new embed URL using API if available
+  if (currentAwayTeam && currentHomeTeam) {
+    renderStreamEmbed(currentAwayTeam, currentHomeTeam);
+  } else {
+    console.error('Cannot switch streams: team names not available');
+  }
+};
+
+// Helper function to update button texts based on current stream type
+function updateStreamButtons(currentType) {
+  const button1 = document.getElementById('streamButton1');
+  const button2 = document.getElementById('streamButton2');
+
+  if (currentType === 'alpha1') {
+    if (button1) button1.textContent = 'Alpha2';
+    if (button2) button2.textContent = 'Bravo';
+  } else if (currentType === 'alpha2') {
+    if (button1) button1.textContent = 'Alpha1';
+    if (button2) button2.textContent = 'Bravo';
+  } else if (currentType === 'bravo') {
+    if (button1) button1.textContent = 'Alpha1';
+    if (button2) button2.textContent = 'Alpha2';
+  }
+}
+
+// Stream testing functionality
+let streamTestTimeout = null;
+let isStreamTesting = false;
+
+async function testStream(url) {
+  return new Promise((resolve) => {
+    const testIframe = document.createElement('iframe');
+    testIframe.src = url;
+    testIframe.style.display = 'none';
+    testIframe.style.width = '1px';
+    testIframe.style.height = '1px';
+
+    let hasLoaded = false;
+    let hasError = false;
+
+    const cleanup = () => {
+      if (testIframe.parentNode) {
+        testIframe.parentNode.removeChild(testIframe);
+      }
+      if (streamTestTimeout) {
+        clearTimeout(streamTestTimeout);
+        streamTestTimeout = null;
+      }
+    };
+
+    testIframe.onload = () => {
+      hasLoaded = true;
+      console.log('Stream test: iframe loaded successfully');
+      cleanup();
+      resolve(true);
+    };
+
+    testIframe.onerror = () => {
+      hasError = true;
+      console.log('Stream test: iframe failed to load');
+      cleanup();
+      resolve(false);
+    };
+
+    // Add to DOM to start loading
+    document.body.appendChild(testIframe);
+
+    // Timeout after 10 seconds
+    streamTestTimeout = setTimeout(() => {
+      if (!hasLoaded && !hasError) {
+        console.log('Stream test: timeout after 10 seconds');
+        cleanup();
+        resolve(false);
+      }
+    }, 10000);
+  });
+}
+
+async function tryNextStream() {
+  if (isStreamTesting) return;
+  isStreamTesting = true;
+
+  console.log('Trying next available stream...');
+
+  const streamOrder = ['alpha1', 'alpha2', 'bravo'];
+  const currentIndex = streamOrder.indexOf(currentStreamType);
+
+  // Try streams in order: current -> next -> next -> back to first
+  for (let i = 1; i <= streamOrder.length; i++) {
+    const nextIndex = (currentIndex + i) % streamOrder.length;
+    const nextStreamType = streamOrder[nextIndex];
+
+    if (availableStreams[nextStreamType]) {
+      console.log(`Testing stream: ${nextStreamType}`);
+
+      let testUrl = '';
+      if (availableStreams[nextStreamType].embedUrl) {
+        testUrl = availableStreams[nextStreamType].embedUrl;
+      } else {
+        // Fallback URL construction
+        const homeNormalized = normalizeTeamName(currentHomeTeam);
+        const awayNormalized = normalizeTeamName(currentAwayTeam);
+
+        if (nextStreamType === 'alpha1') {
+          testUrl = `https://embedsports.top/embed/alpha/${awayNormalized}-vs-${homeNormalized}/1`;
+        } else if (nextStreamType === 'alpha2') {
+          testUrl = `https://embedsports.top/embed/alpha/${awayNormalized}-vs-${homeNormalized}/2`;
+        } else if (nextStreamType === 'bravo') {
+          const timestamp = Date.now();
+          testUrl = `https://embedsports.top/embed/bravo/${timestamp}-${awayNormalized}-${homeNormalized}-english-/1`;
+        }
+      }
+
+      const isWorking = await testStream(testUrl);
+      if (isWorking) {
+        console.log(`Stream ${nextStreamType} is working, switching to it`);
+        switchToStream(nextStreamType);
+        isStreamTesting = false;
+        return;
+      }
+    }
+  }
+
+  console.log('No working streams found');
+  isStreamTesting = false;
+}
+
+function startStreamTesting() {
+  if (isStreamTesting) return;
+
+  console.log('Starting automatic stream testing...');
+
+  // Test current stream first
+  const currentIframe = document.getElementById('streamIframe');
+  if (currentIframe && currentIframe.src) {
+    testStream(currentIframe.src).then(isWorking => {
+      if (!isWorking) {
+        console.log('Current stream not working, trying next stream...');
+        tryNextStream();
+      } else {
+        console.log('Current stream is working');
+      }
+    });
+  } else {
+    // No current stream, try to find a working one
+    tryNextStream();
+  }
+}
+
+// Make stream testing functions available globally
+window.testStream = testStream;
+window.tryNextStream = tryNextStream;
+window.startStreamTesting = startStreamTesting;
 
 async function fetchAndUpdateScoreboard(gamePk) {
   try {
@@ -1170,7 +1418,7 @@ async function fetchAndUpdateScoreboard(gamePk) {
       if (contentSlider) {
         const streamDiv = document.createElement("div");
         streamDiv.id = "streamEmbed";
-        streamDiv.innerHTML = renderStreamEmbed(away.team?.name || "Unknown", home.team?.name || "Unknown", currentStreamVersion);
+        streamDiv.innerHTML = await renderStreamEmbed(away.team?.name || "Unknown", home.team?.name || "Unknown");
         contentSlider.parentNode.insertBefore(streamDiv, contentSlider);
         
         console.log('Initial stream setup - Team names:', away.team?.name, home.team?.name);
@@ -1185,7 +1433,7 @@ async function fetchAndUpdateScoreboard(gamePk) {
         
         // Reduced delay from 500ms to 100ms
         setTimeout(() => {
-          startStreamTesting(away.team?.name || "Unknown", home.team?.name || "Unknown", currentStreamVersion);
+          renderStreamEmbed(away.team?.name || "Unknown", home.team?.name || "Unknown");
         }, 100);
       }
     } else if (streamContainer && !isInProgress) {

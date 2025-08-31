@@ -224,7 +224,7 @@ function buildGameCard(game) {
       ${isMLS ? '' : `<div style="font-size: 0.8rem; color: grey; text-align: center;">${leagueName}, Round ${newTotal}</div>`}
       <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
         <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
-          <img src="${getTeamLogo(homeTeam.team)}" alt="${homeTeam.team.displayName}" style="width: 60px; height: 60px; margin-bottom: 6px;">
+          <img src="${getTeamLogo(homeTeam.team)}" alt="${homeTeam.team.displayName}" style="width: 60px; height: 60px; margin-bottom: 6px;" onerror="this.onerror=null; this.src='soccer-ball-png-24.png';">
           <div style="font-weight: bold;">${formatShortDisplayName(homeTeam.team.shortDisplayName)}</div>
         </div>
         <div style="text-align: center;">
@@ -232,7 +232,7 @@ function buildGameCard(game) {
           <div style="font-size: 0.75rem; color: grey; margin-top: 25px;">${date}</div>
         </div>
         <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
-          <img src="${getTeamLogo(awayTeam.team)}" alt="${awayTeam.team.displayName}" style="width: 60px; height: 60px; margin-bottom: 6px;">
+          <img src="${getTeamLogo(awayTeam.team)}" alt="${awayTeam.team.displayName}" style="width: 60px; height: 60px; margin-bottom: 6px;" onerror="this.onerror=null; this.src='soccer-ball-png-24.png';">
           <div style="font-weight: bold;">${formatShortDisplayName(awayTeam.team.shortDisplayName)}</div>
         </div>
       </div>
@@ -244,7 +244,7 @@ function buildGameCard(game) {
       <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
         <div style="text-align: center;">
           <div style="display: flex; align-items: center; gap: 8px;">
-            <img src="${getTeamLogo(homeTeam.team)}" alt="${homeTeam.team.displayName}" style="width: 60px; height: 60px;">
+            <img src="${getTeamLogo(homeTeam.team)}" alt="${homeTeam.team.displayName}" style="width: 60px; height: 60px;" onerror="this.onerror=null; this.src='soccer-ball-png-24.png';">
             <span style="font-size: 2.3rem; ${homeIsWinner ? "font-weight: bold;" : ""}">${homeTeam.score}</span>
           </div>
           <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${formatShortDisplayName(homeTeam.team.shortDisplayName)}</div>
@@ -256,7 +256,7 @@ function buildGameCard(game) {
         <div style="text-align: center;">
           <div style="display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 2.3rem; ${awayIsWinner ? "font-weight: bold;" : ""}">${awayTeam.score}</span>
-            <img src="${getTeamLogo(awayTeam.team)}" alt="${awayTeam.team.displayName}" style="width: 60px; height: 60px;">
+            <img src="${getTeamLogo(awayTeam.team)}" alt="${awayTeam.team.displayName}" style="width: 60px; height: 60px;" onerror="this.onerror=null; this.src='soccer-ball-png-24.png';">
           </div>
           <div style="margin-top: 6px; ${awayIsWinner ? "font-weight: bold;" : ""}">${formatShortDisplayName(awayTeam.team.shortDisplayName)}</div>
         </div>
@@ -271,7 +271,7 @@ function buildGameCard(game) {
       <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
         <div style="text-align: center;">
           <div style="display: flex; align-items: center; gap: 8px;">
-            <img src="${getTeamLogo(homeTeam.team)}" alt="${homeTeam.team.displayName}" style="width: 60px; height: 60px;">
+            <img src="${getTeamLogo(homeTeam.team)}" alt="${homeTeam.team.displayName}" style="width: 60px; height: 60px;" onerror="this.onerror=null; this.src='soccer-ball-png-24.png';">
             <span style="font-size: 2.3rem; ${homeIsWinner ? "font-weight: bold;" : ""}">${homeTeam.score}</span>
           </div>
           <div style="margin-top: 6px; ${homeIsWinner ? "font-weight: bold;" : ""}">${formatShortDisplayName(homeTeam.team.shortDisplayName)}</div>
@@ -283,7 +283,7 @@ function buildGameCard(game) {
         <div style="text-align: center;">
           <div style="display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 2.3rem; ${awayIsWinner ? "font-weight: bold;" : ""}">${awayTeam.score}</span>
-            <img src="${getTeamLogo(awayTeam.team)}" alt="${awayTeam.team.displayName}" style="width: 60px; height: 60px;">
+            <img src="${getTeamLogo(awayTeam.team)}" alt="${awayTeam.team.displayName}" style="width: 60px; height: 60px;" onerror="this.onerror=null; this.src='soccer-ball-png-24.png';">
           </div>
           <div style="margin-top: 6px; ${awayIsWinner ? "font-weight: bold;" : ""}">${formatShortDisplayName(awayTeam.team.shortDisplayName)}</div>
         </div>

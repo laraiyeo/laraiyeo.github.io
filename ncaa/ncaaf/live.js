@@ -98,7 +98,7 @@ function getTeamNameWithRanking(team) {
   const baseName = team.shortDisplayName || team.displayName || "Unknown";
   
   if (teamRank) {
-    return `<span style="color: #777;">(${teamRank})</span> ${baseName}`;
+    return `<span style="color: #777;">${teamRank}</span> ${baseName}`;
   }
   
   return baseName;
