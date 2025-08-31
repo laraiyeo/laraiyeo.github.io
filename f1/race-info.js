@@ -1338,230 +1338,15 @@ function normalizeRaceName(raceName) {
     .replace(/[^a-z0-9\-]/g, '');
 }
 
-async function extractVideoPlayerUrl(pageUrl) {
-  try {
-    // Use a CORS proxy to fetch the page content
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(pageUrl)}`;
-    const response = await fetch(proxyUrl);
-    const data = await response.json();
-    
-    if (data.contents) {
-      // Look for iframe src in the page content
-      const iframeMatch = data.contents.match(/src="([^"]*castweb\.xyz[^"]*)"/);
-      if (iframeMatch) {
-        return iframeMatch[1];
-      }
-      
-      // Alternative patterns to look for
-      const altMatch = data.contents.match(/iframe[^>]*src="([^"]*\.php[^"]*)"/);
-      if (altMatch) {
-        return altMatch[1];
-      }
-    }
-  } catch (error) {
-    console.error('Error extracting video player URL:', error);
-  }
-  
-  return null;
-}
+// Video extraction function removed - using direct iframe embed
 
-// Enhanced video control functions
-window.toggleMute = function() {
-  const iframe = document.getElementById('streamIframe');
-  const muteButton = document.getElementById('muteButton');
-  
-  if (!iframe || !muteButton) return;
-  
-  // Toggle muted state
-  isMuted = !isMuted;
-  muteButton.textContent = isMuted ? '🔊 Unmute' : '🔇 Mute';
-  
-  // Multiple approaches to control video muting
-  try {
-    // Method 1: Direct iframe manipulation
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-    if (iframeDoc) {
-      const videos = iframeDoc.querySelectorAll('video');
-      videos.forEach(video => {
-        video.muted = isMuted;
-        video.volume = isMuted ? 0 : 1;
-      });
-      
-      console.log(isMuted ? 'Video muted via direct access' : 'Video unmuted via direct access');
-    }
-  } catch (e) {
-    console.log('Direct video access blocked by CORS');
-  }
-  
-  // Method 2: PostMessage to iframe
-  try {
-    iframe.contentWindow.postMessage({
-      action: 'toggleMute',
-      muted: isMuted,
-      volume: isMuted ? 0 : 1
-    }, '*');
-    
-    iframe.contentWindow.postMessage({
-      action: 'setVideoParams',
-      autoplay: 1,
-      mute: isMuted ? 1 : 0
-    }, '*');
-    
-    console.log(isMuted ? 'Mute message sent to iframe' : 'Unmute message sent to iframe');
-  } catch (e) {
-    console.log('PostMessage failed');
-  }
-  
-  // Method 3: Simulate key events
-  try {
-    const keyEvent = new KeyboardEvent('keydown', { key: 'm', code: 'KeyM' });
-    iframe.contentWindow.dispatchEvent(keyEvent);
-    console.log('Mute key event sent to iframe');
-  } catch (e) {
-    console.log('Key event failed');
-  }
-  
-  // Method 4: Try to modify iframe src with mute parameter
-  if (iframe.src && !iframe.src.includes('mute=')) {
-    const separator = iframe.src.includes('?') ? '&' : '?';
-    const newSrc = `${iframe.src}${separator}mute=${isMuted ? 1 : 0}&autoplay=1`;
-    if (iframe.src !== newSrc) {
-      iframe.src = newSrc;
-      console.log('Updated iframe src with mute parameter');
-    }
-  }
-};
+// Stream control functions removed - using direct iframe embed
 
-window.toggleFullscreen = function() {
-  const iframe = document.getElementById('streamIframe');
-  
-  if (iframe) {
-    try {
-      // For iOS Safari and other WebKit browsers
-      if (iframe.webkitEnterFullscreen) {
-        iframe.webkitEnterFullscreen();
-        console.log('iOS/WebKit fullscreen requested');
-      }
-      // Standard fullscreen API
-      else if (iframe.requestFullscreen) {
-        iframe.requestFullscreen();
-        console.log('Standard fullscreen requested');
-      } 
-      // Chrome/Safari prefixed version
-      else if (iframe.webkitRequestFullscreen) {
-        iframe.webkitRequestFullscreen();
-        console.log('WebKit fullscreen requested');
-      } 
-      // IE/Edge prefixed version
-      else if (iframe.msRequestFullscreen) {
-        iframe.msRequestFullscreen();
-        console.log('MS fullscreen requested');
-      }
-      // Mozilla prefixed version
-      else if (iframe.mozRequestFullScreen) {
-        iframe.mozRequestFullScreen();
-        console.log('Mozilla fullscreen requested');
-      }
-      else {
-        console.log('Fullscreen API not supported on this device');
-        // Fallback: try to make the iframe larger on unsupported devices
-        if (iframe.style.position !== 'fixed') {
-          iframe.style.position = 'fixed';
-          iframe.style.top = '0';
-          iframe.style.left = '0';
-          iframe.style.width = '100vw';
-          iframe.style.height = '100vh';
-          iframe.style.zIndex = '9999';
-          iframe.style.backgroundColor = '#000';
-          console.log('Applied fullscreen-like styling as fallback');
-        } else {
-          // Exit fullscreen-like mode
-          iframe.style.position = '';
-          iframe.style.top = '';
-          iframe.style.left = '';
-          iframe.style.width = '100%';
-          iframe.style.height = '700px';
-          iframe.style.zIndex = '';
-          iframe.style.backgroundColor = '';
-          console.log('Exited fullscreen-like styling');
-        }
-      }
-    } catch (e) {
-      console.log('Fullscreen request failed:', e);
-      // Additional fallback for cases where even the API calls fail
-      alert('Fullscreen not supported on this device. Try rotating your device to landscape mode for a better viewing experience.');
-    }
-  }
-};
+// Fullscreen function removed - using direct iframe embed
 
-window.loadStream = function(url) {
-  const iframe = document.getElementById('streamIframe');
-  
-  if (iframe) {
-    iframe.src = url;
-  }
-};
+// Stream functions removed - using direct iframe embed
 
-window.handleStreamLoad = function() {
-  const iframe = document.getElementById('streamIframe');
-  const connectingDiv = document.getElementById('streamConnecting');
-  
-  // Clear any existing timeout
-  if (streamTestTimeout) {
-    clearTimeout(streamTestTimeout);
-    streamTestTimeout = null;
-  }
-  
-  // Reduced delay from 3 seconds to 1 second
-  if (iframe.src !== 'about:blank') {
-    setTimeout(() => {
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
-      
-      // Reduced delay from 1 second to 200ms
-      setTimeout(() => {
-        try {
-          const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-          
-          if (iframeDoc) {
-            // Start with muted state
-            const videos = iframeDoc.querySelectorAll('video');
-            if (videos.length > 0) {
-              videos.forEach(video => {
-                video.muted = isMuted;
-                video.volume = isMuted ? 0 : 1;
-              });
-              const muteButton = document.getElementById('muteButton');
-              if (muteButton) {
-                muteButton.textContent = isMuted ? '🔊 Unmute' : '🔇 Mute';
-              }
-              console.log(isMuted ? 'Video started muted' : 'Video started unmuted');
-            }
-          }
-        } catch (e) {
-          console.log('Cannot access iframe content (cross-origin)');
-        }
-      }, 200);
-      
-    }, 1000);
-  }
-  
-  // Check if this is the initial auto-test - reduced delay
-  if (streamUrls.length > 0 && iframe.src !== 'about:blank') {
-    setTimeout(() => {
-      checkStreamContent(iframe);
-    }, 1500);
-  } else {
-    if (iframe.src !== 'about:blank') {
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
-    }
-  }
-};
+// Stream load handler removed - using direct iframe embed
 
 function checkStreamContent(iframe) {
   const connectingDiv = document.getElementById('streamConnecting');
@@ -1603,118 +1388,104 @@ function checkStreamContent(iframe) {
   }, 1000);
 }
 
-function tryNextStream() {
-  const iframe = document.getElementById('streamIframe');
-  
-  if (currentStreamIndex < streamUrls.length) {
-    const nextUrl = streamUrls[currentStreamIndex];
-    console.log(`Trying stream URL ${currentStreamIndex + 1}/${streamUrls.length}: ${nextUrl}`);
-    currentStreamIndex++;
-    
-    // Reduced timeout from 8 seconds to 4 seconds
-    streamTestTimeout = setTimeout(() => {
-      console.log(`Stream URL timed out, trying next...`);
-      tryNextStream();
-    }, 4000);
-    
-    if (iframe) {
-      iframe.src = nextUrl;
-    }
-  } else {
-    console.log('All stream URLs tested, showing final iframe');
-    const connectingDiv = document.getElementById('streamConnecting');
-    iframe.style.display = 'block';
-    if (connectingDiv) {
-      connectingDiv.style.display = 'none';
-    }
-    streamUrls = [];
-  }
-}
+// Stream functions removed - using direct iframe embed
 
-async function startStreamTesting(raceName) {
-  const normalizedRaceName = normalizeRaceName(raceName);
-  
-  console.log(`Original race name: ${raceName}`);
-  console.log(`Normalized race name: ${normalizedRaceName}`);
-  
-  // Set up page URLs to extract video players from
-  const pageUrls = [
-    `https://papaahd.live/formula-1-2025-${normalizedRaceName}/`
-  ];
-  
-  console.log('Trying URLs:', pageUrls);
-  
-  streamUrls = [];
-  
-  // Process URLs in parallel for faster extraction
-  const extractionPromises = pageUrls.map(async (url) => {
-    try {
-      const videoUrl = await extractVideoPlayerUrl(url);
-      return videoUrl;
-    } catch (error) {
-      console.error(`Error extracting from ${url}:`, error);
-      return null;
-    }
-  });
-  
-  const extractedUrls = await Promise.all(extractionPromises);
-  
-  // Add valid extracted URLs first
-  extractedUrls.forEach(url => {
-    if (url) {
-      streamUrls.push(url);
-      console.log(`Extracted video URL: ${url}`);
-    }
-  });
-  
-  // If no video URLs were extracted, fall back to original page URLs
-  if (streamUrls.length === 0) {
-    console.log('No video URLs extracted, using page URLs directly');
-    streamUrls = pageUrls;
-  }
-  
-  currentStreamIndex = 0;
-  
-  // Reduced delay from 1 second to 300ms
-  setTimeout(() => {
-    tryNextStream();
-  }, 300);
-}
+// Stream testing function removed - using direct iframe embed
 
 function renderStreamEmbed(raceName) {
-  const normalizedRaceName = normalizeRaceName(raceName);
   const isSmallScreen = window.innerWidth < 525;
   const screenHeight = isSmallScreen ? 250 : 700;
-  
+
   return `
-    <div class="stream-container" style="margin: 20px 0; text-align: center;">
-      <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
-        <h3 style="color: white; margin: 0;">Live Stream</h3>
-        <div class="stream-controls" style="margin-top: 10px;">
-          <button id="fullscreenButton" onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">⛶ Fullscreen</button>
+    <div style="background: #1a1a1a; border-radius: 1rem; padding: 1rem; margin-bottom: 2rem;">
+      <div style="margin-bottom: 10px; text-align: center;">
+        <h3 style="color: white; margin: 0;">F1 Live Stream</h3>
+        <div style="margin-top: 10px;">
+          <button onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">⛶ Fullscreen</button>
         </div>
       </div>
-      <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; border-radius: 8px; margin-bottom: 10px;">
-        <p>Connecting to stream... <span id="streamStatus"></span></p>
-      </div>
-      <div class="stream-iframe-container" style="position: relative; width: 100%; margin: 0 auto; overflow: hidden;">
-        <iframe 
-          id="streamIframe"
-          src="about:blank"
-          width="100%" 
+      <div style="position: relative; width: 100%; margin: 0 auto; overflow: hidden;">
+        <iframe
+          title="Sky Sports F1 | Sky F1 Player"
+          marginheight="0"
+          marginwidth="0"
+          src="https://embedsports.top/embed/alpha/sky-sports-f1-sky-f1/1"
+          scrolling="no"
+          allowfullscreen="yes"
+          allow="encrypted-media; picture-in-picture; autoplay; fullscreen"
+          width="100%"
           height="${screenHeight}"
-          style="aspect-ratio: 16/9; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); background: #000; display: none;"
           frameborder="0"
-          allowfullscreen
-          allow="autoplay; fullscreen; encrypted-media"
-          referrerpolicy="no-referrer-when-downgrade"
-          onload="handleStreamLoad()"
-          onerror="handleStreamError()">
+          style="aspect-ratio: 16/9; background: #000; border-radius: 8px;">
         </iframe>
       </div>
     </div>
   `;
 }
+
+window.toggleFullscreen = function() {
+  const iframe = document.querySelector('#streamEmbed iframe');
+
+  if (iframe) {
+    try {
+      // For iOS Safari and other WebKit browsers
+      if (iframe.webkitEnterFullscreen) {
+        iframe.webkitEnterFullscreen();
+        console.log('iOS/WebKit fullscreen requested');
+      }
+      // Standard fullscreen API
+      else if (iframe.requestFullscreen) {
+        iframe.requestFullscreen();
+        console.log('Standard fullscreen requested');
+      }
+      // Chrome/Safari prefixed version
+      else if (iframe.webkitRequestFullscreen) {
+        iframe.webkitRequestFullscreen();
+        console.log('WebKit fullscreen requested');
+      }
+      // IE/Edge prefixed version
+      else if (iframe.msRequestFullscreen) {
+        iframe.msRequestFullscreen();
+        console.log('MS fullscreen requested');
+      }
+      // Mozilla prefixed version
+      else if (iframe.mozRequestFullScreen) {
+        iframe.mozRequestFullScreen();
+        console.log('Mozilla fullscreen requested');
+      }
+      else {
+        console.log('Fullscreen API not supported on this device');
+        // Fallback: try to make the iframe larger on unsupported devices
+        if (iframe.style.position !== 'fixed') {
+          iframe.style.position = 'fixed';
+          iframe.style.top = '0';
+          iframe.style.left = '0';
+          iframe.style.width = '100vw';
+          iframe.style.height = '100vh';
+          iframe.style.zIndex = '9999';
+          iframe.style.backgroundColor = '#000';
+          console.log('Applied fullscreen-like styling as fallback');
+        } else {
+          // Exit fullscreen-like mode
+          const isSmallScreen = window.innerWidth < 525;
+          const screenHeight = isSmallScreen ? 250 : 700;
+          iframe.style.position = '';
+          iframe.style.top = '';
+          iframe.style.left = '';
+          iframe.style.width = '100%';
+          iframe.style.height = screenHeight + 'px';
+          iframe.style.zIndex = '';
+          iframe.style.backgroundColor = '';
+          console.log('Exited fullscreen-like styling');
+        }
+      }
+    } catch (e) {
+      console.log('Fullscreen request failed:', e);
+      // Additional fallback for cases where even the API calls fail
+      alert('Fullscreen not supported on this device. Try rotating your device to landscape mode for a better viewing experience.');
+    }
+  }
+};
 
 async function renderRaceInfo() {
   const container = document.getElementById("topRaceInfo");
@@ -1821,24 +1592,16 @@ async function renderRaceInfo() {
   
   container.innerHTML = raceInfoHtml;
 
-  // Add stream embed after topRaceInfo for in-progress races
+  // Add stream embed after topRaceInfo - F1 has 24/7 stream so always show it
   const streamContainer = document.getElementById("streamEmbed");
-  if (!streamContainer && finalCountdown.status === "in-progress") {
+  if (!streamContainer) {
     const raceDetailsDiv = document.getElementById("raceDetails");
     if (raceDetailsDiv) {
       const streamDiv = document.createElement("div");
       streamDiv.id = "streamEmbed";
       streamDiv.innerHTML = renderStreamEmbed(selectedRace.name || selectedRace.shortName);
       raceDetailsDiv.parentNode.insertBefore(streamDiv, raceDetailsDiv);
-      
-      // Reduced delay from 500ms to 100ms
-      setTimeout(() => {
-        startStreamTesting(selectedRace.name || selectedRace.shortName);
-      }, 100);
     }
-  } else if (streamContainer && countdown.status !== "in-progress") {
-    // Remove stream container if race is no longer in progress
-    streamContainer.remove();
   }
 
   // Start countdown timer only for upcoming races
