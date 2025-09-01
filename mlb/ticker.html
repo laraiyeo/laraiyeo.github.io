@@ -512,12 +512,28 @@
       let slideInterval;
       let currentSlide = null;
 
+      // Function to get ticker speed from URL parameter or localStorage
+      function getTickerSpeed() {
+        // Check URL parameters first (for OBS usage)
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlSpeed = urlParams.get('speed');
+        
+        if (urlSpeed && !isNaN(urlSpeed)) {
+          const speed = Math.max(1, Math.min(30, parseInt(urlSpeed)));
+          return speed * 1000; // Convert to milliseconds
+        }
+        
+        // Fall back to localStorage
+        const savedSpeed = localStorage.getItem('mlb-ticker-speed');
+        const speed = savedSpeed ? parseInt(savedSpeed) : 5; // Default to 5 seconds
+        return Math.max(1, Math.min(30, speed)) * 1000; // Convert to milliseconds
+      }
+
       // Function to update ticker speed dynamically
       function updateTickerSpeed() {
         if (slideInterval) {
           clearInterval(slideInterval);
-          const savedSpeed = localStorage.getItem('mlb-ticker-speed');
-          const speed = savedSpeed ? parseInt(savedSpeed) * 1000 : 5000;
+          const speed = getTickerSpeed();
           slideInterval = setInterval(showNextGame, speed);
         }
       }
@@ -853,9 +869,8 @@
           // Start with the first game
           await showNextGame();
 
-          // Get speed from localStorage (default to 5 seconds)
-          const savedSpeed = localStorage.getItem('mlb-ticker-speed');
-          const speed = savedSpeed ? parseInt(savedSpeed) * 1000 : 5000; // Convert to milliseconds
+          // Get speed from URL parameter or localStorage
+          const speed = getTickerSpeed();
 
           // Set up interval with custom speed
           slideInterval = setInterval(showNextGame, speed);

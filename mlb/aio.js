@@ -467,7 +467,12 @@ function initializeTickerControls() {
   const tickerButton = document.getElementById('ticker-button');
   if (tickerButton) {
     tickerButton.addEventListener('click', function() {
-      const tickerUrl = `${window.location.origin}${window.location.pathname.replace('aio.html', 'ticker.html')}`;
+      // Get current speed setting
+      const speedInput = document.getElementById('ticker-speed');
+      const speed = speedInput ? speedInput.value : '5';
+      
+      // Include speed as URL parameter for OBS compatibility
+      const tickerUrl = `${window.location.origin}${window.location.pathname.replace('aio.html', 'ticker.html')}?speed=${speed}`;
       window.open(tickerUrl, '_blank', 'width=1920,height=200,scrollbars=no,resizable=no,status=no,toolbar=no,menubar=no');
     });
   }
