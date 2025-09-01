@@ -109,11 +109,9 @@ body {
   text-align: center;
   position: relative;
   box-shadow: 0 0 10px rgb(255, 255, 255);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .game-card:hover {
-  transform: scale(1.05);
   box-shadow: 0 2px 12px rgba(255, 255, 255);
 }
 

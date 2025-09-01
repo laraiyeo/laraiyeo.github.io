@@ -72,11 +72,12 @@ function getBaseHtml(matchup) {
   `;
 }
 
-async function buildFinalCardContent(awayFull, awayShort, awayScore, homeFull, homeShort, homeScore) {
+async function buildFinalCardContent(awayFull, awayShort, awayScore, homeFull, homeShort, homeScore, inning, extraInning) {
   const awayLogo = await getLogoUrl(awayFull);
   const homeLogo = await getLogoUrl(homeFull);
   const awayIsWinner = awayScore > homeScore;
   const homeIsWinner = homeScore > awayScore;
+  console.log(`Inning: ${inning}, Extra Inning: ${extraInning}`);
 
   return `
     <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -87,7 +88,7 @@ async function buildFinalCardContent(awayFull, awayShort, awayScore, homeFull, h
         </div>
         <div style="margin-top: 6px; ${awayIsWinner ? 'font-weight: bold;' : ''}">${awayShort}</div>
       </div>
-      <div style="position: absolute; left: 50%; transform: translateX(-50%); font-size: 1.4rem; font-weight: bold;">Final</div>
+      <div style="position: absolute; left: 50%; transform: translateX(-50%); font-size: 1.4rem; font-weight: bold;">Final${extraInning ? `/${inning}` : ''}</div>
       <div style="text-align: center;">
         <div style="display: flex; align-items: center; gap: 8px; flex-direction: row-reverse;">
           <img src="${homeLogo}" alt="${homeShort}" style="width: 45px; height: 45px;">
@@ -100,14 +101,17 @@ async function buildFinalCardContent(awayFull, awayShort, awayScore, homeFull, h
 }
 
 async function buildCard(game) {
-  const { teams, status, gameDate } = game;
+  const { teams, status, gameDate, linescore } = game;
   const awayFull = teams.away.team.name;
   const homeFull = teams.home.team.name;
   const awayShort = await getTeamNameById(teams.away.team.id);
   const homeShort = await getTeamNameById(teams.home.team.id);
+  const inning = game.linescore?.currentInning;
+  const extraInning = inning > 9;
   const statusText = status.detailedState;
   const card = document.createElement("div");
   card.className = "game-card";
+  card.dataset.gamePk = game.gamePk; // Add gamePk as data attribute
 
   // Apply team card styles from teams.js
   const teamCardStyles = getTeamCardStyles();
@@ -218,7 +222,7 @@ async function buildCard(game) {
   } else if (["Final", "Game Over"].includes(statusText)) {
     card.innerHTML = await buildFinalCardContent(
       awayFull, awayShort, teams.away.score,
-      homeFull, homeShort, teams.home.score
+      homeFull, homeShort, teams.home.score, inning, extraInning
     );
   }
   
@@ -260,6 +264,70 @@ function hashString(str) {
   return hash;
 }
 
+async function updateCardInPlace(card, game) {
+  const { teams, status, gameDate } = game;
+  const awayFull = teams.away.team.name;
+  const homeFull = teams.home.team.name;
+  const awayShort = await getTeamNameById(teams.away.team.id);
+  const homeShort = await getTeamNameById(teams.home.team.id);
+  const statusText = status.detailedState;
+
+  if (["In Progress", "Manager challenge"].includes(statusText) || status.codedGameState === "M") {
+    const inningLabel = getInningLabel(game.linescore?.inningHalf) || "Inning";
+    const centerText = `${inningLabel} ${game.linescore?.currentInning || ""}`.trim();
+    const awayScore = teams.away.score || 0;
+    const homeScore = teams.home.score || 0;
+    const leadingAway = awayScore > homeScore;
+    const leadingHome = homeScore > awayScore;
+    const outs = game.linescore?.outs || 0;
+
+    const gamePk = game.gamePk;
+    let matchup = {};
+    try {
+      const res = await fetch(`https://statsapi.mlb.com/api/v1.1/game/${gamePk}/feed/live`);
+      const data = await res.json();
+      matchup = data?.liveData?.plays?.currentPlay?.matchup || {};
+    } catch (err) {
+      console.error(`Error fetching live feed for game ${gamePk}`, err);
+    }
+
+    const baseHtml = getBaseHtml(matchup);
+
+    // Update only the changing elements
+    const centerDiv = card.querySelector('div:nth-child(2)');
+    if (centerDiv) {
+      centerDiv.innerHTML = `
+        <div style="font-size: 1.1rem; font-weight: bold;">${centerText}</div>
+        <div style="font-size: 0.85rem; margin-top: 4px;">Outs: ${outs}</div>
+        ${baseHtml}
+      `;
+    }
+
+    // Update scores
+    const awayScoreSpan = card.querySelector('div:first-child span');
+    const homeScoreSpan = card.querySelector('div:last-child span');
+    if (awayScoreSpan) {
+      awayScoreSpan.textContent = awayScore;
+      awayScoreSpan.style.fontWeight = leadingAway ? 'bold' : 'normal';
+    }
+    if (homeScoreSpan) {
+      homeScoreSpan.textContent = homeScore;
+      homeScoreSpan.style.fontWeight = leadingHome ? 'bold' : 'normal';
+    }
+
+  } else if (["Scheduled", "Pre-Game", "Warmup"].includes(statusText)) {
+    // For scheduled games, the time might change, so update the center time
+    const centerTimeDiv = card.querySelector('div[style*="position: absolute"]');
+    if (centerTimeDiv) {
+      const startTime = new Date(gameDate).toLocaleTimeString("en-US", {
+        hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York"
+      });
+      centerTimeDiv.textContent = startTime;
+    }
+  }
+  // For finished games, they don't change much so we can leave them as-is
+}
+
 async function displayGames(games, sectionId, containerId, noGamesId) {
   const section = document.getElementById(sectionId);
   const container = document.getElementById(containerId);
@@ -276,13 +344,41 @@ async function displayGames(games, sectionId, containerId, noGamesId) {
   noGamesDiv.style.display = "none";
   section.style.display = "block";
 
-  // Clear existing content
-  container.innerHTML = '';
-  
+  // Get existing cards
+  const existingCards = Array.from(container.children);
+  const existingGameIds = existingCards.map(card => card.dataset.gamePk);
+
+  // Create a map of games by gamePk for efficient lookup
+  const gamesMap = new Map();
+  games.forEach(game => gamesMap.set(game.gamePk, game));
+
+  // Update existing cards and track which ones to keep
+  const cardsToKeep = new Set();
+
   for (const game of games) {
-    const gameCard = await buildCard(game);
-    container.appendChild(gameCard);
+    const gamePk = game.gamePk;
+    cardsToKeep.add(gamePk);
+
+    const existingCardIndex = existingGameIds.indexOf(gamePk);
+    if (existingCardIndex !== -1) {
+      // Update existing card in-place to prevent jittering
+      const existingCard = existingCards[existingCardIndex];
+      await updateCardInPlace(existingCard, game);
+    } else {
+      // Create new card
+      const newCard = await buildCard(game);
+      newCard.dataset.gamePk = gamePk;
+      container.appendChild(newCard);
+    }
   }
+
+  // Remove cards that are no longer in the games list
+  existingCards.forEach(card => {
+    const gamePk = card.dataset.gamePk;
+    if (!cardsToKeep.has(gamePk)) {
+      card.remove();
+    }
+  });
 }
 
 async function fetchAndDisplayAllGames() {
@@ -339,7 +435,43 @@ document.addEventListener("DOMContentLoaded", function() {
   fetchAndDisplayAllGames();
   setInterval(fetchAndDisplayAllGames, 2000); // Refresh every 2 seconds
   initializePageStyling();
+  initializeTickerControls();
 });
+
+// Initialize ticker controls
+function initializeTickerControls() {
+  // Load saved ticker speed or default to 5 seconds
+  const savedSpeed = localStorage.getItem('mlb-ticker-speed');
+  const speedInput = document.getElementById('ticker-speed');
+  
+  if (savedSpeed) {
+    speedInput.value = savedSpeed;
+  }
+  
+  // Add event listener for speed changes
+  speedInput.addEventListener('input', function() {
+    const speed = Math.max(1, Math.min(30, parseInt(this.value) || 5));
+    this.value = speed;
+    localStorage.setItem('mlb-ticker-speed', speed.toString());
+  });
+  
+  // Add blur event to ensure valid value
+  speedInput.addEventListener('blur', function() {
+    if (!this.value || parseInt(this.value) < 1) {
+      this.value = 5;
+      localStorage.setItem('mlb-ticker-speed', '5');
+    }
+  });
+  
+  // Add ticker button functionality
+  const tickerButton = document.getElementById('ticker-button');
+  if (tickerButton) {
+    tickerButton.addEventListener('click', function() {
+      const tickerUrl = `${window.location.origin}${window.location.pathname.replace('aio.html', 'ticker.html')}`;
+      window.open(tickerUrl, '_blank', 'width=1920,height=200,scrollbars=no,resizable=no,status=no,toolbar=no,menubar=no');
+    });
+  }
+}
 
 // Styling functionality
 const defaultTeamCardStyles = {

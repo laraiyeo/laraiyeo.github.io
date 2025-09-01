@@ -50,7 +50,20 @@
     <div id="navbar-container"></div>
 
     <div id="scoreboard">
-      <h2>All Games Today</h2>
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+        <h2 style="margin: 0;">All Games Today</h2>
+        <div style="display: flex; align-items: center; gap: 15px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <label for="ticker-speed" style="font-size: 0.9em; font-weight: bold; color: #333;">Ticker Speed:</label>
+            <input type="number" id="ticker-speed" min="1" max="30" value="5" 
+                   style="width: 60px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; text-align: center; font-size: 0.9em;">
+            <span style="font-size: 0.85em; color: #666;">sec</span>
+          </div>
+          <button id="ticker-button" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9em;">
+            📺 Ticker
+          </button>
+        </div>
+      </div>
       
       <!-- Live Games Section -->
       <div id="live-section">

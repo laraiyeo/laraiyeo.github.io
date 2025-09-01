@@ -586,6 +586,72 @@ async function findMatchStreams(homeTeamName, awayTeamName) {
 
       // Multiple matching strategies with rough/fuzzy matching
       const strategies = [
+        // Strategy 0: Special handling for ranked games (e.g., "6 Notre Dame vs 10 Miami")
+        () => {
+          let score = 0;
+          
+          // Check for ranked game format: "#rank TeamName vs #rank TeamName"
+          const rankedGamePattern = /(\d+\s+)?([a-z\s]+?)\s+vs\s+(\d+\s+)?([a-z\s]+)/i;
+          const rankedMatch = matchTitle.match(rankedGamePattern);
+          
+          if (rankedMatch) {
+            const team1 = rankedMatch[2].trim().replace(/\s+/g, '-').toLowerCase();
+            const team2 = rankedMatch[4].trim().replace(/\s+/g, '-').toLowerCase();
+            
+            console.log(`Ranked game pattern found: "${team1}" vs "${team2}"`);
+            console.log(`Looking for: "${homeNormalized}" vs "${awayNormalized}"`);
+            
+            // More flexible matching for team names
+            const homeKeywords = homeNormalized.split('-').filter(word => word.length > 3);
+            const awayKeywords = awayNormalized.split('-').filter(word => word.length > 3);
+            
+            let homeMatches = false;
+            let awayMatches = false;
+            
+            // Check if home team matches either API team
+            homeKeywords.forEach(keyword => {
+              if (team1.includes(keyword) || team2.includes(keyword) || 
+                  keyword.includes(team1) || keyword.includes(team2)) {
+                homeMatches = true;
+              }
+            });
+            
+            // Check if away team matches either API team  
+            awayKeywords.forEach(keyword => {
+              if (team1.includes(keyword) || team2.includes(keyword) || 
+                  keyword.includes(team1) || keyword.includes(team2)) {
+                awayMatches = true;
+              }
+            });
+            
+            // Special handling for common team name variations
+            const homeFirst = homeKeywords[0] || '';
+            const awayFirst = awayKeywords[0] || '';
+            
+            // Notre Dame special case
+            if ((homeFirst === 'notre' && (team1.includes('notre') || team2.includes('notre'))) ||
+                (awayFirst === 'notre' && (team1.includes('notre') || team2.includes('notre')))) {
+              if (homeFirst === 'notre') homeMatches = true;
+              if (awayFirst === 'notre') awayMatches = true;
+            }
+            
+            // Miami special case  
+            if ((homeFirst === 'miami' && (team1.includes('miami') || team2.includes('miami'))) ||
+                (awayFirst === 'miami' && (team1.includes('miami') || team2.includes('miami')))) {
+              if (homeFirst === 'miami') homeMatches = true;
+              if (awayFirst === 'miami') awayMatches = true;
+            }
+            
+            if (homeMatches && awayMatches) {
+              score += 3.0; // Very high score for ranked games that match both teams
+              console.log(`✓ Found ranked game match: "${matchTitle}" with teams "${team1}" and "${team2}"`);
+            } else {
+              console.log(`✗ Ranked game doesn't match: home=${homeMatches}, away=${awayMatches}`);
+            }
+          }
+          
+          return score;
+        },
         // Strategy 1: Rough name matching in title (more flexible)
         () => {
           let score = 0;
@@ -622,12 +688,52 @@ async function findMatchStreams(homeTeamName, awayTeamName) {
             const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
             const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
 
+            let homePartMatches = 0;
+            let awayPartMatches = 0;
+
             homeParts.forEach(part => {
-              if (titleWords.some(word => word.includes(part) || part.includes(word))) score += 0.4;
+              // Use more precise matching - require exact word matches or very close matches
+              const hasMatch = titleWords.some(word => {
+                // Exact match
+                if (word === part || part === word) return true;
+                // Allow partial matching only for longer words (6+ chars) to avoid false positives
+                if (part.length >= 6 && word.length >= 6) {
+                  return word.includes(part) || part.includes(word);
+                }
+                return false;
+              });
+              if (hasMatch) {
+                homePartMatches++;
+                score += 0.5;
+              }
             });
+            
             awayParts.forEach(part => {
-              if (titleWords.some(word => word.includes(part) || part.includes(word))) score += 0.4;
+              // Use more precise matching - require exact word matches or very close matches
+              const hasMatch = titleWords.some(word => {
+                // Exact match
+                if (word === part || part === word) return true;
+                // Allow partial matching only for longer words (6+ chars) to avoid false positives
+                if (part.length >= 6 && word.length >= 6) {
+                  return word.includes(part) || part.includes(word);
+                }
+                return false;
+              });
+              if (hasMatch) {
+                awayPartMatches++;
+                score += 0.5;
+              }
             });
+
+            // Bonus for having both teams represented
+            if (homePartMatches > 0 && awayPartMatches > 0) {
+              score += 0.3;
+            }
+
+            // Penalty for matches that only have one team
+            if (homePartMatches === 0 || awayPartMatches === 0) {
+              score = 0; // Reset score if only one team matches
+            }
           }
 
           return score;
@@ -666,16 +772,43 @@ async function findMatchStreams(homeTeamName, awayTeamName) {
                 }
               }
             } else {
-              // Normal case: rough matching against API team names
+              // Normal case: more precise matching against API team names
               const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
               const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
 
+              let homeApiMatches = 0;
+              let awayApiMatches = 0;
+
               homeParts.forEach(part => {
-                if (homeApiName.includes(part)) score += 0.6;
+                // More precise API name matching
+                if (homeApiName === part || 
+                    (part.length >= 4 && homeApiName.includes(part)) ||
+                    (homeApiName.length >= 4 && part.includes(homeApiName))) {
+                  homeApiMatches++;
+                  score += 0.7;
+                }
               });
+              
               awayParts.forEach(part => {
-                if (awayApiName.includes(part)) score += 0.6;
+                // More precise API name matching
+                if (awayApiName === part || 
+                    (part.length >= 4 && awayApiName.includes(part)) ||
+                    (awayApiName.length >= 4 && part.includes(awayApiName))) {
+                  awayApiMatches++;
+                  score += 0.7;
+                }
               });
+
+              // Bonus for having both teams in API data
+              if (homeApiMatches > 0 && awayApiMatches > 0) {
+                score += 0.5;
+              }
+
+              // Penalty for matches that only have one team in API data
+              if ((homeApiMatches === 0 && homeApiName.length > 0) || 
+                  (awayApiMatches === 0 && awayApiName.length > 0)) {
+                score *= 0.3; // Reduce score significantly for partial API matches
+              }
             }
           }
           return score;
@@ -771,15 +904,12 @@ async function findMatchStreams(homeTeamName, awayTeamName) {
         bestScore = totalScore;
         bestMatch = match;
 
-        // Early exit if we find a very good match (score >= 1.0 for rough matching)
-        if (bestScore >= 1.0) {
-          console.log(`Found excellent match with score ${bestScore}, stopping search early`);
-          break;
-        }
+        // Don't exit early - evaluate all matches to find the best one
+        console.log(`New best match found with score ${bestScore}`);
       }
     }
 
-    if (!bestMatch || bestScore < 0.3) {
+    if (!bestMatch || bestScore < 0.1) {
       console.log(`No good matching live match found in API (best score: ${bestScore.toFixed(2)})`);
       console.log(`Searched for: ${homeNormalized} vs ${awayNormalized}`);
       console.log(`Processed: ${matchesToProcess.length} matches out of ${matches.length} total`);
@@ -819,6 +949,10 @@ async function findMatchStreams(homeTeamName, awayTeamName) {
         console.log('Rejecting match due to same-city validation failure');
         return {};
       }
+      
+      // For matches that fail validation with a high score, it's likely a false positive
+      console.log('Match failed validation - rejecting as potential false positive');
+      return {};
     } else {
       console.log(`✓ Validation passed: Matched game contains both teams`);
     }

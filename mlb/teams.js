@@ -74,9 +74,9 @@ const teamAbbrMap = {
       </div>
     `;
   }  
-  
-  
-  async function buildFinalCardContent(awayFull, awayShort, awayScore, homeFull, homeShort, homeScore) {
+
+
+  async function buildFinalCardContent(awayFull, awayShort, awayScore, homeFull, homeShort, homeScore, inning, extraInning) {
     const awayLogo = await getLogoUrl(awayFull);
     const homeLogo = await getLogoUrl(homeFull);
     const awayIsWinner = awayScore > homeScore;
@@ -91,7 +91,7 @@ const teamAbbrMap = {
           </div>
           <div style="margin-top: 6px; ${awayIsWinner ? 'font-weight: bold;' : ''}">${awayShort}</div>
         </div>
-        <div style="position: absolute; left: 50%; transform: translateX(-50%); font-size: 1.4rem; font-weight: bold;">Final</div>
+        <div style="position: absolute; left: 50%; transform: translateX(-50%); font-size: 1.4rem; font-weight: bold;">Final${extraInning ? `/${inning}` : ''}</div>
         <div style="text-align: center;">
           <div style="display: flex; align-items: center; gap: 8px; flex-direction: row-reverse;">
             <img src="${homeLogo}" alt="${homeShort}" style="width: 45px; height: 45px;">
@@ -109,6 +109,8 @@ const teamAbbrMap = {
     const homeFull = teams.home.team.name;
     const awayShort = await getTeamNameById(teams.away.team.id);
     const homeShort = await getTeamNameById(teams.home.team.id);
+    const inning = game.linescore?.currentInning;
+    const extraInning = inning > 9;
     const statusText = status.detailedState;
     const card = document.createElement("div");
     card.className = "game-card";
@@ -227,7 +229,7 @@ const teamAbbrMap = {
     } else if (statusText === "Final","Game Over") {
       card.innerHTML = await buildFinalCardContent(
         awayFull, awayShort, teams.away.score,
-        homeFull, homeShort, teams.home.score
+        homeFull, homeShort, teams.home.score, inning, extraInning
       );
     }
     return card;

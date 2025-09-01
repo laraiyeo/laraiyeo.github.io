@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-wi      .team-name-ticker {
+        font-size: 14px;
+        font-weight: bold;
+        color: #fff;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+        text-transform: uppercase;
+      }nitial-scale=1.0" />
+    <title>MLB Ticker - Live Tracker</title>
+    <link rel="icon" href="icon.png" type="image/png" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: transparent;
+        color: #fff;
+        overflow: hidden;
+        height: 50px;
+        width: 1920px;
+        margin: 0;
+        padding: 0;
+      }
+
+      .ticker-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        overflow: hidden;
+        display: flex;
+      }
+
+      .fixed-branding {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 300px;
+        height: 50px;
+        background: #1a1a1a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        z-index: 100;
+      }
+
+      .sliding-content {
+        margin-left: 300px;
+        width: calc(100% - 300px);
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .game-slide {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 1;
+        transform: translateX(0);
+        transition: transform 0.6s ease-in-out, opacity 0.6s ease-in-out;
+      }
+
+      .game-slide.entering {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+
+      .game-slide.active {
+        transform: translateX(0);
+        opacity: 1;
+      }
+
+      .game-slide.exiting {
+        transform: translateX(-100%);
+        opacity: 0;
+      }
+
+      .ticker-content {
+        display: flex;
+        width: 100%;
+        height: 100%;
+      }
+
+      .team-sections-container {
+        display: flex;
+        width: 800px;
+        height: 100%;
+        position: relative;
+      }
+
+      .sliding-ticker-content {
+        display: flex;
+        width: 100%;
+        height: 100%;
+      }
+
+      /* Column 1: Branding */
+      .branding-section {
+        width: 300px;
+        background: #1a1a1a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .brand-logo {
+        width: 30px;
+        height: 30px;
+        object-fit: contain;
+      }
+
+      .brand-text {
+        font-size: 14px;
+        font-weight: bold;
+        color: #fff;
+        line-height: 1.2;
+      }
+
+      /* Columns 2 & 3: Team sections */
+      .team-section {
+        width: 400px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        position: relative;
+        background: transparent;
+      }
+
+      .team-info {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .team-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .team-right {
+        display: flex;
+        align-items: center;
+      }
+
+      .team-logo-ticker {
+        width: 30px;
+        height: 30px;
+        object-fit: contain;
+      }
+
+      .team-name-ticker {
+        transform: translateY(-3px);
+        font-size: 20px;
+        font-weight: bold;
+        color: #fff;
+        text-shadow: 1px 1px 2px rgb(150, 150, 150);
+      }
+
+      .team-score-ticker {
+        transform: translateY(-3px);
+        font-size: 35px;
+        font-weight: bold;
+        color: #fff;
+        text-shadow: 1px 1px 2px rgba(255, 255, 255);
+        min-width: 20px;
+        text-align: center;
+      }
+
+      .team-score-ticker.winner {
+        color: #fff;
+        text-shadow: 1px 1px 2px rgba(255, 255, 255);
+      }
+
+      .team-score-ticker.loser {
+        color: #aaa;
+        text-shadow: 1px 1px 2px #777;
+      }
+
+      .team-record {
+        font-size: 12px;
+        color: #fff;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+        font-weight: bold;
+      }
+
+      /* Column 4: Status section */
+      .status-section {
+        flex: 1;
+        background: #2a2a2a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 15px;
+      }
+
+      .status-content {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .bases-container {
+        display: flex;
+        align-items: center;
+      }
+
+      .inning-indicator {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-size: 12px;
+        font-weight: bold;
+        color: #fff;
+      }
+
+      .inning-arrow {
+        font-size: 10px;
+        line-height: 1;
+      }
+
+      .inning-number {
+        font-size: 17.5px;
+        font-weight: bold;
+      }
+
+      .inning-suffix {
+        font-size: 10px;
+        vertical-align: super;
+      }
+
+      .game-info {
+        margin-left: 15px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .count-info {
+        margin-left: 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        font-size: 13.25px;
+        color: #ccc;
+      }
+
+      .player-info {
+        margin-left: 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        font-size: 13.25px;
+        color: #ccc;
+      }
+
+      .final-indicator {
+        font-size: 22.5px;
+        font-weight: bold;
+        color: #ffd700;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+      }
+
+      .scheduled-time {
+        font-size: 14px;
+        font-weight: bold;
+        color: #00aaff;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+      }
+
+      .team-logo {
+        width: 80px;
+        height: 80px;
+        object-fit: contain;
+        margin-bottom: 8px;
+      }
+
+      .team-name {
+        font-size: 18px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 4px;
+      }
+
+      .team-score {
+        font-size: 32px;
+        font-weight: bold;
+        color: #fff;
+      }
+
+      .team-score.winner {
+        color: #ffd700;
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+      }
+
+      .center-info {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 300px;
+        text-align: center;
+      }
+
+      .game-status {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: #00ff00;
+      }
+
+      .game-details {
+        font-size: 16px;
+        color: #ccc;
+        margin-bottom: 4px;
+      }
+
+      .bases-display {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .base {
+        width: 20px;
+        height: 20px;
+        background: #333;
+        border: 1px solid #666;
+        clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+      }
+
+      .base.occupied {
+        background: #fff;
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+      }
+
+      .count-display {
+        display: flex;
+        gap: 15px;
+        margin-top: 8px;
+      }
+
+      .count-item {
+        font-size: 14px;
+        color: #ccc;
+      }
+
+      .at-bat-info {
+        font-size: 14px;
+        color: #ffd700;
+        margin-top: 4px;
+      }
+
+      .scheduled-time {
+        font-size: 28px;
+        font-weight: bold;
+        color: #00aaff;
+        margin-bottom: 8px;
+      }
+
+      .team-record {
+        font-size: 16px;
+        color: #ccc;
+      }
+
+      .final-stat {
+        font-size: 18px;
+        color: #ffa500;
+        font-style: italic;
+        margin-top: 8px;
+      }
+
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        font-size: 24px;
+        color: #666;
+      }
+
+      /* Animation keyframes */
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateX(100%);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      @keyframes slideOut {
+        from {
+          opacity: 1;
+          transform: translateX(0);
+        }
+        to {
+          opacity: 0;
+          transform: translateX(-100%);
+        }
+      }
+
+      .slide-in {
+        animation: slideIn 0.6s ease-in-out;
+      }
+
+      .slide-out {
+        animation: slideOut 0.6s ease-in-out;
+      }
+
+      .small-base-diamond {
+        position: relative;
+        width: 45px;
+        height: 45px;
+        margin: 0 auto;
+        margin-top: 10px;
+      }
+
+      .small-base {
+        position: absolute;
+        width: 15px;
+        height: 15px;
+        background-color: #000000;
+        transform: rotate(45deg);
+        opacity: 0.8;
+        border: 1px solid #797979;
+        transition: background-color 0.3s ease, box-shadow 0.3s ease;
+      }
+
+      .small-base-second {
+        top: 0px;
+        left: 50%;
+        transform: translate(-50%, 0) rotate(45deg);
+      }
+
+      .small-base-third {
+        bottom: 50%;
+        left: 0px;
+        transform: translate(0, 50%) rotate(45deg);
+      }
+
+      .small-base-first {
+        bottom: 50%;
+        right: 0px;
+        transform: translate(0, 50%) rotate(45deg);
+      }
+
+      .small-base.occupied {
+        background-color: rgb(255, 255, 255);
+        box-shadow: 0 0 3px rgb(255, 255, 255);
+      }
+    </style>
+    <script src="ticker.js"></script>
+  </head>
+  <body>
+    <!-- Fixed Branding Column -->
+    <div class="fixed-branding">
+      <img src="../assets/33115791.png" alt="LARAIYEO" class="brand-logo" onerror="this.style.display='none'">
+      <div class="brand-text">LARAIYEO<br>LIVE SPORTS</div>
+    </div>
+
+    <!-- Sliding Content Container -->
+    <div class="ticker-container">
+      <div class="sliding-content">
+        <div class="loading">Loading MLB Games...</div>
+      </div>
+    </div>
+
+    <script>
+      const teamAbbrMap = {
+        "Arizona Diamondbacks": "ari_d", "Atlanta Braves": "atl_l", "Baltimore Orioles": "bal_l", "Boston Red Sox": "bos_d",
+        "Chicago White Sox": "cws_d", "Chicago Cubs": "chc_d", "Cincinnati Reds": "cin_d", "Cleveland Guardians": "cle_l",
+        "Colorado Rockies": "col_d", "Detroit Tigers": "det_d", "Houston Astros": "hou_d", "Kansas City Royals": "kc_d",
+        "Los Angeles Angels": "laa_d", "Los Angeles Dodgers": "lad_l", "Miami Marlins": "mia_d", "Milwaukee Brewers": "mil_d",
+        "Minnesota Twins": "min_d", "New York Yankees": "nyy_d", "New York Mets": "nym_d", "Athletics": "oak_l",
+        "Philadelphia Phillies": "phi_l", "Pittsburgh Pirates": "pit_d", "San Diego Padres": "sd_d", "San Francisco Giants": "sf_d",
+        "Seattle Mariners": "sea_d", "St. Louis Cardinals": "stl_d", "Tampa Bay Rays": "tb_d", "Texas Rangers": "tex_d",
+        "Toronto Blue Jays": "tor_l", "Washington Nationals": "wsh_d"
+      };
+
+      const teamColors = {
+        "Arizona Diamondbacks": "#A71930", "Atlanta Braves": "#13274F", "Baltimore Orioles": "#000000", "Boston Red Sox": "#0C2340",
+        "Chicago White Sox": "#000000", "Chicago Cubs": "#0E3386", "Cincinnati Reds": "#C6011F", "Cleveland Guardians": "#0F223E",
+        "Colorado Rockies": "#333366", "Detroit Tigers": "#0C2340", "Houston Astros": "#002D62", "Kansas City Royals": "#004687",
+        "Los Angeles Angels": "#BA0021", "Los Angeles Dodgers": "#A5ACAF", "Miami Marlins": "#00A3E0", "Milwaukee Brewers": "#FFC52F",
+        "Minnesota Twins": "#002B5C", "New York Yankees": "#003087", "New York Mets": "#002D72", "Athletics": "#EFB21E",
+        "Philadelphia Phillies": "#E81828", "Pittsburgh Pirates": "#27251F", "San Diego Padres": "#2F241D", "San Francisco Giants": "#000000",
+        "Seattle Mariners": "#005C5C", "St. Louis Cardinals": "#C41E3A", "Tampa Bay Rays": "#092C5C", "Texas Rangers": "#003278",
+        "Toronto Blue Jays": "#1D2D5C", "Washington Nationals": "#AB0003"
+      };
+
+      let currentGameIndex = 0;
+      let games = [];
+      let slideInterval;
+      let currentSlide = null;
+
+      // Function to update ticker speed dynamically
+      function updateTickerSpeed() {
+        if (slideInterval) {
+          clearInterval(slideInterval);
+          const savedSpeed = localStorage.getItem('mlb-ticker-speed');
+          const speed = savedSpeed ? parseInt(savedSpeed) * 1000 : 5000;
+          slideInterval = setInterval(showNextGame, speed);
+        }
+      }
+
+      // Listen for storage changes to update speed in real-time
+      window.addEventListener('storage', function(e) {
+        if (e.key === 'mlb-ticker-speed') {
+          updateTickerSpeed();
+        }
+      });
+
+      async function getLogoUrl(teamName) {
+        const abbr = teamAbbrMap[teamName];
+        if (!abbr) return "";
+        const darkUrl = `https://raw.githubusercontent.com/MLBAMGames/mlb_teams_logo_svg/main/dark/${abbr}.svg`;
+        const lightUrl = `https://raw.githubusercontent.com/MLBAMGames/mlb_teams_logo_svg/main/light/${abbr}.svg`;
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve(darkUrl);
+          img.onerror = () => resolve(lightUrl);
+          img.src = darkUrl;
+        });
+      }
+
+      async function getTeamNameById(id) {
+        try {
+          const res = await fetch(`https://statsapi.mlb.com/api/v1/teams/${id}`);
+          const data = await res.json();
+          return data.teams[0].teamName;
+        } catch (err) {
+          console.error("Error fetching team name for ID:", id, err);
+          return "";
+        }
+      }
+
+      function getAdjustedDateForMLB() {
+        const now = new Date();
+        const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+
+        if (estNow.getHours() < 2) {
+          estNow.setDate(estNow.getDate() - 1);
+        }
+
+        const adjustedDate = estNow.getFullYear() + "-" +
+                             String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
+                             String(estNow.getDate()).padStart(2, "0");
+
+        return adjustedDate;
+      }
+
+      function getInningLabel(inningHalf) {
+        return inningHalf === "Bottom" ? "Bot" : inningHalf === "Top" ? "Top" : inningHalf;
+      }
+
+      function getInningSuffix(inning) {
+        if (inning === 1 || inning === 21 || inning === 31) return 'st';
+        if (inning === 2 || inning === 22 || inning === 32) return 'nd';
+        if (inning === 3 || inning === 23 || inning === 33) return 'rd';
+        return 'th';
+      }
+
+      function getBaseHtml(matchup) {
+        const filled = {
+          first: matchup?.postOnFirst?.id,
+          second: matchup?.postOnSecond?.id,
+          third: matchup?.postOnThird?.id,
+        };
+
+        return `
+          <div class="small-base-diamond">
+            <div class="small-base small-base-second ${filled.second ? "occupied" : ""}"></div>
+            <div class="small-base small-base-third ${filled.third ? "occupied" : ""}"></div>
+            <div class="small-base small-base-first ${filled.first ? "occupied" : ""}"></div>
+          </div>
+        `;
+      }
+
+      async function createGameSlide(game) {
+        const { teams, status, gameDate } = game;
+        const awayFull = teams.away.team.name;
+        const homeFull = teams.home.team.name;
+        const awayShort = await getTeamNameById(teams.away.team.id);
+        const homeShort = await getTeamNameById(teams.home.team.id);
+        const statusText = status.detailedState;
+
+        const awayLogo = await getLogoUrl(awayFull);
+        const homeLogo = await getLogoUrl(homeFull);
+
+        // Get team colors
+        const awayColor = teamColors[awayFull] || "#333";
+        const homeColor = teamColors[homeFull] || "#333";
+
+        // Get team records
+        const awayRecord = teams.away.leagueRecord ? `${teams.away.leagueRecord.wins}-${teams.away.leagueRecord.losses}` : '';
+        const homeRecord = teams.home.leagueRecord ? `${teams.home.leagueRecord.wins}-${teams.home.leagueRecord.losses}` : '';
+
+        let statusContent = '';
+        let gameClass = '';
+        let isScheduled = false;
+        let isFinished = false;
+
+        // Determine game state
+        if (["In Progress", "Manager challenge"].includes(statusText) || status.codedGameState === "M") {
+          // Live game
+          const inningHalf = game.linescore?.inningHalf || "Top";
+          const inningNum = game.linescore?.currentInning || 1;
+          const inningArrow = inningHalf === "Top" ? "▲" : "▼";
+          const inningSuffix = getInningSuffix(inningNum);
+          const outs = game.linescore?.outs || 0;
+
+          // Get live data for bases and count
+          let matchup = {};
+          let balls = 0;
+          let strikes = 0;
+          let pitcher = "";
+          let batter = "";
+
+          try {
+            const res = await fetch(`https://statsapi.mlb.com/api/v1.1/game/${game.gamePk}/feed/live`);
+            const data = await res.json();
+            matchup = data?.liveData?.plays?.currentPlay?.matchup || {};
+            const currentPlay = data?.liveData?.plays?.currentPlay;
+            balls = currentPlay?.count?.balls || 0;
+            strikes = currentPlay?.count?.strikes || 0;
+            pitcher = matchup?.pitcher?.fullName?.split(' ').pop() || "";
+            batter = matchup?.batter?.fullName?.split(' ').pop() || "";
+          } catch (err) {
+            console.error(`Error fetching live feed for game ${game.gamePk}`, err);
+          }
+
+          const baseHtml = getBaseHtml(matchup);
+
+          statusContent = `
+            <div class="inning-indicator">
+              ${inningHalf === "Top" ? `<div class="inning-arrow">${inningArrow}</div>` : ""}
+              <div>
+                <span class="inning-number">${inningNum}</span><span class="inning-suffix">${inningSuffix}</span>
+              </div>
+              ${inningHalf === "Bottom" ? `<div class="inning-arrow">${inningArrow}</div>` : ""}
+            </div>
+            <div class="game-info">
+              <div class="bases-container">${baseHtml}</div>
+              <div class="count-info">
+                <div>Outs: ${outs}</div>
+                <div>B:${balls} S:${strikes}</div>
+              </div>
+              <div class="player-info">
+                <div>P: ${pitcher}</div>
+                <div>AB: ${batter}</div>
+              </div>
+            </div>
+          `;
+          gameClass = 'live-game';
+
+        } else if (["Scheduled", "Pre-Game", "Warmup"].includes(statusText)) {
+          // Scheduled game
+          const startTime = formatTickerTime(gameDate);
+          statusContent = `<div class="scheduled-time">${startTime}</div>`;
+          gameClass = 'scheduled-game';
+          isScheduled = true;
+
+        } else if (["Final", "Game Over"].includes(statusText)) {
+          // Finished game
+          statusContent = `<div class="final-indicator">FINAL</div>`;
+          gameClass = 'finished-game';
+          isFinished = true;
+        }
+
+        // Determine score colors based on winner/loser
+        let awayScoreClass = '';
+        let homeScoreClass = '';
+        
+        if (isFinished || gameClass === 'live-game') {
+          const awayScore = teams.away.score || 0;
+          const homeScore = teams.home.score || 0;
+          
+          if (awayScore > homeScore) {
+            awayScoreClass = 'winner';
+            homeScoreClass = 'loser';
+          } else if (homeScore > awayScore) {
+            homeScoreClass = 'winner';
+            awayScoreClass = 'loser';
+          }
+        }
+
+        // Create seamless gradient across both team sections
+        const teamGradient = `linear-gradient(90deg, ${awayColor} 0%, ${awayColor} 40%, ${homeColor} 60%, ${homeColor} 100%)`;
+
+        return `
+          <div class="game-slide ${gameClass}">
+            <div class="sliding-ticker-content">
+              <!-- Team Sections Container with Gradient -->
+              <div class="team-sections-container" style="background: ${teamGradient};">
+                <!-- Column 2: Away Team -->
+                <div class="team-section">
+                  <div class="team-info">
+                    <div class="team-left">
+                      <img src="${awayLogo}" alt="${awayShort}" class="team-logo-ticker" onerror="this.src='icon.png'">
+                      <span class="team-name-ticker">${awayShort}</span>
+                    </div>
+                    <div class="team-right">
+                      ${isScheduled ? 
+                        `<span class="team-record">${awayRecord}</span>` : 
+                        `<span class="team-score-ticker ${awayScoreClass}">${teams.away.score || 0}</span>`
+                      }
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Column 3: Home Team -->
+                <div class="team-section">
+                  <div class="team-info">
+                    <div class="team-left">
+                      <img src="${homeLogo}" alt="${homeShort}" class="team-logo-ticker" onerror="this.src='icon.png'">
+                      <span class="team-name-ticker">${homeShort}</span>
+                    </div>
+                    <div class="team-right">
+                      ${isScheduled ? 
+                        `<span class="team-record">${homeRecord}</span>` : 
+                        `<span class="team-score-ticker ${homeScoreClass}">${teams.home.score || 0}</span>`
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Column 4: Status -->
+              <div class="status-section">
+                <div class="status-content">
+                  ${statusContent}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      async function fetchGames() {
+        const today = getAdjustedDateForMLB();
+        const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=linescore,team`;
+
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          const data = await response.json();
+          const allGames = data.dates[0]?.games || [];
+
+          // Separate games by status and sort by time
+          const liveGames = allGames.filter(game =>
+            ["In Progress", "Manager challenge"].includes(game.status.detailedState) || game.status.codedGameState === "M"
+          ).sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
+
+          const scheduledGames = allGames.filter(game =>
+            ["Scheduled", "Pre-Game", "Warmup"].includes(game.status.detailedState)
+          ).sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
+
+          const finishedGames = allGames.filter(game =>
+            ["Final", "Game Over"].includes(game.status.detailedState)
+          ).sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
+
+          // Combine in priority order: Live, Scheduled, Finished
+          games = [...liveGames, ...scheduledGames, ...finishedGames];
+
+          if (games.length === 0) {
+            document.querySelector('.sliding-content').innerHTML = '<div class="loading">No games scheduled for today</div>';
+            return;
+          }
+
+          console.log(`Loaded ${games.length} games for ticker`);
+        } catch (error) {
+          console.error("Error fetching games:", error);
+          handleTickerError(error, 'fetchGames');
+        }
+      }
+
+      async function showNextGame() {
+        if (games.length === 0) return;
+
+        // Performance monitoring
+        monitorPerformance();
+
+        // If this is the first game, just show it
+        if (!currentSlide) {
+          const game = games[currentGameIndex];
+          const slideHtml = await createGameSlide(game);
+          document.querySelector('.sliding-content').innerHTML = slideHtml;
+          currentSlide = document.querySelector('.sliding-content .game-slide');
+          currentSlide.classList.add('active');
+          currentGameIndex = (currentGameIndex + 1) % games.length;
+          return;
+        }
+
+        // Create the new slide off-screen to the right
+        const game = games[currentGameIndex];
+        const slideHtml = await createGameSlide(game);
+        document.querySelector('.sliding-content').insertAdjacentHTML('beforeend', slideHtml);
+
+        const newSlide = document.querySelector('.sliding-content .game-slide:last-child');
+        newSlide.classList.add('entering');
+
+        // Force a reflow to ensure the entering class is applied
+        newSlide.offsetHeight;
+
+        // Start the slide animation
+        requestAnimationFrame(() => {
+          newSlide.classList.remove('entering');
+          newSlide.classList.add('active');
+
+          // Start exiting the current slide
+          currentSlide.classList.remove('active');
+          currentSlide.classList.add('exiting');
+
+          // Clean up after animation completes
+          setTimeout(() => {
+            if (currentSlide && currentSlide.parentNode) {
+              currentSlide.remove();
+            }
+            currentSlide = newSlide;
+          }, 600); // Match the CSS transition duration
+        });
+
+        // Move to next game
+        currentGameIndex = (currentGameIndex + 1) % games.length;
+      }
+
+      async function startTicker() {
+        await fetchGames();
+
+        if (games.length > 0) {
+          // Start with the first game
+          await showNextGame();
+
+          // Get speed from localStorage (default to 5 seconds)
+          const savedSpeed = localStorage.getItem('mlb-ticker-speed');
+          const speed = savedSpeed ? parseInt(savedSpeed) * 1000 : 5000; // Convert to milliseconds
+
+          // Set up interval with custom speed
+          slideInterval = setInterval(showNextGame, speed);
+
+          // Refresh games data every 2 seconds
+          setInterval(async () => {
+            await fetchGames();
+          }, 2000);
+        }
+      }
+
+      // Start the ticker when page loads
+      document.addEventListener('DOMContentLoaded', startTicker);
+
+      // Handle window resize to maintain aspect ratio
+      window.addEventListener('resize', () => {
+        // Force 1920x200 aspect ratio
+        if (window.innerWidth !== 1920 || window.innerHeight !== 200) {
+          window.resizeTo(1920, 200);
+        }
+      });
+    </script>
+  </body>
+</html>
