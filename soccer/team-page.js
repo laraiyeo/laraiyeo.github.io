@@ -3,7 +3,7 @@ let currentTeamId = null;
 let currentLeague = "eng.1"; // Default to Premier League
 let currentPage = 1;
 let allRecentMatches = [];
-let matchesPerPage = 4;
+let matchesPerPage = 3;
 let currentRosterPage = 1;
 let allRosterPlayers = [];
 let playersPerPage = 4;
@@ -1710,15 +1710,8 @@ async function loadPlayerStatsForYear(playerId, position, contentDiv, year) {
       }
     }
     
-    // First check if we have cached data for this player and it's for the current year
-    if (year === new Date().getFullYear()) {
-      const cachedPlayer = allRosterPlayers.find(player => player.id === playerId);
-      if (cachedPlayer && cachedPlayer.fullPlayerData) {
-        console.log('Using cached player data for current year stats');
-        await processPlayerStats(cachedPlayer.fullPlayerData, position, contentDiv, year, currentLeague);
-        return;
-      }
-    }
+    // Always try ESPN API first for consistency across initial loads and year changes
+    // Cached data will be used as fallback if ESPN API fails
     
     // Try to fetch year-specific stats from ESPN API using the correct team/league
     let selectedPlayer = null;
@@ -1760,27 +1753,38 @@ async function loadPlayerStatsForYear(playerId, position, contentDiv, year) {
       if (year === new Date().getFullYear()) {
         console.log('Falling back to roster data for current year...');
         
-        // Try the team roster endpoint with stats first using current team
-        try {
-          const rosterResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams/${currentTeamId}/roster?season=2025`);
-          if (rosterResponse.ok) {
-            const rosterData = await rosterResponse.json();
-            
-            const apiPlayer = rosterData.athletes?.find(athlete => {
-              const athleteData = athlete.athlete || athlete;
-              return athleteData.id === playerId;
-            });
-            
-            if (apiPlayer) {
-              const athleteData = apiPlayer.athlete || apiPlayer;
-              if (athleteData.statistics) {
-                selectedPlayer = athleteData;
-                console.log('Found roster stats for current year!');
+        // First try cached player data if available
+        if (allRosterPlayers) {
+          const cachedPlayer = allRosterPlayers.find(player => player.id === playerId);
+          if (cachedPlayer && cachedPlayer.fullPlayerData) {
+            console.log('Using cached player data as fallback for current year...');
+            selectedPlayer = cachedPlayer.fullPlayerData;
+          }
+        }
+        
+        // If no cached data, try the team roster endpoint with stats using current team
+        if (!selectedPlayer) {
+          try {
+            const rosterResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentLeague}/teams/${currentTeamId}/roster?season=2025`);
+            if (rosterResponse.ok) {
+              const rosterData = await rosterResponse.json();
+              
+              const apiPlayer = rosterData.athletes?.find(athlete => {
+                const athleteData = athlete.athlete || athlete;
+                return athleteData.id === playerId;
+              });
+              
+              if (apiPlayer) {
+                const athleteData = apiPlayer.athlete || apiPlayer;
+                if (athleteData.statistics) {
+                  selectedPlayer = athleteData;
+                  console.log('Found roster stats for current year!');
+                }
               }
             }
+          } catch (e) {
+            console.log('Roster with stats endpoint failed:', e.message);
           }
-        } catch (e) {
-          console.log('Roster with stats endpoint failed:', e.message);
         }
         
         // If still no stats, try the basic roster endpoint
@@ -2297,10 +2301,10 @@ async function processPlayerStats(selectedPlayer, position, contentDiv, year, pl
     statsToShow = [
       { key: 'appearances', label: 'Appearances', category: 'general' },
       { key: 'saves', label: 'Saves', category: 'goalKeeping' },
-      { key: 'shotsFaced', label: 'Shots Faced', category: 'goalKeeping' },
+      { key: 'cleanSheet', label: 'Clean Sheets', category: 'goalKeeping' },
       { key: 'goalsConceded', label: 'Goals Against', category: 'goalKeeping' },
       { key: 'ownGoals', label: 'Own Goals', category: 'general' },
-      { key: 'foulsCommitted', label: 'Fouls', category: 'general' },
+      { key: 'totalClearance', label: 'Clearances', category: 'defending' },
       { key: 'yellowCards', label: 'Yellow Cards', category: 'general' },
       { key: 'redCards', label: 'Red Cards', category: 'general' }
     ];
@@ -3640,7 +3644,7 @@ function createStatsComparisonDisplay(player1, player2, player1Stats, player2Sta
   if (isGoalkeeper) {
     // Goalkeeper stats
     statsToCompare = [
-      { key: '', label: 'Appearances', category: 'general' },
+      { key: 'appearances', label: 'Appearances', category: 'general' },
       { key: 'saves', label: 'Saves', category: 'goalKeeping' },
       { key: 'shotsFaced', label: 'Shots Faced', category: 'goalKeeping' },
       { key: 'goalsConceded', label: 'Goals Against', category: 'goalKeeping' },

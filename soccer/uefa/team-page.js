@@ -3,7 +3,7 @@ let currentTeamId = null;
 let currentUefaLeague = "uefa.champions"; // Default to Champions League
 let currentPage = 1;
 let allRecentMatches = [];
-let matchesPerPage = 4;
+let matchesPerPage = 3;
 let currentRosterPage = 1;
 let allRosterPlayers = [];
 let playersPerPage = 4;
@@ -1461,16 +1461,37 @@ async function loadPlayerStats(playerId, position, contentDiv) {
   try {
     console.log('loadPlayerStats called for player:', playerId);
     
-    // First check if we have cached data for this player
-    const cachedPlayer = allRosterPlayers.find(player => player.id === playerId);
-    if (cachedPlayer && cachedPlayer.fullPlayerData) {
-      console.log('Using cached player data for stats');
-      processPlayerStats(cachedPlayer.fullPlayerData, position, contentDiv);
-      return;
+    // Always try ESPN API first for consistency, then use cached data as fallback
+    let selectedPlayer = null;
+    
+    // Try ESPN statistics API first
+    console.log('Trying ESPN statistics API...');
+    try {
+      const espnResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/athletes/${playerId}/statistics`);
+      if (espnResponse.ok) {
+        const espnData = await espnResponse.json();
+        if (espnData.athlete && espnData.athlete.statistics) {
+          selectedPlayer = espnData.athlete;
+          console.log('Successfully fetched from ESPN statistics API');
+        }
+      } else {
+        console.log(`ESPN statistics API failed, status: ${espnResponse.status}`);
+      }
+    } catch (e) {
+      console.log('ESPN statistics API call failed:', e.message);
     }
     
-    // Only use roster data for player statistics as fallback
-    let selectedPlayer = null;
+    // If ESPN API failed, fall back to cached data if available
+    if (!selectedPlayer) {
+      const cachedPlayer = allRosterPlayers.find(player => player.id === playerId);
+      if (cachedPlayer && cachedPlayer.fullPlayerData) {
+        console.log('Using cached player data as fallback');
+        selectedPlayer = cachedPlayer.fullPlayerData;
+      }
+    }
+    
+    // If still no player data, try roster endpoints
+    if (!selectedPlayer) {
     
     // Try the team roster endpoint with stats first
     console.log('Trying team roster with stats...');
@@ -1515,6 +1536,7 @@ async function loadPlayerStats(playerId, position, contentDiv) {
       
       selectedPlayer = apiPlayer.athlete || apiPlayer;
     }
+    }
     
     console.log('Full athlete data:', selectedPlayer);
     
@@ -1538,15 +1560,26 @@ function processPlayerStats(selectedPlayer, position, contentDiv) {
     statsToShow = [
       { key: 'appearances', label: 'Appearances', category: 'general' },
       { key: 'saves', label: 'Saves', category: 'goalKeeping' },
-      { key: 'shotsFaced', label: 'Shots Faced', category: 'goalKeeping' },
+      { key: 'cleanSheet', label: 'Clean Sheets', category: 'goalKeeping' },
       { key: 'goalsConceded', label: 'Goals Against', category: 'goalKeeping' },
       { key: 'ownGoals', label: 'Own Goals', category: 'general' },
-      { key: 'foulsCommitted', label: 'Fouls', category: 'general' },
+      { key: 'totalClearance', label: 'Clearances', category: 'defending' },
       { key: 'yellowCards', label: 'Yellow Cards', category: 'general' },
       { key: 'redCards', label: 'Red Cards', category: 'general' }
     ];
-  } else {
+  } else if (position === 'D' || position === 'Defender') {
     // Field player stats - using actual API field names from c1.txt
+    statsToShow = [
+      { key: 'appearances', label: 'Appearances', category: 'general' },
+      { key: 'totalGoals', label: 'Total Goals', category: 'offensive' },
+      { key: 'goalAssists', label: 'Assists', category: 'offensive' },
+      { key: 'totalClearance', label: 'Clearances', category: 'defensive' },
+      { key: 'totalTackles', label: 'Tackles', category: 'defensive' },
+      { key: 'foulsCommitted', label: 'Fouls', category: 'general' },
+      { key: 'yellowCards', label: 'Yellow Cards', category: 'general' },
+      { key: 'subIns', label: 'Subbed In', category: 'general' }
+    ];
+  } else {
     statsToShow = [
       { key: 'appearances', label: 'Appearances', category: 'general' },
       { key: 'totalGoals', label: 'Total Goals', category: 'offensive' },
@@ -2763,11 +2796,28 @@ async function displaySoccerPlayerComparison(player1, player2, container) {
 // Load player statistics for comparison
 async function loadPlayerStatsForComparison(playerId) {
   try {
-    // First, check if this player is in the current team's already loaded roster
+    // Always try ESPN statistics API first for consistency
+    console.log(`Trying ESPN statistics API for player ${playerId}...`);
+    try {
+      const espnResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/athletes/${playerId}/statistics`);
+      if (espnResponse.ok) {
+        const espnData = await espnResponse.json();
+        if (espnData.athlete && espnData.athlete.statistics) {
+          console.log(`Successfully fetched stats for player ${playerId} from ESPN API`);
+          return espnData.athlete.statistics;
+        }
+      } else {
+        console.log(`ESPN statistics API failed for player ${playerId}, status: ${espnResponse.status}`);
+      }
+    } catch (e) {
+      console.log(`ESPN statistics API call failed for player ${playerId}:`, e.message);
+    }
+    
+    // If ESPN API failed, check if this player is in the current team's cached roster
     const currentTeamPlayer = allRosterPlayers.find(player => player.id === playerId);
     if (currentTeamPlayer) {
       console.log(`Using cached roster data for current team player ${playerId}`);
-      // Return the cached statistics directly - no need for another API call
+      // Return the cached statistics as fallback
       if (currentTeamPlayer.statistics) {
         console.log(`Found cached stats for current team player ${playerId}`);
         return currentTeamPlayer.statistics;
@@ -2828,7 +2878,7 @@ function createStatsComparisonDisplay(player1, player2, player1Stats, player2Sta
   if (isGoalkeeper) {
     // Goalkeeper stats
     statsToCompare = [
-      { key: '', label: 'Appearances', category: 'general' },
+      { key: 'appearances', label: 'Appearances', category: 'general' },
       { key: 'saves', label: 'Saves', category: 'goalKeeping' },
       { key: 'shotsFaced', label: 'Shots Faced', category: 'goalKeeping' },
       { key: 'goalsConceded', label: 'Goals Against', category: 'goalKeeping' },
