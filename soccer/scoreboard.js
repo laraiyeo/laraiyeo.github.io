@@ -1058,7 +1058,7 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
       
       // Check for goal using type.id field (70, 137, 98, 173 for goals, 97 for own goals)
       const isGoal = playData.type && playData.type.id &&
-                     ['70', '137', '98', '173', '97'].includes(playData.type.id.toString());
+                     ['70', '137', '98', '173', '138', '97'].includes(playData.type.id.toString());
 
       // Check if this is an own goal (ID 97)
       const isOwnGoal = playData.type && playData.type.id && playData.type.id.toString() === '97';
@@ -1159,7 +1159,7 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
       
       // Check if this is a goal play using type.id field (70, 137, or 98)
       const isGoalPlay = playData.type && playData.type.id && 
-                         ['70', '137', '98', '173', '97'].includes(playData.type.id.toString());
+                         ['70', '137', '98', '173', '138', '97'].includes(playData.type.id.toString());
       
       // Get the score at the time of this play using our counter logic
       let scoreAtThisTime = getScoreAtSequence(play);
