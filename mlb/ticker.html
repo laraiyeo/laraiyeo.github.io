@@ -691,7 +691,7 @@
         } else if (["Scheduled", "Pre-Game", "Warmup"].includes(statusText)) {
           // Scheduled game
           const startTime = formatTickerTime(gameDate);
-          statusContent = `<div class="scheduled-time">${startTime}</div>`;
+          statusContent = `<div class="scheduled-time">${startTime} EST</div>`;
           gameClass = 'scheduled-game';
           isScheduled = true;
 

@@ -18,17 +18,24 @@
 
       <!-- Content Slider -->
       <div id="contentSlider" class="content-slider">
-        <button id="statsBtn" class="slider-btn active" onclick="showStats()">Stats</button>
+        <button id="lineupBtn" class="slider-btn active" onclick="showLineup()">Lineup</button>
+        <button id="statsBtn" class="slider-btn" onclick="showStats()">Stats</button>
         <button id="playsBtn" class="slider-btn" onclick="showPlays()">Plays</button>
       </div>
 
-      <!-- Stats Content -->
-      <div id="statsContent" class="content-section active">
+      <!-- Line-Up Content (formerly Stats Content) -->
+      <div id="lineupContent" class="content-section active">
         <!-- Stream Embed -->
         <div id="streamEmbed"></div>
         
         <!-- Formation/Lineup Display -->
         <div id="formationDisplay"></div>
+      </div>
+
+      <!-- Stats Content -->
+      <div id="statsContent" class="content-section">
+        <!-- Match Stats will be rendered here -->
+        <div id="matchStatsDisplay"></div>
       </div>
 
       <!-- Plays Content -->

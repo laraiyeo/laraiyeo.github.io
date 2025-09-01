@@ -527,6 +527,269 @@ async function fetchAndRenderStatsData(gameId) {
   }
 }
 
+async function renderMatchStats(homeTeam, awayTeam, homeForm, awayForm, headToHeadData) {
+  // Get team logos
+  const homeLogo = await getTeamLogoWithFallback(homeTeam.team.id);
+  const awayLogo = await getTeamLogoWithFallback(awayTeam.team.id);
+
+  // Get team colors (convert hex to proper format)
+  const homeColor = homeTeam.team.color ? `#${homeTeam.team.color}` : '#007bff';
+  const awayColor = awayTeam.team.color ? `#${awayTeam.team.color}` : '#28a745';
+
+  // Get possession percentages
+  const homePossession = parseFloat(homeTeam.statistics.find(stat => stat.name === 'possessionPct')?.displayValue || '0');
+  const awayPossession = parseFloat(awayTeam.statistics.find(stat => stat.name === 'possessionPct')?.displayValue || '0');
+
+  // Helper function to get stat value
+  const getStat = (team, statName) => {
+    const stat = team.statistics.find(s => s.name === statName);
+    return stat ? parseFloat(stat.displayValue) || 0 : 0;
+  };
+
+  // Helper function to render stats row with bars (fixed mirroring)
+  const renderStatsRow = (label, awayValue, homeValue, isPercentage = false) => {
+    const awayNum = typeof awayValue === 'number' ? awayValue : parseFloat(awayValue) || 0;
+    const homeNum = typeof homeValue === 'number' ? homeValue : parseFloat(homeValue) || 0;
+    const total = awayNum + homeNum;
+    const awayPercent = total > 0 ? (awayNum / total) * 100 : 50;
+    const homePercent = total > 0 ? (homeNum / total) * 100 : 50;
+
+    return `
+      <div class="stats-row">
+        <div class="stats-value away">${homeValue}${isPercentage ? '%' : ''}</div>
+        <div class="stats-bar-container">
+          <div class="stats-bar">
+            <div class="stats-bar-fill away" style="width: ${homePercent}%; background: ${homeColor};"></div>
+          </div>
+          <div class="stats-bar">
+            <div class="stats-bar-fill home" style="width: ${awayPercent}%; background: ${awayColor};"></div>
+          </div>
+        </div>
+        <div class="stats-value home">${awayValue}${isPercentage ? '%' : ''}</div>
+      </div>
+      <div class="stats-label">${label}</div>
+    `;
+  };
+
+  // Render form results with actual game details
+  const renderFormResults = (formData, teamSide, teamColor, teamLogo, teamAbbr) => {
+    if (!formData || !formData.events) return '<div class="form-no-data">No recent form data</div>';
+    
+    return formData.events.slice(0, 5).map(event => {
+      const result = event.gameResult?.toLowerCase() || 'd';
+      const isHome = event.atVs !== '@';
+      const opponentLogo = event.opponentLogo || event.opponent?.logo || 'soccer-ball-png-24.png';
+      const opponentAbbr = event.opponent?.abbreviation || 'UNK';
+      const score = `${event.homeTeamScore}-${event.awayTeamScore}`;
+      
+      const date = new Date(event.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const matchId = event.id; // Get the match ID for navigation
+      
+      return `
+        <div class="form-match clickable-match" onclick="openMatchPage('${matchId}')" style="cursor: pointer;">
+          <div class="form-match-header">
+            <span class="form-date">${date}</span>
+            <span class="form-result-badge ${result}">${result.toUpperCase()}</span>
+          </div>
+          <div class="form-match-teams">
+            ${isHome ? `
+              <div class="form-team">
+                <img src="${teamLogo}" class="form-team-logo-small" onerror="this.src='soccer-ball-png-24.png'">
+                <span class="form-team-abbr">${teamAbbr}</span>
+              </div>
+              <span class="form-score">${score}</span>
+              <div class="form-team" style="flex-direction: row-reverse;">
+                <img src="${opponentLogo}" class="form-team-logo-small" onerror="this.src='soccer-ball-png-24.png'">
+                <span class="form-team-abbr">${opponentAbbr}</span>
+              </div>
+            ` : `
+              <div class="form-team">
+                <img src="${opponentLogo}" class="form-team-logo-small" onerror="this.src='soccer-ball-png-24.png'">
+                <span class="form-team-abbr">${opponentAbbr}</span>
+              </div>
+              <span class="form-score">${score}</span>
+              <div class="form-team" style="flex-direction: row-reverse;">
+                <img src="${teamLogo}" class="form-team-logo-small" onerror="this.src='soccer-ball-png-24.png'">
+                <span class="form-team-abbr">${teamAbbr}</span>
+              </div>
+            `}
+          </div>
+          <div class="form-competition">${event.leagueName || event.leagueAbbreviation || ''}</div>
+        </div>
+      `;
+    }).join('');
+  };
+
+  // Render head to head matches
+  const renderHeadToHeadMatches = (h2hData, homeTeamId, awayTeamId) => {
+    if (!h2hData || h2hData.length === 0) return '<div class="h2h-no-data">No recent head-to-head matches</div>';
+
+    // Extract events from the first team data and limit to 5
+    const events = h2hData[0]?.events || [];
+    
+    return events.slice(0, 5).map(event => {
+      if (!event) return '';
+      
+      const date = new Date(event.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const isHomeTeamAtHome = event.homeTeamId === homeTeamId;
+      const homeTeamInMatch = isHomeTeamAtHome ? homeTeam.team.abbreviation : awayTeam.team.abbreviation;
+      const awayTeamInMatch = isHomeTeamAtHome ? awayTeam.team.abbreviation : homeTeam.team.abbreviation;
+      const homeLogoInMatch = isHomeTeamAtHome ? homeLogo : awayLogo;
+      const awayLogoInMatch = isHomeTeamAtHome ? awayLogo : homeLogo;
+      const matchId = event.id; // Get the match ID for navigation
+      const score = `${event.homeTeamScore || '0'}-${event.awayTeamScore || '0'}`;
+
+      return `
+        <div class="h2h-match clickable-match" onclick="openMatchPage('${matchId}')" style="cursor: pointer;">
+          <div class="h2h-match-header">
+            <span class="h2h-date">${date}</span>
+            <span class="h2h-competition">${event.leagueName || event.leagueAbbreviation || ''}</span>
+          </div>
+          <div class="h2h-match-teams">
+            <div class="h2h-team">
+              <img src="${homeLogoInMatch}" class="h2h-team-logo" onerror="this.src='soccer-ball-png-24.png'">
+              <span class="h2h-team-name">${homeTeamInMatch}</span>
+            </div>
+            <span class="h2h-score">${score}</span>
+            <div class="h2h-team">
+              <img src="${awayLogoInMatch}" class="h2h-team-logo" onerror="this.src='soccer-ball-png-24.png'">
+              <span class="h2h-team-name">${awayTeamInMatch}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  };
+
+  return `
+    <!-- Main Match Stats Container -->
+    <div class="match-stats-container">
+      <div class="stats-header">Match Stats</div>
+      
+      <div class="stats-teams">
+        <div class="stats-team home">
+          <img src="${homeLogo}" class="stats-team-logo" onerror="this.src='soccer-ball-png-24.png'">
+          <div class="stats-team-name">${homeTeam.team.shortDisplayName}</div>
+        </div>
+        <div class="stats-team away">
+          <div class="stats-team-name">${awayTeam.team.shortDisplayName}</div>
+          <img src="${awayLogo}" class="stats-team-logo" onerror="this.src='soccer-ball-png-24.png'">
+        </div>
+      </div>
+
+      <div class="stats-section">
+        <div class="stats-section-title">Possession</div>
+        <div class="possession-section">
+          <div class="possession-circle" style="background: conic-gradient(${awayColor} 0% ${awayPossession}%, ${homeColor} ${awayPossession}% 100%);">
+            <div class="possession-center">
+              <div>Possession</div>
+            </div>
+          </div>
+          <div class="possession-values">
+            <div class="possession-team">
+              <div class="possession-color" style="background: ${homeColor};"></div>
+              <span>${homeTeam.team.abbreviation} ${homePossession}%</span>
+            </div>
+            <div class="possession-team">
+              <span>${awayPossession}% ${awayTeam.team.abbreviation}</span>
+              <div class="possession-color" style="background: ${awayColor};"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-section">
+        <div class="stats-section-title">Shots</div>
+        ${renderStatsRow('Shots on Goal', getStat(awayTeam, 'shotsOnTarget'), getStat(homeTeam, 'shotsOnTarget'))}
+        ${renderStatsRow('Shot Attempts', getStat(awayTeam, 'totalShots'), getStat(homeTeam, 'totalShots'))}
+      </div>
+
+      <div class="stats-section">
+        <div class="stats-section-title">Discipline</div>
+        ${renderStatsRow('Fouls', getStat(awayTeam, 'foulsCommitted'), getStat(homeTeam, 'foulsCommitted'))}
+        ${renderStatsRow('Yellow Cards', getStat(awayTeam, 'yellowCards'), getStat(homeTeam, 'yellowCards'))}
+        ${renderStatsRow('Red Cards', getStat(awayTeam, 'redCards'), getStat(homeTeam, 'redCards'))}
+      </div>
+
+      <div class="stats-section">
+        <div class="stats-section-title">Set Pieces</div>
+        ${renderStatsRow('Corner Kicks', getStat(awayTeam, 'wonCorners'), getStat(homeTeam, 'wonCorners'))}
+        ${renderStatsRow('Saves', getStat(awayTeam, 'saves'), getStat(homeTeam, 'saves'))}
+      </div>
+    </div>
+
+    <!-- Form Containers -->
+    <div class="form-containers">
+      <div class="form-container home">
+        <div class="form-header">
+          <img src="${homeLogo}" class="form-team-logo-header" onerror="this.src='soccer-ball-png-24.png'">
+          <div class="form-team-info">
+            <span class="form-team-name">${homeTeam.team.shortDisplayName}</span>
+            <span class="form-subtitle">Form</span>
+          </div>
+        </div>
+        <div class="form-matches">
+          ${renderFormResults(homeForm, 'home', homeColor, homeLogo, homeTeam.team.abbreviation)}
+        </div>
+      </div>
+
+      <div class="form-container away">
+        <div class="form-header">
+          <img src="${awayLogo}" class="form-team-logo-header" onerror="this.src='soccer-ball-png-24.png'">
+          <div class="form-team-info">
+            <span class="form-team-name">${awayTeam.team.shortDisplayName}</span>
+            <span class="form-subtitle">Form</span>
+          </div>
+        </div>
+        <div class="form-matches">
+          ${renderFormResults(awayForm, 'away', awayColor, awayLogo, awayTeam.team.abbreviation)}
+        </div>
+      </div>
+    </div>
+
+    <!-- Head to Head Container -->
+    <div class="h2h-container">
+      <div class="h2h-header">
+        <span class="h2h-title">Head To Head Record</span>
+      </div>
+      <div class="h2h-matches">
+        ${renderHeadToHeadMatches(headToHeadData, homeTeam.team.id, awayTeam.team.id)}
+      </div>
+    </div>
+  `;
+}
+
+async function fetchAndRenderMatchStats(gameId) {
+  try {
+    const MATCH_STATS_API_URL = `https://cdn.espn.com/core/soccer/matchstats?xhr=1&gameId=${gameId}`;
+    const response = await fetch(MATCH_STATS_API_URL);
+    const matchStatsData = await response.json();
+
+    // Extract teams data
+    const homeTeam = matchStatsData.gamepackageJSON.boxscore.teams.find(team => team.homeAway === 'home');
+    const awayTeam = matchStatsData.gamepackageJSON.boxscore.teams.find(team => team.homeAway === 'away');
+
+    // Extract form data
+    const homeForm = matchStatsData.gamepackageJSON.boxscore.form.find(form => form.team.id === homeTeam.team.id);
+    const awayForm = matchStatsData.gamepackageJSON.boxscore.form.find(form => form.team.id === awayTeam.team.id);
+
+    // Extract head to head data
+    const headToHeadData = matchStatsData.gamepackageJSON.headToHeadGames || [];
+
+    const matchStatsDisplay = document.getElementById("matchStatsDisplay");
+    if (!matchStatsDisplay) {
+      console.error("Error: 'matchStatsDisplay' element not found.");
+      return;
+    }
+
+    // Render the match stats
+    matchStatsDisplay.innerHTML = await renderMatchStats(homeTeam, awayTeam, homeForm, awayForm, headToHeadData);
+
+  } catch (error) {
+    console.error("Error fetching match stats data:", error);
+  }
+}
+
 async function fetchAndRenderPlaysData(gameId) {
   try {
     // Skip update if user is actively scrolling in plays section
@@ -2488,23 +2751,33 @@ window.handleStreamError = function() {
   }
 };
 
+// Function to open match page in new window
+window.openMatchPage = function(matchId) {
+  if (matchId) {
+    const matchUrl = `${window.location.origin}/soccer/scoreboard.html?gameId=${matchId}`;
+    window.open(matchUrl, '_blank');
+  }
+};
+
 // Content slider functions
-window.showStats = function() {
+window.showLineup = function() {
   // Update button states
-  document.getElementById('statsBtn').classList.add('active');
+  document.getElementById('lineupBtn').classList.add('active');
+  document.getElementById('statsBtn').classList.remove('active');
   document.getElementById('playsBtn').classList.remove('active');
   
   // Show/hide content sections
-  document.getElementById('statsContent').classList.add('active');
+  document.getElementById('lineupContent').classList.add('active');
+  document.getElementById('statsContent').classList.remove('active');
   document.getElementById('playsContent').classList.remove('active');
   
-  // Fetch stats data when switching to stats tab
+  // Fetch lineup data when switching to lineup tab
   const gameId = getQueryParam("gameId");
   if (gameId) {
     fetchAndRenderStatsData(gameId).catch(console.error);
   }
   
-  // Show stream when on stats tab
+  // Show stream when on lineup tab
   const streamContainer = document.getElementById("streamEmbed");
   if (streamContainer) {
     if (gameId) {
@@ -2513,13 +2786,33 @@ window.showStats = function() {
   }
 };
 
+window.showStats = function() {
+  // Update button states
+  document.getElementById('statsBtn').classList.add('active');
+  document.getElementById('lineupBtn').classList.remove('active');
+  document.getElementById('playsBtn').classList.remove('active');
+  
+  // Show/hide content sections
+  document.getElementById('statsContent').classList.add('active');
+  document.getElementById('lineupContent').classList.remove('active');
+  document.getElementById('playsContent').classList.remove('active');
+  
+  // Fetch match stats data when switching to stats tab
+  const gameId = getQueryParam("gameId");
+  if (gameId) {
+    fetchAndRenderMatchStats(gameId).catch(console.error);
+  }
+};
+
 window.showPlays = function() {
   // Update button states
   document.getElementById('playsBtn').classList.add('active');
+  document.getElementById('lineupBtn').classList.remove('active');
   document.getElementById('statsBtn').classList.remove('active');
   
   // Show/hide content sections
   document.getElementById('statsContent').classList.remove('active');
+  document.getElementById('lineupContent').classList.remove('active');
   document.getElementById('playsContent').classList.add('active');
   
   // Fetch plays data when switching to plays tab

@@ -10,15 +10,37 @@ function getAdjustedDateForSoccer() {
   return adjustedDate;
 }
 
-// Function to get team logo with fallback
+// Logo cache to prevent repeated fetches
+let logoCache = new Map();
+
+// Function to get team logo with fallback and caching
 function getTeamLogoWithFallback(teamId) {
+  // Check cache first
+  if (logoCache.has(teamId)) {
+    return Promise.resolve(logoCache.get(teamId));
+  }
+
   return new Promise((resolve) => {
     const primaryUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
     const fallbackUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
     
     const img = new Image();
-    img.onload = () => resolve(primaryUrl);
-    img.onerror = () => resolve(fallbackUrl);
+    img.onload = () => {
+      logoCache.set(teamId, primaryUrl);
+      resolve(primaryUrl);
+    };
+    img.onerror = () => {
+      const fallbackImg = new Image();
+      fallbackImg.onload = () => {
+        logoCache.set(teamId, fallbackUrl);
+        resolve(fallbackUrl);
+      };
+      fallbackImg.onerror = () => {
+        logoCache.set(teamId, 'soccer-ball-png-24.png');
+        resolve('soccer-ball-png-24.png');
+      };
+      fallbackImg.src = fallbackUrl;
+    };
     img.src = primaryUrl;
   });
 }
@@ -77,7 +99,7 @@ function renderScorersBox(awayScorers, homeScorers) {
     const penaltyText = scorer.penaltyKick ? " (Pen.)" : "";
     const fullName = scorer.displayName;
     const lastName = fullName.split(" ").slice(-1).join(" ");
-    const displayName = window.innerWidth <= 475 ? lastName : fullName;
+    const displayName = window.innerWidth <= 475 ? (lastName ? lastName : fullName) : fullName;
     return `${displayName} ${scorer.clock}${penaltyText}`;
   };
 
@@ -90,7 +112,7 @@ function renderScorersBox(awayScorers, homeScorers) {
         ${awayScorersHtml}
       </div>
       <div class="soccer-ball">
-        <img src="../soccer-ball-png-24.png" alt="Soccer Ball" class="soccer-ball">
+        <img src="soccer-ball-png-24.png" alt="Soccer Ball" class="soccer-ball">
       </div>
       <div class="scorers home-scorers">
         ${homeScorersHtml}
@@ -185,14 +207,14 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
           "CD": "bottom: 20%; left: 50%; transform: translateX(-50%);", "CD-R": "bottom: 20%; left: 75%; transform: translateX(-50%);", "RB": "bottom: 30%; left: 90%; transform: translateX(-50%);",
           "CM-L": "bottom: 55%; left: 30%; transform: translateX(-50%);", "CM": "bottom: 55%; left: 50%; transform: translateX(-50%);", "CM-R": "bottom: 55%; left: 70%; transform: translateX(-50%);",
           "CF-L": "bottom: 85%; left: 40%; transform: translateX(-50%);", "CF-R": "bottom: 85%; left: 60%; transform: translateX(-50%);"
-        };
+        };   
       case "5-4-1":
         return {
           "G": "bottom: 2.5%; left: 50%; transform: translateX(-50%);", "LB": "bottom: 30%; left: 5%; transform: translateX(-50%);", "CD-L": "bottom: 20%; left: 25%; transform: translateX(-50%);",
           "CD": "bottom: 20%; left: 50%; transform: translateX(-50%);", "CD-R": "bottom: 20%; left: 75%; transform: translateX(-50%);", "RB": "bottom: 30%; left: 95%; transform: translateX(-50%);",
           "LM": "bottom: 55%; left: 15%; transform: translateX(-50%);", "CM-L": "bottom: 55%; left: 37.5%; transform: translateX(-50%);", "CM-R": "bottom: 55%; left: 62.5%; transform: translateX(-50%);", "RM": "bottom: 55%; left: 85%; transform: translateX(-50%);",
           "F": "bottom: 85%; left: 50%; transform: translateX(-50%);"
-        };   
+        };
       default:
         return {
           "G": "bottom: 2.5%; left: 50%; transform: translateX(-50%);", "CD-L": "bottom: 20%; left: 30%; transform: translateX(-50%);", "CD-R": "bottom: 20%; left: 70%; transform: translateX(-50%);",
@@ -204,21 +226,22 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
   };
 
   const renderPlayer = (player, positionStyle, teamLogo) => {
-    const name = player.athlete.lastName ? player.athlete.lastName : player.athlete.displayName;
+    const name = player.athlete && (player.athlete.lastName || player.athlete.displayName) ? 
+                 (player.athlete.lastName || player.athlete.displayName) : 'Unknown Player';
     const substitution = player.subbedOutFor?.athlete ? `
       <span class="sub-arrow red-arrow">←</span>
       ` : "";
-    const jersey = player.jersey;
-    const stats = player.stats.reduce((acc, stat) => {
+    const jersey = player.jersey || 'N/A';
+    const stats = player.stats && Array.isArray(player.stats) ? player.stats.reduce((acc, stat) => {
       acc[stat.abbreviation] = stat.displayValue;
       return acc;
-    }, {});
+    }, {}) : {};
 
     const yellowCard = stats["YC"] === "1";
     const redCard = stats["RC"] === "1";
     const playerNameColor = redCard ? "red" : yellowCard ? "yellow" : "white";
 
-    const hoverCardId = `hover-card-${player.athlete.id}`;
+    const hoverCardId = `hover-card-${player.athlete && player.athlete.id ? player.athlete.id : 'unknown'}`;
 
     // Check if hover card already exists, if not create it
     let hoverCard = document.getElementById(hoverCardId);
@@ -231,7 +254,7 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
 
     // Update hover card content (this will happen every refresh)
     hoverCard.innerHTML = `
-      <img src="${teamLogo}" alt="Team Logo" class="hover-team-logo" onerror="this.src='../soccer-ball-png-24.png'">
+      <img src="${teamLogo}" alt="Team Logo" class="hover-team-logo" onerror="this.src='soccer-ball-png-24.png'">
       <div class="hover-player-name">
         <span style="color: grey;">${jersey}</span> 
         <span style="color: ${playerNameColor};">${name}</span>
@@ -258,28 +281,29 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
   const renderTeamPlayers = (players, positionStyles, teamLogo) =>
     players
       .filter(player => player.starter)
-      .map(player => renderPlayer(player, positionStyles[player.position.abbreviation] || "", teamLogo))
+      .map(player => renderPlayer(player, positionStyles[player.position && player.position.abbreviation ? player.position.abbreviation : ""] || "", teamLogo))
       .join("");
 
   const renderSubstitutes = (subs, teamLogo) => `
     <div class="subs-box">
       <div class="subs-header">
-        <img src="${teamLogo}" alt="Team Logo" class="subs-team-logo" onerror="this.src='../soccer-ball-png-24.png'">
+        <img src="${teamLogo}" alt="Team Logo" class="subs-team-logo" onerror="this.src='soccer-ball-png-24.png'">
         <span class="subs-title">Subs</span>
       </div>
       <ul class="subs-list">
         ${subs.map(sub => {
-          const name = sub.athlete?.lastName || sub.athlete?.displayName || "Unknown";
+          const name = sub.athlete && (sub.athlete.lastName || sub.athlete.displayName) ? 
+                       (sub.athlete.lastName || sub.athlete.displayName) : "Unknown";
           const subbedInFor = sub.subbedInFor?.athlete ? `
             <span class="sub-arrow green-arrow">→</span>
             <span class="sub-time">${sub.plays?.[0]?.clock?.displayValue || ""}</span>
-            <span class="sub-out">Out: #${sub.subbedInFor.jersey || ""}, ${sub.subbedInFor.athlete.displayName || "Unknown"}</span>
+            <span class="sub-out">Out: #${sub.subbedInFor.jersey || ""}, ${sub.subbedInFor.athlete && sub.subbedInFor.athlete.displayName ? sub.subbedInFor.athlete.displayName : "Unknown"}</span>
           ` : "";
           const jersey = sub.jersey || "N/A";
-          const stats = (sub.stats || []).reduce((acc, stat) => {
+          const stats = sub.stats && Array.isArray(sub.stats) ? sub.stats.reduce((acc, stat) => {
             acc[stat.abbreviation] = stat.displayValue;
             return acc;
-          }, {});
+          }, {}) : {};
 
           const yellowCard = stats["YC"] === "1";
           const redCard = stats["RC"] === "1";
@@ -298,7 +322,7 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
 
           // Update hover card content (this will happen every refresh)
           hoverCard.innerHTML = `
-            <img src="${teamLogo}" alt="Team Logo" class="hover-team-logo" onerror="this.src='../soccer-ball-png-24.png'">
+            <img src="${teamLogo}" alt="Team Logo" class="hover-team-logo" onerror="this.src='soccer-ball-png-24.png'">
             <div class="hover-player-name">
               <span style="color: grey;">${jersey}</span> 
               <span style="color: ${playerNameColor};">${name}</span>
@@ -332,7 +356,7 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
     <div class="pitches-wrapper">
       <div class="pitch-container">
         <div class="team-info">
-          <img src="${awayLogo}" alt="Away Team Logo" class="form-team-logo" style="margin-right: 10px;" onerror="this.src='../soccer-ball-png-24.png'">
+          <img src="${awayLogo}" alt="Away Team Logo" class="form-team-logo" style="margin-right: 10px;" onerror="this.src='soccer-ball-png-24.png'">
           <span class="team-formation">${awayFormation}</span>
         </div>
         <div class="football-pitch">
@@ -347,7 +371,7 @@ function renderFootballPitches(homePlayers, awayPlayers, homeFormation, awayForm
       <div class="pitch-container">
         <div class="team-info">
           <span class="team-formation">${homeFormation}</span>
-          <img src="${homeLogo}" alt="Home Team Logo" class="form-team-logo" style="margin-left: 10px;" onerror="this.src='../soccer-ball-png-24.png'">
+          <img src="${homeLogo}" alt="Home Team Logo" class="form-team-logo" style="margin-left: 10px;" onerror="this.src='soccer-ball-png-24.png'">
         </div>
         <div class="football-pitch">
           <div class="center-circle"></div>
@@ -456,7 +480,7 @@ async function fetchAndRenderStatsData(gameId) {
         <div class="team-score responsive-score" style="color: ${homeScoreColor};">
           ${homeScore}${homeShootoutScore > 0 ? `<sup style="font-size: 0.5em;">(${homeShootoutScore})</sup>` : ""}
         </div>
-        <img class="team-logo responsive-logo" src="${homeLogo}" alt="${homeTeam.displayName}" onerror="this.src='../soccer-ball-png-24.png'">
+        <img class="team-logo responsive-logo" src="${homeLogo}" alt="${homeTeam.displayName}" onerror="this.src='soccer-ball-png-24.png'">
         <div class="team-name responsive-name">${homeTeam.shortDisplayName}</div>
       </div>
       <div class="inning-center">
@@ -467,7 +491,7 @@ async function fetchAndRenderStatsData(gameId) {
         <div class="team-score responsive-score" style="color: ${awayScoreColor};">
         ${awayScore}${awayShootoutScore > 0 ? `<sup style="font-size: 0.5em;">(${awayShootoutScore})</sup>` : ""}
         </div>
-        <img class="team-logo responsive-logo" src="${awayLogo}" alt="${awayTeam.displayName}" onerror="this.src='../soccer-ball-png-24.png'">
+        <img class="team-logo responsive-logo" src="${awayLogo}" alt="${awayTeam.displayName}" onerror="this.src='soccer-ball-png-24.png'">
         <div class="team-name responsive-name">${awayTeam.shortDisplayName}</div>
       </div>
     `;
@@ -500,6 +524,269 @@ async function fetchAndRenderStatsData(gameId) {
     }
   } catch (error) {
     console.error("Error fetching scoreboard data:", error);
+  }
+}
+
+async function renderMatchStats(homeTeam, awayTeam, homeForm, awayForm, headToHeadData) {
+  // Get team logos
+  const homeLogo = await getTeamLogoWithFallback(homeTeam.team.id);
+  const awayLogo = await getTeamLogoWithFallback(awayTeam.team.id);
+
+  // Get team colors (convert hex to proper format)
+  const homeColor = homeTeam.team.color ? `#${homeTeam.team.color}` : '#007bff';
+  const awayColor = awayTeam.team.color ? `#${awayTeam.team.color}` : '#28a745';
+
+  // Get possession percentages
+  const homePossession = parseFloat(homeTeam.statistics.find(stat => stat.name === 'possessionPct')?.displayValue || '0');
+  const awayPossession = parseFloat(awayTeam.statistics.find(stat => stat.name === 'possessionPct')?.displayValue || '0');
+
+  // Helper function to get stat value
+  const getStat = (team, statName) => {
+    const stat = team.statistics.find(s => s.name === statName);
+    return stat ? parseFloat(stat.displayValue) || 0 : 0;
+  };
+
+  // Helper function to render stats row with bars (fixed mirroring)
+  const renderStatsRow = (label, awayValue, homeValue, isPercentage = false) => {
+    const awayNum = typeof awayValue === 'number' ? awayValue : parseFloat(awayValue) || 0;
+    const homeNum = typeof homeValue === 'number' ? homeValue : parseFloat(homeValue) || 0;
+    const total = awayNum + homeNum;
+    const awayPercent = total > 0 ? (awayNum / total) * 100 : 50;
+    const homePercent = total > 0 ? (homeNum / total) * 100 : 50;
+
+    return `
+      <div class="stats-row">
+        <div class="stats-value away">${homeValue}${isPercentage ? '%' : ''}</div>
+        <div class="stats-bar-container">
+          <div class="stats-bar">
+            <div class="stats-bar-fill away" style="width: ${homePercent}%; background: ${homeColor};"></div>
+          </div>
+          <div class="stats-bar">
+            <div class="stats-bar-fill home" style="width: ${awayPercent}%; background: ${awayColor};"></div>
+          </div>
+        </div>
+        <div class="stats-value home">${awayValue}${isPercentage ? '%' : ''}</div>
+      </div>
+      <div class="stats-label">${label}</div>
+    `;
+  };
+
+  // Render form results with actual game details
+  const renderFormResults = (formData, teamSide, teamColor, teamLogo, teamAbbr) => {
+    if (!formData || !formData.events) return '<div class="form-no-data">No recent form data</div>';
+    
+    return formData.events.slice(0, 5).map(event => {
+      const result = event.gameResult?.toLowerCase() || 'd';
+      const isHome = event.atVs !== '@';
+      const opponentLogo = event.opponentLogo || event.opponent?.logo || 'soccer-ball-png-24.png';
+      const opponentAbbr = event.opponent?.abbreviation || 'UNK';
+      const score = `${event.homeTeamScore}-${event.awayTeamScore}`;
+      
+      const date = new Date(event.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const matchId = event.id; // Get the match ID for navigation
+      
+      return `
+        <div class="form-match clickable-match" onclick="openMatchPage('${matchId}')" style="cursor: pointer;">
+          <div class="form-match-header">
+            <span class="form-date">${date}</span>
+            <span class="form-result-badge ${result}">${result.toUpperCase()}</span>
+          </div>
+          <div class="form-match-teams">
+            ${isHome ? `
+              <div class="form-team">
+                <img src="${teamLogo}" class="form-team-logo-small" onerror="this.src='soccer-ball-png-24.png'">
+                <span class="form-team-abbr">${teamAbbr}</span>
+              </div>
+              <span class="form-score">${score}</span>
+              <div class="form-team" style="flex-direction: row-reverse;">
+                <img src="${opponentLogo}" class="form-team-logo-small" onerror="this.src='soccer-ball-png-24.png'">
+                <span class="form-team-abbr">${opponentAbbr}</span>
+              </div>
+            ` : `
+              <div class="form-team">
+                <img src="${opponentLogo}" class="form-team-logo-small" onerror="this.src='soccer-ball-png-24.png'">
+                <span class="form-team-abbr">${opponentAbbr}</span>
+              </div>
+              <span class="form-score">${score}</span>
+              <div class="form-team" style="flex-direction: row-reverse;">
+                <img src="${teamLogo}" class="form-team-logo-small" onerror="this.src='soccer-ball-png-24.png'">
+                <span class="form-team-abbr">${teamAbbr}</span>
+              </div>
+            `}
+          </div>
+          <div class="form-competition">${event.leagueName || event.leagueAbbreviation || ''}</div>
+        </div>
+      `;
+    }).join('');
+  };
+
+  // Render head to head matches
+  const renderHeadToHeadMatches = (h2hData, homeTeamId, awayTeamId) => {
+    if (!h2hData || h2hData.length === 0) return '<div class="h2h-no-data">No recent head-to-head matches</div>';
+
+    // Extract events from the first team data and limit to 5
+    const events = h2hData[0]?.events || [];
+    
+    return events.slice(0, 5).map(event => {
+      if (!event) return '';
+      
+      const date = new Date(event.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const isHomeTeamAtHome = event.homeTeamId === homeTeamId;
+      const homeTeamInMatch = isHomeTeamAtHome ? homeTeam.team.abbreviation : awayTeam.team.abbreviation;
+      const awayTeamInMatch = isHomeTeamAtHome ? awayTeam.team.abbreviation : homeTeam.team.abbreviation;
+      const homeLogoInMatch = isHomeTeamAtHome ? homeLogo : awayLogo;
+      const awayLogoInMatch = isHomeTeamAtHome ? awayLogo : homeLogo;
+      const matchId = event.id; // Get the match ID for navigation
+      const score = `${event.homeTeamScore || '0'}-${event.awayTeamScore || '0'}`;
+
+      return `
+        <div class="h2h-match clickable-match" onclick="openMatchPage('${matchId}')" style="cursor: pointer;">
+          <div class="h2h-match-header">
+            <span class="h2h-date">${date}</span>
+            <span class="h2h-competition">${event.leagueName || event.leagueAbbreviation || ''}</span>
+          </div>
+          <div class="h2h-match-teams">
+            <div class="h2h-team">
+              <img src="${homeLogoInMatch}" class="h2h-team-logo" onerror="this.src='soccer-ball-png-24.png'">
+              <span class="h2h-team-name">${homeTeamInMatch}</span>
+            </div>
+            <span class="h2h-score">${score}</span>
+            <div class="h2h-team">
+              <img src="${awayLogoInMatch}" class="h2h-team-logo" onerror="this.src='soccer-ball-png-24.png'">
+              <span class="h2h-team-name">${awayTeamInMatch}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  };
+
+  return `
+    <!-- Main Match Stats Container -->
+    <div class="match-stats-container">
+      <div class="stats-header">Match Stats</div>
+      
+      <div class="stats-teams">
+        <div class="stats-team home">
+          <img src="${homeLogo}" class="stats-team-logo" onerror="this.src='soccer-ball-png-24.png'">
+          <div class="stats-team-name">${homeTeam.team.shortDisplayName}</div>
+        </div>
+        <div class="stats-team away">
+          <div class="stats-team-name">${awayTeam.team.shortDisplayName}</div>
+          <img src="${awayLogo}" class="stats-team-logo" onerror="this.src='soccer-ball-png-24.png'">
+        </div>
+      </div>
+
+      <div class="stats-section">
+        <div class="stats-section-title">Possession</div>
+        <div class="possession-section">
+          <div class="possession-circle" style="background: conic-gradient(${awayColor} 0% ${awayPossession}%, ${homeColor} ${awayPossession}% 100%);">
+            <div class="possession-center">
+              <div>Possession</div>
+            </div>
+          </div>
+          <div class="possession-values">
+            <div class="possession-team">
+              <div class="possession-color" style="background: ${homeColor};"></div>
+              <span>${homeTeam.team.abbreviation} ${homePossession}%</span>
+            </div>
+            <div class="possession-team">
+              <span>${awayPossession}% ${awayTeam.team.abbreviation}</span>
+              <div class="possession-color" style="background: ${awayColor};"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-section">
+        <div class="stats-section-title">Shots</div>
+        ${renderStatsRow('Shots on Goal', getStat(awayTeam, 'shotsOnTarget'), getStat(homeTeam, 'shotsOnTarget'))}
+        ${renderStatsRow('Shot Attempts', getStat(awayTeam, 'totalShots'), getStat(homeTeam, 'totalShots'))}
+      </div>
+
+      <div class="stats-section">
+        <div class="stats-section-title">Discipline</div>
+        ${renderStatsRow('Fouls', getStat(awayTeam, 'foulsCommitted'), getStat(homeTeam, 'foulsCommitted'))}
+        ${renderStatsRow('Yellow Cards', getStat(awayTeam, 'yellowCards'), getStat(homeTeam, 'yellowCards'))}
+        ${renderStatsRow('Red Cards', getStat(awayTeam, 'redCards'), getStat(homeTeam, 'redCards'))}
+      </div>
+
+      <div class="stats-section">
+        <div class="stats-section-title">Set Pieces</div>
+        ${renderStatsRow('Corner Kicks', getStat(awayTeam, 'wonCorners'), getStat(homeTeam, 'wonCorners'))}
+        ${renderStatsRow('Saves', getStat(awayTeam, 'saves'), getStat(homeTeam, 'saves'))}
+      </div>
+    </div>
+
+    <!-- Form Containers -->
+    <div class="form-containers">
+      <div class="form-container home">
+        <div class="form-header">
+          <img src="${homeLogo}" class="form-team-logo-header" onerror="this.src='soccer-ball-png-24.png'">
+          <div class="form-team-info">
+            <span class="form-team-name">${homeTeam.team.shortDisplayName}</span>
+            <span class="form-subtitle">Form</span>
+          </div>
+        </div>
+        <div class="form-matches">
+          ${renderFormResults(homeForm, 'home', homeColor, homeLogo, homeTeam.team.abbreviation)}
+        </div>
+      </div>
+
+      <div class="form-container away">
+        <div class="form-header">
+          <img src="${awayLogo}" class="form-team-logo-header" onerror="this.src='soccer-ball-png-24.png'">
+          <div class="form-team-info">
+            <span class="form-team-name">${awayTeam.team.shortDisplayName}</span>
+            <span class="form-subtitle">Form</span>
+          </div>
+        </div>
+        <div class="form-matches">
+          ${renderFormResults(awayForm, 'away', awayColor, awayLogo, awayTeam.team.abbreviation)}
+        </div>
+      </div>
+    </div>
+
+    <!-- Head to Head Container -->
+    <div class="h2h-container">
+      <div class="h2h-header">
+        <span class="h2h-title">Head To Head Record</span>
+      </div>
+      <div class="h2h-matches">
+        ${renderHeadToHeadMatches(headToHeadData, homeTeam.team.id, awayTeam.team.id)}
+      </div>
+    </div>
+  `;
+}
+
+async function fetchAndRenderMatchStats(gameId) {
+  try {
+    const MATCH_STATS_API_URL = `https://cdn.espn.com/core/soccer/matchstats?xhr=1&gameId=${gameId}`;
+    const response = await fetch(MATCH_STATS_API_URL);
+    const matchStatsData = await response.json();
+
+    // Extract teams data
+    const homeTeam = matchStatsData.gamepackageJSON.boxscore.teams.find(team => team.homeAway === 'home');
+    const awayTeam = matchStatsData.gamepackageJSON.boxscore.teams.find(team => team.homeAway === 'away');
+
+    // Extract form data
+    const homeForm = matchStatsData.gamepackageJSON.boxscore.form.find(form => form.team.id === homeTeam.team.id);
+    const awayForm = matchStatsData.gamepackageJSON.boxscore.form.find(form => form.team.id === awayTeam.team.id);
+
+    // Extract head to head data
+    const headToHeadData = matchStatsData.gamepackageJSON.headToHeadGames || [];
+
+    const matchStatsDisplay = document.getElementById("matchStatsDisplay");
+    if (!matchStatsDisplay) {
+      console.error("Error: 'matchStatsDisplay' element not found.");
+      return;
+    }
+
+    // Render the match stats
+    matchStatsDisplay.innerHTML = await renderMatchStats(homeTeam, awayTeam, homeForm, awayForm, headToHeadData);
+
+  } catch (error) {
+    console.error("Error fetching match stats data:", error);
   }
 }
 
@@ -683,14 +970,7 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
   const scorerName = scorer.displayName || 'Unknown Player';
   const assisterName = assister ? assister.displayName : null;
   const minute = play.time?.displayValue || play.clock?.displayValue || '';
-  
-  // Determine goal type: Own Goal, Penalty Goal, or regular Goal
-  let goalType = 'Goal';
-  if (playData.type && playData.type.id && playData.type.id.toString() === '97') {
-    goalType = 'Own Goal';
-  } else if (play.text?.toLowerCase().includes('penalty')) {
-    goalType = 'Penalty Goal';
-  }
+  const goalType = play.text?.toLowerCase().includes('penalty') ? 'Penalty Goal' : 'Goal';
   
   // Get team abbreviation for the scorer
   const scoringTeam = teamSide === 'home' ? homeTeam : awayTeam;
@@ -798,11 +1078,11 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
   // Generate mini field for the goal card
   const miniFieldHtml = renderMiniField(coordinate, coordinate2, 'goal', teamSide, teamColorHex, team?.shortDisplayName || '');
   
-  // Get team logos for score display
-  const homeTeamLogo = homeTeam?.team?.logos?.find(logo => logo.rel.includes("dark"))?.href || 
-                      `https://a.espncdn.com/i/teamlogos/soccer/500/${homeTeam?.team?.id || homeTeam?.id}.png`;
-  const awayTeamLogo = awayTeam?.team?.logos?.find(logo => logo.rel.includes("dark"))?.href || 
-                      `https://a.espncdn.com/i/teamlogos/soccer/500/${awayTeam?.team?.id || awayTeam?.id}.png`;
+  // Get team logos using cached fallback function
+  const homeTeamLogo = logoCache.get(homeTeam?.team?.id || homeTeam?.id) || 
+                       `https://a.espncdn.com/i/teamlogos/soccer/500/${homeTeam?.team?.id || homeTeam?.id}.png`;
+  const awayTeamLogo = logoCache.get(awayTeam?.team?.id || awayTeam?.id) || 
+                       `https://a.espncdn.com/i/teamlogos/soccer/500/${awayTeam?.team?.id || awayTeam?.id}.png`;
   
   return `
     <div id="${goalCardId}" class="goal-card" style="background: linear-gradient(135deg, ${teamColorHex}15 0%, ${teamColorHex}05 100%); border-left: 4px solid ${teamColorHex}; margin: 10px 0; padding: 20px; border-radius: 8px; color: white; position: relative;">
@@ -811,7 +1091,7 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
       </div>
       <div class="goal-card-header" style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; margin-right: 55px; flex-wrap: wrap;">
         <div style="display: flex; align-items: center; flex: 1; min-width: 200px;">
-          <img src="${teamLogo}" alt="${team?.displayName || 'Team'}" style="width: 40px; height: 40px; margin-right: 15px;" onerror="this.src='../soccer-ball-png-24.png'">
+          <img src="${teamLogo}" alt="${team?.displayName || 'Team'}" style="width: 40px; height: 40px; margin-right: 15px;" onerror="this.src='soccer-ball-png-24.png'">
           <div class="goal-info">
             <div class="goal-type" style="font-size: 14px; font-weight: bold; color: white; margin-bottom: 4px;">
               ⚽ ${goalType} ${goalSituation ? `• ${goalSituation}` : ''}
@@ -842,9 +1122,9 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
           
           <div class="goal-score-line" style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; margin-bottom: 15px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <img src="${homeTeamLogo}" alt="Home" style="width: 24px; height: 24px;" onerror="this.src='../soccer-ball-png-24.png'">
+              <img src="${homeTeamLogo}" alt="Home" style="width: 24px; height: 24px;" onerror="this.src='soccer-ball-png-24.png'">
               <span style="font-size: 16px; font-weight: bold; color: white;">${finalHomeScore} - ${finalAwayScore}</span>
-              <img src="${awayTeamLogo}" alt="Away" style="width: 24px; height: 24px;" onerror="this.src='../soccer-ball-png-24.png'">
+              <img src="${awayTeamLogo}" alt="Away" style="width: 24px; height: 24px;" onerror="this.src='soccer-ball-png-24.png'">
             </div>
             <div style="background: ${teamColorHex}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
               GOAL
@@ -1041,7 +1321,7 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
       
       // Check for goal using type.id field (70, 137, 98, 173 for goals, 97 for own goals)
       const isGoal = playData.type && playData.type.id &&
-                     ['70', '137', '98', '173', '97'].includes(playData.type.id.toString());
+                     ['70', '137', '98', '173', '138', '97'].includes(playData.type.id.toString());
 
       // Check if this is an own goal (ID 97)
       const isOwnGoal = playData.type && playData.type.id && playData.type.id.toString() === '97';
@@ -1060,13 +1340,6 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
             scoringTeam = 'away';
           }
         }
-
-        // Handle own goals - they count for the OPPOSING team
-        if (isOwnGoal && scoringTeam) {
-          scoringTeam = scoringTeam === 'home' ? 'away' : 'home';
-          console.log(`Own goal detected: ${playData.team.displayName} scored own goal, counting for ${scoringTeam} team`);
-        }
-
         if (scoringTeam === 'home') {
           homeGoalCount++;
         } else if (scoringTeam === 'away') {
@@ -1147,9 +1420,9 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
       // Handle nested play structure - check if play.play exists
       const playData = play.play || play;
       
-      // Check if this is a goal play using type.id field (70, 137, 98, 173 for goals, 97 for own goals)
-      const isGoalPlay = playData.type && playData.type.id &&
-                         ['70', '137', '98', '173', '97'].includes(playData.type.id.toString());
+      // Check if this is a goal play using type.id field (70, 137, or 98)
+      const isGoalPlay = playData.type && playData.type.id && 
+                         ['70', '137', '98', '173', '138', '97'].includes(playData.type.id.toString());
       
       // Get the score at the time of this play using our counter logic
       let scoreAtThisTime = getScoreAtSequence(play);
@@ -1265,13 +1538,13 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
             <div class="play-main-info">
               <div class="play-teams-score">
                 <div class="team-score-display">
-                  <img src="${homeLogo}" alt="Home" class="team-logo-small" onerror="this.src='../soccer-ball-png-24.png'">
+                  <img src="${homeLogo}" alt="Home" class="team-logo-small" onerror="this.src='soccer-ball-png-24.png'">
                   <span class="score">${currentHomeScore}</span>
                 </div>
                 <span class="score-separator">-</span>
                 <div class="team-score-display">
                   <span class="score">${currentAwayScore}</span>
-                  <img src="${awayLogo}" alt="Away" class="team-logo-small" onerror="this.src='../soccer-ball-png-24.png'">
+                  <img src="${awayLogo}" alt="Away" class="team-logo-small" onerror="this.src='soccer-ball-png-24.png'">
                 </div>
               </div>
               
@@ -1399,7 +1672,39 @@ function normalizeTeamName(teamName) {
     'borussia dortmund': 'borussia-dortmund',
     'stade rennais': 'rennes',
     'marseille': 'olympique-marseille',
-    'kairat almaty': 'kairat'
+    'lafc': 'los-angeles-fc',
+    'sporting kansas city': 'sporting-kc',
+    'chicago fire fc': 'chicago-fire',
+    'st. louis city sc': 'st-louis-city',
+    'afc bournemouth': 'bournemouth',
+    'bournemouth': 'bournemouth',
+    'west ham united': 'west-ham-united',
+    'west ham': 'west-ham-united',
+    'brighton & hove albion': 'brighton',
+    'brighton': 'brighton',
+    'crystal palace': 'crystal-palace',
+    'newcastle united': 'newcastle-united',
+    'newcastle': 'newcastle-united',
+    'wolverhampton wanderers': 'wolves',
+    'wolves': 'wolves',
+    'nottingham forest': 'nottingham-forest',
+    'fulham': 'fulham',
+    'burnley': 'burnley',
+    'sheffield united': 'sheffield-united',
+    'luton town': 'luton-town',
+    'millwall': 'millwall',
+    'preston north end': 'preston',
+    'coventry city': 'coventry-city',
+    'swansea city': 'swansea-city',
+    'swansea': 'swansea-city',
+    'norwich city': 'norwich-city',
+    'norwich': 'norwich-city',
+    'watford': 'watford',
+    'sunderland': 'sunderland',
+    'middlesbrough': 'middlesbrough',
+    'hull city': 'hull-city',
+    'cardiff city': 'cardiff-city',
+    'cardiff': 'cardiff-city'
   };
   
   const lowerName = teamName.toLowerCase();
@@ -1407,327 +1712,754 @@ function normalizeTeamName(teamName) {
     return specialCases[lowerName];
   }
   
-  // Convert team names to streaming format
+  // Convert team names to streaming format with proper special character handling
   return teamName.toLowerCase()
+    // First, convert special characters to ASCII equivalents (matching API format)
+    .replace(/á/g, 'a')
+    .replace(/é/g, 'e')
+    .replace(/í/g, 'i')
+    .replace(/ó/g, 'o')
+    .replace(/ú/g, 'u')
+    .replace(/ü/g, 'u')
+    .replace(/ñ/g, 'n')
+    .replace(/ç/g, 'c')
+    .replace(/ß/g, 'ss')
+    // Handle accented characters that become multiple characters
+    .replace(/ë/g, 'e')
+    .replace(/ï/g, 'i')
+    .replace(/ö/g, 'o')
+    .replace(/ä/g, 'a')
+    .replace(/å/g, 'a')
+    .replace(/ø/g, 'o')
+    // Convert spaces to hyphens
     .replace(/\s+/g, '-')
+    // Remove any remaining non-alphanumeric characters except hyphens
     .replace(/[^a-z0-9\-]/g, '')
-    .replace(/^fc-/, '')
-    .replace(/-fc$/, '');
+    // Clean up multiple hyphens
+    .replace(/-+/g, '-')
+    // Remove leading/trailing hyphens
+    .replace(/^-+|-+$/g, '')
+    // Remove common prefixes/suffixes (be more conservative)
+    .replace(/^afc-/, '')  // Remove "AFC " prefix
+    .replace(/-afc$/, '')  // Remove " AFC" suffix
+    // Keep "FC " prefix as it's often part of the official name
 }
 
-// Global variables for stream testing
-let streamUrls = [];
-let currentStreamIndex = 0;
-let streamTestTimeout = null;
+// Global variables for stream functionality
+let currentStreamType = 'alpha1'; // Track which stream type is active ('alpha1', 'alpha2', 'bravo')
+let currentAwayTeam = ''; // Store current away team name
+let currentHomeTeam = ''; // Store current home team name
 let isMuted = true; // Start muted to prevent autoplay issues
+let availableStreams = {}; // Store available streams from API
 
-async function extractVideoPlayerUrl(pageUrl) {
+// API functions for streamed.pk
+const STREAM_API_BASE = 'https://streamed.pk/api';
+
+async function fetchLiveMatches() {
   try {
-    console.log(`Attempting to extract video URL from: ${pageUrl}`);
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(pageUrl)}`;
-    const response = await fetch(proxyUrl);
+    console.log(`Fetching live matches from API...`);
+    const response = await fetch(`${STREAM_API_BASE}/matches/live`);
 
     if (!response.ok) {
-      console.error(`Proxy request failed with status: ${response.status}`);
-      return null;
+      throw new Error(`API request failed: ${response.status}`);
     }
 
-    const data = await response.json();
+    const allMatches = await response.json();
+    console.log(`Found ${allMatches.length} total live matches`);
 
-    if (!data.contents) {
-      console.error('No content received from proxy');
-      return null;
+    // Debug: Check what category values are in the API response
+    if (allMatches.length > 0) {
+      const uniqueCategories = [...new Set(allMatches.map(match => match.category || match.sport).filter(category => category))];
+      console.log('Available categories in API:', uniqueCategories);
+
+      // Show sample of matches with their category values
+      console.log('Sample matches with category values:');
+      for (let i = 0; i < Math.min(5, allMatches.length); i++) {
+        const match = allMatches[i];
+        const categoryValue = match.category || match.sport || 'undefined';
+        console.log(`  Match ${i+1}: "${match.title}" - Category: "${categoryValue}"`);
+      }
     }
 
-    console.log(`Received page content, length: ${data.contents.length}`);
+    // Filter matches by category (for soccer: football or other)
+    const relevantCategories = ['football', 'other'];
+    const matches = allMatches.filter(match => {
+      const matchCategory = match.category || match.sport;
+      return relevantCategories.includes(matchCategory);
+    });
+    console.log(`Filtered to ${matches.length} soccer matches (${relevantCategories.join(' or ')})`);
+    return matches;
+  } catch (error) {
+    console.error('Error fetching live matches:', error);
+    return [];
+  }
+}
 
-    // More comprehensive regex patterns for different streaming providers
-    const patterns = [
-      // Original patterns
-      /src="([^"]*castweb\.xyz[^"]*)"/i,
-      /iframe[^>]*src="([^"]*\.php[^"]*)"/i,
+async function fetchStreamsForSource(source, sourceId) {
+  try {
+    console.log(`Fetching streams for ${source}/${sourceId}...`);
+    const response = await fetch(`${STREAM_API_BASE}/stream/${source}/${sourceId}`);
 
-      // UEFA-specific patterns
-      /src="([^"]*vuen\.link[^"]*)"/i,
-      /src="([^"]*ch\?id=[^"]*)"/i,
+    if (!response.ok) {
+      throw new Error(`Stream API request failed: ${response.status}`);
+    }
 
-      // Common streaming patterns
-      /src="([^"]*\.m3u8[^"]*)"/i,  // HLS streams
-      /src="([^"]*\.mp4[^"]*)"/i,   // MP4 streams
-      /src="([^"]*embed[^"]*\.php[^"]*)"/i,  // Embed PHP files
-      /iframe[^>]*src="([^"]*player[^"]*\.php[^"]*)"/i,  // Player PHP files
-      /src="([^"]*stream[^"]*\.php[^"]*)"/i,  // Stream PHP files
+    const streams = await response.json();
+    console.log(`Found ${streams.length} streams for ${source}`);
+    return streams;
+  } catch (error) {
+    console.error(`Error fetching streams for ${source}/${sourceId}:`, error);
+    return [];
+  }
+}
 
-      // Alternative streaming providers
-      /src="([^"]*vidplay[^"]*)"/i,
-      /src="([^"]*streamtape[^"]*)"/i,
-      /src="([^"]*doodstream[^"]*)"/i,
-      /src="([^"]*mixdrop[^"]*)"/i,
-      /src="([^"]*upstream[^"]*)"/i,
+async function findMatchStreams(homeTeamName, awayTeamName) {
+  try {
+    console.log(`Looking for streams: ${homeTeamName} vs ${awayTeamName}`);
 
-      // Generic iframe sources
-      /<iframe[^>]*src="([^"]+)"/i,
-      /<embed[^>]*src="([^"]+)"/i,
-      /<video[^>]*src="([^"]+)"/i,
+    // Fetch live matches for soccer (football and other categories)
+    const matches = await fetchLiveMatches();
 
-      // Data attributes that might contain URLs
-      /data-src="([^"]+)"/i,
-      /data-url="([^"]+)"/i,
-      /data-stream="([^"]+)"/i
-    ];
+    // Debug: Check if we got any matches and what they look like
+    console.log(`After filtering: Got ${matches.length} soccer matches`);
+    if (matches.length === 0) {
+      console.log('No soccer matches found! This could be due to:');
+      console.log('1. API category field name changed');
+      console.log('2. Category value is different than expected');
+      console.log('3. No football or other category matches currently live');
 
-    for (let i = 0; i < patterns.length; i++) {
-      const pattern = patterns[i];
-      const match = data.contents.match(pattern);
-      if (match && match[1]) {
-        const extractedUrl = match[1];
-        console.log(`Pattern ${i} matched: ${extractedUrl}`);
+      // Try fallback: search all matches if no football matches found
+      console.log('Trying fallback: searching all matches...');
+      try {
+        const allMatchesResponse = await fetch(`${STREAM_API_BASE}/matches/live`);
+        if (allMatchesResponse.ok) {
+          const allMatchesData = await allMatchesResponse.json();
+          console.log(`Fallback: Found ${allMatchesData.length} total matches`);
+          // Use all matches as fallback
+          matches = allMatchesData;
+        }
+      } catch (fallbackError) {
+        console.error('Fallback fetch failed:', fallbackError);
+      }
+    } else {
+      console.log('Sample filtered matches:');
+      for (let i = 0; i < Math.min(3, matches.length); i++) {
+        const match = matches[i];
+        console.log(`  ${i+1}. "${match.title}" - Sport: "${match.sport}"`);
+      }
+    }
 
-        // Validate the URL
-        try {
-          new URL(extractedUrl);
-          return extractedUrl;
-        } catch (urlError) {
-          console.log(`Invalid URL format: ${extractedUrl}, trying next pattern`);
-          continue;
+    // Try to find our match
+    const homeNormalized = normalizeTeamName(homeTeamName).toLowerCase();
+    const awayNormalized = normalizeTeamName(awayTeamName).toLowerCase();
+
+    console.log(`Normalized names: ${homeNormalized} vs ${awayNormalized}`);
+
+    // Check if both teams have the same first word (city name) - this causes confusion
+    const homeFirstWord = homeNormalized.split('-')[0];
+    const awayFirstWord = awayNormalized.split('-')[0];
+    const hasSameCity = homeFirstWord === awayFirstWord;
+
+    console.log(`Team analysis: Home first word: "${homeFirstWord}", Away first word: "${awayFirstWord}", Same city: ${hasSameCity}`);
+
+    let bestMatch = null;
+    let bestScore = 0;
+
+    // Debug: Show first few matches to understand API format
+    if (matches.length > 0) {
+      console.log('Sample matches from API:');
+      for (let i = 0; i < Math.min(10, matches.length); i++) {
+        const match = matches[i];
+        console.log(`  ${i+1}. Title: "${match.title}"`);
+        if (match.teams) {
+          console.log(`     Teams: ${match.teams.home?.name || 'N/A'} vs ${match.teams.away?.name || 'N/A'}`);
+        }
+        if (match.sources) {
+          console.log(`     Sources: ${match.sources.map(s => s.source).join(', ')}`);
         }
       }
     }
 
-    console.log('No video URLs found with any pattern');
+    // Quick pre-filter to reduce processing - look for obvious matches first
+    const quickMatches = matches.slice(0, Math.min(matches.length, 100)).filter(match => {
+      const title = match.title.toLowerCase();
 
-    // Log a sample of the content for debugging
-    const contentSample = data.contents.substring(0, 500);
-    console.log('Page content sample:', contentSample);
+      if (hasSameCity) {
+        // If teams have same city, require BOTH full team names to be present
+        const hasHomeTeam = title.includes(homeNormalized) ||
+                           (match.teams?.home?.name?.toLowerCase().includes(homeNormalized));
+        const hasAwayTeam = title.includes(awayNormalized) ||
+                           (match.teams?.away?.name?.toLowerCase().includes(awayNormalized));
+        return hasHomeTeam && hasAwayTeam;
+      } else {
+        // Normal case: require BOTH teams to have some match, not just one
+        const homeHasMatch = title.includes(homeNormalized.split('-')[0]) ||
+                            title.includes(homeNormalized.split('-')[1] || '') ||
+                            (match.teams?.home?.name?.toLowerCase().includes(homeNormalized.split('-')[0]));
+        const awayHasMatch = title.includes(awayNormalized.split('-')[0]) ||
+                            title.includes(awayNormalized.split('-')[1] || '') ||
+                            (match.teams?.away?.name?.toLowerCase().includes(awayNormalized.split('-')[0]));
 
-    return null;
+        // Require BOTH teams to match, not just one
+        return homeHasMatch && awayHasMatch;
+      }
+    });
 
-  } catch (error) {
-    console.error('Error extracting video player URL:', error);
-    return null;
-  }
-}
+    // If we found quick matches, prioritize them
+    const matchesToProcess = quickMatches.length > 0 ? quickMatches : matches.slice(0, Math.min(matches.length, 100));
 
-function tryNextStream() {
-  const iframe = document.getElementById('streamIframe');
-  
-  if (currentStreamIndex < streamUrls.length) {
-    const nextUrl = streamUrls[currentStreamIndex];
-    currentStreamIndex++;
-    
-    console.log(`Trying stream URL: ${nextUrl}`);
-    
-    streamTestTimeout = setTimeout(() => {
-      tryNextStream();
-    }, 3000); // Reduced timeout for faster switching
-    
-    if (iframe) {
-      iframe.src = nextUrl;
-      iframe.style.display = 'block';
-      
-      // Hide connecting message immediately for iframe streams
-      const connectingDiv = document.getElementById('streamConnecting');
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
+    console.log(`Processing ${matchesToProcess.length} matches (${quickMatches.length > 0 ? 'pre-filtered' : 'full set'})`);
+
+    // Debug: Show first few matches to understand API format (limited)
+    if (matches.length > 0) {
+      console.log('Sample matches from API:');
+      for (let i = 0; i < Math.min(5, matches.length); i++) {
+        const match = matches[i];
+        console.log(`  ${i+1}. Title: "${match.title}"`);
+        if (match.teams) {
+          console.log(`     Home: ${match.teams.home?.name}, Away: ${match.teams.away?.name}`);
+        }
+        if (match.sources) {
+          console.log(`     Sources: ${match.sources.map(s => s.source).join(', ')}`);
+        }
       }
     }
-  } else {
-    // No more streams to try, show a refresh option
-    const connectingDiv = document.getElementById('streamConnecting');
-    const iframe = document.getElementById('streamIframe');
-    
-    if (connectingDiv) {
-      connectingDiv.innerHTML = `
-        <div style="text-align: center; padding: 20px;">
-          <p>No streams available at the moment.</p>
-          <button onclick="location.reload()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
-            Refresh Page
-          </button>
-        </div>
-      `;
-      connectingDiv.style.display = 'block';
-    }
-    
-    if (iframe) {
-      iframe.style.display = 'none';
-    }
-    
-    streamUrls = [];
-  }
-}
 
-function checkStreamContent(iframe) {
-  const connectingDiv = document.getElementById('streamConnecting');
+    // Process the filtered matches
+    for (let i = 0; i < matchesToProcess.length; i++) {
+      const match = matchesToProcess[i];
 
-  console.log('Checking stream content for iframe:', iframe.src);
+      if (!match.sources || match.sources.length === 0) continue;
 
-  try {
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+      const matchTitle = match.title.toLowerCase();
+      let totalScore = 0;
 
-    // More comprehensive video detection
-    const hasVideo = iframeDoc.querySelector('video') ||
-                    iframeDoc.querySelector('.video-js') ||
-                    iframeDoc.querySelector('[id*="video"]') ||
-                    iframeDoc.querySelector('[class*="player"]') ||
-                    iframeDoc.querySelector('[class*="stream"]') ||
-                    iframeDoc.querySelector('iframe') || // Nested iframe might indicate content
-                    iframeDoc.querySelector('[src*="mp4"]') ||
-                    iframeDoc.querySelector('[src*="m3u8"]') ||
-                    iframeDoc.querySelector('[src*="stream"]');
+      // Multiple matching strategies with rough/fuzzy matching
+      const strategies = [
+        // Strategy 1: Rough name matching in title (more flexible)
+        () => {
+          let score = 0;
+          const titleWords = matchTitle.split(/[\s\-]+/);
 
-    if (hasVideo) {
-      console.log('Video content detected in iframe');
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
+          if (hasSameCity) {
+            // For same-city teams, require both full team names to be present
+            if (matchTitle.includes(homeNormalized) && matchTitle.includes(awayNormalized)) {
+              score += 1.0; // High score for exact matches
+            } else {
+              // Check for partial matches but be more strict
+              const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
+              const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+
+              let homeMatches = 0;
+              let awayMatches = 0;
+
+              homeParts.forEach(part => {
+                if (titleWords.some(word => word.includes(part))) homeMatches++;
+              });
+              awayParts.forEach(part => {
+                if (titleWords.some(word => word.includes(part))) awayMatches++;
+              });
+
+              // Require at least 2 parts to match for each team when they have same city
+              if (homeMatches >= 2 && awayMatches >= 2) {
+                score += 0.8;
+              } else if (homeMatches >= 1 && awayMatches >= 1) {
+                score += 0.4;
+              }
+            }
+          } else {
+            // Normal case: check if major parts of team names appear in title
+            // Be more strict - require longer words and better matches
+            const homeParts = homeNormalized.split('-').filter(word => word.length > 3); // Increased from 2 to 3
+            const awayParts = awayNormalized.split('-').filter(word => word.length > 3); // Increased from 2 to 3
+
+            let homeScore = 0;
+            let awayScore = 0;
+
+            homeParts.forEach(part => {
+              if (titleWords.some(word => word.includes(part) && word.length > 2)) homeScore += 0.3;
+              if (part.length > 4) homeScore += 0.2; // Bonus for longer, more specific words
+            });
+            awayParts.forEach(part => {
+              if (titleWords.some(word => word.includes(part) && word.length > 2)) awayScore += 0.3;
+              if (part.length > 4) awayScore += 0.2; // Bonus for longer, more specific words
+            });
+
+            // Require at least one significant match for each team
+            if (homeParts.length > 0 && homeScore > 0) score += Math.min(homeScore, 0.8);
+            if (awayParts.length > 0 && awayScore > 0) score += Math.min(awayScore, 0.8);
+          }
+
+          return score;
+        },
+        // Strategy 2: Check team objects if available (rough matching)
+        () => {
+          let score = 0;
+          if (match.teams) {
+            const homeApiName = match.teams.home?.name?.toLowerCase() || '';
+            const awayApiName = match.teams.away?.name?.toLowerCase() || '';
+
+            if (hasSameCity) {
+              // For same-city teams, require both API team names to match our normalized names
+              if (homeApiName.includes(homeNormalized) && awayApiName.includes(awayNormalized)) {
+                score += 1.2; // Very high score for exact API matches
+              } else {
+                // Check for partial matches but be more strict
+                const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
+                const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+
+                let homeMatches = 0;
+                let awayMatches = 0;
+
+                homeParts.forEach(part => {
+                  if (homeApiName.includes(part)) homeMatches++;
+                });
+                awayParts.forEach(part => {
+                  if (awayApiName.includes(part)) awayMatches++;
+                });
+
+                // Require at least 2 parts to match for each team when they have same city
+                if (homeMatches >= 2 && awayMatches >= 2) {
+                  score += 0.9;
+                } else if (homeMatches >= 1 && awayMatches >= 1) {
+                  score += 0.5;
+                }
+              }
+            } else {
+              // Normal case: rough matching against API team names
+              const homeParts = homeNormalized.split('-').filter(word => word.length > 3); // Increased from 2 to 3
+              const awayParts = awayNormalized.split('-').filter(word => word.length > 3); // Increased from 2 to 3
+
+              let homeMatches = 0;
+              let awayMatches = 0;
+
+              homeParts.forEach(part => {
+                if (homeApiName.includes(part) && part.length > 2) homeMatches++;
+              });
+              awayParts.forEach(part => {
+                if (awayApiName.includes(part) && part.length > 2) awayMatches++;
+              });
+
+              // Require more specific matches
+              if (homeMatches > 0 && awayMatches > 0) {
+                score += 0.4; // Reduced from 0.6
+              } else if (homeMatches > 0 || awayMatches > 0) {
+                score += 0.2; // Reduced from 0.6
+              }
+            }
+          }
+          return score;
+        },
+        // Strategy 3: Soccer-specific abbreviations and common names
+        () => {
+          const abbreviations = {
+            'tottenham': ['tottenham', 'spurs', 'tottenham-hotspur', 'hotspur', 'spurs-fc'],
+            'bournemouth': ['bournemouth', 'afc-bournemouth', 'bournemouth-afc', 'cherries'],
+            'manchester': ['manchester', 'manchester-united', 'manchester-city', 'man-utd', 'man-city', 'manc'],
+            'united': ['united', 'man-united', 'manchester-united', 'utd', 'red-devils'],
+            'city': ['city', 'man-city', 'manchester-city', 'citizens', 'sky-blues'],
+            'chelsea': ['chelsea', 'chelsea-fc', 'blues', 'pensioners'],
+            'arsenal': ['arsenal', 'arsenal-fc', 'gunners', 'gooners'],
+            'liverpool': ['liverpool', 'liverpool-fc', 'reds', 'kop'],
+            'everton': ['everton', 'everton-fc', 'toffees', 'blues'],
+            'aston': ['aston-villa', 'villa', 'villans', 'claret-and-blue'],
+            'west': ['west-brom', 'west-ham', 'bromwich', 'hammers', 'irons'],
+            'newcastle': ['newcastle', 'newcastle-united', 'magpies', 'toon-army'],
+            'brighton': ['brighton', 'brighton-hove-albion', 'seagulls', 'albion'],
+            'crystal': ['crystal-palace', 'palace', 'eagles', 'glaziers'],
+            'southampton': ['southampton', 'saints', 'southampton-fc'],
+            'leicester': ['leicester', 'leicester-city', 'foxes', 'city-foxes'],
+            'wolves': ['wolves', 'wolverhampton', 'wanderers', 'wolves-fc'],
+            'fulham': ['fulham', 'fulham-fc', 'cottagers', 'whites'],
+            'burnley': ['burnley', 'burnley-fc', 'clarets', 'turf-moor'],
+            'sheffield': ['sheffield', 'sheffield-united', 'blades', 'sheff-utd'],
+            'west-brom': ['west-brom', 'west-bromwich', 'bromwich-albion', 'baggies'],
+            'west-ham': ['west-ham', 'west-ham-united', 'hammers', 'irons'],
+            'norwich': ['norwich', 'norwich-city', 'canaries', 'yellows'],
+            'watford': ['watford', 'watford-fc', 'hornets', 'golden-boys'],
+            'brentford': ['brentford', 'brentford-fc', 'bees', 'red-lions'],
+            'leeds': ['leeds', 'leeds-united', 'whites', 'peacocks'],
+            'cardiff': ['cardiff', 'cardiff-city', 'bluebirds', 'city-bluebirds'],
+            'swansea': ['swansea', 'swansea-city', 'swans', 'jack-army'],
+            'hull': ['hull', 'hull-city', 'tigers', 'black-and-amber'],
+            'middlesbrough': ['middlesbrough', 'boro', 'boro-fc', 'smoggies'],
+            'stoke': ['stoke', 'stoke-city', 'potters', 'red-and-white'],
+            'sunderland': ['sunderland', 'sunderland-afc', 'black-cats', 'mackems'],
+            'birmingham': ['birmingham', 'birmingham-city', 'blues', 'city-blues'],
+            'blackburn': ['blackburn', 'blackburn-rovers', 'rovers', 'blue-and-whites'],
+            'bolton': ['bolton', 'bolton-wanderers', 'wanderers', 'trotters'],
+            'charlton': ['charlton', 'charlton-athletic', 'addicks', 'red-army'],
+            'derby': ['derby', 'derby-county', 'rams', 'county-rams'],
+            'ipswich': ['ipswich', 'ipswich-town', 'tractor-boys', 'blues'],
+            'luton': ['luton', 'luton-town', 'hatters', 'town-hatters'],
+            'millwall': ['millwall', 'millwall-fc', 'lions', 'south-london'],
+            'nottingham': ['nottingham', 'nottingham-forest', 'forest', 'tricky-trees'],
+            'preston': ['preston', 'preston-north-end', 'north-end', 'lilywhites'],
+            'reading': ['reading', 'reading-fc', 'royals', 'biscuitmen'],
+            'rotherham': ['rotherham', 'rotherham-united', 'millers', 'red-millers'],
+            'wigan': ['wigan', 'wigan-athletic', 'latics', 'tics']
+          };
+
+          let score = 0;
+          const titleWords = matchTitle.split(/[\s\-]+/);
+
+          // Check home team abbreviations (be more selective)
+          const homeParts = homeNormalized.split('-');
+          homeParts.forEach(part => {
+            if (abbreviations[part]) {
+              // Only give points if the abbreviation appears as a complete word, not just substring
+              abbreviations[part].forEach(abbr => {
+                if (titleWords.some(word => word === abbr || (word.includes(abbr) && abbr.length > 3))) {
+                  score += 0.2; // Reduced from 0.3
+                }
+              });
+            }
+          });
+
+          // Check away team abbreviations (be more selective)
+          const awayParts = awayNormalized.split('-');
+          awayParts.forEach(part => {
+            if (abbreviations[part]) {
+              // Only give points if the abbreviation appears as a complete word, not just substring
+              abbreviations[part].forEach(abbr => {
+                if (titleWords.some(word => word === abbr || (word.includes(abbr) && abbr.length > 3))) {
+                  score += 0.2; // Reduced from 0.3
+                }
+              });
+            }
+          });
+
+          return score;
+        }
+      ];
+
+      // Apply all strategies and sum scores
+      strategies.forEach(strategy => {
+        totalScore += strategy();
+      });
+
+      console.log(`Match "${match.title.substring(0, 50)}..." score: ${totalScore.toFixed(2)}`);
+
+      if (totalScore > bestScore) {
+        bestScore = totalScore;
+        bestMatch = match;
+
+        // Early exit if we find a very good match (increased threshold to prevent wrong matches)
+        if (bestScore >= 2.0) {
+          console.log(`Found excellent match with score ${bestScore}, stopping search early`);
+          break;
+        }
       }
-      streamUrls = [];
-      return;
+    }
+
+    if (!bestMatch || bestScore < 0.5) { // Increased from 0.3 to 0.5 for stricter matching
+      console.log(`No good matching live match found in API (best score: ${bestScore.toFixed(2)})`);
+      console.log(`Searched for: ${homeNormalized} vs ${awayNormalized}`);
+      console.log(`Processed: ${matchesToProcess.length} matches out of ${matches.length} total`);
+      return {};
+    }
+
+    console.log(`Found matching match: ${bestMatch.title} (score: ${bestScore.toFixed(2)})`);
+
+    // VALIDATION: Ensure the matched game actually contains both teams with stricter checking
+    const matchedTitle = bestMatch.title.toLowerCase();
+    const matchedHomeTeam = bestMatch.teams?.home?.name?.toLowerCase() || '';
+    const matchedAwayTeam = bestMatch.teams?.away?.name?.toLowerCase() || '';
+
+    // Check if both teams appear in the title (using flexible word matching like relevance check)
+    const homeWords = homeNormalized.split('-').filter(word => word.length > 2);
+    const awayWords = awayNormalized.split('-').filter(word => word.length > 2);
+
+    let homeInTitle = false;
+    let awayInTitle = false;
+
+    // Check if significant words from each team appear in title or API team names
+    homeWords.forEach(word => {
+      if (matchedTitle.includes(word) || matchedHomeTeam.includes(word)) homeInTitle = true;
+    });
+    awayWords.forEach(word => {
+      if (matchedTitle.includes(word) || matchedAwayTeam.includes(word)) awayInTitle = true;
+    });
+
+    // Additional validation: ensure the matched teams are actually relevant
+    // For example, if we're looking for "Manchester City", don't match "Montevideo City Torque"
+    let relevantHomeMatches = 0;
+    let relevantAwayMatches = 0;
+
+    homeWords.forEach(word => {
+      if (matchedTitle.includes(word) || matchedHomeTeam.includes(word)) relevantHomeMatches++;
+    });
+    awayWords.forEach(word => {
+      if (matchedTitle.includes(word) || matchedAwayTeam.includes(word)) relevantAwayMatches++;
+    });
+
+    // Require at least 50% of significant words to match for each team
+    const homeRelevanceRatio = relevantHomeMatches / Math.max(1, homeWords.length);
+    const awayRelevanceRatio = relevantAwayMatches / Math.max(1, awayWords.length);
+
+    if (!homeInTitle || !awayInTitle || homeRelevanceRatio < 0.5 || awayRelevanceRatio < 0.5) {
+      console.log(`WARNING: Matched game "${bestMatch.title}" doesn't contain both teams or isn't relevant enough!`);
+      console.log(`Expected: ${homeNormalized} vs ${awayNormalized}`);
+      console.log(`Found in title: Home=${homeInTitle}, Away=${awayInTitle}`);
+      console.log(`API teams: Home="${matchedHomeTeam}", Away="${matchedAwayTeam}"`);
+      console.log(`Relevance: Home=${homeRelevanceRatio.toFixed(2)}, Away=${awayRelevanceRatio.toFixed(2)}`);
+
+      // Reject the match if validation fails
+      console.log('Rejecting match due to validation failure - teams do not match or are not relevant');
+      return {};
     } else {
-      console.log('No video content detected in iframe');
+      console.log(`✓ Validation passed: Matched game contains both teams and is relevant`);
+      console.log(`Relevance scores: Home=${homeRelevanceRatio.toFixed(2)}, Away=${awayRelevanceRatio.toFixed(2)}`);
+    }
+
+    // Fetch streams for each source
+    const streams = {};
+
+    for (const source of bestMatch.sources) {
+      const sourceStreams = await fetchStreamsForSource(source.source, source.id);
+
+      // Store the first stream for each source (usually the best quality)
+      if (sourceStreams.length > 0) {
+        streams[source.source] = sourceStreams[0];
+        console.log(`Got stream for ${source.source}: ${sourceStreams[0].embedUrl}`);
+      }
+    }
+
+    return streams;
+  } catch (error) {
+    console.error('Error finding match streams:', error);
+    return {};
+  }
+}
+
+// Enhanced video control functions matching the iframe pattern
+window.toggleMute = function() {
+  const iframe = document.getElementById('streamIframe');
+  const muteButton = document.getElementById('muteButton');
+  
+  if (!iframe || !muteButton) return;
+  
+  // Toggle muted state
+  isMuted = !isMuted;
+  muteButton.textContent = isMuted ? '🔊 Unmute' : '🔇 Mute';
+  
+  // Multiple approaches to control video muting
+  try {
+    // Method 1: Direct iframe manipulation
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+    if (iframeDoc) {
+      const videos = iframeDoc.querySelectorAll('video');
+      videos.forEach(video => {
+        video.muted = isMuted;
+        // Also try to control volume
+        video.volume = isMuted ? 0 : 1;
+      });
+      
+      console.log(isMuted ? 'Video muted via direct access' : 'Video unmuted via direct access');
     }
   } catch (e) {
-    console.log('Cannot access iframe content (cross-origin), assuming external stream is working');
-    console.log('Cross-origin error details:', e.message);
-
-    // Since we can't inspect the content, assume it's working if the iframe loaded
-    iframe.style.display = 'block';
-    if (connectingDiv) {
-      connectingDiv.style.display = 'none';
+    console.log('Direct video access blocked by CORS');
+  }
+  
+  // Method 2: Enhanced PostMessage to iframe
+  try {
+    iframe.contentWindow.postMessage({
+      action: 'toggleMute',
+      muted: isMuted,
+      volume: isMuted ? 0 : 1
+    }, '*');
+    
+    // Also send autoplay and mute parameters
+    iframe.contentWindow.postMessage({
+      action: 'setVideoParams',
+      autoplay: 1,
+      mute: isMuted ? 1 : 0
+    }, '*');
+    
+    console.log(isMuted ? 'Mute message sent to iframe' : 'Unmute message sent to iframe');
+  } catch (e) {
+    console.log('PostMessage failed');
+  }
+  
+  // Method 3: Simulate key events
+  try {
+    const keyEvent = new KeyboardEvent('keydown', { key: 'm', code: 'KeyM' });
+    iframe.contentWindow.dispatchEvent(keyEvent);
+    console.log('Mute key event sent to iframe');
+  } catch (e) {
+    console.log('Key event failed');
+  }
+  
+  // Method 4: Try to modify iframe src with mute parameter
+  if (iframe.src && !iframe.src.includes('mute=')) {
+    const separator = iframe.src.includes('?') ? '&' : '?';
+    const newSrc = `${iframe.src}${separator}mute=${isMuted ? 1 : 0}&autoplay=1`;
+    // Don't reload unless necessary
+    if (iframe.src !== newSrc) {
+      iframe.src = newSrc;
+      console.log('Updated iframe src with mute parameter');
     }
   }
+};
 
-  setTimeout(() => {
-    if (streamUrls.length > 0) {
-      console.log('Trying next stream URL');
-      tryNextStream();
-    } else {
-      console.log('No more stream URLs to try, showing current iframe');
-      iframe.style.display = 'block';
+window.switchToStream = function(streamType) {
+  console.log('Switching to stream type:', streamType);
+  console.log('Current team names:', currentAwayTeam, currentHomeTeam);
+
+  // Update current stream type
+  currentStreamType = streamType;
+
+  // If team names are not available, try to get them from other sources
+  if (!currentAwayTeam || !currentHomeTeam) {
+    console.log('Team names not available, attempting to retrieve them...');
+
+    // Try to get team names from the current game data by looking at the scoreboard
+    const awayTeamElement = document.querySelector('.team-name');
+    const homeTeamElement = document.querySelectorAll('.team-name')[1];
+
+    if (awayTeamElement) {
+      currentAwayTeam = awayTeamElement.textContent?.trim() || 'away';
+    }
+
+    if (homeTeamElement) {
+      currentHomeTeam = homeTeamElement.textContent?.trim() || 'home';
+    }
+
+    console.log('Retrieved team names:', currentAwayTeam, currentHomeTeam);
+  }
+
+  // Generate new embed URL using API if available
+  if (currentAwayTeam && currentHomeTeam) {
+    let newEmbedUrl = '';
+
+    // Try to use available streams from API first
+    if (availableStreams.alpha && streamType === 'alpha1') {
+      newEmbedUrl = availableStreams.alpha.embedUrl;
+    } else if (availableStreams.alpha && streamType === 'alpha2') {
+      // For alpha2, modify the API URL to use /2 instead of /1
+      newEmbedUrl = availableStreams.alpha.embedUrl.replace(/\/1$/, '/2');
+    } else if (availableStreams.bravo && streamType === 'bravo') {
+      newEmbedUrl = availableStreams.bravo.embedUrl;
+    }
+
+    // Fallback to manual URL construction if API doesn't have the stream
+    if (!newEmbedUrl) {
+      console.log('API streams not available for switch, falling back to manual URL construction');
+      const homeNormalized = normalizeTeamName(currentHomeTeam);
+      const awayNormalized = normalizeTeamName(currentAwayTeam);
+
+      if (streamType === 'alpha1') {
+        newEmbedUrl = `https://embedsports.top/embed/alpha/${homeNormalized}-vs-${awayNormalized}/1`;
+      } else if (streamType === 'alpha2') {
+        newEmbedUrl = `https://embedsports.top/embed/alpha/${homeNormalized}-vs-${awayNormalized}/2`;
+      } else if (streamType === 'bravo') {
+        const timestamp = Date.now();
+        newEmbedUrl = `https://embedsports.top/embed/bravo/${timestamp}-${homeNormalized}-${awayNormalized}-english-/1`;
+      }
+    }
+
+    console.log('New embed URL:', newEmbedUrl);
+
+    const iframe = document.getElementById('streamIframe');
+    const streamHeader = document.querySelector('.stream-header h3');
+
+    if (iframe) {
+      // Show loading message
+      const connectingDiv = document.getElementById('streamConnecting');
       if (connectingDiv) {
-        connectingDiv.style.display = 'none';
+        connectingDiv.style.display = 'block';
+        connectingDiv.innerHTML = '<p>Loading stream...</p>';
+        iframe.style.display = 'none';
       }
-    }
-  }, 1000);
-}
 
-async function startStreamTesting(homeTeamName, awayTeamName) {
-  const homeNormalized = normalizeTeamName(homeTeamName);
-  const awayNormalized = normalizeTeamName(awayTeamName);
-
-  console.log(`Starting stream testing for: ${homeTeamName} vs ${awayTeamName}`);
-  console.log(`Normalized names: ${homeNormalized} vs ${awayNormalized}`);
-
-  // Multiple streaming sources to try
-  const pageUrls = [
-    `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`,
-    `https://papaahd.live/${awayNormalized}-vs-${homeNormalized}/`, // Try reverse order
-    `https://papaahd.live/${homeNormalized}-${awayNormalized}/`, // Try without 'vs'
-    `https://papaahd.live/${awayNormalized}-${homeNormalized}/`  // Try reverse without 'vs'
-  ];
-
-  streamUrls = [];
-
-  console.log(`Attempting to extract from ${pageUrls.length} potential URLs:`);
-  pageUrls.forEach((url, index) => console.log(`${index + 1}. ${url}`));
-
-  const extractionPromises = pageUrls.map(async (url, index) => {
-    try {
-      console.log(`Extracting from URL ${index + 1}: ${url}`);
-      const videoUrl = await extractVideoPlayerUrl(url);
-      if (videoUrl) {
-        console.log(`Successfully extracted from URL ${index + 1}: ${videoUrl}`);
-        return videoUrl;
-      } else {
-        console.log(`No video URL found in URL ${index + 1}`);
-        return null;
+      // Update header to show current stream type
+      if (streamHeader) {
+        streamHeader.textContent = `Live Stream (${streamType.toUpperCase()})`;
       }
-    } catch (error) {
-      console.error(`Error extracting from URL ${index + 1} (${url}):`, error);
-      return null;
+
+      // Update button texts based on new current stream type
+      updateStreamButtons(streamType);
+
+      // Update iframe src
+      iframe.src = newEmbedUrl;
+
+      // Hide loading after a short delay
+      setTimeout(() => {
+        if (connectingDiv) {
+          connectingDiv.style.display = 'none';
+        }
+        iframe.style.display = 'block';
+      }, 2000);
     }
-  });
-
-  const extractedUrls = await Promise.all(extractionPromises);
-
-  extractedUrls.forEach((url, index) => {
-    if (url) {
-      streamUrls.push(url);
-      console.log(`Added to stream URLs from source ${index + 1}: ${url}`);
-    }
-  });
-
-  console.log(`Total extracted URLs: ${streamUrls.length}`);
-
-  if (streamUrls.length === 0) {
-    console.log('No video URLs extracted from any source, using page URLs as fallback');
-    // Use the first page URL as fallback
-    streamUrls = [pageUrls[0]];
   } else {
-    console.log('Successfully extracted video URLs:', streamUrls);
+    console.error('Team names still not available for stream switch');
+    alert('Unable to switch stream: team names not available. Please refresh the page and try again.');
   }
+};
 
-  currentStreamIndex = 0;
+// Helper function to update button texts based on current stream type
+function updateStreamButtons(currentType) {
+  const button1 = document.getElementById('streamButton1');
+  const button2 = document.getElementById('streamButton2');
 
-  setTimeout(() => {
-    tryNextStream();
-  }, 300);
+  if (currentType === 'alpha1') {
+    if (button1) {
+      button1.textContent = availableStreams.alpha ? 'Stream Alpha 2' : 'Try Alpha 2';
+      button1.onclick = () => switchToStream('alpha2');
+    }
+    if (button2) {
+      button2.textContent = availableStreams.bravo ? 'Stream Bravo' : 'Try Bravo';
+      button2.onclick = () => switchToStream('bravo');
+    }
+  } else if (currentType === 'alpha2') {
+    if (button1) {
+      button1.textContent = availableStreams.alpha ? 'Stream Alpha 1' : 'Try Alpha 1';
+      button1.onclick = () => switchToStream('alpha1');
+    }
+    if (button2) {
+      button2.textContent = availableStreams.bravo ? 'Stream Bravo' : 'Try Bravo';
+      button2.onclick = () => switchToStream('bravo');
+    }
+  } else if (currentType === 'bravo') {
+    if (button1) {
+      button1.textContent = availableStreams.alpha ? 'Stream Alpha 1' : 'Try Alpha 1';
+      button1.onclick = () => switchToStream('alpha1');
+    }
+    if (button2) {
+      button2.textContent = availableStreams.alpha ? 'Stream Alpha 2' : 'Try Alpha 2';
+      button2.onclick = () => switchToStream('alpha2');
+    }
+  }
 }
 
-// Function to get stream ID based on team names or default to common IDs
-function getStreamId(homeTeam, awayTeam) {
-  // Common stream IDs for different types of matches
-  const commonStreamIds = ['1011', '1012', '1013', '1014', '1015'];
+// Make helper function available globally
+window.updateStreamButtons = updateStreamButtons;
 
-  // For now, use a hash-based approach to get consistent stream ID for same teams
-  const teamString = `${homeTeam.toLowerCase()}-${awayTeam.toLowerCase()}`;
-  const hash = teamString.split('').reduce((a, b) => {
-    a = ((a << 5) - a) + b.charCodeAt(0);
-    return a & a;
-  }, 0);
+// Stream functionality using embedsports.top embed service
 
-  const index = Math.abs(hash) % commonStreamIds.length;
-  return commonStreamIds[index];
-}
-
-// Debug function to test streaming extraction
-async function debugStreamExtraction(homeTeamName, awayTeamName) {
+// Debug function to test streaming embed URLs
+function debugStreamExtraction(homeTeamName, awayTeamName, streamType = 'alpha1') {
   console.log('=== STREAM DEBUGGING START ===');
-  console.log(`Testing extraction for: ${homeTeamName} vs ${awayTeamName}`);
+  console.log(`Testing embed URLs for: ${homeTeamName} vs ${awayTeamName}, type: ${streamType}`);
 
   const homeNormalized = normalizeTeamName(homeTeamName);
   const awayNormalized = normalizeTeamName(awayTeamName);
 
   console.log(`Normalized names: ${homeNormalized} vs ${awayNormalized}`);
 
-  const testUrls = [
-    `https://papaahd.live/${homeNormalized}-vs-${awayNormalized}/`,
-    `https://papaahd.live/${awayNormalized}-vs-${homeNormalized}/`,
-    `https://papaahd.live/${homeNormalized}-${awayNormalized}/`,
-    `https://papaahd.live/${awayNormalized}-${homeNormalized}/`
-  ];
-
-  console.log('Testing URL variations:');
-  for (let i = 0; i < testUrls.length; i++) {
-    console.log(`${i + 1}. ${testUrls[i]}`);
+  let embedUrl = '';
+  if (streamType === 'alpha1') {
+    embedUrl = `https://embedsports.top/embed/alpha/${homeNormalized}-vs-${awayNormalized}/1`;
+  } else if (streamType === 'alpha2') {
+    embedUrl = `https://embedsports.top/embed/alpha/${homeNormalized}-vs-${awayNormalized}/2`;
+  } else if (streamType === 'bravo') {
+    const timestamp = Date.now();
+    embedUrl = `https://embedsports.top/embed/bravo/${timestamp}-${homeNormalized}-${awayNormalized}-english-/1`;
   }
 
-  // Test extraction from each URL
-  for (let i = 0; i < testUrls.length; i++) {
-    const url = testUrls[i];
-    console.log(`\n--- Testing URL ${i + 1}: ${url} ---`);
-
-    try {
-      const extractedUrl = await extractVideoPlayerUrl(url);
-      if (extractedUrl) {
-        console.log(`✅ SUCCESS: Extracted ${extractedUrl}`);
-      } else {
-        console.log(`❌ FAILED: No video URL found`);
-      }
-    } catch (error) {
-      console.log(`❌ ERROR: ${error.message}`);
-    }
-  }
+  console.log('Generated embed URL:', embedUrl);
+  console.log('Expected iframe HTML:');
+  console.log(`<iframe title="${homeTeamName} vs ${awayTeamName} Player" marginheight="0" marginwidth="0" src="${embedUrl}" scrolling="no" allowfullscreen="yes" allow="encrypted-media; picture-in-picture;" width="100%" height="100%" frameborder="0"></iframe>`);
 
   console.log('=== STREAM DEBUGGING END ===');
 }
@@ -1743,10 +2475,10 @@ async function renderStreamEmbed(gameId) {
   // Get game state from the current page data
   const gameClockElement = document.querySelector('.game-clock');
   const gameStatus = gameClockElement ? gameClockElement.textContent.trim() : '';
-  
+
   // Only show stream for in-progress games (not scheduled or finished)
-  const isGameInProgress = gameStatus && 
-    !gameStatus.toLowerCase().includes('final') && 
+  const isGameInProgress = gameStatus &&
+    !gameStatus.toLowerCase().includes('final') &&
     !gameStatus.toLowerCase().includes('full time') &&
     !gameStatus.toLowerCase().includes('scheduled') &&
     gameStatus !== 'N/A' &&
@@ -1760,15 +2492,15 @@ async function renderStreamEmbed(gameId) {
   // Get team names from global data first, then API if needed
   let homeTeamName = '';
   let awayTeamName = '';
-  
+
   // Try to use globally stored data first
   if (window.currentGameData && window.currentGameData.__gamepackage__) {
     const homeTeam = window.currentGameData.__gamepackage__.homeTeam.team;
     const awayTeam = window.currentGameData.__gamepackage__.awayTeam.team;
-    
+
     homeTeamName = homeTeam.displayName;
     awayTeamName = awayTeam.displayName;
-    
+
     console.log('Stream Debug - Using global data - Home team:', homeTeamName);
     console.log('Stream Debug - Using global data - Away team:', awayTeamName);
   } else {
@@ -1777,22 +2509,22 @@ async function renderStreamEmbed(gameId) {
       const SCOREBOARD_API_URL = `https://cdn.espn.com/core/soccer/lineups?xhr=1&gameId=${gameId}`;
       const response = await fetch(SCOREBOARD_API_URL);
       const scoreboardData = await response.json();
-      
+
       const homeTeam = scoreboardData.__gamepackage__.homeTeam.team;
       const awayTeam = scoreboardData.__gamepackage__.awayTeam.team;
-      
+
       homeTeamName = homeTeam.displayName;
       awayTeamName = awayTeam.displayName;
-      
+
       console.log('Stream Debug - API call - Home team:', homeTeamName);
       console.log('Stream Debug - API call - Away team:', awayTeamName);
-      
+
     } catch (error) {
       console.error('Error fetching team names for stream:', error);
       // Final fallback to DOM scraping
       const homeTeamElement = document.querySelector('.team-name');
       const awayTeamElement = document.querySelectorAll('.team-name')[1];
-      
+
       if (!homeTeamElement || !awayTeamElement) {
         streamContainer.innerHTML = '';
         return;
@@ -1805,41 +2537,114 @@ async function renderStreamEmbed(gameId) {
     }
   }
 
+  // Store current team names for toggle function
+  currentAwayTeam = awayTeamName;
+  currentHomeTeam = homeTeamName;
+
+  console.log('Storing team names in renderStreamEmbed:', homeTeamName, 'vs', awayTeamName);
+  console.log('Current stored names - Home:', currentHomeTeam, 'Away:', currentAwayTeam);
+
   const isSmallScreen = window.innerWidth < 525;
   const screenHeight = isSmallScreen ? 250 : 700;
-  
+
+  // Try to fetch streams from API first
+  console.log('Attempting to fetch streams from API...');
+  availableStreams = await findMatchStreams(homeTeamName, awayTeamName);
+
+  // Generate embed URL based on stream type and available streams
+  let embedUrl = '';
+
+  if (availableStreams.alpha && currentStreamType === 'alpha1') {
+    embedUrl = availableStreams.alpha.embedUrl;
+  } else if (availableStreams.alpha && currentStreamType === 'alpha2') {
+    // For alpha2, modify the API URL to use /2 instead of /1
+    embedUrl = availableStreams.alpha.embedUrl.replace(/\/1$/, '/2');
+  } else if (availableStreams.bravo && currentStreamType === 'bravo') {
+    embedUrl = availableStreams.bravo.embedUrl;
+  }
+
+  // Fallback to manual URL construction if API doesn't have the stream
+  if (!embedUrl) {
+    console.log('API streams not available, falling back to manual URL construction');
+    const homeNormalized = normalizeTeamName(homeTeamName);
+    const awayNormalized = normalizeTeamName(awayTeamName);
+
+    if (currentStreamType === 'alpha1') {
+      embedUrl = `https://embedsports.top/embed/alpha/${homeNormalized}-vs-${awayNormalized}/1`;
+    } else if (currentStreamType === 'alpha2') {
+      embedUrl = `https://embedsports.top/embed/alpha/${homeNormalized}-vs-${awayNormalized}/2`;
+    } else if (currentStreamType === 'bravo') {
+      const timestamp = Date.now();
+      embedUrl = `https://embedsports.top/embed/bravo/${timestamp}-${homeNormalized}-${awayNormalized}-english-/1`;
+    }
+  }
+
+  console.log('Generated embed URL:', embedUrl);
+
+  // Determine which buttons to show based on current stream type and available streams
+  let button1Text = '';
+  let button2Text = '';
+  let button1Action = '';
+  let button2Action = '';
+
+  if (currentStreamType === 'alpha1') {
+    button1Text = availableStreams.alpha ? 'Stream Alpha 2' : 'Try Alpha 2';
+    button2Text = availableStreams.bravo ? 'Stream Bravo' : 'Try Bravo';
+    button1Action = 'switchToStream(\'alpha2\')';
+    button2Action = 'switchToStream(\'bravo\')';
+  } else if (currentStreamType === 'alpha2') {
+    button1Text = availableStreams.alpha ? 'Stream Alpha 1' : 'Try Alpha 1';
+    button2Text = availableStreams.bravo ? 'Stream Bravo' : 'Try Bravo';
+    button1Action = 'switchToStream(\'alpha1\')';
+    button2Action = 'switchToStream(\'bravo\')';
+  } else if (currentStreamType === 'bravo') {
+    button1Text = availableStreams.alpha ? 'Stream Alpha 1' : 'Try Alpha 1';
+    button2Text = availableStreams.alpha ? 'Stream Alpha 2' : 'Try Alpha 2';
+    button1Action = 'switchToStream(\'alpha1\')';
+    button2Action = 'switchToStream(\'alpha2\')';
+  }
+
   streamContainer.innerHTML = `
       <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
-        <h3 style="color: white; margin: 0;">Live Stream</h3>
+        <h3 style="color: white; margin: 0;">Live Stream (${currentStreamType.toUpperCase()})</h3>
         <div class="stream-controls" style="margin-top: 10px;">
           <button id="fullscreenButton" onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">⛶ Fullscreen</button>
+          <button id="streamButton1" onclick="${button1Action}" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">${button1Text}</button>
+          <button id="streamButton2" onclick="${button2Action}" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">${button2Text}</button>
         </div>
       </div>
       <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; margin-bottom: 10px;">
-        <p>Connecting to stream... <span id="streamStatus"></span></p>
+        <p>Loading stream... <span id="streamStatus"></span></p>
       </div>
       <div class="stream-iframe-container" style="position: relative; width: 100%; margin: 0 auto; overflow: hidden;">
-        <iframe 
+        <iframe
           id="streamIframe"
-          src="about:blank"
-          width="100%" 
+          src="${embedUrl}"
+          width="100%"
           height="${screenHeight}"
           style="aspect-ratio: 16/9; background: #000; display: none; margin-bottom: 50px;"
           frameborder="0"
           allowfullscreen
-          allow="autoplay; fullscreen; encrypted-media"
+          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
           referrerpolicy="no-referrer-when-downgrade"
           onload="handleStreamLoad()"
-          onerror="handleStreamError()">
+          onerror="handleStreamError()"
+          title="${homeTeamName} vs ${awayTeamName} Player">
         </iframe>
       </div>
   `;
 
-  // Start the stream testing process
-  if (homeTeamName && awayTeamName) {
-    console.log('Starting stream testing for:', homeTeamName, 'vs', awayTeamName);
-    await startStreamTesting(homeTeamName, awayTeamName);
-  }
+  // Show the iframe immediately since we're using direct embed
+  setTimeout(() => {
+    const iframe = document.getElementById('streamIframe');
+    const connectingDiv = document.getElementById('streamConnecting');
+    if (iframe) {
+      iframe.style.display = 'block';
+    }
+    if (connectingDiv) {
+      connectingDiv.style.display = 'none';
+    }
+  }, 1000);
 }
 
 // Stream control functions (adapted from CWC/MLB)
@@ -1847,12 +2652,60 @@ window.toggleFullscreen = function() {
   const iframe = document.getElementById('streamIframe');
   
   if (iframe) {
-    if (iframe.requestFullscreen) {
-      iframe.requestFullscreen();
-    } else if (iframe.webkitRequestFullscreen) {
-      iframe.webkitRequestFullscreen();
-    } else if (iframe.msRequestFullscreen) {
-      iframe.msRequestFullscreen();
+    try {
+      // For iOS Safari and other WebKit browsers
+      if (iframe.webkitEnterFullscreen) {
+        iframe.webkitEnterFullscreen();
+        console.log('iOS/WebKit fullscreen requested');
+      }
+      // Standard fullscreen API
+      else if (iframe.requestFullscreen) {
+        iframe.requestFullscreen();
+        console.log('Standard fullscreen requested');
+      } 
+      // Chrome/Safari prefixed version
+      else if (iframe.webkitRequestFullscreen) {
+        iframe.webkitRequestFullscreen();
+        console.log('WebKit fullscreen requested');
+      } 
+      // IE/Edge prefixed version
+      else if (iframe.msRequestFullscreen) {
+        iframe.msRequestFullscreen();
+        console.log('MS fullscreen requested');
+      }
+      // Mozilla prefixed version
+      else if (iframe.mozRequestFullScreen) {
+        iframe.mozRequestFullScreen();
+        console.log('Mozilla fullscreen requested');
+      }
+      else {
+        console.log('Fullscreen API not supported on this device');
+        // Fallback: try to make the iframe larger on unsupported devices
+        if (iframe.style.position !== 'fixed') {
+          iframe.style.position = 'fixed';
+          iframe.style.top = '0';
+          iframe.style.left = '0';
+          iframe.style.width = '100vw';
+          iframe.style.height = '100vh';
+          iframe.style.zIndex = '9999';
+          iframe.style.backgroundColor = '#000';
+          console.log('Applied fullscreen-like styling as fallback');
+        } else {
+          // Exit fullscreen-like mode
+          iframe.style.position = '';
+          iframe.style.top = '';
+          iframe.style.left = '';
+          iframe.style.width = '100%';
+          iframe.style.height = '400px';
+          iframe.style.zIndex = '';
+          iframe.style.backgroundColor = '';
+          console.log('Exited fullscreen-like styling');
+        }
+      }
+    } catch (e) {
+      console.log('Fullscreen request failed:', e);
+      // Additional fallback for cases where even the API calls fail
+      alert('Fullscreen not supported on this device. Try rotating your device to landscape mode for a better viewing experience.');
     }
   }
 };
@@ -1861,43 +2714,14 @@ window.handleStreamLoad = function() {
   const iframe = document.getElementById('streamIframe');
   const connectingDiv = document.getElementById('streamConnecting');
 
-  console.log('Stream iframe loaded, src:', iframe.src);
+  console.log('Stream iframe loaded successfully');
 
-  // Clear any existing timeout
-  if (streamTestTimeout) {
-    clearTimeout(streamTestTimeout);
-    streamTestTimeout = null;
+  // Hide connecting message and show iframe
+  if (connectingDiv) {
+    connectingDiv.style.display = 'none';
   }
-
-  if (iframe.src !== 'about:blank') {
-    // Update connecting message
-    if (connectingDiv) {
-      connectingDiv.innerHTML = '<p style="color: #4CAF50;">🔄 Loading stream...</p>';
-    }
-
-    setTimeout(() => {
-      iframe.style.display = 'block';
-      if (connectingDiv) {
-        connectingDiv.style.display = 'none';
-      }
-    }, 1000);
-
-    // Check content after a delay
-    if (streamUrls.length > 0 && iframe.src !== 'about:blank') {
-      setTimeout(() => {
-        checkStreamContent(iframe);
-      }, 1500);
-    } else {
-      // No more URLs to try, show the iframe
-      setTimeout(() => {
-        if (iframe.src !== 'about:blank') {
-          iframe.style.display = 'block';
-          if (connectingDiv) {
-            connectingDiv.style.display = 'none';
-          }
-        }
-      }, 2000);
-    }
+  if (iframe) {
+    iframe.style.display = 'block';
   }
 };
 
@@ -1916,8 +2740,9 @@ window.handleStreamError = function() {
         <li>• Streaming service maintenance</li>
         <li>• Match not yet available</li>
       </ul>
-      <p style="font-size: 0.9em; color: #ccc;">Try refreshing the page in a few minutes.</p>
+      <p style="font-size: 0.9em; color: #ccc;">Try switching to another stream or refresh the page.</p>
     `;
+    connectingDiv.style.display = 'block';
   }
 
   // Hide the iframe if it's showing an error
@@ -1926,23 +2751,33 @@ window.handleStreamError = function() {
   }
 };
 
+// Function to open match page in new window
+window.openMatchPage = function(matchId) {
+  if (matchId) {
+    const matchUrl = `${window.location.origin}/soccer/scoreboard.html?gameId=${matchId}`;
+    window.open(matchUrl, '_blank');
+  }
+};
+
 // Content slider functions
-window.showStats = function() {
+window.showLineup = function() {
   // Update button states
-  document.getElementById('statsBtn').classList.add('active');
+  document.getElementById('lineupBtn').classList.add('active');
+  document.getElementById('statsBtn').classList.remove('active');
   document.getElementById('playsBtn').classList.remove('active');
   
   // Show/hide content sections
-  document.getElementById('statsContent').classList.add('active');
+  document.getElementById('lineupContent').classList.add('active');
+  document.getElementById('statsContent').classList.remove('active');
   document.getElementById('playsContent').classList.remove('active');
   
-  // Fetch stats data when switching to stats tab
+  // Fetch lineup data when switching to lineup tab
   const gameId = getQueryParam("gameId");
   if (gameId) {
     fetchAndRenderStatsData(gameId).catch(console.error);
   }
   
-  // Show stream when on stats tab
+  // Show stream when on lineup tab
   const streamContainer = document.getElementById("streamEmbed");
   if (streamContainer) {
     if (gameId) {
@@ -1951,13 +2786,33 @@ window.showStats = function() {
   }
 };
 
+window.showStats = function() {
+  // Update button states
+  document.getElementById('statsBtn').classList.add('active');
+  document.getElementById('lineupBtn').classList.remove('active');
+  document.getElementById('playsBtn').classList.remove('active');
+  
+  // Show/hide content sections
+  document.getElementById('statsContent').classList.add('active');
+  document.getElementById('lineupContent').classList.remove('active');
+  document.getElementById('playsContent').classList.remove('active');
+  
+  // Fetch match stats data when switching to stats tab
+  const gameId = getQueryParam("gameId");
+  if (gameId) {
+    fetchAndRenderMatchStats(gameId).catch(console.error);
+  }
+};
+
 window.showPlays = function() {
   // Update button states
   document.getElementById('playsBtn').classList.add('active');
+  document.getElementById('lineupBtn').classList.remove('active');
   document.getElementById('statsBtn').classList.remove('active');
   
   // Show/hide content sections
   document.getElementById('statsContent').classList.remove('active');
+  document.getElementById('lineupContent').classList.remove('active');
   document.getElementById('playsContent').classList.add('active');
   
   // Fetch plays data when switching to plays tab
@@ -1969,7 +2824,7 @@ window.showPlays = function() {
 
 // Fetch and render the scoreboard based on the gameId in the URL
 fetchAndRenderTopScoreboard();
-setInterval(fetchAndRenderTopScoreboard, 2000);
+setInterval(fetchAndRenderTopScoreboard, 6000);
 
 // Initialize stream on page load
 const gameId = getQueryParam("gameId");
