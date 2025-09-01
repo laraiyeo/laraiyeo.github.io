@@ -18,14 +18,24 @@
 
       <!-- Content Slider -->
       <div id="contentSlider" class="content-slider">
-        <button id="statsBtn" class="slider-btn active" onclick="showStats()">Stats</button>
+        <button id="statsBtn" class="slider-btn active" onclick="showStats()">Boxscore</button>
+        <button id="teamStatsBtn" class="slider-btn" onclick="showTeamStats()">Stats</button>
         <button id="playsBtn" class="slider-btn" onclick="showPlays()">Plays</button>
       </div>
 
-      <!-- Stats Content -->
+      <!-- Stream Embed -->
+      <div id="streamEmbed"></div>
+
+      <!-- Player Stats Content -->
       <div id="statsContent" class="content-section active">
         <!-- Player stats -->
         <div id="playerStats" class="player-stats"></div>
+      </div>
+
+      <!-- Team Stats Content -->
+      <div id="teamStatsContent" class="content-section2">
+        <!-- Team Stats will be rendered here -->
+        <div id="teamStatsDisplay"></div>
       </div>
 
       <!-- Plays Content -->

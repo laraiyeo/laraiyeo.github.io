@@ -2328,68 +2328,13 @@ window.switchToStream = function(streamType) {
     console.log('Retrieved team names:', currentAwayTeam, currentHomeTeam);
   }
 
-  // Generate new embed URL using API if available
+  // Generate new embed URL using renderStreamEmbed to avoid browser history
   if (currentAwayTeam && currentHomeTeam) {
-    let newEmbedUrl = '';
-
-    // Try to use available streams from API first
-    if (availableStreams.alpha && streamType === 'alpha1') {
-      newEmbedUrl = availableStreams.alpha.embedUrl;
-    } else if (availableStreams.alpha && streamType === 'alpha2') {
-      // For alpha2, modify the API URL to use /2 instead of /1
-      newEmbedUrl = availableStreams.alpha.embedUrl.replace(/\/1$/, '/2');
-    } else if (availableStreams.bravo && streamType === 'bravo') {
-      newEmbedUrl = availableStreams.bravo.embedUrl;
-    }
-
-    // Fallback to manual URL construction if API doesn't have the stream
-    if (!newEmbedUrl) {
-      console.log('API streams not available for switch, falling back to manual URL construction');
-      const homeNormalized = normalizeTeamName(currentHomeTeam);
-      const awayNormalized = normalizeTeamName(currentAwayTeam);
-
-      if (streamType === 'alpha1') {
-        newEmbedUrl = `https://embedsports.top/embed/alpha/${homeNormalized}-vs-${awayNormalized}/1`;
-      } else if (streamType === 'alpha2') {
-        newEmbedUrl = `https://embedsports.top/embed/alpha/${homeNormalized}-vs-${awayNormalized}/2`;
-      } else if (streamType === 'bravo') {
-        const timestamp = Date.now();
-        newEmbedUrl = `https://embedsports.top/embed/bravo/${timestamp}-${homeNormalized}-${awayNormalized}-english-/1`;
-      }
-    }
-
-    console.log('New embed URL:', newEmbedUrl);
-
-    const iframe = document.getElementById('streamIframe');
-    const streamHeader = document.querySelector('.stream-header h3');
-
-    if (iframe) {
-      // Show loading message
-      const connectingDiv = document.getElementById('streamConnecting');
-      if (connectingDiv) {
-        connectingDiv.style.display = 'block';
-        connectingDiv.innerHTML = '<p>Loading stream...</p>';
-        iframe.style.display = 'none';
-      }
-
-      // Update header to show current stream type
-      if (streamHeader) {
-        streamHeader.textContent = `Live Stream (${streamType.toUpperCase()})`;
-      }
-
-      // Update button texts based on new current stream type
-      updateStreamButtons(streamType);
-
-      // Update iframe src
-      iframe.src = newEmbedUrl;
-
-      // Hide loading after a short delay
-      setTimeout(() => {
-        if (connectingDiv) {
-          connectingDiv.style.display = 'none';
-        }
-        iframe.style.display = 'block';
-      }, 2000);
+    const gameId = getQueryParam("gameId");
+    if (gameId) {
+      renderStreamEmbed(gameId);
+    } else {
+      console.error('No gameId available for stream switch');
     }
   } else {
     console.error('Team names still not available for stream switch');

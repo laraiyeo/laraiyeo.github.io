@@ -186,7 +186,7 @@ body {
   background: #333;
   border-radius: 8px;
   overflow: hidden;
-  max-width: 400px;
+  max-width: 600px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -234,6 +234,17 @@ body {
 }
 
 .content-section1.active {
+  display: block;
+}
+
+.content-section2 {
+  display: none;
+  width: 100%;
+  max-width: 1250px;
+  margin: 0 auto;
+}
+
+.content-section2.active {
   display: block;
 }
 
@@ -564,6 +575,11 @@ body {
   }
 
   .content-section1 {
+    width: 107.5%;
+    transform: translateX(-12.5px);
+  }
+
+  .content-section2 {
     width: 107.5%;
     transform: translateX(-12.5px);
   }
@@ -917,5 +933,469 @@ body {
   
   .pitch-sequence-item {
     min-width: 200px;
+  }
+}
+
+/* Match Stats Styles (Soccer-style) */
+.match-stats-container {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.stats-header {
+  font-size: 18px;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.stats-teams {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 0 20px;
+}
+
+.stats-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stats-team.home {
+  flex-direction: row;
+}
+
+.stats-team.away {
+  flex-direction: row;
+}
+
+.stats-team-logo {
+  width: 62.5px;
+  height: 62.5px;
+  object-fit: contain;
+}
+
+.stats-team-name {
+  font-weight: bold;
+  color: white;
+  font-size: 20px;
+}
+
+.stats-vs {
+  font-weight: bold;
+  color: #ccc;
+  font-size: 12px;
+}
+
+.stats-section {
+  margin-bottom: 20px;
+}
+
+.stats-section-title {
+  font-size: 17.5px;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.stats-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 12px;
+}
+
+.stats-value {
+  font-weight: bold;
+  font-size: 17.5px;
+  color: white;
+  min-width: 30px;
+  text-align: center;
+}
+
+.stats-value.away {
+  order: 1;
+}
+
+.stats-value.home {
+  order: 3;
+}
+
+.stats-bar-container {
+  flex: 1;
+  order: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stats-bar {
+  height: 10px;
+  background: #333;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.stats-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.stats-bar-fill.away {
+  margin-right: auto;
+}
+
+.stats-bar-fill.home {
+  margin-left: auto;
+}
+
+.stats-label {
+  text-align: center;
+  font-size: 11.5px;
+  color: #ccc;
+  margin-bottom: 8px;
+}
+
+/* Team Stats Styles (Old - keeping for compatibility) */
+.team-stats-container {
+  background: #1e1e1e;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.team-stats-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #333;
+}
+
+.team-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.team-header.away-team {
+  justify-content: flex-start;
+}
+
+.team-header.home-team {
+  justify-content: flex-end;
+}
+
+.team-logo-stats {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.team-name-stats {
+  font-size: 18px;
+  font-weight: 600;
+  color: white;
+}
+
+.vs-divider {
+  font-size: 16px;
+  font-weight: bold;
+  color: #666;
+  padding: 0 20px;
+}
+
+.stats-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  background: #2a2a2a;
+  border-radius: 8px;
+  padding: 12px 16px;
+  transition: background 0.2s ease;
+}
+
+.stat-row:hover {
+  background: #333;
+}
+
+.stat-label {
+  text-align: center;
+  font-weight: 500;
+  color: #ccc;
+  font-size: 14px;
+}
+
+.stat-value {
+  font-weight: 600;
+  font-size: 16px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.stat-value.away {
+  text-align: left;
+}
+
+.stat-value.home {
+  text-align: right;
+}
+
+.stat-value.stat-better {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4CAF50;
+}
+
+.stat-value.stat-worse {
+  background: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+}
+
+/* Momentum Chart (Two Flowing Curves) */
+.win-prob-container {
+  background: #1e1e1e;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #333;
+}
+
+.win-prob-title {
+  text-align: center;
+  margin-bottom: 20px;
+  color: white;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.win-prob-chart-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.team-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 600px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.team-label {
+  font-weight: bold;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.1);
+  border: 2px solid;
+}
+
+.team-label.away {
+  text-align: left;
+  border-color: currentColor;
+}
+
+.team-label.home {
+  text-align: right;
+  border-color: currentColor;
+}
+
+.chart-container {
+  background: #2a2a2a;
+  border-radius: 8px;
+  padding: 15px;
+  position: relative;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.win-prob-svg {
+  border-radius: 4px;
+  background: #1a1a1a;
+  display: block;
+}
+
+.inning-labels {
+  display: flex;
+  justify-content: space-between;
+  width: 400px;
+  font-size: 11px;
+  color: #ccc;
+  margin-top: 5px;
+}
+
+.inning-start,
+.inning-end {
+  font-weight: 500;
+}
+
+/* Old Win Probability Chart (keeping for compatibility) */
+.win-prob-chart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.prob-bar-container {
+  display: flex;
+  gap: 4px;
+  height: 120px;
+  align-items: flex-end;
+  padding: 10px;
+  background: #2a2a2a;
+  border-radius: 8px;
+}
+
+.inning-prob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 30px;
+  height: 100px;
+  position: relative;
+}
+
+.prob-bar {
+  width: 20px;
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.prob-bar.away {
+  background: #f44336;
+}
+
+.prob-bar.home {
+  background: #4CAF50;
+}
+
+.inning-label {
+  font-size: 11px;
+  color: #ccc;
+  margin-top: 4px;
+  text-align: center;
+}
+
+.team-prob-label {
+  font-size: 14px;
+  color: white;
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.error-message {
+  text-align: center;
+  color: #f44336;
+  background: #2a2a2a;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+/* Mobile responsiveness for team stats */
+@media (max-width: 768px) {
+  .team-stats-header {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .team-header {
+    justify-content: center !important;
+  }
+  
+  .vs-divider {
+    order: 2;
+  }
+  
+  .stat-row {
+    padding: 10px 12px;
+  }
+  
+  .stat-value {
+    font-size: 14px;
+  }
+  
+  .win-prob-container {
+    padding: 15px;
+  }
+  
+  .team-labels {
+    width: 100%;
+    max-width: 350px;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+  }
+  
+  .team-label {
+    flex: 0 0 auto;
+  }
+  
+  .team-label.away {
+    margin-right: auto;
+  }
+  
+  .team-label.home {
+    margin-left: auto;
+  }
+  
+  .inning-labels {
+    width: 100%;
+    max-width: 350px;
+  }
+  
+  .chart-container {
+    width: 100%;
+    max-width: 350px;
+  }
+  
+  .win-prob-svg {
+    width: 100%;
+    height: auto;
+    max-width: 350px;
+  }
+
+  .stats-team-logo {
+    width: 40px;
+    height: 40px;
+  }
+
+  .stats-team-name {
+    font-size: 12px;
+  }
+
+  .stats-teams {
+    padding: 0 10px;
+    flex-wrap: nowrap;
+  }
+
+  .stats-team.away {
+    margin-right: auto;
+    flex: 0 0 auto;
+  }
+
+  .stats-team.home {
+    margin-left: auto;
+    flex: 0 0 auto;
   }
 }

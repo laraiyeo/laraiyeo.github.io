@@ -12,14 +12,14 @@ const teamAbbrMap = {
 };
 
 const teamColors = {
-  "Arizona Diamondbacks": "#A71930", "Atlanta Braves": "#13274F", "Baltimore Orioles": "#000000", "Boston Red Sox": "#0C2340",
-  "Chicago White Sox": "#000000", "Chicago Cubs": "#0E3386", "Cincinnati Reds": "#C6011F", "Cleveland Guardians": "#0F223E",
+  "Arizona Diamondbacks": "#A71930", "Atlanta Braves": "#CE1141", "Baltimore Orioles": "#DF4601", "Boston Red Sox": "#BD3039",
+  "Chicago White Sox": "#27251F", "Chicago Cubs": "#0E3386", "Cincinnati Reds": "#C6011F", "Cleveland Guardians": "#E50022",
   "Colorado Rockies": "#333366", "Detroit Tigers": "#0C2340", "Houston Astros": "#002D62", "Kansas City Royals": "#004687",
-  "Los Angeles Angels": "#BA0021", "Los Angeles Dodgers": "#A5ACAF", "Miami Marlins": "#00A3E0", "Milwaukee Brewers": "#FFC52F",
-  "Minnesota Twins": "#002B5C", "New York Yankees": "#003087", "New York Mets": "#002D72", "Athletics": "#EFB21E",
-  "Philadelphia Phillies": "#E81828", "Pittsburgh Pirates": "#27251F", "San Diego Padres": "#2F241D", "San Francisco Giants": "#000000",
+  "Los Angeles Angels": "#BA0021", "Los Angeles Dodgers": "#005A9C", "Miami Marlins": "#00A3E0", "Milwaukee Brewers": "#FFC52F",
+  "Minnesota Twins": "#002B5C", "New York Yankees": "#003087", "New York Mets": "#FF5910", "Athletics": "#EFB21E",
+  "Philadelphia Phillies": "#E81828", "Pittsburgh Pirates": "#FDB827", "San Diego Padres": "#2F241D", "San Francisco Giants": "#FD5A1E",
   "Seattle Mariners": "#005C5C", "St. Louis Cardinals": "#C41E3A", "Tampa Bay Rays": "#092C5C", "Texas Rangers": "#003278",
-  "Toronto Blue Jays": "#1D2D5C", "Washington Nationals": "#AB0003",
+  "Toronto Blue Jays": "#134A8E", "Washington Nationals": "#AB0003",
   // Additional short name mappings
   "Royals": "#004687", "Diamondbacks": "#A71930", "Braves": "#13274F", "Orioles": "#000000", "Red Sox": "#0C2340",
   "White Sox": "#000000", "Cubs": "#0E3386", "Reds": "#C6011F", "Guardians": "#0F223E", "Rockies": "#333366",
@@ -1190,7 +1190,7 @@ window.switchToStream = function(streamType) {
     return;
   }
 
-  // Generate new embed URL using API if available
+  // Generate new embed URL using renderStreamEmbed to avoid browser history
   if (currentAwayTeam && currentHomeTeam) {
     renderStreamEmbed(currentAwayTeam, currentHomeTeam);
   } else {
@@ -1411,15 +1411,11 @@ async function fetchAndUpdateScoreboard(gamePk) {
     // Render the linescore table
     renderLinescoreTable(linescore || {}, awayTeamData.abbreviation || "AWAY", homeTeamData.abbreviation || "HOME");
 
-    // Add stream embed after linescore (only render once and only for in-progress games)
+    // Add stream embed (only render once and only for in-progress games)
     const streamContainer = document.getElementById("streamEmbed");
-    if (!streamContainer && isInProgress) {
-      const contentSlider = document.getElementById("contentSlider");
-      if (contentSlider) {
-        const streamDiv = document.createElement("div");
-        streamDiv.id = "streamEmbed";
-        streamDiv.innerHTML = await renderStreamEmbed(away.team?.name || "Unknown", home.team?.name || "Unknown");
-        contentSlider.parentNode.insertBefore(streamDiv, contentSlider);
+    if (streamContainer && isInProgress) {
+      if (!streamContainer.innerHTML) {
+        streamContainer.innerHTML = await renderStreamEmbed(away.team?.name || "Unknown", home.team?.name || "Unknown");
         
         console.log('Initial stream setup - Team names:', away.team?.name, home.team?.name);
         console.log('Stored team names:', currentAwayTeam, currentHomeTeam);
@@ -1437,8 +1433,8 @@ async function fetchAndUpdateScoreboard(gamePk) {
         }, 100);
       }
     } else if (streamContainer && !isInProgress) {
-      // Remove stream container if game is no longer in progress
-      streamContainer.remove();
+      // Clear stream container if game is no longer in progress
+      streamContainer.innerHTML = '';
     }
 
     // Hide bases, outs, and count if the game is not in progress
@@ -1520,6 +1516,14 @@ async function fetchAndUpdateScoreboard(gamePk) {
       await renderPlayByPlay(gamePk, data);
     }
 
+    // Update momentum chart if team stats tab is currently visible
+    const teamStatsContent = document.getElementById('teamStatsContent');
+    if (teamStatsContent && teamStatsContent.classList.contains('active')) {
+      const awayColor = teamColors[away.team?.name] || '#f44336';
+      const homeColor = teamColors[home.team?.name] || '#4CAF50';
+      await renderWinProbabilityChart(gamePk, awayColor, homeColor, away.team?.name || 'Away', home.team?.name || 'Home');
+    }
+
     // Return true if game is over to stop further updates
     return isGameOver;
   } catch (error) {
@@ -1530,32 +1534,68 @@ async function fetchAndUpdateScoreboard(gamePk) {
 }
 
 window.showStats = function() {
+  const teamStatsBtn = document.getElementById('teamStatsBtn');
   const statsBtn = document.getElementById('statsBtn');
   const playsBtn = document.getElementById('playsBtn');
+  const teamStatsContent = document.getElementById('teamStatsContent');
   const statsContent = document.getElementById('statsContent');
   const playsContent = document.getElementById('playsContent');
   const streamEmbed = document.getElementById('streamEmbed');
 
+  teamStatsBtn.classList.remove('active');
   statsBtn.classList.add('active');
   playsBtn.classList.remove('active');
+  teamStatsContent.classList.remove('active');
   statsContent.classList.add('active');
   playsContent.classList.remove('active');
   
-  // Show stream embed when on stats
+  // Show stream embed when on player stats
   if (streamEmbed) {
     streamEmbed.style.display = 'block';
   }
 };
 
-window.showPlays = function() {
+window.showTeamStats = function() {
+  const teamStatsBtn = document.getElementById('teamStatsBtn');
   const statsBtn = document.getElementById('statsBtn');
   const playsBtn = document.getElementById('playsBtn');
+  const teamStatsContent = document.getElementById('teamStatsContent');
   const statsContent = document.getElementById('statsContent');
   const playsContent = document.getElementById('playsContent');
   const streamEmbed = document.getElementById('streamEmbed');
 
+  teamStatsBtn.classList.add('active');
+  statsBtn.classList.remove('active');
+  playsBtn.classList.remove('active');
+  teamStatsContent.classList.add('active');
+  statsContent.classList.remove('active');
+  playsContent.classList.remove('active');
+  
+  // Hide stream embed when on team stats
+  if (streamEmbed) {
+    streamEmbed.style.display = 'none';
+  }
+
+  // Render team stats if not already loaded
+  const gamePk = getQueryParam("gamePk");
+  if (gamePk) {
+    renderTeamStats(gamePk);
+  }
+};
+
+window.showPlays = function() {
+  const teamStatsBtn = document.getElementById('teamStatsBtn');
+  const statsBtn = document.getElementById('statsBtn');
+  const playsBtn = document.getElementById('playsBtn');
+  const teamStatsContent = document.getElementById('teamStatsContent');
+  const statsContent = document.getElementById('statsContent');
+  const playsContent = document.getElementById('playsContent');
+  const streamEmbed = document.getElementById('streamEmbed');
+
+  teamStatsBtn.classList.remove('active');
   statsBtn.classList.remove('active');
   playsBtn.classList.add('active');
+  teamStatsContent.classList.remove('active');
   statsContent.classList.remove('active');
   playsContent.classList.add('active');
   
@@ -2390,6 +2430,326 @@ function showEnhancedPlayFeedback(message, type) {
   }
 }
 
+// Team Stats Functions
+async function renderTeamStats(gamePk) {
+  try {
+    console.log('Fetching team stats for game:', gamePk);
+    
+    // Fetch game data with boxscore
+    const gameResponse = await fetch(`${BASE_URL}/api/v1/game/${gamePk}/boxscore`);
+    const gameData = await gameResponse.json();
+    
+    const awayTeam = gameData.teams.away;
+    const homeTeam = gameData.teams.home;
+    
+    console.log('Away team stats:', awayTeam);
+    console.log('Home team stats:', homeTeam);
+    
+    const teamStatsDisplay = document.getElementById('teamStatsDisplay');
+    if (!teamStatsDisplay) return;
+    
+    // Get team colors
+    const awayColor = teamColors[awayTeam.team.name] || '#f44336';
+    const homeColor = teamColors[homeTeam.team.name] || '#4CAF50';
+    
+    // Get team logos
+    const awayLogo = await getLogoUrl(awayTeam.team.name);
+    const homeLogo = await getLogoUrl(homeTeam.team.name);
+    
+    // Helper function to render stats row with bars (like soccer)
+    const renderStatsRow = (label, awayValue, homeValue, isPercentage = false) => {
+      const awayNum = typeof awayValue === 'number' ? awayValue : parseFloat(awayValue) || 0;
+      const homeNum = typeof homeValue === 'number' ? homeValue : parseFloat(homeValue) || 0;
+      const total = awayNum + homeNum;
+      const awayPercent = total > 0 ? (awayNum / total) * 100 : 50;
+      const homePercent = total > 0 ? (homeNum / total) * 100 : 50;
+
+      return `
+        <div class="stats-row">
+          <div class="stats-value away">${awayValue}${isPercentage ? '%' : ''}</div>
+          <div class="stats-bar-container">
+            <div class="stats-bar">
+              <div class="stats-bar-fill away" style="width: ${awayPercent}%; background: ${awayColor};"></div>
+            </div>
+            <div class="stats-bar">
+              <div class="stats-bar-fill home" style="width: ${homePercent}%; background: ${homeColor};"></div>
+            </div>
+          </div>
+          <div class="stats-value home">${homeValue}${isPercentage ? '%' : ''}</div>
+        </div>
+        <div class="stats-label">${label}</div>
+      `;
+    };
+    
+    // Create team stats HTML matching soccer layout
+    const teamStatsHtml = `
+      <div class="match-stats-container">
+        <!-- Win Probability Chart (moved to top) -->
+        <div id="winProbabilityChart"></div>
+        
+        <div class="stats-teams">
+          <div class="stats-team away">
+            <img src="${awayLogo}" alt="${awayTeam.team.name}" class="stats-team-logo">
+            <span class="stats-team-name">${awayTeam.team.name}</span>
+          </div>
+          <div class="stats-team home">
+            <span class="stats-team-name home">${homeTeam.team.name}</span>
+            <img src="${homeLogo}" alt="${homeTeam.team.name}" class="stats-team-logo">
+          </div>
+        </div>
+        
+        <div class="stats-section">
+          <div class="stats-section-title">Team Statistics</div>
+          ${renderStatsRow('Hits', awayTeam.teamStats.batting.hits || 0, homeTeam.teamStats.batting.hits || 0)}
+          ${renderStatsRow('At Bats', awayTeam.teamStats.batting.atBats || 0, homeTeam.teamStats.batting.atBats || 0)}
+          ${renderStatsRow('Batting Avg', parseFloat(awayTeam.teamStats.batting.avg || 0).toFixed(3), parseFloat(homeTeam.teamStats.batting.avg || 0).toFixed(3))}
+          ${renderStatsRow('OPS', parseFloat(awayTeam.teamStats.batting.ops || 0).toFixed(3), parseFloat(homeTeam.teamStats.batting.ops || 0).toFixed(3))}
+          ${renderStatsRow('Strikeouts', awayTeam.teamStats.batting.strikeOuts || 0, homeTeam.teamStats.batting.strikeOuts || 0)}
+          ${renderStatsRow('Walks', awayTeam.teamStats.batting.baseOnBalls || 0, homeTeam.teamStats.batting.baseOnBalls || 0)}
+          ${renderStatsRow('Left on Base', awayTeam.teamStats.batting.leftOnBase || 0, homeTeam.teamStats.batting.leftOnBase || 0)}
+          ${renderStatsRow('Home Runs', awayTeam.teamStats.batting.homeRuns || 0, homeTeam.teamStats.batting.homeRuns || 0)}
+          ${renderStatsRow('Stolen Bases', awayTeam.teamStats.batting.stolenBases || 0, homeTeam.teamStats.batting.stolenBases || 0)}
+          ${renderStatsRow('Earned Runs', awayTeam.teamStats.pitching.earnedRuns || 0, homeTeam.teamStats.pitching.earnedRuns || 0)}
+          ${renderStatsRow('Pitching Ks', awayTeam.teamStats.pitching.strikeOuts || 0, homeTeam.teamStats.pitching.strikeOuts || 0)}
+        </div>
+      </div>
+    `;
+    
+    teamStatsDisplay.innerHTML = teamStatsHtml;
+    
+    // Render momentum chart with team colors
+    await renderWinProbabilityChart(gamePk, awayColor, homeColor, awayTeam.team.name, homeTeam.team.name);
+    
+  } catch (error) {
+    console.error('Error rendering team stats:', error);
+    const teamStatsDisplay = document.getElementById('teamStatsDisplay');
+    if (teamStatsDisplay) {
+      teamStatsDisplay.innerHTML = '<div class="error-message">Unable to load team statistics</div>';
+    }
+  }
+}
+
+async function renderWinProbabilityChart(gamePk, awayColor, homeColor, awayTeamName, homeTeamName) {
+  try {
+    // Get linescore data for inning-by-inning momentum
+    const gameResponse = await fetch(`${BASE_URL}/api/v1/game/${gamePk}/linescore`);
+    const gameData = await gameResponse.json();
+    
+    const winProbContainer = document.getElementById('winProbabilityChart');
+    if (!winProbContainer || !gameData.innings) return;
+    
+    const innings = gameData.innings;
+    
+    // Calculate momentum for each inning
+    let momentumPoints = [];
+    let cumulativeAwayRuns = 0;
+    let cumulativeHomeRuns = 0;
+    let cumulativeAwayHits = 0;
+    let cumulativeHomeHits = 0;
+    
+    // Starting at balanced (50%)
+    momentumPoints.push(50);
+    
+    innings.forEach((inning, index) => {
+      const awayRuns = inning.away?.runs || 0;
+      const homeRuns = inning.home?.runs || 0;
+      const awayHits = inning.away?.hits || 0;
+      const homeHits = inning.home?.hits || 0;
+      
+      cumulativeAwayRuns += awayRuns;
+      cumulativeHomeRuns += homeRuns;
+      cumulativeAwayHits += awayHits;
+      cumulativeHomeHits += homeHits;
+      
+      // Calculate momentum based on runs and hits
+      // Runs are weighted more heavily than hits
+      const runDiff = cumulativeHomeRuns - cumulativeAwayRuns;
+      const hitDiff = cumulativeHomeHits - cumulativeAwayHits;
+      
+      // Momentum calculation: runs worth 3x hits, with diminishing returns
+      const momentumScore = (runDiff * 3) + (hitDiff * 1);
+      
+      // Convert to percentage (0-100, where 50 is balanced)
+      // Use sigmoid-like function for smooth transitions
+      let momentum = 50 + (momentumScore * 5);
+      
+      // Add some recent inning bias (what happened this inning affects momentum more)
+      const recentRunDiff = homeRuns - awayRuns;
+      const recentHitDiff = homeHits - awayHits;
+      const recentMomentum = (recentRunDiff * 2) + (recentHitDiff * 0.5);
+      momentum += recentMomentum * 3;
+      
+      // Cap between 10-90% for visual appeal
+      momentum = Math.max(10, Math.min(90, momentum));
+      
+      momentumPoints.push(momentum);
+    });
+    
+    // Ensure we have at least 9 innings for proper display
+    const totalInnings = Math.max(9, innings.length);
+    
+    // Calculate individual inning data for both teams
+    let inningData = [];
+    
+    for (let i = 0; i < totalInnings; i++) {
+      if (i < innings.length) {
+        const inning = innings[i];
+        const awayRuns = inning.away?.runs || 0;
+        const homeRuns = inning.home?.runs || 0;
+        const awayHits = inning.away?.hits || 0;
+        const homeHits = inning.home?.hits || 0;
+        
+        // Calculate combined activity for each team (runs worth more than hits)
+        const awayActivity = (awayRuns * 3) + awayHits;
+        const homeActivity = (homeRuns * 3) + homeHits;
+        
+        inningData.push({
+          inning: i + 1,
+          awayRuns: awayRuns,
+          homeRuns: homeRuns,
+          awayHits: awayHits,
+          homeHits: homeHits,
+          awayActivity: awayActivity,
+          homeActivity: homeActivity
+        });
+      } else {
+        // For innings beyond current game, show no activity
+        inningData.push({
+          inning: i + 1,
+          awayRuns: 0,
+          homeRuns: 0,
+          awayHits: 0,
+          homeHits: 0,
+          awayActivity: 0,
+          homeActivity: 0
+        });
+      }
+    }
+    
+    // Find max activity for scaling bars
+    const maxActivity = Math.max(...inningData.map(d => Math.max(d.awayActivity, d.homeActivity)), 1);
+    
+    // Helper function for ordinal suffixes
+    const ordinalSuffix = (num) => {
+      const j = num % 10;
+      const k = num % 100;
+      if (j === 1 && k !== 11) return num + "st";
+      if (j === 2 && k !== 12) return num + "nd";
+      if (j === 3 && k !== 13) return num + "rd";
+      return num + "th";
+    };
+    
+    let chartHtml = `
+      <div class="win-prob-container">
+        <h3 class="win-prob-title">Momentum</h3>
+        <div class="win-prob-chart-wrapper">
+          <div class="team-labels">
+            <div class="team-label away" style="color: ${awayColor}">
+              ${awayTeamName}
+            </div>
+            <div class="team-label home" style="color: ${homeColor}">
+              ${homeTeamName}
+            </div>
+          </div>
+          
+          <div class="chart-container">
+            <svg width="600" height="280" viewBox="0 0 600 280" class="win-prob-svg">
+              <!-- Center line (balanced) -->
+              <line x1="0" y1="140" x2="600" y2="140" 
+                    stroke="#666" 
+                    stroke-width="1" 
+                    stroke-dasharray="3,3"/>
+              
+              <!-- Inning momentum bars -->
+    `;
+    
+    // Add momentum bars for each inning - stacked vertically
+    const barWidth = 50; // Wider bars for bigger chart
+    const barSpacing = 60; // More spacing between bars
+    
+    inningData.forEach((data, index) => {
+      const baseX = (index * barSpacing) + 25;
+      const centerY = 140; // Updated center Y for bigger chart
+      const maxBarHeight = 100; // Taller bars for bigger chart
+      
+      // Away team bar (extends upward from center)
+      if (data.awayActivity > 0) {
+        const awayBarHeight = (data.awayActivity / maxActivity) * maxBarHeight;
+        chartHtml += `
+          <rect x="${baseX}" y="${centerY - awayBarHeight}" 
+                width="${barWidth}" height="${awayBarHeight}" 
+                fill="${awayColor}" 
+                opacity="0.8"
+                rx="3"/>
+        `;
+        
+        // Add stats text for away team (above the bar)
+        if (data.awayRuns > 0 || data.awayHits > 0) {
+          chartHtml += `
+            <text x="${baseX + barWidth/2}" y="${centerY - awayBarHeight - 5}" 
+                  fill="white" 
+                  font-size="9" 
+                  font-weight="bold"
+                  text-anchor="middle">${data.awayRuns}R ${data.awayHits}H</text>
+          `;
+        }
+      }
+      
+      // Home team bar (extends downward from center) - same X position as away team
+      if (data.homeActivity > 0) {
+        const homeBarHeight = (data.homeActivity / maxActivity) * maxBarHeight;
+        chartHtml += `
+          <rect x="${baseX}" y="${centerY}" 
+                width="${barWidth}" height="${homeBarHeight}" 
+                fill="${homeColor}" 
+                opacity="0.8"
+                rx="3"/>
+        `;
+        
+        // Add stats text for home team (below the bar)
+        if (data.homeRuns > 0 || data.homeHits > 0) {
+          chartHtml += `
+            <text x="${baseX + barWidth/2}" y="${centerY + homeBarHeight + 15}" 
+                  fill="white" 
+                  font-size="9" 
+                  font-weight="bold"
+                  text-anchor="middle">${data.homeRuns}R ${data.homeHits}H</text>
+          `;
+        }
+      }
+      
+      // Add inning label below the home team bar
+      chartHtml += `
+        <text x="${baseX + barWidth/2}" y="270" 
+              fill="#ccc" 
+              font-size="12" 
+              text-anchor="middle">${ordinalSuffix(data.inning)}</text>
+      `;
+      
+      // Add vertical separator line between innings
+      if (index < totalInnings - 1) {
+        chartHtml += `
+          <line x1="${baseX + barWidth + 15}" y1="30" x2="${baseX + barWidth + 15}" y2="250" 
+                stroke="#444" 
+                stroke-width="1" 
+                opacity="0.3"/>
+        `;
+      }
+    });
+    
+    chartHtml += `
+            </svg>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    winProbContainer.innerHTML = chartHtml;
+    
+  } catch (error) {
+    console.error('Error rendering momentum chart:', error);
+  }
+}
 const gamePk = getQueryParam("gamePk");
 if (gamePk) {
   startScoreboardUpdates(gamePk);
