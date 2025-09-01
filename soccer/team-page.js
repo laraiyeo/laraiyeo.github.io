@@ -2308,8 +2308,19 @@ async function processPlayerStats(selectedPlayer, position, contentDiv, year, pl
       { key: 'yellowCards', label: 'Yellow Cards', category: 'general' },
       { key: 'redCards', label: 'Red Cards', category: 'general' }
     ];
-  } else {
+  } else if (position === 'D' || position === 'Defender') {
     // Field player stats - using actual API field names from c1.txt
+    statsToShow = [
+      { key: 'appearances', label: 'Appearances', category: 'general' },
+      { key: 'totalGoals', label: 'Total Goals', category: 'offensive' },
+      { key: 'goalAssists', label: 'Assists', category: 'offensive' },
+      { key: 'totalClearance', label: 'Clearances', category: 'defensive' },
+      { key: 'totalTackles', label: 'Tackles', category: 'defensive' },
+      { key: 'foulsCommitted', label: 'Fouls', category: 'general' },
+      { key: 'yellowCards', label: 'Yellow Cards', category: 'general' },
+      { key: 'subIns', label: 'Subbed In', category: 'general' }
+    ];
+  } else {
     statsToShow = [
       { key: 'appearances', label: 'Appearances', category: 'general' },
       { key: 'totalGoals', label: 'Total Goals', category: 'offensive' },
