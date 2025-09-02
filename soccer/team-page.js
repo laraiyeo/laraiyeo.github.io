@@ -58,7 +58,7 @@ const LEAGUE_COMPETITIONS = {
   ],
   "fra.1": [
     { code: "fra.coupe_de_france", name: "Coupe de France", logo: "182" },
-    { code: "fra.league_cup", name: "Trophee des Champions", logo: "2345" }
+    { code: "fra.super_cup", name: "Trophee des Champions", logo: "2345" }
   ],
   "usa.1": [
     { code: "usa.open", name: "US Open Cup", logo: "69" }
@@ -1927,30 +1927,16 @@ async function fetchCompetitionStats(playerId, competitions, year) {
   
   for (const competition of competitions) {
     try {
-      // Use the same API structure as the main league stats (like ESPN core API)
-      const url = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition.code}/seasons/${year}/athletes/${playerId}?lang=en&region=us`;
+      // Use direct statistics endpoint instead of looking for statistics category in athlete page
+      const url = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition.code}/seasons/${year}/types/0/athletes/${playerId}/statistics?lang=en&region=us`;
       console.log(`[COMPETITION DEBUG] Fetching ${competition.name} from: ${url}`);
       
       const response = await fetch(url);
       console.log(`[COMPETITION DEBUG] ${competition.name} response status: ${response.status}`);
       
       if (response.ok) {
-        const data = await response.json();
-        console.log(`[COMPETITION DEBUG] ${competition.name} data structure:`, data);
-        
-        // Check if we have statistics reference like the main league stats
-        let statsData = null;
-        if (data.statistics && data.statistics.$ref) {
-          console.log(`[COMPETITION DEBUG] ${competition.name} has statistics reference, fetching detailed stats...`);
-          const statsResponse = await fetch(convertToHttps(data.statistics.$ref));
-          if (statsResponse.ok) {
-            statsData = await statsResponse.json();
-            console.log(`[COMPETITION DEBUG] ${competition.name} detailed stats:`, statsData);
-          }
-        } else if (data.statistics) {
-          console.log(`[COMPETITION DEBUG] ${competition.name} has inline statistics`);
-          statsData = data.statistics;
-        }
+        const statsData = await response.json();
+        console.log(`[COMPETITION DEBUG] ${competition.name} statistics data:`, statsData);
         
         // Extract basic stats from the competition data using the same pattern as main stats
         if (statsData?.splits?.categories) {
