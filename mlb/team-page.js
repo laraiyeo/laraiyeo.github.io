@@ -1124,7 +1124,7 @@ sliderBackground.style.cssText = `
 
     // Load initial stats
     const currentYear = new Date().getFullYear();
-    await loadPlayerStatsForModal(playerId, currentYear, statsContainer);
+    await loadPlayerStatsForModal(playerId, currentYear, statsContainer, '');
 
     // Close modal when clicking outside
     modal.addEventListener('click', (e) => {
@@ -1256,7 +1256,7 @@ async function showOverallStats() {
 
   // Reload the overall stats
   const currentYear = new Date().getFullYear();
-  await loadPlayerStatsForModal(selectedPlayer.person.id, currentYear, statsContainer);
+  await loadPlayerStatsForModal(selectedPlayer.person.id, currentYear, statsContainer, '');
 }
 
 async function loadGameLogForDate(date) {
@@ -1285,12 +1285,12 @@ async function loadGameLogForDate(date) {
       const selectedMonth = selectedDate.getMonth() + 1; // 0-based, so add 1
       const selectedYear = selectedDate.getFullYear();
       
-      // MLB season runs from March/April to October/November
-      // If the date is from November 1 to February 28/29, it belongs to the off-season
+      // MLB season runs from MAR/APR to OCT/NOV
+      // If the date is from NOV 1 to FEB 28/29, it belongs to the off-season
       if (selectedMonth >= 11 || selectedMonth <= 2) {
         return selectedYear; // Off-season, use current year as season identifier
       } 
-      // If the date is from March 1 to October 31, it belongs to the season of that year
+      // If the date is from MAR 1 to OCT 31, it belongs to the season of that year
       else {
         return selectedYear; // Season year
       }
@@ -2067,17 +2067,17 @@ window.capturePlayerStatsAsImage = async function(element) {
 
     // Capture the element with html2canvas
     const canvas = await html2canvas(captureContainer, {
-      backgroundColor: null,
+      backgroundColor: '#000000',
       scale: 3, // Use scale 3 to avoid logo scaling issues like game log
       useCORS: true,
       allowTaint: false,
       logging: false,
       width: 600,
-      height: captureContainer.scrollHeight + 50, // Add height adjustment to prevent clipping
+      height: captureContainer.scrollHeight + 32, // Add height adjustment to prevent clipping
       scrollX: 0,
       scrollY: 0,
       windowWidth: 600,
-      windowHeight: captureContainer.scrollHeight + 50
+      windowHeight: captureContainer.scrollHeight + 32
     });
 
     // Remove the temporary container
@@ -2151,7 +2151,40 @@ async function getTeamLogo(team = null) {
   return 'icon.png';
 }
 
-async function loadPlayerStatsForModal(playerId, year, container) {
+// Helper function to build API URL with date range support
+function buildStatsApiUrl(playerId, group, year, selectedMonth) {
+  const baseUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats`;
+  if (selectedMonth) {
+    const daysInMonth = new Date(year, parseInt(selectedMonth), 0).getDate();
+    const startDate = `${year}-${selectedMonth}-01`;
+    const endDate = `${year}-${selectedMonth}-${daysInMonth.toString().padStart(2, '0')}`;
+    return `${baseUrl}?stats=byDateRange&group=${group}&season=${year}&startDate=${startDate}&endDate=${endDate}`;
+  } else {
+    return `${baseUrl}?stats=season&group=${group}&season=${year}`;
+  }
+}
+
+// Helper function to build league-wide stats URL with date range support
+function buildLeagueStatsUrl(group, year, selectedMonth) {
+  const baseUrl = `https://statsapi.mlb.com/api/v1/stats`;
+  if (selectedMonth) {
+    const daysInMonth = new Date(year, parseInt(selectedMonth), 0).getDate();
+    const startDate = `${year}-${selectedMonth}-01`;
+    const endDate = `${year}-${selectedMonth}-${daysInMonth.toString().padStart(2, '0')}`;
+    return `${baseUrl}?stats=byDateRange&group=${group}&season=${year}&gameType=R&sportId=1&limit=2000&playerPool=all&startDate=${startDate}&endDate=${endDate}`;
+  } else {
+    return `${baseUrl}?stats=season&group=${group}&season=${year}&gameType=R&sportId=1&limit=2000&playerPool=all`;
+  }
+}
+
+// Helper function to get month name
+function getMonthName(monthNumber) {
+  const months = ['', 'January', 'February', 'March', 'April', 'May', 'June', 
+                  'July', 'August', 'September', 'October', 'November', 'December'];
+  return months[parseInt(monthNumber)] || '';
+}
+
+async function loadPlayerStatsForModal(playerId, year, container, selectedMonth = '') {
   try {
     // Determine player type based on position
     const playerPosition = selectedPlayer.position?.abbreviation || selectedPlayer.position?.name || '';
@@ -2164,8 +2197,8 @@ async function loadPlayerStatsForModal(playerId, year, container) {
     
     try {
       const [hittingTest, pitchingTest] = await Promise.all([
-        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${year}`),
-        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${year}`)
+        fetch(buildStatsApiUrl(playerId, 'hitting', year, selectedMonth)),
+        fetch(buildStatsApiUrl(playerId, 'pitching', year, selectedMonth))
       ]);
       
       if (hittingTest.ok && pitchingTest.ok) {
@@ -2256,10 +2289,10 @@ async function loadPlayerStatsForModal(playerId, year, container) {
     
     // For TWP players, show both hitting and pitching stats
     if (isTwoWayPlayer) {
-      // Use stored data from TWP detection, fetch league-wide stats
+      // Use stored data from TWP detection, fetch league-wide stats for both season and monthly data
       const [allHittersResponse, allPitchersResponse] = await Promise.all([
-        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting&season=${year}&gameType=R&sportId=1&limit=2000&playerPool=all`),
-        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=pitching&season=${year}&gameType=R&sportId=1&limit=2000&playerPool=all`)
+        fetch(buildLeagueStatsUrl('hitting', year, selectedMonth)),
+        fetch(buildLeagueStatsUrl('pitching', year, selectedMonth))
       ]);
       
       const [allHittersData, allPitchersData] = await Promise.all([
@@ -2272,26 +2305,52 @@ async function loadPlayerStatsForModal(playerId, year, container) {
       const pitchingData = twpPitchingData;
       
       const teamColor = playerTeamColor;
+      const headerText = selectedMonth ? `${year} ${getMonthName(selectedMonth)} Two-Way Player Statistics` : `${year} Two-Way Player Statistics`;
+      
+      const currentYear = new Date().getFullYear();
+      const startYear = 2022;
       
       let content = `
         <div id="playerStatsCard" style="position: relative;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0; color: #333;">${year} Two-Way Player Statistics</h3>
-            <button class="copy-stats-btn" onclick="copyPlayerStatsAsImage()" style="
-              background: ${teamColor};
-              color: white;
-              border: none;
-              padding: 8px 16px;
-              border-radius: 4px;
-              cursor: pointer;
-              font-size: 14px;
-              font-weight: 500;
-              display: flex;
-              align-items: center;
-              gap: 6px;
-            ">
-              📋 Copy ${window.innerWidth < 525 ? '' : 'as Image'}
-            </button>
+            <h3 style="margin: 0; color: #333;" id="statsHeaderTitle">${headerText}</h3>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <button class="copy-stats-btn" onclick="copyPlayerStatsAsImage()" style="
+                background: ${teamColor};
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 500;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+              ">
+                📋 Copy ${window.innerWidth < 525 ? '' : 'as Image'}
+              </button>
+              <select id="modalYearSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(yearOption => 
+                  `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
+                ).join('')}
+              </select>
+              <select id="modalMonthSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; margin-left: 5px;">
+                <option value="" ${!selectedMonth ? 'selected' : ''}>--</option>
+                <option value="01" ${selectedMonth === '01' ? 'selected' : ''}>JAN</option>
+                <option value="02" ${selectedMonth === '02' ? 'selected' : ''}>FEB</option>
+                <option value="03" ${selectedMonth === '03' ? 'selected' : ''}>MAR</option>
+                <option value="04" ${selectedMonth === '04' ? 'selected' : ''}>APR</option>
+                <option value="05" ${selectedMonth === '05' ? 'selected' : ''}>MAY</option>
+                <option value="06" ${selectedMonth === '06' ? 'selected' : ''}>JUN</option>
+                <option value="07" ${selectedMonth === '07' ? 'selected' : ''}>JUL</option>
+                <option value="08" ${selectedMonth === '08' ? 'selected' : ''}>AUG</option>
+                <option value="09" ${selectedMonth === '09' ? 'selected' : ''}>SEP</option>
+                <option value="10" ${selectedMonth === '10' ? 'selected' : ''}>OCT</option>
+                <option value="11" ${selectedMonth === '11' ? 'selected' : ''}>NOV</option>
+                <option value="12" ${selectedMonth === '12' ? 'selected' : ''}>DEC</option>
+              </select>
+            </div>
           </div>
       `;
       
@@ -2386,18 +2445,43 @@ async function loadPlayerStatsForModal(playerId, year, container) {
       }
       
       if (!hittingData.stats?.length && !pitchingData.stats?.length) {
-        content += '<div style="text-align: center; color: #777; font-style: italic; padding: 30px 20px;">No statistics available for this year.</div>';
+        content += '<div style="text-align: center; color: #777; font-style: italic; padding: 30px 20px;">No statistics available for this period.</div>';
       }
       
       container.innerHTML = content;
+      
+      // Add year and month selector event listeners for TWP
+      setTimeout(() => {
+        const yearSelector = document.getElementById('modalYearSelector');
+        const monthSelector = document.getElementById('modalMonthSelector');
+        
+        if (yearSelector) {
+          yearSelector.addEventListener('change', async () => {
+            const selectedYear = parseInt(yearSelector.value);
+            const selectedMonth = monthSelector ? monthSelector.value : '';
+            container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
+            await loadPlayerStatsForModal(playerId, selectedYear, container, selectedMonth);
+          });
+        }
+        
+        if (monthSelector) {
+          monthSelector.addEventListener('change', async () => {
+            const selectedMonth = monthSelector.value;
+            const selectedYear = yearSelector ? parseInt(yearSelector.value) : year;
+            container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
+            await loadPlayerStatsForModal(playerId, selectedYear, container, selectedMonth);
+          });
+        }
+      }, 100);
+      
       return;
     }
     
     if (!isPitcher) {
       // Load hitting stats for non-pitchers
       const [playerResponse, allPlayersResponse] = await Promise.all([
-        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${year}`),
-        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting&season=${year}&gameType=R&sportId=1&limit=2000&playerPool=all`)
+        fetch(buildStatsApiUrl(playerId, 'hitting', year, selectedMonth)),
+        fetch(buildLeagueStatsUrl('hitting', year, selectedMonth))
       ]);
       
       const playerData = await playerResponse.json();
@@ -2422,7 +2506,7 @@ async function loadPlayerStatsForModal(playerId, year, container) {
           teamLogoUrl = await getStandardLogoUrl(teamNameForYear);
         }
         
-        // Calculate player rankings
+        // Calculate player rankings for both season and monthly data
         const rankings = calculatePlayerStatRankings(allPlayersData, playerStats);
         
         const currentYear = new Date().getFullYear();
@@ -2438,7 +2522,7 @@ async function loadPlayerStatsForModal(playerId, year, container) {
                 <img src="${teamLogoUrl}" alt="${teamNameForYear}" 
                      style="height:40px;max-width:60px;" 
                      onerror="this.src='icon.png';">
-                <h3 style="margin: 0; color: #333;">${year} Hitting Statistics</h3>
+                <h3 style="margin: 0; color: #333;" id="statsHeaderTitle">${selectedMonth ? `${year} ${getMonthName(selectedMonth)} Hitting Statistics` : `${year} Hitting Statistics`}</h3>
               </div>
               <div style="display: flex; align-items: center; gap: 10px;">
                 <button class="copy-stats-btn" onclick="copyPlayerStatsAsImage()" style="
@@ -2460,6 +2544,21 @@ async function loadPlayerStatsForModal(playerId, year, container) {
                   ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(yearOption => 
                     `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
                   ).join('')}
+                </select>
+                <select id="modalMonthSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; margin-left: 5px;">
+                  <option value="" ${!selectedMonth ? 'selected' : ''}>--</option>
+                  <option value="01" ${selectedMonth === '01' ? 'selected' : ''}>JAN</option>
+                  <option value="02" ${selectedMonth === '02' ? 'selected' : ''}>FEB</option>
+                  <option value="03" ${selectedMonth === '03' ? 'selected' : ''}>MAR</option>
+                  <option value="04" ${selectedMonth === '04' ? 'selected' : ''}>APR</option>
+                  <option value="05" ${selectedMonth === '05' ? 'selected' : ''}>MAY</option>
+                  <option value="06" ${selectedMonth === '06' ? 'selected' : ''}>JUN</option>
+                  <option value="07" ${selectedMonth === '07' ? 'selected' : ''}>JUL</option>
+                  <option value="08" ${selectedMonth === '08' ? 'selected' : ''}>AUG</option>
+                  <option value="09" ${selectedMonth === '09' ? 'selected' : ''}>SEP</option>
+                  <option value="10" ${selectedMonth === '10' ? 'selected' : ''}>OCT</option>
+                  <option value="11" ${selectedMonth === '11' ? 'selected' : ''}>NOV</option>
+                  <option value="12" ${selectedMonth === '12' ? 'selected' : ''}>DEC</option>
                 </select>
               </div>
             </div>
@@ -2512,18 +2611,32 @@ async function loadPlayerStatsForModal(playerId, year, container) {
           </div>
         `;
         
-        // Add year selector event listener for hitting stats
+        // Add year and month selector event listeners for hitting stats
         setTimeout(() => {
           const yearSelector = document.getElementById('modalYearSelector');
+          const monthSelector = document.getElementById('modalMonthSelector');
+          
           if (yearSelector) {
             yearSelector.addEventListener('change', async () => {
               const selectedYear = parseInt(yearSelector.value);
+              const selectedMonth = monthSelector ? monthSelector.value : '';
               if (currentStatsMode === 'overall') {
                 container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
-                await loadPlayerStatsForModal(playerId, selectedYear, container);
+                await loadPlayerStatsForModal(playerId, selectedYear, container, selectedMonth);
               } else if (currentStatsMode === 'gamelog') {
                 // Update game log interface with new year
                 showGameLogInterface();
+              }
+            });
+          }
+          
+          if (monthSelector) {
+            monthSelector.addEventListener('change', async () => {
+              const selectedMonth = monthSelector.value;
+              const selectedYear = yearSelector ? parseInt(yearSelector.value) : year;
+              if (currentStatsMode === 'overall') {
+                container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
+                await loadPlayerStatsForModal(playerId, selectedYear, container, selectedMonth);
               }
             });
           }
@@ -2535,7 +2648,7 @@ async function loadPlayerStatsForModal(playerId, year, container) {
         container.innerHTML = `
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <h3 style="margin: 0; color: #333;">${year} Hitting Statistics</h3>
+              <h3 style="margin: 0; color: #333;" id="statsHeaderTitle">${selectedMonth ? `${year} ${getMonthName(selectedMonth)} Hitting Statistics` : `${year} Hitting Statistics`}</h3>
             </div>
             <div style="display: flex; align-items: center; gap: 10px;">
               <select id="modalYearSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
@@ -2543,25 +2656,54 @@ async function loadPlayerStatsForModal(playerId, year, container) {
                   `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
                 ).join('')}
               </select>
+              <select id="modalMonthSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; margin-left: 5px;">
+                <option value="" ${!selectedMonth ? 'selected' : ''}>--</option>
+                <option value="01" ${selectedMonth === '01' ? 'selected' : ''}>JAN</option>
+                <option value="02" ${selectedMonth === '02' ? 'selected' : ''}>FEB</option>
+                <option value="03" ${selectedMonth === '03' ? 'selected' : ''}>MAR</option>
+                <option value="04" ${selectedMonth === '04' ? 'selected' : ''}>APR</option>
+                <option value="05" ${selectedMonth === '05' ? 'selected' : ''}>MAY</option>
+                <option value="06" ${selectedMonth === '06' ? 'selected' : ''}>JUN</option>
+                <option value="07" ${selectedMonth === '07' ? 'selected' : ''}>JUL</option>
+                <option value="08" ${selectedMonth === '08' ? 'selected' : ''}>AUG</option>
+                <option value="09" ${selectedMonth === '09' ? 'selected' : ''}>SEP</option>
+                <option value="10" ${selectedMonth === '10' ? 'selected' : ''}>OCT</option>
+                <option value="11" ${selectedMonth === '11' ? 'selected' : ''}>NOV</option>
+                <option value="12" ${selectedMonth === '12' ? 'selected' : ''}>DEC</option>
+              </select>
             </div>
           </div>
           <div style="text-align: center; padding: 20px; color: #777;">
-            No hitting statistics available for the ${year} season.
+            No hitting statistics available for the ${selectedMonth ? `${getMonthName(selectedMonth)} ${year}` : `${year} season`}.
           </div>
         `;
         
-        // Add year selector event listener for no hitting stats
+        // Add year and month selector event listeners for no hitting stats
         setTimeout(() => {
           const yearSelector = document.getElementById('modalYearSelector');
+          const monthSelector = document.getElementById('modalMonthSelector');
+          
           if (yearSelector) {
             yearSelector.addEventListener('change', async () => {
               const selectedYear = parseInt(yearSelector.value);
+              const selectedMonth = monthSelector ? monthSelector.value : '';
               if (currentStatsMode === 'overall') {
                 container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
-                await loadPlayerStatsForModal(playerId, selectedYear, container);
+                await loadPlayerStatsForModal(playerId, selectedYear, container, selectedMonth);
               } else if (currentStatsMode === 'gamelog') {
                 // Update game log interface with new year
                 showGameLogInterface();
+              }
+            });
+          }
+          
+          if (monthSelector) {
+            monthSelector.addEventListener('change', async () => {
+              const selectedMonth = monthSelector.value;
+              const selectedYear = yearSelector ? parseInt(yearSelector.value) : year;
+              if (currentStatsMode === 'overall') {
+                container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
+                await loadPlayerStatsForModal(playerId, selectedYear, container, selectedMonth);
               }
             });
           }
@@ -2570,8 +2712,8 @@ async function loadPlayerStatsForModal(playerId, year, container) {
     } else {
       // For pitchers, load pitching stats
       const [playerResponse, allPlayersResponse] = await Promise.all([
-        fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${year}`),
-        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=pitching&season=${year}&gameType=R&sportId=1&limit=2000&playerPool=all`)
+        fetch(buildStatsApiUrl(playerId, 'pitching', year, selectedMonth)),
+        fetch(buildLeagueStatsUrl('pitching', year, selectedMonth))
       ]);
       
       const playerData = await playerResponse.json();
@@ -2596,7 +2738,7 @@ async function loadPlayerStatsForModal(playerId, year, container) {
           teamLogoUrl = await getStandardLogoUrl(teamNameForYear);
         }
         
-        // Calculate player rankings for pitching stats
+        // Calculate player rankings for pitching stats for both season and monthly data
         const rankings = calculatePitcherStatRankings(allPlayersData, playerStats);
         
         const currentYear = new Date().getFullYear();
@@ -2612,7 +2754,7 @@ async function loadPlayerStatsForModal(playerId, year, container) {
                 <img src="${teamLogoUrl}" alt="${teamNameForYear}" 
                      style="height:40px;max-width:60px;" 
                      onerror="this.src='icon.png';">
-                <h3 style="margin: 0; color: #333;">${year} Pitching Statistics</h3>
+                <h3 style="margin: 0; color: #333;" id="statsHeaderTitle">${selectedMonth ? `${year} ${getMonthName(selectedMonth)} Pitching Statistics` : `${year} Pitching Statistics`}</h3>
               </div>
               <div style="display: flex; align-items: center; gap: 10px;">
                 <button class="copy-stats-btn" onclick="copyPlayerStatsAsImage()" style="
@@ -2634,6 +2776,21 @@ async function loadPlayerStatsForModal(playerId, year, container) {
                   ${Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i).map(yearOption => 
                     `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
                   ).join('')}
+                </select>
+                <select id="modalMonthSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; margin-left: 5px;">
+                  <option value="" ${!selectedMonth ? 'selected' : ''}>--</option>
+                  <option value="01" ${selectedMonth === '01' ? 'selected' : ''}>JAN</option>
+                  <option value="02" ${selectedMonth === '02' ? 'selected' : ''}>FEB</option>
+                  <option value="03" ${selectedMonth === '03' ? 'selected' : ''}>MAR</option>
+                  <option value="04" ${selectedMonth === '04' ? 'selected' : ''}>APR</option>
+                  <option value="05" ${selectedMonth === '05' ? 'selected' : ''}>MAY</option>
+                  <option value="06" ${selectedMonth === '06' ? 'selected' : ''}>JUN</option>
+                  <option value="07" ${selectedMonth === '07' ? 'selected' : ''}>JUL</option>
+                  <option value="08" ${selectedMonth === '08' ? 'selected' : ''}>AUG</option>
+                  <option value="09" ${selectedMonth === '09' ? 'selected' : ''}>SEP</option>
+                  <option value="10" ${selectedMonth === '10' ? 'selected' : ''}>OCT</option>
+                  <option value="11" ${selectedMonth === '11' ? 'selected' : ''}>NOV</option>
+                  <option value="12" ${selectedMonth === '12' ? 'selected' : ''}>DEC</option>
                 </select>
               </div>
             </div>
@@ -2681,18 +2838,32 @@ async function loadPlayerStatsForModal(playerId, year, container) {
           </div>
         `;
         
-        // Add year selector event listener for pitching stats
+        // Add year and month selector event listeners for pitching stats
         setTimeout(() => {
           const yearSelector = document.getElementById('modalYearSelector');
+          const monthSelector = document.getElementById('modalMonthSelector');
+          
           if (yearSelector) {
             yearSelector.addEventListener('change', async () => {
               const selectedYear = parseInt(yearSelector.value);
+              const selectedMonth = monthSelector ? monthSelector.value : '';
               if (currentStatsMode === 'overall') {
                 container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
-                await loadPlayerStatsForModal(playerId, selectedYear, container);
+                await loadPlayerStatsForModal(playerId, selectedYear, container, selectedMonth);
               } else if (currentStatsMode === 'gamelog') {
                 // Update game log interface with new year
                 showGameLogInterface();
+              }
+            });
+          }
+          
+          if (monthSelector) {
+            monthSelector.addEventListener('change', async () => {
+              const selectedMonth = monthSelector.value;
+              const selectedYear = yearSelector ? parseInt(yearSelector.value) : year;
+              if (currentStatsMode === 'overall') {
+                container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
+                await loadPlayerStatsForModal(playerId, selectedYear, container, selectedMonth);
               }
             });
           }
@@ -2704,7 +2875,7 @@ async function loadPlayerStatsForModal(playerId, year, container) {
         container.innerHTML = `
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <h3 style="margin: 0; color: #333;">${year} Pitching Statistics</h3>
+              <h3 style="margin: 0; color: #333;" id="statsHeaderTitle">${selectedMonth ? `${year} ${getMonthName(selectedMonth)} Pitching Statistics` : `${year} Pitching Statistics`}</h3>
             </div>
             <div style="display: flex; align-items: center; gap: 10px;">
               
@@ -2713,25 +2884,54 @@ async function loadPlayerStatsForModal(playerId, year, container) {
                   `<option value="${yearOption}" ${yearOption === year ? 'selected' : ''}>${yearOption}</option>`
                 ).join('')}
               </select>
+              <select id="modalMonthSelector" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; margin-left: 5px;">
+                <option value="" ${!selectedMonth ? 'selected' : ''}>--</option>
+                <option value="01" ${selectedMonth === '01' ? 'selected' : ''}>JAN</option>
+                <option value="02" ${selectedMonth === '02' ? 'selected' : ''}>FEB</option>
+                <option value="03" ${selectedMonth === '03' ? 'selected' : ''}>MAR</option>
+                <option value="04" ${selectedMonth === '04' ? 'selected' : ''}>APR</option>
+                <option value="05" ${selectedMonth === '05' ? 'selected' : ''}>MAY</option>
+                <option value="06" ${selectedMonth === '06' ? 'selected' : ''}>JUN</option>
+                <option value="07" ${selectedMonth === '07' ? 'selected' : ''}>JUL</option>
+                <option value="08" ${selectedMonth === '08' ? 'selected' : ''}>AUG</option>
+                <option value="09" ${selectedMonth === '09' ? 'selected' : ''}>SEP</option>
+                <option value="10" ${selectedMonth === '10' ? 'selected' : ''}>OCT</option>
+                <option value="11" ${selectedMonth === '11' ? 'selected' : ''}>NOV</option>
+                <option value="12" ${selectedMonth === '12' ? 'selected' : ''}>DEC</option>
+              </select>
             </div>
           </div>
           <div style="text-align: center; padding: 20px; color: #777;">
-            No pitching statistics available for the ${year} season.
+            No pitching statistics available for the ${selectedMonth ? `${getMonthName(selectedMonth)} ${year}` : `${year} season`}.
           </div>
         `;
         
-        // Add year selector event listener for no pitching stats
+        // Add year and month selector event listeners for no pitching stats
         setTimeout(() => {
           const yearSelector = document.getElementById('modalYearSelector');
+          const monthSelector = document.getElementById('modalMonthSelector');
+          
           if (yearSelector) {
             yearSelector.addEventListener('change', async () => {
               const selectedYear = parseInt(yearSelector.value);
+              const selectedMonth = monthSelector ? monthSelector.value : '';
               if (currentStatsMode === 'overall') {
                 container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
-                await loadPlayerStatsForModal(playerId, selectedYear, container);
+                await loadPlayerStatsForModal(playerId, selectedYear, container, selectedMonth);
               } else if (currentStatsMode === 'gamelog') {
                 // Update game log interface with new year
                 showGameLogInterface();
+              }
+            });
+          }
+          
+          if (monthSelector) {
+            monthSelector.addEventListener('change', async () => {
+              const selectedMonth = monthSelector.value;
+              const selectedYear = yearSelector ? parseInt(yearSelector.value) : year;
+              if (currentStatsMode === 'overall') {
+                container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading player statistics...</div>';
+                await loadPlayerStatsForModal(playerId, selectedYear, container, selectedMonth);
               }
             });
           }
