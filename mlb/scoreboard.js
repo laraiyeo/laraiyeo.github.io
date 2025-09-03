@@ -1412,25 +1412,33 @@ async function fetchAndUpdateScoreboard(gamePk) {
     renderLinescoreTable(linescore || {}, awayTeamData.abbreviation || "AWAY", homeTeamData.abbreviation || "HOME");
 
     // Add stream embed (only render once and only for in-progress games)
+    // This is done asynchronously to not block the box score rendering
     const streamContainer = document.getElementById("streamEmbed");
     if (streamContainer && isInProgress) {
       if (!streamContainer.innerHTML) {
-        streamContainer.innerHTML = await renderStreamEmbed(away.team?.name || "Unknown", home.team?.name || "Unknown");
-        
-        console.log('Initial stream setup - Team names:', away.team?.name, home.team?.name);
-        console.log('Stored team names:', currentAwayTeam, currentHomeTeam);
-        
-        // Ensure team names are stored
-        if (away.team?.name && home.team?.name) {
-          currentAwayTeam = away.team.name;
-          currentHomeTeam = home.team.name;
-          console.log('Team names stored successfully:', currentAwayTeam, currentHomeTeam);
-        }
-        
-        // Reduced delay from 500ms to 100ms
-        setTimeout(() => {
-          renderStreamEmbed(away.team?.name || "Unknown", home.team?.name || "Unknown");
-        }, 100);
+        // Don't await - render stream asynchronously to avoid blocking box score
+        renderStreamEmbed(away.team?.name || "Unknown", home.team?.name || "Unknown")
+          .then(streamHTML => {
+            streamContainer.innerHTML = streamHTML;
+            
+            console.log('Initial stream setup - Team names:', away.team?.name, home.team?.name);
+            console.log('Stored team names:', currentAwayTeam, currentHomeTeam);
+            
+            // Ensure team names are stored
+            if (away.team?.name && home.team?.name) {
+              currentAwayTeam = away.team.name;
+              currentHomeTeam = home.team.name;
+              console.log('Team names stored successfully:', currentAwayTeam, currentHomeTeam);
+            }
+            
+            // Reduced delay from 500ms to 100ms
+            setTimeout(() => {
+              renderStreamEmbed(away.team?.name || "Unknown", home.team?.name || "Unknown");
+            }, 100);
+          })
+          .catch(error => {
+            console.error('Error rendering stream embed:', error);
+          });
       }
     } else if (streamContainer && !isInProgress) {
       // Clear stream container if game is no longer in progress
