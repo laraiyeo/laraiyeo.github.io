@@ -5431,7 +5431,7 @@ async function capturePlayerStatsAsImage(element) {
 
     // Capture the element with html2canvas
     const canvas = await html2canvas(captureContainer, {
-      backgroundColor: 'transparent',
+      backgroundColor: '#000000',
       scale: 3,
       useCORS: true,
       allowTaint: false,

@@ -1073,6 +1073,15 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
     // Default to bravo if available
     embedUrl = availableStreams.bravo.embedUrl;
     currentStreamType = 'bravo';
+  } else {
+    // Fallback to any available stream if preferred ones aren't available
+    const streamKeys = Object.keys(availableStreams);
+    if (streamKeys.length > 0) {
+      const firstAvailableKey = streamKeys[0];
+      embedUrl = availableStreams[firstAvailableKey].embedUrl;
+      currentStreamType = firstAvailableKey;
+      console.log(`Using fallback stream: ${firstAvailableKey}`);
+    }
   }
 
   // Fallback to manual URL construction if API doesn't have the stream
@@ -1103,6 +1112,9 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
   let button1Action = '';
   let button2Action = '';
 
+  // Get all available stream types except the current one
+  const availableStreamTypes = Object.keys(availableStreams).filter(type => type !== currentStreamType);
+
   if (currentStreamType === 'alpha1') {
     if (availableStreams.alpha2) {
       button1Text = 'Alpha2';
@@ -1129,6 +1141,28 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
     if (availableStreams.alpha2) {
       button2Text = 'Alpha2';
       button2Action = "switchToStream('alpha2')";
+    }
+  } else {
+    // For other stream types (like charlie), show available alternatives
+    if (availableStreams.alpha1) {
+      button1Text = 'Alpha1';
+      button1Action = "switchToStream('alpha1')";
+    } else if (availableStreams.alpha2) {
+      button1Text = 'Alpha2';
+      button1Action = "switchToStream('alpha2')";
+    } else if (availableStreamTypes.length > 0) {
+      const firstAlternative = availableStreamTypes[0];
+      button1Text = firstAlternative.charAt(0).toUpperCase() + firstAlternative.slice(1);
+      button1Action = `switchToStream('${firstAlternative}')`;
+    }
+
+    if (availableStreams.bravo) {
+      button2Text = 'Bravo';
+      button2Action = "switchToStream('bravo')";
+    } else if (availableStreamTypes.length > 1) {
+      const secondAlternative = availableStreamTypes[1];
+      button2Text = secondAlternative.charAt(0).toUpperCase() + secondAlternative.slice(1);
+      button2Action = `switchToStream('${secondAlternative}')`;
     }
   }
 
@@ -1212,6 +1246,10 @@ function updateStreamButtons(currentType) {
   } else if (currentType === 'bravo') {
     if (button1) button1.textContent = 'Alpha1';
     if (button2) button2.textContent = 'Alpha2';
+  } else {
+    // For other stream types, try to show alternatives
+    if (button1) button1.textContent = 'Alpha1';
+    if (button2) button2.textContent = 'Bravo';
   }
 }
 

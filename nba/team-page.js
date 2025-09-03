@@ -2604,23 +2604,43 @@ function displayPlayerStatsInModal(categories, container) {
   }
 
   // Create stats display with same styling as team stats but inline for modal
+  const teamColor = currentTeam && currentTeam.color ? `#${currentTeam.color}` : '#17408B';
   const statsHTML = `
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
-      ${playerStats.map(stat => `
-        <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
-          <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">
-            ${stat.value}
-          </div>
-          <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">
-            ${stat.label}
-          </div>
-          ${stat.rank ? `
-            <div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">
-              ${stat.rank}
+    <div id="playerStatsCard" style="position: relative;">
+      <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 20px;">
+        <button class="copy-stats-btn" onclick="copyPlayerStatsAsImage()" style="
+          background: ${teamColor};
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        ">
+          📋 Copy ${window.innerWidth < 525 ? '' : 'as Image'}
+        </button>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+        ${playerStats.map(stat => `
+          <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 8px;">
+              ${stat.value}
             </div>
-          ` : ''}
-        </div>
-      `).join('')}
+            <div style="font-size: 0.9rem; color: #777; margin-bottom: 5px;">
+              ${stat.label}
+            </div>
+            ${stat.rank ? `
+              <div style="font-size: 0.8rem; color: #28a745; font-weight: 500;">
+                ${stat.rank}
+              </div>
+            ` : ''}
+          </div>
+        `).join('')}
+      </div>
     </div>
   `;
   
@@ -2743,6 +2763,135 @@ function displayPlayerComparison(player1Categories, player2Categories, container
   comparisonHTML += '</div>';
   container.innerHTML = comparisonHTML;
 }
+
+// Function to copy player stats as image
+window.copyPlayerStatsAsImage = async function() {
+  try {
+    const modalOverlay = document.querySelector('.modal-overlay');
+    let cardElement = null;
+    if (modalOverlay) cardElement = modalOverlay.querySelector('#playerStatsCard');
+    if (!cardElement) cardElement = document.getElementById('playerStatsCard');
+    if (!cardElement) { console.error('Player stats card not found'); showFeedback && showFeedback('Player stats not found','error'); return; }
+    if (!window.html2canvas) { const script = document.createElement('script'); script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'; script.onload = () => capturePlayerStatsAsImage(cardElement); document.head.appendChild(script); } else { capturePlayerStatsAsImage(cardElement); }
+  } catch (err) { console.error('Error copying player stats as image:', err); showFeedback && showFeedback('Error copying image','error'); }
+};
+
+window.capturePlayerStatsAsImage = async function(element) {
+  try {
+    showFeedback && showFeedback('Capturing player statistics...', 'loading');
+    const teamCol = (currentTeam && currentTeam.color) ? `#${currentTeam.color}` : '#17408B';
+    const captureContainer = document.createElement('div');
+    captureContainer.style.cssText = `background: ${teamCol}; color: white; padding: 30px; border-radius: 16px; width: 600px; max-width: 600px; min-width: 600px; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; position: fixed; left: -9999px; top: -9999px; z-index: -1; overflow: hidden;`;
+
+    // Get player information for header
+    const playerName = selectedPlayer ? `${selectedPlayer.firstName} ${selectedPlayer.lastName}` : 'Unknown Player';
+    const jerseyNumber = selectedPlayer ? selectedPlayer.jersey : 'N/A';
+    const position = selectedPlayer ? selectedPlayer.position : 'N/A';
+    const teamName = currentTeam ? currentTeam.displayName : 'Unknown Team';
+    const teamAbbr = currentTeam ? currentTeam.abbreviation : 'UNK';
+    const headshotUrl = selectedPlayer ? selectedPlayer.headshot : 'icon.png';
+    const teamLogo = currentTeam ? (convertToHttps(currentTeam.logos?.find(logo =>
+        logo.rel.includes(
+          ["26"].includes(currentTeam.id) ? 'secondary_logo_on_secondary_color' : 'primary_logo_on_primary_color'
+        )
+    )?.href) || `https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/${currentTeam.abbreviation}.png`) : '';
+    const currentYear = new Date().getFullYear();
+    
+    // Create player header section
+    const playerHeaderHtml = `
+      <div style="display: flex; align-items: center; margin-bottom: 25px; background: rgba(255,255,255,0.1); padding: 20px; border-radius: 12px;">
+        <div style="width: 110px; height: 80px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: transparent; position: relative; margin-right: 20px;">
+          <img src="${headshotUrl}" alt="${playerName}" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: auto; min-height: 100%; object-fit: cover;" onerror="this.src='icon.png';">
+        </div>
+        <div style="flex: 1; min-width: 0;">
+          <h2 style="margin: 0 0 8px 0; font-size: 26px; font-weight: bold;">${playerName}</h2>
+          <div style="font-size: 16px; opacity: 0.9; margin-bottom: 4px;">#${jerseyNumber} | ${position} | ${teamAbbr}</div>
+          <div style="font-size: 14px; opacity: 0.8;">${teamName}</div>
+        </div>
+        <div style="width: 80px; height: 80px; flex-shrink: 0; position: relative; margin-left: 20px;">
+          <img src="${teamLogo}" alt="${teamName}" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: auto; min-height: 100%; object-fit: cover;" onerror="this.style.display='none';">
+        </div>
+      </div>
+    `;
+    
+    // Create stats title section
+    const statsTitle = `
+      <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+        <img src="${teamLogo}" alt="${teamName}" style="width: 32px; height: 32px; margin-right: 10px;" onerror="this.style.display='none';">
+        <h3 style="margin: 0; font-size: 20px; font-weight: bold; color: white;">${currentYear} Season Stats</h3>
+      </div>
+    `;
+    
+    const statsContent = element.cloneNode(true);
+    const copyBtn = statsContent.querySelector('[onclick*="copyPlayerStatsAsImage"]'); if (copyBtn) copyBtn.remove();
+    
+    // Style stat cards to be translucent
+    const statCards = statsContent.querySelectorAll('[style*="background"]');
+    statCards.forEach(card => {
+      if (card.style.background && !card.style.background.includes('rgba')) {
+        card.style.background = 'rgba(255,255,255,0.1)';
+        card.style.border = '1px solid rgba(255,255,255,0.2)';
+        card.style.color = 'white';
+      }
+    });
+    
+    // Set stat labels to white
+    const statLabels = statsContent.querySelectorAll('[style*="color: #777"], [style*="color:#777"]'); 
+    statLabels.forEach(l=>l.style.color='white');
+    
+    // Set stat ranks to white  
+    const statRanks = statsContent.querySelectorAll('[style*="color: #28a745"]');
+    statRanks.forEach(r=>r.style.color='white');
+    
+    // Make sure stat values are white
+    const statValues = statsContent.querySelectorAll('[style*="font-weight: bold"]');
+    statValues.forEach(v => v.style.color = 'white');
+    
+    captureContainer.innerHTML = playerHeaderHtml + statsTitle + statsContent.outerHTML;
+    document.body.appendChild(captureContainer);
+    
+    // Replace all external images with base64 versions or remove them
+    const images = captureContainer.querySelectorAll('img');
+    for (const img of images) {
+      try {
+        if (img.src.includes('espncdn.com') || img.src.includes('http')) {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const tempImg = new Image();
+          tempImg.crossOrigin = 'anonymous';
+
+          await new Promise((resolve, reject) => {
+            tempImg.onload = () => {
+              try {
+                canvas.width = tempImg.width;
+                canvas.height = tempImg.height;
+                ctx.drawImage(tempImg, 0, 0);
+                const dataURL = canvas.toDataURL('image/png');
+                img.src = dataURL;
+              } catch (e) {
+                img.style.display = 'none';
+              }
+              resolve();
+            };
+            tempImg.onerror = () => {
+              img.style.display = 'none';
+              resolve();
+            };
+            tempImg.src = img.src;
+          });
+        }
+      } catch (e) {
+        img.style.display = 'none';
+      }
+    }
+
+    // Wait a bit for images to process
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const canvas = await html2canvas(captureContainer,{backgroundColor:'#000000',scale:3,useCORS:true,allowTaint:false,logging:false}); document.body.removeChild(captureContainer);
+    canvas.toBlob(async (blob)=>{ if(!blob){ showFeedback && showFeedback('Failed to create image','error'); return;} try{ if(navigator.clipboard && window.ClipboardItem){ await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]); showFeedback && showFeedback('Player stats copied to clipboard!','success'); } else { const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='player-stats.png'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); showFeedback && showFeedback('Player stats downloaded!','success'); } }catch(err){console.error('Error copying image',err); showFeedback && showFeedback('Error handling image','error'); } }, 'image/png', 0.95);
+  } catch(err) { console.error('Error capturing player stats:', err); showFeedback && showFeedback('Error capturing image','error'); }
+};
 
 // Function to copy game log card as image
 async function copyGameLogAsImage(cardId) {
