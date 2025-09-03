@@ -2067,7 +2067,7 @@ window.capturePlayerStatsAsImage = async function(element) {
 
     // Capture the element with html2canvas
     const canvas = await html2canvas(captureContainer, {
-      backgroundColor: '#000000',
+      backgroundColor: 'transparent',
       scale: 3, // Use scale 3 to avoid logo scaling issues like game log
       useCORS: true,
       allowTaint: false,
