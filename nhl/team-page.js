@@ -2979,7 +2979,48 @@ window.capturePlayerStatsAsImage = async function(element) {
     await new Promise(resolve => setTimeout(resolve, 500));
     
     const canvas = await html2canvas(captureContainer,{backgroundColor:'#000000',scale:3,useCORS:true,allowTaint:false,logging:false}); document.body.removeChild(captureContainer);
-    canvas.toBlob(async (blob)=>{ if(!blob){ showFeedback && showFeedback('Failed to create image','error'); return;} try{ if(navigator.clipboard && window.ClipboardItem){ await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]); showFeedback && showFeedback('Player stats copied to clipboard!','success'); } else { const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='player-stats.png'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); showFeedback && showFeedback('Player stats downloaded!','success'); } }catch(err){console.error('Error copying image',err); showFeedback && showFeedback('Error handling image','error'); } }, 'image/png', 0.95);
+    canvas.toBlob(async (blob)=>{ 
+      if(!blob){ 
+        showFeedback && showFeedback('Failed to create image','error'); 
+        return;
+      } 
+      
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                      ('ontouchstart' in window) ||
+                      (navigator.maxTouchPoints > 0);
+      
+      try{ 
+        if (isMobile) {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${playerName.replace(/\s+/g, '-')}-stats-${currentYear}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          showFeedback && showFeedback('Player stats downloaded!', 'success');
+        } else {
+          if(navigator.clipboard && window.ClipboardItem){ 
+            await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]); 
+            showFeedback && showFeedback('Player stats copied to clipboard!','success'); 
+          } else { 
+            const url=URL.createObjectURL(blob); 
+            const a=document.createElement('a'); 
+            a.href=url; 
+            a.download=`${playerName.replace(/\s+/g, '-')}-stats-${currentYear}.png`; 
+            document.body.appendChild(a); 
+            a.click(); 
+            a.remove(); 
+            URL.revokeObjectURL(url); 
+            showFeedback && showFeedback('Player stats downloaded!','success'); 
+          }
+        }
+      }catch(err){
+        console.error('Error copying image',err); 
+        showFeedback && showFeedback('Error handling image','error'); 
+      } 
+    }, 'image/png', 0.95);
   } catch(err) { console.error('Error capturing player stats:', err); showFeedback && showFeedback('Error capturing image','error'); }
 };
 
