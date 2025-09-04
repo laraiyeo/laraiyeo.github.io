@@ -2290,23 +2290,69 @@ function renderPlayDescription(lastPlay, clock, competitors) {
 
 // Content slider functions
 function showStats() {
-  // Update button states
-  document.getElementById('statsBtn').classList.add('active');
-  document.getElementById('playsBtn').classList.remove('active');
+  // Update tab states
+  document.querySelectorAll('.slider-btn').forEach(btn => btn.classList.remove('active'));
+  const statsBtn = document.getElementById('statsBtn');
+  if (statsBtn) statsBtn.classList.add('active');
   
-  // Show/hide content sections
-  document.getElementById('statsContent').style.display = 'block';
-  document.getElementById('playsContent').style.display = 'none';
+  // Show/hide content sections - handle all content classes
+  document.querySelectorAll('.content-section, .content2-section, .content1-section').forEach(content => {
+    content.classList.remove('active');
+  });
+  const statsContent = document.getElementById('statsContent');
+  if (statsContent) statsContent.classList.add('active');
+  
+  // Hide stream embed when on stats
+  const streamEmbed = document.getElementById('streamEmbed');
+  if (streamEmbed) {
+    streamEmbed.style.display = 'none';
+  }
+  
+  // Load stats data when switching to stats view
+  const gameId = getQueryParam("gameId");
+  if (gameId) {
+    loadMatchStats(gameId);
+  }
+}
+
+function showBoxscore() {
+  // Update tab states
+  document.querySelectorAll('.slider-btn').forEach(btn => btn.classList.remove('active'));
+  const boxscoreBtn = document.getElementById('boxscoreBtn');
+  if (boxscoreBtn) boxscoreBtn.classList.add('active');
+  
+  // Show/hide content sections - handle all content classes
+  document.querySelectorAll('.content-section, .content2-section, .content1-section').forEach(content => {
+    content.classList.remove('active');
+  });
+  const boxscoreContent = document.getElementById('boxscoreContent');
+  if (boxscoreContent) boxscoreContent.classList.add('active');
+  
+  // Show stream embed when on boxscore (if game is in progress)
+  const streamEmbed = document.getElementById('streamEmbed');
+  if (streamEmbed) {
+    streamEmbed.style.display = 'block';
+  }
 }
 
 function showPlays() {
-  // Update button states
-  document.getElementById('playsBtn').classList.add('active');
-  document.getElementById('statsBtn').classList.remove('active');
+  // Update tab states
+  document.querySelectorAll('.slider-btn').forEach(btn => btn.classList.remove('active'));
+  const playsBtn = document.getElementById('playsBtn');
+  if (playsBtn) playsBtn.classList.add('active');
   
-  // Show/hide content sections
-  document.getElementById('statsContent').style.display = 'none';
-  document.getElementById('playsContent').style.display = 'block';
+  // Show/hide content sections - handle all content classes
+  document.querySelectorAll('.content-section, .content2-section, .content1-section').forEach(content => {
+    content.classList.remove('active');
+  });
+  const playsContent = document.getElementById('playsContent');
+  if (playsContent) playsContent.classList.add('active');
+  
+  // Hide stream embed when on plays
+  const streamEmbed = document.getElementById('streamEmbed');
+  if (streamEmbed) {
+    streamEmbed.style.display = 'none';
+  }
   
   // Load play-by-play data when switching to plays view
   const gameId = getQueryParam("gameId");
@@ -2329,4 +2375,465 @@ function toggleDrive(driveIndex) {
       toggleIcon.textContent = '▼';
     }
   }
+}
+
+// Stats functionality
+async function loadMatchStats(gameId) {
+  try {
+    console.log('Loading match stats for game:', gameId);
+    
+    // Replace gameId in the URL with the actual gameId
+    const STATS_API_URL = `https://cdn.espn.com/core/nfl/matchup?xhr=1&gameId=${gameId}`;
+    console.log('Fetching stats from:', STATS_API_URL);
+    
+    const response = await fetch(STATS_API_URL);
+    const data = await response.json();
+    
+    console.log('Stats data received:', data);
+    console.log('Full gamepackageJSON:', data.gamepackageJSON);
+    
+    const statsContainer = document.getElementById('matchStatsDisplay');
+    if (!statsContainer) {
+      console.error('Stats container not found');
+      return;
+    }
+    
+    // Check if we have valid data
+    if (!data || !data.gamepackageJSON) {
+      statsContainer.innerHTML = '<div style="color: white; text-align: center; padding: 20px;">Stats not available for this game.</div>';
+      return;
+    }
+    
+    // Look for teams in different possible locations
+    let teams = data.gamepackageJSON.teams;
+    
+    // Try alternative locations if teams not found
+    if (!teams && data.gamepackageJSON.boxscore) {
+      teams = data.gamepackageJSON.boxscore.teams;
+    }
+    if (!teams && data.gamepackageJSON.header) {
+      teams = data.gamepackageJSON.header.competitions?.[0]?.competitors;
+    }
+    
+    console.log('Teams found:', teams);
+    
+    if (!teams || teams.length < 2) {
+      // Try to find team info in header/competitors
+      const competitors = data.gamepackageJSON.header?.competitions?.[0]?.competitors;
+      if (competitors && competitors.length >= 2) {
+        console.log('Using competitors data:', competitors);
+        
+        // Convert competitors to team format
+        const awayTeam = competitors.find(c => c.homeAway === 'away') || competitors[1];
+        const homeTeam = competitors.find(c => c.homeAway === 'home') || competitors[0];
+        
+        // Render basic team info without detailed stats
+        renderBasicTeamInfo(awayTeam, homeTeam, statsContainer);
+        return;
+      }
+      
+      statsContainer.innerHTML = '<div style="color: white; text-align: center; padding: 20px;">Team data not available.</div>';
+      return;
+    }
+    
+    const awayTeam = teams.find(team => team.homeAway === 'away') || teams[0];
+    const homeTeam = teams.find(team => team.homeAway === 'home') || teams[1];
+    
+    console.log('Away team:', awayTeam);
+    console.log('Home team:', homeTeam);
+    
+    // Get team statistics
+    const awayStats = awayTeam.statistics || [];
+    const homeStats = homeTeam.statistics || [];
+    
+    console.log('Away stats:', awayStats);
+    console.log('Home stats:', homeStats);
+    
+    // Render stats similar to soccer format
+    renderMatchStats(awayTeam, homeTeam, awayStats, homeStats);
+    
+  } catch (error) {
+    console.error('Error loading match stats:', error);
+    const statsContainer = document.getElementById('matchStatsDisplay');
+    if (statsContainer) {
+      statsContainer.innerHTML = '<div style="color: white; text-align: center; padding: 20px;">Error loading stats.</div>';
+    }
+  }
+}
+
+// Function to render basic team info when detailed stats aren't available
+function renderBasicTeamInfo(awayTeam, homeTeam, statsContainer) {
+  console.log('Rendering basic team info');
+  
+  // Get team logos and names
+  const awayLogo = awayTeam.team?.logo || awayTeam.team?.logos?.[0]?.href || `https://a.espncdn.com/i/teamlogos/nfl/500/${awayTeam.team?.abbreviation}.png`;
+  const homeLogo = homeTeam.team?.logo || homeTeam.team?.logos?.[0]?.href || `https://a.espncdn.com/i/teamlogos/nfl/500/${homeTeam.team?.abbreviation}.png`;
+  
+  const awayName = awayTeam.team?.shortDisplayName || awayTeam.team?.displayName || awayTeam.team?.name;
+  const homeName = homeTeam.team?.shortDisplayName || homeTeam.team?.displayName || homeTeam.team?.name;
+  
+  const statsHtml = `
+    <div class="match-stats-container">
+      <div class="stats-header">Team Information</div>
+      
+      <div class="stats-teams">
+        <div class="stats-team away">
+          <img src="${awayLogo}" alt="${awayName}" class="stats-team-logo">
+          <div class="stats-team-name">${awayName}</div>
+        </div>
+        <div class="stats-vs">VS</div>
+        <div class="stats-team home">
+          <div class="stats-team-name">${homeName}</div>
+          <img src="${homeLogo}" alt="${homeName}" class="stats-team-logo">
+        </div>
+      </div>
+      
+      <div style="color: white; text-align: center; padding: 20px;">
+        Detailed team statistics will be available during or after the game.
+      </div>
+    </div>
+  `;
+  
+  statsContainer.innerHTML = statsHtml;
+}
+
+// Function to render match stats similar to soccer
+function renderMatchStats(awayTeam, homeTeam, awayStats, homeStats) {
+  const statsContainer = document.getElementById('matchStatsDisplay');
+  if (!statsContainer) return;
+  
+  console.log('Rendering match stats for:', awayTeam, homeTeam);
+  
+  // Get team logos with multiple fallback options
+  const awayLogo = awayTeam.team?.logo || 
+                   awayTeam.team?.logos?.[0]?.href || 
+                   awayTeam.logo || 
+                   `https://a.espncdn.com/i/teamlogos/nfl/500/${awayTeam.team?.abbreviation || awayTeam.abbreviation}.png`;
+  
+  const homeLogo = homeTeam.team?.logo || 
+                   homeTeam.team?.logos?.[0]?.href || 
+                   homeTeam.logo || 
+                   `https://a.espncdn.com/i/teamlogos/nfl/500/${homeTeam.team?.abbreviation || homeTeam.abbreviation}.png`;
+  
+  // Get team names with multiple fallback options
+  const awayName = awayTeam.team?.shortDisplayName || 
+                   awayTeam.team?.displayName || 
+                   awayTeam.team?.name || 
+                   awayTeam.shortDisplayName || 
+                   awayTeam.displayName || 
+                   awayTeam.name;
+  
+  const homeName = homeTeam.team?.shortDisplayName || 
+                   homeTeam.team?.displayName || 
+                   homeTeam.team?.name || 
+                   homeTeam.shortDisplayName || 
+                   homeTeam.displayName || 
+                   homeTeam.name;
+  
+  // Create stats sections based on available data
+  let statsHtml = `
+    <div class="match-stats-container">
+      <div class="stats-header">Match Stats</div>
+      
+      <div class="stats-teams">
+        <div class="stats-team away">
+          <img src="${awayLogo}" alt="${awayName}" class="stats-team-logo" onerror="this.src='football.png';">
+          <div class="stats-team-name">${awayName}</div>
+        </div>
+        <div class="stats-vs">VS</div>
+        <div class="stats-team home">
+          <div class="stats-team-name">${homeName}</div>
+          <img src="${homeLogo}" alt="${homeName}" class="stats-team-logo" onerror="this.src='football.png';">
+        </div>
+      </div>
+  `;
+  
+  // Process statistics if available
+  if (awayStats.length > 0 && homeStats.length > 0) {
+    // Get possession data
+    const awayPossessionStat = awayStats.find(stat => stat.name === 'possessionTime');
+    const homePossessionStat = homeStats.find(stat => stat.name === 'possessionTime');
+    
+    if (awayPossessionStat && homePossessionStat) {
+      // Use the actual seconds values from the data
+      const awaySeconds = awayPossessionStat.value; // Already in seconds
+      const homeSeconds = homePossessionStat.value; // Already in seconds
+      const totalSeconds = 3600; // 60 minutes total game time
+      
+      const awayPercent = ((awaySeconds / totalSeconds) * 100).toFixed(1);
+      const homePercent = ((homeSeconds / totalSeconds) * 100).toFixed(1);
+      
+      // Use displayValue for the time format display
+      const awayTimeDisplay = awayPossessionStat.displayValue; // "40:15"
+      const homeTimeDisplay = homePossessionStat.displayValue; // "19:45"
+      
+      statsHtml += `
+        <div class="stats-section">
+          <div class="stats-section-title">Possession</div>
+          <div class="possession-section">
+            <div class="possession-circle" style="background: conic-gradient(#007bff 0% ${homePercent}%, #dc3545 ${homePercent}% 100%);">
+              <div class="possession-center">
+                <div>Possession</div>
+              </div>
+            </div>
+            <div class="possession-values">
+              <div class="possession-team">
+                <div class="possession-color" style="background: #dc3545;"></div>
+                <span>${awayName} ${awayPercent}% (${awayTimeDisplay})</span>
+              </div>
+              <div class="possession-team">
+                <span>${homePercent}% (${homeTimeDisplay}) ${homeName}</span>
+                <div class="possession-color" style="background: #007bff;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Create stat categories (11 categories as requested)
+    const statCategories = {
+      'Offense': ['firstDowns', 'totalOffensivePlays', 'totalYards', 'yardsPerPlay'],
+      'Passing': ['netPassingYards', 'completionAttempts', 'yardsPerPass'],
+      'Rushing': ['rushingYards', 'rushingAttempts', 'yardsPerRushAttempt'],
+      'Turnovers': ['interceptions', 'fumblesLost'],
+      'Penalties': ['totalPenaltiesYards'],
+      'Third Down': ['thirdDownEff'],
+      'Fourth Down': ['fourthDownEff'],
+      'Red Zone': ['redZoneAttempts'],
+      'Defense': ['sacksYardsLost'],
+      'Drives': ['totalDrives']
+    };
+    
+    Object.entries(statCategories).forEach(([category, statKeys]) => {
+      statsHtml += `<div class="stats-section">
+        <div class="stats-section-title">${category}</div>`;
+      
+      statKeys.forEach(statKey => {
+        const awayStat = findStatValue(awayStats, statKey);
+        const homeStat = findStatValue(homeStats, statKey);
+        
+        if (awayStat !== null && homeStat !== null) {
+          // Get display name for stat
+          const statLabel = getStatDisplayName(statKey);
+          
+          // For percentage stats, use the raw values for comparison
+          let awayValue, homeValue;
+          if (statKey.includes('Eff') || statKey.includes('Attempts')) {
+            // For efficiency stats, extract percentage or fraction
+            awayValue = extractNumericValue(awayStat);
+            homeValue = extractNumericValue(homeStat);
+          } else {
+            awayValue = parseFloat(awayStat) || 0;
+            homeValue = parseFloat(homeStat) || 0;
+          }
+          
+          const maxValue = Math.max(awayValue, homeValue);
+          const total = awayValue + homeValue;
+          
+          // Calculate percentages for bar widths (like soccer - based on proportion of total)
+          let awayPercent = 0;
+          let homePercent = 0;
+          
+          if (total > 0) {
+            awayPercent = (awayValue / total) * 100;
+            homePercent = (homeValue / total) * 100;
+          }
+          
+          statsHtml += `
+            <div class="stats-row">
+              <div class="stats-value away">${awayStat}</div>
+              <div class="stats-bar-container">
+                <div class="stats-bar">
+                  <div class="stats-bar-fill away" style="width: ${awayPercent}%; background: #dc3545;"></div>
+                </div>
+                <div class="stats-bar">
+                  <div class="stats-bar-fill home" style="width: ${homePercent}%; background: #007bff;"></div>
+                </div>
+              </div>
+              <div class="stats-value home">${homeStat}</div>
+            </div>
+            <div class="stats-label">${statLabel}</div>
+          `;
+        }
+      });
+      
+      statsHtml += '</div>';
+    });
+    
+  } else {
+    statsHtml += '<div style="color: white; text-align: center; padding: 20px;">Detailed statistics will be available during or after the game.</div>';
+  }
+  
+  statsHtml += '</div>';
+  
+  // Now load and render leaders data
+  loadMatchLeaders();
+  
+  statsContainer.innerHTML = statsHtml;
+}
+
+// Helper function to find stat values in the stats array
+function findStatValue(stats, statKey) {
+  for (const stat of stats) {
+    if (stat.name === statKey || stat.abbreviation === statKey) {
+      return stat.displayValue || stat.value;
+    }
+  }
+  return null;
+}
+
+// Helper function to convert time (MM:SS) to seconds
+function convertTimeToSeconds(timeString) {
+  if (!timeString || typeof timeString !== 'string') return 0;
+  
+  const parts = timeString.split(':');
+  if (parts.length === 2) {
+    const minutes = parseInt(parts[0]) || 0;
+    const seconds = parseInt(parts[1]) || 0;
+    return (minutes * 60) + seconds;
+  }
+  return 0;
+}
+
+// Helper function to get display names for stats
+function getStatDisplayName(statKey) {
+  const displayNames = {
+    'firstDowns': '1st Downs',
+    'totalOffensivePlays': 'Total Plays',
+    'totalYards': 'Total Yards',
+    'yardsPerPlay': 'Yards per Play',
+    'netPassingYards': 'Net Passing Yards',
+    'completionAttempts': 'Comp/Att',
+    'yardsPerPass': 'Yards per Pass',
+    'rushingYards': 'Rushing Yards',
+    'rushingAttempts': 'Rushing Attempts',
+    'yardsPerRushAttempt': 'Yards per Rush',
+    'interceptions': 'Interceptions',
+    'fumblesLost': 'Fumbles Lost',
+    'totalPenaltiesYards': 'Penalties-Yards',
+    'thirdDownEff': '3rd Down Efficiency',
+    'fourthDownEff': '4th Down Efficiency',
+    'redZoneAttempts': 'Red Zone (Made-Att)',
+    'sacksYardsLost': 'Sacks-Yards Lost',
+    'timeOfPossession': 'Time of Possession',
+    'totalDrives': 'Total Drives'
+  };
+  
+  return displayNames[statKey] || statKey;
+}
+
+// Helper function to extract numeric value from stat strings like "9-12" or "75%"
+function extractNumericValue(statString) {
+  if (!statString || statString === '-') return 0;
+  
+  // Handle fractions like "9-12" (convert to percentage)
+  if (statString.includes('-')) {
+    const parts = statString.split('-');
+    if (parts.length === 2) {
+      const made = parseFloat(parts[0]) || 0;
+      const attempted = parseFloat(parts[1]) || 0;
+      return attempted > 0 ? (made / attempted) : 0;
+    }
+  }
+  
+  // Handle percentages like "75%"
+  if (statString.includes('%')) {
+    return parseFloat(statString.replace('%', '')) || 0;
+  }
+  
+  // Handle regular numbers
+  return parseFloat(statString) || 0;
+}
+
+// Function to load and render leaders data
+async function loadMatchLeaders() {
+  try {
+    const gameId = getQueryParam("gameId");
+    if (!gameId) return;
+    
+    const LEADERS_API_URL = `https://cdn.espn.com/core/nfl/matchup?xhr=1&gameId=${gameId}`;
+    const response = await fetch(LEADERS_API_URL);
+    const data = await response.json();
+    
+    console.log('Leaders data received:', data);
+    
+    if (data && data.gamepackageJSON && data.gamepackageJSON.leaders) {
+      renderLeaders(data.gamepackageJSON.leaders);
+    }
+  } catch (error) {
+    console.error('Error loading leaders:', error);
+  }
+}
+
+// Function to render leaders (like soccer's form containers)
+function renderLeaders(leadersData) {
+  const statsContainer = document.getElementById('matchStatsDisplay');
+  if (!statsContainer || !leadersData) return;
+  
+  // Create leaders HTML similar to soccer's form containers
+  let leadersHtml = `
+    <div class="form-containers">
+  `;
+  
+  // Reverse the order so away team is on left, home team is on right
+  const orderedLeaders = [...leadersData].reverse();
+  
+  // Process each team's leaders
+  orderedLeaders.forEach(teamLeaders => {
+    const team = teamLeaders.team;
+    const leaders = teamLeaders.leaders;
+    
+    if (!team || !leaders) return;
+    
+    leadersHtml += `
+      <div class="form-container">
+        <div class="form-header">
+          <img src="${team.logo || team.logos?.[0]?.href}" alt="${team.displayName}" class="form-team-logo-header" onerror="this.src='football.png';">
+          <div class="form-team-info">
+            <div class="form-team-name">${team.displayName}</div>
+            <div class="form-subtitle">LEADERS</div>
+          </div>
+        </div>
+        
+        <div class="form-matches">
+    `;
+    
+    // Add leaders for key categories
+    const keyLeaders = ['passingYards', 'rushingYards', 'receivingYards'];
+    
+    keyLeaders.forEach(leaderType => {
+      const leaderCategory = leaders.find(cat => cat.name === leaderType);
+      if (leaderCategory && leaderCategory.leaders && leaderCategory.leaders.length > 0) {
+        const leader = leaderCategory.leaders[0]; // Top leader
+        const athlete = leader.athlete;
+        
+        leadersHtml += `
+          <div class="form-match">
+            <div class="form-match-header">
+              <div class="form-date">${leaderCategory.displayName}</div>
+              <div class="form-competition" style="margin-left: auto; font-size: 12px; color: #888;">${athlete.position?.abbreviation || 'Player'}</div>
+            </div>
+            <div class="form-match-teams">
+              <div class="form-team">
+                <img src="${athlete.headshot?.href || 'football.png'}" alt="${athlete.displayName}" class="form-team-logo-small" onerror="this.src='football.png';">
+                <span class="form-team-abbr">${athlete.shortName || athlete.displayName}</span>
+              </div>
+              <div class="form-score">${leader.displayValue}</div>
+            </div>
+          </div>
+        `;
+      }
+    });
+    
+    leadersHtml += `
+        </div>
+      </div>
+    `;
+  });
+  
+  leadersHtml += `</div>`;
+  
+  // Append leaders to the stats container
+  statsContainer.innerHTML += leadersHtml;
 }

@@ -415,8 +415,165 @@ body {
 }
 
 .content-section {
+  display: none;
   width: 100%;
   max-width: 1200px;
+}
+
+.content-section.active {
+  display: block;
+}
+
+.content1-section {
+  margin-top: 40px;
+  display: none;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.content1-section.active {
+  display: block;
+}
+
+.content2-section {
+  margin-top: 40px;
+  display: none;
+  width: 100%;
+  max-width: 1250px;
+}
+
+.content2-section.active {
+  display: block;
+}
+
+/* Match Stats Styles */
+.match-stats-container {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.stats-header {
+  font-size: 18px;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.stats-teams {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 0 20px;
+}
+
+.stats-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stats-team.home {
+  flex-direction: row;
+}
+
+.stats-team.away {
+  flex-direction: row;
+}
+
+.stats-team-logo {
+  width: 62.5px;
+  height: 62.5px;
+  object-fit: contain;
+}
+
+.stats-team-name {
+  font-weight: bold;
+  color: white;
+  font-size: 20px;
+}
+
+.stats-vs {
+  font-weight: bold;
+  color: #ccc;
+  font-size: 12px;
+}
+
+.stats-section {
+  margin-bottom: 20px;
+}
+
+.stats-section-title {
+  font-size: 17.5px;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.stats-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 12px;
+}
+
+.stats-value {
+  font-weight: bold;
+  font-size: 17.5px;
+  color: white;
+  min-width: 30px;
+  text-align: center;
+}
+
+.stats-value.away {
+  text-align: right;
+  order: 1;
+}
+
+.stats-value.home {
+  text-align: left;
+  order: 3;
+}
+
+.stats-bar-container {
+  flex: 1;
+  order: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stats-bar {
+  height: 10px;
+  background: #333;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.stats-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.stats-bar-fill.away {
+  margin-right: auto;
+}
+
+.stats-bar-fill.home {
+  margin-left: auto;
+}
+
+.stats-label {
+  text-align: center;
+  font-size: 11.5px;
+  color: #ccc;
+  margin-bottom: 8px;
 }
 
 .plays-placeholder {
@@ -801,7 +958,242 @@ body {
   }
 
   .plays-placeholder {
-  width: 112%;
-  transform: translateX(-21.5px);
+    width: 112%;
+    transform: translateX(-21.5px);
+  }
+}
+
+/* Possession Circle */
+.possession-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.possession-circle {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.possession-center {
+  width: 80px;
+  height: 80px;
+  background: #1e1e1e;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+}
+
+.possession-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #ccc;
+  text-align: center;
+}
+
+.possession-values {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 300px;
+}
+
+.possession-team {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+}
+
+.possession-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+/* Form Containers */
+.form-containers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-container {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.form-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #333;
+}
+
+.form-team-logo-header {
+  width: 62.5px;
+  height: 62.5px;
+  object-fit: contain;
+}
+
+.form-team-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-team-name {
+  font-weight: bold;
+  color: white;
+  font-size: 20px;
+}
+
+.form-subtitle {
+  font-size: 15px;
+  color: #ccc;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-matches {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-match {
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 12px;
+  background: #2a2a2a;
+  transition: all 0.2s ease;
+}
+
+.form-match.clickable-match:hover {
+  background: #3a3a3a;
+  border-color: #555;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.form-match-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.form-date {
+  font-size: 12px;
+  color: #ccc;
+}
+
+.form-result-badge {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12.5px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.form-result-badge.w {
+  background: #28a745;
+  color: white;
+}
+
+.form-result-badge.d {
+  background: #ffc107;
+  color: #333;
+}
+
+.form-result-badge.l {
+  background: #dc3545;
+  color: white;
+}
+
+.form-match-teams {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.form-team {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.form-team-logo-small {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.form-team-abbr {
+  font-size: 17.5px;
+  font-weight: 500;
+  color: white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.form-score {
+  font-weight: bold;
+  color: white;
+  font-size: 20px;
+  margin: 0 8px;
+  white-space: nowrap;
+}
+
+.form-competition {
+  font-size: 12px;
+  color: #ccc;
+  text-align: center;
+}
+
+.form-no-data {
+  text-align: center;
+  color: #ccc;
+  font-style: italic;
+  padding: 20px;
+}
+
+@media (max-width: 525px) {
+  .form-containers {
+    grid-template-columns: 1fr;
+  }
+
+  .form-score {
+    font-size: 16px;
+  }
+
+  .form-team-abbr {
+    font-size: 13px;
+  }
+
+  .content2-section {
+    width: 112%;
   }
 }
