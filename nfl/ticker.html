@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NFL Ticker - Live Tracker</title>
+    <link rel="icon" href="football.png" type="image/png" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: transparent;
+        color: #fff;
+        overflow: hidden;
+        height: 50px;
+        width: 1920px;
+        margin: 0;
+        padding: 0;
+      }
+
+      .ticker-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        overflow: hidden;
+        display: flex;
+      }
+
+      .fixed-branding {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 300px;
+        height: 50px;
+        background: #1a1a1a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        z-index: 100;
+      }
+
+      .sliding-content {
+        margin-left: 300px;
+        width: calc(100% - 300px);
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .game-slide {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 1;
+        transform: translateX(0);
+        transition: transform 0.6s ease-in-out, opacity 0.6s ease-in-out;
+      }
+
+      .game-slide.entering {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+
+      .game-slide.active {
+        transform: translateX(0);
+        opacity: 1;
+      }
+
+      .game-slide.exiting {
+        transform: translateX(-100%);
+        opacity: 0;
+      }
+
+      .ticker-content {
+        display: flex;
+        width: 100%;
+        height: 100%;
+      }
+
+      .team-sections-container {
+        display: flex;
+        width: 800px;
+        height: 100%;
+        position: relative;
+      }
+
+      .sliding-ticker-content {
+        display: flex;
+        width: 100%;
+        height: 100%;
+      }
+
+      /* Column 1: Branding */
+      .branding-section {
+        width: 300px;
+        background: #1a1a1a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .brand-logo {
+        width: 30px;
+        height: 30px;
+        object-fit: contain;
+      }
+
+      .brand-text {
+        font-size: 14px;
+        font-weight: bold;
+        color: #fff;
+        line-height: 1.2;
+      }
+
+      /* Columns 2 & 3: Team sections */
+      .team-section {
+        width: 400px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        position: relative;
+        background: transparent;
+      }
+
+      .team-info {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .team-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .team-right {
+        display: flex;
+        align-items: center;
+      }
+
+      .team-logo-ticker {
+        width: 35px;
+        height: 35px;
+        object-fit: contain;
+      }
+
+      .team-name-ticker {
+        transform: translateY(-3px);
+        font-size: 20px;
+        font-weight: bold;
+        color: #fff;
+        text-shadow: 1px 1px 2px rgb(150, 150, 150);
+      }
+
+      .team-score-ticker {
+        transform: translateY(-3px);
+        font-size: 35px;
+        font-weight: bold;
+        color: #fff;
+        text-shadow: 1px 1px 2px rgba(255, 255, 255);
+        min-width: 20px;
+        text-align: center;
+      }
+
+      .team-score-ticker.winner {
+        color: #fff;
+        text-shadow: 1px 1px 2px rgba(255, 255, 255);
+      }
+
+      .team-score-ticker.loser {
+        color: #aaa;
+        text-shadow: 1px 1px 2px #777;
+      }
+
+      .team-record {
+        font-size: 12px;
+        color: #fff;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+        font-weight: bold;
+      }
+
+      /* Column 4: Status section */
+      .status-section {
+        flex: 1;
+        background: #2a2a2a;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 0 15px;
+      }
+
+      .status-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: 0 10px;
+      }
+
+      .quarter-indicator {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-size: 12.5px;
+        font-weight: bold;
+        color: #fff;
+        flex: 0 0 auto;
+        margin-bottom: 5px;
+      }
+
+      .quarter-number {
+        font-size: 20px;
+        font-weight: bold;
+      }
+
+      .quarter-suffix {
+        font-size: 10px;
+        vertical-align: super;
+      }
+
+      .clock-info {
+        font-size: 20px;
+        color: #fff;
+        font-weight: bold;
+        flex: 0 0 auto;
+        text-align: center;
+      }
+
+      .down-distance {
+        font-size: 17.5px;
+        color: #fff;
+        font-weight: bold;
+        flex: 0 0 auto;
+        text-align: center;
+        margin-bottom: 3px;
+      }
+
+      .possession-info {
+        font-size: 15px;
+        color: #fff;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex: 0 0 auto;
+      }
+
+      .possession-logo {
+        width: 30px;
+        height: 30px;
+        object-fit: contain;
+        margin-bottom: 5px;
+      }
+
+      .final-indicator {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        font-size: 16px;
+        font-weight: bold;
+        color: #fff;
+      }
+
+      .final-text {
+        font-size: 25px;
+        font-weight: bold;
+        color: #ffd700;
+        min-width: 60px;
+        flex-shrink: 0;
+        margin-bottom: 4px;
+      }
+
+      .final-leaders {
+        font-size: 15px;
+        color: #fff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        justify-content: flex-end;
+        flex: 1;
+        margin-right: 20px;
+      }
+
+      .team-logo-leaders {
+        width: 20px;
+        height: 20px;
+        object-fit: contain;
+      }
+
+      .scheduled-time {
+        font-size: 14px;
+        color: #fff;
+        font-weight: bold;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+        margin-left: 310px;
+      }
+
+      .team-logo {
+        width: 40px;
+        height: 40px;
+        object-fit: contain;
+      }
+
+      .team-name {
+        font-size: 18px;
+        font-weight: bold;
+        color: #fff;
+        margin-left: 10px;
+      }
+
+      .team-score {
+        font-size: 32px;
+        font-weight: bold;
+        color: #fff;
+        min-width: 40px;
+        text-align: center;
+      }
+
+      .team-score.winner {
+        color: #fff;
+      }
+
+      .center-info {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        min-width: 120px;
+      }
+
+      .game-status {
+        font-size: 12px;
+        font-weight: bold;
+        color: #fff;
+      }
+
+      .game-details {
+        font-size: 10px;
+        color: #ccc;
+      }
+
+      .clock-info {
+        font-size: 22.5px;
+        color: #fff;
+        font-weight: bold;
+        margin-bottom: 3px;
+      }
+
+      .scheduled-time {
+        font-size: 28px;
+        color: #fff;
+        font-weight: bold;
+        margin-bottom: 8px;
+      }
+
+      .team-record {
+        font-size: 20px;
+        color: #ccc;
+        margin-bottom: 4px;
+      }
+
+      .final-stat {
+        font-size: 11px;
+        color: #ccc;
+        margin-top: 5px;
+      }
+
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        font-size: 16px;
+        color: #fff;
+      }
+
+      /* Animation keyframes */
+      @keyframes slideIn {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+
+      @keyframes slideOut {
+        from {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        to {
+          transform: translateX(-100%);
+          opacity: 0;
+        }
+      }
+
+      .slide-in {
+        animation: slideIn 0.6s ease-in-out;
+      }
+
+      .slide-out {
+        animation: slideOut 0.6s ease-in-out;
+      }
+    </style>
+    <script src="ticker.js"></script>
+  </head>
+  <body>
+    <!-- Fixed Branding Column -->
+    <div class="fixed-branding">
+      <img src="../assets/33115791.png" alt="LARAIYEO" class="brand-logo" onerror="this.style.display='none'">
+      <div class="brand-text">LARAIYEO<br>LIVE SPORTS</div>
+    </div>
+
+    <!-- Sliding Content Container -->
+    <div class="ticker-container">
+      <div class="sliding-content">
+      </div>
+    </div>
+
+    <script>
+      let currentGameIndex = 0;
+      let games = [];
+      let slideInterval;
+      let currentSlide = null;
+      let currentTeamIndex = 0; // For finished games team switching
+      
+      // Leaders cache for finished games
+      let leadersCache = new Map();
+      let finishedGameTimers = new Map(); // Track team switching timers for finished games
+
+      // Function to get ticker speed from URL parameter or localStorage
+      function getTickerSpeed() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlSpeed = urlParams.get('speed');
+        if (urlSpeed && !isNaN(urlSpeed) && urlSpeed > 0) {
+          return parseInt(urlSpeed) * 1000;
+        }
+        const savedSpeed = localStorage.getItem('ticker-speed');
+        return savedSpeed ? parseInt(savedSpeed) * 1000 : 5000;
+      }
+
+      // Function to update ticker speed dynamically
+      function updateTickerSpeed() {
+        if (slideInterval) {
+          clearInterval(slideInterval);
+        }
+        const speed = getTickerSpeed();
+        slideInterval = setInterval(showNextGame, speed);
+      }
+
+      // Listen for storage changes to update speed in real-time
+      window.addEventListener('storage', function(e) {
+        if (e.key === 'ticker-speed') {
+          updateTickerSpeed();
+        }
+      });
+
+      function getAdjustedDateForNFL() {
+        const now = new Date();
+        const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+        if (estNow.getHours() < 2) {
+          estNow.setDate(estNow.getDate() - 1);
+        }
+        const adjustedDate = estNow.getFullYear() +
+                             String(estNow.getMonth() + 1).padStart(2, "0") +
+                             String(estNow.getDate()).padStart(2, "0");
+        return adjustedDate;
+      }
+
+      // Function to fetch game leaders data
+      async function fetchGameLeaders(gameId) {
+        if (leadersCache.has(gameId)) {
+          return leadersCache.get(gameId);
+        }
+
+        try {
+          const LEADERS_API_URL = `https://cdn.espn.com/core/nfl/matchup?xhr=1&gameId=${gameId}`;
+          const response = await fetch(LEADERS_API_URL);
+          const data = await response.json();
+          
+          console.log('Leaders data received for game', gameId, ':', data);
+          
+          if (data && data.gamepackageJSON && data.gamepackageJSON.leaders) {
+            const leaders = data.gamepackageJSON.leaders;
+            leadersCache.set(gameId, leaders);
+            return leaders;
+          }
+        } catch (error) {
+          console.error(`Error fetching leaders for game ${gameId}:`, error);
+        }
+        
+        return null;
+      }
+
+      // Function to format team leaders for ticker display
+      function formatTeamLeaders(teamLeaders) {
+        if (!teamLeaders || !teamLeaders.leaders) return '';
+        
+        const leaders = teamLeaders.leaders;
+        const formattedStats = [];
+        
+        // QB stats (passing yards)
+        const passingLeader = leaders.find(l => l.name === 'passingYards');
+        if (passingLeader && passingLeader.leaders && passingLeader.leaders[0]) {
+          const leader = passingLeader.leaders[0];
+          const lastName = leader.athlete.lastName || leader.athlete.displayName.split(' ').pop();
+          formattedStats.push(`QB: ${lastName} ${leader.mainStat.value} YDS`);
+        }
+        
+        // RB stats (rushing yards)
+        const rushingLeader = leaders.find(l => l.name === 'rushingYards');
+        if (rushingLeader && rushingLeader.leaders && rushingLeader.leaders[0]) {
+          const leader = rushingLeader.leaders[0];
+          const lastName = leader.athlete.lastName || leader.athlete.displayName.split(' ').pop();
+          formattedStats.push(`RB: ${lastName} ${leader.mainStat.value} YDS`);
+        }
+        
+        // WR stats (receiving yards)
+        const receivingLeader = leaders.find(l => l.name === 'receivingYards');
+        if (receivingLeader && receivingLeader.leaders && receivingLeader.leaders[0]) {
+          const leader = receivingLeader.leaders[0];
+          const lastName = leader.athlete.lastName || leader.athlete.displayName.split(' ').pop();
+          formattedStats.push(`WR: ${lastName} ${leader.mainStat.value} YDS`);
+        }
+        
+        return formattedStats.join(' | ');
+      }
+
+      function getQuarterSuffix(quarter) {
+        if (quarter === 1) return 'st';
+        if (quarter === 2) return 'nd';
+        if (quarter === 3) return 'rd';
+        return 'th';
+      }
+
+      async function createGameSlide(game) {
+        const homeTeam = game.competitions[0].competitors.find(c => c.homeAway === "home");
+        const awayTeam = game.competitions[0].competitors.find(c => c.homeAway === "away");
+        const status = game.status.type.description;
+        
+        // Get team colors
+        const awayColor = game.competitions[0].competitors.find(c => c.homeAway === "away").team.color || "#333";
+        const homeColor = game.competitions[0].competitors.find(c => c.homeAway === "home").team.color || "#333";
+
+        // Get team records
+        const awayRecord = awayTeam.records?.find(r => r.type === "total")?.summary || "0-0";
+        const homeRecord = homeTeam.records?.find(r => r.type === "total")?.summary || "0-0";
+
+        let statusContent = '';
+        let gameClass = '';
+        let isScheduled = false;
+        let isFinished = false;
+
+        // Determine game state
+        if (status === "In Progress" || game.status.type.state === "in") {
+          // Live game
+          const quarter = game.competitions[0].status.period;
+          const clock = game.competitions[0].status.displayClock || "15:00";
+
+          // Get situation data
+          const possession = game?.competitions[0]?.situation?.possession;
+          const possessionText = game?.competitions[0]?.situation?.possessionText || "";
+          const distance = game?.competitions[0]?.situation?.distance || "N/A";
+          const yardLine = game?.competitions[0]?.situation?.yardLine || "N/A";
+          const downDistance = game?.competitions[0]?.situation?.shortDownDistanceText || "1st & 10";
+          const isKickoff = downDistance === "1st & 10" && distance === 10 && (yardLine === 65 || yardLine === 35);
+
+          let possessionDisplay = '';
+          if (possession && possessionText) {
+            if (possession === homeTeam.team.id) {
+              // Home team possession: logo before text
+              possessionDisplay = `<img src="${homeTeam.team.logo}" alt="${homeTeam.team.abbreviation}" class="possession-logo" onerror="this.src='../assets/nfl.png'"> ${possessionText} ▶`;
+            } else {
+              // Away team possession: logo after text
+              possessionDisplay = `◀ ${possessionText} <img src="${awayTeam.team.logo}" alt="${awayTeam.team.abbreviation}" class="possession-logo" onerror="this.src='../assets/nfl.png'">`;
+            }
+          }
+
+          statusContent = `
+            <div class="quarter-indicator">
+              <div class="quarter-number">${quarter}<span class="quarter-suffix">${getQuarterSuffix(quarter)}</span></div>
+              <div style="font-size: 10px;">QTR</div>
+            </div>
+            <div class="clock-info">${clock}</div>
+            ${!isKickoff ? `<div class="down-distance">${downDistance}</div>` : `<div class="down-distance">Kickoff</div>`}
+            ${possessionDisplay ? `<div class="possession-info">${possessionDisplay}</div>` : `<div class="possession-info">No Possession</div>`}
+          `;
+          gameClass = 'live-game';
+
+        } else if (status === "Scheduled") {
+          // Scheduled game
+          const startTime = new Date(game.date).toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+            timeZone: "America/New_York"
+          });
+          statusContent = `<div class="scheduled-time">${startTime} EST</div>`;
+          gameClass = 'scheduled-game';
+          isScheduled = true;
+
+        } else if (status === "Final") {
+          // Finished game - fetch leaders for alternating display
+          const gameId = game.id;
+          const leaders = await fetchGameLeaders(gameId);
+          
+          if (leaders && leaders.length >= 2) {
+            // Get home and away team leaders
+            const homeTeamLeaders = leaders.find(l => l.team.id === homeTeam.team.id);
+            const awayTeamLeaders = leaders.find(l => l.team.id === awayTeam.team.id);
+            
+            // Store leaders data for this game
+            const gameKey = `${game.id}-leaders`;
+            if (!leadersCache.has(gameKey)) {
+              leadersCache.set(gameKey, {
+                home: homeTeamLeaders,
+                away: awayTeamLeaders,
+                homeFormatted: homeTeamLeaders ? formatTeamLeaders(homeTeamLeaders) : '',
+                awayFormatted: awayTeamLeaders ? formatTeamLeaders(awayTeamLeaders) : ''
+              });
+            }
+            
+            const cachedLeaders = leadersCache.get(gameKey);
+            
+            // Display home team leaders initially (we'll handle team switching in the slide management)
+            statusContent = `
+              <div class="final-indicator">
+                <div class="final-text">FINAL</div>
+                <div class="final-leaders">
+                  <img src="${homeTeam.team.logo}" alt="${homeTeam.team.abbreviation}" class="team-logo-leaders" onerror="this.src='../assets/nfl.png'">
+                  <span>${homeTeam.team.abbreviation}: ${cachedLeaders.homeFormatted}</span>
+                </div>
+              </div>
+            `;
+          } else {
+            statusContent = `<div class="final-indicator">FINAL</div>`;
+          }
+          
+          gameClass = 'finished-game';
+          isFinished = true;
+        }
+
+        // Determine score colors based on winner/loser
+        let awayScoreClass = '';
+        let homeScoreClass = '';
+        
+        if (isFinished || gameClass === 'live-game') {
+          const awayScore = awayTeam.score || 0;
+          const homeScore = homeTeam.score || 0;
+          
+          if (awayScore > homeScore) {
+            awayScoreClass = 'winner';
+            homeScoreClass = 'loser';
+          } else if (homeScore > awayScore) {
+            homeScoreClass = 'winner';
+            awayScoreClass = 'loser';
+          }
+        }
+
+        // Create seamless gradient across both team sections
+        const teamGradient = `linear-gradient(90deg, #${awayColor} 0%, #${awayColor} 40%, #${homeColor} 60%, #${homeColor} 100%)`;
+
+        return `
+          <div class="game-slide ${gameClass}">
+            <div class="sliding-ticker-content">
+              <!-- Team Sections Container with Gradient -->
+              <div class="team-sections-container" style="background: ${teamGradient};">
+                <!-- Column 2: Away Team -->
+                <div class="team-section">
+                  <div class="team-info">
+                    <div class="team-left">
+                      <img src="${awayTeam.team.logo}" alt="${awayTeam.team.abbreviation}" class="team-logo-ticker" onerror="this.src='../assets/nfl.png'">
+                      <span class="team-name-ticker">${awayTeam.team.abbreviation}</span>
+                    </div>
+                    <div class="team-right">
+                      ${isScheduled ? 
+                        `<span class="team-record">${awayRecord}</span>` : 
+                        `<span class="team-score-ticker ${awayScoreClass}">${awayTeam.score || 0}</span>`
+                      }
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Column 3: Home Team -->
+                <div class="team-section">
+                  <div class="team-info">
+                    <div class="team-left">
+                      <img src="${homeTeam.team.logo}" alt="${homeTeam.team.abbreviation}" class="team-logo-ticker" onerror="this.src='../assets/nfl.png'">
+                      <span class="team-name-ticker">${homeTeam.team.abbreviation}</span>
+                    </div>
+                    <div class="team-right">
+                      ${isScheduled ? 
+                        `<span class="team-record">${homeRecord}</span>` : 
+                        `<span class="team-score-ticker ${homeScoreClass}">${homeTeam.score || 0}</span>`
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Column 4: Status Section -->
+              <div class="status-section">
+                <div class="status-content">
+                  ${statusContent}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function getQuarterSuffix(quarter) {
+        if (quarter === 1 || quarter === 21 || quarter === 31) return 'st';
+        if (quarter === 2 || quarter === 22 || quarter === 32) return 'nd';  
+        if (quarter === 3 || quarter === 23 || quarter === 33) return 'rd';
+        return 'th';
+      }
+
+      async function fetchGames() {
+        try {
+          // Clean up any existing finished game timers
+          finishedGameTimers.forEach((timer, gameId) => {
+            clearInterval(timer);
+          });
+          finishedGameTimers.clear();
+          
+          const adjustedDate = getAdjustedDateForNFL();
+          const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${adjustedDate}`);
+          const data = await response.json();
+          
+          games = data.events || [];
+          
+          if (games.length === 0) {
+            document.querySelector('.sliding-content').innerHTML = '<div class="loading">No games today</div>';
+            return;
+          }
+          
+          console.log(`Loaded ${games.length} NFL games for ticker`);
+        } catch (error) {
+          console.error('Error fetching NFL games:', error);
+          document.querySelector('.sliding-content').innerHTML = '<div class="loading">Error loading games</div>';
+        }
+      }
+
+      async function showNextGame() {
+        if (games.length === 0) return;
+
+        // If this is the first game, just show it
+        if (!currentSlide) {
+          const game = games[currentGameIndex];
+          const slideHtml = await createGameSlide(game);
+          document.querySelector('.sliding-content').innerHTML = slideHtml;
+          currentSlide = document.querySelector('.sliding-content .game-slide');
+          currentSlide.classList.add('active');
+          currentGameIndex = (currentGameIndex + 1) % games.length;
+          return;
+        }
+
+        // Create the new slide off-screen to the right
+        const game = games[currentGameIndex];
+        const slideHtml = await createGameSlide(game);
+        document.querySelector('.sliding-content').insertAdjacentHTML('beforeend', slideHtml);
+
+        const newSlide = document.querySelector('.sliding-content .game-slide:last-child');
+        newSlide.classList.add('entering');
+
+        // Force a reflow to ensure the entering class is applied
+        newSlide.offsetHeight;
+
+        // Start the slide animation
+        requestAnimationFrame(() => {
+          newSlide.classList.remove('entering');
+          newSlide.classList.add('active');
+
+          // Start exiting the current slide
+          currentSlide.classList.remove('active');
+          currentSlide.classList.add('exiting');
+
+          // Clean up after animation completes
+          setTimeout(() => {
+            if (currentSlide && currentSlide.parentNode) {
+              currentSlide.remove();
+            }
+            currentSlide = newSlide;
+          }, 600); // Match the CSS transition duration
+        });
+
+        // Move to next game
+        currentGameIndex = (currentGameIndex + 1) % games.length;
+        
+        // Handle finished games with leaders - set up team switching
+        if (game.status.type.description === "Final") {
+          setupFinishedGameTeamSwitching(game, newSlide);
+        }
+      }
+
+      // Function to handle team switching for finished games with leaders
+      function setupFinishedGameTeamSwitching(game, slideElement) {
+        const gameKey = `${game.id}-leaders`;
+        const cachedLeaders = leadersCache.get(gameKey);
+        
+        if (!cachedLeaders || (!cachedLeaders.homeFormatted && !cachedLeaders.awayFormatted)) {
+          return; // No leaders data available
+        }
+        
+        const speed = getTickerSpeed();
+        const halfSpeed = speed / 2;
+        
+        // Get team info
+        const homeTeam = game.competitions[0].competitors.find(c => c.homeAway === "home");
+        const awayTeam = game.competitions[0].competitors.find(c => c.homeAway === "away");
+        
+        let currentTeam = 0; // 0 = home, 1 = away
+        
+        // Set up team switching interval to start after half the ticker speed
+        setTimeout(() => {
+          // Switch to away team after half the ticker speed
+          const leadersElement = slideElement.querySelector('.final-leaders');
+          if (leadersElement) {
+            leadersElement.innerHTML = `
+              <img src="${awayTeam.team.logo}" alt="${awayTeam.team.abbreviation}" class="team-logo-leaders" onerror="this.src='../assets/nfl.png'">
+              <span>${awayTeam.team.abbreviation}: ${cachedLeaders.awayFormatted}</span>
+            `;
+            currentTeam = 1;
+          }
+          
+          // Set up interval for subsequent switches (every full ticker speed)
+          const teamSwitchInterval = setInterval(() => {
+            const leadersElement = slideElement.querySelector('.final-leaders');
+            if (!leadersElement) {
+              clearInterval(teamSwitchInterval);
+              return;
+            }
+            
+            if (currentTeam === 1) {
+              // Switch back to home team
+              leadersElement.innerHTML = `
+                <img src="${homeTeam.team.logo}" alt="${homeTeam.team.abbreviation}" class="team-logo-leaders" onerror="this.src='../assets/nfl.png'">
+                <span>${homeTeam.team.abbreviation}: ${cachedLeaders.homeFormatted}</span>
+              `;
+              currentTeam = 0;
+            } else {
+              // Switch to away team
+              leadersElement.innerHTML = `
+                <img src="${awayTeam.team.logo}" alt="${awayTeam.team.abbreviation}" class="team-logo-leaders" onerror="this.src='../assets/nfl.png'">
+                <span>${awayTeam.team.abbreviation}: ${cachedLeaders.awayFormatted}</span>
+              `;
+              currentTeam = 1;
+            }
+          }, speed); // Use full speed for subsequent switches
+          
+          // Store the interval so we can clean it up later
+          finishedGameTimers.set(game.id, teamSwitchInterval);
+          
+          // Clean up interval when slide is removed (after the current game's full cycle)
+          setTimeout(() => {
+            if (finishedGameTimers.has(game.id)) {
+              clearInterval(finishedGameTimers.get(game.id));
+              finishedGameTimers.delete(game.id);
+            }
+          }, speed - halfSpeed + 500); // Clean up just before the slide changes
+          
+        }, halfSpeed);
+      }
+
+      async function startTicker() {
+        await fetchGames();
+
+        if (games.length > 0) {
+          // Start with the first game
+          await showNextGame();
+
+          // Get speed from URL parameter or localStorage
+          const speed = getTickerSpeed();
+
+          // Set up interval with custom speed
+          slideInterval = setInterval(showNextGame, speed);
+
+          // Refresh games data every 2 seconds
+          setInterval(async () => {
+            await fetchGames();
+          }, 2000);
+        }
+      }
+
+      // Start the ticker when page loads
+      document.addEventListener('DOMContentLoaded', startTicker);
+    </script>
+  </body>
+</html>
