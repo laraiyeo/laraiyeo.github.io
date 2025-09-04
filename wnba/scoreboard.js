@@ -540,7 +540,6 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
         <h3 style="color: white; margin: 0;">Live Stream (${currentStreamType.toUpperCase()})</h3>
         <div class="stream-controls" style="margin-top: 10px;">
           <button id="fullscreenButton" onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">⛶ Fullscreen</button>
-          <button id="muteButton" onclick="toggleMute()" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">🔇 Mute</button>
           ${button1Text ? `<button id="streamButton1" onclick="${button1Action}" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">${button1Text}</button>` : ''}
           ${button2Text ? `<button id="streamButton2" onclick="${button2Action}" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">${button2Text}</button>` : ''}
         </div>
