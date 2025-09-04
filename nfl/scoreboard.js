@@ -2481,7 +2481,6 @@ function renderBasicTeamInfo(awayTeam, homeTeam, statsContainer) {
           <img src="${awayLogo}" alt="${awayName}" class="stats-team-logo">
           <div class="stats-team-name">${awayName}</div>
         </div>
-        <div class="stats-vs">VS</div>
         <div class="stats-team home">
           <div class="stats-team-name">${homeName}</div>
           <img src="${homeLogo}" alt="${homeName}" class="stats-team-logo">
@@ -2529,6 +2528,14 @@ function renderMatchStats(awayTeam, homeTeam, awayStats, homeStats) {
                    homeTeam.shortDisplayName || 
                    homeTeam.displayName || 
                    homeTeam.name;
+
+  // Get team colors with fallbacks
+  const awayColor = awayTeam.team?.color || awayTeam.color || 'dc3545';
+  const homeColor = homeTeam.team?.color || homeTeam.color || '007bff';
+  
+  // Ensure colors have # prefix
+  const awayColorHex = awayColor.startsWith('#') ? awayColor : `#${awayColor}`;
+  const homeColorHex = homeColor.startsWith('#') ? homeColor : `#${homeColor}`;
   
   // Create stats sections based on available data
   let statsHtml = `
@@ -2540,7 +2547,6 @@ function renderMatchStats(awayTeam, homeTeam, awayStats, homeStats) {
           <img src="${awayLogo}" alt="${awayName}" class="stats-team-logo" onerror="this.src='football.png';">
           <div class="stats-team-name">${awayName}</div>
         </div>
-        <div class="stats-vs">VS</div>
         <div class="stats-team home">
           <div class="stats-team-name">${homeName}</div>
           <img src="${homeLogo}" alt="${homeName}" class="stats-team-logo" onerror="this.src='football.png';">
@@ -2571,19 +2577,19 @@ function renderMatchStats(awayTeam, homeTeam, awayStats, homeStats) {
         <div class="stats-section">
           <div class="stats-section-title">Possession</div>
           <div class="possession-section">
-            <div class="possession-circle" style="background: conic-gradient(#007bff 0% ${homePercent}%, #dc3545 ${homePercent}% 100%);">
+            <div class="possession-circle" style="background: conic-gradient(${homeColorHex} 0% ${homePercent}%, ${awayColorHex} ${homePercent}% 100%);">
               <div class="possession-center">
                 <div>Possession</div>
               </div>
             </div>
             <div class="possession-values">
-              <div class="possession-team">
-                <div class="possession-color" style="background: #dc3545;"></div>
+              <div class="possession-team away-team">
+                <div class="possession-color" style="background: ${awayColorHex};"></div>
                 <span>${awayName} ${awayPercent}% (${awayTimeDisplay})</span>
               </div>
-              <div class="possession-team">
-                <span>${homePercent}% (${homeTimeDisplay}) ${homeName}</span>
-                <div class="possession-color" style="background: #007bff;"></div>
+              <div class="possession-team home-team">
+                <span>${homeName} ${homePercent}% (${homeTimeDisplay})</span>
+                <div class="possession-color" style="background: ${homeColorHex};"></div>
               </div>
             </div>
           </div>
@@ -2645,10 +2651,10 @@ function renderMatchStats(awayTeam, homeTeam, awayStats, homeStats) {
               <div class="stats-value away">${awayStat}</div>
               <div class="stats-bar-container">
                 <div class="stats-bar">
-                  <div class="stats-bar-fill away" style="width: ${awayPercent}%; background: #dc3545;"></div>
+                  <div class="stats-bar-fill away" style="width: ${awayPercent}%; background: ${awayColorHex};"></div>
                 </div>
                 <div class="stats-bar">
-                  <div class="stats-bar-fill home" style="width: ${homePercent}%; background: #007bff;"></div>
+                  <div class="stats-bar-fill home" style="width: ${homePercent}%; background: ${homeColorHex};"></div>
                 </div>
               </div>
               <div class="stats-value home">${homeStat}</div>
@@ -2667,10 +2673,11 @@ function renderMatchStats(awayTeam, homeTeam, awayStats, homeStats) {
   
   statsHtml += '</div>';
   
-  // Now load and render leaders data
-  loadMatchLeaders();
-  
+  // First set the main stats HTML
   statsContainer.innerHTML = statsHtml;
+  
+  // Then load and append leaders data
+  loadMatchLeaders();
 }
 
 // Helper function to find stat values in the stats array
