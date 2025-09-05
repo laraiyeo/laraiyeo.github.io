@@ -2332,7 +2332,17 @@ window.switchToStream = function(streamType) {
   // Generate new embed URL using renderStreamEmbed to avoid browser history
   if (currentAwayTeam && currentHomeTeam) {
     streamInitialized = false; // Reset flag to allow stream switching
-    renderStreamEmbed(gameId);
+    
+    // Get the HTML from renderStreamEmbed and set it to the container
+    const streamHTML = renderStreamEmbed(gameId);
+    const streamContainer = document.getElementById('stream-container');
+    if (streamContainer && streamHTML) {
+      streamContainer.innerHTML = streamHTML;
+      console.log('Soccer switchToStream: Updated stream container with new HTML');
+    } else {
+      console.error('Soccer switchToStream: Stream container not found or no HTML returned');
+    }
+    
     streamInitialized = true; // Set flag after successful switch
   } else {
     console.error('Team names still not available for stream switch');
@@ -2411,13 +2421,22 @@ function debugStreamExtraction(homeTeamName, awayTeamName, streamType = 'alpha1'
 window.debugStreamExtraction = debugStreamExtraction;
 
 async function renderStreamEmbed(gameId) {
+  console.log('Soccer renderStreamEmbed called with gameId:', gameId);
+  
   const streamContainer = document.getElementById("streamEmbed");
-  if (!streamContainer) return;
+  if (!streamContainer) {
+    console.error('Soccer Stream container not found! Cannot render stream.');
+    return;
+  }
+
+  console.log('Soccer Stream container found, checking game progress...');
 
   // Check if game is in progress before showing stream
   // Get game state from the current page data
   const gameClockElement = document.querySelector('.game-clock');
   const gameStatus = gameClockElement ? gameClockElement.textContent.trim() : '';
+
+  console.log('Soccer Stream check:', { gameStatus, gameClockElement: !!gameClockElement });
 
   // Only show stream for in-progress games (not scheduled or finished)
   const isGameInProgress = gameStatus &&
@@ -2427,10 +2446,15 @@ async function renderStreamEmbed(gameId) {
     gameStatus !== 'N/A' &&
     gameStatus !== '';
 
+  console.log('Soccer isGameInProgress:', isGameInProgress);
+
   if (!isGameInProgress) {
+    console.log('Soccer Game is not in progress, clearing stream container');
     streamContainer.innerHTML = '';
     return;
   }
+
+  console.log('Soccer Game is in progress, proceeding with stream rendering...');
 
   // Get team names from global data first, then API if needed
   let homeTeamName = '';
@@ -2547,7 +2571,7 @@ async function renderStreamEmbed(gameId) {
     button2Action = 'switchToStream(\'alpha2\')';
   }
 
-  streamContainer.innerHTML = `
+  const streamHTML = `
       <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
         <h3 style="color: white; margin: 0;">Live Stream (${currentStreamType.toUpperCase()})</h3>
         <div class="stream-controls" style="margin-top: 10px;">
@@ -2577,7 +2601,7 @@ async function renderStreamEmbed(gameId) {
       </div>
   `;
 
-  // Show the iframe immediately since we're using direct embed
+  // Show the iframe after a delay
   setTimeout(() => {
     const iframe = document.getElementById('streamIframe');
     const connectingDiv = document.getElementById('streamConnecting');
@@ -2588,6 +2612,10 @@ async function renderStreamEmbed(gameId) {
       connectingDiv.style.display = 'none';
     }
   }, 1000);
+
+  // Return the HTML content
+  console.log('Soccer renderStreamEmbed returning HTML content (length:', streamHTML.length, ')');
+  return streamHTML;
 }
 
 // Stream control functions (adapted from CWC/MLB)
@@ -2722,9 +2750,15 @@ window.showLineup = function() {
   
   // Show stream when on lineup tab
   const streamContainer = document.getElementById("streamEmbed");
+  console.log('Soccer showLineup - Stream check:', { streamContainer: !!streamContainer, gameId, streamInitialized });
+  
   if (streamContainer && gameId && !streamInitialized) {
+    console.log('Soccer showLineup - Initializing stream...');
     renderStreamEmbed(gameId).catch(console.error);
     streamInitialized = true;
+    console.log('Soccer showLineup - Stream initialized');
+  } else {
+    console.log('Soccer showLineup - Stream conditions not met or already initialized');
   }
 };
 
@@ -2770,12 +2804,19 @@ setInterval(fetchAndRenderTopScoreboard, 6000);
 
 // Initialize stream on page load
 const gameId = getQueryParam("gameId");
+console.log('Soccer page load - Stream check:', { gameId, streamInitialized });
+
 if (gameId && !streamInitialized) {
+  console.log('Soccer page load - Initializing stream after delay...');
   // Load stream after a short delay to ensure DOM is ready
   setTimeout(() => {
+    console.log('Soccer page load - Calling renderStreamEmbed...');
     renderStreamEmbed(gameId).catch(console.error);
     streamInitialized = true;
+    console.log('Soccer page load - Stream initialized');
   }, 1000);
+} else {
+  console.log('Soccer page load - Stream conditions not met or already initialized');
 }
 
 document.addEventListener("mouseover", (event) => {

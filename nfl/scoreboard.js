@@ -964,7 +964,17 @@ window.switchToStream = function(streamType) {
   // Generate new embed URL using renderStreamEmbed to avoid browser history
   if (currentAwayTeam && currentHomeTeam) {
     streamInitialized = false; // Reset flag to allow stream switching
-    renderStreamEmbed(currentAwayTeam, currentHomeTeam);
+    
+    // Get the HTML from renderStreamEmbed and set it to the container
+    const streamHTML = renderStreamEmbed(currentAwayTeam, currentHomeTeam);
+    const streamContainer = document.getElementById('stream-container');
+    if (streamContainer && streamHTML) {
+      streamContainer.innerHTML = streamHTML;
+      console.log('NFL switchToStream: Updated stream container with new HTML');
+    } else {
+      console.error('NFL switchToStream: Stream container not found or no HTML returned');
+    }
+    
     streamInitialized = true; // Set flag after successful switch
   } else {
     console.error('Team names still not available for stream switch');
@@ -1043,9 +1053,16 @@ function debugStreamExtraction(homeTeamName, awayTeamName, streamType = 'alpha1'
 window.debugStreamExtraction = debugStreamExtraction;
 
 async function renderStreamEmbed(awayTeamName, homeTeamName) {
+  console.log('NFL renderStreamEmbed called with:', { awayTeamName, homeTeamName });
+  
   const streamContainer = document.getElementById('streamEmbed');
 
-  if (!streamContainer) return;
+  if (!streamContainer) {
+    console.error('NFL Stream container not found! Cannot render stream.');
+    return;
+  }
+
+  console.log('NFL Stream container found, proceeding with stream rendering...');
 
   // Store current team names for toggle function
   currentAwayTeam = awayTeamName;
@@ -1114,7 +1131,7 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
     button2Action = 'switchToStream(\'alpha2\')';
   }
 
-  streamContainer.innerHTML = `
+  const streamHTML = `
     <div style="background: #1a1a1a; border-radius: 1rem; padding: 1rem; margin-bottom: 2rem;">
       <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
         <h3 style="color: white; margin: 0;">Live Stream (${currentStreamType.toUpperCase()})</h3>
@@ -1146,7 +1163,7 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
     </div>
   `;
 
-  // Show the iframe immediately since we're using direct embed
+  // Show the iframe after a delay
   setTimeout(() => {
     const iframe = document.getElementById('streamIframe');
     const connectingDiv = document.getElementById('streamConnecting');
@@ -1157,6 +1174,10 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
       connectingDiv.style.display = 'none';
     }
   }, 1000);
+
+  // Return the HTML content
+  console.log('NFL renderStreamEmbed returning HTML content (length:', streamHTML.length, ')');
+  return streamHTML;
 }
 
 // Stream control functions (adapted from CWC/MLB)
@@ -2175,16 +2196,24 @@ async function fetchAndRenderTopScoreboard() {
 
     // Add stream embed after linescore (only render once and only for in-progress games)
     const isInProgress = gameStatus !== "Final" && gameStatus !== "Scheduled";
+    console.log('NFL Stream check:', { gameStatus, isInProgress, streamInitialized, awayTeam: awayTeam?.displayName, homeTeam: homeTeam?.displayName });
+    
     if (isInProgress && !streamInitialized) {
+      console.log('Game is in progress, initializing stream...');
       renderStreamEmbed(awayTeam?.displayName, homeTeam?.displayName);
       streamInitialized = true;
+      console.log('NFL Stream initialized successfully');
     } else if (!isInProgress) {
+      console.log('Game is not in progress (status:', gameStatus, '), clearing stream...');
       // Clear stream container if game is finished and reset flag
       const streamContainer = document.getElementById("streamEmbed");
       if (streamContainer && streamContainer.innerHTML) {
         streamContainer.innerHTML = "";
         streamInitialized = false;
+        console.log('NFL Stream container cleared and flag reset');
       }
+    } else {
+      console.log('Stream already initialized for in-progress game, skipping...');
     }
 
     // Remove play description functionality - no longer needed

@@ -1715,8 +1715,12 @@ function checkStreamContent(iframe) {
 // Stream testing function removed - using direct iframe embed
 
 function renderStreamEmbed(raceName) {
+  console.log('F1 renderStreamEmbed called with raceName:', raceName);
+  
   const isSmallScreen = window.innerWidth < 525;
   const screenHeight = isSmallScreen ? 250 : 700;
+
+  console.log('F1 Stream rendering with screen height:', screenHeight);
 
   return `
     <div style="background: #1a1a1a; border-radius: 1rem; padding: 1rem; margin-bottom: 2rem;">
@@ -1914,7 +1918,10 @@ async function renderRaceInfo() {
 
   // Add stream embed after topRaceInfo - F1 has 24/7 stream so always show it
   const streamContainer = document.getElementById("streamEmbed");
+  console.log('F1 Stream check:', { streamContainer: !!streamContainer, streamInitialized, raceName: selectedRace.name || selectedRace.shortName });
+  
   if (!streamContainer && !streamInitialized) {
+    console.log('F1 Creating stream container and initializing stream...');
     const raceDetailsDiv = document.getElementById("raceDetails");
     if (raceDetailsDiv) {
       const streamDiv = document.createElement("div");
@@ -1922,7 +1929,12 @@ async function renderRaceInfo() {
       streamDiv.innerHTML = renderStreamEmbed(selectedRace.name || selectedRace.shortName);
       raceDetailsDiv.parentNode.insertBefore(streamDiv, raceDetailsDiv);
       streamInitialized = true; // Set flag after successful initialization
+      console.log('F1 Stream initialized successfully');
+    } else {
+      console.error('F1 raceDetails div not found!');
     }
+  } else {
+    console.log('F1 Stream container exists or already initialized');
   }
 
   // Start countdown timer only for upcoming races

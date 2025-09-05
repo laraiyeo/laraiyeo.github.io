@@ -1032,12 +1032,16 @@ function hashString(str) {
 
 
 async function renderStreamEmbed(awayTeamName, homeTeamName) {
+  console.log('MLB renderStreamEmbed called with:', { awayTeamName, homeTeamName });
+  
   const streamContainer = document.getElementById('streamEmbed');
 
   if (!streamContainer) {
-    console.error('Stream container not found');
+    console.error('MLB Stream container not found! Cannot render stream.');
     return;
   }
+
+  console.log('MLB Stream container found, proceeding with stream rendering...');
 
   // Store current team names for toggle function
   currentAwayTeam = awayTeamName;
@@ -1104,21 +1108,17 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
   // Fallback to manual URL construction if API doesn't have the stream
   if (!embedUrl) {
     console.log('No streams available from API');
-    // Show message that no streams are available
-    const streamContainer = document.getElementById('streamEmbed');
-    if (streamContainer) {
-      streamContainer.innerHTML = `
-        <div style="background: #1a1a1a; border-radius: 1rem; padding: 1rem; margin-bottom: 2rem;">
-          <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
-            <h3 style="color: white; margin: 0;">Live Stream</h3>
-          </div>
-          <div style="color: white; padding: 20px; background: #333; border-radius: 8px; text-align: center;">
-            <p>No streams available at this time. Please try again later.</p>
-          </div>
+    // Return message that no streams are available
+    return `
+      <div style="background: #1a1a1a; border-radius: 1rem; padding: 1rem; margin-bottom: 2rem;">
+        <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
+          <h3 style="color: white; margin: 0;">Live Stream</h3>
         </div>
-      `;
-    }
-    return;
+        <div style="color: white; padding: 20px; background: #333; border-radius: 8px; text-align: center;">
+          <p>No streams available at this time. Please try again later.</p>
+        </div>
+      </div>
+    `;
   } else {
     console.log('Using API stream URL:', embedUrl);
   }
@@ -1226,7 +1226,7 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
     }
   }
 
-  streamContainer.innerHTML = `
+  const streamHTML = `
     <div style="background: #1a1a1a; border-radius: 1rem; padding: 1rem; margin-bottom: 2rem;">
       <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
         <h3 style="color: white; margin: 0;">Live Stream (${currentStreamType.toUpperCase()})</h3>
@@ -1258,7 +1258,7 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
     </div>
   `;
 
-  // Show the iframe immediately since we're using direct embed
+  // Show the iframe after a delay
   setTimeout(() => {
     const iframe = document.getElementById('streamIframe');
     if (iframe) {
@@ -1269,6 +1269,10 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
       }
     }
   }, 1000);
+
+  // Return the HTML content
+  console.log('MLB renderStreamEmbed returning HTML content (length:', streamHTML.length, ')');
+  return streamHTML;
 }
 
 window.switchToStream = function(streamType) {
@@ -1284,11 +1288,23 @@ window.switchToStream = function(streamType) {
     return;
   }
 
-  // Generate new embed URL using renderStreamEmbed to avoid browser history
+  // Generate new embed URL using renderStreamEmbed and set the HTML
   if (currentAwayTeam && currentHomeTeam) {
     streamInitialized = false; // Reset flag to allow stream switching
-    renderStreamEmbed(currentAwayTeam, currentHomeTeam);
-    streamInitialized = true; // Set flag after successful switch
+    renderStreamEmbed(currentAwayTeam, currentHomeTeam)
+      .then(streamHTML => {
+        const streamContainer = document.getElementById('streamEmbed');
+        if (streamContainer && streamHTML) {
+          streamContainer.innerHTML = streamHTML;
+          streamInitialized = true; // Set flag after successful switch
+          console.log('MLB Stream switched successfully to:', streamType);
+        } else {
+          console.error('Failed to switch stream: no container or HTML');
+        }
+      })
+      .catch(error => {
+        console.error('Error switching stream:', error);
+      });
   } else {
     console.error('Cannot switch streams: team names not available');
   }
@@ -1514,12 +1530,16 @@ async function fetchAndUpdateScoreboard(gamePk) {
     // Add stream embed (only render once and only for in-progress games)
     // This is done asynchronously to not block the box score rendering
     const streamContainer = document.getElementById("streamEmbed");
+    console.log('MLB Stream check:', { streamContainer: !!streamContainer, isInProgress, streamInitialized, awayTeam: away.team?.name, homeTeam: home.team?.name });
+    
     if (streamContainer && isInProgress && !streamInitialized) {
+      console.log('MLB Game is in progress, initializing stream...');
       // Don't await - render stream asynchronously to avoid blocking box score
       renderStreamEmbed(away.team?.name || "Unknown", home.team?.name || "Unknown")
         .then(streamHTML => {
           streamContainer.innerHTML = streamHTML;
           streamInitialized = true; // Set flag after successful initialization
+          console.log('MLB Stream initialized successfully');
           
           console.log('Initial stream setup - Team names:', away.team?.name, home.team?.name);
           console.log('Stored team names:', currentAwayTeam, currentHomeTeam);
@@ -1535,9 +1555,13 @@ async function fetchAndUpdateScoreboard(gamePk) {
           console.error('Error rendering stream embed:', error);
         });
     } else if (streamContainer && !isInProgress && streamInitialized) {
+      console.log('MLB Game is not in progress, clearing stream...');
       // Clear stream container if game is no longer in progress and reset flag
       streamContainer.innerHTML = '';
       streamInitialized = false; // Reset flag when game is no longer in progress
+      console.log('MLB Stream container cleared and flag reset');
+    } else {
+      console.log('MLB Stream conditions not met or already initialized');
     }
 
     // Hide bases, outs, and count if the game is not in progress

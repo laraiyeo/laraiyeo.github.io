@@ -461,12 +461,16 @@ function normalizeTeamName(teamName) {
 }
 
 async function renderStreamEmbed(awayTeamName, homeTeamName) {
+  console.log('WNBA renderStreamEmbed called with:', { awayTeamName, homeTeamName });
+  
   const streamContainer = document.getElementById('streamEmbed');
 
   if (!streamContainer) {
-    console.error('Stream container not found');
+    console.error('WNBA Stream container not found! Cannot render stream.');
     return;
   }
+
+  console.log('WNBA Stream container found, proceeding with stream rendering...');
 
   // Store current team names for toggle function
   currentAwayTeam = awayTeamName;
@@ -535,7 +539,7 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
     button2Action = availableStreams.alpha ? "switchToStream('alpha2')" : '';
   }
 
-  streamContainer.innerHTML = `
+  const streamHTML = `
     <div style="background: #1a1a1a; border-radius: 1rem; padding: 1rem; margin-bottom: 2rem;">
       <div class="stream-header" style="margin-bottom: 10px; text-align: center;">
         <h3 style="color: white; margin: 0;">Live Stream (${currentStreamType.toUpperCase()})</h3>
@@ -576,6 +580,10 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
       console.log('Fallback: hid connecting div after timeout');
     }
   }, 3000);
+
+  // Return the HTML content
+  console.log('WNBA renderStreamEmbed returning HTML content (length:', streamHTML.length, ')');
+  return streamHTML;
 }
 
 // Stream control functions
@@ -595,7 +603,17 @@ window.switchToStream = function(streamType) {
   // Generate new embed URL using API if available
   if (currentAwayTeam && currentHomeTeam) {
     streamInitialized = false; // Reset flag to allow stream switching
-    renderStreamEmbed(currentAwayTeam, currentHomeTeam);
+    
+    // Get the HTML from renderStreamEmbed and set it to the container
+    const streamHTML = renderStreamEmbed(currentAwayTeam, currentHomeTeam);
+    const streamContainer = document.getElementById('stream-container');
+    if (streamContainer && streamHTML) {
+      streamContainer.innerHTML = streamHTML;
+      console.log('WNBA switchToStream: Updated stream container with new HTML');
+    } else {
+      console.error('WNBA switchToStream: Stream container not found or no HTML returned');
+    }
+    
     streamInitialized = true; // Set flag after successful switch
   } else {
     console.log('Cannot switch streams: team names not available');
@@ -989,23 +1007,29 @@ async function fetchAndRenderTopScoreboard() {
     renderBoxScore(gameId, gameStatus);
 
     // Render the live stream only if teams have changed or no stream exists AND game is not over
+    console.log('WNBA Stream check:', { awayTeam: awayTeam?.displayName, homeTeam: homeTeam?.displayName, isGameOver, streamInitialized, gameStatus });
+    
     if (awayTeam && homeTeam && !isGameOver) {
       if (!streamInitialized) {
-        console.log('Initializing stream embed for first time');
+        console.log('WNBA Game is not over, initializing stream embed for first time');
         renderStreamEmbed(awayTeam.displayName, homeTeam.displayName);
         streamInitialized = true;
+        console.log('WNBA Stream initialized successfully');
       } else {
-        console.log('Stream already initialized, skipping render to prevent jittering');
+        console.log('WNBA Stream already initialized, skipping render to prevent jittering');
       }
     } else if (isGameOver) {
+      console.log('WNBA Game is over, clearing stream...');
       // Clear stream container for finished games and reset flag
       const streamContainer = document.getElementById('streamEmbed');
       if (streamContainer) {
         streamContainer.innerHTML = '';
         streamContainer.style.marginBottom = '35px';
         streamInitialized = false; // Reset flag when game is over
-        console.log('Game is finished, cleared stream container and reset flag');
+        console.log('WNBA Stream container cleared and flag reset');
       }
+    } else {
+      console.log('WNBA No teams found or other condition not met');
     }
 
     // Return true if game is over to stop further updates
