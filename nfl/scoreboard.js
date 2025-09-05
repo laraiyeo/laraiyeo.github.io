@@ -2607,7 +2607,7 @@ function renderMatchStats(awayTeam, homeTeam, awayStats, homeStats) {
       // Use the actual seconds values from the data
       const awaySeconds = awayPossessionStat.value; // Already in seconds
       const homeSeconds = homePossessionStat.value; // Already in seconds
-      const totalSeconds = 3600; // 60 minutes total game time
+      const totalSeconds = awaySeconds + homeSeconds;
       
       const awayPercent = ((awaySeconds / totalSeconds) * 100).toFixed(1);
       const homePercent = ((homeSeconds / totalSeconds) * 100).toFixed(1);
