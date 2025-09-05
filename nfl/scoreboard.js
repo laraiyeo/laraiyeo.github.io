@@ -1291,6 +1291,8 @@ function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, team
       /pass\s+(?:deep\s+)?(?:right|left|middle)?\s*to\s+([A-Z]\.[A-Za-z]+)\s+for\s+\d+\s+yards?,?\s+TOUCHDOWN/i,
       // Rushing touchdowns: "PLAYER run/rush/guard/tackle/end for X yards, TOUCHDOWN"
       /([A-Z]\.[A-Za-z]+)\s+(?:run|rush|up the middle|left end|right end|left guard|right guard|left tackle|right tackle)\s+for\s+\d+\s+yards?,?\s+TOUCHDOWN/i,
+      // Scrambling touchdowns: "PLAYER scrambles up the middle/left/right for X yards, TOUCHDOWN"
+      /([A-Z]\.[A-Za-z]+)\s+scrambles\s+(?:up the middle|left|right|left end|right end)\s+for\s+\d+\s+yards?,?\s+TOUCHDOWN/i,
       // Generic rushing: "PLAYER for X yards, TOUCHDOWN" (before any extra point mention)
       /([A-Z]\.[A-Za-z]+)\s+for\s+\d+\s+yards?,?\s+TOUCHDOWN/i,
       // Field goals: "PLAYER X yard field goal is GOOD" (only for field goals, not touchdowns)
