@@ -536,6 +536,69 @@ body {
   color: #ccc;
 }
 
+.play-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.copy-play-btn {
+  background: #007bff;
+  border: none;
+  color: white;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+}
+
+.copy-play-btn:hover {
+  background: #0056b3;
+}
+
+.copy-play-btn:active {
+  transform: scale(0.95);
+}
+
+.copy-play-container {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 20px 0;
+  border-bottom: 1px solid #444;
+  margin-bottom: 15px;
+}
+
+.copy-play-btn-inside {
+  transform: translateY(-15px);
+  background: #007bff;
+  border: none;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.copy-play-btn-inside:hover {
+  background: #0056b3;
+  transform: translateY(-16px);
+}
+
+.copy-play-btn-inside:active {
+  transform: scale(0.95) translateY(-15px);
+}
+
 .play-details {
   padding: 20px;
   background: #1a1a1a;
@@ -557,8 +620,8 @@ body {
   width: 150px;
   height: 200px;
   position: relative;
-  background: #8B4513;
-  border: 2px solid #654321;
+  background: #D2691E; /* Basketball court orange/brown */
+  border: 2px solid #8B4513;
   border-radius: 4px;
 }
 
@@ -568,57 +631,143 @@ body {
   left: 2px;
   right: 2px;
   bottom: 2px;
-  border: 1px solid white;
+  border: 2px solid white;
   border-radius: 2px;
 }
 
-.three-point-line {
+/* Half court line */
+.court-outline::before {
+  content: '';
   position: absolute;
-  border: 1px solid white;
-  border-radius: 50px;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: white;
+  transform: translateY(-50%);
 }
 
-.three-point-line.top {
-  width: 80px;
-  height: 40px;
-  top: 5px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-bottom: none;
-}
-
-.three-point-line.bottom {
-  width: 80px;
-  height: 40px;
-  bottom: 5px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-top: none;
-}
 
 .free-throw-circle {
   position: absolute;
-  width: 24px;
-  height: 24px;
-  border: 1px solid white;
+  width: 30px;
+  height: 30px;
+  border: none; /* Remove the circle border */
   border-radius: 50%;
   left: 50%;
   transform: translateX(-50%);
 }
 
 .free-throw-circle.top {
-  top: 25px;
+  top: 32px;
 }
 
 .free-throw-circle.bottom {
-  bottom: 25px;
+  bottom: 32px;
+}
+
+/* Free throw lane (key/paint area) - upside down U shape like ESPN */
+.free-throw-circle.top::before {
+  content: '';
+  position: absolute;
+  width: 40px;
+  height: 45px;
+  border: 2px solid white;
+  border-bottom: none;
+  border-radius: 0;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: transparent;
+}
+
+.free-throw-circle.bottom::before {
+  content: '';
+  position: absolute;
+  width: 40px;
+  height: 45px;
+  border: 2px solid white;
+  border-top: none;
+  border-radius: 0;
+  bottom: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: transparent;
+}
+
+/* Remove the circle and just show the free throw line */
+.free-throw-circle.top::after {
+  content: '';
+  position: absolute;
+  width: 40px;
+  height: 2px;
+  background: white;
+  top: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.free-throw-circle.bottom::after {
+  content: '';
+  position: absolute;
+  width: 40px;
+  height: 2px;
+  background: white;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Semicircles for free throw areas */
+.free-throw-semicircle {
+  position: absolute;
+  width: 40px;
+  height: 20px;
+  border: 2px solid white;
+  left: 50%;
+  transform: translateX(-50%);
+  background: transparent;
+}
+
+.free-throw-semicircle.top {
+  bottom: 132px;
+  border-top: none;
+  border-radius: 0 0 25px 25px;
+}
+
+.free-throw-semicircle.bottom {
+  top: 132px;
+  border-bottom: none;
+  border-radius: 25px 25px 0 0;
+}
+
+.three-point-semicircle {
+  position: absolute;
+  width: 120px;
+  height: 75px;
+  border: 2px solid white;
+  left: 50%;
+  transform: translateX(-50%);
+  background: transparent;
+}
+
+.three-point-semicircle.top {
+  bottom: 120px;
+  border-top: none;
+  border-radius: 0 0 60px 60px;
+}
+
+.three-point-semicircle.bottom {
+  top: 120px;
+  border-bottom: none;
+  border-radius: 60px 60px 0 0;
 }
 
 .center-circle {
   position: absolute;
-  width: 20px;
-  height: 20px;
-  border: 1px solid white;
+  width: 30px;
+  height: 30px;
+  border: 2px solid white;
   border-radius: 50%;
   top: 50%;
   left: 50%;
@@ -627,24 +776,39 @@ body {
 
 .basket {
   position: absolute;
-  width: 8px;
-  height: 2px;
-  background: orange;
+  width: 12px;
+  height: 3px;
+  background: #FF4500; /* Basketball orange */
   left: 50%;
   transform: translateX(-50%);
-  border-radius: 1px;
+  border-radius: 2px;
+  border: 1px solid #8B0000;
 }
 
 .basket.top {
-  top: 8px;
+  top: 10px;
 }
 
 .basket.bottom {
-  bottom: 8px;
+  bottom: 10px;
 }
 
-.basket.right {
-  bottom: 8px;
+.team-side-indicator {
+  position: absolute;
+  font-size: 8px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+  z-index: 10;
+}
+
+.team-side-indicator.home {
+  top: 2px;
+  left: 2px;
+}
+
+.team-side-indicator.away {
+  bottom: 2px;
+  right: 2px;
 }
 
 .shot-marker {
@@ -667,146 +831,41 @@ body {
   border-color: var(--team-color, #552583);
 }
 
-/* Mobile landscape court styles */
-.mini-court.mobile-landscape .court-container {
-  width: 200px;
-  height: 100px;
-  background: #8B4513;
-  border: 2px solid #654321;
-  border-radius: 4px;
-}
-
-.mini-court.mobile-landscape .court-outline {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  right: 2px;
-  bottom: 2px;
-  border: 1px solid white;
-  border-radius: 2px;
-}
-
-.mini-court.mobile-landscape .three-point-line.left {
-  width: 40px;
-  height: 60px;
-  left: 5px;
-  top: 50%;
-  transform: translateY(-50%);
-  border-right: none;
-  border-radius: 30px 0 0 30px;
-}
-
-.mini-court.mobile-landscape .three-point-line.right {
-  width: 40px;
-  height: 60px;
-  right: 5px;
-  top: 50%;
-  transform: translateY(-50%);
-  border-left: none;
-  border-radius: 0 30px 30px 0;
-}
-
-.mini-court.mobile-landscape .free-throw-circle.left {
-  width: 20px;
-  height: 20px;
-  left: 25px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.mini-court.mobile-landscape .free-throw-circle.right {
-  width: 20px;
-  height: 20px;
-  right: 25px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.mini-court.mobile-landscape .center-circle {
-  width: 16px;
-  height: 16px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.mini-court.mobile-landscape .basket.left {
-  width: 2px;
-  height: 6px;
-  left: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.mini-court.mobile-landscape .basket.right {
-  width: 2px;
-  height: 6px;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
+/* Mobile landscape court styles - Simple rotation of existing court */
 .mini-court.mobile-landscape {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 120px;
-  margin: 10px 0;
+  height: 180px; /* Accommodate rotated court dimensions */
+  margin-left: 25px;
+  margin-top: -25px;
+  margin-bottom: 15px;
 }
 
-
-/* Rotate all court elements for mobile landscape */
-.mini-court.mobile-landscape .three-point-line.top {
-  width: 40px;
-  height: 80px;
-  top: 50%;
-  left: 5px;
-  transform: translateY(-50%);
-  border-bottom: 1px solid white;
-  border-right: none;
+.mini-court.mobile-landscape .court-container {
+  transform: rotate(90deg) translateX(20px);
+  transform-origin: center center;
 }
 
-.mini-court.mobile-landscape .three-point-line.bottom {
-  width: 40px;
-  height: 80px;
-  top: 50%;
-  right: 5px;
-  left: auto;
-  transform: translateY(-50%);
-  border-top: 1px solid white;
-  border-left: none;
+/* Fix team side indicators for mobile - counter-rotate them and adjust positions */
+.mini-court.mobile-landscape .team-side-indicator {
+  transform-origin: center center;
 }
 
-.mini-court.mobile-landscape .free-throw-circle.top {
-  top: 50%;
-  left: 25px;
-  transform: translateY(-50%);
-}
-
-.mini-court.mobile-landscape .free-throw-circle.bottom {
-  top: 50%;
-  right: 25px;
-  left: auto;
+.mini-court.mobile-landscape .team-side-indicator.home {
+  /* After rotation, what was bottom-right becomes top-right */
+  top: -45px;
+  right: 2px;
   bottom: auto;
-  transform: translateY(-50%);
+  transform: rotate(-90deg) translateY(65px);
 }
 
-.mini-court.mobile-landscape .basket.top {
-  top: 50%;
-  left: 8px;
-  transform: translateY(-50%);
-  width: 2px;
-  height: 8px;
-}
-
-.mini-court.mobile-landscape .basket.bottom {
-  top: 50%;
-  right: 8px;
-  left: auto;
-  bottom: auto;
-  transform: translateY(-50%);
-  width: 2px;
-  height: 8px;
+.mini-court.mobile-landscape .team-side-indicator.away {
+  /* After rotation, what was top-left becomes bottom-left */
+  bottom: 45px;
+  left: 2px;
+  transform: rotate(-90deg) translateY(-65px) translateX(35px);
+  top: auto;
 }
 
 /* Player Information Styles */
@@ -954,20 +1013,6 @@ body {
   .play-details-content {
     flex-direction: column;
     gap: 15px;
-  }
-  
-  /* Override for regular court when not using mobile-landscape class */
-  .court-container:not(.mini-court.mobile-landscape .court-container) {
-    width: 120px;
-    height: 160px;
-    margin: 0 auto;
-  }
-  
-  /* Ensure mobile landscape court takes precedence */
-  .mini-court.mobile-landscape .court-container {
-    width: 200px !important;
-    height: 100px !important;
-    margin: 0 auto;
   }
   
   .play-participants {

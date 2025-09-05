@@ -1505,7 +1505,7 @@ async function renderPlayByPlay(gameId) {
             <div class="play-details" id="play-${index}" style="display: ${displayStyle};">
               ${isCopyablePlay ? `
                 <div class="copy-play-container">
-                  <button class="copy-play-btn-inside" onclick="copyExpandedPlayCard(${index})" title="Copy Full Play Card">
+                  <button class="copy-play-btn-inside" onclick="copyExpandedPlayCard(${index}, '${teamColor}', '${isHomeTeam ? homeTeam?.displayName || homeTeam?.name || 'Home' : awayTeam?.displayName || awayTeam?.name || 'Away'}', '${isHomeTeam ? homeTeam?.abbreviation || 'HOME' : awayTeam?.abbreviation || 'AWAY'}', ${isHomeTeam})" title="Copy Full Play Card">
                     📋 Copy Play Card
                   </button>
                 </div>
@@ -1746,7 +1746,7 @@ window.tryNextStream = tryNextStream;
 window.startStreamTesting = startStreamTesting;
 
 // Copy Expanded Play Card Function - captures everything including mini court and players
-window.copyExpandedPlayCard = async function(playIndex) {
+window.copyExpandedPlayCard = async function(playIndex, teamName, teamAbbreviation, isHomeTeam, teamColor) {
   try {
     // Find the play elements - the expanded content
     const playElement = document.getElementById(`play-${playIndex}`);
@@ -1815,77 +1815,12 @@ window.copyExpandedPlayCard = async function(playIndex) {
       playClock = playClock || topScoreboard?.querySelector('.time-left')?.textContent || '';
     }
 
-    // Get team colors for gradient background
-    let teamColor1 = '';
-    let teamColor2 = '';
-    
-    // Fallback colors based on common WNBA team colors
-    const teamColorMap = {
-      'CHI': '1D428A', // Chicago Sky - Blue
-      'CON': 'E03A3E', // Connecticut Sun - Red
-      'ATL': '8B2635', // Atlanta Dream - Red
-      'DAL': '0066B2', // Dallas Wings - Blue
-      'IND': 'FDBB30', // Indiana Fever - Yellow
-      'LAS': 'A6192E', // Las Vegas Aces - Red
-      'LA': '552583', // Los Angeles Sparks - Purple
-      'MIN': '266092', // Minnesota Lynx - Blue
-      'NY': '6CABDD', // New York Liberty - Light Blue
-      'PHX': 'E56020', // Phoenix Mercury - Orange
-      'SEA': '2C5234', // Seattle Storm - Green
-      'WAS': 'C8102E', // Washington Mystics - Red
-      'GSW': '1D428A', // Golden State (using blue)
-      'GS': '1D428A', // Golden State abbreviation
-    };
-    
-    // Extract team abbreviations from team names in scoreboard
-    const teamNames = topScoreboard?.querySelectorAll('.team-name') || [];
-    let awayTeamName = teamNames[0]?.textContent || '';
-    let homeTeamName = teamNames[1]?.textContent || '';
-    
-    // If team names are empty, try alternative selectors
-    if (!awayTeamName || !homeTeamName) {
-      const teamBlocks = topScoreboard?.querySelectorAll('.team-block') || [];
-      if (teamBlocks.length >= 2) {
-        awayTeamName = awayTeamName || teamBlocks[0]?.textContent || '';
-        homeTeamName = homeTeamName || teamBlocks[1]?.textContent || '';
-      }
-    }
-    
-    // Map team names to abbreviations (simplified)
-    const getTeamAbbrev = (name) => {
-      const teamName = name.toLowerCase();
-      if (teamName.includes('sky') || teamName.includes('chicago') || teamName.includes('chi')) return 'CHI';
-      if (teamName.includes('sun') || teamName.includes('connecticut') || teamName.includes('con')) return 'CON';
-      if (teamName.includes('dream') || teamName.includes('atlanta') || teamName.includes('atl')) return 'ATL';
-      if (teamName.includes('wings') || teamName.includes('dallas') || teamName.includes('dal')) return 'DAL';
-      if (teamName.includes('fever') || teamName.includes('indiana') || teamName.includes('ind')) return 'IND';
-      if (teamName.includes('aces') || teamName.includes('las vegas') || teamName.includes('las')) return 'LAS';
-      if (teamName.includes('sparks') || teamName.includes('los angeles') || teamName.includes('la')) return 'LA';
-      if (teamName.includes('lynx') || teamName.includes('minnesota') || teamName.includes('min')) return 'MIN';
-      if (teamName.includes('liberty') || teamName.includes('new york') || teamName.includes('ny')) return 'NY';
-      if (teamName.includes('mercury') || teamName.includes('phoenix') || teamName.includes('phx')) return 'PHX';
-      if (teamName.includes('storm') || teamName.includes('seattle') || teamName.includes('sea')) return 'SEA';
-      if (teamName.includes('mystics') || teamName.includes('washington') || teamName.includes('was')) return 'WAS';
-      if (teamName.includes('golden state') || teamName.includes('gsw') || teamName.includes('gs')) return 'GSW';
-      return '';
-    };
-    
-    const awayAbbrev = getTeamAbbrev(awayTeamName);
-    const homeAbbrev = getTeamAbbrev(homeTeamName);
-    
-    console.log('Team names detected:', { awayTeamName, homeTeamName });
-    console.log('Team abbreviations:', { awayAbbrev, homeAbbrev });
-    
-    teamColor1 = teamColorMap[awayAbbrev] || '2a2a2a';
-    teamColor2 = teamColorMap[homeAbbrev] || '444444';
-    
-    console.log('Team colors before prefix:', { teamColor1, teamColor2 });
-    
-    // Ensure colors have # prefix
-    teamColor1 = teamColor1.startsWith('#') ? teamColor1 : `#${teamColor1}`;
-    teamColor2 = teamColor2.startsWith('#') ? teamColor2 : `#${teamColor2}`;
-    
-    console.log('Final team colors:', { teamColor1, teamColor2 });
+    // Log the scoring team information (now passed directly from the button)
+    console.log(`🏀 COPY CARD: Scoring play by ${teamName} (${teamAbbreviation}) - ${isHomeTeam ? 'HOME' : 'AWAY'} team`);
+    console.log(`📋 Play Description: ${playDescription}`);
+    console.log(`🎯 Score Change: ${scoreChange}`);
+    console.log(`⏰ Time: ${playPeriod} ${playClock}`);
+    console.log(`Team Color: #${teamColor}`);
 
     // Import html2canvas dynamically
     let html2canvas;
@@ -1950,19 +1885,21 @@ window.copyExpandedPlayCard = async function(playIndex) {
     // Create play description section with team color gradient
     const playDesc = document.createElement('div');
     playDesc.style.cssText = `
-      background: grey;
+      background: linear-gradient(135deg, #${teamColor} 0%, #${teamColor + '88'} 100%);
       padding: 15px 20px;
       font-size: 16px;
+      font-weight: 600;
       line-height: 1.4;
       margin: 0;
       color: #fff;
       min-height: 20px;
       border-bottom: 1px solid rgba(255,255,255,0.3);
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
     `;
     
     // Use play description or fallback text for debugging
     const displayText = playDescription || 'No play description found';
-    playDesc.textContent = displayText;
+    playDesc.textContent = `${teamAbbreviation}: ${displayText}`;
     console.log('Setting play description text to:', displayText); // Debug log
 
     // Clone the play details (expanded content) - maintaining the side-by-side layout
@@ -1991,6 +1928,13 @@ window.copyExpandedPlayCard = async function(playIndex) {
       `;
     }
 
+    const shotMarker = playDetails.querySelector('.shot-marker');
+    if (shotMarker) {
+      // Only modify size, preserve all existing positioning and color styles
+      shotMarker.style.width = '11px';
+      shotMarker.style.height = '11px';
+    }
+
     // Ensure participants section takes remaining space
     const participants = playDetails.querySelector('.play-participants');
     if (participants) {
@@ -2002,16 +1946,10 @@ window.copyExpandedPlayCard = async function(playIndex) {
       `;
     }
 
-    // Fix player headshot styling to prevent width squeezing
-    const playerHeadshots = playDetails.querySelectorAll('.player-headshot');
-    playerHeadshots.forEach(img => {
-      img.style.cssText = `
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        object-fit: cover;
-        flex-shrink: 0;
-      `;
+    const playerImage = playDetails.querySelectorAll('.player-image');
+    playerImage.forEach(div => {
+      div.style.width = '80px';
+      div.style.height = '60px';
     });
 
     // Ensure all images are loaded before capturing
