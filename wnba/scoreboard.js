@@ -1103,55 +1103,50 @@ function renderMiniCourt(coordinate, isScoring = false, teamSide = 'home', teamC
   
   console.log(`Raw coordinates for ${teamSide} team: x=${espnX}, y=${espnY}`);
   
-  // Court dimensions in pixels (landscape orientation)
-  const COURT_WIDTH = 100; // pixels (baseline to baseline) - ESPN uses 0-50 scale
-  const COURT_HEIGHT = 50; // pixels (sideline to sideline) - ESPN uses 0-50 scale
+  // Basketball court coordinate system - rotated 90° counter-clockwise:
+  // Court split into 2 halves - top half = home, bottom half = away
+  // X becomes left-right positioning, Y becomes top-bottom positioning
+  // X: 0-50 scale, Y: 0-50 scale (ESPN standard)
   
-  // Simple approach: treat coordinates as direct positions
-  // x: 26, y: 3 for a layup should be close to the attacking basket
+  const isMobile = window.innerWidth <= 768;
+  let leftPercent, bottomPercent;
   
-  // Convert ESPN coordinates to pixel positions
-  // Assume ESPN uses 0-50 scale for both dimensions
-  let pixelX = espnX; // Use x coordinate directly  
-  let pixelY = espnY; // Use y coordinate directly
-  
-  console.log(`Direct pixel mapping: x=${pixelX}px, y=${pixelY}px`);
-  
-  // Convert to percentages for CSS positioning
-  let leftPercent = (pixelY / 50) * 100; // Y becomes left-right position (6% for y: 3)
-  let bottomPercent = (pixelX / 50) * 100; // X becomes bottom position (52% for x: 26)
-  
-  // For away team, flip the court positioning
-  if (teamSide === 'away') {
-    bottomPercent = 100 - bottomPercent; // Flip the court for away team
+  if (teamSide === 'home') {
+    // Home team on top half of court (attacking bottom basket)
+    // Y=0 (baseline) → 100% bottom position, Y=25 (center) → 50% bottom position, Y=50 (far baseline) → 0% bottom position
+    bottomPercent = 40 + (25 - espnY) * 2; // Y=0→100%, Y=25→50%, Y=50→0%
+    leftPercent = espnX * 2; // X=0→0%, X=50→100%
+  } else {
+    // Away team on bottom half of court (attacking top basket)
+    // Y=0 (far baseline) → 0% bottom position, Y=25 (center) → 50% bottom position, Y=50 (baseline) → 100% bottom position
+    bottomPercent = (espnY * 2) - 10; // Y=0→0%, Y=25→50%, Y=50→100%
+    leftPercent = (50 - espnX) * 2; // X=0→100%, X=50→0% (inverted)
   }
   
-  console.log(`CSS percentages: left=${leftPercent}%, bottom=${bottomPercent}%`);
-  
-  // Constrain to court bounds
+  // Constrain to court bounds with some padding
   const finalLeftPercent = Math.max(2, Math.min(98, leftPercent));
   const finalBottomPercent = Math.max(2, Math.min(98, bottomPercent));
 
   const shotClass = isScoring ? 'made-shot' : 'missed-shot';
-  const isMobile = window.innerWidth <= 768;
   
   // Ensure team color has # prefix
   const finalTeamColor = teamColor.startsWith('#') ? teamColor : `#${teamColor}`;
   
-  // For mobile (landscape court), use coordinates as-is
-  // For desktop (vertical court), we need to rotate the positioning
+  // For mobile vs desktop positioning
   let finalLeft, finalBottom;
   
   if (isMobile) {
-    // Mobile: landscape court, use coordinates directly
+    // Mobile: Since CSS transform: rotate(90deg) handles the visual rotation,
+    // we use the same coordinates as desktop - CSS handles the rotation
     finalLeft = finalLeftPercent;
     finalBottom = finalBottomPercent;
   } else {
-    // Desktop: vertical court, rotate coordinates 90 degrees
-    // left becomes bottom, bottom becomes (100 - left)
-    finalLeft = finalBottomPercent;
-    finalBottom = finalLeftPercent;
+    // Desktop: portrait court, use the coordinates as calculated
+    finalLeft = finalLeftPercent;
+    finalBottom = finalBottomPercent;
   }
+  
+  console.log(`Final positioning: left=${finalLeft}%, bottom=${finalBottom}%`);
 
   return `
     <div class="mini-court ${isMobile ? 'mobile-landscape' : ''}">
@@ -1164,11 +1159,19 @@ function renderMiniCourt(coordinate, isScoring = false, teamSide = 'home', teamC
         <!-- Free throw circles -->
         <div class="free-throw-circle top"></div>
         <div class="free-throw-circle bottom"></div>
+        <!-- Free throw semicircles -->
+        <div class="free-throw-semicircle top"></div>
+        <div class="free-throw-semicircle bottom"></div>
+        <!-- 3 point semicircles -->
+        <div class="three-point-semicircle top"></div>
+        <div class="three-point-semicircle bottom"></div>
         <!-- Center circle -->
         <div class="center-circle"></div>
         <!-- Baskets -->
         <div class="basket top"></div>
         <div class="basket bottom"></div>
+        <!-- Team side indicator -->
+        <div class="team-side-indicator ${teamSide}" style="color: ${finalTeamColor};">${teamSide.toUpperCase()}</div>
         <!-- Shot location -->
         <div class="shot-marker ${shotClass}" style="left: ${finalLeft}%; bottom: ${finalBottom}%; --team-color: ${finalTeamColor};"></div>
       </div>
@@ -1332,6 +1335,11 @@ async function renderPlayByPlay(gameId) {
       const teamLogo = isHomeTeam ? homeTeam?.logo : awayTeam?.logo;
       const teamName = isHomeTeam ? homeTeam?.shortDisplayName : awayTeam?.shortDisplayName;
       
+      // Debug team identification
+      if (play.coordinate) {
+        console.log(`Play ${index}: Team ID ${teamId}, Home Team ID: ${homeTeam?.id}, Away Team ID: ${awayTeam?.id}, isHomeTeam: ${isHomeTeam}, Team Side: ${isHomeTeam ? 'home' : 'away'}`);
+      }
+      
       const periodDisplay = play.period?.displayValue || '';
       const clock = play.clock?.displayValue || '';
       const homeScore = play.homeScore || 0;
@@ -1458,6 +1466,9 @@ async function renderPlayByPlay(gameId) {
         secondaryPlayerRole = ''; // Make second player blank for substitutions
       }
       
+      // Determine if this play is copyable (scoring play but not free throw)
+      const isCopyablePlay = isScoring && !playTextLower.includes('free throw');
+      
       return `
         <div class="play-container ${isScoring ? 'scoring-play' : ''} ${isNonExpandablePlay ? 'non-expandable' : ''}">
           <div class="play-header" ${!isNonExpandablePlay ? `onclick="togglePlay(${index})"` : ''}>
@@ -1482,15 +1493,24 @@ async function renderPlayByPlay(gameId) {
                 ${isScoring ? `<div class="score-indicator">+${scoreValue} PTS</div>` : ''}
               </div>
             </div>
-            ${!isNonExpandablePlay ? `
-              <div class="play-toggle">
-                <span class="toggle-icon" id="toggle-${index}">${toggleIcon}</span>
-              </div>
-            ` : ''}
+            <div class="play-actions">
+              ${!isNonExpandablePlay ? `
+                <div class="play-toggle">
+                  <span class="toggle-icon" id="toggle-${index}">${toggleIcon}</span>
+                </div>
+              ` : ''}
+            </div>
           </div>
           ${!isNonExpandablePlay ? `
             <div class="play-details" id="play-${index}" style="display: ${displayStyle};">
-              <div class="play-details-content">
+              ${isCopyablePlay ? `
+                <div class="copy-play-container">
+                  <button class="copy-play-btn-inside" onclick="copyExpandedPlayCard(${index})" title="Copy Full Play Card">
+                    📋 Copy Play Card
+                  </button>
+                </div>
+              ` : ''}
+              <div class="play-details-content" id="play-details-content-${index}">
                 ${miniCourt}
                 <div class="play-participants">
                   ${primaryParticipant ? `
@@ -1724,3 +1744,539 @@ function startStreamTesting() {
 window.testStream = testStream;
 window.tryNextStream = tryNextStream;
 window.startStreamTesting = startStreamTesting;
+
+// Copy Expanded Play Card Function - captures everything including mini court and players
+window.copyExpandedPlayCard = async function(playIndex) {
+  try {
+    // Find the play elements - the expanded content
+    const playElement = document.getElementById(`play-${playIndex}`);
+    const playDetailsElement = document.getElementById(`play-details-content-${playIndex}`);
+    
+    if (!playElement || !playDetailsElement) {
+      showCopyNotification('Could not find play content to copy', true);
+      return;
+    }
+
+    // Find the play header element (which contains the play description)
+    // The play header is the previous sibling of the expanded play element
+    const playContainer = playElement.parentElement;
+    const playHeader = playContainer?.querySelector('.play-header');
+    
+    // Get the play description from the header element
+    let playDescription = 'No description available';
+    if (playHeader) {
+      const descElement = playHeader.querySelector('.play-description');
+      playDescription = descElement?.textContent?.trim() || 'No description available';
+    }
+    
+    const scoreChange = playHeader?.querySelector('.score-indicator')?.textContent || '';
+    
+    console.log('Play description found:', playDescription); // Debug log
+    
+    // Get the period and clock from the play header
+    const playHeaderElement = playElement.previousElementSibling;
+    let playPeriod = '';
+    let playClock = '';
+    let awayScore = '0';
+    let homeScore = '0';
+    let awayLogo = '';
+    let homeLogo = '';
+    
+    if (playHeader) {
+      // Try to get period and clock from play header
+      playPeriod = playHeader.querySelector('.period')?.textContent || '';
+      playClock = playHeader.querySelector('.clock')?.textContent || '';
+      
+      // Try to get scores from play header
+      const scoresInHeader = playHeader.querySelectorAll('.score');
+      if (scoresInHeader.length >= 2) {
+        awayScore = scoresInHeader[0]?.textContent || '0';
+        homeScore = scoresInHeader[1]?.textContent || '0';
+      }
+      
+      // Try to get team logos from play header
+      const logosInHeader = playHeader.querySelectorAll('.team-logo-small');
+      if (logosInHeader.length >= 2) {
+        awayLogo = logosInHeader[0]?.src || '';
+        homeLogo = logosInHeader[1]?.src || '';
+      }
+    }
+    
+    // Fallback: Get current game data from the top scoreboard if play header doesn't have the info
+    const topScoreboard = document.getElementById('topScoreboard');
+    if (!awayLogo || !homeLogo) {
+      const teamLogos = topScoreboard?.querySelectorAll('.team-logo') || [];
+      awayLogo = awayLogo || teamLogos[0]?.src || '';
+      homeLogo = homeLogo || teamLogos[1]?.src || '';
+    }
+    
+    if (!playPeriod || !playClock) {
+      playPeriod = playPeriod || topScoreboard?.querySelector('.inning-status')?.textContent || '';
+      playClock = playClock || topScoreboard?.querySelector('.time-left')?.textContent || '';
+    }
+
+    // Get team colors for gradient background
+    let teamColor1 = '';
+    let teamColor2 = '';
+    
+    // Fallback colors based on common WNBA team colors
+    const teamColorMap = {
+      'CHI': '1D428A', // Chicago Sky - Blue
+      'CON': 'E03A3E', // Connecticut Sun - Red
+      'ATL': '8B2635', // Atlanta Dream - Red
+      'DAL': '0066B2', // Dallas Wings - Blue
+      'IND': 'FDBB30', // Indiana Fever - Yellow
+      'LAS': 'A6192E', // Las Vegas Aces - Red
+      'LA': '552583', // Los Angeles Sparks - Purple
+      'MIN': '266092', // Minnesota Lynx - Blue
+      'NY': '6CABDD', // New York Liberty - Light Blue
+      'PHX': 'E56020', // Phoenix Mercury - Orange
+      'SEA': '2C5234', // Seattle Storm - Green
+      'WAS': 'C8102E', // Washington Mystics - Red
+      'GSW': '1D428A', // Golden State (using blue)
+      'GS': '1D428A', // Golden State abbreviation
+    };
+    
+    // Extract team abbreviations from team names in scoreboard
+    const teamNames = topScoreboard?.querySelectorAll('.team-name') || [];
+    let awayTeamName = teamNames[0]?.textContent || '';
+    let homeTeamName = teamNames[1]?.textContent || '';
+    
+    // If team names are empty, try alternative selectors
+    if (!awayTeamName || !homeTeamName) {
+      const teamBlocks = topScoreboard?.querySelectorAll('.team-block') || [];
+      if (teamBlocks.length >= 2) {
+        awayTeamName = awayTeamName || teamBlocks[0]?.textContent || '';
+        homeTeamName = homeTeamName || teamBlocks[1]?.textContent || '';
+      }
+    }
+    
+    // Map team names to abbreviations (simplified)
+    const getTeamAbbrev = (name) => {
+      const teamName = name.toLowerCase();
+      if (teamName.includes('sky') || teamName.includes('chicago') || teamName.includes('chi')) return 'CHI';
+      if (teamName.includes('sun') || teamName.includes('connecticut') || teamName.includes('con')) return 'CON';
+      if (teamName.includes('dream') || teamName.includes('atlanta') || teamName.includes('atl')) return 'ATL';
+      if (teamName.includes('wings') || teamName.includes('dallas') || teamName.includes('dal')) return 'DAL';
+      if (teamName.includes('fever') || teamName.includes('indiana') || teamName.includes('ind')) return 'IND';
+      if (teamName.includes('aces') || teamName.includes('las vegas') || teamName.includes('las')) return 'LAS';
+      if (teamName.includes('sparks') || teamName.includes('los angeles') || teamName.includes('la')) return 'LA';
+      if (teamName.includes('lynx') || teamName.includes('minnesota') || teamName.includes('min')) return 'MIN';
+      if (teamName.includes('liberty') || teamName.includes('new york') || teamName.includes('ny')) return 'NY';
+      if (teamName.includes('mercury') || teamName.includes('phoenix') || teamName.includes('phx')) return 'PHX';
+      if (teamName.includes('storm') || teamName.includes('seattle') || teamName.includes('sea')) return 'SEA';
+      if (teamName.includes('mystics') || teamName.includes('washington') || teamName.includes('was')) return 'WAS';
+      if (teamName.includes('golden state') || teamName.includes('gsw') || teamName.includes('gs')) return 'GSW';
+      return '';
+    };
+    
+    const awayAbbrev = getTeamAbbrev(awayTeamName);
+    const homeAbbrev = getTeamAbbrev(homeTeamName);
+    
+    console.log('Team names detected:', { awayTeamName, homeTeamName });
+    console.log('Team abbreviations:', { awayAbbrev, homeAbbrev });
+    
+    teamColor1 = teamColorMap[awayAbbrev] || '2a2a2a';
+    teamColor2 = teamColorMap[homeAbbrev] || '444444';
+    
+    console.log('Team colors before prefix:', { teamColor1, teamColor2 });
+    
+    // Ensure colors have # prefix
+    teamColor1 = teamColor1.startsWith('#') ? teamColor1 : `#${teamColor1}`;
+    teamColor2 = teamColor2.startsWith('#') ? teamColor2 : `#${teamColor2}`;
+    
+    console.log('Final team colors:', { teamColor1, teamColor2 });
+
+    // Import html2canvas dynamically
+    let html2canvas;
+    try {
+      html2canvas = (await import('https://html2canvas.hertzen.com/dist/html2canvas.esm.js')).default;
+    } catch (e) {
+      // Fallback to CDN
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      document.head.appendChild(script);
+      
+      await new Promise((resolve, reject) => {
+        script.onload = resolve;
+        script.onerror = reject;
+      });
+      
+      html2canvas = window.html2canvas;
+    }
+
+    // Create a container with custom header and the expanded play details
+    const container = document.createElement('div');
+    container.style.cssText = `
+      position: fixed;
+      top: -10000px;
+      left: -10000px;
+      width: 800px;
+      background: linear-gradient(135deg, ${teamColor1}, ${teamColor2});
+      color: white;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      border-radius: 8px;
+      overflow: visible;
+      z-index: 9999;
+    `;
+
+    // Create custom header with team logos, scores at time of play, quarter, and time
+    const header = document.createElement('div');
+    header.style.cssText = `
+      background: #333;
+      padding: 20px;
+      border-radius: 8px 8px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 0;
+    `;
+
+    header.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 15px;">
+        ${awayLogo ? `<img src="${awayLogo}" alt="Away Team" style="width: 40px; height: 40px; border-radius: 50%;" crossorigin="anonymous">` : '<div style="width: 40px; height: 40px; background: #555; border-radius: 50%;"></div>'}
+        <div style="font-size: 28px; font-weight: bold;">${awayScore}</div>
+        <div style="font-size: 20px; color: #ccc;">-</div>
+        <div style="font-size: 28px; font-weight: bold;">${homeScore}</div>
+        ${homeLogo ? `<img src="${homeLogo}" alt="Home Team" style="width: 40px; height: 40px; border-radius: 50%;" crossorigin="anonymous">` : '<div style="width: 40px; height: 40px; background: #555; border-radius: 50%;"></div>'}
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 16px; font-weight: bold; color: #007bff;">${playPeriod}</div>
+        <div style="font-size: 14px; color: #ccc;">${playClock}</div>
+        ${scoreChange ? `<div style="font-size: 14px; color: #28a745; font-weight: bold;">${scoreChange}</div>` : ''}
+      </div>
+    `;
+
+    // Create play description section with team color gradient
+    const playDesc = document.createElement('div');
+    playDesc.style.cssText = `
+      background: linear-gradient(135deg, ${teamColor1} 0%, ${teamColor1 + '88'} 100%);
+      padding: 15px 20px;
+      font-size: 16px;
+      line-height: 1.4;
+      margin: 0;
+      color: #fff;
+      min-height: 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.3);
+    `;
+    
+    // Use play description or fallback text for debugging
+    const displayText = playDescription || 'No play description found';
+    playDesc.textContent = displayText;
+    console.log('Setting play description text to:', displayText); // Debug log
+
+    // Clone the play details (expanded content) - maintaining the side-by-side layout
+    const playDetails = playDetailsElement.cloneNode(true);
+    playDetails.style.cssText = `
+      display: flex !important;
+      gap: 20px;
+      align-items: flex-start;
+      background: #2a2a2a;
+      padding: 20px;
+      border-radius: 0 0 8px 8px;
+      margin: 0;
+    `;
+
+    // Remove any copy buttons from the cloned details
+    const copyButtons = playDetails.querySelectorAll('.copy-play-btn-inside');
+    copyButtons.forEach(btn => btn.remove());
+
+    // Ensure the mini court maintains its dimensions
+    const miniCourt = playDetails.querySelector('.mini-court');
+    if (miniCourt) {
+      miniCourt.style.cssText = `
+        flex-shrink: 0;
+        width: 150px;
+        height: 200px;
+      `;
+    }
+
+    // Ensure participants section takes remaining space
+    const participants = playDetails.querySelector('.play-participants');
+    if (participants) {
+      participants.style.cssText = `
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      `;
+    }
+
+    // Fix player headshot styling to prevent width squeezing
+    const playerHeadshots = playDetails.querySelectorAll('.player-headshot');
+    playerHeadshots.forEach(img => {
+      img.style.cssText = `
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+      `;
+    });
+
+    // Ensure all images are loaded before capturing
+    const images = playDetails.querySelectorAll('img');
+    const imagePromises = Array.from(images).map(img => {
+      if (img.complete) return Promise.resolve();
+      
+      return new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = resolve;
+        // Add crossorigin to handle CORS
+        img.crossOrigin = 'anonymous';
+        // Force reload to apply crossorigin
+        const src = img.src;
+        img.src = '';
+        img.src = src;
+        
+        // Fallback timeout
+        setTimeout(resolve, 1000);
+      });
+    });
+
+    // Wait for images to load
+    await Promise.all(imagePromises);
+
+    // Append to container in order: header, play description, then details
+    container.appendChild(header);
+    container.appendChild(playDesc);
+    container.appendChild(playDetails);
+    
+    // Temporarily add to DOM
+    document.body.appendChild(container);
+
+    // Wait a moment for DOM to settle
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Capture with html2canvas
+    const canvas = await html2canvas(container, {
+      backgroundColor: '#000',
+      scale: 3, // Higher quality
+      useCORS: true,
+      allowTaint: true,
+      foreignObjectRendering: false,
+      imageTimeout: 2000,
+      removeContainer: true,
+      logging: false,
+      width: 800,
+      height: container.scrollHeight,
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: 800,
+      windowHeight: container.scrollHeight
+    });
+
+    // Remove temporary container
+    document.body.removeChild(container);
+
+    // Convert to blob and copy
+    canvas.toBlob(async (blob) => {
+      try {
+        const item = new ClipboardItem({ 'image/png': blob });
+        await navigator.clipboard.write([item]);
+        showCopyNotification('Full play card copied to clipboard!');
+      } catch (clipboardError) {
+        console.error('Clipboard error:', clipboardError);
+        
+        // Fallback: create download link
+        const link = document.createElement('a');
+        link.download = `play-card-${playIndex}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+        
+        showCopyNotification('Play card downloaded (clipboard not available)');
+      }
+    }, 'image/png', 0.95);
+
+  } catch (error) {
+    console.error('Error in copyExpandedPlayCard:', error);
+    showCopyNotification('Error copying play card', true);
+  }
+};
+
+// Copy Play Card Function
+window.copyPlayCard = async function(playIndex, awayTeamName, homeTeamName, awayTeamLogo, homeTeamLogo, awayScore, homeScore, period, clock, playDescription, scoreValue) {
+  try {
+    // Create a temporary canvas to generate the play card image
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set canvas dimensions
+    canvas.width = 400;
+    canvas.height = 200;
+    
+    // Background
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Header background
+    ctx.fillStyle = '#333';
+    ctx.fillRect(0, 0, canvas.width, 80);
+    
+    // Load team logos and draw the card
+    const drawCard = async () => {
+      try {
+        // Load team logos
+        const awayLogoImg = new Image();
+        const homeLogoImg = new Image();
+        
+        awayLogoImg.crossOrigin = 'anonymous';
+        homeLogoImg.crossOrigin = 'anonymous';
+        
+        await Promise.all([
+          new Promise((resolve, reject) => {
+            awayLogoImg.onload = resolve;
+            awayLogoImg.onerror = resolve; // Continue even if logo fails
+            awayLogoImg.src = awayTeamLogo;
+          }),
+          new Promise((resolve, reject) => {
+            homeLogoImg.onload = resolve;
+            homeLogoImg.onerror = resolve; // Continue even if logo fails
+            homeLogoImg.src = homeTeamLogo;
+          })
+        ]);
+        
+        // Draw away team logo
+        if (awayLogoImg.complete && awayLogoImg.naturalWidth > 0) {
+          ctx.drawImage(awayLogoImg, 20, 15, 40, 40);
+        }
+        
+        // Draw away team info
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText(awayTeamName, 70, 30);
+        ctx.font = 'bold 24px sans-serif';
+        ctx.fillText(awayScore.toString(), 70, 50);
+        
+        // Draw separator
+        ctx.fillStyle = '#ccc';
+        ctx.font = '20px sans-serif';
+        ctx.fillText('-', 190, 50);
+        
+        // Draw home team info
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.fillText(homeScore.toString(), 210, 50);
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText(homeTeamName, 250, 30);
+        
+        // Draw home team logo
+        if (homeLogoImg.complete && homeLogoImg.naturalWidth > 0) {
+          ctx.drawImage(homeLogoImg, 340, 15, 40, 40);
+        }
+        
+        // Draw period and clock
+        ctx.fillStyle = '#007bff';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillText(`${period} • ${clock}`, 20, 70);
+        
+        // Draw score indicator
+        if (scoreValue > 0) {
+          ctx.fillStyle = '#28a745';
+          ctx.font = 'bold 12px sans-serif';
+          ctx.fillText(`+${scoreValue} PTS`, 320, 70);
+        }
+        
+        // Draw play description
+        ctx.fillStyle = 'white';
+        ctx.font = '14px sans-serif';
+        
+        // Word wrap the play description
+        const words = playDescription.split(' ');
+        let line = '';
+        let y = 110;
+        const maxWidth = canvas.width - 40;
+        
+        for (let i = 0; i < words.length; i++) {
+          const testLine = line + words[i] + ' ';
+          const metrics = ctx.measureText(testLine);
+          const testWidth = metrics.width;
+          
+          if (testWidth > maxWidth && i > 0) {
+            ctx.fillText(line.trim(), 20, y);
+            line = words[i] + ' ';
+            y += 20;
+            
+            // Limit to 3 lines
+            if (y > 150) {
+              line = line.slice(0, -1) + '...';
+              break;
+            }
+          } else {
+            line = testLine;
+          }
+        }
+        ctx.fillText(line.trim(), 20, y);
+        
+        // Convert canvas to blob and copy to clipboard
+        canvas.toBlob(async (blob) => {
+          try {
+            const item = new ClipboardItem({ 'image/png': blob });
+            await navigator.clipboard.write([item]);
+            
+            // Show success message
+            showCopyNotification('Play card copied to clipboard!');
+          } catch (clipboardError) {
+            console.error('Failed to copy to clipboard:', clipboardError);
+            showCopyNotification('Failed to copy play card', true);
+          }
+        }, 'image/png');
+        
+      } catch (error) {
+        console.error('Error creating play card:', error);
+        showCopyNotification('Error creating play card', true);
+      }
+    };
+    
+    await drawCard();
+    
+  } catch (error) {
+    console.error('Error in copyPlayCard:', error);
+    showCopyNotification('Error copying play card', true);
+  }
+};
+
+// Show copy notification
+function showCopyNotification(message, isError = false) {
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${isError ? '#dc3545' : '#28a745'};
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+    z-index: 10000;
+    animation: slideIn 0.3s ease-out;
+  `;
+  notification.textContent = message;
+  
+  // Add animation styles
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(100%); opacity: 0; }
+    }
+  `;
+  document.head.appendChild(style);
+  
+  document.body.appendChild(notification);
+  
+  // Remove notification after 3 seconds
+  setTimeout(() => {
+    notification.style.animation = 'slideOut 0.3s ease-out';
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 300);
+  }, 3000);
+}

@@ -1021,12 +1021,12 @@ function debugStreamExtraction(homeTeamName, awayTeamName, streamType = 'alpha1'
 
   let embedUrl = '';
   if (streamType === 'alpha1') {
-    embedUrl = `https://embedsports.top/embed/alpha/${awayNormalized}-vs-${homeNormalized}/1`;
+    embedUrl = `https://embedsports.top/embed/alpha/${homeNormalized}-vs-${awayNormalized}/1`;
   } else if (streamType === 'alpha2') {
-    embedUrl = `https://embedsports.top/embed/alpha/${awayNormalized}-vs-${homeNormalized}/2`;
+    embedUrl = `https://embedsports.top/embed/alpha/${homeNormalized}-vs-${awayNormalized}/2`;
   } else if (streamType === 'bravo') {
     const timestamp = Date.now();
-    embedUrl = `https://embedsports.top/embed/bravo/${timestamp}-${awayNormalized}-${homeNormalized}-english-/1`;
+    embedUrl = `https://embedsports.top/embed/bravo/${timestamp}-${homeNormalized}-${awayNormalized}-english-/1`;
   }
 
   console.log('Generated embed URL:', embedUrl);
@@ -1077,12 +1077,12 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
     const awayNormalized = normalizeTeamName(awayTeamName);
 
     if (currentStreamType === 'alpha1') {
-      embedUrl = `https://embedsports.top/embed/alpha/${awayNormalized}-vs-${homeNormalized}/1`;
+      embedUrl = `https://embedsports.top/embed/alpha/${homeNormalized}-vs-${awayNormalized}/1`;
     } else if (currentStreamType === 'alpha2') {
-      embedUrl = `https://embedsports.top/embed/alpha/${awayNormalized}-vs-${homeNormalized}/2`;
+      embedUrl = `https://embedsports.top/embed/alpha/${homeNormalized}-vs-${awayNormalized}/2`;
     } else if (currentStreamType === 'bravo') {
       const timestamp = Date.now();
-      embedUrl = `https://embedsports.top/embed/bravo/${timestamp}-${awayNormalized}-${homeNormalized}-english-/1`;
+      embedUrl = `https://embedsports.top/embed/bravo/${timestamp}-${homeNormalized}-${awayNormalized}-english-/1`;
     }
   }
 
