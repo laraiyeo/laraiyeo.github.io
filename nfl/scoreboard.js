@@ -1319,6 +1319,8 @@ function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, team
           // Try to determine position from play context
           if (playText.includes('pass') && playText.includes('to ' + scorerName)) {
             scorerPosition = 'WR'; // Receiving touchdown
+          } else if (playText.includes(scorerName + ' scrambles')) {
+            scorerPosition = 'QB'; // Quarterback scramble
           } else if (playText.includes(scorerName + ' right guard') || 
                      playText.includes(scorerName + ' left guard') ||
                      playText.includes(scorerName + ' run') || 
@@ -1385,6 +1387,11 @@ function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, team
       preferredStatCategory = 'rushing';
       console.log('RB rushing TD detected, showing rushing stats');
     }
+  } else if (positionGroup === 'QB' && playText.includes(scorerName + ' scrambles')) {
+    // For QB scrambles, show rushing stats instead of passing stats
+    adjustedPositionGroup = 'RB_RUSHING';
+    preferredStatCategory = 'rushing';
+    console.log('QB scramble TD detected, showing rushing stats');
   }
   
   const playerStats = getPositionStatsForCard(adjustedPositionGroup, boxScoreData, scorerName, preferredStatCategory);

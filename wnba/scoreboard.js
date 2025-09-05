@@ -1912,7 +1912,7 @@ window.copyExpandedPlayCard = async function(playIndex) {
       top: -10000px;
       left: -10000px;
       width: 800px;
-      background: linear-gradient(135deg, ${teamColor1}, ${teamColor2});
+      background: grey;
       color: white;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
       border-radius: 8px;
@@ -1950,7 +1950,7 @@ window.copyExpandedPlayCard = async function(playIndex) {
     // Create play description section with team color gradient
     const playDesc = document.createElement('div');
     playDesc.style.cssText = `
-      background: linear-gradient(135deg, ${teamColor1} 0%, ${teamColor1 + '88'} 100%);
+      background: grey;
       padding: 15px 20px;
       font-size: 16px;
       line-height: 1.4;
