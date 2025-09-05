@@ -654,11 +654,11 @@ async function fetchAndRenderTopScoreboard() {
     const slug = selectedGame.season?.slug || "regular-season";
 
     const homeTeamRecord = slug === "post-season"
-      ? selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "0-0"
+      ? selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.record || "1-0"
       : selectedGame.competitions[0].competitors.find(c => c.homeAway === "home")?.records?.find(r => r.type === "total")?.summary || "0-0";
 
     const awayTeamRecord = slug === "post-season"
-      ? selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "0-0"
+      ? selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.record || "1-0"
       : selectedGame.competitions[0].competitors.find(c => c.homeAway === "away")?.records?.find(r => r.type === "total")?.summary || "0-0";
 
     const period = selectedGame.status.period || 0;
@@ -1308,32 +1308,60 @@ window.togglePlay = function(index) {
 };
 
 // Content slider functions
-window.showStats = function() {
+window.showBoxscore = function() {
   // Update button states
-  document.getElementById('statsBtn').classList.add('active');
+  document.getElementById('boxscoreBtn').classList.add('active');
+  document.getElementById('statsBtn').classList.remove('active');
   document.getElementById('playsBtn').classList.remove('active');
   
   // Show/hide content sections
-  document.getElementById('statsContent').classList.add('active');
+  document.getElementById('boxscoreContent').classList.add('active');
+  document.getElementById('statsContent').classList.remove('active');
   document.getElementById('playsContent').classList.remove('active');
   
-  // Show stream when on stats tab
+  // Show stream when on boxscore tab
   const streamContainer = document.getElementById("streamEmbed");
   if (streamContainer) {
     streamContainer.style.display = 'block';
   }
 };
 
+window.showStats = function() {
+  // Update button states
+  document.getElementById('statsBtn').classList.add('active');
+  document.getElementById('boxscoreBtn').classList.remove('active');
+  document.getElementById('playsBtn').classList.remove('active');
+  
+  // Show/hide content sections
+  document.getElementById('statsContent').classList.add('active');
+  document.getElementById('boxscoreContent').classList.remove('active');
+  document.getElementById('playsContent').classList.remove('active');
+  
+  // Hide stream when on stats tab
+  const streamContainer = document.getElementById("streamEmbed");
+  if (streamContainer) {
+    streamContainer.style.display = 'none';
+  }
+  
+  // Load stats when switching to stats view
+  const gameId = getQueryParam("gameId");
+  if (gameId) {
+    loadMatchStats(gameId);
+  }
+};
+
 window.showPlays = function() {
   // Update button states
   document.getElementById('playsBtn').classList.add('active');
+  document.getElementById('boxscoreBtn').classList.remove('active');
   document.getElementById('statsBtn').classList.remove('active');
   
   // Show/hide content sections
-  document.getElementById('statsContent').classList.remove('active');
   document.getElementById('playsContent').classList.add('active');
+  document.getElementById('boxscoreContent').classList.remove('active');
+  document.getElementById('statsContent').classList.remove('active');
   
-  // Hide stream when on plays tab (like NFL)
+  // Hide stream when on plays tab
   const streamContainer = document.getElementById("streamEmbed");
   if (streamContainer) {
     streamContainer.style.display = 'none';
@@ -1344,6 +1372,551 @@ window.showPlays = function() {
   if (gameId) {
     renderPlayByPlay(gameId);
   }
+};
+
+// Stats functionality
+async function loadMatchStats(gameId) {
+  try {
+    console.log('Loading match stats for game:', gameId);
+    
+    // Replace gameId in the URL with the actual gameId
+    const STATS_API_URL = `https://cdn.espn.com/core/nba/matchup?xhr=1&gameId=${gameId}`;
+    console.log('Fetching stats from:', STATS_API_URL);
+    
+    const response = await fetch(STATS_API_URL);
+    const data = await response.json();
+    
+    console.log('Stats data received:', data);
+    console.log('Full gamepackageJSON:', data.gamepackageJSON);
+    
+    const statsContainer = document.getElementById('matchStatsDisplay');
+    if (!statsContainer) {
+      console.error('Stats container not found');
+      return;
+    }
+    
+    // Check if we have valid data
+    if (!data || !data.gamepackageJSON) {
+      statsContainer.innerHTML = '<div style="color: white; text-align: center; padding: 20px;">Stats not available for this game.</div>';
+      return;
+    }
+    
+    // Look for teams in different possible locations
+    let teams = data.gamepackageJSON.teams;
+    
+    // Try alternative locations if teams not found
+    if (!teams && data.gamepackageJSON.boxscore) {
+      teams = data.gamepackageJSON.boxscore.teams;
+    }
+    if (!teams && data.gamepackageJSON.header) {
+      teams = data.gamepackageJSON.header.competitions?.[0]?.competitors;
+    }
+    
+    console.log('Teams found:', teams);
+    
+    if (!teams || teams.length < 2) {
+      // Try to find team info in header/competitors
+      const competitors = data.gamepackageJSON.header?.competitions?.[0]?.competitors;
+      if (competitors && competitors.length >= 2) {
+        console.log('Using competitors data:', competitors);
+        
+        // Convert competitors to team format
+        const awayTeam = competitors.find(c => c.homeAway === 'away') || competitors[1];
+        const homeTeam = competitors.find(c => c.homeAway === 'home') || competitors[0];
+        
+        // Render basic team info without detailed stats
+        renderBasicTeamInfo(awayTeam, homeTeam, statsContainer);
+        return;
+      }
+      
+      statsContainer.innerHTML = '<div style="color: white; text-align: center; padding: 20px;">Team data not available.</div>';
+      return;
+    }
+    
+    const awayTeam = teams.find(team => team.homeAway === 'away') || teams[0];
+    const homeTeam = teams.find(team => team.homeAway === 'home') || teams[1];
+    
+    console.log('Away team:', awayTeam);
+    console.log('Home team:', homeTeam);
+    
+    // Get team statistics
+    const awayStats = awayTeam.statistics || [];
+    const homeStats = homeTeam.statistics || [];
+    
+    console.log('Away stats:', awayStats);
+    console.log('Home stats:', homeStats);
+    
+    // Render stats similar to NFL format
+    renderMatchStats(awayTeam, homeTeam, awayStats, homeStats);
+    
+  } catch (error) {
+    console.error('Error loading match stats:', error);
+    const statsContainer = document.getElementById('matchStatsDisplay');
+    if (statsContainer) {
+      statsContainer.innerHTML = '<div style="color: white; text-align: center; padding: 20px;">Error loading stats.</div>';
+    }
+  }
+}
+
+// Function to render basic team info when detailed stats aren't available
+function renderBasicTeamInfo(awayTeam, homeTeam, statsContainer) {
+  console.log('Rendering basic team info');
+  
+  // Get team logos and names
+  const awayLogo = awayTeam.team?.logo || awayTeam.team?.logos?.[0]?.href || `https://a.espncdn.com/i/teamlogos/nba/500/${awayTeam.team?.abbreviation}.png`;
+  const homeLogo = homeTeam.team?.logo || homeTeam.team?.logos?.[0]?.href || `https://a.espncdn.com/i/teamlogos/nba/500/${homeTeam.team?.abbreviation}.png`;
+  
+  const awayName = awayTeam.team?.shortDisplayName || awayTeam.team?.displayName || awayTeam.team?.name;
+  const homeName = homeTeam.team?.shortDisplayName || homeTeam.team?.displayName || homeTeam.team?.name;
+  
+  const statsHtml = `
+    <div class="match-stats-container">
+      <div class="stats-header">Team Information</div>
+      
+      <div class="stats-teams">
+        <div class="stats-team away">
+          <img src="${awayLogo}" alt="${awayName}" class="stats-team-logo">
+          <div class="stats-team-name">${awayName}</div>
+        </div>
+        <div class="stats-team home">
+          <div class="stats-team-name">${homeName}</div>
+          <img src="${homeLogo}" alt="${homeName}" class="stats-team-logo">
+        </div>
+      </div>
+      
+      <div style="color: white; text-align: center; padding: 20px;">
+        Detailed team statistics will be available during or after the game.
+      </div>
+    </div>
+  `;
+  
+  statsContainer.innerHTML = statsHtml;
+}
+
+// Function to render match stats similar to NFL
+function renderMatchStats(awayTeam, homeTeam, awayStats, homeStats) {
+  const statsContainer = document.getElementById('matchStatsDisplay');
+  if (!statsContainer) return;
+  
+  console.log('Rendering match stats for:', awayTeam, homeTeam);
+  
+  // Get team logos with multiple fallback options
+  const awayLogo = awayTeam.team?.logo || 
+                   awayTeam.team?.logos?.[0]?.href || 
+                   awayTeam.logo || 
+                   `https://a.espncdn.com/i/teamlogos/nba/500/${awayTeam.team?.abbreviation || awayTeam.abbreviation}.png`;
+  
+  const homeLogo = homeTeam.team?.logo || 
+                   homeTeam.team?.logos?.[0]?.href || 
+                   homeTeam.logo || 
+                   `https://a.espncdn.com/i/teamlogos/nba/500/${homeTeam.team?.abbreviation || homeTeam.abbreviation}.png`;
+  
+  // Get team names with multiple fallback options
+  const awayName = awayTeam.team?.shortDisplayName || 
+                   awayTeam.team?.displayName || 
+                   awayTeam.team?.name || 
+                   awayTeam.shortDisplayName || 
+                   awayTeam.displayName || 
+                   awayTeam.name;
+  
+  const homeName = homeTeam.team?.shortDisplayName || 
+                   homeTeam.team?.displayName || 
+                   homeTeam.team?.name || 
+                   homeTeam.shortDisplayName || 
+                   homeTeam.displayName || 
+                   homeTeam.name;
+
+  // Get team colors with fallbacks
+  const awayColor = awayTeam.team?.color || awayTeam.color || 'dc3545';
+  const homeColor = homeTeam.team?.color || homeTeam.color || '007bff';
+  
+  // Ensure colors have # prefix
+  const awayColorHex = awayColor.startsWith('#') ? awayColor : `#${awayColor}`;
+  const homeColorHex = homeColor.startsWith('#') ? homeColor : `#${homeColor}`;
+  
+  // Create stats sections based on available data
+  let statsHtml = `
+    <div class="match-stats-container">
+      <div class="stats-header">Match Stats</div>
+      
+      <div class="stats-teams">
+        <div class="stats-team away">
+          <img src="${awayLogo}" alt="${awayName}" class="stats-team-logo" onerror="this.src='icon.png';">
+          <div class="stats-team-name">${awayName}</div>
+        </div>
+        <div class="stats-team home">
+          <div class="stats-team-name">${homeName}</div>
+          <img src="${homeLogo}" alt="${homeName}" class="stats-team-logo" onerror="this.src='icon.png';">
+        </div>
+      </div>
+  `;
+  
+  // Process statistics if available
+  if (awayStats.length > 0 && homeStats.length > 0) {
+    // Create stat categories for NBA (removing possession since it doesn't apply)
+    const statCategories = {
+      'Shooting': ['fieldGoalsMade', 'fieldGoalPct', 'threePointMade', 'threePointPct', 'freeThrowsMade', 'freeThrowPct'],
+      'Rebounds': ['totalRebounds', 'offensiveRebounds', 'defensiveRebounds'],
+      'Offense': ['assists', 'points', 'pointsInPaint', 'fastBreakPoints'],
+      'Defense': ['steals', 'blocks', 'turnovers'],
+      'Other': ['flagrantFouls', 'technicalFouls', 'teamRebounds']
+    };
+    
+    Object.entries(statCategories).forEach(([category, statKeys]) => {
+      statsHtml += `<div class="stats-section">
+        <div class="stats-section-title">${category}</div>`;
+      
+      statKeys.forEach(statKey => {
+        const awayStat = findStatValue(awayStats, statKey);
+        const homeStat = findStatValue(homeStats, statKey);
+        
+        if (awayStat !== null && homeStat !== null) {
+          // Get display name for stat
+          const statLabel = getStatDisplayName(statKey);
+          
+          // For percentage stats, use the raw values for comparison
+          let awayValue, homeValue;
+          if (statKey.includes('Pct')) {
+            // For percentage stats, extract numeric value
+            awayValue = extractNumericValue(awayStat);
+            homeValue = extractNumericValue(homeStat);
+          } else {
+            awayValue = parseFloat(awayStat) || 0;
+            homeValue = parseFloat(homeStat) || 0;
+          }
+          
+          const total = awayValue + homeValue;
+          
+          // Calculate percentages for bar widths
+          let awayPercent = 0;
+          let homePercent = 0;
+          
+          if (total > 0) {
+            awayPercent = (awayValue / total) * 100;
+            homePercent = (homeValue / total) * 100;
+          }
+          
+          statsHtml += `
+            <div class="stats-row">
+              <div class="stats-value away">${awayStat}</div>
+              <div class="stats-bar-container">
+                <div class="stats-bar">
+                  <div class="stats-bar-fill away" style="width: ${awayPercent}%; background: ${awayColorHex};"></div>
+                </div>
+                <div class="stats-bar">
+                  <div class="stats-bar-fill home" style="width: ${homePercent}%; background: ${homeColorHex};"></div>
+                </div>
+              </div>
+              <div class="stats-value home">${homeStat}</div>
+            </div>
+            <div class="stats-label">${statLabel}</div>
+          `;
+        }
+      });
+      
+      statsHtml += '</div>';
+    });
+    
+  } else {
+    statsHtml += '<div style="color: white; text-align: center; padding: 20px;">Detailed statistics will be available during or after the game.</div>';
+  }
+  
+  statsHtml += '</div>';
+  
+  // First set the main stats HTML
+  statsContainer.innerHTML = statsHtml;
+  
+  // Then load and append leaders data
+  loadMatchLeaders();
+  
+  // Then load and append head-to-head data
+  const gameId = getQueryParam("gameId");
+  loadHeadToHead(gameId);
+}
+
+// Helper function to find stat values in the stats array
+function findStatValue(stats, statKey) {
+  for (const stat of stats) {
+    if (stat.name === statKey || stat.abbreviation === statKey) {
+      return stat.displayValue || stat.value;
+    }
+  }
+  return null;
+}
+
+// Helper function to extract numeric value from stat strings
+function extractNumericValue(statValue) {
+  if (typeof statValue === 'number') return statValue;
+  if (typeof statValue === 'string') {
+    // Handle percentage values like "45.2%" or fractions like "12/25"
+    if (statValue.includes('%')) {
+      return parseFloat(statValue.replace('%', ''));
+    } else if (statValue.includes('/')) {
+      const parts = statValue.split('/');
+      if (parts.length === 2) {
+        const numerator = parseFloat(parts[0]);
+        const denominator = parseFloat(parts[1]);
+        if (denominator !== 0) {
+          return (numerator / denominator) * 100; // Convert to percentage
+        }
+      }
+    } else {
+      return parseFloat(statValue) || 0;
+    }
+  }
+  return 0;
+}
+
+// Helper function to get display names for stats
+function getStatDisplayName(statKey) {
+  const displayNames = {
+    'fieldGoalsMade': 'Field Goals Made',
+    'fieldGoalPct': 'Field Goal %',
+    'threePointMade': '3-Point Made',
+    'threePointPct': '3-Point %',
+    'freeThrowsMade': 'Free Throws Made',
+    'freeThrowPct': 'Free Throw %',
+    'totalRebounds': 'Total Rebounds',
+    'offensiveRebounds': 'Offensive Rebounds',
+    'defensiveRebounds': 'Defensive Rebounds',
+    'assists': 'Assists',
+    'points': 'Points',
+    'pointsInPaint': 'Points in Paint',
+    'fastBreakPoints': 'Fast Break Points',
+    'steals': 'Steals',
+    'blocks': 'Blocks',
+    'turnovers': 'Turnovers',
+    'flagrantFouls': 'Flagrant Fouls',
+    'technicalFouls': 'Technical Fouls',
+    'teamRebounds': 'Team Rebounds'
+  };
+  
+  return displayNames[statKey] || statKey;
+}
+
+// Function to load and render leaders data
+async function loadMatchLeaders() {
+  try {
+    const gameId = getQueryParam("gameId");
+    if (!gameId) return;
+    
+    const LEADERS_API_URL = `https://cdn.espn.com/core/nba/matchup?xhr=1&gameId=${gameId}`;
+    const response = await fetch(LEADERS_API_URL);
+    const data = await response.json();
+    
+    console.log('Leaders data received:', data);
+    
+    if (data && data.gamepackageJSON && data.gamepackageJSON.leaders) {
+      renderLeaders(data.gamepackageJSON.leaders);
+    }
+  } catch (error) {
+    console.error('Error loading leaders:', error);
+  }
+}
+
+// Function to render leaders (like NFL's form containers)
+function renderLeaders(leadersData) {
+  const statsContainer = document.getElementById('matchStatsDisplay');
+  if (!statsContainer || !leadersData) return;
+  
+  // Create leaders HTML similar to NFL's form containers
+  let leadersHtml = `
+    <div class="form-containers">
+  `;
+  
+  // Reverse the order so away team is on left, home team is on right
+  const orderedLeaders = [...leadersData].reverse();
+  
+  // Process each team's leaders
+  orderedLeaders.forEach(teamLeaders => {
+    const team = teamLeaders.team;
+    const leaders = teamLeaders.leaders;
+    
+    if (!team || !leaders) return;
+    
+    leadersHtml += `
+      <div class="form-container">
+        <div class="form-header">
+          <img src="${team.logo || team.logos?.[0]?.href}" alt="${team.displayName}" class="form-team-logo-header" onerror="this.src='icon.png';">
+          <div class="form-team-info">
+            <div class="form-team-name">${team.displayName}</div>
+            <div class="form-subtitle">LEADERS</div>
+          </div>
+        </div>
+        
+        <div class="form-matches">
+    `;
+    
+    // Add leaders for key categories
+    const keyLeaders = ['points', 'rebounds', 'assists'];
+    
+    keyLeaders.forEach(leaderType => {
+      const leaderCategory = leaders.find(cat => cat.name === leaderType);
+      if (leaderCategory && leaderCategory.leaders && leaderCategory.leaders.length > 0) {
+        const leader = leaderCategory.leaders[0]; // Top leader
+        const athlete = leader.athlete;
+        
+        const map = {
+          'Points': {text1: 'PTS', text2: 'FG', text3: 'FT'},
+          'Rebounds': {text1: 'REB', text2: 'DREB', text3: 'OREB'},
+          'Assists': {text1: 'AST', text2: 'TO', text3: 'MIN'},
+        }
+        const texts = map[leaderCategory.displayName] || {text1: '', text2: '', text3: ''};
+
+        const { text1, text2, text3 } = texts;
+
+        const isMobile = window.innerWidth <= 525;
+
+        leadersHtml += `
+          <div class="form-match">
+            <div class="form-match-header">
+              <div class="form-date">${leaderCategory.displayName}</div>
+              <div class="form-competition" style="margin-left: auto; font-size: 12px; color: #888;">${athlete.position?.abbreviation || 'Player'}</div>
+            </div>
+            <div class="form-match-teams">
+              <div class="form-team">
+                <img src="${athlete.headshot?.href || 'icon.png'}" alt="${athlete.displayName}" class="form-team-logo-small" onerror="this.src='icon.png';">
+                <span class="form-team-abbr">${athlete.shortName || athlete.displayName}</span>
+                <span style="color: grey;">#${athlete.jersey || ''}</span>
+              </div>
+              ${isMobile 
+                ? `
+              <div class="stat-container">
+                <div class="form-score">${leader.statistics[0].displayValue}</div>
+                <div style="color: #ccc; font-size: 12px;">${text1}</div>
+              </div>
+              ` : `
+              <div class="stat-container">
+                <div class="form-score">${leader.statistics[0].displayValue}</div>
+                <div style="color: #ccc; font-size: 12px;">${text1}</div>
+              </div>
+              <div class="stat-container">
+                <div class="form-score">${leader.statistics[1].displayValue}</div>
+                <div style="color: #ccc; font-size: 12px;">${text2}</div>
+              </div>
+              <div class="stat-container">
+                <div class="form-score">${leader.statistics[2].displayValue}</div>
+                <div style="color: #ccc; font-size: 12px;">${text3}</div>
+              </div>
+              `}
+            </div>
+          </div>
+        `;
+      }
+    });
+    
+    leadersHtml += `
+        </div>
+      </div>
+    `;
+  });
+  
+  leadersHtml += `</div>`;
+  
+  // Append leaders to the stats container
+  statsContainer.innerHTML += leadersHtml;
+}
+
+// Function to load and render head-to-head data
+async function loadHeadToHead(gameId) {
+  try {
+    if (!gameId) return;
+    
+    const H2H_API_URL = `https://cdn.espn.com/core/nba/matchup?xhr=1&gameId=${gameId}`;
+    const response = await fetch(H2H_API_URL);
+    const data = await response.json();
+    
+    console.log('Head-to-head data received:', data);
+    
+    if (data && data.gamepackageJSON && data.gamepackageJSON.seasonseries) {
+      renderHeadToHead(data.gamepackageJSON.seasonseries);
+    }
+  } catch (error) {
+    console.error('Error loading head-to-head:', error);
+  }
+}
+
+// Function to render head-to-head matches
+function renderHeadToHead(seasonSeriesData) {
+  const statsContainer = document.getElementById('matchStatsDisplay');
+  if (!statsContainer || !seasonSeriesData || !seasonSeriesData.length) return;
+  
+  const seriesInfo = seasonSeriesData[0]; // Get the main series info
+  if (!seriesInfo.events || !seriesInfo.events.length) return;
+  
+  let h2hHtml = `
+    <div class="h2h-container">
+      <div class="h2h-header">
+        <div class="h2h-title">Head to Head</div>
+      </div>
+      <div class="h2h-matches">
+  `;
+  
+  // Sort events by date (most recent first)
+  const sortedEvents = seriesInfo.events.sort((a, b) => new Date(b.date) - new Date(a.date));
+  
+  sortedEvents.forEach(event => {
+    const date = new Date(event.date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+
+    const dateStr = new Date(event.date);
+    const estFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const parts = estFormatter.formatToParts(dateStr);
+    const estDate = `${parts.find(p => p.type === 'year').value}${parts.find(p => p.type === 'month').value}${parts.find(p => p.type === 'day').value}`;
+
+    // Find home and away teams
+    const homeTeam = event.competitors.find(c => c.homeAway === 'home');
+    const awayTeam = event.competitors.find(c => c.homeAway === 'away');
+    
+    if (!homeTeam || !awayTeam) return;
+    
+    const matchId = event.id;
+    const score = `${awayTeam.score} - ${homeTeam.score}`;
+
+    const isMobile = window.innerWidth <= 525;
+    
+    h2hHtml += `
+      <div class="h2h-match clickable-match" onclick="openNBAMatchPage('${matchId}', '${estDate}')" style="cursor: pointer;">
+        <div class="h2h-match-header">
+          <span class="h2h-date">${date}</span>
+          <span class="h2h-competition">NBA</span>
+        </div>
+        <div class="h2h-match-teams">
+          <div class="h2h-team">
+            <img src="${awayTeam.team.logo}" class="h2h-team-logo" onerror="this.src='icon.png'">
+            <span class="h2h-team-name">${isMobile ? awayTeam.team.abbreviation : awayTeam.team.displayName}</span>
+          </div>
+          <span class="h2h-score">${score}</span>
+          <div class="h2h-team">
+            <img src="${homeTeam.team.logo}" class="h2h-team-logo" onerror="this.src='icon.png'">
+            <span class="h2h-team-name">${isMobile ? homeTeam.team.abbreviation : homeTeam.team.displayName}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  h2hHtml += `
+      </div>
+    </div>
+  `;
+  
+  // Append head-to-head to the stats container
+  statsContainer.innerHTML += h2hHtml;
+}
+
+// Function to open NBA match page in new window
+window.openNBAMatchPage = function(matchId, estDate) {
+  const url = `scoreboard.html?gameId=${matchId}&date=${estDate}`;
+  window.open(url, '_blank');
 };
 
 // Copy Expanded Play Card Function - captures everything including mini court and players
@@ -1590,7 +2163,7 @@ window.copyExpandedPlayCard = async function(playIndex, teamColor, teamName, tea
 
     // Capture with html2canvas
     const canvas = await html2canvas(container, {
-      backgroundColor: '#000',
+      backgroundColor: '#1a1a1a',
       scale: 3, // Higher quality
       useCORS: true,
       allowTaint: true,

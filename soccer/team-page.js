@@ -1320,93 +1320,77 @@ async function loadTeamTransfers() {
       return;
     }
     
-    // Fetch transfers from ESPN API
-    const response = await fetch(convertToHttps(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${currentLeague}/transactions?limit=1000`));
+    // Get current year for the API call
+    const currentYear = new Date().getFullYear();
+    
+    // Fetch transfers directly for this team using the simpler endpoint
+    const response = await fetch(convertToHttps(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${currentLeague}/seasons/${currentYear}/teams/${currentTeamId}/transactions?limit=1000`));
     const transfersData = await response.json();
     
     if (!transfersData.items || transfersData.items.length === 0) {
-      transfersSection.innerHTML = '<div class="no-transfers">No transfers available</div>';
+      transfersSection.innerHTML = '<div class="no-transfers">No transfers available for this team</div>';
       return;
     }
     
-    // Filter transfers where current team is involved (either from or to)
+    // Process transfers for this team
     const teamTransfers = [];
-    let processedCount = 0;
-    const maxToProcess = 1000; // Increase to process more transfers
     
     for (const transferData of transfersData.items) {
-      if (processedCount >= maxToProcess) break;
-      processedCount++;
-      
       try {
-        // Check if current team is involved in this transfer by checking team IDs in the URLs
-        let isTeamInvolved = false;
+        // Fetch additional data for from/to teams and athlete
+        const dataPromises = [];
+        
+        if (transferData.from?.$ref) {
+          dataPromises.push(
+            fetch(convertToHttps(transferData.from.$ref))
+              .then(response => response.ok ? response.json() : null)
+              .then(data => ({ type: 'from', data }))
+              .catch(() => ({ type: 'from', data: null }))
+          );
+        }
+        
+        if (transferData.to?.$ref) {
+          dataPromises.push(
+            fetch(convertToHttps(transferData.to.$ref))
+              .then(response => response.ok ? response.json() : null)
+              .then(data => ({ type: 'to', data }))
+              .catch(() => ({ type: 'to', data: null }))
+          );
+        }
+        
+        if (transferData.athlete?.$ref) {
+          dataPromises.push(
+            fetch(convertToHttps(transferData.athlete.$ref))
+              .then(response => response.ok ? response.json() : null)
+              .then(data => ({ type: 'athlete', data }))
+              .catch(() => ({ type: 'athlete', data: null }))
+          );
+        }
+        
+        // Wait for all data to load
+        const results = await Promise.all(dataPromises);
+        
+        // Parse results
+        let athlete = null;
         let fromTeam = null;
         let toTeam = null;
         
-        // Extract team IDs from URLs to check involvement quickly
-        const fromTeamId = transferData.from?.$ref?.match(/teams\/(\d+)/)?.[1];
-        const toTeamId = transferData.to?.$ref?.match(/teams\/(\d+)/)?.[1];
-        
-        // Only fetch team data if current team is involved
-        if (fromTeamId == currentTeamId || toTeamId == currentTeamId) {
-          isTeamInvolved = true;
-          
-          // Fetch team data in parallel for better performance
-          const teamPromises = [];
-          
-          if (transferData.from?.$ref) {
-            teamPromises.push(
-              fetch(convertToHttps(transferData.from.$ref))
-                .then(response => response.ok ? response.json() : null)
-                .then(data => ({ type: 'from', data }))
-                .catch(() => ({ type: 'from', data: null }))
-            );
-          }
-          
-          if (transferData.to?.$ref) {
-            teamPromises.push(
-              fetch(convertToHttps(transferData.to.$ref))
-                .then(response => response.ok ? response.json() : null)
-                .then(data => ({ type: 'to', data }))
-                .catch(() => ({ type: 'to', data: null }))
-            );
-          }
-          
-          if (transferData.athlete?.$ref) {
-            teamPromises.push(
-              fetch(convertToHttps(transferData.athlete.$ref))
-                .then(response => response.ok ? response.json() : null)
-                .then(data => ({ type: 'athlete', data }))
-                .catch(() => ({ type: 'athlete', data: null }))
-            );
-          }
-          
-          // Wait for all team/athlete data to load
-          const results = await Promise.all(teamPromises);
-          
-          // Parse results
-          let athlete = null;
-          for (const result of results) {
-            if (result.type === 'from' && result.data) fromTeam = result.data;
-            if (result.type === 'to' && result.data) toTeam = result.data;
-            if (result.type === 'athlete' && result.data) athlete = result.data;
-          }
-          
-          // Only add transfer if we have athlete data
-          if (athlete) {
-            teamTransfers.push({
-              ...transferData,
-              athlete: athlete,
-              fromTeam: fromTeam,
-              toTeam: toTeam,
-              date: new Date(transferData.date)
-            });
-          }
+        for (const result of results) {
+          if (result.type === 'from' && result.data) fromTeam = result.data;
+          if (result.type === 'to' && result.data) toTeam = result.data;
+          if (result.type === 'athlete' && result.data) athlete = result.data;
         }
         
-        // Stop if we have enough transfers for display (increased limit)
-        if (teamTransfers.length >= 100) break;
+        // Only add transfer if we have athlete data
+        if (athlete) {
+          teamTransfers.push({
+            ...transferData,
+            athlete: athlete,
+            fromTeam: fromTeam,
+            toTeam: toTeam,
+            date: new Date(transferData.date)
+          });
+        }
         
       } catch (error) {
         console.error('Error processing transfer:', error);

@@ -2890,6 +2890,31 @@ async function captureAndCopyGoalCard(element) {
     const isSmallScreen = window.innerWidth < 525;
     const heightAdjustment = isSmallScreen ? 0 : 20;
 
+    // Adjust event marker sizes similar to NBA shot marker adjustments
+    const eventMarkers = element.querySelectorAll('.event-marker');
+    eventMarkers.forEach(marker => {
+      // Only modify size, preserve all existing positioning and color styles
+      marker.style.width = '12px';
+      marker.style.height = '12px';
+    });
+
+    const ballEndMarkers = element.querySelectorAll('.event-marker.ball-end');
+    ballEndMarkers.forEach(marker => {
+      // Adjust ball-end markers to be slightly larger for visibility
+      marker.style.width = '10px';
+      marker.style.height = '10px';
+    });
+
+    // Adjust trajectory line positioning for copy card
+    const trajectorySvgs = element.querySelectorAll('svg');
+    trajectorySvgs.forEach(svg => {
+      // Check if this SVG contains a trajectory line
+      if (svg.querySelector('line')) {
+        // Move the trajectory line up by 5px for better alignment in copy card
+        svg.style.top = '-0.8px';
+      }
+    });
+
     // Capture the element with html2canvas
     const canvas = await html2canvas(element, {
       backgroundColor: '#1a1a1a', // Set the actual background color
