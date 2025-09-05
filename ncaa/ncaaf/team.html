@@ -321,7 +321,8 @@
         for (const [confName, confData] of Object.entries(CONFERENCES)) {
           console.log(`Searching in conference: ${confName} (${confData.groupId})`);
           
-          const teamsApiUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/types/2/groups/${confData.groupId}/teams?lang=en&region=us`;
+          const currentSeason = new Date().getFullYear();
+          const teamsApiUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${currentSeason}/types/2/groups/${confData.groupId}/teams?lang=en&region=us`;
           
           try {
             const teamsResponse = await fetch(convertToHttps(teamsApiUrl));

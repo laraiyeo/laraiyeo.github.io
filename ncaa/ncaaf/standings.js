@@ -15,10 +15,97 @@ const CONFERENCES = {
 
 let currentConference = localStorage.getItem("currentConference") || "T25"; // Default to T25
 let currentSeason = localStorage.getItem("currentSeason") || "2025"; // Default to 2025
-let currentWeek = localStorage.getItem("currentWeek") || "1"; // Default to week 1
+let currentWeek = "1"; // Will be determined dynamically
 let lastStandingsHash = null;
 let rankingsCache = {}; // Cache for team rankings: {teamId: rank}
 let championshipWinners = {}; // Cache for conference championship winners: {conferenceGroupId: winnerId}
+
+// Function to determine the current week based on date
+async function determineCurrentWeek() {
+  try {
+    const now = new Date();
+    
+    // Check cache first
+    const cacheKey = `current_week_${currentSeason}`;
+    const cachedWeek = localStorage.getItem(cacheKey);
+    const cacheTimestamp = localStorage.getItem(`${cacheKey}_timestamp`);
+    
+    // Use cached week if it's less than 1 hour old
+    if (cachedWeek && cacheTimestamp) {
+      const hoursSinceCache = (Date.now() - parseInt(cacheTimestamp)) / (1000 * 60 * 60);
+      if (hoursSinceCache < 1) {
+        return cachedWeek;
+      }
+    }
+    
+    // Fetch all weeks for the current season
+    const weeksUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${currentSeason}/types/2/weeks?lang=en&region=us`;
+    const weeksResponse = await fetch(convertToHttps(weeksUrl));
+    const weeksData = await weeksResponse.json();
+    
+    if (!weeksData.items) {
+      return "1"; // fallback
+    }
+    
+    // Fetch date ranges for each week and find current week
+    let currentWeekNum = "1";
+    let latestWeekWithData = "1";
+    
+    for (const weekRef of weeksData.items) {
+      try {
+        const weekUrl = weekRef.$ref;
+        const weekResponse = await fetch(convertToHttps(weekUrl));
+        const weekData = await weekResponse.json();
+        
+        if (weekData.startDate && weekData.endDate) {
+          const startDate = new Date(weekData.startDate);
+          const endDate = new Date(weekData.endDate);
+          const weekNumber = weekData.number.toString();
+          
+          // Track the latest week that has started (for fallback)
+          if (now >= startDate) {
+            latestWeekWithData = weekNumber;
+          }
+          
+          // Check if current date falls within this week
+          if (now >= startDate && now <= endDate) {
+            currentWeekNum = weekNumber;
+            break;
+          }
+        }
+      } catch (error) {
+        console.log(`Could not fetch data for week: ${weekRef.$ref}`, error);
+      }
+    }
+    
+    // If we're past all regular season weeks, use the latest week
+    if (currentWeekNum === "1" && latestWeekWithData !== "1") {
+      currentWeekNum = latestWeekWithData;
+    }
+    
+    // Cache the result
+    localStorage.setItem(cacheKey, currentWeekNum);
+    localStorage.setItem(`${cacheKey}_timestamp`, Date.now().toString());
+    
+    console.log(`Determined current week: ${currentWeekNum} for season ${currentSeason}`);
+    return currentWeekNum;
+    
+  } catch (error) {
+    console.error("Error determining current week:", error);
+    return "1"; // fallback
+  }
+}
+
+// Initialize current week
+async function initializeCurrentWeek() {
+  const determinedWeek = await determineCurrentWeek();
+  const storedWeek = localStorage.getItem("currentWeek");
+  
+  // Use stored week if user has manually selected one, otherwise use determined week
+  currentWeek = storedWeek || determinedWeek;
+  
+  console.log(`Initialized current week: ${currentWeek} (determined: ${determinedWeek}, stored: ${storedWeek})`);
+}
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
 function convertToHttps(url) {
@@ -892,16 +979,24 @@ function setupConferenceButtons() {
     button.addEventListener("click", () => {
       currentConference = confData.groupId;
       
-      // Reset to default week when switching to/from T25
+      // Update button states immediately
+      updateConferenceButtonDisplay();
+      
+      // For T25, use the determined current week instead of defaulting to 1
       if (confData.groupId === "T25") {
-        currentWeek = "1"; // Default to preseason for TOP 25
+        // Re-determine the current week for rankings
+        determineCurrentWeek().then(week => {
+          currentWeek = localStorage.getItem("currentWeek") || week;
+          setupSeasonSelector();
+          fetchStandings();
+        });
+        return; // Exit early to avoid duplicate calls
       }
       
       // Update selectors to show/hide week selector
       setupSeasonSelector();
       
       fetchStandings();
-      updateConferenceButtonDisplay();
     });
     
     conferenceContainer.appendChild(button);
@@ -1034,10 +1129,21 @@ function updateConferenceButtonDisplay() {
       if (logo) logo.style.display = "none";
     }
     
-    // Update active state - need to check by button content since textContent changed
-    const confName = text ? text.textContent : button.textContent;
-    const confData = CONFERENCES[confName];
-    if (confData && confData.groupId === currentConference) {
+    // Update active state - find matching conference by groupId
+    let isActive = false;
+    for (const [confName, confData] of Object.entries(CONFERENCES)) {
+      if (confData.groupId === currentConference) {
+        // Check if this button matches the current conference
+        const buttonText = text ? text.textContent : button.textContent;
+        // Handle AP25 special case where button shows "AP25" but conference is "AP 25"
+        if ((confName === "AP 25" && buttonText === "AP25") || buttonText === confName) {
+          isActive = true;
+          break;
+        }
+      }
+    }
+    
+    if (isActive) {
       button.classList.add("active");
     } else {
       button.classList.remove("active");
@@ -1047,7 +1153,13 @@ function updateConferenceButtonDisplay() {
 
 window.addEventListener("resize", updateConferenceButtonDisplay);
 
-setupConferenceButtons();
-setupSeasonSelector();
-fetchStandings();
+// Initialize the app
+async function initializeApp() {
+  await initializeCurrentWeek();
+  setupConferenceButtons();
+  setupSeasonSelector();
+  fetchStandings();
+}
+
+initializeApp();
 setInterval(fetchStandings, 30000); // Poll every 30 seconds
