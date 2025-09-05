@@ -433,6 +433,7 @@ let streamUrls = [];
 let currentStreamIndex = 0;
 let streamTestTimeout = null;
 let isMuted = true; // Start muted to prevent autoplay issues
+let streamInitialized = false; // Flag to prevent unnecessary stream re-renders
 
 // Add interval for updating race results
 let resultsUpdateInterval = null;
@@ -1913,13 +1914,14 @@ async function renderRaceInfo() {
 
   // Add stream embed after topRaceInfo - F1 has 24/7 stream so always show it
   const streamContainer = document.getElementById("streamEmbed");
-  if (!streamContainer) {
+  if (!streamContainer && !streamInitialized) {
     const raceDetailsDiv = document.getElementById("raceDetails");
     if (raceDetailsDiv) {
       const streamDiv = document.createElement("div");
       streamDiv.id = "streamEmbed";
       streamDiv.innerHTML = renderStreamEmbed(selectedRace.name || selectedRace.shortName);
       raceDetailsDiv.parentNode.insertBefore(streamDiv, raceDetailsDiv);
+      streamInitialized = true; // Set flag after successful initialization
     }
   }
 

@@ -294,6 +294,7 @@ let currentAwayTeam = ''; // Store current away team name
 let currentHomeTeam = ''; // Store current home team name
 let isMuted = true; // Start muted to prevent autoplay issues
 let availableStreams = {}; // Store available streams from API
+let streamInitialized = false; // Flag to prevent unnecessary stream re-renders
 
 // API functions for streamed.pk
 const STREAM_API_BASE = 'https://streamed.pk/api';
@@ -1285,7 +1286,9 @@ window.switchToStream = function(streamType) {
 
   // Generate new embed URL using renderStreamEmbed to avoid browser history
   if (currentAwayTeam && currentHomeTeam) {
+    streamInitialized = false; // Reset flag to allow stream switching
     renderStreamEmbed(currentAwayTeam, currentHomeTeam);
+    streamInitialized = true; // Set flag after successful switch
   } else {
     console.error('Cannot switch streams: team names not available');
   }
@@ -1511,35 +1514,30 @@ async function fetchAndUpdateScoreboard(gamePk) {
     // Add stream embed (only render once and only for in-progress games)
     // This is done asynchronously to not block the box score rendering
     const streamContainer = document.getElementById("streamEmbed");
-    if (streamContainer && isInProgress) {
-      if (!streamContainer.innerHTML) {
-        // Don't await - render stream asynchronously to avoid blocking box score
-        renderStreamEmbed(away.team?.name || "Unknown", home.team?.name || "Unknown")
-          .then(streamHTML => {
-            streamContainer.innerHTML = streamHTML;
-            
-            console.log('Initial stream setup - Team names:', away.team?.name, home.team?.name);
-            console.log('Stored team names:', currentAwayTeam, currentHomeTeam);
-            
-            // Ensure team names are stored
-            if (away.team?.name && home.team?.name) {
-              currentAwayTeam = away.team.name;
-              currentHomeTeam = home.team.name;
-              console.log('Team names stored successfully:', currentAwayTeam, currentHomeTeam);
-            }
-            
-            // Reduced delay from 500ms to 100ms
-            setTimeout(() => {
-              renderStreamEmbed(away.team?.name || "Unknown", home.team?.name || "Unknown");
-            }, 100);
-          })
-          .catch(error => {
-            console.error('Error rendering stream embed:', error);
-          });
-      }
-    } else if (streamContainer && !isInProgress) {
-      // Clear stream container if game is no longer in progress
+    if (streamContainer && isInProgress && !streamInitialized) {
+      // Don't await - render stream asynchronously to avoid blocking box score
+      renderStreamEmbed(away.team?.name || "Unknown", home.team?.name || "Unknown")
+        .then(streamHTML => {
+          streamContainer.innerHTML = streamHTML;
+          streamInitialized = true; // Set flag after successful initialization
+          
+          console.log('Initial stream setup - Team names:', away.team?.name, home.team?.name);
+          console.log('Stored team names:', currentAwayTeam, currentHomeTeam);
+          
+          // Ensure team names are stored
+          if (away.team?.name && home.team?.name) {
+            currentAwayTeam = away.team.name;
+            currentHomeTeam = home.team.name;
+            console.log('Team names stored successfully:', currentAwayTeam, currentHomeTeam);
+          }
+        })
+        .catch(error => {
+          console.error('Error rendering stream embed:', error);
+        });
+    } else if (streamContainer && !isInProgress && streamInitialized) {
+      // Clear stream container if game is no longer in progress and reset flag
       streamContainer.innerHTML = '';
+      streamInitialized = false; // Reset flag when game is no longer in progress
     }
 
     // Hide bases, outs, and count if the game is not in progress

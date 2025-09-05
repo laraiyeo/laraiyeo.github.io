@@ -463,6 +463,7 @@ let currentAwayTeam = ''; // Store current away team name
 let currentHomeTeam = ''; // Store current home team name
 let isMuted = true; // Start muted to prevent autoplay issues
 let availableStreams = {}; // Store available streams from API
+let streamInitialized = false; // Flag to prevent unnecessary stream re-renders
 
 // API functions for streamed.pk
 const STREAM_API_BASE = 'https://streamed.pk/api';
@@ -1152,7 +1153,9 @@ window.switchToStream = function(streamType) {
 
   // Generate new embed URL using renderStreamEmbed to avoid browser history
   if (currentAwayTeam && currentHomeTeam) {
+    streamInitialized = false; // Reset flag to allow stream switching
     renderStreamEmbed(currentAwayTeam, currentHomeTeam);
+    streamInitialized = true; // Set flag after successful switch
   } else {
     console.error('Team names still not available for stream switch');
     alert('Unable to switch stream: team names not available. Please refresh the page and try again.');
@@ -2508,16 +2511,17 @@ async function fetchAndRenderTopScoreboard() {
 
     // Set up stream embed only for live games - but only if not already initialized
     if (gameState === 'in') {
-      const streamContainer = document.getElementById('streamEmbed');
-      if (streamContainer && streamContainer.innerHTML.trim() === '') {
-        // Only initialize stream if container is empty (first time)
+      if (!streamInitialized) {
+        // Only initialize stream once during the entire session
         renderStreamEmbed(awayTeam.team.displayName, homeTeam.team.displayName);
+        streamInitialized = true;
       }
     } else {
-      // Clear stream container for non-live games
+      // Clear stream container for non-live games and reset flag
       const streamContainer = document.getElementById('streamEmbed');
       if (streamContainer) {
         streamContainer.innerHTML = '';
+        streamInitialized = false; // Reset flag when game is not live
       }
     }
 

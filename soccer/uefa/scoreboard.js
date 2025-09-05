@@ -1751,6 +1751,7 @@ let currentAwayTeam = ''; // Store current away team name
 let currentHomeTeam = ''; // Store current home team name
 let isMuted = true; // Start muted to prevent autoplay issues
 let availableStreams = {}; // Store available streams from API
+let streamInitialized = false; // Flag to prevent unnecessary stream re-renders
 
 // API functions for streamed.pk
 const STREAM_API_BASE = 'https://streamed.pk/api';
@@ -2332,7 +2333,9 @@ window.switchToStream = function(streamType) {
   if (currentAwayTeam && currentHomeTeam) {
     const gameId = getQueryParam("gameId");
     if (gameId) {
+      streamInitialized = false; // Reset flag to allow stream switching
       renderStreamEmbed(gameId);
+      streamInitialized = true; // Set flag after successful switch
     } else {
       console.error('No gameId available for stream switch');
     }
@@ -2724,10 +2727,9 @@ window.showLineup = function() {
   
   // Show stream when on lineup tab
   const streamContainer = document.getElementById("streamEmbed");
-  if (streamContainer) {
-    if (gameId) {
-      renderStreamEmbed(gameId).catch(console.error);
-    }
+  if (streamContainer && gameId && !streamInitialized) {
+    renderStreamEmbed(gameId).catch(console.error);
+    streamInitialized = true;
   }
 };
 
@@ -2773,10 +2775,11 @@ setInterval(fetchAndRenderTopScoreboard, 6000);
 
 // Initialize stream on page load
 const gameId = getQueryParam("gameId");
-if (gameId) {
+if (gameId && !streamInitialized) {
   // Load stream after a short delay to ensure DOM is ready
   setTimeout(() => {
     renderStreamEmbed(gameId).catch(console.error);
+    streamInitialized = true;
   }, 1000);
 }
 

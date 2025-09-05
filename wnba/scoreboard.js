@@ -6,6 +6,7 @@ let currentAwayTeam = ''; // Store current away team name
 let currentHomeTeam = ''; // Store current home team name
 let isMuted = true; // Start muted to prevent autoplay issues
 let availableStreams = {}; // Store available streams from API
+let streamInitialized = false; // Flag to prevent unnecessary stream re-renders
 
 // API functions for streamed.pk
 const STREAM_API_BASE = 'https://streamed.pk/api';
@@ -593,7 +594,9 @@ window.switchToStream = function(streamType) {
 
   // Generate new embed URL using API if available
   if (currentAwayTeam && currentHomeTeam) {
+    streamInitialized = false; // Reset flag to allow stream switching
     renderStreamEmbed(currentAwayTeam, currentHomeTeam);
+    streamInitialized = true; // Set flag after successful switch
   } else {
     console.log('Cannot switch streams: team names not available');
   }
@@ -987,24 +990,21 @@ async function fetchAndRenderTopScoreboard() {
 
     // Render the live stream only if teams have changed or no stream exists AND game is not over
     if (awayTeam && homeTeam && !isGameOver) {
-      const currentTeamsKey = `${awayTeam.displayName}-${homeTeam.displayName}`;
-      const storedTeamsKey = `${currentAwayTeam}-${currentHomeTeam}`;
-
-      // Only render stream if teams changed or no stream container exists
-      const streamContainer = document.getElementById('streamEmbed');
-      if (currentTeamsKey !== storedTeamsKey || !streamContainer || streamContainer.children.length === 0) {
-        console.log('Teams changed or no stream exists, rendering stream embed');
+      if (!streamInitialized) {
+        console.log('Initializing stream embed for first time');
         renderStreamEmbed(awayTeam.displayName, homeTeam.displayName);
+        streamInitialized = true;
       } else {
-        console.log('Teams unchanged, skipping stream embed render to prevent jittering');
+        console.log('Stream already initialized, skipping render to prevent jittering');
       }
     } else if (isGameOver) {
-      // Clear stream container for finished games
+      // Clear stream container for finished games and reset flag
       const streamContainer = document.getElementById('streamEmbed');
       if (streamContainer) {
         streamContainer.innerHTML = '';
         streamContainer.style.marginBottom = '35px';
-        console.log('Game is finished, cleared stream container');
+        streamInitialized = false; // Reset flag when game is over
+        console.log('Game is finished, cleared stream container and reset flag');
       }
     }
 

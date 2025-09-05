@@ -307,6 +307,7 @@ let currentAwayTeam = ''; // Store current away team name
 let currentHomeTeam = ''; // Store current home team name
 let isMuted = true; // Start muted to prevent autoplay issues
 let availableStreams = {}; // Store available streams from API
+let streamInitialized = false; // Flag to prevent unnecessary stream re-renders
 
 // API functions for streamed.pk
 const STREAM_API_BASE = 'https://streamed.pk/api';
@@ -962,7 +963,9 @@ window.switchToStream = function(streamType) {
 
   // Generate new embed URL using renderStreamEmbed to avoid browser history
   if (currentAwayTeam && currentHomeTeam) {
+    streamInitialized = false; // Reset flag to allow stream switching
     renderStreamEmbed(currentAwayTeam, currentHomeTeam);
+    streamInitialized = true; // Set flag after successful switch
   } else {
     console.error('Team names still not available for stream switch');
     alert('Unable to switch stream: team names not available. Please refresh the page and try again.');
@@ -2172,14 +2175,16 @@ async function fetchAndRenderTopScoreboard() {
 
     // Add stream embed after linescore (only render once and only for in-progress games)
     const isInProgress = gameStatus !== "Final" && gameStatus !== "Scheduled";
-    const streamContainer = document.getElementById("streamEmbed");
-    if (!streamContainer.innerHTML && isInProgress) {
+    if (isInProgress && !streamInitialized) {
       renderStreamEmbed(awayTeam?.displayName, homeTeam?.displayName);
-    } else if (isInProgress && !streamContainer.innerHTML) {
-      renderStreamEmbed(awayTeam?.displayName, homeTeam?.displayName);
-    } else if (!isInProgress && streamContainer.innerHTML) {
-      // Clear stream container if game is finished
-      streamContainer.innerHTML = "";
+      streamInitialized = true;
+    } else if (!isInProgress) {
+      // Clear stream container if game is finished and reset flag
+      const streamContainer = document.getElementById("streamEmbed");
+      if (streamContainer && streamContainer.innerHTML) {
+        streamContainer.innerHTML = "";
+        streamInitialized = false;
+      }
     }
 
     // Remove play description functionality - no longer needed
