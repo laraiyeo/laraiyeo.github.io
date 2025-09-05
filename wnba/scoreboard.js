@@ -604,15 +604,21 @@ window.switchToStream = function(streamType) {
   if (currentAwayTeam && currentHomeTeam) {
     streamInitialized = false; // Reset flag to allow stream switching
     
-    // Get the HTML from renderStreamEmbed and set it to the container
-    const streamHTML = renderStreamEmbed(currentAwayTeam, currentHomeTeam);
-    const streamContainer = document.getElementById('stream-container');
-    if (streamContainer && streamHTML) {
-      streamContainer.innerHTML = streamHTML;
-      console.log('WNBA switchToStream: Updated stream container with new HTML');
-    } else {
-      console.error('WNBA switchToStream: Stream container not found or no HTML returned');
-    }
+    // Handle the async renderStreamEmbed function properly
+    renderStreamEmbed(currentAwayTeam, currentHomeTeam)
+      .then(streamHTML => {
+        const streamContainer = document.getElementById('streamEmbed');
+        if (streamContainer && streamHTML) {
+          streamContainer.innerHTML = streamHTML;
+          streamInitialized = true;
+          console.log('WNBA switchToStream: Updated stream container with new HTML');
+        } else {
+          console.error('WNBA switchToStream: Stream container not found or no HTML returned');
+        }
+      })
+      .catch(error => {
+        console.error('WNBA Error switching stream:', error);
+      });
     
     streamInitialized = true; // Set flag after successful switch
   } else {
@@ -1012,9 +1018,22 @@ async function fetchAndRenderTopScoreboard() {
     if (awayTeam && homeTeam && !isGameOver) {
       if (!streamInitialized) {
         console.log('WNBA Game is not over, initializing stream embed for first time');
-        renderStreamEmbed(awayTeam.displayName, homeTeam.displayName);
-        streamInitialized = true;
-        console.log('WNBA Stream initialized successfully');
+        
+        // Handle the async renderStreamEmbed function properly
+        renderStreamEmbed(awayTeam.displayName, homeTeam.displayName)
+          .then(streamHTML => {
+            const streamContainer = document.getElementById('streamEmbed');
+            if (streamContainer && streamHTML) {
+              streamContainer.innerHTML = streamHTML;
+              streamInitialized = true;
+              console.log('WNBA Stream initialized successfully');
+            } else {
+              console.error('WNBA Stream container not found or no HTML returned');
+            }
+          })
+          .catch(error => {
+            console.error('WNBA Error initializing stream:', error);
+          });
       } else {
         console.log('WNBA Stream already initialized, skipping render to prevent jittering');
       }

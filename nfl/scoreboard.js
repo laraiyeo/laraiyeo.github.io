@@ -965,15 +965,21 @@ window.switchToStream = function(streamType) {
   if (currentAwayTeam && currentHomeTeam) {
     streamInitialized = false; // Reset flag to allow stream switching
     
-    // Get the HTML from renderStreamEmbed and set it to the container
-    const streamHTML = renderStreamEmbed(currentAwayTeam, currentHomeTeam);
-    const streamContainer = document.getElementById('stream-container');
-    if (streamContainer && streamHTML) {
-      streamContainer.innerHTML = streamHTML;
-      console.log('NFL switchToStream: Updated stream container with new HTML');
-    } else {
-      console.error('NFL switchToStream: Stream container not found or no HTML returned');
-    }
+    // Handle the async renderStreamEmbed function properly
+    renderStreamEmbed(currentAwayTeam, currentHomeTeam)
+      .then(streamHTML => {
+        const streamContainer = document.getElementById('streamEmbed');
+        if (streamContainer && streamHTML) {
+          streamContainer.innerHTML = streamHTML;
+          streamInitialized = true;
+          console.log('NFL switchToStream: Updated stream container with new HTML');
+        } else {
+          console.error('NFL switchToStream: Stream container not found or no HTML returned');
+        }
+      })
+      .catch(error => {
+        console.error('NFL Error switching stream:', error);
+      });
     
     streamInitialized = true; // Set flag after successful switch
   } else {
@@ -2200,9 +2206,22 @@ async function fetchAndRenderTopScoreboard() {
     
     if (isInProgress && !streamInitialized) {
       console.log('Game is in progress, initializing stream...');
-      renderStreamEmbed(awayTeam?.displayName, homeTeam?.displayName);
-      streamInitialized = true;
-      console.log('NFL Stream initialized successfully');
+      
+      // Handle the async renderStreamEmbed function properly
+      renderStreamEmbed(awayTeam?.displayName, homeTeam?.displayName)
+        .then(streamHTML => {
+          const streamContainer = document.getElementById('streamEmbed');
+          if (streamContainer && streamHTML) {
+            streamContainer.innerHTML = streamHTML;
+            streamInitialized = true;
+            console.log('NFL Stream initialized successfully');
+          } else {
+            console.error('NFL Stream container not found or no HTML returned');
+          }
+        })
+        .catch(error => {
+          console.error('NFL Error initializing stream:', error);
+        });
     } else if (!isInProgress) {
       console.log('Game is not in progress (status:', gameStatus, '), clearing stream...');
       // Clear stream container if game is finished and reset flag
