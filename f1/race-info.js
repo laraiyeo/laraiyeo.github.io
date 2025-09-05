@@ -1314,13 +1314,14 @@ async function fetchCompetitionResults(raceId) {
         competitions[result.key] = result.data;
       });
       
+      console.log('F1 fetchCompetitionResults: Found competitions:', Object.keys(competitions));
+      
       // Cache the results
       competitionResultsCache[cacheKey] = competitions;
       cacheExpiry[cacheKey] = now + CACHE_DURATION;
       
       return competitions;
       
-    return null;
   } catch (error) {
     console.error('Error fetching competition results:', error);
     return null;
@@ -1328,7 +1329,10 @@ async function fetchCompetitionResults(raceId) {
 }
 
 function renderCompetitionResults(competitions) {
+  console.log('F1 renderCompetitionResults called with:', competitions);
+  
   if (!competitions || Object.keys(competitions).length === 0) {
+    console.log('F1 renderCompetitionResults: No competitions data available');
     return '<div class="loading">No competition results available</div>';
   }
   
@@ -1730,7 +1734,7 @@ function renderStreamEmbed(raceName) {
           <button onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">⛶ Fullscreen</button>
         </div>
       </div>
-      <div style="position: relative; width: 100%; margin: 0 auto; overflow: hidden;">
+      <div style="position: relative; width: 100%; margin: 0 auto; overflow: hidden; isolation: isolate;">
         <iframe
           title="Sky Sports F1 | Sky F1 Player"
           marginheight="0"
@@ -1742,7 +1746,7 @@ function renderStreamEmbed(raceName) {
           width="100%"
           height="${screenHeight}"
           frameborder="0"
-          style="aspect-ratio: 16/9; background: #000; border-radius: 8px;">
+          style="aspect-ratio: 16/9; background: #000; border-radius: 8px; isolation: isolate; will-change: auto; backface-visibility: hidden; transform: translateZ(0);">
         </iframe>
       </div>
     </div>
@@ -2005,7 +2009,8 @@ async function updateRaceResults(raceId) {
     delete competitionResultsCache[cacheKey];
     delete cacheExpiry[cacheKey];
     
-    const competitions = await fetchLiveStatistics(raceId);
+    // Use fetchCompetitionResults instead of fetchLiveStatistics to get all available results
+    const competitions = await fetchCompetitionResults(raceId);
     if (competitions) {
       const newResultsHtml = renderCompetitionResults(competitions);
       

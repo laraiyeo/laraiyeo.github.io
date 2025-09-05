@@ -1034,6 +1034,13 @@ function hashString(str) {
 async function renderStreamEmbed(awayTeamName, homeTeamName) {
   console.log('MLB renderStreamEmbed called with:', { awayTeamName, homeTeamName });
   
+  // Check if stream is already properly initialized and iframe exists
+  const existingIframe = document.getElementById('streamIframe');
+  if (existingIframe && streamInitialized) {
+    console.log('MLB Stream already initialized with existing iframe, preventing recreation to avoid mobile pause');
+    return streamContainer.innerHTML; // Return existing content
+  }
+  
   const streamContainer = document.getElementById('streamEmbed');
 
   if (!streamContainer) {
@@ -1239,13 +1246,13 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
       <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; margin-bottom: 10px; border-radius: 8px; text-align: center;">
         <p>Loading stream... <span id="streamStatus"></span></p>
       </div>
-      <div class="stream-iframe-container" style="position: relative; width: 100%; margin: 0 auto; overflow: hidden;">
+      <div class="stream-iframe-container" style="position: relative; width: 100%; margin: 0 auto; overflow: hidden; isolation: isolate;">
         <iframe
           id="streamIframe"
           src="${embedUrl}"
           width="100%"
           height="${screenHeight}"
-          style="aspect-ratio: 16/9; background: #000; display: none; border-radius: 8px;"
+          style="aspect-ratio: 16/9; background: #000; display: none; border-radius: 8px; isolation: isolate; will-change: auto; backface-visibility: hidden; transform: translateZ(0);"
           frameborder="0"
           allowfullscreen
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
@@ -1263,10 +1270,20 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
     const iframe = document.getElementById('streamIframe');
     if (iframe) {
       iframe.style.display = 'block';
+      
+      // Add mobile-specific optimizations to prevent pausing
+      iframe.style.isolation = 'isolate';
+      iframe.style.willChange = 'auto';
+      iframe.style.backfaceVisibility = 'hidden';
+      iframe.style.transform = 'translateZ(0)';
+      iframe.setAttribute('data-mobile-optimized', 'true');
+      
       const connectingDiv = document.getElementById('streamConnecting');
       if (connectingDiv) {
         connectingDiv.style.display = 'none';
       }
+      
+      console.log('MLB iframe optimized for mobile streaming');
     }
   }, 1000);
 
@@ -2306,7 +2323,27 @@ function startScoreboardUpdates(gamePk) {
   };
 
   updateScoreboard(); // Initial fetch
-  updateInterval = setInterval(updateScoreboard, 2000); // Poll every 2 seconds
+  
+  // Use different update intervals based on whether stream is active
+  // Reduce frequency when stream is playing to minimize mobile interruptions
+  const getUpdateInterval = () => {
+    const streamIframe = document.getElementById('streamIframe');
+    const isStreamActive = streamIframe && streamInitialized && streamIframe.style.display !== 'none';
+    console.log('MLB Update interval check:', { isStreamActive, streamInitialized, iframeExists: !!streamIframe });
+    return isStreamActive ? 8000 : 2000; // 8 seconds if stream active, 2 seconds otherwise
+  };
+  
+  updateInterval = setInterval(updateScoreboard, getUpdateInterval());
+  
+  // Dynamically adjust interval based on stream status
+  setInterval(() => {
+    if (updateInterval) {
+      const currentInterval = getUpdateInterval();
+      clearInterval(updateInterval);
+      updateInterval = setInterval(updateScoreboard, currentInterval);
+      console.log('MLB Update interval adjusted to:', currentInterval, 'ms');
+    }
+  }, 15000); // Check every 15 seconds if we need to adjust frequency
 }
 
 // Utility function to get team abbreviations

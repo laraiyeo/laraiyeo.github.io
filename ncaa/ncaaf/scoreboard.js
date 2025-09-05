@@ -1334,13 +1334,13 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
       <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; margin-bottom: 10px; border-radius: 8px; text-align: center;">
         <p>Loading stream... <span id="streamStatus"></span></p>
       </div>
-      <div class="stream-iframe-container" style="position: relative; width: 100%; margin: 0 auto; overflow: hidden;">
+      <div class="stream-iframe-container" style="position: relative; width: 100%; margin: 0 auto; overflow: hidden; isolation: isolate;">
         <iframe
           id="streamIframe"
           src="${embedUrl}"
           width="100%"
           height="${screenHeight}"
-          style="aspect-ratio: 16/9; background: #000; display: none; border-radius: 8px;"
+          style="aspect-ratio: 16/9; background: #000; display: none; border-radius: 8px; isolation: isolate; will-change: auto; backface-visibility: hidden; transform: translateZ(0);"
           frameborder="0"
           allowfullscreen
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
