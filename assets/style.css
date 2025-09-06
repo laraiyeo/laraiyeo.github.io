@@ -176,6 +176,10 @@ body {
     background-image: url('ncaa.png');
 }
 
+.block {
+    cursor: pointer;
+}
+
 @media (max-width: 475px) {
     .main-container {
         grid-template-columns: 1fr; /* Single column layout on small screens */

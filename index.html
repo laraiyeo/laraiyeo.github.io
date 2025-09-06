@@ -69,5 +69,15 @@
       </div>
     </div>
   <script src="navbarLoader.js"></script>
+  <script>
+    document.querySelectorAll('.block').forEach(block => {
+    block.addEventListener('click', () => {
+    const link = block.querySelector('.block-link');
+    if (link) {
+      window.location.href = link.href;
+    }
+    });
+    });
+  </script>
 </body>
 </html>
