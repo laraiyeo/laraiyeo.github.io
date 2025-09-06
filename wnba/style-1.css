@@ -412,8 +412,7 @@ body {
 }
 
 .stream-embed {
-  transform: translateX(-300px);
-  margin-bottom: 80px;
+  margin-bottom: 25px;
 }
 
 .content-section.active {
@@ -1520,6 +1519,6 @@ body {
 
   .stream-embed {
     transform: translateX(0px);
-    margin-bottom: 80px;
+    margin-bottom: 25px;
   }
 }

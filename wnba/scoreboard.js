@@ -2374,7 +2374,7 @@ window.tryNextStream = tryNextStream;
 window.startStreamTesting = startStreamTesting;
 
 // Copy Expanded Play Card Function - captures everything including mini court and players
-window.copyExpandedPlayCard = async function(playIndex, teamName, teamAbbreviation, isHomeTeam, teamColor) {
+window.copyExpandedPlayCard = async function(playIndex, teamColor, teamName, teamAbbreviation, isHomeTeam) {
   try {
     // Find the play elements - the expanded content
     const playElement = document.getElementById(`play-${playIndex}`);
@@ -2578,6 +2578,7 @@ window.copyExpandedPlayCard = async function(playIndex, teamName, teamAbbreviati
     playerImage.forEach(div => {
       div.style.width = '80px';
       div.style.height = '60px';
+      div.style.background = 'transparent';
     });
 
     // Ensure all images are loaded before capturing
