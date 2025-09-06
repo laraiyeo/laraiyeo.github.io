@@ -471,7 +471,9 @@ async function fetchGameDetails(gameId, competition) {
         : `${getOrdinalSuffix(competition.status.period)} Quarter`;
       periodEl.textContent = periodText;
 
-      statusEl.textContent = isHalftime ? "Halftime" : isEndOfPeriod ? "End" : competition.status.displayClock;
+      const isMobile = window.innerWidth < 525;
+
+      statusEl.textContent = isHalftime ? (isMobile ? "Half" : "Halftime") : isEndOfPeriod ? "End" : competition.status.displayClock;
     }
   } catch (err) {
     console.error(`Error fetching details for game ${gameId}:`, err);
