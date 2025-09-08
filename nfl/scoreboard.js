@@ -1705,6 +1705,10 @@ function showFeedback(message, type) {
 // Function to capture and copy play card as image
 async function captureAndCopyPlayCard(element) {
   const { default: html2canvas } = await import('https://cdn.skypack.dev/html2canvas');
+
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                  ('ontouchstart' in window) || 
+                  (navigator.maxTouchPoints > 0);
   
   // Clone the element to modify it for clipboard copy without affecting the original
   const clonedElement = element.cloneNode(true);
@@ -1724,7 +1728,7 @@ async function captureAndCopyPlayCard(element) {
   const headshotImg = clonedElement.querySelector('.copy-player-image');
   if (headshotImg) {
     headshotImg.style.width = '114px';
-    headshotImg.style.height = '74px';
+    headshotImg.style.height = `${isMobile ? '76px' : '74px'}`;
   }
 
   // Temporarily add the cloned element to the DOM for rendering
@@ -3272,8 +3276,8 @@ async function renderPlayCopyCard(playId) {
   const awayScore = targetPlay.awayScore || 0;
   const homeScore = targetPlay.homeScore || 0;
   const shortText = targetPlay.shortText || targetPlay.text || '';
-  const downDistanceText = targetPlay.end?.downDistanceText || '';
-  
+  const downDistanceText = targetPlay.start?.downDistanceText || targetPlay.end?.downDistanceText || '';
+
   // Get team logos
   const homeTeamLogo = homeTeamData?.team?.logo || homeTeamData?.team?.logos?.[0]?.href || 'football.png';
   const awayTeamLogo = awayTeamData?.team?.logo || awayTeamData?.team?.logos?.[0]?.href || 'football.png';
