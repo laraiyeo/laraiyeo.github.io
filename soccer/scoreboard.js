@@ -13,6 +13,13 @@ function getAdjustedDateForSoccer() {
 // Logo cache to prevent repeated fetches
 let logoCache = new Map();
 
+function convertToHttps(url) {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+}
+
 // Function to get team logo with fallback and caching
 function getTeamLogoWithFallback(teamId) {
   // Check cache first
@@ -798,44 +805,37 @@ async function fetchAndRenderPlaysData(gameId) {
       return;
     }
     
-    // Only fetch commentary data for plays
-    const COMMENTARY_API_URL = `https://cdn.espn.com/core/soccer/commentary?xhr=1&gameId=${gameId}`;
-    const commentaryResponse = await fetch(COMMENTARY_API_URL);
+    // Fetch plays data from the new ESPN API endpoint
+    const PLAYS_API_URL = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/eng.1/events/${gameId}/competitions/${gameId}/plays?lang=en&region=us&limit=1000`;
+    const playsResponse = await fetch(convertToHttps(PLAYS_API_URL));
     
-    if (!commentaryResponse.ok) {
-      throw new Error(`Commentary API responded with status: ${commentaryResponse.status}`);
+    if (!playsResponse.ok) {
+      throw new Error(`Plays API responded with status: ${playsResponse.status}`);
     }
     
-    const commentaryData = await commentaryResponse.json();
+    const playsData = await playsResponse.json();
     
-    // Store commentary data globally for play-by-play rendering
-    window.currentCommentaryData = commentaryData;
-    
-    // Also ensure we have lineup data for goal card stats (if not already available)
-    if (!window.currentGameData || !window.currentGameData.rosters) {
-      try {
-        const LINEUP_API_URL = `https://cdn.espn.com/core/soccer/lineups?xhr=1&gameId=${gameId}`;
-        const lineupResponse = await fetch(LINEUP_API_URL);
-        if (lineupResponse.ok) {
-          const lineupData = await lineupResponse.json();
-          // Store the roster data from lineups for goal card stats
-          if (lineupData.gamepackageJSON && lineupData.gamepackageJSON.rosters) {
-            if (!window.currentGameData) window.currentGameData = {};
-            window.currentGameData.rosters = lineupData.gamepackageJSON.rosters;
-          }
-        }
-      } catch (error) {
-        console.warn("Could not fetch lineup data for goal card stats:", error);
-      }
-    }
+    // Store plays data globally for play-by-play rendering
+    window.currentPlaysData = playsData;
     
     // Update play-by-play if it's visible
     const playsContent = document.getElementById('playsContent');
     if (playsContent && playsContent.classList.contains('active')) {
-      renderPlayByPlay(gameId, commentaryData);
+      renderPlayByPlay(gameId, playsData);
     }
   } catch (error) {
-    console.error("Error fetching commentary data:", error);
+    console.error("Error fetching plays data:", error);
+    
+    // Hide play-by-play section and show message
+    const playsContainer = document.querySelector('.plays-container');
+    if (playsContainer) {
+      playsContainer.innerHTML = `
+        <div style="text-align: center; padding: 20px; color: #777;">
+          <p>Play-by-play data is currently unavailable</p>
+          <p style="font-size: 0.9em;">This may be due to network issues or the match hasn't started yet</p>
+        </div>
+      `;
+    }
   }
 }
 
@@ -960,41 +960,67 @@ function renderMiniField(coordinate, coordinate2, eventType = 'gen', teamSide = 
 }
 
 // Function to render a custom goal card (similar to MLB home run card)
-function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, teamSide, homeTeam, awayTeam) {
-  const playData = play.play || play;
-  const scorer = playData.participants?.[0]?.athlete || null;
-  const assister = playData.participants?.[1]?.athlete || null;
+async function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, teamSide, homeTeam, awayTeam, gameId) {
+  // Get scorer information from participants
+  let scorer = null;
+  let assister = null;
+  
+  if (play.participants && play.participants.length > 0) {
+    // Find the scorer (type = "scorer")
+    const scorerParticipant = play.participants.find(p => p.type === "scorer");
+    if (scorerParticipant && scorerParticipant.athlete && scorerParticipant.athlete.$ref) {
+      try {
+        const athleteResponse = await fetch(convertToHttps(scorerParticipant.athlete.$ref));
+        scorer = await athleteResponse.json();
+      } catch (error) {
+        console.error("Error fetching scorer data:", error);
+      }
+    }
+    
+    // Find the assister (type = "assister")
+    const assisterParticipant = play.participants.find(p => p.type === "assister");
+    if (assisterParticipant && assisterParticipant.athlete && assisterParticipant.athlete.$ref) {
+      try {
+        const athleteResponse = await fetch(convertToHttps(assisterParticipant.athlete.$ref));
+        assister = await athleteResponse.json();
+      } catch (error) {
+        console.error("Error fetching assister data:", error);
+      }
+    }
+  }
   
   if (!scorer) return '';
   
   const scorerName = scorer.displayName || 'Unknown Player';
   const assisterName = assister ? assister.displayName : null;
-  const minute = play.time?.displayValue || play.clock?.displayValue || '';
-  const goalType = play.text?.toLowerCase().includes('penalty') ? 'Penalty Goal' : 'Goal';
+  const minute = play.clock?.displayValue || '';
+  const playText = play.text || play.shortText || play.type?.text || '';
+  const goalType = playText.toLowerCase().includes('penalty') ? 'Penalty Goal' : 
+                   play.ownGoal ? 'Own Goal' : 'Goal';
   
   // Get team abbreviation for the scorer
   const scoringTeam = teamSide === 'home' ? homeTeam : awayTeam;
   const teamAbbr = scoringTeam?.team?.abbreviation || scoringTeam?.abbreviation || '';
   
-  // Extract field position coordinates for mini field (reverted to original)
+  // Extract field position coordinates for mini field
   let coordinate = null;
   let coordinate2 = null;
   
-  if (playData.fieldPositionX !== undefined && playData.fieldPositionY !== undefined) {
+  if (play.fieldPositionX !== undefined && play.fieldPositionY !== undefined) {
     coordinate = {
-      x: playData.fieldPositionX,
-      y: playData.fieldPositionY
+      x: play.fieldPositionX,
+      y: play.fieldPositionY
     };
     
-    if (playData.fieldPosition2X !== undefined && playData.fieldPosition2Y !== undefined) {
+    if (play.fieldPosition2X !== undefined && play.fieldPosition2Y !== undefined) {
       coordinate2 = {
-        x: playData.fieldPosition2X,
-        y: playData.fieldPosition2Y
+        x: play.fieldPosition2X,
+        y: play.fieldPosition2Y
       };
     }
   }
   
-  // Get scorer stats from commentary roster data
+  // Get scorer stats from the new player stats API
   let scorerStats = {
     goals: 0,
     assists: 0,
@@ -1004,43 +1030,51 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
     redCards: 0
   };
   
-  // Get stats from the commentary roster data
+  // Fetch player stats using the new API endpoint
   try {
-    // Access the global roster data that should be available
-    if (window.currentGameData && window.currentGameData.rosters) {
-      const rosters = window.currentGameData.rosters;
+    if (scorer.id && team && team.$ref) {
+      const teamResponse = await fetch(convertToHttps(team.$ref));
+      const teamData = await teamResponse.json();
+      const teamId = teamData.id;
       
-      for (const roster of rosters) {
-        if (roster.roster && Array.isArray(roster.roster)) {
-          // Match by athlete displayName or fullName
-          const player = roster.roster.find(p => 
-            p.athlete && (
-              p.athlete.displayName === scorer.displayName ||
-              p.athlete.fullName === scorer.displayName ||
-              p.athlete.id === scorer.id
-            )
-          );
-          if (player && player.stats) {
-            const stats = player.stats.reduce((acc, stat) => {
-              acc[stat.abbreviation] = stat.displayValue;
-              return acc;
-            }, {});
-            
-            scorerStats = {
-              goals: stats["G"] || 0,
-              assists: stats["A"] || 0,
-              shots: stats["SH"] || 0,
-              shotsOnTarget: stats["ST"] || stats["SG"] || 0, // Try both ST and SG
-              yellowCards: stats["YC"] || 0,
-              redCards: stats["RC"] || 0
-            };
-            break;
-          }
+      // Fetch player stats for this game
+      const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/eng.1/events/${gameId}/competitions/${gameId}/competitors/${teamId}/roster/${scorer.id}/statistics/0?lang=en&region=us`;
+      const statsResponse = await fetch(convertToHttps(statsUrl));
+      
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        
+        // Parse the nested structure like in c3.txt
+        if (statsData.splits && statsData.splits.categories) {
+          const allStats = {};
+          
+          // Loop through all categories (defensive, offensive, etc.)
+          statsData.splits.categories.forEach(category => {
+            if (category.stats && Array.isArray(category.stats)) {
+              category.stats.forEach(stat => {
+                if (stat.name && stat.value !== undefined) {
+                  allStats[stat.name] = stat.value;
+                }
+              });
+            }
+          });
+          
+          // Map to the stats we want to display
+          scorerStats = {
+            goals: allStats.totalGoals || allStats.goalsScored || 0,
+            assists: allStats.goalAssists || allStats.assistsProvided || 0,
+            shots: allStats.totalShots || allStats.shots || allStats.shotsTotal || 0,
+            shotsOnTarget: allStats.shotsOnTarget || allStats.shotsOnGoal || allStats.shotsOnTargetTotal || 0,
+            yellowCards: allStats.yellowCards || allStats.yellowCardsReceived || 0,
+            redCards: allStats.redCards || allStats.redCardsReceived || 0
+          };
+          
+          console.log('Player stats parsed:', scorerStats, 'from data:', allStats);
         }
       }
     }
   } catch (error) {
-    console.log('Goal Card Debug - Error retrieving stats:', error);
+    console.warn('Could not fetch player stats for goal card:', error);
   }
   
   // Determine if this was a winning, tying, or leading goal
@@ -1079,10 +1113,8 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
   const miniFieldHtml = renderMiniField(coordinate, coordinate2, 'goal', teamSide, teamColorHex, team?.shortDisplayName || '');
   
   // Get team logos using cached fallback function
-  const homeTeamLogo = logoCache.get(homeTeam?.team?.id || homeTeam?.id) || 
-                       `https://a.espncdn.com/i/teamlogos/soccer/500/${homeTeam?.team?.id || homeTeam?.id}.png`;
-  const awayTeamLogo = logoCache.get(awayTeam?.team?.id || awayTeam?.id) || 
-                       `https://a.espncdn.com/i/teamlogos/soccer/500/${awayTeam?.team?.id || awayTeam?.id}.png`;
+  const homeTeamLogo = await getTeamLogoWithFallback(homeTeam?.team?.id || homeTeam?.id);
+  const awayTeamLogo = await getTeamLogoWithFallback(awayTeam?.team?.id || awayTeam?.id);
   
   return `
     <div id="${goalCardId}" class="goal-card" style="background: linear-gradient(135deg, ${teamColorHex}15 0%, ${teamColorHex}05 100%); border-left: 4px solid ${teamColorHex}; margin: 10px 0; padding: 20px; border-radius: 8px; color: white; position: relative;">
@@ -1115,7 +1147,7 @@ function renderGoalCard(play, team, teamColor, teamLogo, homeScore, awayScore, t
             </div>
             ${assisterName ? `
               <div class="assist-info" style="font-size: 14px; color: #999;">
-                ${assisterName}
+                Assist: ${assisterName}
               </div>
             ` : ''}
           </div>
@@ -1217,61 +1249,103 @@ function getTeamColorWithAlternateLogic(team) {
   }
 }
 
-async function renderPlayByPlay(gameId, existingCommentaryData = null) {
+async function renderPlayByPlay(gameId, playsData = null) {
   try {
     let data;
     
     // Use existing data if provided, otherwise fetch it
-    if (existingCommentaryData) {
-      data = existingCommentaryData;
+    if (playsData) {
+      data = playsData;
     } else {
-      const COMMENTARY_API_URL = `https://cdn.espn.com/core/soccer/commentary?xhr=1&gameId=${gameId}`;
+      const PLAYS_API_URL = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/eng.1/events/${gameId}/competitions/${gameId}/plays?lang=en&region=us&limit=1000`;
       
       let response;
       try {
-        response = await fetch(COMMENTARY_API_URL);
+        response = await fetch(convertToHttps(PLAYS_API_URL));
         if (!response.ok) {
-          throw new Error(`Commentary API responded with status: ${response.status}`);
+          throw new Error(`Plays API responded with status: ${response.status}`);
         }
         data = await response.json();
       } catch (fetchError) {
-        console.warn("Failed to fetch commentary data (CORS or network issue):", fetchError.message);
+        console.warn("Failed to fetch plays data:", fetchError.message);
         
         // Hide play-by-play section and show message
         const playsContainer = document.querySelector('.plays-container');
         if (playsContainer) {
           playsContainer.innerHTML = `
             <div style="text-align: center; padding: 20px; color: #777;">
-              <p>Play-by-play commentary is currently unavailable</p>
-              <p style="font-size: 0.9em;">This may be due to CORS restrictions or network issues</p>
+              <p>Play-by-play data is currently unavailable</p>
+              <p style="font-size: 0.9em;">This may be due to network restrictions or the match hasn't started yet</p>
             </div>
           `;
         }
-        return; // Exit early if commentary fetch fails
+        return;
       }
     }
     
-    if (!data.gamepackageJSON || !data.gamepackageJSON.commentary) {
-      console.warn("No commentary data available in response");
+    if (!data.items || data.items.length === 0) {
+      console.warn("No plays data available in response");
       const playsContainer = document.querySelector('.plays-container');
       if (playsContainer) {
         playsContainer.innerHTML = `
           <div style="text-align: center; padding: 20px; color: #777;">
-            <p>No commentary data available for this match</p>
+            <p>No plays data available for this match</p>
           </div>
         `;
       }
       return;
     }
 
-    const commentary = data.gamepackageJSON.commentary;
-    const homeTeam = data.gamepackageJSON.header.competitions[0].competitors[0];
-    const awayTeam = data.gamepackageJSON.header.competitions[1] || data.gamepackageJSON.header.competitions[0].competitors[1];
+    // Get team info from a scoring play or use game data
+    let homeTeam = null;
+    let awayTeam = null;
     
+    // Try to get team info from plays data
+    for (const play of data.items) {
+      if (play.team && play.team.$ref) {
+        try {
+          const teamResponse = await fetch(convertToHttps(play.team.$ref));
+          const teamData = await teamResponse.json();
+          
+          // We need to get both teams - fetch game data to determine home/away
+          if (!homeTeam && !awayTeam) {
+            // Try to get game data to determine which team is home/away
+            try {
+              const gameResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/summary?event=${gameId}`);
+              const gameData = await gameResponse.json();
+              
+              if (gameData.header && gameData.header.competitions && gameData.header.competitions[0]) {
+                const competitors = gameData.header.competitions[0].competitors;
+                homeTeam = competitors.find(c => c.homeAway === "home");
+                awayTeam = competitors.find(c => c.homeAway === "away");
+              }
+            } catch (gameError) {
+              console.warn("Could not fetch game data for team info:", gameError);
+            }
+          }
+          break;
+        } catch (teamError) {
+          console.warn("Could not fetch team data:", teamError);
+        }
+      }
+    }
+    
+    // Fallback if we couldn't get teams from plays or game data
+    if (!homeTeam || !awayTeam) {
+      console.warn("Could not determine home/away teams");
+      const playsContainer = document.querySelector('.plays-container');
+      if (playsContainer) {
+        playsContainer.innerHTML = `
+          <div style="text-align: center; padding: 20px; color: #777;">
+            <p>Could not load team information</p>
+          </div>
+        `;
+      }
+      return;
+    }
+
     const homeTeamId = homeTeam.team.id;
     const awayTeamId = awayTeam.team.id;
-    const homeScore = parseInt(homeTeam.score || "0");
-    const awayScore = parseInt(awayTeam.score || "0");
 
     const homeLogo = await getTeamLogoWithFallback(homeTeamId);
     const awayLogo = await getTeamLogoWithFallback(awayTeamId);
@@ -1282,167 +1356,39 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
       playsScrollPosition = playsContainer.scrollTop;
     }
 
-    // Simply reverse the commentary array to show most recent plays first
-    const sortedCommentary = [...commentary].reverse();
+    // Sort plays in reverse chronological order (most recent first)
+    const sortedPlays = [...data.items].reverse();
     
-    console.log('Play order after reversal:', sortedCommentary.map(play => 
-      play.time?.displayValue || play.clock?.displayValue || 
-      (play.play && (play.play.time?.displayValue || play.play.clock?.displayValue)) || 'No time'
+    console.log('Play order after reversal:', sortedPlays.map(play => 
+      play.clock?.displayValue || 'No time'
     ));
-    
-    // Track score throughout the match using counter logic based on type.text
-    let homeGoalCount = 0;
-    let awayGoalCount = 0;
-    
-    // First pass: process all plays to count goals based on type.text field
-    const goalEvents = [];
-    
-    // Sort commentary in chronological order (oldest first) for proper goal counting
-    const chronologicalCommentary = [...sortedCommentary].sort((a, b) => {
-      // Sort by sequence number if available (ascending for chronological order)
-      if (a.sequence !== undefined && b.sequence !== undefined) {
-        return a.sequence - b.sequence;
-      }
-      
-      // Fallback to clock.value if no sequence (ascending for chronological order)
-      const aClock = a.clock || (a.play && a.play.clock);
-      const bClock = b.clock || (b.play && b.play.clock);
-      
-      if (aClock && bClock && aClock.value !== undefined && bClock.value !== undefined) {
-        return aClock.value - bClock.value; // Lower clock value = earlier
-      }
-      
-      // Final fallback: maintain original order
-      return 0;
-    });
-    
-    chronologicalCommentary.forEach(play => {
-      const playData = play.play || play;
-      
-      // Check for goal using type.id field (70, 137, 98, 173 for goals, 97 for own goals)
-      const isGoal = playData.type && playData.type.id &&
-                     ['70', '137', '98', '173', '138', '97'].includes(playData.type.id.toString());
 
-      // Check if this is an own goal (ID 97)
-      const isOwnGoal = playData.type && playData.type.id && playData.type.id.toString() === '97';
-
-      // Check for goal deletion/overturned
-      const isGoalDeleted = playData.text && playData.text.toLowerCase().includes('deleted after review');
-
-      if (isGoal) {
-        // Determine which team scored using team.displayName
-        let scoringTeam = null;
-
-        if (playData.team && playData.team.displayName) {
-          if (playData.team.displayName === homeTeam.team.displayName) {
-            scoringTeam = 'home';
-          } else if (playData.team.displayName === awayTeam.team.displayName) {
-            scoringTeam = 'away';
-          }
-        }
-        if (scoringTeam === 'home') {
-          homeGoalCount++;
-        } else if (scoringTeam === 'away') {
-          awayGoalCount++;
-        }
-
-        goalEvents.push({
-          sequence: play.sequence || null,
-          clockValue: (play.clock || (play.play && play.play.clock))?.value || null,
-          homeScoreAfter: homeGoalCount,
-          awayScoreAfter: awayGoalCount,
-          scoringTeam: scoringTeam,
-          isOwnGoal: isOwnGoal
-        });
-      } else if (isGoalDeleted) {
-        // Handle deleted/overturned goals - subtract from the appropriate team
-        if (playData.team && playData.team.displayName) {
-          if (playData.team.displayName === homeTeam.team.displayName && homeGoalCount > 0) {
-            homeGoalCount--;
-          } else if (playData.team.displayName === awayTeam.team.displayName && awayGoalCount > 0) {
-            awayGoalCount--;
-          }
-
-          goalEvents.push({
-            sequence: play.sequence || null,
-            clockValue: (play.clock || (play.play && play.play.clock))?.value || null,
-            homeScoreAfter: homeGoalCount,
-            awayScoreAfter: awayGoalCount,
-            isDeleted: true
-          });
-        }
-      }
-    });
-
-    // Function to get score at any given sequence or clock value
-    function getScoreAtSequence(play) {
-      const playSequence = play.sequence;
-      const playClockValue = (play.clock || (play.play && play.play.clock))?.value;
-      
-      // Find the most recent goal event before or at this play
-      let mostRecentGoal = null;
-      for (const goal of goalEvents) {
-        let isBeforeOrAtThisPlay = false;
-        
-        // Compare by sequence if both have sequence numbers
-        if (playSequence !== undefined && goal.sequence !== undefined) {
-          isBeforeOrAtThisPlay = goal.sequence <= playSequence;
-        }
-        // Compare by clock value if no sequence numbers
-        else if (playClockValue !== undefined && goal.clockValue !== undefined) {
-          isBeforeOrAtThisPlay = goal.clockValue <= playClockValue;
-        }
-        // If only one has sequence/clock, use what's available
-        else if (goal.sequence !== undefined && playSequence !== undefined) {
-          isBeforeOrAtThisPlay = goal.sequence <= playSequence;
-        }
-        else if (goal.clockValue !== undefined && playClockValue !== undefined) {
-          isBeforeOrAtThisPlay = goal.clockValue <= playClockValue;
-        }
-        
-        if (isBeforeOrAtThisPlay) {
-          mostRecentGoal = goal;
-        } else {
-          break; // Goals are sorted, so no need to continue
-        }
-      }
-      
-      if (mostRecentGoal) {
-        return { home: mostRecentGoal.homeScoreAfter, away: mostRecentGoal.awayScoreAfter };
-      } else {
-        return { home: 0, away: 0 }; // Score before any goals
-      }
-    }
-
-    const playsHtml = sortedCommentary.map((play, index) => {
+    const playsHtml = await Promise.all(sortedPlays.map(async (play, index) => {
       const isOpen = openPlays.has(index);
       
-      // Handle nested play structure - check if play.play exists
-      const playData = play.play || play;
+      // Check if this is a scoring play
+      const isGoalPlay = play.scoringPlay || false;
       
-      // Check if this is a goal play using type.id field (70, 137, or 98)
-      const isGoalPlay = playData.type && playData.type.id && 
-                         ['70', '137', '98', '173', '138', '97'].includes(playData.type.id.toString());
+      // Get scores from the play data - for the last play (index 0), use previous play's scores
+      let currentHomeScore, currentAwayScore;
       
-      // Get the score at the time of this play using our counter logic
-      let scoreAtThisTime = getScoreAtSequence(play);
+      if (index === 0 && sortedPlays.length > 1) {
+        // This is the last/most recent play - use the previous play's scores
+        currentHomeScore = sortedPlays[1].homeScore || 0;
+        currentAwayScore = sortedPlays[1].awayScore || 0;
+      } else {
+        // For all other plays, use their own scores
+        currentHomeScore = play.homeScore || 0;
+        currentAwayScore = play.awayScore || 0;
+      }
       
-      // Use the calculated scores for display
-      const currentHomeScore = scoreAtThisTime.home;
-      const currentAwayScore = scoreAtThisTime.away;
+      const period = play.period ? play.period.number || 1 : 1;
+      const clock = play.clock ? play.clock.displayValue : '';
+      const text = play.text || play.shortText || play.type?.text || 'No description available';
       
-      const period = playData.period ? playData.period.number || playData.period.displayValue : '';
-      const clock = play.time ? play.time.displayValue : '';
-      const text = play.text || 'No description available';
-      
-      // Determine if this is a scoring play using the isGoalPlay we already calculated
+      // Determine if this is a scoring play
       const isScoring = isGoalPlay;
 
-      // Fix goalText to use correct nested structure
-      const goalText = isScoring && playData.participants && playData.participants[1] 
-        ? playData.shortText + ' Assisted by ' + playData.participants[1].athlete.displayName 
-        : playData.shortText || text;
-      
       // Get team colors using alternate color logic
       const homeColor = getTeamColorWithAlternateLogic(homeTeam.team);
       const awayColor = getTeamColorWithAlternateLogic(awayTeam.team);
@@ -1466,73 +1412,58 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
         eventType = 'offside';
       }
       
-      // Determine which team - use playData.team if available, otherwise fallback to text analysis
+      // Determine which team using play.team
       let teamDetermined = false;
-      if (playData.team && playData.team.displayName) {
-        if (playData.team.displayName === awayTeam.team.displayName) {
-          teamSide = 'away';
-          teamColor = awayColor;
-          teamDetermined = true;
-        } else {
-          teamSide = 'home';
-          teamColor = homeColor;
-          teamDetermined = true;
+      if (play.team && play.team.$ref) {
+        try {
+          const teamResponse = await fetch(convertToHttps(play.team.$ref));
+          const playTeam = await teamResponse.json();
+          
+          if (playTeam.id === awayTeamId) {
+            teamSide = 'away';
+            teamColor = awayColor;
+            teamDetermined = true;
+          } else if (playTeam.id === homeTeamId) {
+            teamSide = 'home';
+            teamColor = homeColor;
+            teamDetermined = true;
+          }
+        } catch (error) {
+          console.warn("Could not fetch team data for play:", error);
         }
-      } else {
-        // Fallback: try to determine from text content
-        if (text.includes(awayTeam.team.displayName) || text.includes(awayTeam.team.shortDisplayName)) {
-          teamSide = 'away';
-          teamColor = awayColor;
-          teamDetermined = true;
-        } else if (text.includes(homeTeam.team.displayName) || text.includes(homeTeam.team.shortDisplayName)) {
-          teamSide = 'home';
-          teamColor = homeColor;
-          teamDetermined = true;
-        }
-      }
-      
-      // Handle own goals - reverse the team for display purposes
-      if (teamDetermined && isScoring && playData.type && playData.type.id && playData.type.id.toString() === '97') {
-        // Reverse the team assignment for own goals
-        if (teamSide === 'away') {
-          teamSide = 'home';
-          teamColor = homeColor;
-        } else {
-          teamSide = 'away';
-          teamColor = awayColor;
-        }
-        console.log(`Own goal display: Original team ${playData.team.displayName}, displaying as ${teamSide} team`);
       }
       
       // If no team could be determined, use greyish color
       if (!teamDetermined) {
-        teamColor = '333'; // Greyish color for undetermined team events
+        teamColor = '333';
       }
 
-      // Extract field position coordinates based on event type
+      // Extract field position coordinates
       let coordinate = null;
-      let coordinate2 = null; // For ball end position
+      let coordinate2 = null;
       
-      if (playData.fieldPositionX !== undefined && playData.fieldPositionY !== undefined) {
-        // Player position (always available)
+      if (play.fieldPositionX !== undefined && play.fieldPositionY !== undefined) {
         coordinate = {
-          x: playData.fieldPositionX,
-          y: playData.fieldPositionY
+          x: play.fieldPositionX,
+          y: play.fieldPositionY
         };
         
-        // Ball end position (for goals and attempts)
-        if (playData.fieldPosition2X !== undefined && playData.fieldPosition2Y !== undefined) {
+        if (play.fieldPosition2X !== undefined && play.fieldPosition2Y !== undefined) {
           coordinate2 = {
-            x: playData.fieldPosition2X,
-            y: playData.fieldPosition2Y
+            x: play.fieldPosition2X,
+            y: play.fieldPosition2Y
           };
         }
       }
 
-      const miniField = renderMiniField(coordinate, coordinate2, eventType, teamSide, `#${teamColor}`, playData.team?.displayName || '');
+      const miniField = renderMiniField(coordinate, coordinate2, eventType, teamSide, `#${teamColor}`, '');
+
+      // Render goal card for scoring plays - use actual play scores, not modified ones
+      const goalCardHtml = isScoring ? 
+        await renderGoalCard(play, play.team, teamColor, (teamSide === 'home' ? homeLogo : awayLogo), play.homeScore || 0, play.awayScore || 0, teamSide, homeTeam, awayTeam, gameId) : '';
 
       return `
-        ${isScoring ? renderGoalCard(play, playData.team, teamColor, (teamSide === 'home' ? homeLogo : awayLogo), currentHomeScore, currentAwayScore, teamSide, homeTeam, awayTeam) : ''}
+        ${goalCardHtml}
         <div class="play-container ${isScoring ? 'scoring-play' : ''}" style="--team-color: #${teamColor};">
           <div class="play-header" onclick="togglePlay(${index})">
             <div class="play-main-info">
@@ -1575,7 +1506,7 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
                     </div>
                     <div class="event-details">
                       <div class="event-player-name">Match Event</div>
-                      <div class="event-description">${goalText}</div>
+                      <div class="event-description">${text}</div>
                       ${clock ? `<span class="event-type">${period ? `${getOrdinalSuffix(period)} - ${clock}` : clock}</span>` : ''}
                     </div>
                   </div>
@@ -1585,14 +1516,14 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
           </div>
         </div>
       `;
-    }).join('');
+    }));
 
     const playsPlaceholder = document.querySelector('.plays-placeholder');
     if (playsPlaceholder) {
       playsPlaceholder.innerHTML = `
-        <h2>Commentary</h2>
+        <h2>Plays</h2>
         <div class="plays-container">
-          ${playsHtml}
+          ${playsHtml.join('')}
         </div>
       `;
       
@@ -1616,7 +1547,7 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
           scrollTimeout = setTimeout(() => {
             isUserScrolling = false;
             console.log("User stopped scrolling - resuming updates");
-          }, 500); // Wait 0.5 seconds after scrolling stops
+          }, 500);
 
           // Save current scroll position
           playsScrollPosition = newPlaysContainer.scrollTop;
@@ -1628,13 +1559,13 @@ async function renderPlayByPlay(gameId, existingCommentaryData = null) {
     }
     
   } catch (error) {
-    console.error("Error loading commentary:", error);
+    console.error("Error loading plays:", error);
     const playsPlaceholder = document.querySelector('.plays-placeholder');
     if (playsPlaceholder) {
       playsPlaceholder.innerHTML = `
-        <h2>Commentary</h2>
+        <h2>Plays</h2>
         <div style="text-align: center; padding: 40px; color: #777;">
-          <p>Commentary not available for this match.</p>
+          <p>Plays not available for this match.</p>
         </div>
       `;
     }

@@ -1211,3 +1211,337 @@ body {
     width: 112%;
   }
 }
+
+/* Copy Play Button and Card Styles */
+.copy-play-btn {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  margin-left: 8px;
+  box-shadow: 0 2px 6px rgba(52, 152, 219, 0.3);
+  font-weight: 600;
+}
+
+.copy-play-btn:hover {
+  background: linear-gradient(135deg, #2980b9, #1f4e79);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+}
+
+.copy-play-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(52, 152, 219, 0.3);
+}
+
+.copy-card {
+  margin-top: 12px;
+  background: linear-gradient(135deg, #333 0%, #555 100%);
+  border: 2px solid #777;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.copy-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3498db, #e74c3c, #f39c12, #27ae60);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+.play-copy-card {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: white;
+}
+
+.copy-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.2);
+  margin: -20px -20px 16px -20px;
+  padding: 12px 20px;
+  border-radius: 12px 12px 0 0;
+  gap: 16px;
+}
+
+.copy-score-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.copy-team-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.copy-score {
+  font-weight: bold;
+  font-size: 20px;
+  color: #ccc;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  min-width: 80px;
+  text-align: center;
+}
+
+.copy-game-info {
+  font-size: clamp(10px, 2.5vw, 12px);
+  color: #bdc3c7;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-weight: 500;
+  margin-left: auto;
+  margin-top: -6px;
+  align-self: flex-start;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: fit-content;
+}
+
+.copy-card-main {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.copy-player-section {
+  flex-shrink: 0;
+}
+
+.copy-player-image-container {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  background: transparent;
+  border: 3px solid white;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copy-player-image {
+  width: 80px;
+  height: 80px;
+  border-radius: 9px;
+  overflow: hidden;
+  background: transparent;
+}
+
+.copy-player-headshot {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: none;
+  background: transparent;
+}
+
+.copy-player-team-logo {
+  position: absolute;
+  bottom: -4px;
+  left: -4px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  background: #555;
+}
+
+.copy-play-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.copy-play-text {
+  font-size: 18px;
+  margin-bottom: 8px;
+  line-height: 1.4;
+  color: #ecf0f1;
+  font-weight: 500;
+}
+
+.copy-participants {
+  font-size: 14px;
+  color: #bdc3c7;
+  line-height: 1.4;
+}
+
+.copy-participants strong {
+  color: #fff;
+  font-size: 15px;
+}
+
+.secondary-participant {
+  font-size: 13px;
+  color: #95a5a6;
+}
+
+.copy-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.copy-additional-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.copy-yac {
+  font-size: 13px;
+  color: #f39c12;
+  font-weight: 600;
+  background: rgba(243, 156, 18, 0.2);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(243, 156, 18, 0.3);
+}
+
+.copy-penalty {
+  font-size: 13px;
+  color: #e74c3c;
+  font-weight: 600;
+  background: rgba(231, 76, 60, 0.2);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+.copy-probability {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(39, 174, 96, 0.2);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(39, 174, 96, 0.3);
+}
+
+.copy-prob-text {
+  font-size: 14px;
+  font-weight: bold;
+  color: #27ae60;
+}
+
+.copy-prob-logo {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Responsive styles for copy cards */
+@media (max-width: 768px) {
+  .copy-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 15px;
+  }
+  
+  .copy-score-section {
+    font-size: 16px;
+    gap: 12px;
+  }
+  
+  .copy-team-logo {
+    width: 35px;
+    height: 35px;
+  }
+  
+  .copy-score {
+    font-size: 18px;
+    min-width: 70px;
+  }
+  
+  .copy-game-info {
+    font-size: 11px;
+    margin: 0;
+    align-self: flex-end;
+  }
+  
+  .copy-card-main {
+    gap: 12px;
+    padding: 12px;
+  }
+  
+  .copy-play-text {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .copy-score-section {
+    font-size: 14px;
+    gap: 10px;
+  }
+  
+  .copy-team-logo {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .copy-score {
+    font-size: 16px;
+    min-width: 60px;
+  }
+  
+  .copy-game-info {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+  
+  .copy-play-text {
+    font-size: 14px;
+  }
+  
+  .copy-participants {
+    font-size: 12px;
+  }
+}
+
+.copy-card-error {
+  color: #e74c3c;
+  text-align: center;
+  padding: 12px;
+  font-style: italic;
+}

@@ -2194,6 +2194,8 @@ async function loadPlayerStatsForModal(playerId, year, container, selectedMonth 
     let isTwoWayPlayer = false;
     let twpHittingData = null;
     let twpPitchingData = null;
+    let hasHittingStats = false;
+    let hasPitchingStats = false;
     
     try {
       const [hittingTest, pitchingTest] = await Promise.all([
@@ -2207,11 +2209,14 @@ async function loadPlayerStatsForModal(playerId, year, container, selectedMonth 
           pitchingTest.json()
         ]);
         
-        const hasHittingStats = twpHittingData.stats && twpHittingData.stats.length > 0 && twpHittingData.stats[0].splits && twpHittingData.stats[0].splits.length > 0;
-        const hasPitchingStats = twpPitchingData.stats && twpPitchingData.stats.length > 0 && twpPitchingData.stats[0].splits && twpPitchingData.stats[0].splits.length > 0;
+        hasHittingStats = twpHittingData.stats && twpHittingData.stats.length > 0 && twpHittingData.stats[0].splits && twpHittingData.stats[0].splits.length > 0;
+        hasPitchingStats = twpPitchingData.stats && twpPitchingData.stats.length > 0 && twpPitchingData.stats[0].splits && twpPitchingData.stats[0].splits.length > 0;
         
-        isTwoWayPlayer = hasHittingStats && hasPitchingStats;
-        console.log(`[MLB TWP DETECTION] Player ${selectedPlayer.person.fullName} - Hitting: ${hasHittingStats}, Pitching: ${hasPitchingStats}, TWP: ${isTwoWayPlayer}`);
+        // Consider a player TWP if they are positioned as TWP and have at least one type of stats
+        const isPositionedAsTWP = playerPosition === 'TWP' || playerPosition.includes('TWP');
+        isTwoWayPlayer = isPositionedAsTWP && (hasHittingStats || hasPitchingStats);
+        
+        console.log(`[MLB TWP DETECTION] Player ${selectedPlayer.person.fullName} - Position: ${playerPosition}, Hitting: ${hasHittingStats}, Pitching: ${hasPitchingStats}, TWP: ${isTwoWayPlayer}`);
       }
     } catch (error) {
       console.log(`[MLB TWP DETECTION] Error checking TWP status:`, error);

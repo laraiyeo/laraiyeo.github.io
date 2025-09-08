@@ -1293,7 +1293,7 @@ function getQueryParam(param) {
 }
 
 // Function to render NFL scoring card
-function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, teamSide, homeTeam, awayTeam, boxScoreData) {
+async function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, teamSide, homeTeam, awayTeam, boxScoreData) {
   console.log('renderScoringCard called with play:', play);
   
   // Get game state information first
@@ -1303,17 +1303,62 @@ function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, team
   const playText = play.text || '';
   
   // Get scorer information from play participants or extract from play text
-  let scorer = play.participants?.[0]?.athlete;
+  let scorer = null;
   let scorerName = 'Unknown Player';
   let scorerPosition = '';
   
-  if (scorer) {
-    scorerName = scorer.displayName || 'Unknown Player';
-    scorerPosition = scorer.position?.abbreviation || '';
-    console.log('Found scorer from participants:', scorerName, scorerPosition);
-  } else {
-    // Try to extract player name from play text for NFL
-    console.log('No participants found, trying to extract from text:', playText);
+  // Try to get scorer from participants (fetch athlete data from $ref)
+  if (play.participants && play.participants.length > 0) {
+    try {
+      // For scoring plays, prioritize the actual scorer over other participants
+      let mainParticipant = null;
+      
+      // Look for scorer-specific participant types first
+      mainParticipant = play.participants.find(p => 
+        p.type === 'scorer' || p.type === 'receiver' || p.type === 'rusher'
+      );
+      
+      // If no specific scorer found, fall back to other types
+      if (!mainParticipant) {
+        mainParticipant = play.participants.find(p => 
+          p.type === 'passer' || p.type === 'kicker'
+        ) || play.participants[0];
+      }
+      
+      if (mainParticipant?.athlete?.$ref) {
+        console.log('Fetching athlete data from:', mainParticipant.athlete.$ref);
+        const athleteResponse = await fetch(convertToHttps(mainParticipant.athlete.$ref));
+        const athleteData = await athleteResponse.json();
+        
+        scorer = athleteData;
+        scorerName = athleteData.displayName || athleteData.fullName || 'Unknown Player';
+        
+        // Get position from athlete data or participant type
+        if (athleteData.position?.abbreviation) {
+          scorerPosition = athleteData.position.abbreviation;
+        } else if (mainParticipant.type) {
+          // Map participant type to position abbreviation
+          const typeToPosition = {
+            'kicker': 'K',
+            'rusher': 'RB',
+            'receiver': 'WR',
+            'passer': 'QB',
+            'returner': 'RB',
+            'scorer': 'WR' // Default for scorer type
+          };
+          scorerPosition = typeToPosition[mainParticipant.type] || '';
+        }
+        
+        console.log('Found scorer from participants:', scorerName, scorerPosition, 'Type:', mainParticipant.type);
+      }
+    } catch (error) {
+      console.error('Error fetching athlete data:', error);
+    }
+  }
+  
+  // Fallback: try to extract player name from play text if no participant data worked
+  if (scorerName === 'Unknown Player') {
+    console.log('No participants found or failed to fetch, trying to extract from text:', playText);
     
     // Enhanced NFL scoring patterns - prioritize actual scorers over extra point kickers
     const patterns = [
@@ -1425,7 +1470,27 @@ function renderScoringCard(play, teamInfo, teamColor, homeScore, awayScore, team
   }
   
   const playerStats = getPositionStatsForCard(adjustedPositionGroup, boxScoreData, scorerName, preferredStatCategory);
-  console.log('Player stats retrieved:', playerStats);
+  console.log('Player stats retrieved for scoring card:', { scorerName, adjustedPositionGroup, preferredStatCategory, statsCount: playerStats.length });
+  
+  // If no stats found with the current name, try alternative name formats
+  if (playerStats.length === 0 && scorer?.shortName && scorer.shortName !== scorerName) {
+    console.log('No stats found with display name, trying short name:', scorer.shortName);
+    const alternativeStats = getPositionStatsForCard(adjustedPositionGroup, boxScoreData, scorer.shortName, preferredStatCategory);
+    if (alternativeStats.length > 0) {
+      console.log('Found stats with short name!');
+      playerStats.push(...alternativeStats);
+    }
+  }
+  
+  // If still no stats and we have full name, try that too
+  if (playerStats.length === 0 && scorer?.fullName && scorer.fullName !== scorerName) {
+    console.log('Still no stats found, trying full name:', scorer.fullName);
+    const fullNameStats = getPositionStatsForCard(adjustedPositionGroup, boxScoreData, scorer.fullName, preferredStatCategory);
+    if (fullNameStats.length > 0) {
+      console.log('Found stats with full name!');
+      playerStats.push(...fullNameStats);
+    }
+  }
 
   // Get team logos for score display
   const homeTeamLogo = (homeTeam.team.abbreviation === "NYG" || homeTeam.team.abbreviation === "NYJ") ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam?.team?.abbreviation || homeTeam?.abbreviation}.png` : `https://a.espncdn.com/i/teamlogos/nfl/500/${homeTeam?.team?.abbreviation || homeTeam?.abbreviation}.png`;
@@ -1637,6 +1702,89 @@ function showFeedback(message, type) {
   }
 }
 
+// Function to capture and copy play card as image
+async function captureAndCopyPlayCard(element) {
+  const { default: html2canvas } = await import('https://cdn.skypack.dev/html2canvas');
+  
+  // Clone the element to modify it for clipboard copy without affecting the original
+  const clonedElement = element.cloneNode(true);
+  
+  // Add padding for clipboard copy
+  clonedElement.style.paddingTop = '20px';
+  clonedElement.style.paddingLeft = '20px';
+  clonedElement.style.paddingRight = '20px';
+  clonedElement.style.paddingBottom = '20px';
+  
+  // Modify headshot size for clipboard copy
+  const containerImg = clonedElement.querySelector('.copy-player-image-container');
+  if (containerImg) {
+    containerImg.style.width = '120px';
+    containerImg.style.height = '80px';
+  }
+  const headshotImg = clonedElement.querySelector('.copy-player-image');
+  if (headshotImg) {
+    headshotImg.style.width = '114px';
+    headshotImg.style.height = '74px';
+  }
+
+  // Temporarily add the cloned element to the DOM for rendering
+  clonedElement.style.position = 'absolute';
+  clonedElement.style.left = '-9999px';
+  clonedElement.style.top = '-9999px';
+  document.body.appendChild(clonedElement);
+  
+  const canvas = await html2canvas(clonedElement, {
+    backgroundColor: '#1a1a1a',
+    scale: 3,
+    useCORS: true
+  });
+  
+  // Remove the cloned element from DOM
+  document.body.removeChild(clonedElement);
+  
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(async (blob) => {
+      // Check if device is mobile
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                      ('ontouchstart' in window) || 
+                      (navigator.maxTouchPoints > 0);
+
+      try {
+        if (isMobile) {
+          // On mobile, download the image
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `play-card-${new Date().getTime()}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          showFeedback('Play card downloaded!', 'success');
+          resolve();
+        } else {
+          // On desktop, try to copy to clipboard using modern API
+          if (navigator.clipboard && window.ClipboardItem) {
+            const clipboardItem = new ClipboardItem({
+              'image/png': blob
+            });
+            await navigator.clipboard.write([clipboardItem]);
+            showFeedback('Play card copied to clipboard!', 'success');
+            resolve();
+          } else {
+            showFeedback('Could not copy to clipboard. Try again', 'error');
+            reject(new Error('Clipboard API not available'));
+          }
+        }
+      } catch (clipboardError) {
+        console.error('Error handling play card image:', clipboardError);
+        showFeedback('Could not copy to clipboard. Try again', 'error');
+        reject(clipboardError);
+      }
+    }, 'image/png', 0.95);
+  });
+}
+
 async function renderBoxScore(gameId, gameState) {
   try {
     const BOX_SCORE_API_URL = `https://cdn.espn.com/core/nfl/boxscore?xhr=1&gameId=${gameId}`;
@@ -1744,24 +1892,37 @@ async function renderBoxScore(gameId, gameState) {
 
 async function renderPlayByPlay(gameId) {
   try {
-    const PLAY_BY_PLAY_API_URL = `https://cdn.espn.com/core/nfl/playbyplay?xhr=1&gameId=${gameId}`;
-    console.log("Fetching play-by-play from:", PLAY_BY_PLAY_API_URL);
-    const response = await fetch(PLAY_BY_PLAY_API_URL);
-    const data = await response.json();
-
-    console.log("Play-by-play data received:", data);
-
-    const drives = data.gamepackageJSON?.drives?.previous || [];
-    console.log("Drives data:", drives);
+    console.log("Rendering play-by-play for game:", gameId);
+    
+    // Use the drives API endpoint as specified
+    const drivesUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/${gameId}/competitions/${gameId}/drives?lang=en&region=us`;
+    console.log("Fetching drives from:", drivesUrl);
+    
+    const response = await fetch(convertToHttps(drivesUrl));
+    const drivesData = await response.json();
+    
+    console.log("Drives data received:", drivesData);
+    
+    const drives = drivesData.items || [];
+    
+    // Get team information for layout decisions
+    const gameId_param = getQueryParam("gameId");
+    
+    // Store current play data for copy functionality
+    currentPlayData = {
+      drives: drives,
+      gameId: gameId,
+      boxScoreUrl: `https://cdn.espn.com/core/nfl/boxscore?xhr=1&gameId=${gameId_param || gameId}`
+    };
     
     const playsDiv = document.querySelector("#playsContent .plays-placeholder");
     if (!playsDiv) {
       console.error("Error: 'plays-placeholder' element not found.");
       return;
     }
-
-    // Check if we have valid drives data
+    
     if (drives.length === 0) {
+      console.log("No drives found");
       playsDiv.innerHTML = `
         <h2>Plays</h2>
         <div style="color: white; text-align: center; padding: 20px;">No play data available for this game.</div>
@@ -1769,8 +1930,6 @@ async function renderPlayByPlay(gameId) {
       return;
     }
 
-    // Get team information for layout decisions
-    const gameId_param = getQueryParam("gameId");
     let homeTeamId = null;
     let awayTeamId = null;
     let homeTeam = null;
@@ -1787,56 +1946,49 @@ async function renderPlayByPlay(gameId) {
     }
     
     // Try to get home/away team IDs from the game-specific API
-    if (drives.length > 0) {
-      // Use the game-specific API endpoint instead of searching through scoreboard
-      try {
-        const GAME_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId_param}`;
-        console.log('Fetching game data from:', GAME_API_URL);
-        const gameResponse = await fetch(GAME_API_URL);
-        const gameData = await gameResponse.json();
+    try {
+      const GAME_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId_param}`;
+      console.log('Fetching game data from:', GAME_API_URL);
+      const gameResponse = await fetch(GAME_API_URL);
+      const gameData = await gameResponse.json();
+      
+      if (gameData?.header?.competitions?.[0]?.competitors) {
+        const competitors = gameData.header.competitions[0].competitors;
+        const homeCompetitor = competitors.find(c => c.homeAway === "home");
+        const awayCompetitor = competitors.find(c => c.homeAway === "away");
         
-        if (gameData?.header?.competitions?.[0]?.competitors) {
-          const competitors = gameData.header.competitions[0].competitors;
-          const homeCompetitor = competitors.find(c => c.homeAway === "home");
-          const awayCompetitor = competitors.find(c => c.homeAway === "away");
-          
-          homeTeamId = homeCompetitor?.team?.id;
-          awayTeamId = awayCompetitor?.team?.id;
-          homeTeam = homeCompetitor;
-          awayTeam = awayCompetitor;
-          
-          console.log('Team IDs retrieved:', { homeTeamId, awayTeamId });
-        }
-      } catch (e) {
-        console.log("Could not fetch team home/away info from game API:", e);
+        homeTeamId = homeCompetitor?.team?.id;
+        awayTeamId = awayCompetitor?.team?.id;
+        homeTeam = homeCompetitor;
+        awayTeam = awayCompetitor;
         
-        // Fallback: try to determine from the scoreboard API
-        try {
-          const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard`;
-          const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
-          const scoreboardData = await scoreboardResponse.json();
-          const currentGame = scoreboardData.events?.find(game => game.id === gameId_param);
-          
-          if (currentGame) {
-            homeTeamId = currentGame.competitions[0].competitors.find(c => c.homeAway === "home")?.team?.id;
-            awayTeamId = currentGame.competitions[0].competitors.find(c => c.homeAway === "away")?.team?.id;
-            homeTeam = currentGame.competitions[0].competitors.find(c => c.homeAway === "home");
-            awayTeam = currentGame.competitions[0].competitors.find(c => c.homeAway === "away");
-          }
-        } catch (e2) {
-          console.log("Could not fetch team home/away info from scoreboard API:", e2);
-        }
+        console.log('Team IDs retrieved:', { homeTeamId, awayTeamId });
       }
+    } catch (e) {
+      console.log("Could not fetch team home/away info from game API:", e);
     }
 
-    const drivesHtml = drives.reverse().map((drive, index) => {
+    const drivesHtml = await Promise.all(drives.reverse().map(async (drive, index) => {
       const driveNumber = drives.length - index; // Correct numbering: first drive = 1, latest drive = highest number
-      const teamName = drive.team?.shortDisplayName || drive.team?.abbreviation || 'Unknown';
-      const teamLogo = drive.team?.logos?.[1]?.href || '';
+      
+      // Get team information
+      let teamInfo = null;
+      if (drive.team && drive.team.$ref) {
+        try {
+          const teamResponse = await fetch(convertToHttps(drive.team.$ref));
+          teamInfo = await teamResponse.json();
+        } catch (error) {
+          console.error("Error fetching team info:", error);
+        }
+      }
+      
+      const teamName = teamInfo?.shortDisplayName || teamInfo?.abbreviation || 'Unknown';
+      const teamLogo = teamInfo?.logos?.[1]?.href || '';
+      const teamColor = teamInfo?.color ? `#${teamInfo.color}` : '#333';
+      const teamId = teamInfo?.id;
       const driveResult = drive.displayResult || drive.result || 'No Result';
       const driveDescription = drive.description || '';
       const isScore = drive.isScore || false;
-      const teamId = drive.team?.id;
       
       // Determine if this is the home team
       const isHomeTeam = homeTeamId && teamId === homeTeamId;
@@ -1856,44 +2008,98 @@ async function renderPlayByPlay(gameId) {
       const endText = drive.end?.text || '';
       const timeElapsed = drive.timeElapsed?.displayValue || '';
       
-      // Get first play time and quarter information
-      const firstPlay = drive.plays?.[0]; // First play in the drive
+      // Get first play time and quarter information from plays
+      let firstPlay = null;
+      if (drive.plays && drive.plays.items && drive.plays.items.length > 0) {
+        // Sort plays by sequence number to get the actual first play
+        const sortedPlays = drive.plays.items.sort((a, b) => {
+          const seqA = parseInt(a.sequenceNumber) || 0;
+          const seqB = parseInt(b.sequenceNumber) || 0;
+          return seqA - seqB;
+        });
+        firstPlay = sortedPlays[0];
+        
+        // Get detailed play information if $ref is available
+        if (firstPlay.$ref) {
+          try {
+            const playResponse = await fetch(convertToHttps(firstPlay.$ref));
+            firstPlay = await playResponse.json();
+          } catch (error) {
+            console.error("Error fetching first play details:", error);
+          }
+        }
+      }
+      
       const firstPlayQuarter = firstPlay?.period?.number || '';
       const firstPlayTime = firstPlay?.clock?.displayValue || '';
       const firstPlayTimeText = (firstPlayQuarter && firstPlayTime) ? `Q${firstPlayQuarter} ${firstPlayTime}` : '';
       
-      // Create yard line graphic with gradient from start to end
+      // Create yard line graphic with gradient from start to current/end position
       const startYardLine = drive.start?.yardLine || 0;
-      const endYardLine = drive.end?.yardLine;
+      const driveEndYardLine = drive.end?.yardLine;
       const startPosition = Math.min(100, Math.max(0, startYardLine));
-      const hasEndPosition = endYardLine !== undefined && endYardLine !== null;
-      const endPosition = hasEndPosition ? Math.min(100, Math.max(0, endYardLine)) : startPosition;
+      const hasDriveEnded = driveEndYardLine !== undefined && driveEndYardLine !== null;
       
-      // Calculate gradient line from start to end (only if drive has ended)
+      // If drive hasn't ended, find the most recent play's end position as current position
+      let currentYardLine = driveEndYardLine;
+      let currentText = drive.end?.text || '';
+      
+      if (!hasDriveEnded && drive.plays?.items && drive.plays.items.length > 0) {
+        // Sort plays by sequence number to get the most recent play
+        const sortedPlays = drive.plays.items.sort((a, b) => {
+          const seqA = parseInt(a.sequenceNumber) || 0;
+          const seqB = parseInt(b.sequenceNumber) || 0;
+          return seqB - seqA; // Most recent first
+        });
+        
+        // Get the most recent play's end position
+        let mostRecentPlay = sortedPlays[0];
+        
+        // Fetch detailed play data if needed
+        if (mostRecentPlay.$ref) {
+          try {
+            const playResponse = await fetch(convertToHttps(mostRecentPlay.$ref));
+            mostRecentPlay = await playResponse.json();
+          } catch (error) {
+            console.error("Error fetching most recent play details:", error);
+          }
+        }
+        
+        if (mostRecentPlay.end?.yardLine !== undefined) {
+          currentYardLine = mostRecentPlay.end.yardLine;
+          currentText = mostRecentPlay.end.text || '';
+          console.log('Using current position from most recent play:', currentText, currentYardLine);
+        }
+      }
+      
+      const hasCurrentPosition = currentYardLine !== undefined && currentYardLine !== null;
+      const currentPosition = hasCurrentPosition ? Math.min(100, Math.max(0, currentYardLine)) : startPosition;
+      
+      // Calculate gradient line from start to current position
       let fieldProgressHtml = '';
-      let endMarkerHtml = '';
+      let currentMarkerHtml = '';
       
-      if (hasEndPosition) {
-        const leftPosition = Math.min(startPosition, endPosition);
-        const rightPosition = Math.max(startPosition, endPosition);
+      if (hasCurrentPosition) {
+        const leftPosition = Math.min(startPosition, currentPosition);
+        const rightPosition = Math.max(startPosition, currentPosition);
         const width = rightPosition - leftPosition;
         
         // Flip gradient direction for away teams (green to red for home, red to green for away)
         const gradientDirection = isHomeTeam ? 'linear-gradient(90deg, #28a745 0%, #dc3545 100%)' : 'linear-gradient(90deg, #dc3545 0%, #28a745 100%)';
         
         fieldProgressHtml = `<div class="field-progress" style="left: ${leftPosition}%; width: ${width}%; background: ${gradientDirection};"></div>`;
-        endMarkerHtml = `<div class="field-marker end-marker" style="left: ${endPosition}%"></div>`;
+        currentMarkerHtml = `<div class="field-marker end-marker" style="left: ${currentPosition}%"></div>`;
       }
       
       const yardLineGraphic = `
         <div class="yard-line-graphic ${isHomeTeam ? 'home-team' : ''}">
           <div class="yard-info ${isHomeTeam ? 'home-team' : ''}">
-            ${hasEndPosition ? `<span>End: ${endText}</span>` : '<span>&nbsp;</span>'}
+            ${hasCurrentPosition ? `<span>${hasDriveEnded ? 'End' : 'Current'}: ${currentText}</span>` : '<span>&nbsp;</span>'}
             <div class="field-graphic">
               <div class="field-line">
                 ${fieldProgressHtml}
                 <div class="field-marker start-marker" style="left: ${startPosition}%"></div>
-                ${endMarkerHtml}
+                ${currentMarkerHtml}
               </div>
             </div>
             <span>Start: ${startText}</span>
@@ -1901,15 +2107,26 @@ async function renderPlayByPlay(gameId) {
         </div>
       `;
       
-      // Generate plays HTML for this drive (reverse order so latest plays first)
-      const playsHtml = (drive.plays || []).reverse().map((play, playIndex) => {
-        const playText = play.text || 'No description available';
-        const clock = play.clock?.displayValue || '';
-        const period = play.period?.number || '';
-        const homeScore = play.homeScore || 0;
-        const awayScore = play.awayScore || 0;
-        const isScoringPlay = play.scoringPlay || false;
-        const scoringType = play.scoringType?.displayName || '';
+      // Generate plays HTML for this drive
+      const playsHtml = await Promise.all((drive.plays?.items || []).reverse().map(async (play, playIndex) => {
+        // Get detailed play information if $ref is available
+        let playDetails = play;
+        if (play.$ref) {
+          try {
+            const playResponse = await fetch(convertToHttps(play.$ref));
+            playDetails = await playResponse.json();
+          } catch (error) {
+            console.error("Error fetching play details:", error);
+          }
+        }
+        
+        const playText = playDetails.text || 'No description available';
+        const clock = playDetails.clock?.displayValue || '';
+        const period = playDetails.period?.number || '';
+        const homeScore = playDetails.homeScore || 0;
+        const awayScore = playDetails.awayScore || 0;
+        const isScoringPlay = playDetails.scoringPlay || false;
+        const scoringType = playDetails.scoringType?.displayName || '';
         
         // Also check if this is a scoring play by looking at text patterns (backup check)
         // But distinguish between touchdowns and extra points
@@ -1930,7 +2147,7 @@ async function renderPlayByPlay(gameId) {
           isExtraPointOnly,
           shouldShowScoringCard,
           scoringType,
-          hasParticipants: !!play.participants
+          hasParticipants: !!playDetails.participants
         });
         
         // Generate scoring card for scoring plays
@@ -1940,7 +2157,7 @@ async function renderPlayByPlay(gameId) {
             scoringType,
             playText,
             isScoringPlay: isLikelyScoringPlay,
-            play,
+            play: playDetails,
             teamId,
             homeTeamId,
             awayTeamId
@@ -1951,32 +2168,32 @@ async function renderPlayByPlay(gameId) {
             const teamSide = teamId === homeTeamId ? 'home' : 'away';
             
             // Get team color from the appropriate team data
-            let teamColor = drive.team?.color;
-            if (!teamColor) {
+            let currentTeamColor = teamInfo?.color;
+            if (!currentTeamColor) {
               // Fallback to get color from home/away team data
               if (teamSide === 'home' && homeTeam?.team?.color) {
-                teamColor = homeTeam.team.color;
+                currentTeamColor = homeTeam.team.color;
               } else if (teamSide === 'away' && awayTeam?.team?.color) {
-                teamColor = awayTeam.team.color;
+                currentTeamColor = awayTeam.team.color;
               } else {
                 // Default fallback color
-                teamColor = '000000';
+                currentTeamColor = '000000';
               }
             }
             
             console.log('Rendering scoring card with:', {
               teamSide,
-              teamColor,
+              teamColor: currentTeamColor,
               homeScore,
               awayScore,
               homeTeam,
               awayTeam
             });
             
-            scoringCardHtml = renderScoringCard(
-              play, 
-              drive.team, 
-              teamColor, 
+            scoringCardHtml = await renderScoringCard(
+              playDetails, 
+              teamInfo, 
+              currentTeamColor, 
               homeScore, 
               awayScore, 
               teamSide, 
@@ -1992,24 +2209,26 @@ async function renderPlayByPlay(gameId) {
         }
         
         return `
-          <div class="play-item ${shouldShowScoringCard ? 'scoring-play' : ''}">
+          <div class="play-item ${shouldShowScoringCard ? 'scoring-play' : ''}" data-play-id="${play.id}">
             <div class="play-header">
               <span class="play-time">Q${period} ${clock}</span>
               <span class="play-score">${awayScore} - ${homeScore}</span>
               ${shouldShowScoringCard ? `<span class="scoring-indicator">${scoringType || (isTouchdown ? 'Touchdown' : isFieldGoal ? 'Field Goal' : 'Score')}</span>` : ''}
+              ${play.participants && play.participants.length > 0 ? `<button class="copy-play-btn" onclick="copyPlay('${play.id}')" title="Copy play">📋</button>` : ''}
             </div>
             <div class="play-description">${playText}</div>
             ${scoringCardHtml}
+            <div id="copy-card-${play.id}" class="copy-card" style="display: none;"></div>
           </div>
         `;
-      }).join('');
+      }));
 
       return `
         <div class="drive-container">
           <div class="drive-header ${isScore ? 'scoring-drive' : ''}" onclick="toggleDrive(${index})">
             <div class="drive-info ${isHomeTeam ? 'home-team' : ''}">
               <div class="drive-team">
-                ${teamLogo ? `<img src="${teamLogo}" alt="${teamName}" class="drive-team-logo">` : ''}
+                ${teamLogo ? `<img src="${convertToHttps(teamLogo)}" alt="${teamName}" class="drive-team-logo">` : ''}
                 <span class="drive-team-name">${teamName}</span>
                 <span class="drive-number">Drive ${driveNumber}</span>
               </div>
@@ -2028,16 +2247,16 @@ async function renderPlayByPlay(gameId) {
             </div>
           </div>
           <div class="drive-plays" id="drive-${index}" style="display: none;">
-            ${playsHtml}
+            ${playsHtml.join('')}
           </div>
         </div>
       `;
-    }).join('');
+    }));
 
     playsDiv.innerHTML = `
       <h2>Plays</h2>
       <div class="drives-container">
-        ${drivesHtml}
+        ${drivesHtml.join('')}
       </div>
     `;
   } catch (error) {
@@ -2046,7 +2265,7 @@ async function renderPlayByPlay(gameId) {
     if (playsDiv) {
       playsDiv.innerHTML = `
         <h2>Plays</h2>
-        <div style="color: white; text-align: center; padding: 20px;">Error loading play data.</div>
+        <div style="color: white; text-align: center; padding: 20px;">Error loading play data: ${error.message}</div>
       `;
     }
   }
@@ -2905,4 +3124,394 @@ function renderLeaders(leadersData) {
   
   // Append leaders to the stats container
   statsContainer.innerHTML += leadersHtml;
+}
+
+// Global variable to store play data for copying
+let currentPlayData = null;
+
+// Function to copy play data
+async function copyPlay(playId) {
+  console.log('Copy play clicked for ID:', playId);
+  
+  const copyCard = document.getElementById(`copy-card-${playId}`);
+  if (!copyCard) {
+    console.log('Copy card not found for play ID:', playId);
+    return;
+  }
+  
+  try {
+    // Always render the copy card (but keep it hidden)
+    const cardHtml = await renderPlayCopyCard(playId);
+    copyCard.innerHTML = cardHtml;
+    copyCard.style.display = 'block';
+    
+    // Wait a moment for the card to render in the DOM
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Find the play copy card inside the copy card div
+    const playCardElement = copyCard.querySelector('.play-copy-card');
+    if (playCardElement) {
+      // Copy the card as image
+      showFeedback('Preparing image...', 'loading');
+      await captureAndCopyPlayCard(playCardElement);
+    } else {
+      console.error('Play copy card element not found within copy card');
+      showFeedback('Error: Could not find copy card element', 'error');
+    }
+    
+    // Hide the copy card after copying
+    copyCard.style.display = 'none';
+    
+  } catch (error) {
+    console.error('Error copying play:', error);
+    showFeedback('Failed to copy play', 'error');
+    // Hide the copy card on error
+    copyCard.style.display = 'none';
+  }
+}
+
+// Function to render the play copy card
+async function renderPlayCopyCard(playId) {
+  console.log('Rendering copy card for play ID:', playId);
+  
+  if (!currentPlayData) {
+    console.log('No current play data available');
+    return '<div class="copy-card-error">Play data not available</div>';
+  }
+  
+  // Find the play in the current data
+  let targetPlay = null;
+  let homeTeamData = null;
+  let awayTeamData = null;
+  
+  for (const drive of currentPlayData.drives) {
+    if (drive.plays && drive.plays.items) {
+      for (const play of drive.plays.items) {
+        if (play.id === playId) {
+          targetPlay = play;
+          break;
+        }
+      }
+    }
+    if (targetPlay) break;
+  }
+  
+  if (!targetPlay) {
+    console.log('Play not found in current data');
+    return '<div class="copy-card-error">Play not found</div>';
+  }
+  
+  // Get team data from boxscore
+  try {
+    const boxScoreUrl = convertToHttps(currentPlayData.boxScoreUrl);
+    console.log('Fetching boxscore from:', boxScoreUrl);
+    const boxScoreResponse = await fetch(boxScoreUrl);
+    const boxScoreData = await boxScoreResponse.json();
+    
+    console.log('Boxscore data structure:', boxScoreData);
+    
+    // Check for correct structure
+    if (boxScoreData.gamepackageJSON?.boxscore?.teams) {
+      console.log('Using gamepackageJSON structure');
+      homeTeamData = boxScoreData.gamepackageJSON.boxscore.teams[1]; // Home team
+      awayTeamData = boxScoreData.gamepackageJSON.boxscore.teams[0]; // Away team
+    } else if (boxScoreData.boxscore?.teams) {
+      console.log('Using direct boxscore structure');
+      homeTeamData = boxScoreData.boxscore.teams[1]; // Home team
+      awayTeamData = boxScoreData.boxscore.teams[0]; // Away team
+    } else {
+      console.log('Available boxscore keys:', Object.keys(boxScoreData));
+      console.log('Using fallback - no team data available');
+      homeTeamData = null;
+      awayTeamData = null;
+    }
+    
+    console.log('Home team data:', homeTeamData);
+    console.log('Away team data:', awayTeamData);
+    
+  } catch (error) {
+    console.error('Error fetching team data:', error);
+    console.log('Using fallback - team data fetch failed');
+    homeTeamData = null;
+    awayTeamData = null;
+  }
+  
+  // Get basic play info
+  const period = targetPlay.period?.number || 1;
+  const periodType = period > 4 ? 'OT' : 'Q';
+  const periodNumber = period > 4 ? period - 4 : period;
+  const clock = targetPlay.clock?.displayValue || '';
+  const awayScore = targetPlay.awayScore || 0;
+  const homeScore = targetPlay.homeScore || 0;
+  const shortText = targetPlay.shortText || targetPlay.text || '';
+  const downDistanceText = targetPlay.end?.downDistanceText || '';
+  
+  // Get team logos
+  const homeTeamLogo = homeTeamData?.team?.logo || homeTeamData?.team?.logos?.[0]?.href || 'football.png';
+  const awayTeamLogo = awayTeamData?.team?.logo || awayTeamData?.team?.logos?.[0]?.href || 'football.png';
+  
+  // Process participants
+  let participantsList = [];
+  if (targetPlay.participants) {
+    const participantPromises = targetPlay.participants.map(async (participant) => {
+      if (participant.athlete?.$ref) {
+        try {
+          const athleteResponse = await fetch(convertToHttps(participant.athlete.$ref));
+          const athleteData = await athleteResponse.json();
+          
+          return {
+            name: athleteData.shortName || athleteData.displayName || 'Unknown',
+            fullName: athleteData.fullName || athleteData.displayName || 'Unknown',
+            headshot: athleteData.headshot?.href || '',
+            jersey: athleteData.jersey || '',
+            position: athleteData.position?.abbreviation || '',
+            team: participant.team || targetPlay.team,
+            type: participant.type || '',
+            order: participant.order || 1,
+            stats: participant.stats || []
+          };
+        } catch (error) {
+          console.error('Error fetching athlete data:', error);
+          return {
+            name: 'Unknown',
+            fullName: 'Unknown',
+            headshot: '',
+            jersey: '',
+            position: '',
+            team: participant.team || targetPlay.team,
+            type: participant.type || '',
+            order: participant.order || 1,
+            stats: participant.stats || []
+          };
+        }
+      }
+      return null;
+    });
+    
+    const resolvedParticipants = await Promise.all(participantPromises);
+    participantsList = resolvedParticipants.filter(p => p !== null);
+  }
+  
+  // Sort participants by order (main participant first)
+  participantsList.sort((a, b) => a.order - b.order);
+  
+  // Check for special cases using play type ID
+  const playTypeId = targetPlay.type?.id;
+  const isSpecialPlayType = ['53', '26', '52', '29', '7'].includes(playTypeId); // Kickoff, Interception, Punt, Fumble, Sack
+  const isRushingPlay = playTypeId === '5'; // Rush
+  const isPassingPlay = playTypeId === '24'; // Pass Reception
+  const isScoringPlay = targetPlay.scoringPlay || targetPlay.text?.toLowerCase().includes('touchdown');
+  
+  console.log('Play type ID:', playTypeId, 'Is special:', isSpecialPlayType, 'Is scoring:', isScoringPlay);
+  console.log('Available participant types:', participantsList.map(p => `${p.name}: ${p.type}`));
+  
+  // Get main participant
+  let mainParticipant;
+  
+  // First check if it's a scoring play and prioritize the scorer
+  if (isScoringPlay) {
+    const scorer = participantsList.find(p => 
+      p.type === 'scorer' || p.type === 'rusher' || p.type === 'receiver'
+    );
+    if (scorer) {
+      console.log('Found scoring participant:', scorer?.name, 'Type:', scorer?.type);
+      mainParticipant = scorer;
+    }
+  }
+  
+  // If no scorer found or not a scoring play, use regular logic
+  if (!mainParticipant) {
+    if (isSpecialPlayType && participantsList.length > 1) {
+      // For special play types, look for recoverer, returner, or sackedBy participant type
+      const specialParticipant = participantsList.find(p => 
+        p.type === 'recoverer' || p.type === 'returner' || p.type === 'sackedBy'
+      );
+      console.log('Found special participant:', specialParticipant?.name, 'Type:', specialParticipant?.type);
+      mainParticipant = specialParticipant || participantsList[0];
+    } else if (isRushingPlay) {
+      // For rushing plays, prioritize the rusher
+      const rusher = participantsList.find(p => p.type === 'rusher');
+      mainParticipant = rusher || participantsList[0];
+    } else if (isPassingPlay) {
+      // For passing plays, prioritize the receiver
+      const receiver = participantsList.find(p => p.type === 'receiver');
+      mainParticipant = receiver || participantsList[0];
+    } else {
+      mainParticipant = participantsList[0]; // Use first participant normally
+    }
+  }
+  
+  console.log('Selected main participant:', mainParticipant?.name, 'Type:', mainParticipant?.type);
+  
+  // Reorder participants array to put main participant first
+  if (mainParticipant && (isSpecialPlayType || isRushingPlay || isPassingPlay || isScoringPlay)) {
+    const otherParticipants = participantsList.filter(p => p.name !== mainParticipant.name);
+    participantsList = [mainParticipant, ...otherParticipants];
+  }
+  
+  // Get team data for the main participant to get team colors
+  let participantTeamData = null;
+  let participantTeamLogo = '';
+  let teamColor = '#3498db'; // Default blue
+  let teamColorDark = '#2980b9'; // Default dark blue
+  
+  if (mainParticipant?.team?.$ref) {
+    try {
+      const teamResponse = await fetch(convertToHttps(mainParticipant.team.$ref));
+      participantTeamData = await teamResponse.json();
+      participantTeamLogo = participantTeamData.logos?.[0]?.href || '';
+      
+      // Get team color
+      if (participantTeamData.color) {
+        teamColor = `#${participantTeamData.color}`;
+        // Create a darker shade for the border
+        const r = parseInt(participantTeamData.color.substr(0, 2), 16);
+        const g = parseInt(participantTeamData.color.substr(2, 2), 16);
+        const b = parseInt(participantTeamData.color.substr(4, 2), 16);
+        teamColorDark = `rgb(${Math.max(0, r - 40)}, ${Math.max(0, g - 40)}, ${Math.max(0, b - 40)})`;
+      }
+    } catch (error) {
+      console.error('Error fetching participant team data:', error);
+    }
+  }
+  
+  // Build participants text with separate rows
+  let participantsText = '';
+  const seenParticipants = new Set();
+  
+  participantsList.forEach((participant, index) => {
+    if (!seenParticipants.has(participant.name)) {
+      seenParticipants.add(participant.name);
+      
+      if (index > 0) participantsText += '<br>'; // Line break between participants
+      
+      // First participant in the reordered array is always the main one
+      if (index === 0) {
+        // Main participant - bold
+        participantsText += `<strong>${participant.name}`;
+        
+        // Add stats if available for main participant
+        if (participant.stats && participant.stats.length > 0) {
+          participant.stats.forEach(stat => {
+            if (stat.displayValue && stat.abbreviation) {
+              participantsText += ` • ${stat.displayValue} ${stat.abbreviation}`;
+            }
+          });
+        }
+        
+        participantsText += `</strong>`;
+      } else {
+        // Other participants - regular and smaller
+        participantsText += `<span class="secondary-participant">${participant.name}`;
+        
+        // Add stats if available for secondary participant
+        if (participant.stats && participant.stats.length > 0) {
+          participant.stats.forEach(stat => {
+            if (stat.displayValue && stat.abbreviation) {
+              participantsText += ` • ${stat.displayValue} ${stat.abbreviation}`;
+            }
+          });
+        }
+        
+        participantsText += `</span>`;
+      }
+    }
+  });
+  
+  // Get additional play data
+  const yardsAfterCatch = targetPlay.yardsAfterCatch;
+  const penalty = targetPlay.penalty;
+  
+  // Get probability data for the drive team
+  let probabilityText = '';
+  let probabilityTeamLogo = '';
+  if (targetPlay.probability?.$ref) {
+    try {
+      const probResponse = await fetch(convertToHttps(targetPlay.probability.$ref));
+      const probData = await probResponse.json();
+      
+      const homeWinPct = probData.homeWinPercentage || 0;
+      const awayWinPct = probData.awayWinPercentage || 0;
+      
+      // Determine if the drive team is home or away based on the main participant's team
+      const driveTeamId = participantTeamData?.id;
+      const homeTeamId = homeTeamData?.team?.id;
+      const awayTeamId = awayTeamData?.team?.id;
+      
+      if (driveTeamId === homeTeamId) {
+        // Drive team is home team
+        probabilityText = `${(homeWinPct * 100).toFixed(2)}%`;
+        probabilityTeamLogo = participantTeamLogo;
+      } else if (driveTeamId === awayTeamId) {
+        // Drive team is away team
+        probabilityText = `${(awayWinPct * 100).toFixed(2)}%`;
+        probabilityTeamLogo = participantTeamLogo;
+      } else {
+        // Fallback to higher percentage
+        if (homeWinPct > awayWinPct) {
+          probabilityText = `${(homeWinPct * 100).toFixed(2)}%`;
+          probabilityTeamLogo = homeTeamLogo;
+        } else {
+          probabilityText = `${(awayWinPct * 100).toFixed(2)}%`;
+          probabilityTeamLogo = awayTeamLogo;
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching probability data:', error);
+    }
+  }
+  
+  const playCardId = `play-copy-card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  
+  return `
+    <div id="${playCardId}" class="play-copy-card" style="position: relative;">
+      <div class="copy-card-header">
+        <div class="copy-score-section">
+          <img src="${convertToHttps(awayTeamLogo)}" alt="Away" class="copy-team-logo">
+          <span class="copy-score">${awayScore} - ${homeScore}</span>
+          <img src="${convertToHttps(homeTeamLogo)}" alt="Home" class="copy-team-logo">
+        </div>
+        <div class="copy-game-info">
+          ${periodType}${periodNumber} ${clock} • ${downDistanceText}
+        </div>
+      </div>
+      
+      <div class="copy-card-main">
+        <div class="copy-player-section">
+          ${mainParticipant?.headshot ? `
+            <div class="copy-player-image-container">
+              <div class="copy-player-image">
+                <img src="${convertToHttps(mainParticipant.headshot)}" alt="${mainParticipant.name}" class="copy-player-headshot">
+              </div>
+              ${participantTeamLogo ? `<img src="${convertToHttps(participantTeamLogo)}" alt="Team" class="copy-player-team-logo">` : ''}
+            </div>
+          ` : ''}
+        </div>
+        
+        <div class="copy-play-section">
+          <div class="copy-play-text">${shortText}</div>
+          <div class="copy-participants">${participantsText}</div>
+        </div>
+      </div>
+      
+      <div class="copy-card-bottom">
+        <div class="copy-additional-info">
+          ${yardsAfterCatch ? `<span class="copy-yac">Yards After Catch: ${yardsAfterCatch}</span>` : ''}
+          ${penalty ? `
+            <div class="copy-penalty">
+              ${penalty.type?.text || 'Penalty'} (${penalty.yards || 0} yards)
+              ${penalty.status?.text ? `, ${penalty.status.text}` : ''}
+            </div>
+          ` : ''}
+        </div>
+        
+        ${probabilityText ? `
+          <div class="copy-probability">
+            <span class="copy-prob-text">W ${probabilityText}</span>
+            ${probabilityTeamLogo ? `<img src="${convertToHttps(probabilityTeamLogo)}" alt="Team" class="copy-prob-logo">` : ''}
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
 }
