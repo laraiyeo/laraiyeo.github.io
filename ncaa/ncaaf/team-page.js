@@ -42,20 +42,26 @@ function convertToHttps(url) {
 async function determineCurrentWeek() {
   try {
     const currentSeason = new Date().getFullYear();
-    const now = new Date();
+    // Convert current time to EST for proper comparison with API dates
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     
     // Check cache first
     const cacheKey = `current_week_${currentSeason}`;
     const cachedWeek = localStorage.getItem(cacheKey);
     const cacheTimestamp = localStorage.getItem(`${cacheKey}_timestamp`);
     
-    // Use cached week if it's less than 1 hour old
-    if (cachedWeek && cacheTimestamp) {
+    // TEMPORARY: Clear cache for debugging
+    console.log("Clearing week determination cache for debugging...");
+    localStorage.removeItem(cacheKey);
+    localStorage.removeItem(`${cacheKey}_timestamp`);
+    
+    // Use cached week if it's less than 1 hour old (disabled for debugging)
+    /*if (cachedWeek && cacheTimestamp) {
       const hoursSinceCache = (Date.now() - parseInt(cacheTimestamp)) / (1000 * 60 * 60);
       if (hoursSinceCache < 1) {
         return cachedWeek;
       }
-    }
+    }*/
     
     // Fetch all weeks for the current season
     const weeksUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${currentSeason}/types/2/weeks?lang=en&region=us`;
@@ -77,9 +83,12 @@ async function determineCurrentWeek() {
         const weekData = await weekResponse.json();
         
         if (weekData.startDate && weekData.endDate) {
-          const startDate = new Date(weekData.startDate);
-          const endDate = new Date(weekData.endDate);
+          // Convert API dates to EST for proper comparison
+          const startDate = new Date(new Date(weekData.startDate).toLocaleString("en-US", { timeZone: "America/New_York" }));
+          const endDate = new Date(new Date(weekData.endDate).toLocaleString("en-US", { timeZone: "America/New_York" }));
           const weekNumber = weekData.number.toString();
+          
+          console.log(`Week ${weekNumber}: ${startDate} to ${endDate} (current: ${now})`);
           
           // Track the latest week that has started (for fallback)
           if (now >= startDate) {
@@ -106,7 +115,9 @@ async function determineCurrentWeek() {
     localStorage.setItem(cacheKey, currentWeekNum);
     localStorage.setItem(`${cacheKey}_timestamp`, Date.now().toString());
     
+    console.log(`Current time (EST): ${now}`);
     console.log(`Determined current week: ${currentWeekNum} for season ${currentSeason}`);
+    console.log(`Latest week with data: ${latestWeekWithData}`);
     return currentWeekNum;
     
   } catch (error) {
@@ -126,14 +137,19 @@ async function cacheCurrentRankings() {
     const cachedData = localStorage.getItem(cacheKey);
     const cacheTimestamp = localStorage.getItem(`${cacheKey}_timestamp`);
     
-    // Use cached data if it's less than 5 minutes old
-    if (cachedData && cacheTimestamp) {
+    // TEMPORARY: Clear rankings cache for debugging
+    console.log(`Clearing rankings cache for week ${currentWeek}...`);
+    localStorage.removeItem(cacheKey);
+    localStorage.removeItem(`${cacheKey}_timestamp`);
+    
+    // Use cached data if it's less than 5 minutes old (disabled for debugging)
+    /*if (cachedData && cacheTimestamp) {
       const age = Date.now() - parseInt(cacheTimestamp);
       if (age < 5 * 60 * 1000) { // 5 minutes
         rankingsCache = JSON.parse(cachedData);
         return;
       }
-    }
+    }*/
 
     // Determine the season type
     let seasonType = "2"; // Default to regular season

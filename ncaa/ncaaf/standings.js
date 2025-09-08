@@ -23,7 +23,8 @@ let championshipWinners = {}; // Cache for conference championship winners: {con
 // Function to determine the current week based on date
 async function determineCurrentWeek() {
   try {
-    const now = new Date();
+    // Convert current time to EST for proper comparison with API dates
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     
     // Check cache first
     const cacheKey = `current_week_${currentSeason}`;
@@ -58,8 +59,9 @@ async function determineCurrentWeek() {
         const weekData = await weekResponse.json();
         
         if (weekData.startDate && weekData.endDate) {
-          const startDate = new Date(weekData.startDate);
-          const endDate = new Date(weekData.endDate);
+          // Convert API dates to EST for proper comparison
+          const startDate = new Date(new Date(weekData.startDate).toLocaleString("en-US", { timeZone: "America/New_York" }));
+          const endDate = new Date(new Date(weekData.endDate).toLocaleString("en-US", { timeZone: "America/New_York" }));
           const weekNumber = weekData.number.toString();
           
           // Track the latest week that has started (for fallback)
