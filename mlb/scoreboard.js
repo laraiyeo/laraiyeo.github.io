@@ -289,7 +289,7 @@ async function extractVideoPlayerUrl(pageUrl) {
 }
 
 // Global variables for stream functionality
-let currentStreamType = 'alpha1'; // Track which stream type is active ('alpha1', 'alpha2', 'bravo')
+let currentStreamType = 'alpha1'; // Track which stream type is active ('alpha1', 'alpha2', 'bravo', 'charlie')
 let currentAwayTeam = ''; // Store current away team name
 let currentHomeTeam = ''; // Store current home team name
 let isMuted = true; // Start muted to prevent autoplay issues
@@ -1099,8 +1099,15 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
       } else {
         console.log('Falling back to bravo (requested type not available)');
       }
+    } else if (availableStreams.charlie) {
+      embedUrl = availableStreams.charlie.embedUrl;
+      if (currentStreamType === 'charlie') {
+        console.log('Using charlie as requested');
+      } else {
+        console.log('Falling back to charlie (requested type not available)');
+      }
     } else {
-      // Use any available stream if alpha1, alpha2, bravo don't exist
+      // Use any available stream if alpha1, alpha2, bravo, charlie don't exist
       const streamKeys = Object.keys(availableStreams);
       if (streamKeys.length > 0) {
         const fallbackKey = streamKeys[0];
@@ -1148,11 +1155,14 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
       button1Text = 'Alpha2';
       button1Action = "switchToStream('alpha2')";
     }
-    if (availableStreams.bravo) {
+    if (availableStreams.charlie) {
+      button2Text = 'Charlie';
+      button2Action = "switchToStream('charlie')";
+    } else if (availableStreams.bravo) {
       button2Text = 'Bravo';
       button2Action = "switchToStream('bravo')";
     }
-    // If alpha2 or bravo not available, show any other available stream
+    // If alpha2 or charlie/bravo not available, show any other available stream
     if (!button1Text && availableStreamTypes.length > 0) {
       const altStream = availableStreamTypes[0];
       button1Text = altStream.charAt(0).toUpperCase() + altStream.slice(1);
@@ -1168,11 +1178,14 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
       button1Text = 'Alpha1';
       button1Action = "switchToStream('alpha1')";
     }
-    if (availableStreams.bravo) {
+    if (availableStreams.charlie) {
+      button2Text = 'Charlie';
+      button2Action = "switchToStream('charlie')";
+    } else if (availableStreams.bravo) {
       button2Text = 'Bravo';
       button2Action = "switchToStream('bravo')";
     }
-    // If alpha1 or bravo not available, show any other available stream
+    // If alpha1 or charlie/bravo not available, show any other available stream
     if (!button1Text && availableStreamTypes.length > 0) {
       const altStream = availableStreamTypes[0];
       button1Text = altStream.charAt(0).toUpperCase() + altStream.slice(1);
@@ -1188,11 +1201,37 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
       button1Text = 'Alpha1';
       button1Action = "switchToStream('alpha1')";
     }
-    if (availableStreams.alpha2) {
+    if (availableStreams.charlie) {
+      button2Text = 'Charlie';
+      button2Action = "switchToStream('charlie')";
+    } else if (availableStreams.alpha2) {
       button2Text = 'Alpha2';
       button2Action = "switchToStream('alpha2')";
     }
-    // If alpha1 or alpha2 not available, show any other available stream
+    // If alpha1 or charlie/alpha2 not available, show any other available stream
+    if (!button1Text && availableStreamTypes.length > 0) {
+      const altStream = availableStreamTypes[0];
+      button1Text = altStream.charAt(0).toUpperCase() + altStream.slice(1);
+      button1Action = `switchToStream('${altStream}')`;
+    }
+    if (!button2Text && availableStreamTypes.length > 1) {
+      const altStream = availableStreamTypes[1];
+      button2Text = altStream.charAt(0).toUpperCase() + altStream.slice(1);
+      button2Action = `switchToStream('${altStream}')`;
+    }
+  } else if (currentStreamType === 'charlie') {
+    if (availableStreams.alpha1) {
+      button1Text = 'Alpha1';
+      button1Action = "switchToStream('alpha1')";
+    }
+    if (availableStreams.alpha2) {
+      button2Text = 'Alpha2';
+      button2Action = "switchToStream('alpha2')";
+    } else if (availableStreams.bravo) {
+      button2Text = 'Bravo';
+      button2Action = "switchToStream('bravo')";
+    }
+    // If alpha1 or alpha2/bravo not available, show any other available stream
     if (!button1Text && availableStreamTypes.length > 0) {
       const altStream = availableStreamTypes[0];
       button1Text = altStream.charAt(0).toUpperCase() + altStream.slice(1);
@@ -1204,7 +1243,7 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
       button2Action = `switchToStream('${altStream}')`;
     }
   } else {
-    // For any other stream types, always show available alternatives with preference for alpha1, alpha2, bravo
+    // For any other stream types, always show available alternatives with preference for alpha1, alpha2, bravo, charlie
     if (availableStreams.alpha1) {
       button1Text = 'Alpha1';
       button1Action = "switchToStream('alpha1')";
@@ -1217,7 +1256,10 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
       button1Action = `switchToStream('${firstAlternative}')`;
     }
 
-    if (availableStreams.bravo) {
+    if (availableStreams.charlie) {
+      button2Text = 'Charlie';
+      button2Action = "switchToStream('charlie')";
+    } else if (availableStreams.bravo) {
       button2Text = 'Bravo';
       button2Action = "switchToStream('bravo')";
     } else if (availableStreams.alpha2 && button1Text !== 'Alpha2') {
