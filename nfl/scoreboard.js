@@ -1890,6 +1890,23 @@ async function renderBoxScore(gameId, gameState) {
   }
 }
 
+// Helper function to format yard line text
+function formatYardLineText(yardLine, teamAbbr, homeTeam, awayTeam) {
+  if (yardLine === undefined || yardLine === null) return '';
+  
+  if (yardLine === 50) {
+    return '50';
+  } else if (yardLine > 50) {
+    // In opponent territory - show opponent team abbreviation
+    const opponentAbbr = (teamAbbr === homeTeam?.abbreviation) ? awayTeam?.abbreviation : homeTeam?.abbreviation;
+    const yardLineFromGoal = 100 - yardLine;
+    return opponentAbbr ? `${opponentAbbr} ${yardLineFromGoal}` : `${yardLineFromGoal}`;
+  } else {
+    // In own territory - show own team abbreviation
+    return teamAbbr ? `${teamAbbr} ${yardLine}` : `${yardLine}`;
+  }
+}
+
 async function renderPlayByPlay(gameId) {
   try {
     console.log("Rendering play-by-play for game:", gameId);
@@ -1986,7 +2003,7 @@ async function renderPlayByPlay(gameId) {
       const teamLogo = teamInfo?.logos?.[1]?.href || '';
       const teamColor = teamInfo?.color ? `#${teamInfo.color}` : '#333';
       const teamId = teamInfo?.id;
-      const driveResult = drive.displayResult || drive.result || 'No Result';
+      const driveResult = drive.displayResult || drive.result || 'In Progress';
       const driveDescription = drive.description || '';
       const isScore = drive.isScore || false;
       
@@ -2044,6 +2061,11 @@ async function renderPlayByPlay(gameId) {
       let currentYardLine = driveEndYardLine;
       let currentText = drive.end?.text || '';
       
+      // If currentText is empty but we have a yard line, generate text
+      if (!currentText && driveEndYardLine !== undefined) {
+        currentText = formatYardLineText(driveEndYardLine, drive.team?.abbreviation, homeTeam, awayTeam);
+      }
+      
       if (!hasDriveEnded && drive.plays?.items && drive.plays.items.length > 0) {
         // Sort plays by sequence number to get the most recent play
         const sortedPlays = drive.plays.items.sort((a, b) => {
@@ -2068,6 +2090,12 @@ async function renderPlayByPlay(gameId) {
         if (mostRecentPlay.end?.yardLine !== undefined) {
           currentYardLine = mostRecentPlay.end.yardLine;
           currentText = mostRecentPlay.end.text || '';
+          
+          // If currentText is empty, generate it from the yard line
+          if (!currentText) {
+            currentText = formatYardLineText(currentYardLine, drive.team?.abbreviation, homeTeam, awayTeam);
+          }
+          
           console.log('Using current position from most recent play:', currentText, currentYardLine);
         }
       }
