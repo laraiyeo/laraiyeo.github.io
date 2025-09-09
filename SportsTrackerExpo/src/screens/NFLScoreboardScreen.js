@@ -17,6 +17,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdateHash, setLastUpdateHash] = useState('');
+  const [updateInterval, setUpdateInterval] = useState(null);
 
   useEffect(() => {
     loadScoreboard();
@@ -26,7 +27,13 @@ const NFLScoreboardScreen = ({ navigation }) => {
       loadScoreboard(true); // Silent update
     }, 2000);
     
-    return () => clearInterval(interval);
+    setUpdateInterval(interval);
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
   }, []);
 
   const loadScoreboard = async (silentUpdate = false) => {
@@ -39,6 +46,16 @@ const NFLScoreboardScreen = ({ navigation }) => {
       const formattedGames = scoreboardData.events.map(game => 
         NFLService.formatGameForMobile(game)
       );
+      
+      // Check if any games are still in progress
+      const hasLiveGames = formattedGames.some(game => !game.isCompleted);
+      
+      // If no live games and we have an active interval, stop it
+      if (!hasLiveGames && updateInterval) {
+        clearInterval(updateInterval);
+        setUpdateInterval(null);
+        console.log('All games are final, stopping updates');
+      }
       
       // Create a hash of the current data to check for changes
       const dataHash = JSON.stringify(formattedGames.map(game => ({

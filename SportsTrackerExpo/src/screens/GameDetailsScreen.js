@@ -26,6 +26,7 @@ const GameDetailsScreen = ({ route }) => {
   const [gameSituation, setGameSituation] = useState(null);
   const [selectedDrive, setSelectedDrive] = useState(null);
   const [driveModalVisible, setDriveModalVisible] = useState(false);
+  const [updateInterval, setUpdateInterval] = useState(null);
 
   useEffect(() => {
     loadGameDetails();
@@ -34,7 +35,7 @@ const GameDetailsScreen = ({ route }) => {
   }, [gameId]);
 
   useEffect(() => {
-    // Set up continuous fetching for live games
+    // Set up continuous fetching for live games - only once on mount
     const interval = setInterval(() => {
       if (gameDetails && !gameDetails.status?.type?.completed) {
         loadGameDetails(true); // Silent update - this will update all game data including stats
@@ -48,8 +49,23 @@ const GameDetailsScreen = ({ route }) => {
       }
     }, 2000);
     
-    return () => clearInterval(interval);
-  }, [gameDetails, activeTab, drivesData]); // Add activeTab and drivesData to dependencies
+    setUpdateInterval(interval);
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, []); // Empty dependency array - only run once on mount
+
+  // Separate effect to monitor game status and clear interval when game is final
+  useEffect(() => {
+    if (gameDetails && gameDetails.status?.type?.completed && updateInterval) {
+      clearInterval(updateInterval);
+      setUpdateInterval(null);
+      console.log('Game is final, stopping updates');
+    }
+  }, [gameDetails?.status?.type?.completed, updateInterval]); // Only run when game completion status changes
 
   useEffect(() => {
     if (activeTab === 'drives') {
@@ -415,15 +431,33 @@ const GameDetailsScreen = ({ route }) => {
     console.log('Player position:', position, 'Type:', typeof position);
 
     if (['QB'].includes(position)) {
+      // Handle QB stats - check if we have 8 stats and skip the 7th if so
+      let qbLabels = ['C/ATT', 'PYDS', 'PAVG', 'PTD', 'INT', 'S-YDSLST', 'RTG'];
+      let qbStats = passingStats;
+
+      if (passingStats.length === 8) {
+        // Skip the 7th stat (S-YDSLST) and show 1-6 + 8 (RTG)
+        qbStats = [
+          passingStats[0], // C/ATT
+          passingStats[1], // PYDS
+          passingStats[2], // PAVG
+          passingStats[3], // PTD
+          passingStats[4], // INT
+          passingStats[5], // S-YDSLST (6th, but will be labeled as 6th)
+          passingStats[7]  // RTG (8th stat, but will be 7th in display)
+        ];
+        qbLabels = ['C/ATT', 'PYDS', 'PAVG', 'PTD', 'INT', 'S-YDSLST', 'RTG'];
+      }
+
       return (
         <View>
-          {passingStats.length > 0 && (
+          {qbStats.length > 0 && (
             <View style={styles.statCategory}>
               <View style={styles.statSubcategoryHeader}>
                 <Text style={styles.footballEmoji}>🏈</Text>
                 <Text style={styles.statCategoryTitle}>Passing</Text>
               </View>
-              {renderStatRow(passingStats, ['C/ATT', 'PYDS', 'PAVG', 'PTD', 'INT', 'S-YDSLST', 'RTG'])}
+              {renderStatRow(qbStats, qbLabels)}
             </View>
           )}
           {rushingStats.length > 0 && (
@@ -564,17 +598,34 @@ const GameDetailsScreen = ({ route }) => {
               } else if (categoryName.includes('penalty') || categoryName.includes('penalties')) {
                 statLabels = ['Penalties', 'Yards', 'First Downs'];
               } else if (categoryName.includes('passing')) {
-                statLabels = ['C/ATT', 'YDS', 'AVG', 'TD', 'INT', 'SACK', 'RTG'];
+                // Handle passing stats - check if we have 8 stats and skip the 7th if so
+                if (category.stats && category.stats.length === 8) {
+                  // Skip the 7th stat (QBR) and show 1-6 + 8 (RTG)
+                  // Modify the stats array to exclude the 7th stat
+                  category.stats = [
+                    category.stats[0], // C/ATT
+                    category.stats[1], // YDS
+                    category.stats[2], // AVG
+                    category.stats[3], // TD
+                    category.stats[4], // INT
+                    category.stats[5], // SACK
+                    category.stats[7]  // RTG (skip QBR at index 6)
+                  ];
+                  statLabels = ['C/ATT', 'YDS', 'AVG', 'TD', 'INT', 'SACK', 'RTG'];
+                } else {
+                  // Default 7 stats
+                  statLabels = ['C/ATT', 'YDS', 'AVG', 'TD', 'INT', 'SACK', 'RTG'];
+                }
               } else if (categoryName.includes('rushing')) {
                 statLabels = ['ATT', 'YDS', 'AVG', 'TD', 'LNG'];
               } else if (categoryName.includes('receiving')) {
                 statLabels = ['REC', 'YDS', 'AVG', 'TD', 'LNG', 'TGT'];
               } else if (categoryName.includes('defensive') || categoryName.includes('defense')) {
-                statLabels = ['TOT', 'SOLO', 'SACK', 'TFL', 'PD', 'QB HIT'];
+                statLabels = ['TOT', 'SOLO', 'SACK', 'TFL', 'PD', 'QB HIT', 'D TD'];
               } else if (categoryName.includes('kicking')) {
                 statLabels = ['FGM/A', 'FG%', 'LNG', 'XPM/A', 'PTS'];
               } else if (categoryName.includes('punting')) {
-                statLabels = ['PUNTS', 'YDS', 'AVG', 'LNG', 'IN20'];
+                statLabels = ['PUNTS', 'YDS', 'AVG', 'TB', 'IN20', 'LNG'];
               } else if (categoryName.includes('return')) {
                 statLabels = ['RET', 'YDS', 'AVG', 'LNG', 'TD'];
               } else {
@@ -1369,10 +1420,10 @@ const GameDetailsScreen = ({ route }) => {
     switch (activeTab) {
       case 'stats':
         return renderStatsContent();
-      case 'home':
-        return renderTeamContent(homeTeam, 'home');
       case 'away':
         return renderTeamContent(awayTeam, 'away');
+      case 'home':
+        return renderTeamContent(homeTeam, 'home');
       case 'drives':
         return renderDrivesContent();
       default:
@@ -1548,16 +1599,16 @@ const GameDetailsScreen = ({ route }) => {
           <Text style={[styles.tabText, activeTab === 'stats' && styles.activeTabText]}>Stats</Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'home' && styles.activeTabButton]}
-          onPress={() => setActiveTab('home')}
-        >
-          <Text style={[styles.tabText, activeTab === 'home' && styles.activeTabText]}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
           style={[styles.tabButton, activeTab === 'away' && styles.activeTabButton]}
           onPress={() => setActiveTab('away')}
         >
           <Text style={[styles.tabText, activeTab === 'away' && styles.activeTabText]}>Away</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tabButton, activeTab === 'home' && styles.activeTabButton]}
+          onPress={() => setActiveTab('home')}
+        >
+          <Text style={[styles.tabText, activeTab === 'home' && styles.activeTabText]}>Home</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.tabButton, activeTab === 'drives' && styles.activeTabButton]}
@@ -1597,10 +1648,7 @@ const GameDetailsScreen = ({ route }) => {
                   />
                   <View style={styles.playerInfo}>
                     <Text style={styles.playerName}>
-                      {selectedPlayer.displayName || `${selectedPlayer.firstName || ''} ${selectedPlayer.lastName || ''}`.trim()}
-                    </Text>
-                    <Text style={styles.playerDetails}>
-                      #{selectedPlayer.jersey || 'N/A'} • {selectedPlayer.position?.abbreviation || selectedPlayer.position || 'N/A'}
+                      {selectedPlayer.displayName || `${selectedPlayer.firstName || ''} ${selectedPlayer.lastName || ''}`.trim()} <Text style={styles.playerDetails}>#{selectedPlayer.jersey || 'N/A'}</Text>
                     </Text>
                     <View style={styles.playerTeamInfo}>
                       {(selectedPlayer.team?.team?.logo || selectedPlayer.team?.team?.logos?.[0]?.href) && (
@@ -1776,15 +1824,17 @@ const GameDetailsScreen = ({ route }) => {
                             {play.text || 'No description available'}
                           </Text>
                           {/* Down and Yard information similar to scoreboard copycard */}
-                          {(play.scoringPlay || play.type?.text || play.down?.number || play.distance?.yards) && (
-                            <Text style={styles.driveModalPlayYards}>
-                              {[
-                                play.down?.number && play.distance?.yards && `${play.down.number}${play.down.number === 1 ? 'st' : play.down.number === 2 ? 'nd' : play.down.number === 3 ? 'rd' : 'th'} & ${play.distance.yards}`,
-                                play.type?.text,
-                                play.scoringPlay && 'SCORING PLAY'
-                              ].filter(Boolean).join(' • ')}
-                            </Text>
-                          )}
+                          {(() => {
+                            const downDistanceText = play.start?.downDistanceText || play.end?.downDistanceText || '';
+                            return (downDistanceText || play.scoringPlay || play.type?.text) && (
+                              <Text style={styles.driveModalPlayYards}>
+                                {[
+                                  downDistanceText,
+                                  play.type?.text
+                                ].filter(Boolean).join(' • ')}
+                              </Text>
+                            );
+                          })()}
                         </View>
                       ))
                     ) : (
@@ -2597,7 +2647,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   playerDetails: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#666',
     marginBottom: 3,
   },
