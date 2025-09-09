@@ -70,15 +70,26 @@ export class NFLService {
   }
 
   // Fetch NFL scoreboard
-  static async getScoreboard(date = null) {
-    const cacheKey = `scoreboard_${date || 'today'}`;
+  static async getScoreboard(startDate = null, endDate = null) {
+    const cacheKey = `scoreboard_${startDate || 'today'}_${endDate || startDate || 'today'}`;
     
     return this.getCachedData(cacheKey, async () => {
       let url = this.SCOREBOARD_API_URL;
-      if (date) {
-        url += `?dates=${date}`;
+      console.log('NFLService.getScoreboard called with:', { startDate, endDate });
+      
+      if (startDate) {
+        if (endDate && endDate !== startDate) {
+          // Date range format: dates=20250910-20250917
+          url += `?dates=${startDate}-${endDate}`;
+          console.log('NFLService: Using date range format:', `${startDate}-${endDate}`);
+        } else {
+          // Single date format: dates=20250910
+          url += `?dates=${startDate}`;
+          console.log('NFLService: Using single date format:', startDate);
+        }
       }
       
+      console.log('NFLService: Final API URL:', url);
       const response = await fetch(url);
       const data = await response.json();
       return data;
@@ -91,6 +102,9 @@ export class NFLService {
     
     return this.getCachedData(cacheKey, async () => {
       const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
+      console.log('NFLService.getGameDetails called with gameId:', gameId);
+      console.log('NFLService.getGameDetails: Using summary endpoint:', url);
+      
       const response = await fetch(this.convertToHttps(url));
       const data = await response.json();
       
@@ -475,72 +489,66 @@ export class NFLService {
   }
 
   // Get current game situation (possession, down, distance, field position)
-  static async getGameSituation(gameId) {
+  static async getGameSituation(gameId, gameDate = null) {
     try {
-      // First try the scoreboard API to find the game (similar to web version)
-      const today = new Date();
-      for (let daysBack = 0; daysBack <= 30; daysBack++) {
-        const searchDate = new Date(today);
-        searchDate.setDate(today.getDate() - daysBack);
-        
-        const adjustedDate = searchDate.getFullYear() +
-                             String(searchDate.getMonth() + 1).padStart(2, "0") +
-                             String(searchDate.getDate()).padStart(2, "0");
-        
-        const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${adjustedDate}`;
-        
-        try {
-          const response = await fetch(this.convertToHttps(scoreboardUrl));
-          const data = await response.json();
-          const games = data.events || [];
-          
-          const selectedGame = games.find(game => game.id === gameId);
-          if (selectedGame) {
-            // Get situation data from the game (like web version)
-            const situation = selectedGame.competitions?.[0]?.situation;
-            if (situation) {
-              
-              // Calculate proper ball position for field display
-              // ESPN yardLine is from 0-100, where 0 is one team's goal line and 100 is the other
-              let ballPosition = situation.yardLine !== undefined && situation.yardLine !== null ? situation.yardLine : null;
-              
-              // Only return data if we have valid down and distance info
-              if (situation.down && situation.down > 0 && situation.distance !== undefined) {
-                return {
-                  possession: situation.possession,
-                  possessionText: situation.possessionText,
-                  down: situation.down,
-                  distance: situation.distance,
-                  yardLine: ballPosition,
-                  shortDownDistanceText: situation.shortDownDistanceText,
-                  downDistanceText: situation.downDistanceText,
-                  isRedZone: situation.isRedZone,
-                  timeouts: {
-                    home: situation.homeTimeouts,
-                    away: situation.awayTimeouts
-                  }
-                };
-              }
-            }
-            // If no situation but game found, return basic info
-            return {
-              possession: null,
-              down: null,
-              distance: null,
-              yardLine: 50,
-              possessionText: null
-            };
-          }
-        } catch (error) {
-          console.error(`Error fetching scoreboard for date ${adjustedDate}:`, error);
-        }
+      console.log('NFLService.getGameSituation called with gameId:', gameId);
+      
+      // Use the game summary endpoint directly instead of searching through scoreboard
+      const summaryUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
+      console.log('NFLService.getGameSituation: Using summary endpoint:', summaryUrl);
+      
+      const response = await fetch(this.convertToHttps(summaryUrl));
+      const data = await response.json();
+      
+      // Extract game situation from summary data
+      const event = data.header || data;
+      if (event && event.competitions && event.competitions[0]) {
+        return this.extractGameSituation({ ...event, competitions: event.competitions });
       }
       
       return null;
     } catch (error) {
-      console.error('Error fetching game situation:', error);
+      console.error('Error getting game situation:', error);
       return null;
     }
+  }
+
+  // Extract game situation from a game object (helper method)
+  static extractGameSituation(selectedGame) {
+    // Get situation data from the game (like web version)
+    const situation = selectedGame.competitions?.[0]?.situation;
+    if (situation) {
+      
+      // Calculate proper ball position for field display
+      // ESPN yardLine is from 0-100, where 0 is one team's goal line and 100 is the other
+      let ballPosition = situation.yardLine !== undefined && situation.yardLine !== null ? situation.yardLine : null;
+      
+      // Only return data if we have valid down and distance info
+      if (situation.down && situation.down > 0 && situation.distance !== undefined) {
+        return {
+          possession: situation.possession,
+          possessionText: situation.possessionText,
+          down: situation.down,
+          distance: situation.distance,
+          yardLine: ballPosition,
+          shortDownDistanceText: situation.shortDownDistanceText,
+          downDistanceText: situation.downDistanceText,
+          isRedZone: situation.isRedZone,
+          timeouts: {
+            home: situation.homeTimeouts,
+            away: situation.awayTimeouts
+          }
+        };
+      }
+    }
+    // If no situation but game found, return basic info
+    return {
+      possession: null,
+      down: null,
+      distance: null,
+      yardLine: 50,
+      possessionText: null
+    };
   }
 
   // Get game summary data

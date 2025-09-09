@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,8 @@ import {
   Alert,
   Image,
   TouchableOpacity,
-  Modal
+  Modal,
+  Animated
 } from 'react-native';
 import { NFLService } from '../services/NFLService';
 
@@ -27,25 +28,48 @@ const GameDetailsScreen = ({ route }) => {
   const [selectedDrive, setSelectedDrive] = useState(null);
   const [driveModalVisible, setDriveModalVisible] = useState(false);
   const [updateInterval, setUpdateInterval] = useState(null);
+  const [showStickyHeader, setShowStickyHeader] = useState(false);
+  const [awayRosterData, setAwayRosterData] = useState(null);
+  const [homeRosterData, setHomeRosterData] = useState(null);
+  const [loadingRoster, setLoadingRoster] = useState(false);
+  const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadGameDetails();
-    // Preload drives to improve performance
-    loadDrives();
   }, [gameId]);
+
+  // Separate effect to handle drives preloading after gameDetails is loaded
+  useEffect(() => {
+    if (gameDetails && !gameDetails.status?.type?.description?.toLowerCase().includes('scheduled')) {
+      loadDrives();
+    }
+  }, [gameDetails]);
+
+  // Effect to load roster data for scheduled games
+  useEffect(() => {
+    const isScheduled = gameDetails?.status?.type?.description?.toLowerCase().includes('scheduled');
+    if (isScheduled && gameDetails) {
+      loadRosterData();
+    }
+  }, [gameDetails]);
 
   useEffect(() => {
     // Set up continuous fetching for live games - only once on mount
     const interval = setInterval(() => {
       if (gameDetails && !gameDetails.status?.type?.completed) {
+        const isScheduled = gameDetails.status?.type?.description?.toLowerCase().includes('scheduled');
+        
         loadGameDetails(true); // Silent update - this will update all game data including stats
         
-        // Only update drives if the drives tab is active OR if we haven't loaded drives yet
-        if (activeTab === 'drives' || !drivesData) {
+        // Only update drives if the drives tab is active OR if we haven't loaded drives yet, and game is not scheduled
+        if ((activeTab === 'drives' || !drivesData) && !isScheduled) {
           loadDrives(true); // Silent update drives
         }
         
-        loadGameSituation(true); // Silent update
+        // Only load game situation for non-scheduled games
+        if (!isScheduled) {
+          loadGameSituation(true); // Silent update
+        }
       }
     }, 2000);
     
@@ -68,18 +92,39 @@ const GameDetailsScreen = ({ route }) => {
   }, [gameDetails?.status?.type?.completed, updateInterval]); // Only run when game completion status changes
 
   useEffect(() => {
-    if (activeTab === 'drives') {
+    const isScheduled = gameDetails?.status?.type?.description?.toLowerCase().includes('scheduled');
+    
+    // If we're on drives tab but game is scheduled, switch to stats tab
+    if (activeTab === 'drives' && isScheduled) {
+      setActiveTab('stats');
+    }
+    
+    if (activeTab === 'drives' && !isScheduled) {
       loadDrives();
     }
-    // Load game situation for in-progress games
-    if (gameDetails && !gameDetails.status?.type?.completed) {
+    // Load game situation for in-progress games only (not scheduled)
+    if (gameDetails && !gameDetails.status?.type?.completed && !isScheduled) {
       loadGameSituation();
     }
   }, [activeTab, gameId, gameDetails]);
 
   const loadGameSituation = async (silentUpdate = false) => {
     try {
-      const situation = await NFLService.getGameSituation(gameId);
+      // Extract game date from gameDetails to avoid searching multiple dates
+      let gameDate = null;
+      if (gameDetails) {
+        // Try to get date from multiple possible locations in the response
+        const competition = gameDetails.header?.competitions?.[0] || gameDetails.competitions?.[0];
+        if (competition?.date) {
+          gameDate = new Date(competition.date);
+        } else if (gameDetails.header?.events?.[0]?.date) {
+          gameDate = new Date(gameDetails.header.events[0].date);
+        } else if (gameDetails.date) {
+          gameDate = new Date(gameDetails.date);
+        }
+      }
+      
+      const situation = await NFLService.getGameSituation(gameId, gameDate);
       setGameSituation(situation);
     } catch (error) {
       if (!silentUpdate) {
@@ -95,10 +140,13 @@ const GameDetailsScreen = ({ route }) => {
       }
       const details = await NFLService.getGameDetails(gameId);
       
-      // Debug team records
+      // Debug team records and status
       const competition = details.header?.competitions?.[0] || details.competitions?.[0];
       const homeTeam = competition?.competitors?.find(c => c.homeAway === 'home');
       const awayTeam = competition?.competitors?.find(c => c.homeAway === 'away');
+      
+      console.log('Game status:', details.status?.type?.description);
+      console.log('Game details status object:', details.status);
       
       setGameDetails(details);
     } catch (error) {
@@ -110,6 +158,31 @@ const GameDetailsScreen = ({ route }) => {
       if (!silentUpdate) {
         setLoading(false);
       }
+    }
+  };
+
+  const loadRosterData = async () => {
+    try {
+      setLoadingRoster(true);
+      const competition = gameDetails.header?.competitions?.[0] || gameDetails.competitions?.[0];
+      const homeTeam = competition?.competitors?.find(c => c.homeAway === 'home');
+      const awayTeam = competition?.competitors?.find(c => c.homeAway === 'away');
+
+      if (homeTeam?.team?.id) {
+        const homeResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${homeTeam.team.id}/roster`);
+        const homeData = await homeResponse.json();
+        setHomeRosterData(homeData);
+      }
+
+      if (awayTeam?.team?.id) {
+        const awayResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${awayTeam.team.id}/roster`);
+        const awayData = await awayResponse.json();
+        setAwayRosterData(awayData);
+      }
+    } catch (error) {
+      console.error('Error loading roster data:', error);
+    } finally {
+      setLoadingRoster(false);
     }
   };
 
@@ -695,6 +768,25 @@ const GameDetailsScreen = ({ route }) => {
   const gameDate = competition?.date || competition.header?.date;
   const venue = gameDetails.gameInfo.venue.fullName || competition?.venue?.fullName;
 
+  // Helper functions for determining losing team styles
+  const isGameFinal = status?.type?.completed;
+  const awayScore = parseInt(awayTeam?.score || '0');
+  const homeScore = parseInt(homeTeam?.score || '0');
+  const isAwayTeamLosing = isGameFinal && awayScore < homeScore;
+  const isHomeTeamLosing = isGameFinal && homeScore < awayScore;
+
+  const getTeamScoreStyle = (isLosing) => {
+    return isLosing ? [styles.teamScore, styles.losingTeamScore] : styles.teamScore;
+  };
+
+  const getTeamNameStyle = (isLosing) => {
+    return isLosing ? [styles.teamName, styles.losingTeamName] : styles.teamName;
+  };
+
+  const getStickyTeamScoreStyle = (isLosing) => {
+    return isLosing ? [styles.stickyTeamScore, styles.losingStickyTeamScore] : styles.stickyTeamScore;
+  };
+
   // Helper function to render team stats
   const renderTeamStats = (teams) => {
     if (!teams || teams.length < 2) return null;
@@ -1005,9 +1097,15 @@ const GameDetailsScreen = ({ route }) => {
         </View>
       </View>
 
-      {/* Game Leaders */}
+      {/* Game/Team Leaders */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Game Leaders</Text>
+        <Text style={styles.sectionTitle}>
+          {(() => {
+            const statusDesc = gameDetails?.status?.type?.description?.toLowerCase();
+            console.log('Status description for leaders:', statusDesc);
+            return statusDesc?.includes('scheduled') ? 'Team Leaders' : 'Game Leaders';
+          })()}
+        </Text>
         <View style={styles.leadersContainer}>
           {gameDetails.leaders && renderGameLeaders(gameDetails.leaders, awayTeam, homeTeam)}
         </View>
@@ -1015,14 +1113,93 @@ const GameDetailsScreen = ({ route }) => {
     </View>
   );
 
+  // Helper function to render team roster for scheduled games
+  const renderTeamRoster = (team) => {
+    const isHome = team?.homeAway === 'home';
+    const rosterData = isHome ? homeRosterData : awayRosterData;
+
+    if (loadingRoster) {
+      return (
+        <View style={styles.rosterContainer}>
+          <ActivityIndicator size="small" color="#013369" />
+          <Text style={styles.placeholderText}>Loading roster...</Text>
+        </View>
+      );
+    }
+
+    if (!rosterData?.athletes) {
+      return (
+        <View style={styles.rosterContainer}>
+          <Text style={styles.placeholderText}>Roster data not available</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.rosterContainer}>
+        {rosterData.athletes.map((positionGroup, groupIndex) => (
+          <View key={groupIndex} style={styles.rosterSection}>
+            <Text style={styles.rosterSectionTitle}>
+              {positionGroup.position || `Position Group ${groupIndex + 1}`}
+            </Text>
+            <View style={styles.rosterPlayersList}>
+              {positionGroup.items?.map((player, playerIndex) => (
+                <View key={playerIndex} style={styles.rosterPlayerCard}>
+                  <Text style={styles.rosterPlayerNumber}>#{player.jersey || 'N/A'}</Text>
+                  <Text style={styles.rosterPlayerName} numberOfLines={1}>
+                    {player.displayName || `${player.firstName || ''} ${player.lastName || ''}`.trim()}
+                  </Text>
+                  <Text style={styles.rosterPlayerPosition}>
+                    {player.position?.abbreviation || positionGroup.position || 'N/A'}
+                  </Text>
+                </View>
+              )) || []}
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   // Helper function to render team-specific content
   const renderTeamContent = (team, teamType) => {
+    const statusDesc = gameDetails?.status?.type?.description?.toLowerCase();
+    const isScheduled = statusDesc?.includes('scheduled');
+    console.log('Status description for team content:', statusDesc);
+    console.log('Is scheduled (team content):', isScheduled);
+    const sectionTitle = isScheduled ? 'Roster' : 'Box Score';
     
-    if (!gameDetails.boxscore?.players) {
+    if (!gameDetails.boxscore?.players && !isScheduled) {
       return (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{team?.team?.displayName || team?.team?.name} Box Score</Text>
+          <View style={styles.teamBoxScoreHeader}>
+            <Image 
+              source={{ uri: NFLService.convertToHttps(team?.team?.logo || team?.team?.logos?.[0]?.href) }}
+              style={styles.teamBoxScoreLogo}
+              defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=NFL' }}
+            />
+            <Text style={styles.sectionTitle}>{team?.team?.displayName || team?.team?.name} {sectionTitle}</Text>
+          </View>
           <Text style={styles.placeholderText}>Box score data not available</Text>
+        </View>
+      );
+    }
+
+    // For scheduled games, show roster instead of box score
+    if (isScheduled) {
+      return (
+        <View style={styles.section}>
+          <View style={styles.teamBoxScoreHeader}>
+            <Image 
+              source={{ uri: NFLService.convertToHttps(team?.team?.logo || team?.team?.logos?.[0]?.href) }}
+              style={styles.teamBoxScoreLogo}
+              defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=NFL' }}
+            />
+            <Text style={styles.sectionTitle}>{team?.team?.displayName || team?.team?.name} {sectionTitle}</Text>
+          </View>
+          <View style={styles.teamBoxScoreContainer}>
+            {renderTeamRoster(team)}
+          </View>
         </View>
       );
     }
@@ -1036,7 +1213,14 @@ const GameDetailsScreen = ({ route }) => {
     if (!teamBoxScore || !teamBoxScore.statistics) {
       return (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{team?.team?.displayName || team?.team?.name} Box Score</Text>
+          <View style={styles.teamBoxScoreHeader}>
+            <Image 
+              source={{ uri: NFLService.convertToHttps(team?.team?.logo || team?.team?.logos?.[0]?.href) }}
+              style={styles.teamBoxScoreLogo}
+              defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=NFL' }}
+            />
+            <Text style={styles.sectionTitle}>{team?.team?.displayName || team?.team?.name} {sectionTitle}</Text>
+          </View>
           <Text style={styles.placeholderText}>No statistics available for this team</Text>
         </View>
       );
@@ -1050,7 +1234,7 @@ const GameDetailsScreen = ({ route }) => {
             style={styles.teamBoxScoreLogo}
             defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=NFL' }}
           />
-          <Text style={styles.sectionTitle}>{team?.team?.displayName || team?.team?.name} Box Score</Text>
+          <Text style={styles.sectionTitle}>{team?.team?.displayName || team?.team?.name} {sectionTitle}</Text>
         </View>
         <View style={styles.teamBoxScoreContainer}>
           {teamBoxScore.statistics.map((statCategory, categoryIndex) => {
@@ -1146,9 +1330,9 @@ const GameDetailsScreen = ({ route }) => {
               >
                 <View style={styles.driveHeader}>
                   <View style={styles.driveTeamInfo}>
-                    {drive.team?.logo && (
+                    {drive.team?.logos?.[0]?.href && (
                       <Image 
-                        source={{ uri: NFLService.convertToHttps(drive.team.logo) }}
+                        source={{ uri: NFLService.convertToHttps(drive.team.logos[0]?.href) }}
                         style={styles.driveTeamLogo}
                         defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=NFL' }}
                       />
@@ -1431,14 +1615,133 @@ const GameDetailsScreen = ({ route }) => {
     }
   };
 
+  // Sticky header component
+  const renderStickyHeader = () => {
+    return (
+      <Animated.View 
+        style={[
+          styles.stickyHeader, 
+          { 
+            opacity: stickyHeaderOpacity,
+            transform: [{ 
+              translateY: stickyHeaderOpacity.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-20, 0], // Smaller, more subtle slide effect
+              })
+            }]
+          }
+        ]}
+        pointerEvents={showStickyHeader ? 'auto' : 'none'}
+      >
+        {/* Away Team */}
+        <View style={styles.stickyTeamAway}>
+          <Image 
+            source={{ uri: NFLService.convertToHttps(awayTeam?.team?.logo || awayTeam?.team?.logos?.[0]?.href) }} 
+            style={styles.stickyTeamLogo} 
+            defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=NFL' }}
+          />
+          <Text style={getStickyTeamScoreStyle(isAwayTeamLosing)}>{awayTeam?.score || '0'}</Text>
+          {/* Possession indicator for away team */}
+          {gameSituation?.possession === awayTeam?.id && 
+           status?.type?.description !== 'Halftime' && (
+            <Text style={styles.stickyPossessionIndicator}>🏈</Text>
+          )}
+        </View>
+
+        {/* Status and Time */}
+        <View style={styles.stickyStatus}>
+          <Text style={styles.stickyStatusText}>
+            {status?.type?.completed ? 'Final' :
+             status?.type?.description === 'Halftime' ? 'Halftime' :
+             status?.period && status?.period > 0 && !status?.type?.completed ? 
+             (status.period <= 4 ? `${['1st', '2nd', '3rd', '4th'][status.period - 1]} Quarter` : `OT ${status.period - 4}`) :
+             status?.type?.description || status?.type?.name || 'Scheduled'}
+          </Text>
+          {/* Show clock for in-progress games or start time for scheduled games */}
+          {status?.displayClock && !status?.type?.completed && status?.type?.description !== 'Halftime' ? (
+            <Text style={styles.stickyClock}>
+              {status.displayClock}
+            </Text>
+          ) : (!status?.type?.completed && !status?.period && gameDate) ? (
+            <Text style={styles.stickyClock}>
+              {new Date(gameDate).toLocaleTimeString("en-US", {
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+              })}
+            </Text>
+          ) : null}
+        </View>
+
+        {/* Home Team */}
+        <View style={styles.stickyTeamHome}>
+          {/* Possession indicator for home team */}
+          {gameSituation?.possession === homeTeam?.id && 
+           status?.type?.description !== 'Halftime' && (
+            <Text style={styles.stickyPossessionIndicator}>🏈</Text>
+          )}
+          <Text style={getStickyTeamScoreStyle(isHomeTeamLosing)}>{homeTeam?.score || '0'}</Text>
+          <Image 
+            source={{ uri: NFLService.convertToHttps(homeTeam?.team?.logo || homeTeam?.team?.logos?.[0]?.href) }} 
+            style={styles.stickyTeamLogo} 
+            defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=NFL' }}
+          />
+        </View>
+      </Animated.View>
+    );
+  };
+
+  // Handle scroll events
+  const handleScroll = (event) => {
+    const scrollY = event.nativeEvent.contentOffset.y;
+    
+    // Define the transition range - moved earlier
+    const fadeStartY = 100; // Start fading in when scrolled past this point
+    const fadeEndY = 150;   // Fully visible at this point
+    
+    // Calculate opacity based on scroll position within the transition range
+    let opacity = 0;
+    if (scrollY >= fadeStartY) {
+      if (scrollY >= fadeEndY) {
+        opacity = 1; // Fully visible
+      } else {
+        // Gradual transition between fadeStartY and fadeEndY
+        opacity = (scrollY - fadeStartY) / (fadeEndY - fadeStartY);
+      }
+    }
+    
+    // Update state for conditional padding
+    const shouldShow = opacity > 0;
+    if (shouldShow !== showStickyHeader) {
+      setShowStickyHeader(shouldShow);
+    }
+    
+    // Smoothly animate to the calculated opacity
+    Animated.timing(stickyHeaderOpacity, {
+      toValue: opacity,
+      duration: 0, // Immediate response to scroll
+      useNativeDriver: true,
+    }).start();
+  };
+
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
+      {/* Sticky Header - Always render but animated */}
+      {renderStickyHeader()}
+      
+      {/* Main Content */}
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
       {/* Game Header */}
       <View style={styles.gameHeader}>
         <View style={styles.teamContainer}>
           {/* Away Team */}
           <View style={styles.team}>
-            <Text style={styles.teamScore}>{awayTeam?.score || '0'}</Text>
+            <Text style={getTeamScoreStyle(isAwayTeamLosing)}>{awayTeam?.score || '0'}</Text>
             <View style={styles.teamLogoContainer}>
               <Image 
                 source={{ uri: NFLService.convertToHttps(awayTeam?.team?.logo || awayTeam?.team?.logos?.[0]?.href) }} 
@@ -1447,7 +1750,7 @@ const GameDetailsScreen = ({ route }) => {
               />
             </View>
             <View style={styles.teamNameContainer}>
-              <Text style={styles.teamName}>{awayTeam?.team?.abbreviation || awayTeam?.team?.shortDisplayName || awayTeam?.team?.name}</Text>
+              <Text style={getTeamNameStyle(isAwayTeamLosing)}>{awayTeam?.team?.abbreviation || awayTeam?.team?.shortDisplayName || awayTeam?.team?.name}</Text>
               {/* Possession indicator for away team (not during halftime) */}
               {gameSituation?.possession === awayTeam?.id && 
                status?.type?.description !== 'Halftime' && (
@@ -1466,16 +1769,25 @@ const GameDetailsScreen = ({ route }) => {
                (status.period <= 4 ? `${['1st', '2nd', '3rd', '4th'][status.period - 1]} Quarter` : `OT ${status.period - 4}`) :
                status?.type?.description || status?.type?.name || 'Scheduled'}
             </Text>
-            {status?.displayClock && !status?.type?.completed && status?.type?.description !== 'Halftime' && (
+            {/* Show clock for in-progress games or start time for scheduled games */}
+            {status?.displayClock && !status?.type?.completed && status?.type?.description !== 'Halftime' ? (
               <Text style={styles.gameClock}>
                 {status.displayClock}
               </Text>
-            )}
+            ) : (!status?.type?.completed && !status?.period && gameDate) ? (
+              <Text style={styles.gameClock}>
+                {new Date(gameDate).toLocaleTimeString("en-US", {
+                  hour: "numeric",
+                  minute: "2-digit",
+                  hour12: true,
+                })}
+              </Text>
+            ) : null}
           </View>
 
           {/* Home Team */}
           <View style={styles.team}>
-            <Text style={styles.teamScore}>{homeTeam?.score || '0'}</Text>
+            <Text style={getTeamScoreStyle(isHomeTeamLosing)}>{homeTeam?.score || '0'}</Text>
             <View style={styles.teamLogoContainer}>
               <Image 
                 source={{ uri: NFLService.convertToHttps(homeTeam?.team?.logo || homeTeam?.team?.logos?.[0]?.href) }} 
@@ -1484,7 +1796,7 @@ const GameDetailsScreen = ({ route }) => {
               />
             </View>
             <View style={styles.teamNameContainer}>
-              <Text style={styles.teamName}>{homeTeam?.team?.abbreviation || homeTeam?.team?.shortDisplayName || homeTeam?.team?.name}</Text>
+              <Text style={getTeamNameStyle(isHomeTeamLosing)}>{homeTeam?.team?.abbreviation || homeTeam?.team?.shortDisplayName || homeTeam?.team?.name}</Text>
               {/* Possession indicator for home team (not during halftime) */}
               {gameSituation?.possession === homeTeam?.id && 
                status?.type?.description !== 'Halftime' && (
@@ -1610,12 +1922,21 @@ const GameDetailsScreen = ({ route }) => {
         >
           <Text style={[styles.tabText, activeTab === 'home' && styles.activeTabText]}>Home</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'drives' && styles.activeTabButton]}
-          onPress={() => setActiveTab('drives')}
-        >
-          <Text style={[styles.tabText, activeTab === 'drives' && styles.activeTabText]}>Drives</Text>
-        </TouchableOpacity>
+        {/* Only show drives tab for non-scheduled games */}
+        {(() => {
+          const statusDesc = gameDetails?.status?.type?.description?.toLowerCase();
+          console.log('Status description for drives tab:', statusDesc);
+          const isScheduled = statusDesc?.includes('scheduled');
+          console.log('Is scheduled (drives tab):', isScheduled);
+          return !isScheduled;
+        })() && (
+          <TouchableOpacity 
+            style={[styles.tabButton, activeTab === 'drives' && styles.activeTabButton]}
+            onPress={() => setActiveTab('drives')}
+          >
+            <Text style={[styles.tabText, activeTab === 'drives' && styles.activeTabText]}>Drives</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Tab Content */}
@@ -1705,9 +2026,9 @@ const GameDetailsScreen = ({ route }) => {
                 {/* Drive Header */}
                 <View style={styles.driveModalHeader}>
                   <View style={styles.driveModalTeamInfo}>
-                    {selectedDrive.team?.logo && (
+                    {selectedDrive.team?.logos?.[0]?.href && (
                       <Image 
-                        source={{ uri: NFLService.convertToHttps(selectedDrive.team.logo) }}
+                        source={{ uri: NFLService.convertToHttps(selectedDrive.team.logos[0].href) }}
                         style={styles.driveModalTeamLogo}
                         defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=NFL' }}
                       />
@@ -1848,6 +2169,7 @@ const GameDetailsScreen = ({ route }) => {
         </View>
       </Modal>
     </ScrollView>
+    </View>
   );
 };
 
@@ -1855,6 +2177,77 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  stickyHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  stickyTeamAway: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'flex-start',
+  },
+  stickyTeamHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  stickyTeamLogo: {
+    width: 28,
+    height: 28,
+    marginHorizontal: 8,
+  },
+  stickyTeamScore: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#013369',
+    minWidth: 35,
+    textAlign: 'center',
+  },
+  stickyStatus: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  stickyStatusText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#013369',
+    textAlign: 'center',
+  },
+  stickyClock: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  stickyPossessionIndicator: {
+    fontSize: 12,
+    marginHorizontal: 4,
   },
   loadingContainer: {
     flex: 1,
@@ -1929,6 +2322,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#013369',
     marginBottom: 5,
+  },
+  losingTeamScore: {
+    color: '#999',
+  },
+  losingTeamName: {
+    color: '#999',
+  },
+  losingStickyTeamScore: {
+    color: '#999',
   },
   vsContainer: {
     alignItems: 'center',
@@ -3087,6 +3489,67 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 10,
     color: '#777',
+    textAlign: 'center',
+  },
+  // Roster styles
+  rosterContainer: {
+    padding: 16,
+  },
+  rosterSection: {
+    marginBottom: 20,
+  },
+  rosterSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#013369',
+    marginBottom: 12,
+  },
+  rosterPlayersList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  rosterPlayerCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 8,
+    minWidth: 100,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  rosterPlayerNumber: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#013369',
+    marginBottom: 2,
+  },
+  rosterPlayerName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  rosterPlayerPosition: {
+    fontSize: 10,
+    color: '#666',
+    fontWeight: '500',
+  },
+  rosterPositionGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  rosterPosition: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    minWidth: 40,
     textAlign: 'center',
   },
 });
