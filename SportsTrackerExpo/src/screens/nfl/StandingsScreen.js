@@ -12,32 +12,11 @@ const StandingsScreen = ({ route }) => {
     fetchStandings();
     const interval = setInterval(fetchStandings, 30000); // Update every 30 seconds
     return () => clearInterval(interval);
-  }, [sport]);
-
-  const getStandingsUrl = () => {
-    switch (sport) {
-      case 'nfl':
-        return 'https://cdn.espn.com/core/nfl/standings?xhr=1';
-      case 'nba':
-        return 'https://cdn.espn.com/core/nba/standings?xhr=1';
-      case 'nhl':
-        return 'https://cdn.espn.com/core/nhl/standings?xhr=1';
-      case 'mlb':
-        return 'https://cdn.espn.com/core/mlb/standings?xhr=1';
-      default:
-        return null;
-    }
-  };
+  }, []);
 
   const fetchStandings = async () => {
     try {
-      const url = getStandingsUrl();
-      if (!url) {
-        setLoading(false);
-        return;
-      }
-
-      const response = await fetch(url);
+      const response = await fetch('https://cdn.espn.com/core/nfl/standings?xhr=1');
       const data = await response.json();
       
       setStandings(data);
@@ -50,7 +29,7 @@ const StandingsScreen = ({ route }) => {
 
   const getTeamLogo = (teamAbbreviation) => {
     const abbrev = teamAbbreviation.toLowerCase();
-    return `https://a.espncdn.com/i/teamlogos/${sport}/500-dark/${abbrev}.png`;
+    return `https://a.espncdn.com/i/teamlogos/nfl/500/${abbrev}.png`;
   };
 
   const renderNFLStandings = () => {
@@ -108,16 +87,16 @@ const StandingsScreen = ({ route }) => {
                         <TouchableOpacity 
                           key={teamIndex} 
                           style={styles.tableRow}
-                          onPress={() => navigation.navigate('TeamPage', { teamId: entry.team.id, sport })}
+                          onPress={() => navigation.navigate('TeamPage', { teamId: entry.team.id, sport: 'nfl' })}
                         >
                           <View style={[styles.tableCell, styles.teamColumn]}>
                             <Image 
                               source={{ uri: getTeamLogo(entry.team.abbreviation) }}
                               style={styles.teamLogo}
-                              defaultSource={{ uri: `https://via.placeholder.com/20x20?text=${sport.toUpperCase()}` }}
+                              defaultSource={{ uri: `https://via.placeholder.com/20x20?text=NFL` }}
                             />
                             <Text style={styles.teamName} numberOfLines={1}>
-                              {entry.team.displayName}
+                              {entry.team.shortDisplayName}
                             </Text>
                           </View>
                           <Text style={styles.tableCell}>{wins}</Text>
@@ -139,57 +118,6 @@ const StandingsScreen = ({ route }) => {
     );
   };
 
-  const renderGenericStandings = () => {
-    if (!standings?.content?.standings?.groups) return null;
-
-    return (
-      <ScrollView style={styles.container}>
-        {standings.content.standings.groups.map((group, groupIndex) => (
-          <View key={groupIndex} style={styles.conferenceContainer}>
-            <Text style={styles.conferenceTitle}>{group.name}</Text>
-            
-            <View style={styles.tableContainer}>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.headerCell, styles.teamColumn]}>Team</Text>
-                <Text style={styles.headerCell}>W</Text>
-                <Text style={styles.headerCell}>L</Text>
-                <Text style={styles.headerCell}>PCT</Text>
-              </View>
-              
-              {group.standings.entries.map((entry, teamIndex) => {
-                const wins = entry.stats.find(stat => stat.name === "wins")?.displayValue || "0";
-                const losses = entry.stats.find(stat => stat.name === "losses")?.displayValue || "0";
-                const winPercent = entry.stats.find(stat => stat.name === "winPercent")?.displayValue || "0.000";
-                
-                return (
-                  <TouchableOpacity 
-                    key={teamIndex} 
-                    style={styles.tableRow}
-                    onPress={() => navigation.navigate('TeamPage', { teamId: entry.team.id, sport })}
-                  >
-                    <View style={[styles.tableCell, styles.teamColumn]}>
-                      <Image 
-                        source={{ uri: getTeamLogo(entry.team.abbreviation) }}
-                        style={styles.teamLogo}
-                        defaultSource={{ uri: `https://via.placeholder.com/20x20?text=${sport.toUpperCase()}` }}
-                      />
-                      <Text style={styles.teamName} numberOfLines={1}>
-                        {entry.team.displayName}
-                      </Text>
-                    </View>
-                    <Text style={styles.tableCell}>{wins}</Text>
-                    <Text style={styles.tableCell}>{losses}</Text>
-                    <Text style={styles.tableCell}>{winPercent}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        ))}
-      </ScrollView>
-    );
-  };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -202,12 +130,12 @@ const StandingsScreen = ({ route }) => {
   if (!standings) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Standings not available for {sport.toUpperCase()}</Text>
+        <Text style={styles.errorText}>Standings not available</Text>
       </View>
     );
   }
 
-  return sport === 'nfl' ? renderNFLStandings() : renderGenericStandings();
+  return renderNFLStandings();
 };
 
 const styles = StyleSheet.create({

@@ -369,6 +369,113 @@ export class MLBService {
     });
   }
 
+  // Get team roster
+  static async getTeamRoster(teamId) {
+    if (!teamId) return null;
+    
+    const cacheKey = `teamRoster_${teamId}`;
+    
+    return this.getCachedData(cacheKey, async () => {
+      try {
+        const response = await fetch(`${this.BASE_URL}/api/v1/teams/${teamId}/roster/fullRoster`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        return data.roster || [];
+      } catch (error) {
+        console.error('Error fetching team roster:', error);
+        return [];
+      }
+    });
+  }
+
+  // Get team season stats
+  static async getTeamSeasonStats(teamId, season = new Date().getFullYear()) {
+    if (!teamId) return null;
+    
+    const cacheKey = `teamSeasonStats_${teamId}_${season}`;
+    
+    return this.getCachedData(cacheKey, async () => {
+      try {
+        const [hittingResponse, pitchingResponse] = await Promise.all([
+          fetch(`${this.BASE_URL}/api/v1/teams/${teamId}/stats?stats=season&group=hitting&season=${season}`),
+          fetch(`${this.BASE_URL}/api/v1/teams/${teamId}/stats?stats=season&group=pitching&season=${season}`)
+        ]);
+
+        if (!hittingResponse.ok || !pitchingResponse.ok) {
+          throw new Error(`HTTP error! hitting: ${hittingResponse.status}, pitching: ${pitchingResponse.status}`);
+        }
+
+        const [hittingData, pitchingData] = await Promise.all([
+          hittingResponse.json(),
+          pitchingResponse.json()
+        ]);
+
+        return {
+          hitting: hittingData.stats?.[0]?.splits?.[0]?.stat || {},
+          pitching: pitchingData.stats?.[0]?.splits?.[0]?.stat || {}
+        };
+      } catch (error) {
+        console.error('Error fetching team season stats:', error);
+        return { hitting: {}, pitching: {} };
+      }
+    });
+  }
+
+  // Get top team hitters
+  static async getTopTeamHitters(teamId, season = new Date().getFullYear()) {
+    if (!teamId) return [];
+    
+    const cacheKey = `topHittersAVG_${teamId}_${season}`; // Changed cache key to force refresh
+    
+    return this.getCachedData(cacheKey, async () => {
+      try {
+        const response = await fetch(`${this.BASE_URL}/api/v1/stats?stats=season&group=hitting&season=${season}&teamId=${teamId}&sportId=1`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const players = data.stats?.[0]?.splits || [];
+        
+        // Take top 3 players (already sorted by rank from API)
+        return players.slice(0, 3);
+      } catch (error) {
+        console.error('Error fetching top hitters:', error);
+        return [];
+      }
+    });
+  }
+
+  // Get player season stats
+  static async getPlayerSeasonStats(playerId, season = new Date().getFullYear()) {
+    if (!playerId) return null;
+    
+    const cacheKey = `playerSeasonStats_${playerId}_${season}`;
+    
+    return this.getCachedData(cacheKey, async () => {
+      try {
+        const [hittingResponse, pitchingResponse] = await Promise.all([
+          fetch(`${this.BASE_URL}/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${season}`),
+          fetch(`${this.BASE_URL}/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${season}`)
+        ]);
+
+        const hittingData = hittingResponse.ok ? await hittingResponse.json() : null;
+        const pitchingData = pitchingResponse.ok ? await pitchingResponse.json() : null;
+
+        return {
+          hitting: hittingData?.stats?.[0]?.splits?.[0]?.stat || {},
+          pitching: pitchingData?.stats?.[0]?.splits?.[0]?.stat || {}
+        };
+      } catch (error) {
+        console.error('Error fetching player season stats:', error);
+        return { hitting: {}, pitching: {} };
+      }
+    });
+  }
+
   // Clear cache method
   static clearCache() {
     this.cache.clear();

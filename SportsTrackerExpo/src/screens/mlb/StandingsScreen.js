@@ -12,32 +12,11 @@ const StandingsScreen = ({ route }) => {
     fetchStandings();
     const interval = setInterval(fetchStandings, 30000); // Update every 30 seconds
     return () => clearInterval(interval);
-  }, [sport]);
-
-  const getStandingsUrl = () => {
-    switch (sport) {
-      case 'nfl':
-        return 'https://cdn.espn.com/core/nfl/standings?xhr=1';
-      case 'nba':
-        return 'https://cdn.espn.com/core/nba/standings?xhr=1';
-      case 'nhl':
-        return 'https://cdn.espn.com/core/nhl/standings?xhr=1';
-      case 'mlb':
-        return 'https://cdn.espn.com/core/mlb/standings?xhr=1';
-      default:
-        return null;
-    }
-  };
+  }, []);
 
   const fetchStandings = async () => {
     try {
-      const url = getStandingsUrl();
-      if (!url) {
-        setLoading(false);
-        return;
-      }
-
-      const response = await fetch(url);
+      const response = await fetch('https://cdn.espn.com/core/mlb/standings?xhr=1');
       const data = await response.json();
       
       setStandings(data);
@@ -48,25 +27,67 @@ const StandingsScreen = ({ route }) => {
     }
   };
 
-  const getTeamLogo = (teamAbbreviation) => {
-    const abbrev = teamAbbreviation.toLowerCase();
-    return `https://a.espncdn.com/i/teamlogos/${sport}/500-dark/${abbrev}.png`;
+  const getMLBTeamId = (espnTeam) => {
+    // ESPN team abbreviations to MLB team IDs mapping
+    const teamMapping = {
+      'LAA': '108', 'HOU': '117', 'OAK': '133', 'TOR': '141', 'ATL': '144',
+      'MIL': '158', 'STL': '138', 'CHC': '112', 'ARI': '109', 'LAD': '119',
+      'SF': '137', 'CLE': '114', 'SEA': '136', 'MIA': '146', 'NYM': '121',
+      'WSH': '120', 'BAL': '110', 'SD': '135', 'PHI': '143', 'PIT': '134',
+      'TEX': '140', 'TB': '139', 'BOS': '111', 'CIN': '113', 'COL': '115',
+      'KC': '118', 'DET': '116', 'MIN': '142', 'CWS': '145', 'NYY': '147',
+      // Alternative abbreviations that ESPN might use
+      'A': '133',   // Sometimes Athletics use just 'A'
+      'AS': '133'   // Alternative Athletics abbreviation
+    };
+
+    // ESPN team ID to MLB team ID mapping (as backup)
+    const espnIdMapping = {
+      '11': '133',  // Athletics ESPN ID 11 -> MLB ID 133
+      '12': '117',  // Astros
+      '13': '110',  // Orioles
+      // Add more as needed
+    };
+    
+    console.log('Team abbreviation:', espnTeam.abbreviation, 'ESPN ID:', espnTeam.id);
+    
+    // First try abbreviation mapping
+    let mlbId = teamMapping[espnTeam.abbreviation];
+    
+    // If abbreviation mapping fails, try ESPN ID mapping
+    if (!mlbId) {
+      mlbId = espnIdMapping[espnTeam.id?.toString()];
+      console.log('Using ESPN ID mapping for team ID:', espnTeam.id, '-> MLB ID:', mlbId);
+    }
+    
+    if (!mlbId) {
+      console.warn('No MLB ID mapping found for team:', espnTeam.abbreviation, 'ESPN ID:', espnTeam.id, 'Using ESPN ID as fallback');
+      return espnTeam.id;
+    }
+    
+    console.log('Final MLB ID:', mlbId);
+    return mlbId;
   };
 
-  const renderNFLStandings = () => {
+  const getTeamLogo = (teamAbbreviation) => {
+    const abbrev = teamAbbreviation.toLowerCase();
+    return `https://a.espncdn.com/i/teamlogos/mlb/500/${abbrev}.png`;
+  };
+
+  const renderMLBStandings = () => {
     if (!standings?.content?.standings?.groups) return null;
 
     const groups = standings.content.standings.groups;
-    const afc = groups.find(group => group.name === "American Football Conference");
-    const nfc = groups.find(group => group.name === "National Football Conference");
+    const americanLeague = groups.find(group => group.name === "American League");
+    const nationalLeague = groups.find(group => group.name === "National League");
 
     return (
       <ScrollView style={styles.container}>
-        {[afc, nfc].filter(Boolean).map((conference, confIndex) => (
-          <View key={confIndex} style={styles.conferenceContainer}>
-            <Text style={styles.conferenceTitle}>{conference.name}</Text>
+        {[americanLeague, nationalLeague].filter(Boolean).map((league, leagueIndex) => (
+          <View key={leagueIndex} style={styles.conferenceContainer}>
+            <Text style={styles.conferenceTitle}>{league.name}</Text>
             
-            {conference.groups.map((division, divIndex) => (
+            {league.groups.map((division, divIndex) => (
               <View key={divIndex} style={styles.divisionContainer}>
                 <Text style={styles.divisionTitle}>{division.name}</Text>
                 
@@ -75,115 +96,55 @@ const StandingsScreen = ({ route }) => {
                     <Text style={[styles.headerCell, styles.teamColumn]}>Team</Text>
                     <Text style={styles.headerCell}>W</Text>
                     <Text style={styles.headerCell}>L</Text>
-                    <Text style={styles.headerCell}>T</Text>
                     <Text style={styles.headerCell}>PCT</Text>
-                    <Text style={styles.headerCell}>PF</Text>
-                    <Text style={styles.headerCell}>PA</Text>
-                    <Text style={styles.headerCell}>DIFF</Text>
+                    <Text style={styles.headerCell}>GB</Text>
+                    <Text style={styles.headerCell}>RS</Text>
+                    <Text style={styles.headerCell}>RA</Text>
                   </View>
                   
                   {division.standings.entries
-                    .sort((a, b) => {
-                      const aWins = parseInt(a.stats.find(stat => stat.name === "wins")?.value || "0");
-                      const bWins = parseInt(b.stats.find(stat => stat.name === "wins")?.value || "0");
-                      if (aWins !== bWins) return bWins - aWins;
-                      
-                      const aWinPct = parseFloat(a.stats.find(stat => stat.name === "winPercent")?.value || "0");
-                      const bWinPct = parseFloat(b.stats.find(stat => stat.name === "winPercent")?.value || "0");
-                      return bWinPct - aWinPct;
-                    })
+                    .sort((a, b) => a.team.seed - b.team.seed)
                     .map((entry, teamIndex) => {
                       const wins = entry.stats.find(stat => stat.name === "wins")?.displayValue || "0";
                       const losses = entry.stats.find(stat => stat.name === "losses")?.displayValue || "0";
-                      const ties = entry.stats.find(stat => stat.name === "ties")?.displayValue || "0";
                       const winPercent = entry.stats.find(stat => stat.name === "winPercent")?.displayValue || "0.000";
+                      const gamesBehind = entry.stats.find(stat => stat.name === "gamesBehind")?.displayValue || "-";
                       const pointsFor = entry.stats.find(stat => stat.name === "pointsFor")?.displayValue || "0";
                       const pointsAgainst = entry.stats.find(stat => stat.name === "pointsAgainst")?.displayValue || "0";
-                      const differential = entry.stats.find(stat => stat.name === "differential")?.displayValue || "0";
-                      
-                      const diffValue = parseInt(differential);
-                      const diffColor = diffValue > 0 ? '#008000' : diffValue < 0 ? '#FF0000' : '#666';
+                      console.log('Team entry:', JSON.stringify(entry.team, null, 2)); // Debug log
+                      const mlbTeamId = getMLBTeamId(entry.team);
                       
                       return (
                         <TouchableOpacity 
                           key={teamIndex} 
                           style={styles.tableRow}
-                          onPress={() => navigation.navigate('TeamPage', { teamId: entry.team.id, sport })}
+                          onPress={() => {
+                            console.log('Navigating to team:', mlbTeamId, entry.team.abbreviation);
+                            navigation.navigate('TeamPage', { teamId: mlbTeamId, sport: 'mlb' });
+                          }}
                         >
                           <View style={[styles.tableCell, styles.teamColumn]}>
                             <Image 
                               source={{ uri: getTeamLogo(entry.team.abbreviation) }}
                               style={styles.teamLogo}
-                              defaultSource={{ uri: `https://via.placeholder.com/20x20?text=${sport.toUpperCase()}` }}
+                              defaultSource={{ uri: `https://via.placeholder.com/20x20?text=MLB` }}
                             />
                             <Text style={styles.teamName} numberOfLines={1}>
-                              {entry.team.displayName}
+                              <Text style={styles.teamSeed}>({entry.team.seed})</Text> {entry.team.shortDisplayName}
                             </Text>
                           </View>
                           <Text style={styles.tableCell}>{wins}</Text>
                           <Text style={styles.tableCell}>{losses}</Text>
-                          <Text style={styles.tableCell}>{ties}</Text>
                           <Text style={styles.tableCell}>{winPercent}</Text>
+                          <Text style={styles.tableCell}>{gamesBehind}</Text>
                           <Text style={styles.tableCell}>{pointsFor}</Text>
                           <Text style={styles.tableCell}>{pointsAgainst}</Text>
-                          <Text style={[styles.tableCell, { color: diffColor }]}>{differential}</Text>
                         </TouchableOpacity>
                       );
                     })}
                 </View>
               </View>
             ))}
-          </View>
-        ))}
-      </ScrollView>
-    );
-  };
-
-  const renderGenericStandings = () => {
-    if (!standings?.content?.standings?.groups) return null;
-
-    return (
-      <ScrollView style={styles.container}>
-        {standings.content.standings.groups.map((group, groupIndex) => (
-          <View key={groupIndex} style={styles.conferenceContainer}>
-            <Text style={styles.conferenceTitle}>{group.name}</Text>
-            
-            <View style={styles.tableContainer}>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.headerCell, styles.teamColumn]}>Team</Text>
-                <Text style={styles.headerCell}>W</Text>
-                <Text style={styles.headerCell}>L</Text>
-                <Text style={styles.headerCell}>PCT</Text>
-              </View>
-              
-              {group.standings.entries.map((entry, teamIndex) => {
-                const wins = entry.stats.find(stat => stat.name === "wins")?.displayValue || "0";
-                const losses = entry.stats.find(stat => stat.name === "losses")?.displayValue || "0";
-                const winPercent = entry.stats.find(stat => stat.name === "winPercent")?.displayValue || "0.000";
-                
-                return (
-                  <TouchableOpacity 
-                    key={teamIndex} 
-                    style={styles.tableRow}
-                    onPress={() => navigation.navigate('TeamPage', { teamId: entry.team.id, sport })}
-                  >
-                    <View style={[styles.tableCell, styles.teamColumn]}>
-                      <Image 
-                        source={{ uri: getTeamLogo(entry.team.abbreviation) }}
-                        style={styles.teamLogo}
-                        defaultSource={{ uri: `https://via.placeholder.com/20x20?text=${sport.toUpperCase()}` }}
-                      />
-                      <Text style={styles.teamName} numberOfLines={1}>
-                        {entry.team.displayName}
-                      </Text>
-                    </View>
-                    <Text style={styles.tableCell}>{wins}</Text>
-                    <Text style={styles.tableCell}>{losses}</Text>
-                    <Text style={styles.tableCell}>{winPercent}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
           </View>
         ))}
       </ScrollView>
@@ -202,12 +163,12 @@ const StandingsScreen = ({ route }) => {
   if (!standings) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Standings not available for {sport.toUpperCase()}</Text>
+        <Text style={styles.errorText}>Standings not available</Text>
       </View>
     );
   }
 
-  return sport === 'nfl' ? renderNFLStandings() : renderGenericStandings();
+  return renderMLBStandings();
 };
 
 const styles = StyleSheet.create({
@@ -314,6 +275,12 @@ const styles = StyleSheet.create({
   teamName: {
     fontSize: 12,
     color: '#333',
+    fontWeight: '500',
+    flex: 1,
+  },
+  teamSeed: {
+    fontSize: 12,
+    color: '#777',
     fontWeight: '500',
     flex: 1,
   },

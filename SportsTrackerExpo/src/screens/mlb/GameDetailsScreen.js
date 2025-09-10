@@ -32,6 +32,12 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   const [playerModalVisible, setPlayerModalVisible] = useState(false);
   const [playerStats, setPlayerStats] = useState(null);
   const [loadingPlayerStats, setLoadingPlayerStats] = useState(false);
+  const [awayRoster, setAwayRoster] = useState(null);
+  const [homeRoster, setHomeRoster] = useState(null);
+  const [loadingRoster, setLoadingRoster] = useState(false);
+  const [seasonStats, setSeasonStats] = useState({ away: null, home: null });
+  const [topHitters, setTopHitters] = useState({ away: [], home: [] });
+  const [probablePitcherStats, setProbablePitcherStats] = useState({ away: null, home: null });
   const scrollViewRef = useRef(null);
   const playsScrollViewRef = useRef(null);
   const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
@@ -84,6 +90,13 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       loadPlaysData();
     }
   }, [gameData, activeTab]);
+
+  // Load scheduled game data when game data is loaded and game is scheduled
+  useEffect(() => {
+    if (gameData && gameData.gameData?.status?.statusCode === 'S') {
+      loadScheduledGameData();
+    }
+  }, [gameData]);
 
   // Monitor for live updates specifically for plays
   useEffect(() => {
@@ -245,6 +258,67 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     }
   };
 
+  const loadScheduledGameData = async () => {
+    if (!gameData || gameData.gameData?.status?.statusCode !== 'S') return;
+
+    const awayTeamId = gameData.gameData?.teams?.away?.id;
+    const homeTeamId = gameData.gameData?.teams?.home?.id;
+    
+    // Try to get probable pitchers from different possible locations
+    const awayPitcher = gameData.gameData?.probablePitchers?.away || 
+                       gameData.liveData?.boxscore?.teams?.away?.probablePitcher ||
+                       gameData.gameData?.teams?.away?.probablePitcher;
+    const homePitcher = gameData.gameData?.probablePitchers?.home || 
+                       gameData.liveData?.boxscore?.teams?.home?.probablePitcher ||
+                       gameData.gameData?.teams?.home?.probablePitcher;
+
+    if (!awayTeamId || !homeTeamId) return;
+
+    try {
+      setLoadingRoster(true);
+      
+      // Load rosters
+      const [awayRosterData, homeRosterData] = await Promise.all([
+        MLBService.getTeamRoster(awayTeamId),
+        MLBService.getTeamRoster(homeTeamId)
+      ]);
+
+      setAwayRoster(awayRosterData);
+      setHomeRoster(homeRosterData);
+
+      // Load season stats
+      const [awaySeasonStats, homeSeasonStats] = await Promise.all([
+        MLBService.getTeamSeasonStats(awayTeamId),
+        MLBService.getTeamSeasonStats(homeTeamId)
+      ]);
+
+      setSeasonStats({ away: awaySeasonStats, home: homeSeasonStats });
+
+      // Load top hitters
+      const [awayTopHitters, homeTopHitters] = await Promise.all([
+        MLBService.getTopTeamHitters(awayTeamId),
+        MLBService.getTopTeamHitters(homeTeamId)
+      ]);
+
+      setTopHitters({ away: awayTopHitters, home: homeTopHitters });
+
+      // Load probable pitcher stats if available
+      if (awayPitcher?.id || homePitcher?.id) {
+        const [awayPitcherStats, homePitcherStats] = await Promise.all([
+          awayPitcher?.id ? MLBService.getPlayerSeasonStats(awayPitcher.id) : Promise.resolve(null),
+          homePitcher?.id ? MLBService.getPlayerSeasonStats(homePitcher.id) : Promise.resolve(null)
+        ]);
+
+        setProbablePitcherStats({ away: awayPitcherStats, home: homePitcherStats });
+      }
+
+    } catch (error) {
+      console.error('Error loading scheduled game data:', error);
+    } finally {
+      setLoadingRoster(false);
+    }
+  };
+
   const formatInning = (inning, inningState) => {
     if (!inning) return '';
     const ordinal = MLBService.getOrdinalSuffix(inning);
@@ -389,12 +463,21 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   };
 
   const renderTabNavigation = () => {
-    const tabs = [
-      { key: 'stats', label: 'Stats' },
-      { key: 'away', label: 'Away' },
-      { key: 'home', label: 'Home' },
-      { key: 'plays', label: 'Plays' }
-    ];
+    const status = gameData?.gameData?.status;
+    const isScheduled = status?.statusCode === 'S';
+    
+    const tabs = isScheduled 
+      ? [
+          { key: 'stats', label: 'Stats' },
+          { key: 'away', label: 'Away' },
+          { key: 'home', label: 'Home' }
+        ]
+      : [
+          { key: 'stats', label: 'Stats' },
+          { key: 'away', label: 'Away' },
+          { key: 'home', label: 'Home' },
+          { key: 'plays', label: 'Plays' }
+        ];
 
     return (
       <View style={styles.tabContainer}>
@@ -583,7 +666,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               </View>
               {innings.map((inning, index) => (
                 <View key={index} style={styles.lineScoreCell}>
-                  <Text style={styles.lineScoreText}>{inning.away?.runs || '-'}</Text>
+                  <Text style={styles.lineScoreText}>{inning.away?.runs || '0'}</Text>
                 </View>
               ))}
               <View style={styles.lineScoreCell}>
@@ -610,11 +693,28 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   <Text style={styles.lineScoreTeamText}>{homeTeam?.abbreviation || 'HOME'}</Text>
                 </View>
               </View>
-              {innings.map((inning, index) => (
-                <View key={index} style={styles.lineScoreCell}>
-                  <Text style={styles.lineScoreText}>{inning.home?.runs || '-'}</Text>
-                </View>
-              ))}
+              {innings.map((inning, index) => {
+                const inningNumber = index + 1;
+                const isBottomInning = inning.home !== undefined;
+                const awayScore = linescore?.teams?.away?.runs || 0;
+                const homeScore = linescore?.teams?.home?.runs || 0;
+                const isGameFinal = gameData?.gameData?.status?.statusCode === 'F';
+                
+                // Show "X" if home team is winning and didn't need to bat in bottom of inning
+                const shouldShowX = isBottomInning && 
+                                  homeScore > awayScore && 
+                                  inningNumber >= 9 && 
+                                  (inning.home?.runs === undefined || inning.home?.runs === null) &&
+                                  isGameFinal;
+                
+                return (
+                  <View key={index} style={styles.lineScoreCell}>
+                    <Text style={styles.lineScoreText}>
+                      {shouldShowX ? 'X' : (inning.home?.runs || '0')}
+                    </Text>
+                  </View>
+                );
+              })}
               <View style={styles.lineScoreCell}>
                 <Text style={[styles.lineScoreText, styles.lineScoreTotalText]}>
                   {linescore.teams?.home?.runs || 0}
@@ -659,6 +759,20 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   };
 
   const renderStatsContent = () => {
+    const status = gameData?.gameData?.status;
+    const isScheduled = status?.statusCode === 'S';
+    
+    if (isScheduled) {
+      return (
+        <View style={styles.section}>
+          {renderLineScore()}
+          {renderProbablePitchers()}
+          {renderTopHitters()}
+          {renderSeasonStats()}
+        </View>
+      );
+    }
+
     return (
       <View style={styles.section}>
         {renderLineScore()}
@@ -673,6 +787,24 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
     const team = teamType === 'away' ? gameData.gameData?.teams?.away : gameData.gameData?.teams?.home;
     const teamStats = teamType === 'away' ? gameData.liveData?.boxscore?.teams?.away : gameData.liveData?.boxscore?.teams?.home;
+    const status = gameData?.gameData?.status;
+    const isScheduled = status?.statusCode === 'S';
+
+    if (isScheduled) {
+      return (
+        <View style={styles.section}>
+          <View style={styles.teamRosterHeader}>
+            <Image 
+              source={{ uri: MLBService.getLogoUrl(team?.name || '', team?.abbreviation) }} 
+              style={styles.teamRosterLogo}
+              defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
+            />
+            <Text style={styles.sectionTitle}>{team?.name || `${teamType} Team`} Roster</Text>
+          </View>
+          {renderTeamRoster(team)}
+        </View>
+      );
+    }
 
     return (
       <View style={styles.section}>
@@ -1408,6 +1540,414 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     );
   };
 
+  const renderProbablePitchers = () => {
+    if (!gameData?.gameData?.teams) return null;
+
+    const awayTeam = gameData.gameData.teams.away;
+    const homeTeam = gameData.gameData.teams.home;
+    
+    // Try to get probable pitchers from different possible locations
+    const awayPitcher = gameData.gameData.probablePitchers?.away || 
+                       gameData.liveData?.boxscore?.teams?.away?.probablePitcher ||
+                       awayTeam.probablePitcher;
+    const homePitcher = gameData.gameData.probablePitchers?.home || 
+                       gameData.liveData?.boxscore?.teams?.home?.probablePitcher ||
+                       homeTeam.probablePitcher;
+
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Probable Pitchers</Text>
+        <View style={styles.probablePitchersContainer}>
+          {/* Away Pitcher */}
+          <View style={styles.pitcherCard}>
+            <View style={styles.pitcherHeader}>
+              <Image
+                source={{ uri: MLBService.getLogoUrl(awayTeam?.name || '', awayTeam?.abbreviation) }}
+                style={styles.pitcherTeamLogo}
+                defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
+              />
+              <Text style={styles.pitcherTeamName}>{awayTeam?.teamName || awayTeam?.name}</Text>
+            </View>
+            {awayPitcher ? (
+              <View style={styles.pitcherInfo}>
+                <Image
+                  source={{ uri: MLBService.getHeadshotUrl(awayPitcher.id) }}
+                  style={styles.pitcherHeadshot}
+                  defaultSource={{ uri: 'https://via.placeholder.com/60x60?text=P' }}
+                />
+                <Text style={styles.pitcherName}>{awayPitcher.fullName}</Text>
+                {probablePitcherStats.away?.pitching ? (
+                  <View style={styles.pitcherStatsContainer}>
+                    <Text style={styles.pitcherStats}>
+                      {probablePitcherStats.away.pitching.wins || 0}-{probablePitcherStats.away.pitching.losses || 0}
+                    </Text>
+                    <Text style={styles.pitcherStats}>
+                      {probablePitcherStats.away.pitching.era || '0.00'} ERA
+                    </Text>
+                    <Text style={styles.pitcherStats}>
+                      {probablePitcherStats.away.pitching.whip || '0.00'} WHIP
+                    </Text>
+                    <Text style={styles.pitcherStats}>
+                      {probablePitcherStats.away.pitching.strikeOuts || 0} K
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.pitcherStats}>Loading stats...</Text>
+                )}
+              </View>
+            ) : (
+              <Text style={styles.noPitcher}>TBD</Text>
+            )}
+          </View>
+
+          {/* Home Pitcher */}
+          <View style={styles.pitcherCard}>
+            <View style={styles.pitcherHeader}>
+              <Image
+                source={{ uri: MLBService.getLogoUrl(homeTeam?.name || '', homeTeam?.abbreviation) }}
+                style={styles.pitcherTeamLogo}
+                defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
+              />
+              <Text style={styles.pitcherTeamName}>{homeTeam?.teamName || homeTeam?.name}</Text>
+            </View>
+            {homePitcher ? (
+              <View style={styles.pitcherInfo}>
+                <Image
+                  source={{ uri: MLBService.getHeadshotUrl(homePitcher.id) }}
+                  style={styles.pitcherHeadshot}
+                  defaultSource={{ uri: 'https://via.placeholder.com/60x60?text=P' }}
+                />
+                <Text style={styles.pitcherName}>{homePitcher.fullName}</Text>
+                {probablePitcherStats.home?.pitching ? (
+                  <View style={styles.pitcherStatsContainer}>
+                    <Text style={styles.pitcherStats}>
+                      {probablePitcherStats.home.pitching.wins || 0}-{probablePitcherStats.home.pitching.losses || 0}
+                    </Text>
+                    <Text style={styles.pitcherStats}>
+                      {probablePitcherStats.home.pitching.era || '0.00'} ERA
+                    </Text>
+                    <Text style={styles.pitcherStats}>
+                      {probablePitcherStats.home.pitching.whip || '0.00'} WHIP
+                    </Text>
+                    <Text style={styles.pitcherStats}>
+                      {probablePitcherStats.home.pitching.strikeOuts || 0} K
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.pitcherStats}>Loading stats...</Text>
+                )}
+              </View>
+            ) : (
+              <Text style={styles.noPitcher}>TBD</Text>
+            )}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const renderTopHitters = () => {
+    if (!gameData?.gameData?.teams) return null;
+
+    const awayTeam = gameData.gameData.teams.away;
+    const homeTeam = gameData.gameData.teams.home;
+
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Top Hitters</Text>
+        <View style={styles.topHittersContainer}>
+          {/* Away Team */}
+          <View style={styles.topHittersTeam}>
+            <View style={styles.topHittersHeader}>
+              <Image
+                source={{ uri: MLBService.getLogoUrl(awayTeam?.name || '', awayTeam?.abbreviation) }}
+                style={styles.topHittersTeamLogo}
+                defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
+              />
+              <Text style={styles.topHittersTeamName}>{awayTeam?.teamName || awayTeam?.name}</Text>
+            </View>
+            {topHitters.away && topHitters.away.length > 0 ? (
+              topHitters.away.slice(0, 3).map((hitter, index) => (
+                <View key={hitter.player?.id || index} style={styles.topHitterRow}>
+                  <View style={styles.topHitterLeft}>
+                    <Text style={styles.topHitterPosition}>{hitter.position?.abbreviation || 'N/A'}</Text>
+                    <Image
+                      source={{ uri: MLBService.getHeadshotUrl(hitter.player?.id) }}
+                      style={styles.topHitterHeadshot}
+                      defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=P' }}
+                    />
+                    <View style={styles.topHitterInfo}>
+                      <Text style={styles.topHitterName}>{hitter.player?.fullName}</Text>
+                      <View style={styles.topHitterStatsRow}>
+                        <View style={styles.topHitterStatItem}>
+                          <Text style={styles.topHitterStatValue}>
+                            {hitter.stat?.avg || '.000'}
+                          </Text>
+                          <Text style={styles.topHitterStatLabel}>AVG</Text>
+                        </View>
+                        <View style={styles.topHitterStatItem}>
+                          <Text style={styles.topHitterStatValue}>
+                            {hitter.stat?.ops || '.000'}
+                          </Text>
+                          <Text style={styles.topHitterStatLabel}>OPS</Text>
+                        </View>
+                        <View style={styles.topHitterStatItem}>
+                          <Text style={styles.topHitterStatValue}>
+                            {hitter.stat?.homeRuns || 0}
+                          </Text>
+                          <Text style={styles.topHitterStatLabel}>HR</Text>
+                        </View>
+                        <View style={styles.topHitterStatItem}>
+                          <Text style={styles.topHitterStatValue}>
+                            {hitter.stat?.rbi || 0}
+                          </Text>
+                          <Text style={styles.topHitterStatLabel}>RBI</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.loadingHitters}>Loading...</Text>
+            )}
+          </View>
+
+          {/* Home Team */}
+          <View style={styles.topHittersTeam}>
+            <View style={styles.topHittersHeader}>
+              <Image
+                source={{ uri: MLBService.getLogoUrl(homeTeam?.name || '', homeTeam?.abbreviation) }}
+                style={styles.topHittersTeamLogo}
+                defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
+              />
+              <Text style={styles.topHittersTeamName}>{homeTeam?.teamName || homeTeam?.name}</Text>
+            </View>
+            {topHitters.home && topHitters.home.length > 0 ? (
+              topHitters.home.slice(0, 3).map((hitter, index) => (
+                <View key={hitter.player?.id || index} style={styles.topHitterRow}>
+                  <View style={styles.topHitterLeft}>
+                    <Text style={styles.topHitterPosition}>{hitter.position?.abbreviation || 'N/A'}</Text>
+                    <Image
+                      source={{ uri: MLBService.getHeadshotUrl(hitter.player?.id) }}
+                      style={styles.topHitterHeadshot}
+                      defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=P' }}
+                    />
+                    <View style={styles.topHitterInfo}>
+                      <Text style={styles.topHitterName}>{hitter.player?.fullName}</Text>
+                      <View style={styles.topHitterStatsRow}>
+                        <View style={styles.topHitterStatItem}>
+                          <Text style={styles.topHitterStatValue}>
+                            {hitter.stat?.avg || '.000'}
+                          </Text>
+                          <Text style={styles.topHitterStatLabel}>AVG</Text>
+                        </View>
+                        <View style={styles.topHitterStatItem}>
+                          <Text style={styles.topHitterStatValue}>
+                            {hitter.stat?.ops || '.000'}
+                          </Text>
+                          <Text style={styles.topHitterStatLabel}>OPS</Text>
+                        </View>
+                        <View style={styles.topHitterStatItem}>
+                          <Text style={styles.topHitterStatValue}>
+                            {hitter.stat?.homeRuns || 0}
+                          </Text>
+                          <Text style={styles.topHitterStatLabel}>HR</Text>
+                        </View>
+                        <View style={styles.topHitterStatItem}>
+                          <Text style={styles.topHitterStatValue}>
+                            {hitter.stat?.rbi || 0}
+                          </Text>
+                          <Text style={styles.topHitterStatLabel}>RBI</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.loadingHitters}>Loading...</Text>
+            )}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const renderSeasonStats = () => {
+    if (!gameData?.gameData?.teams) return null;
+
+    const awayTeam = gameData.gameData.teams.away;
+    const homeTeam = gameData.gameData.teams.home;
+    const awayStats = seasonStats.away;
+    const homeStats = seasonStats.home;
+
+    if (!awayStats || !homeStats) {
+      return (
+        <View style={styles.teamStatsContainer}>
+          <Text style={styles.sectionTitle}>Season Statistics</Text>
+          <View style={styles.seasonStatsContainer}>
+            <Text style={styles.placeholderText}>Loading season statistics...</Text>
+          </View>
+        </View>
+      );
+    }
+
+    const awayColor = MLBService.getTeamColor(awayTeam?.name || awayTeam?.team?.name);
+    const homeColor = MLBService.getTeamColor(homeTeam?.name || homeTeam?.team?.name);
+
+    // Helper function to render stats row with bars
+    const renderStatsRow = (label, awayValue, homeValue) => {
+      const awayNum = typeof awayValue === 'number' ? awayValue : parseFloat(awayValue) || 0;
+      const homeNum = typeof homeValue === 'number' ? homeValue : parseFloat(homeValue) || 0;
+      const total = awayNum + homeNum;
+      const awayPercent = total > 0 ? (awayNum / total) * 100 : 50;
+      const homePercent = total > 0 ? (homeNum / total) * 100 : 50;
+
+      return (
+        <View key={label} style={{ marginBottom: 28 }}>
+          <View style={styles.statsRow}>
+            <Text style={styles.statsValue}>{awayValue}</Text>
+            <View style={styles.statsBarContainer}>
+              <View style={styles.statsBar}>
+                <View
+                  style={[
+                    styles.statsBarFill,
+                    styles.awayBarFill,
+                    { width: `${awayPercent}%`, backgroundColor: awayColor }
+                  ]}
+                />
+              </View>
+              <View style={styles.statsBar}>
+                <View
+                  style={[
+                    styles.statsBarFill,
+                    styles.homeBarFill,
+                    { width: `${homePercent}%`, backgroundColor: homeColor }
+                  ]}
+                />
+              </View>
+            </View>
+            <Text style={styles.statsValue}>{homeValue}</Text>
+          </View>
+          <View style={{ alignItems: 'center', marginTop: -25 }}>
+            <Text style={styles.statsLabel}>{label}</Text>
+          </View>
+        </View>
+      );
+    };
+
+    return (
+      <View style={styles.teamStatsContainer}>
+        <Text style={styles.sectionTitle}>Season Statistics</Text>
+
+        {/* Team Headers */}
+        <View style={styles.statsTeams}>
+          <View style={styles.statsTeam}>
+            <Image
+              source={{ uri: MLBService.getLogoUrl(awayTeam?.name || '', awayTeam?.abbreviation) }}
+              style={styles.statsTeamLogo}
+              defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=MLB' }}
+            />
+            <Text style={styles.statsTeamName}>{awayTeam?.name || 'Away Team'}</Text>
+          </View>
+          <View style={styles.statsTeam}>
+            <Image
+              source={{ uri: MLBService.getLogoUrl(homeTeam?.name || '', homeTeam?.abbreviation) }}
+              style={styles.statsTeamLogo}
+              defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=MLB' }}
+            />
+            <Text style={styles.statsTeamName}>{homeTeam?.name || 'Home Team'}</Text>
+          </View>
+        </View>
+
+        {/* Stats Rows */}
+        <View style={styles.statsSection}>
+          {renderStatsRow('Runs Per Game', parseFloat((awayStats.hitting?.runs || 0) / (awayStats.hitting?.gamesPlayed || 1)).toFixed(3), parseFloat((homeStats.hitting?.runs || 0) / (homeStats.hitting?.gamesPlayed || 1)).toFixed(3))}
+          {renderStatsRow('Hits Per Game', parseFloat((awayStats.hitting?.hits || 0) / (awayStats.hitting?.gamesPlayed || 1)).toFixed(3), parseFloat((homeStats.hitting?.hits || 0) / (homeStats.hitting?.gamesPlayed || 1)).toFixed(3))}
+          {renderStatsRow('Batting Avg', parseFloat(awayStats.hitting?.avg || 0).toFixed(3), parseFloat(homeStats.hitting?.avg || 0).toFixed(3))}
+          {renderStatsRow('OPS', parseFloat(awayStats.hitting?.ops || 0).toFixed(3), parseFloat(homeStats.hitting?.ops || 0).toFixed(3))}
+          {renderStatsRow('Home Runs', awayStats.hitting?.homeRuns || 0, homeStats.hitting?.homeRuns || 0)}
+          {renderStatsRow('Stolen Base %', awayStats.hitting?.stolenBasePercentage || 0, homeStats.hitting?.stolenBasePercentage || 0)}
+          {renderStatsRow('ERA', parseFloat(awayStats.pitching?.era || 0).toFixed(2), parseFloat(homeStats.pitching?.era || 0).toFixed(2))}
+          {renderStatsRow('WHIP', parseFloat(awayStats.pitching?.whip || 0).toFixed(2), parseFloat(homeStats.pitching?.whip || 0).toFixed(2))}
+          {renderStatsRow('Strike %', awayStats.pitching?.strikePercentage || 0, homeStats.pitching?.strikePercentage || 0)}
+        </View>
+      </View>
+    );
+  };
+
+  const renderTeamRoster = (team) => {
+    if (!team) return null;
+
+    const teamType = team.id === gameData?.gameData?.teams?.away?.id ? 'away' : 'home';
+    const roster = teamType === 'away' ? awayRoster : homeRoster;
+
+    if (loadingRoster || !roster) {
+      return (
+        <View style={styles.rosterContainer}>
+          <ActivityIndicator size="large" color="#002D72" />
+          <Text style={styles.placeholderText}>Loading roster...</Text>
+        </View>
+      );
+    }
+
+    // Group players by position
+    const pitchers = roster.filter(player => player.position?.abbreviation === 'P');
+    const catchers = roster.filter(player => player.position?.abbreviation === 'C');
+    const infielders = roster.filter(player => ['1B', '2B', '3B', 'SS'].includes(player.position?.abbreviation));
+    const outfielders = roster.filter(player => ['LF', 'CF', 'RF', 'OF'].includes(player.position?.abbreviation));
+    const others = roster.filter(player => !['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'OF'].includes(player.position?.abbreviation));
+
+    const renderPlayerSection = (title, players) => {
+      if (players.length === 0) return null;
+
+      return (
+        <View style={styles.rosterSection}>
+          <Text style={styles.rosterSectionTitle}>{title}</Text>
+          <View style={styles.rosterTableContainer}>
+            <View style={styles.rosterTableHeader}>
+              <Text style={styles.rosterTableHeaderPlayer}>Player</Text>
+              <Text style={styles.rosterTableHeaderStatus}>Status</Text>
+            </View>
+            {players.map((player) => (
+              <View key={player.person.id} style={styles.rosterTableRow}>
+                <View style={styles.rosterTablePlayerCell}>
+                  <Text style={styles.rosterTablePlayerName}>
+                    {player.person.fullName}
+                  </Text>
+                  <Text style={styles.rosterTablePlayerDetails}>
+                    <Text style={styles.rosterTablePlayerNumber}>#{player.jerseyNumber || '--'}</Text>
+                    {' • '}
+                    {player.position?.abbreviation || 'N/A'}
+                  </Text>
+                </View>
+                <View style={styles.rosterTableStatusCell}>
+                  <Text style={[
+                    styles.rosterTableStatusText,
+                    player.status?.code === 'A' ? styles.activeStatus : styles.inactiveStatus
+                  ]}>
+                    {player.status?.code === 'A' ? 'Active' : player.status?.description || 'Inactive'}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      );
+    };
+
+    return (
+      <ScrollView style={styles.rosterContainer}>
+        {renderPlayerSection('Pitchers', pitchers)}
+        {renderPlayerSection('Catchers', catchers)}
+        {renderPlayerSection('Infielders', infielders)}
+        {renderPlayerSection('Outfielders', outfielders)}
+        {others.length > 0 && renderPlayerSection('Others', others)}
+      </ScrollView>
+    );
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'stats':
@@ -1968,6 +2508,16 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     marginRight: 12,
+  },
+  teamRosterHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  teamRosterLogo: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
   },
   statCategoryContainer: {
     backgroundColor: 'white',
@@ -2842,6 +3392,343 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     padding: 40,
+  },
+  probablePitchersContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  pitcherCard: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 15,
+    alignItems: 'center',
+  },
+  pitcherHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  pitcherTeamLogo: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
+  },
+  pitcherTeamName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#002D72',
+  },
+  pitcherInfo: {
+    alignItems: 'center',
+  },
+  pitcherHeadshot: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginBottom: 8,
+  },
+  pitcherName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  pitcherStatsContainer: {
+    alignItems: 'center',
+  },
+  pitcherStats: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  noPitcher: {
+    fontSize: 16,
+    color: '#999',
+    fontStyle: 'italic',
+    marginTop: 20,
+  },
+  topHittersContainer: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 15,
+  },
+  topHittersTeams: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 15,
+  },
+  topHittersTeam: {
+    flex: 1,
+  },
+  topHittersTeamHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    justifyContent: 'center',
+  },
+  topHittersTeamLogo: {
+    width: 20,
+    height: 20,
+    marginRight: 6,
+  },
+  topHittersTeamName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#002D72',
+  },
+  topHitterCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 8,
+  },
+  topHitterHeadshot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  topHitterInfo: {
+    flex: 1,
+  },
+  topHitterName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+  topHitterStats: {
+    fontSize: 10,
+    color: '#666',
+    marginBottom: 1,
+  },
+  loadingHitters: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    padding: 20,
+  },
+  seasonStatsContainer: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 20,
+    alignItems: 'center',
+  },
+  rosterContainer: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 15,
+  },
+  rosterSection: {
+    marginBottom: 20,
+  },
+  rosterSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#002D72',
+    marginBottom: 10,
+  },
+  rosterTableContainer: {
+    backgroundColor: 'white',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  rosterTableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#e9ecef',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  rosterTableHeaderPlayer: {
+    flex: 3,
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#495057',
+  },
+  rosterTableHeaderStatus: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#495057',
+    textAlign: 'center',
+  },
+  rosterTableRow: {
+    flexDirection: 'row',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    alignItems: 'center',
+  },
+  rosterTablePlayerCell: {
+    flex: 3,
+  },
+  rosterTablePlayerName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 2,
+  },
+  rosterTablePlayerDetails: {
+    fontSize: 12,
+    color: '#666',
+  },
+  rosterTablePlayerNumber: {
+    color: '#666',
+    fontWeight: '500',
+  },
+  rosterTableStatusCell: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  rosterTableStatusText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  activeStatus: {
+    backgroundColor: '#d4edda',
+    color: '#155724',
+  },
+  inactiveStatus: {
+    backgroundColor: '#f8d7da',
+    color: '#721c24',
+  },
+  // Stat bars for season statistics
+  statValueContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  statBarContainer: {
+    flex: 1,
+    height: 4,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 2,
+    marginHorizontal: 8,
+    overflow: 'hidden',
+  },
+  statBar: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  statAwayBar: {
+    backgroundColor: '#007bff',
+  },
+  statHomeBar: {
+    backgroundColor: '#28a745',
+  },
+  statBetterValue: {
+    fontWeight: 'bold',
+    color: '#2c3e50',
+  },
+  // Updated top hitters row layout
+  topHitterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#fff',
+    marginVertical: 2,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  topHitterLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  topHitterPosition: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#666',
+    marginRight: 4,
+    minWidth: 28,
+  },
+  topHitterHeadshot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  topHitterInfo: {
+    flex: 1,
+  },
+  topHitterName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  topHitterStatsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  topHitterStatItem: {
+    alignItems: 'center',
+    minWidth: 35,
+  },
+  topHitterStatValue: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#002D72',
+  },
+  topHitterStatLabel: {
+    fontSize: 10,
+    color: '#666',
+    marginTop: 1,
+  },
+  topHittersContainer: {
+    gap: 20,
+  },
+  topHittersTeam: {
+    marginBottom: 8,
+  },
+  topHittersHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  topHittersTeamLogo: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
+  },
+  topHittersTeamName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  topHittersHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  topHittersTeamLogo: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
+  },
+  topHittersTeamName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
   },
 });
 
