@@ -9,12 +9,16 @@ import {
   TouchableOpacity,
   Image,
   Animated,
-  Modal
+  Modal,
+  Dimensions
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { MLBService } from '../../services/MLBService';
+import { useTheme } from '../../context/ThemeContext';
 
 const MLBGameDetailsScreen = ({ route, navigation }) => {
   const { gameId, sport } = route?.params || {};
+  const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
   const [gameData, setGameData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updateInterval, setUpdateInterval] = useState(null);
@@ -38,9 +42,420 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   const [seasonStats, setSeasonStats] = useState({ away: null, home: null });
   const [topHitters, setTopHitters] = useState({ away: [], home: [] });
   const [probablePitcherStats, setProbablePitcherStats] = useState({ away: null, home: null });
+  const [streamModalVisible, setStreamModalVisible] = useState(false);
+  const [currentStreamType, setCurrentStreamType] = useState('alpha1');
+  const [availableStreams, setAvailableStreams] = useState({});
+  const [streamUrl, setStreamUrl] = useState('');
+  const [isStreamLoading, setIsStreamLoading] = useState(true);
   const scrollViewRef = useRef(null);
   const playsScrollViewRef = useRef(null);
   const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
+
+  // Stream API functions
+  const STREAM_API_BASE = 'https://streamed.pk/api';
+  let liveMatchesCache = null;
+  let cacheTimestamp = 0;
+  const CACHE_DURATION = 30000; // 30 seconds cache
+
+  const fetchLiveMatches = async () => {
+    try {
+      const now = Date.now();
+      if (liveMatchesCache && (now - cacheTimestamp) < CACHE_DURATION) {
+        return liveMatchesCache;
+      }
+
+      const response = await fetch(`${STREAM_API_BASE}/matches/live`);
+      if (!response.ok) {
+        throw new Error(`API responded with status: ${response.status}`);
+      }
+      
+      const allMatches = await response.json();
+      console.log(`Found ${allMatches.length} total live matches`);
+
+      // Filter matches by baseball
+      const matches = allMatches.filter(match => {
+        const matchSport = match.sport || match.category;
+        return matchSport === 'baseball';
+      });
+      console.log(`Filtered to ${matches.length} MLB matches`);
+      
+      liveMatchesCache = matches;
+      cacheTimestamp = now;
+      
+      return matches;
+    } catch (error) {
+      console.error('Error fetching live matches:', error);
+      return null;
+    }
+  };
+
+  const fetchStreamsForSource = async (source, sourceId) => {
+    try {
+      const response = await fetch(`${STREAM_API_BASE}/stream/${source}/${sourceId}`);
+      if (!response.ok) {
+        throw new Error(`API responded with status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error(`Error fetching streams for ${source}:`, error);
+      return [];
+    }
+  };
+
+  const normalizeTeamName = (teamName) => {
+    const nameMap = {
+      "Arizona Diamondbacks": "arizona-diamondbacks",
+      "Atlanta Braves": "atlanta-braves", 
+      "Baltimore Orioles": "baltimore-orioles",
+      "Boston Red Sox": "boston-red-sox",
+      "Chicago White Sox": "chicago-white-sox",
+      "Chicago Cubs": "chicago-cubs",
+      "Cincinnati Reds": "cincinnati-reds",
+      "Cleveland Guardians": "cleveland-guardians",
+      "Colorado Rockies": "colorado-rockies",
+      "Detroit Tigers": "detroit-tigers",
+      "Houston Astros": "houston-astros",
+      "Kansas City Royals": "kansas-city-royals",
+      "Los Angeles Angels": "los-angeles-angels",
+      "Los Angeles Dodgers": "los-angeles-dodgers",
+      "Miami Marlins": "miami-marlins",
+      "Milwaukee Brewers": "milwaukee-brewers",
+      "Minnesota Twins": "minnesota-twins",
+      "New York Yankees": "new-york-yankees",
+      "New York Mets": "new-york-mets",
+      "Athletics": "athletics",
+      "Philadelphia Phillies": "philadelphia-phillies",
+      "Pittsburgh Pirates": "pittsburgh-pirates",
+      "San Diego Padres": "san-diego-padres",
+      "San Francisco Giants": "san-francisco-giants",
+      "Seattle Mariners": "seattle-mariners",
+      "St. Louis Cardinals": "st-louis-cardinals",
+      "Tampa Bay Rays": "tampa-bay-rays",
+      "Texas Rangers": "texas-rangers",
+      "Toronto Blue Jays": "toronto-blue-jays",
+      "Washington Nationals": "washington-nationals",
+      "American League All-Stars": "american-league-all-stars",
+      "National League All-Stars": "national-league-all-stars"
+    };
+    
+    if (nameMap[teamName]) {
+      return nameMap[teamName];
+    }
+    
+    return teamName.toLowerCase()
+      .replace(/á/g, 'a').replace(/é/g, 'e').replace(/í/g, 'i').replace(/ó/g, 'o').replace(/ú/g, 'u')
+      .replace(/ü/g, 'u').replace(/ñ/g, 'n').replace(/ç/g, 'c').replace(/ß/g, 'ss')
+      .replace(/ë/g, 'e').replace(/ï/g, 'i').replace(/ö/g, 'o').replace(/ä/g, 'a')
+      .replace(/å/g, 'a').replace(/ø/g, 'o')
+      .replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+  };
+
+  const findMatchStreams = async (homeTeamName, awayTeamName) => {
+    try {
+      console.log(`Finding streams for: ${awayTeamName} vs ${homeTeamName}`);
+
+      const liveMatches = await fetchLiveMatches();
+      if (!liveMatches || !Array.isArray(liveMatches) || liveMatches.length === 0) {
+        console.log('No live matches data available');
+        return {};
+      }
+
+      // Try to find our match
+      const homeNormalized = normalizeTeamName(homeTeamName).toLowerCase();
+      const awayNormalized = normalizeTeamName(awayTeamName).toLowerCase();
+
+      console.log(`Normalized team names: {homeNormalized: '${homeNormalized}', awayNormalized: '${awayNormalized}'}`);
+
+      // Check if both teams have the same first word (city name) - this causes confusion
+      const homeFirstWord = homeNormalized.split('-')[0];
+      const awayFirstWord = awayNormalized.split('-')[0];
+      const hasSameCity = homeFirstWord === awayFirstWord;
+
+      console.log(`Team analysis: Home first word: "${homeFirstWord}", Away first word: "${awayFirstWord}", Same city: ${hasSameCity}`);
+
+      let bestMatch = null;
+      let bestScore = 0;
+
+      // Quick pre-filter to reduce processing
+      const quickMatches = liveMatches.slice(0, Math.min(liveMatches.length, 100)).filter(match => {
+        const title = match.title.toLowerCase();
+
+        if (hasSameCity) {
+          // If teams have same city, require BOTH full team names to be present
+          const hasHomeTeam = title.includes(homeNormalized) ||
+                             (match.teams?.home?.name?.toLowerCase().includes(homeNormalized));
+          const hasAwayTeam = title.includes(awayNormalized) ||
+                             (match.teams?.away?.name?.toLowerCase().includes(awayNormalized));
+          return hasHomeTeam && hasAwayTeam;
+        } else {
+          // Normal case: require BOTH teams to have some match, not just one
+          const homeHasMatch = title.includes(homeNormalized.split('-')[0]) ||
+                              title.includes(homeNormalized.split('-')[1] || '') ||
+                              (match.teams?.home?.name?.toLowerCase().includes(homeNormalized.split('-')[0]));
+          const awayHasMatch = title.includes(awayNormalized.split('-')[0]) ||
+                              title.includes(awayNormalized.split('-')[1] || '') ||
+                              (match.teams?.away?.name?.toLowerCase().includes(awayNormalized.split('-')[0]));
+
+          // Require BOTH teams to match, not just one
+          return homeHasMatch && awayHasMatch;
+        }
+      });
+
+      // If we found quick matches, prioritize them
+      const matchesToProcess = quickMatches.length > 0 ? quickMatches : liveMatches.slice(0, Math.min(liveMatches.length, 100));
+
+      console.log(`Processing ${matchesToProcess.length} matches (${quickMatches.length > 0 ? 'pre-filtered' : 'full set'})`);
+
+      // Debug: Show first few matches to understand API format
+      if (liveMatches.length > 0) {
+        console.log('Sample matches from API:');
+        for (let i = 0; i < Math.min(5, liveMatches.length); i++) {
+          const match = liveMatches[i];
+          console.log(`  ${i+1}. Title: "${match.title}"`);
+          if (match.teams) {
+            console.log(`     Home: ${match.teams.home?.name}, Away: ${match.teams.away?.name}`);
+          }
+          if (match.sources) {
+            console.log(`     Sources: ${match.sources.map(s => s.source).join(', ')}`);
+          }
+        }
+      }
+
+      // Process the filtered matches
+      for (let i = 0; i < matchesToProcess.length; i++) {
+        const match = matchesToProcess[i];
+
+        if (!match.sources || match.sources.length === 0) continue;
+
+        const matchTitle = match.title.toLowerCase();
+        let totalScore = 0;
+
+        // Multiple matching strategies with rough/fuzzy matching
+        const strategies = [
+          // Strategy 1: Rough name matching in title (more flexible)
+          () => {
+            let score = 0;
+            const titleWords = matchTitle.split(/[\s\-]+/);
+
+            if (hasSameCity) {
+              // For same-city teams, require both full team names to be present
+              if (matchTitle.includes(homeNormalized) && matchTitle.includes(awayNormalized)) {
+                score += 1.0; // High score for exact matches
+              } else {
+                // Check for partial matches but be more strict
+                const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
+                const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+
+                let homeMatches = 0;
+                let awayMatches = 0;
+
+                homeParts.forEach(part => {
+                  if (titleWords.some(word => word.includes(part))) homeMatches++;
+                });
+                awayParts.forEach(part => {
+                  if (titleWords.some(word => word.includes(part))) awayMatches++;
+                });
+
+                // Require at least 2 parts to match for each team when they have same city
+                if (homeMatches >= 2 && awayMatches >= 2) {
+                  score += 0.8;
+                } else if (homeMatches >= 1 && awayMatches >= 1) {
+                  score += 0.4;
+                }
+              }
+            } else {
+              // Normal case: check if major parts of team names appear in title
+              const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
+              const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+
+              homeParts.forEach(part => {
+                if (titleWords.some(word => word.includes(part) || part.includes(word))) score += 0.4;
+              });
+              awayParts.forEach(part => {
+                if (titleWords.some(word => word.includes(part) || part.includes(word))) score += 0.4;
+              });
+            }
+
+            return score;
+          },
+          // Strategy 2: Check team objects if available (rough matching)
+          () => {
+            let score = 0;
+            if (match.teams) {
+              const homeApiName = match.teams.home?.name?.toLowerCase() || '';
+              const awayApiName = match.teams.away?.name?.toLowerCase() || '';
+
+              if (hasSameCity) {
+                // For same-city teams, require both API team names to match our normalized names
+                if (homeApiName.includes(homeNormalized) && awayApiName.includes(awayNormalized)) {
+                  score += 1.2; // Very high score for exact API matches
+                } else {
+                  // Check for partial matches but be more strict
+                  const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
+                  const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+
+                  let homeMatches = 0;
+                  let awayMatches = 0;
+
+                  homeParts.forEach(part => {
+                    if (homeApiName.includes(part)) homeMatches++;
+                  });
+                  awayParts.forEach(part => {
+                    if (awayApiName.includes(part)) awayMatches++;
+                  });
+
+                  // Require at least 2 parts to match for each team when they have same city
+                  if (homeMatches >= 2 && awayMatches >= 2) {
+                    score += 0.9;
+                  } else if (homeMatches >= 1 && awayMatches >= 1) {
+                    score += 0.5;
+                  }
+                }
+              } else {
+                // Normal case: rough matching against API team names
+                const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
+                const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+
+                homeParts.forEach(part => {
+                  if (homeApiName.includes(part)) score += 0.6;
+                });
+                awayParts.forEach(part => {
+                  if (awayApiName.includes(part)) score += 0.6;
+                });
+              }
+            }
+            return score;
+          },
+          // Strategy 3: MLB-specific abbreviations and common names
+          () => {
+            const abbreviations = {
+              'arizona': ['arizona', 'diamondbacks', 'arizona-diamondbacks'],
+              'atlanta': ['atlanta', 'braves', 'atlanta-braves'],
+              'baltimore': ['baltimore', 'orioles', 'baltimore-orioles'],
+              'boston': ['boston', 'red-sox', 'boston-red-sox'],
+              'chicago': ['chicago', 'white-sox', 'cubs', 'chicago-white-sox', 'chicago-cubs'],
+              'cincinnati': ['cincinnati', 'reds', 'cincinnati-reds'],
+              'cleveland': ['cleveland', 'guardians', 'cleveland-guardians'],
+              'colorado': ['colorado', 'rockies', 'colorado-rockies'],
+              'detroit': ['detroit', 'tigers', 'detroit-tigers'],
+              'houston': ['houston', 'astros', 'houston-astros'],
+              'kansas': ['kansas', 'royals', 'kansas-city-royals'],
+              'los-angeles': ['los-angeles', 'angels', 'dodgers', 'los-angeles-angels', 'los-angeles-dodgers'],
+              'miami': ['miami', 'marlins', 'miami-marlins'],
+              'milwaukee': ['milwaukee', 'brewers', 'milwaukee-brewers'],
+              'minnesota': ['minnesota', 'twins', 'minnesota-twins'],
+              'new-york': ['new-york', 'yankees', 'mets', 'new-york-yankees', 'new-york-mets'],
+              'oakland': ['oakland', 'athletics', 'oakland-athletics'],
+              'philadelphia': ['philadelphia', 'phillies', 'philadelphia-phillies'],
+              'pittsburgh': ['pittsburgh', 'pirates', 'pittsburgh-pirates'],
+              'san-diego': ['san-diego', 'padres', 'san-diego-padres'],
+              'san-francisco': ['san-francisco', 'giants', 'san-francisco-giants'],
+              'seattle': ['seattle', 'mariners', 'seattle-mariners'],
+              'st-louis': ['st-louis', 'cardinals', 'st-louis-cardinals'],
+              'tampa': ['tampa', 'rays', 'tampa-bay-rays'],
+              'texas': ['texas', 'rangers', 'texas-rangers'],
+              'toronto': ['toronto', 'blue-jays', 'toronto-blue-jays'],
+              'washington': ['washington', 'nationals', 'washington-nationals']
+            };
+
+            let score = 0;
+            const titleWords = matchTitle.split(/[\s\-]+/);
+
+            // Check home team abbreviations
+            const homeParts = homeNormalized.split('-');
+            homeParts.forEach(part => {
+              if (abbreviations[part]) {
+                abbreviations[part].forEach(abbr => {
+                  if (titleWords.some(word => word.includes(abbr) || abbr.includes(word))) score += 0.3;
+                });
+              }
+            });
+
+            // Check away team abbreviations
+            const awayParts = awayNormalized.split('-');
+            awayParts.forEach(part => {
+              if (abbreviations[part]) {
+                abbreviations[part].forEach(abbr => {
+                  if (titleWords.some(word => word.includes(abbr) || abbr.includes(word))) score += 0.3;
+                });
+              }
+            });
+
+            return score;
+          }
+        ];
+
+        // Apply all strategies and sum scores
+        strategies.forEach(strategy => {
+          totalScore += strategy();
+        });
+
+        console.log(`Match "${match.title.substring(0, 50)}..." score: ${totalScore.toFixed(2)}`);
+
+        if (totalScore > bestScore) {
+          bestScore = totalScore;
+          bestMatch = match;
+
+          // Early exit if we find a very good match (score >= 1.0 for rough matching)
+          if (bestScore >= 1.0) {
+            console.log(`Found excellent match with score ${bestScore}, stopping search early`);
+            break;
+          }
+        }
+      }
+
+      if (!bestMatch || bestScore < 0.3) {
+        console.log(`No good matching live match found in API (best score: ${bestScore.toFixed(2)})`);
+        console.log(`Searched for: ${homeNormalized} vs ${awayNormalized}`);
+        console.log(`Processed: ${matchesToProcess.length} matches out of ${liveMatches.length} total`);
+        return {};
+      }
+
+      console.log(`Found matching match: ${bestMatch.title} (score: ${bestScore.toFixed(2)})`);
+
+      // Collect all streams from all sources
+      const allStreams = {};
+      for (const source of bestMatch.sources) {
+        try {
+          const sourceStreams = await fetchStreamsForSource(source.source, source.id);
+          
+          if (sourceStreams && sourceStreams.length > 0) {
+            sourceStreams.forEach((stream, index) => {
+              const streamKey = `${source.source}${index + 1}`;
+              allStreams[streamKey] = {
+                url: stream.embedUrl || stream.url,
+                embedUrl: stream.embedUrl || stream.url,
+                source: source.source,
+                title: stream.title || `${source.source} Stream ${index + 1}`
+              };
+            });
+          }
+        } catch (error) {
+          console.error(`Error fetching streams for ${source.source}:`, error);
+        }
+      }
+
+      console.log(`Final streams found:`, allStreams);
+      return allStreams;
+    } catch (error) {
+      console.error('Error in findMatchStreams:', error);
+      return {};
+    }
+  };
+
+  const generateStreamUrl = (awayTeamName, homeTeamName, streamType = 'alpha1') => {
+    const normalizedAway = normalizeTeamName(awayTeamName);
+    const normalizedHome = normalizeTeamName(homeTeamName);
+    
+    const streamUrls = {
+      alpha1: `https://weakstreams.com/mlb-live-streams/${normalizedAway}-vs-${normalizedHome}-live-stream`,
+      alpha2: `https://weakstreams.com/mlb-live-streams/${normalizedHome}-vs-${normalizedAway}-live-stream`,
+      bravo: `https://sportsurge.club/mlb/${normalizedAway}-vs-${normalizedHome}`,
+      charlie: `https://sportshd.me/mlb/${normalizedAway}-${normalizedHome}`
+    };
+    
+    return streamUrls[streamType] || streamUrls.alpha1;
+  };
 
   useEffect(() => {
     console.log('MLBGameDetailsScreen: Main useEffect triggered, gameId:', gameId);
@@ -91,9 +506,14 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     }
   }, [gameData, activeTab]);
 
-  // Load scheduled game data when game data is loaded and game is scheduled
+  // Load scheduled game data when game data is loaded and game is scheduled, pre-game, or warmup
   useEffect(() => {
-    if (gameData && gameData.gameData?.status?.statusCode === 'S') {
+    const status = gameData?.gameData?.status;
+    const isScheduled = status?.statusCode === 'S' || 
+                       status?.detailedState === 'Pre-Game' || 
+                       status?.detailedState === 'Warmup';
+    
+    if (gameData && isScheduled) {
       loadScheduledGameData();
     }
   }, [gameData]);
@@ -259,7 +679,12 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   };
 
   const loadScheduledGameData = async () => {
-    if (!gameData || gameData.gameData?.status?.statusCode !== 'S') return;
+    const status = gameData?.gameData?.status;
+    const isScheduled = status?.statusCode === 'S' || 
+                       status?.detailedState === 'Pre-Game' || 
+                       status?.detailedState === 'Warmup';
+    
+    if (!gameData || !isScheduled) return;
 
     const awayTeamId = gameData.gameData?.teams?.away?.id;
     const homeTeamId = gameData.gameData?.teams?.home?.id;
@@ -402,13 +827,15 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     const homeScore = linescore?.teams?.home?.runs || 0;
     const isGameFinal = status?.statusCode === 'F';
 
-    const awayScoreStyle = isGameFinal && awayScore < homeScore ? styles.losingStickyTeamScore : styles.stickyTeamScore;
-    const homeScoreStyle = isGameFinal && homeScore < awayScore ? styles.losingStickyTeamScore : styles.stickyTeamScore;
+    const awayIsLosing = isGameFinal && awayScore < homeScore;
+    const homeIsLosing = isGameFinal && homeScore < awayScore;
+    const getStickyScoreColor = (isLosing) => isLosing ? theme.textSecondary : colors.primary;
 
     return (
       <Animated.View
         style={[
           styles.stickyHeader,
+          { backgroundColor: theme.surface },
           {
             opacity: stickyHeaderOpacity,
             transform: [{
@@ -424,36 +851,36 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         {/* Away Team */}
         <View style={styles.stickyTeamAway}>
           <Image
-            source={{ uri: MLBService.getLogoUrl(awayTeam?.name || '', awayTeam?.abbreviation) }}
+            source={{ uri: getTeamLogoUrl('mlb', awayTeam?.abbreviation) }}
             style={styles.stickyTeamLogo}
             defaultSource={{ uri: 'https://via.placeholder.com/28x28?text=MLB' }}
           />
-          <Text style={awayScoreStyle}>{awayScore}</Text>
+          <Text style={[styles.stickyTeamScore, { color: getStickyScoreColor(awayIsLosing) }]}>{awayScore}</Text>
         </View>
 
         {/* Game Status */}
         <View style={styles.stickyStatus}>
           {status?.statusCode === 'F' ? (
-            <Text style={styles.stickyStatusText}>Final</Text>
+            <Text style={[styles.stickyStatusText, { color: colors.primary }]}>Final</Text>
           ) : status?.statusCode === 'I' ? (
             <>
-              <Text style={styles.stickyStatusText}>
+              <Text style={[styles.stickyStatusText, { color: colors.primary }]}>
                 {formatInning(linescore?.currentInning, linescore?.inningState)}
               </Text>
-              <Text style={styles.stickyClock}>
+              <Text style={[styles.stickyClock, { color: theme.textSecondary }]}>
                 {linescore?.balls || 0}-{linescore?.strikes || 0}, {linescore?.outs || 0} out{(linescore?.outs || 0) !== 1 ? 's' : ''}
               </Text>
             </>
           ) : (
-            <Text style={styles.stickyStatusText}>{status?.detailedState || 'Scheduled'}</Text>
+            <Text style={[styles.stickyStatusText, { color: colors.primary }]}>{status?.detailedState || 'Scheduled'}</Text>
           )}
         </View>
 
         {/* Home Team */}
         <View style={styles.stickyTeamHome}>
-          <Text style={homeScoreStyle}>{homeScore}</Text>
+          <Text style={[styles.stickyTeamScore, { color: getStickyScoreColor(homeIsLosing) }]}>{homeScore}</Text>
           <Image
-            source={{ uri: MLBService.getLogoUrl(homeTeam?.name || '', homeTeam?.abbreviation) }}
+            source={{ uri: getTeamLogoUrl('mlb', homeTeam?.abbreviation) }}
             style={styles.stickyTeamLogo}
             defaultSource={{ uri: 'https://via.placeholder.com/28x28?text=MLB' }}
           />
@@ -464,7 +891,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
   const renderTabNavigation = () => {
     const status = gameData?.gameData?.status;
-    const isScheduled = status?.statusCode === 'S';
+    // Include Pre-Game and Warmup in scheduled logic
+    const isScheduled = status?.statusCode === 'S' || 
+                       status?.detailedState === 'Pre-Game' || 
+                       status?.detailedState === 'Warmup';
     
     const tabs = isScheduled 
       ? [
@@ -480,14 +910,14 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         ];
 
     return (
-      <View style={styles.tabContainer}>
+      <View style={[styles.tabContainer, { backgroundColor: theme.surface }]}>
         {tabs.map((tab) => (
           <TouchableOpacity
             key={tab.key}
             style={[
               styles.tabButton,
-              activeTab === tab.key && styles.activeTabButton,
-              tab.key !== 'plays' && styles.tabButtonBorder
+              { backgroundColor: activeTab === tab.key ? colors.primary : theme.surfaceSecondary },
+              tab.key !== 'plays' && { borderRightColor: theme.border }
             ]}
             onPress={() => {
               setActiveTab(tab.key);
@@ -502,7 +932,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           >
             <Text style={[
               styles.tabText,
-              activeTab === tab.key && styles.activeTabText
+              { color: activeTab === tab.key ? '#fff' : theme.text }
             ]}>
               {tab.label}
             </Text>
@@ -510,6 +940,67 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         ))}
       </View>
     );
+  };
+
+  const openStreamModal = async () => {
+    const awayTeam = gameData?.gameData?.teams?.away;
+    const homeTeam = gameData?.gameData?.teams?.home;
+    
+    if (!awayTeam || !homeTeam) {
+      Alert.alert('Error', 'Team information not available');
+      return;
+    }
+
+    setStreamModalVisible(true);
+    setIsStreamLoading(true);
+    
+    // Fetch available streams
+    const streams = await findMatchStreams(homeTeam.name, awayTeam.name);
+    setAvailableStreams(streams);
+    
+    // Generate initial stream URL - use first available stream
+    let initialUrl = '';
+    let initialStreamType = '';
+    
+    const streamKeys = Object.keys(streams);
+    if (streamKeys.length > 0) {
+      initialStreamType = streamKeys[0];
+      const streamData = streams[initialStreamType];
+      initialUrl = streamData.embedUrl || streamData.url || streamData;
+      setCurrentStreamType(initialStreamType);
+    } else {
+      // Fallback to manual URL construction
+      initialStreamType = 'alpha1';
+      initialUrl = generateStreamUrl(awayTeam.name, homeTeam.name, initialStreamType);
+      setCurrentStreamType(initialStreamType);
+    }
+    
+    setStreamUrl(initialUrl);
+    setIsStreamLoading(false);
+  };
+
+  const switchStream = (streamType) => {
+    setCurrentStreamType(streamType);
+    setIsStreamLoading(true);
+    
+    let newUrl = '';
+    if (availableStreams[streamType]) {
+      newUrl = availableStreams[streamType].embedUrl || availableStreams[streamType];
+    } else {
+      const awayTeam = gameData?.gameData?.teams?.away;
+      const homeTeam = gameData?.gameData?.teams?.home;
+      newUrl = generateStreamUrl(awayTeam?.name, homeTeam?.name, streamType);
+    }
+    
+    setStreamUrl(newUrl);
+    setTimeout(() => setIsStreamLoading(false), 1000);
+  };
+
+  const closeStreamModal = () => {
+    setStreamModalVisible(false);
+    setStreamUrl('');
+    setCurrentStreamType('alpha1');
+    setAvailableStreams({});
   };
 
   const renderGameHeader = () => {
@@ -524,65 +1015,67 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     const homeScore = linescore?.teams?.home?.runs || 0;
     const isGameFinal = status?.statusCode === 'F';
     
-    const awayScoreStyle = isGameFinal && awayScore < homeScore ? styles.losingTeamScore : styles.teamScore;
-    const homeScoreStyle = isGameFinal && homeScore < awayScore ? styles.losingTeamScore : styles.teamScore;
-    const awayNameStyle = isGameFinal && awayScore < homeScore ? styles.losingTeamName : styles.teamName;
-    const homeNameStyle = isGameFinal && homeScore < awayScore ? styles.losingTeamName : styles.teamName;
+    // Theme-aware color functions similar to ScoreboardScreen
+    const getScoreColor = (isLosing) => isLosing ? theme.textSecondary : colors.primary;
+    const getNameColor = (isLosing) => isLosing ? theme.textSecondary : theme.text;
+    
+    const awayIsLosing = isGameFinal && awayScore < homeScore;
+    const homeIsLosing = isGameFinal && homeScore < awayScore;
 
     return (
-      <View style={styles.gameHeader}>
+      <TouchableOpacity style={[styles.gameHeader, { backgroundColor: theme.surface }]} onPress={openStreamModal} activeOpacity={0.8}>
         <View style={styles.teamContainer}>
           {/* Away Team */}
           <View style={styles.team}>
-            <Text style={awayScoreStyle}>{awayScore}</Text>
+            <Text style={[styles.teamScore, { color: getScoreColor(awayIsLosing) }]}>{awayScore}</Text>
             <Image 
-              source={{ uri: MLBService.getLogoUrl(awayTeam?.name || '', awayTeam?.abbreviation) }} 
+              source={{ uri: getTeamLogoUrl('mlb', awayTeam?.abbreviation) }} 
               style={styles.teamLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/50x50?text=MLB' }}
             />
             <View style={styles.teamNameContainer}>
-              <Text style={awayNameStyle}>{awayTeam?.abbreviation || 'AWAY'}</Text>
+              <Text style={[styles.teamName, { color: getNameColor(awayIsLosing) }]}>{awayTeam?.abbreviation || 'AWAY'}</Text>
             </View>
           </View>
 
           {/* Game Status */}
           <View style={styles.vsContainer}>
-            <Text style={styles.vsText}>vs</Text>
+            <Text style={[styles.vsText, { color: theme.textSecondary }]}>vs</Text>
             {status?.statusCode === 'F' ? (
-              <Text style={styles.gameStatus}>Final</Text>
+              <Text style={[styles.gameStatus, { color: colors.primary }]}>Final</Text>
             ) : status?.statusCode === 'I' ? (
               <>
-                <Text style={styles.gameStatus}>
+                <Text style={[styles.gameStatus, { color: colors.primary }]}>
                   {formatInning(linescore?.currentInning, linescore?.inningState)}
                 </Text>
-                <Text style={styles.gameClock}>
+                <Text style={[styles.gameClock, { color: theme.textSecondary }]}>
                   {linescore?.balls || 0}-{linescore?.strikes || 0}, {linescore?.outs || 0} out{(linescore?.outs || 0) !== 1 ? 's' : ''}
                 </Text>
                 {renderBases()}
               </>
             ) : (
-              <Text style={styles.gameStatus}>{status?.detailedState || 'Scheduled'}</Text>
+              <Text style={[styles.gameStatus, { color: colors.primary }]}>{status?.detailedState || 'Scheduled'}</Text>
             )}
           </View>
 
           {/* Home Team */}
           <View style={styles.team}>
-            <Text style={homeScoreStyle}>{homeScore}</Text>
+            <Text style={[styles.teamScore, { color: getScoreColor(homeIsLosing) }]}>{homeScore}</Text>
             <Image 
-              source={{ uri: MLBService.getLogoUrl(homeTeam?.name || '', homeTeam?.abbreviation) }} 
+              source={{ uri: getTeamLogoUrl('mlb', homeTeam?.abbreviation) }} 
               style={styles.teamLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/50x50?text=MLB' }}
             />
             <View style={styles.teamNameContainer}>
-              <Text style={homeNameStyle}>{homeTeam?.abbreviation || 'HOME'}</Text>
+              <Text style={[styles.teamName, { color: getNameColor(homeIsLosing) }]}>{homeTeam?.abbreviation || 'HOME'}</Text>
             </View>
           </View>
         </View>
         
         <View style={styles.gameInfo}>
-          <Text style={styles.venue}>{gameData.gameData?.venue?.name || ''}</Text>
+          <Text style={[styles.venue, { color: theme.text }]}>{gameData.gameData?.venue?.name || ''}</Text>
           {gameData.gameData?.datetime?.originalDate && (
-            <Text style={styles.date}>
+            <Text style={[styles.date, { color: theme.textSecondary }]}>
               {new Date(gameData.gameData.datetime.originalDate).toLocaleDateString('en-US', {
                 weekday: 'long',
                 year: 'numeric',
@@ -591,8 +1084,9 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               })}
             </Text>
           )}
+          <Text style={[styles.streamHint, { color: colors.primary }]}>Tap to view streams</Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -607,10 +1101,25 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     return (
       <View style={styles.basesContainer}>
         <View style={styles.basesDisplay}>
-          <View style={[styles.base, styles.secondBase, hasSecond && styles.occupiedBase]} />
+          <View style={[
+            styles.base, 
+            styles.secondBase, 
+            { backgroundColor: theme.border },
+            hasSecond && { backgroundColor: colors.primary }
+          ]} />
           <View style={styles.basesRow}>
-            <View style={[styles.base, styles.thirdBase, hasThird && styles.occupiedBase]} />
-            <View style={[styles.base, styles.firstBase, hasFirst && styles.occupiedBase]} />
+            <View style={[
+              styles.base, 
+              styles.thirdBase, 
+              { backgroundColor: theme.border },
+              hasThird && { backgroundColor: colors.primary }
+            ]} />
+            <View style={[
+              styles.base, 
+              styles.firstBase, 
+              { backgroundColor: theme.border },
+              hasFirst && { backgroundColor: colors.primary }
+            ]} />
           </View>
         </View>
       </View>
@@ -620,6 +1129,14 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   const renderLineScore = () => {
     if (!gameData?.liveData?.linescore) return null;
 
+    const status = gameData?.gameData?.status;
+    // Don't show line score for scheduled, pre-game, or warmup games
+    const isPreGame = status?.statusCode === 'S' || 
+                     status?.detailedState === 'Pre-Game' || 
+                     status?.detailedState === 'Warmup';
+    
+    if (isPreGame) return null;
+
     const linescore = gameData.liveData.linescore;
     const innings = linescore.innings || [];
     const awayTeam = gameData.gameData?.teams?.away;
@@ -628,69 +1145,72 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     if (innings.length === 0) return null;
 
     return (
-      <View style={styles.lineScoreContainer}>
-        <Text style={styles.sectionTitle}>Line Score</Text>
+      <View style={[styles.lineScoreContainer, { 
+        backgroundColor: theme.surface,
+        shadowColor: isDarkMode ? '#ffffff' : '#000000'
+      }]}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Line Score</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.lineScoreTable}>
             {/* Header Row */}
-            <View style={styles.lineScoreRow}>
+            <View style={[styles.lineScoreRow, { borderBottomColor: theme.border }]}>
               <View style={[styles.lineScoreCell, styles.teamCell]}>
-                <Text style={styles.lineScoreHeaderText}>Team</Text>
+                <Text style={[styles.lineScoreHeaderText, { color: theme.text }]}>Team</Text>
               </View>
               {innings.map((inning, index) => (
                 <View key={index} style={styles.lineScoreCell}>
-                  <Text style={styles.lineScoreHeaderText}>{index + 1}</Text>
+                  <Text style={[styles.lineScoreHeaderText, { color: theme.text }]}>{index + 1}</Text>
                 </View>
               ))}
               <View style={styles.lineScoreCell}>
-                <Text style={styles.lineScoreHeaderText}>R</Text>
+                <Text style={[styles.lineScoreHeaderText, { color: theme.text }]}>R</Text>
               </View>
               <View style={styles.lineScoreCell}>
-                <Text style={styles.lineScoreHeaderText}>H</Text>
+                <Text style={[styles.lineScoreHeaderText, { color: theme.text }]}>H</Text>
               </View>
               <View style={styles.lineScoreCell}>
-                <Text style={styles.lineScoreHeaderText}>E</Text>
+                <Text style={[styles.lineScoreHeaderText, { color: theme.text }]}>E</Text>
               </View>
             </View>
 
             {/* Away Team Row */}
-            <View style={styles.lineScoreRow}>
+            <View style={[styles.lineScoreRow, { borderBottomColor: theme.border }]}>
               <View style={[styles.lineScoreCell, styles.teamCell]}>
                 <View style={styles.lineScoreTeamContainer}>
                   <Image
-                    source={{ uri: MLBService.getLogoUrl(awayTeam?.name, awayTeam?.abbreviation) }}
+                    source={{ uri: getTeamLogoUrl('mlb', awayTeam?.abbreviation) }}
                     style={styles.lineScoreTeamLogo}
                   />
-                  <Text style={styles.lineScoreTeamText}>{awayTeam?.abbreviation || 'AWAY'}</Text>
+                  <Text style={[styles.lineScoreTeamText, { color: colors.primary }]}>{awayTeam?.abbreviation || 'AWAY'}</Text>
                 </View>
               </View>
               {innings.map((inning, index) => (
                 <View key={index} style={styles.lineScoreCell}>
-                  <Text style={styles.lineScoreText}>{inning.away?.runs || '0'}</Text>
+                  <Text style={[styles.lineScoreText, { color: theme.textSecondary }]}>{inning.away?.runs || '0'}</Text>
                 </View>
               ))}
               <View style={styles.lineScoreCell}>
-                <Text style={[styles.lineScoreText, styles.lineScoreTotalText]}>
+                <Text style={[styles.lineScoreText, { color: colors.primary }, styles.lineScoreTotalText]}>
                   {linescore.teams?.away?.runs || 0}
                 </Text>
               </View>
               <View style={styles.lineScoreCell}>
-                <Text style={styles.lineScoreText}>{linescore.teams?.away?.hits || 0}</Text>
+                <Text style={[styles.lineScoreText, { color: theme.textSecondary }]}>{linescore.teams?.away?.hits || 0}</Text>
               </View>
               <View style={styles.lineScoreCell}>
-                <Text style={styles.lineScoreText}>{linescore.teams?.away?.errors || 0}</Text>
+                <Text style={[styles.lineScoreText, { color: theme.textSecondary }]}>{linescore.teams?.away?.errors || 0}</Text>
               </View>
             </View>
 
             {/* Home Team Row */}
-            <View style={styles.lineScoreRow}>
+            <View style={[styles.lineScoreRow, { borderBottomColor: theme.border }]}>
               <View style={[styles.lineScoreCell, styles.teamCell]}>
                 <View style={styles.lineScoreTeamContainer}>
                   <Image
-                    source={{ uri: MLBService.getLogoUrl(homeTeam?.name, homeTeam?.abbreviation) }}
+                    source={{ uri: getTeamLogoUrl('mlb', homeTeam?.abbreviation) }}
                     style={styles.lineScoreTeamLogo}
                   />
-                  <Text style={styles.lineScoreTeamText}>{homeTeam?.abbreviation || 'HOME'}</Text>
+                  <Text style={[styles.lineScoreTeamText, { color: colors.primary }]}>{homeTeam?.abbreviation || 'HOME'}</Text>
                 </View>
               </View>
               {innings.map((inning, index) => {
@@ -709,22 +1229,22 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 
                 return (
                   <View key={index} style={styles.lineScoreCell}>
-                    <Text style={styles.lineScoreText}>
+                    <Text style={[styles.lineScoreText, { color: theme.textSecondary }]}>
                       {shouldShowX ? 'X' : (inning.home?.runs || '0')}
                     </Text>
                   </View>
                 );
               })}
               <View style={styles.lineScoreCell}>
-                <Text style={[styles.lineScoreText, styles.lineScoreTotalText]}>
+                <Text style={[styles.lineScoreText, { color: colors.primary }, styles.lineScoreTotalText]}>
                   {linescore.teams?.home?.runs || 0}
                 </Text>
               </View>
               <View style={styles.lineScoreCell}>
-                <Text style={styles.lineScoreText}>{linescore.teams?.home?.hits || 0}</Text>
+                <Text style={[styles.lineScoreText, { color: theme.textSecondary }]}>{linescore.teams?.home?.hits || 0}</Text>
               </View>
               <View style={styles.lineScoreCell}>
-                <Text style={styles.lineScoreText}>{linescore.teams?.home?.errors || 0}</Text>
+                <Text style={[styles.lineScoreText, { color: theme.textSecondary }]}>{linescore.teams?.home?.errors || 0}</Text>
               </View>
             </View>
           </View>
@@ -742,14 +1262,14 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     if (status?.statusCode !== 'I') return null; // Only show for in-progress games
 
     return (
-      <View style={styles.currentPlayContainer}>
-        <Text style={styles.sectionTitle}>Current Situation</Text>
+      <View style={[styles.currentPlayContainer, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Current Situation</Text>
         <View style={styles.currentPlayContent}>
           {currentPlay.result?.description && (
-            <Text style={styles.currentPlayText}>{currentPlay.result.description}</Text>
+            <Text style={[styles.currentPlayText, { color: theme.text }]}>{currentPlay.result.description}</Text>
           )}
           {currentPlay.about?.inning && (
-            <Text style={styles.currentPlayDetails}>
+            <Text style={[styles.currentPlayDetails, { color: theme.textSecondary }]}>
               {formatInning(currentPlay.about.inning, currentPlay.about.halfInning)}
             </Text>
           )}
@@ -760,11 +1280,14 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
   const renderStatsContent = () => {
     const status = gameData?.gameData?.status;
-    const isScheduled = status?.statusCode === 'S';
+    // Include Pre-Game and Warmup in scheduled logic
+    const isScheduled = status?.statusCode === 'S' || 
+                       status?.detailedState === 'Pre-Game' || 
+                       status?.detailedState === 'Warmup';
     
     if (isScheduled) {
       return (
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: theme.surface }]}>
           {renderLineScore()}
           {renderProbablePitchers()}
           {renderTopHitters()}
@@ -774,7 +1297,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     }
 
     return (
-      <View style={styles.section}>
+      <View style={[styles.section, { backgroundColor: theme.surface }]}>
         {renderLineScore()}
         {renderMomentumChart()}
         {renderTeamStats()}
@@ -788,18 +1311,21 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     const team = teamType === 'away' ? gameData.gameData?.teams?.away : gameData.gameData?.teams?.home;
     const teamStats = teamType === 'away' ? gameData.liveData?.boxscore?.teams?.away : gameData.liveData?.boxscore?.teams?.home;
     const status = gameData?.gameData?.status;
-    const isScheduled = status?.statusCode === 'S';
+    // Include Pre-Game and Warmup in scheduled logic
+    const isScheduled = status?.statusCode === 'S' || 
+                       status?.detailedState === 'Pre-Game' || 
+                       status?.detailedState === 'Warmup';
 
     if (isScheduled) {
       return (
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: theme.surface }]}>
           <View style={styles.teamRosterHeader}>
             <Image 
-              source={{ uri: MLBService.getLogoUrl(team?.name || '', team?.abbreviation) }} 
+              source={{ uri: getTeamLogoUrl('mlb', team?.abbreviation) }} 
               style={styles.teamRosterLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
             />
-            <Text style={styles.sectionTitle}>{team?.name || `${teamType} Team`} Roster</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{team?.name || `${teamType} Team`} Roster</Text>
           </View>
           {renderTeamRoster(team)}
         </View>
@@ -807,8 +1333,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     }
 
     return (
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{team?.name || `${teamType} Team`} Box Score</Text>
+      <View style={[styles.section, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>{team?.name || `${teamType} Team`} Box Score</Text>
         {renderTeamBoxScore(teamStats, team)}
       </View>
     );
@@ -824,7 +1350,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       <View style={styles.teamBoxScoreContainer}>
         <View style={styles.teamBoxScoreHeader}>
           <Image 
-            source={{ uri: MLBService.getLogoUrl(team?.name || '', team?.abbreviation) }} 
+            source={{ uri: getTeamLogoUrl('mlb', team?.abbreviation) }} 
             style={styles.teamBoxScoreLogo}
             defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=MLB' }}
           />
@@ -832,8 +1358,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         </View>
 
         {/* Batting Stats */}
-        <View style={styles.statCategoryContainer}>
-          <Text style={styles.statCategoryTitle}>Batting</Text>
+        <View style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.statCategoryTitle, { color: colors.primary }]}>Batting</Text>
           <View style={styles.statTableHeader}>
             <Text style={styles.statTableHeaderPlayer}>Player</Text>
             <Text style={styles.statTableHeaderStat}>AB</Text>
@@ -872,8 +1398,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         </View>
 
         {/* Pitching Stats */}
-        <View style={styles.statCategoryContainer}>
-          <Text style={styles.statCategoryTitle}>Pitching</Text>
+        <View style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.statCategoryTitle, { color: colors.primary }]}>Pitching</Text>
           <View style={styles.statTableHeader}>
             <Text style={styles.statTableHeaderPlayer}>Player</Text>
             <Text style={styles.statTableHeaderStat}>IP</Text>
@@ -936,57 +1462,77 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       return (
         <View key={label} style={{ marginBottom: 28 }}>
           <View style={styles.statsRow}>
-            <Text style={styles.statsValue}>{awayValue}</Text>
+            <Text style={[styles.statsValue, { color: theme.text }]}>{awayValue}</Text>
             <View style={styles.statsBarContainer}>
-              <View style={styles.statsBar}>
+              <View style={[styles.statsBar, { 
+                flexDirection: 'row', 
+                overflow: 'hidden', 
+                borderRadius: 10,
+                backgroundColor: theme.surface
+              }]}>
                 <View
                   style={[
                     styles.statsBarFill,
-                    styles.awayBarFill,
-                    { width: `${awayPercent}%`, backgroundColor: awayColor }
+                    { 
+                      width: `${awayPercent}%`, 
+                      backgroundColor: awayColor, 
+                      height: '100%',
+                      borderTopLeftRadius: 10,
+                      borderBottomLeftRadius: 10,
+                      borderTopRightRadius: 0,
+                      borderBottomRightRadius: 0
+                    }
                   ]}
                 />
-              </View>
-              <View style={styles.statsBar}>
                 <View
                   style={[
                     styles.statsBarFill,
-                    styles.homeBarFill,
-                    { width: `${homePercent}%`, backgroundColor: homeColor }
+                    { 
+                      width: `${homePercent}%`, 
+                      backgroundColor: homeColor, 
+                      height: '100%',
+                      borderTopLeftRadius: 0,
+                      borderBottomLeftRadius: 0,
+                      borderTopRightRadius: 10,
+                      borderBottomRightRadius: 10
+                    }
                   ]}
                 />
               </View>
             </View>
-            <Text style={styles.statsValue}>{homeValue}</Text>
+            <Text style={[styles.statsValue, { color: theme.text }]}>{homeValue}</Text>
           </View>
           <View style={{ alignItems: 'center', marginTop: -25 }}>
-            <Text style={styles.statsLabel}>{label}</Text>
+            <Text style={[styles.statsLabel, { color: theme.textSecondary }]}>{label}</Text>
           </View>
         </View>
       );
     };
 
     return (
-      <View style={styles.teamStatsContainer}>
-        <Text style={styles.sectionTitle}>Team Statistics</Text>
+      <View style={[styles.teamStatsContainer, { 
+        backgroundColor: theme.surface,
+        shadowColor: isDarkMode ? '#ffffff' : '#000000'
+      }]}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Team Statistics</Text>
 
         {/* Team Headers */}
         <View style={styles.statsTeams}>
           <View style={styles.statsTeam}>
             <Image
-              source={{ uri: MLBService.getLogoUrl(awayTeam?.name || '', awayTeam?.abbreviation) }}
+              source={{ uri: getTeamLogoUrl('mlb', awayTeam?.abbreviation) }}
               style={styles.statsTeamLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=MLB' }}
             />
-            <Text style={styles.statsTeamName}>{awayTeam?.name || 'Away Team'}</Text>
+            <Text style={[styles.statsTeamName, { color: theme.text }]}>{awayTeam?.name || 'Away Team'}</Text>
           </View>
           <View style={styles.statsTeam}>
             <Image
-              source={{ uri: MLBService.getLogoUrl(homeTeam?.name || '', homeTeam?.abbreviation) }}
+              source={{ uri: getTeamLogoUrl('mlb', homeTeam?.abbreviation) }}
               style={styles.statsTeamLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=MLB' }}
             />
-            <Text style={styles.statsTeamName}>{homeTeam?.name || 'Home Team'}</Text>
+            <Text style={[styles.statsTeamName, { color: theme.text }]}>{homeTeam?.name || 'Home Team'}</Text>
           </View>
         </View>
 
@@ -1013,9 +1559,9 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     if (loadingPlays && !isIncrementalUpdate) {
       console.log('Showing loading spinner');
       return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#002D72" />
-          <Text style={styles.loadingText}>Loading Plays...</Text>
+        <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading Plays...</Text>
         </View>
       );
     }
@@ -1023,14 +1569,14 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     if (!playsData) {
       return (
         <View style={styles.placeholderContainer}>
-          <Text style={styles.placeholderText}>No plays data available</Text>
+          <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>No plays data available</Text>
         </View>
       );
     }
 
     console.log('Rendering plays section with', playsData.allPlays?.length, 'plays');
     return (
-      <View style={styles.section}>
+      <View style={[styles.section, { backgroundColor: theme.surface }]}>
         {renderPlayByPlay()}
       </View>
     );
@@ -1137,27 +1683,30 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     const maxActivity = Math.max(...inningData.map(d => Math.max(d.awayActivity, d.homeActivity)), 1);
 
     return (
-      <View style={styles.momentumContainer}>
-        <Text style={styles.sectionTitle}>Momentum</Text>
-        <View style={styles.momentumChartWhite}>
+      <View style={[styles.momentumContainer, { backgroundColor: theme.surface }]}>
+        <View style={[styles.momentumChartWhite, { 
+          backgroundColor: theme.surface,
+          shadowColor: isDarkMode ? '#ffffff' : '#000000'
+        }]}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Momentum</Text>
           <View style={styles.teamLabels}>
             <View style={[styles.teamLabelContainer, styles.awayTeamLabel]}>
               <Image
-                source={{ uri: MLBService.getLogoUrl(awayTeam?.name, awayTeam?.abbreviation) }}
-                style={styles.momentumTeamLogo}
+                source={{ uri: getTeamLogoUrl('mlb', awayTeam?.abbreviation) }}
+                style={styles.momentumTeamLogoAway}
               />
-              <Text style={styles.teamLabel}>
+              <Text style={[styles.teamLabel, { color: theme.text }]}>
                 {awayTeam?.abbreviation || 'AWAY'}
               </Text>
             </View>
             <View style={[styles.teamLabelContainer, styles.homeTeamLabel]}>
-              <Image
-                source={{ uri: MLBService.getLogoUrl(homeTeam?.name, homeTeam?.abbreviation) }}
-                style={styles.momentumTeamLogo}
-              />
-              <Text style={styles.teamLabel}>
+              <Text style={[styles.teamLabel, { color: theme.text }]}>
                 {homeTeam?.abbreviation || 'HOME'}
               </Text>
+              <Image
+                source={{ uri: getTeamLogoUrl('mlb', homeTeam?.abbreviation) }}
+                style={styles.momentumTeamLogoHome}
+              />
             </View>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -1170,7 +1719,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   <View key={index} style={styles.inningBar}>
                     {/* Inning label at center */}
                     <View style={styles.inningLabelContainer}>
-                      <Text style={styles.inningLabel}>
+                      <Text style={[styles.inningLabel, { color: theme.textSecondary }]}>
                         {data.inning}{data.inning === 1 ? 'st' : data.inning === 2 ? 'nd' : data.inning === 3 ? 'rd' : 'th'}
                       </Text>
                     </View>
@@ -1189,7 +1738,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                           ]}
                         />
                         {(data.awayRuns > 0 || data.awayHits > 0) && (
-                          <Text style={[styles.barText, { position: 'absolute', top: -25 }]}>
+                          <Text style={[styles.barText, { position: 'absolute', top: -25, color: theme.text }]}>
                             {data.awayRuns}R {data.awayHits}H
                           </Text>
                         )}
@@ -1210,7 +1759,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                           ]}
                         />
                         {(data.homeRuns > 0 || data.homeHits > 0) && (
-                          <Text style={[styles.barText, { position: 'absolute', bottom: -20 }]}>
+                          <Text style={[styles.barText, { position: 'absolute', bottom: -20, color: theme.text }]}>
                             {data.homeRuns}R {data.homeHits}H
                           </Text>
                         )}
@@ -1294,7 +1843,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         >
           <View style={styles.playInfo}>
             <Image
-              source={{ uri: MLBService.getLogoUrl(team?.name || '', team?.abbreviation, isScoringPlay ? 'dark' : 'light') }}
+              source={{ uri: getTeamLogoUrl('mlb', team?.abbreviation) }}
               style={styles.playTeamLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
             />
@@ -1507,11 +2056,11 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     return (
       <View style={styles.playBasesSmall}>
         {/* Second base (top) */}
-        <View style={[styles.playBaseSmall, styles.secondBaseSmall, hasSecond && styles.occupiedBaseSmall]} />
+        <View style={[styles.playBaseSmall, styles.secondBaseSmall, hasSecond && [styles.occupiedBaseSmall, { backgroundColor: colors.primary }]]} />
         {/* First and Third base row */}
         <View style={styles.playBasesRowSmall}>
-          <View style={[styles.playBaseSmall, styles.thirdBaseSmall, hasThird && styles.occupiedBaseSmall]} />
-          <View style={[styles.playBaseSmall, styles.firstBaseSmall, hasFirst && styles.occupiedBaseSmall]} />
+          <View style={[styles.playBaseSmall, styles.thirdBaseSmall, hasThird && [styles.occupiedBaseSmall, { backgroundColor: colors.primary }]]} />
+          <View style={[styles.playBaseSmall, styles.firstBaseSmall, hasFirst && [styles.occupiedBaseSmall, { backgroundColor: colors.primary }]]} />
         </View>
       </View>
     );
@@ -1531,10 +2080,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         <Text style={styles.basesTitle}>Bases After Play</Text>
         <View style={styles.playBasesDisplay}>
           <View style={styles.playBasesRow}>
-            <View style={[styles.playBase, styles.thirdBase, hasThird && styles.occupiedBase]} />
-            <View style={[styles.playBase, styles.firstBase, hasFirst && styles.occupiedBase]} />
+            <View style={[styles.playBase, styles.thirdBase, hasThird && [styles.occupiedBase, { backgroundColor: colors.primary }]]} />
+            <View style={[styles.playBase, styles.firstBase, hasFirst && [styles.occupiedBase, { backgroundColor: colors.primary }]]} />
           </View>
-          <View style={[styles.playBase, styles.secondBase, hasSecond && styles.occupiedBase]} />
+          <View style={[styles.playBase, styles.secondBase, hasSecond && [styles.occupiedBase, { backgroundColor: colors.primary }]]} />
         </View>
       </View>
     );
@@ -1555,8 +2104,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                        homeTeam.probablePitcher;
 
     return (
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Probable Pitchers</Text>
+      <View style={[styles.section, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Probable Pitchers</Text>
         <View style={styles.probablePitchersContainer}>
           {/* Away Pitcher */}
           <View style={styles.pitcherCard}>
@@ -1653,14 +2202,14 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     const homeTeam = gameData.gameData.teams.home;
 
     return (
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Top Hitters</Text>
+      <View style={[styles.section, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Top Hitters</Text>
         <View style={styles.topHittersContainer}>
           {/* Away Team */}
           <View style={styles.topHittersTeam}>
             <View style={styles.topHittersHeader}>
               <Image
-                source={{ uri: MLBService.getLogoUrl(awayTeam?.name || '', awayTeam?.abbreviation) }}
+                source={{ uri: getTeamLogoUrl('mlb', awayTeam?.abbreviation) }}
                 style={styles.topHittersTeamLogo}
                 defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
               />
@@ -1717,7 +2266,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           <View style={styles.topHittersTeam}>
             <View style={styles.topHittersHeader}>
               <Image
-                source={{ uri: MLBService.getLogoUrl(homeTeam?.name || '', homeTeam?.abbreviation) }}
+                source={{ uri: getTeamLogoUrl('mlb', homeTeam?.abbreviation) }}
                 style={styles.topHittersTeamLogo}
                 defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
               />
@@ -1809,21 +2358,38 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           <View style={styles.statsRow}>
             <Text style={styles.statsValue}>{awayValue}</Text>
             <View style={styles.statsBarContainer}>
-              <View style={styles.statsBar}>
+              <View style={[styles.statsBar, { 
+                flexDirection: 'row', 
+                overflow: 'hidden', 
+                borderRadius: 10,
+                backgroundColor: theme.surface
+              }]}>
                 <View
                   style={[
                     styles.statsBarFill,
-                    styles.awayBarFill,
-                    { width: `${awayPercent}%`, backgroundColor: awayColor }
+                    { 
+                      width: `${awayPercent}%`, 
+                      backgroundColor: awayColor, 
+                      height: '100%',
+                      borderTopLeftRadius: 10,
+                      borderBottomLeftRadius: 10,
+                      borderTopRightRadius: 0,
+                      borderBottomRightRadius: 0
+                    }
                   ]}
                 />
-              </View>
-              <View style={styles.statsBar}>
                 <View
                   style={[
                     styles.statsBarFill,
-                    styles.homeBarFill,
-                    { width: `${homePercent}%`, backgroundColor: homeColor }
+                    { 
+                      width: `${homePercent}%`, 
+                      backgroundColor: homeColor, 
+                      height: '100%',
+                      borderTopLeftRadius: 0,
+                      borderBottomLeftRadius: 0,
+                      borderTopRightRadius: 10,
+                      borderBottomRightRadius: 10
+                    }
                   ]}
                 />
               </View>
@@ -1970,124 +2536,133 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     const battingStats = stats.batting || {};
     const pitchingStats = stats.pitching || {};
 
+    // Format game date properly
+    const formatGameDate = (dateStr) => {
+      const date = new Date(dateStr);
+      const day = date.getDate();
+      const month = date.toLocaleDateString('en-US', { month: 'short' });
+      const year = date.getFullYear();
+      return `${day} ${month} ${year}`;
+    };
+
+    const gameDate = gameData?.gameData?.datetime?.originalDate 
+      ? formatGameDate(gameData.gameData.datetime.originalDate)
+      : formatGameDate(new Date());
+
     return (
       <View>
         {/* Game Info */}
         <View style={styles.gameStatsHeader}>
           <Text style={styles.gameStatsTitle}>Game Statistics</Text>
-          <Text style={styles.gameStatsDate}>{new Date().toLocaleDateString()}</Text>
+          <Text style={styles.gameStatsDate}>{gameDate}</Text>
         </View>
 
         {/* Batting Stats */}
         {Object.keys(battingStats).length > 0 && (
-          <View style={styles.statCategoryContainer}>
-            <Text style={styles.statCategoryTitle}>Batting</Text>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>At Bats</Text>
-              <Text style={styles.playerStatValue}>{battingStats.atBats || 0}</Text>
+          <View style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
+            <Text style={[styles.statCategoryTitle, { color: colors.primary }]}>⚾ Batting</Text>
+            
+            {/* First row: 3 stats */}
+            <View style={styles.statGridRow}>
+              <View style={styles.statBox}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.hits || 0}/{battingStats.atBats || 0}</Text>
+                <Text style={styles.statBoxLabel}>H/AB</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.runs || 0}</Text>
+                <Text style={styles.statBoxLabel}>R</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.rbi || 0}</Text>
+                <Text style={styles.statBoxLabel}>RBI</Text>
+              </View>
             </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Runs</Text>
-              <Text style={styles.playerStatValue}>{battingStats.runs || 0}</Text>
+            
+            {/* Second row: 3 stats */}
+            <View style={styles.statGridRow}>
+              <View style={styles.statBox}>
+                <Text style={styles.statBoxValue}>{battingStats.homeRuns || 0}</Text>
+                <Text style={styles.statBoxLabel}>HR</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statBoxValue}>{battingStats.baseOnBalls || 0}</Text>
+                <Text style={styles.statBoxLabel}>BB</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statBoxValue}>{battingStats.strikeOuts || 0}</Text>
+                <Text style={styles.statBoxLabel}>SO</Text>
+              </View>
             </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Hits</Text>
-              <Text style={styles.playerStatValue}>{battingStats.hits || 0}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>RBI</Text>
-              <Text style={styles.playerStatValue}>{battingStats.rbi || 0}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Doubles</Text>
-              <Text style={styles.playerStatValue}>{battingStats.doubles || 0}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Triples</Text>
-              <Text style={styles.playerStatValue}>{battingStats.triples || 0}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Home Runs</Text>
-              <Text style={styles.playerStatValue}>{battingStats.homeRuns || 0}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Walks</Text>
-              <Text style={styles.playerStatValue}>{battingStats.baseOnBalls || 0}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Strikeouts</Text>
-              <Text style={styles.playerStatValue}>{battingStats.strikeOuts || 0}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Stolen Bases</Text>
-              <Text style={styles.playerStatValue}>{battingStats.stolenBases || 0}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Avg</Text>
-              <Text style={styles.playerStatValue}>{battingStats.avg || '.000'}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>OBP</Text>
-              <Text style={styles.playerStatValue}>{battingStats.obp || '.000'}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>SLG</Text>
-              <Text style={styles.playerStatValue}>{battingStats.slg || '.000'}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>OPS</Text>
-              <Text style={styles.playerStatValue}>{battingStats.ops || '.000'}</Text>
+            
+            {/* Third row: 3 stats */}
+            <View style={styles.statGridRow}>
+              <View style={styles.statBox}>
+                <Text style={styles.statBoxValue}>{(battingStats.singles || 0) + (battingStats.doubles || 0) + (battingStats.triples || 0) + (battingStats.homeRuns || 0)}</Text>
+                <Text style={styles.statBoxLabel}>TB</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statBoxValue}>{battingStats.stolenBases || 0}</Text>
+                <Text style={styles.statBoxLabel}>SB</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statBoxValue}>{battingStats.leftOnBase || 0}</Text>
+                <Text style={styles.statBoxLabel}>LOB</Text>
+              </View>
             </View>
           </View>
         )}
 
         {/* Pitching Stats */}
         {Object.keys(pitchingStats).length > 0 && (
-          <View style={styles.statCategoryContainer}>
-            <Text style={styles.statCategoryTitle}>Pitching</Text>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Innings Pitched</Text>
-              <Text style={styles.playerStatValue}>{pitchingStats.inningsPitched || '0.0'}</Text>
+          <View style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
+            <Text style={[styles.statCategoryTitle, { color: colors.primary }]}>🥎 Pitching</Text>
+            
+            {/* First row: 3 stats */}
+            <View style={styles.statGridRow}>
+              <View style={styles.statBox}>
+                <Text style={styles.statBoxValue}>{pitchingStats.inningsPitched || '0.0'}</Text>
+                <Text style={styles.statBoxLabel}>IP</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statBoxValue}>{pitchingStats.hits || 0}</Text>
+                <Text style={styles.statBoxLabel}>H</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statBoxValue}>{pitchingStats.runs || 0}</Text>
+                <Text style={styles.statBoxLabel}>R</Text>
+              </View>
             </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Hits Allowed</Text>
-              <Text style={styles.playerStatValue}>{pitchingStats.hits || 0}</Text>
+            
+            {/* Second row: 3 stats */}
+            <View style={styles.statGridRow}>
+              <View style={styles.statBox}>
+                <Text style={styles.statBoxValue}>{pitchingStats.earnedRuns || 0}</Text>
+                <Text style={styles.statBoxLabel}>ER</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statBoxValue}>{pitchingStats.baseOnBalls || 0}</Text>
+                <Text style={styles.statBoxLabel}>BB</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statBoxValue}>{pitchingStats.strikeOuts || 0}</Text>
+                <Text style={styles.statBoxLabel}>K</Text>
+              </View>
             </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Runs Allowed</Text>
-              <Text style={styles.playerStatValue}>{pitchingStats.runs || 0}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Earned Runs</Text>
-              <Text style={styles.playerStatValue}>{pitchingStats.earnedRuns || 0}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Walks</Text>
-              <Text style={styles.playerStatValue}>{pitchingStats.baseOnBalls || 0}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Strikeouts</Text>
-              <Text style={styles.playerStatValue}>{pitchingStats.strikeOuts || 0}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Home Runs Allowed</Text>
-              <Text style={styles.playerStatValue}>{pitchingStats.homeRuns || 0}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Pitches</Text>
-              <Text style={styles.playerStatValue}>{pitchingStats.numberOfPitches || 0}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>Strikes</Text>
-              <Text style={styles.playerStatValue}>{pitchingStats.strikes || 0}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>ERA</Text>
-              <Text style={styles.playerStatValue}>{pitchingStats.era || '0.00'}</Text>
-            </View>
-            <View style={styles.playerStatRow}>
-              <Text style={styles.playerStatLabel}>WHIP</Text>
-              <Text style={styles.playerStatValue}>{pitchingStats.whip || '0.00'}</Text>
+            
+            {/* Third row: 3 stats (P and ST separated) */}
+            <View style={styles.statGridRow}>
+              <View style={styles.statBox}>
+                <Text style={styles.statBoxValue}>{pitchingStats.numberOfPitches || 0}</Text>
+                <Text style={styles.statBoxLabel}>P</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statBoxValue}>{pitchingStats.strikes || 0}</Text>
+                <Text style={styles.statBoxLabel}>ST</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statBoxValue}>{pitchingStats.strikePercentage || '0.00'}</Text>
+                <Text style={styles.statBoxLabel}>K%</Text>
+              </View>
             </View>
           </View>
         )}
@@ -2104,18 +2679,18 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#002D72" />
-        <Text style={styles.loadingText}>Loading Game Details...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading Game Details...</Text>
       </View>
     );
   }
 
   if (!gameData) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Game data not available</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => loadGameDetails()}>
+      <View style={[styles.errorContainer, { backgroundColor: theme.background }]}>
+        <Text style={[styles.errorText, { color: theme.textSecondary }]}>Game data not available</Text>
+        <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => loadGameDetails()}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -2123,7 +2698,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView 
         ref={scrollViewRef}
         style={styles.scrollView}
@@ -2145,7 +2720,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         onRequestClose={closePlayerModal}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
             {/* Close Button */}
             <TouchableOpacity style={styles.modalCloseButton} onPress={closePlayerModal}>
               <Text style={styles.modalCloseText}>×</Text>
@@ -2163,10 +2738,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                     defaultSource={{ uri: 'https://via.placeholder.com/80x80?text=Player' }}
                   />
                   <View style={styles.playerInfo}>
-                    <Text style={styles.playerName}>
+                    <Text style={[styles.playerName, { color: theme.text }]}>
                       {selectedPlayer.person?.fullName || 'Unknown Player'}
                     </Text>
-                    <Text style={styles.playerDetails}>
+                    <Text style={[styles.playerDetails, { color: theme.textSecondary }]}>
                       #{selectedPlayer.jerseyNumber || 'N/A'} • {selectedPlayer.position?.abbreviation || 'N/A'}
                     </Text>
                     <View style={styles.playerTeamInfo}>
@@ -2175,7 +2750,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                         style={styles.playerTeamLogo}
                         defaultSource={{ uri: 'https://via.placeholder.com/20x20?text=MLB' }}
                       />
-                      <Text style={styles.playerTeamName}>
+                      <Text style={[styles.playerTeamName, { color: colors.primary }]}>
                         {selectedPlayer.team?.name || 'Unknown Team'}
                       </Text>
                     </View>
@@ -2202,6 +2777,423 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Stream Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={streamModalVisible}
+        onRequestClose={closeStreamModal}
+      >
+        <View style={styles.streamModalOverlay}>
+          <View style={[styles.streamModalContainer, { backgroundColor: theme.surface }]}>
+            {/* Modal Header */}
+            <View style={[styles.streamModalHeader, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]}>
+              <Text style={[styles.streamModalTitle, { color: colors.primary }]}>Live Stream</Text>
+              <TouchableOpacity style={[styles.streamCloseButton, { backgroundColor: theme.surfaceSecondary }]} onPress={closeStreamModal}>
+                <Text style={[styles.streamCloseText, { color: colors.primary }]}>×</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Stream Buttons */}
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={[styles.streamButtonsContainer, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]}
+              contentContainerStyle={styles.streamButtonsContent}
+            >
+              {Object.keys(availableStreams).slice(0, 5).map((streamKey, index) => {
+                // Extract source name and capitalize it
+                const sourceName = streamKey.replace(/\d+$/, ''); // Remove numbers at the end
+                const capitalizedName = sourceName.charAt(0).toUpperCase() + sourceName.slice(1);
+                
+                return (
+                  <TouchableOpacity
+                    key={streamKey}
+                    style={[
+                      styles.streamButton,
+                      { backgroundColor: currentStreamType === streamKey ? colors.primary : theme.surfaceSecondary },
+                      { borderColor: theme.border }
+                    ]}
+                    onPress={() => switchStream(streamKey)}
+                  >
+                    <Text style={[
+                      styles.streamButtonText,
+                      { color: currentStreamType === streamKey ? '#fff' : colors.primary }
+                    ]}>
+                      {capitalizedName}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* WebView Container */}
+            <View style={styles.webViewContainer}>
+              {isStreamLoading && (
+                <View style={styles.streamLoadingOverlay}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={[styles.streamLoadingText, { color: '#fff' }]}>Loading stream...</Text>
+                </View>
+              )}
+              {streamUrl ? (
+                <WebView
+                  source={{ uri: streamUrl }}
+                  style={styles.webView}
+                  onLoadStart={() => setIsStreamLoading(true)}
+                  onLoadEnd={() => setIsStreamLoading(false)}
+                  onError={() => setIsStreamLoading(false)}
+                  javaScriptEnabled={true}
+                  domStorageEnabled={true}
+                  allowsInlineMediaPlaybook={true}
+                  mediaPlaybackRequiresUserAction={false}
+                  userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                  injectedJavaScriptBeforeContentLoaded={`
+                    // Early ad blocking - runs before page content loads
+                    (function() {
+                      // Block video ads immediately
+                      const originalPlay = HTMLVideoElement.prototype.play;
+                      HTMLVideoElement.prototype.play = function() {
+                        // Check if this video looks like an ad
+                        const src = this.src || this.currentSrc || '';
+                        const adKeywords = ['ad', 'advertisement', 'commercial', 'sponsor', 'promo'];
+                        const isAd = adKeywords.some(keyword => src.toLowerCase().includes(keyword));
+                        
+                        if (isAd) {
+                          console.log('Blocked video ad:', src);
+                          return Promise.resolve();
+                        }
+                        
+                        return originalPlay.call(this);
+                      };
+
+                      // Block ad domains immediately
+                      const adDomains = [
+                        'googleads', 'doubleclick', 'googlesyndication', 'adsystem',
+                        'amazon-adsystem', 'facebook.com/tr', 'google-analytics',
+                        'googletagmanager', 'ads.yahoo', 'outbrain', 'taboola',
+                        'criteo', 'pubmatic', 'rubiconproject', 'openx', 'media.net'
+                      ];
+
+                      // Override document.createElement early
+                      const originalCreateElement = document.createElement;
+                      document.createElement = function(tagName) {
+                        const element = originalCreateElement.call(this, tagName);
+                        
+                        if (tagName.toLowerCase() === 'script' || tagName.toLowerCase() === 'iframe') {
+                          const originalSetSrc = Object.getOwnPropertyDescriptor(
+                            tagName.toLowerCase() === 'script' ? HTMLScriptElement.prototype : HTMLIFrameElement.prototype, 
+                            'src'
+                          ).set;
+                          
+                          Object.defineProperty(element, 'src', {
+                            set: function(value) {
+                              if (value && adDomains.some(domain => value.includes(domain))) {
+                                console.log('Blocked early ad element:', value);
+                                return;
+                              }
+                              originalSetSrc.call(this, value);
+                            }
+                          });
+                        }
+                        
+                        return element;
+                      };
+
+                      // Block fetch early
+                      if (window.fetch) {
+                        const originalFetch = window.fetch;
+                        window.fetch = function(...args) {
+                          const url = args[0];
+                          if (typeof url === 'string' && adDomains.some(domain => url.includes(domain))) {
+                            console.log('Blocked early fetch:', url);
+                            return Promise.reject(new Error('Ad blocked'));
+                          }
+                          return originalFetch.apply(this, args);
+                        };
+                      }
+
+                      true;
+                    })();
+                  `}
+                  injectedJavaScript={`
+                    // Enhanced Ad blocking script with video ad focus
+                    (function() {
+                      console.log('Advanced ad blocker loaded');
+                      
+                      // Comprehensive ad domain list
+                      const adDomains = [
+                        'googleads.g.doubleclick.net', 'googlesyndication.com', 'google-analytics.com',
+                        'googletagmanager.com', 'facebook.com/tr', 'ads.yahoo.com', 'adsystem.com',
+                        'adskeeper.co.uk', 'adnxs.com', 'amazon-adsystem.com', 'media.net',
+                        'outbrain.com', 'taboola.com', 'criteo.com', 'pubmatic.com', 'rubiconproject.com',
+                        'openx.net', 'adsrvr.org', 'turn.com', 'bidswitch.net', 'rlcdn.com',
+                        'casalemedia.com', 'contextweb.com', 'serving-sys.com', 'adform.net',
+                        'adsafeprotected.com', 'moatads.com', 'scorecardresearch.com', 'quantserve.com',
+                        'ads.', 'ad.', 'adsv', 'advertising', 'advertisement'
+                      ];
+
+                      // Video ad blocking
+                      function blockVideoAds() {
+                        const videos = document.querySelectorAll('video');
+                        videos.forEach(video => {
+                          // Skip videos that are clearly ads
+                          const src = video.src || video.currentSrc || '';
+                          const adKeywords = ['ad', 'advertisement', 'commercial', 'sponsor', 'promo', 'preroll'];
+                          const isAd = adKeywords.some(keyword => src.toLowerCase().includes(keyword));
+                          
+                          if (isAd) {
+                            video.pause();
+                            video.currentTime = video.duration || 999;
+                            video.style.display = 'none';
+                            console.log('Blocked video ad');
+                            return;
+                          }
+
+                          // Auto-skip ads by fast-forwarding
+                          video.addEventListener('loadedmetadata', function() {
+                            if (this.duration && this.duration < 60) { // Likely an ad if under 60 seconds
+                              this.currentTime = this.duration;
+                              console.log('Auto-skipped short video (likely ad)');
+                            }
+                          });
+
+                          // Skip to end if video contains ad indicators
+                          if (video.poster && adKeywords.some(keyword => video.poster.toLowerCase().includes(keyword))) {
+                            video.currentTime = video.duration || 999;
+                            console.log('Skipped video with ad poster');
+                          }
+                        });
+                      }
+
+                      // Enhanced element removal
+                      const adSelectors = [
+                        // Basic ad selectors
+                        '[id*="ad"]', '[class*="ad"]', '[id*="Ad"]', '[class*="Ad"]',
+                        '[id*="banner"]', '[class*="banner"]', '[id*="Banner"]', '[class*="Banner"]',
+                        '[id*="popup"]', '[class*="popup"]', '[id*="Popup"]', '[class*="Popup"]',
+                        '[id*="overlay"]', '[class*="overlay"]', '[id*="Overlay"]', '[class*="Overlay"]',
+                        '[id*="modal"]', '[class*="modal"]', '[id*="Modal"]', '[class*="Modal"]',
+                        
+                        // Video ad specific
+                        '[id*="preroll"]', '[class*="preroll"]', '[id*="commercial"]', '[class*="commercial"]',
+                        '[id*="sponsor"]', '[class*="sponsor"]', '[id*="promo"]', '[class*="promo"]',
+                        
+                        // Common ad containers
+                        '.advertisement', '.ads', '.ad-container', '.banner-ad', '.popup-ad',
+                        '.video-ad', '.preroll-ad', '.overlay-ad', '.sponsored-content',
+                        
+                        // Iframes
+                        'iframe[src*="ads"]', 'iframe[src*="doubleclick"]', 'iframe[src*="googlesyndication"]',
+                        'iframe[src*="amazon-adsystem"]', 'iframe[src*="facebook.com/tr"]',
+                        
+                        // Data attributes
+                        '[data-ad]', '[data-ads]', '[data-advertisement]', '[data-google-av-cxn]',
+                        '[data-google-av-cpm]', '[data-google-av-adk]'
+                      ];
+
+                      // Aggressive ad removal
+                      function removeAds() {
+                        let removedCount = 0;
+                        
+                        // Remove by selectors
+                        adSelectors.forEach(selector => {
+                          try {
+                            const elements = document.querySelectorAll(selector);
+                            elements.forEach(el => {
+                              if (el && el.remove) {
+                                el.style.display = 'none !important';
+                                el.style.visibility = 'hidden !important';
+                                el.style.opacity = '0 !important';
+                                el.remove();
+                                removedCount++;
+                              }
+                            });
+                          } catch (e) {}
+                        });
+
+                        // Remove high z-index overlays
+                        try {
+                          const allElements = document.querySelectorAll('*');
+                          allElements.forEach(el => {
+                            const style = window.getComputedStyle(el);
+                            const zIndex = parseInt(style.zIndex);
+                            if (zIndex > 1000 && style.position === 'fixed') {
+                              const rect = el.getBoundingClientRect();
+                              // If it covers a large area, it's probably an overlay ad
+                              if (rect.width > window.innerWidth * 0.5 && rect.height > window.innerHeight * 0.5) {
+                                el.style.display = 'none !important';
+                                el.remove();
+                                removedCount++;
+                              }
+                            }
+                          });
+                        } catch (e) {}
+
+                        if (removedCount > 0) {
+                          console.log('Removed', removedCount, 'ad elements');
+                        }
+
+                        // Block video ads
+                        blockVideoAds();
+                      }
+
+                      // Enhanced network blocking
+                      const originalFetch = window.fetch;
+                      window.fetch = function(...args) {
+                        const url = args[0];
+                        if (typeof url === 'string') {
+                          for (const domain of adDomains) {
+                            if (url.includes(domain)) {
+                              console.log('Blocked fetch ad request:', url);
+                              return Promise.reject(new Error('Ad blocked'));
+                            }
+                          }
+                        }
+                        return originalFetch.apply(this, args);
+                      };
+
+                      const originalOpen = XMLHttpRequest.prototype.open;
+                      XMLHttpRequest.prototype.open = function(method, url, ...args) {
+                        if (typeof url === 'string') {
+                          for (const domain of adDomains) {
+                            if (url.includes(domain)) {
+                              console.log('Blocked XHR ad request:', url);
+                              return;
+                            }
+                          }
+                        }
+                        return originalOpen.call(this, method, url, ...args);
+                      };
+
+                      // Block createElement for dynamic ads
+                      const originalCreateElement = document.createElement;
+                      document.createElement = function(tagName) {
+                        const element = originalCreateElement.call(this, tagName);
+                        
+                        if (tagName.toLowerCase() === 'script') {
+                          const originalSetSrc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src').set;
+                          Object.defineProperty(element, 'src', {
+                            set: function(value) {
+                              if (value && adDomains.some(domain => value.includes(domain))) {
+                                console.log('Blocked script:', value);
+                                return;
+                              }
+                              originalSetSrc.call(this, value);
+                            }
+                          });
+                        }
+                        
+                        return element;
+                      };
+
+                      // Enhanced CSS blocking
+                      const style = document.createElement('style');
+                      style.textContent = \`
+                        [id*="ad"], [class*="ad"], [id*="Ad"], [class*="Ad"],
+                        [id*="banner"], [class*="banner"], [id*="Banner"], [class*="Banner"],
+                        [id*="popup"], [class*="popup"], [id*="Popup"], [class*="Popup"],
+                        [id*="overlay"], [class*="overlay"], [id*="Overlay"], [class*="Overlay"],
+                        [id*="modal"], [class*="modal"], [id*="Modal"], [class*="Modal"],
+                        [id*="preroll"], [class*="preroll"], [id*="commercial"], [class*="commercial"],
+                        [id*="sponsor"], [class*="sponsor"], [id*="promo"], [class*="promo"],
+                        .advertisement, .ads, .ad-container, .banner-ad, .popup-ad,
+                        .video-ad, .preroll-ad, .overlay-ad, .sponsored-content,
+                        [data-ad], [data-ads], [data-advertisement],
+                        iframe[src*="ads"], iframe[src*="doubleclick"], iframe[src*="googlesyndication"] {
+                          display: none !important;
+                          visibility: hidden !important;
+                          opacity: 0 !important;
+                          position: absolute !important;
+                          left: -9999px !important;
+                          top: -9999px !important;
+                          width: 0 !important;
+                          height: 0 !important;
+                          pointer-events: none !important;
+                        }
+                        
+                        /* Hide video controls during ads */
+                        video[src*="ad"], video[src*="advertisement"], video[src*="commercial"] {
+                          display: none !important;
+                        }
+                      \`;
+                      
+                      const addStyle = () => {
+                        if (document.head) {
+                          document.head.appendChild(style);
+                        } else {
+                          setTimeout(addStyle, 10);
+                        }
+                      };
+                      addStyle();
+
+                      // Popup and redirect blocking
+                      window.open = function() {
+                        console.log('Blocked popup');
+                        return null;
+                      };
+
+                      // Block common ad events
+                      ['click', 'mousedown', 'mouseup', 'touchstart', 'touchend'].forEach(eventType => {
+                        document.addEventListener(eventType, function(e) {
+                          const target = e.target;
+                          if (target && (
+                            target.className.toLowerCase().includes('ad') ||
+                            target.id.toLowerCase().includes('ad') ||
+                            target.href && adDomains.some(domain => target.href.includes(domain))
+                          )) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('Blocked ad click');
+                          }
+                        }, true);
+                      });
+
+                      // Initial cleanup
+                      removeAds();
+                      
+                      // Continuous cleanup - more aggressive timing
+                      document.addEventListener('DOMContentLoaded', removeAds);
+                      setInterval(removeAds, 500); // Run every 500ms
+                      
+                      // Watch for DOM mutations to catch dynamic ads
+                      if (window.MutationObserver) {
+                        const observer = new MutationObserver(function(mutations) {
+                          let shouldRemove = false;
+                          mutations.forEach(function(mutation) {
+                            if (mutation.addedNodes.length > 0) {
+                              shouldRemove = true;
+                            }
+                          });
+                          if (shouldRemove) {
+                            setTimeout(removeAds, 100);
+                          }
+                        });
+                        
+                        observer.observe(document.body || document.documentElement, {
+                          childList: true,
+                          subtree: true
+                        });
+                      }
+
+                      console.log('Advanced ad blocker fully loaded');
+                      true;
+                    })();
+                  `}
+                  onMessage={(event) => {
+                    // Handle messages from injected JavaScript if needed
+                    console.log('WebView message:', event.nativeEvent.data);
+                  }}
+                />
+              ) : (
+                <View style={styles.noStreamContainer}>
+                  <Text style={[styles.noStreamText, { color: '#fff' }]}>No stream URL available</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -2209,7 +3201,6 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   scrollView: {
     flex: 1,
@@ -2449,7 +3440,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   section: {
-    backgroundColor: 'white',
     padding: 20,
     marginBottom: 10,
     borderRadius: 12,
@@ -2590,7 +3580,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   momentumContainer: {
-    marginBottom: 20,
+    marginTop: 20,
+    marginBottom: -5,
   },
   momentumChart: {
     backgroundColor: 'white',
@@ -2634,10 +3625,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  momentumTeamLogo: {
+  momentumTeamLogoAway: {
     width: 18,
     height: 18,
     marginRight: 6,
+  },
+  momentumTeamLogoHome: {
+    width: 18,
+    height: 18,
+    marginLeft: 6,
   },
   inningBarsContainer: {
     flexDirection: 'row',
@@ -3152,7 +4148,6 @@ const styles = StyleSheet.create({
   },
   lineScoreTotalText: {
     fontWeight: 'bold',
-    color: '#002D72',
   },
   currentPlayContainer: {
     backgroundColor: 'white',
@@ -3222,7 +4217,6 @@ const styles = StyleSheet.create({
   },
   lineScoreTotalText: {
     fontWeight: 'bold',
-    color: '#002D72',
   },
   currentPlayContainer: {
     backgroundColor: 'white',
@@ -3382,6 +4376,39 @@ const styles = StyleSheet.create({
     color: '#333',
     textAlign: 'right',
   },
+  statGridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  statBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+    width: '30%',
+    minHeight: 70,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  statBoxValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  statBoxLabel: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
   noStatsContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -3392,6 +4419,134 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     padding: 40,
+  },
+  streamHint: {
+    fontSize: 12,
+    color: '#007AFF',
+    textAlign: 'center',
+    marginTop: 5,
+    fontStyle: 'italic',
+  },
+  // Stream Modal Styles
+  streamModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  streamModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: '95%',
+    maxWidth: 800,
+    height: '85%',
+    maxHeight: 600,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  streamModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#dee2e6',
+  },
+  streamModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#002D72',
+  },
+  streamCloseButton: {
+    width: 35,
+    height: 35,
+    borderRadius: 17.5,
+    backgroundColor: '#e9ecef',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  streamCloseText: {
+    fontSize: 20,
+    color: '#002D72',
+    fontWeight: 'bold',
+  },
+  streamButtonsContainer: {
+    paddingVertical: 12,
+    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#dee2e6',
+    maxHeight: 60,
+  },
+  streamButtonsContent: {
+    paddingHorizontal: 10,
+    gap: 10,
+    alignItems: 'center',
+  },
+  streamButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#e9ecef',
+    minWidth: 80,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#dee2e6',
+    marginHorizontal: 5,
+  },
+  activeStreamButton: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  streamButtonText: {
+    fontSize: 12,
+    color: '#002D72',
+    fontWeight: '500',
+  },
+  activeStreamButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  webViewContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  webView: {
+    flex: 1,
+  },
+  streamLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  streamLoadingText: {
+    color: '#fff',
+    marginTop: 10,
+    fontSize: 16,
+  },
+  noStreamContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+  },
+  noStreamText: {
+    color: '#fff',
+    fontSize: 16,
   },
   probablePitchersContainer: {
     flexDirection: 'row',

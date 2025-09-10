@@ -12,8 +12,10 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { MLBService } from '../../services/MLBService';
+import { useTheme } from '../../context/ThemeContext';
 
 const MLBScoreboardScreen = ({ navigation }) => {
+  const { theme, colors, getTeamLogoUrl } = useTheme();
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -344,6 +346,37 @@ const MLBScoreboardScreen = ({ navigation }) => {
     navigation.navigate('GameDetails', { gameId, sport: 'mlb' });
   };
 
+  const getMLBTeamAbbreviation = (espnTeam) => {
+    // ESPN team ID to abbreviation mapping (reverse of what standings does)
+    const teamMapping = {
+      '108': 'LAA', '117': 'HOU', '133': 'ATH', '141': 'TOR', '144': 'ATL',
+      '158': 'MIL', '138': 'STL', '112': 'CHC', '109': 'ARI', '119': 'LAD',
+      '137': 'SF', '114': 'CLE', '136': 'SEA', '146': 'MIA', '121': 'NYM',
+      '120': 'WSH', '110': 'BAL', '135': 'SD', '143': 'PHI', '134': 'PIT',
+      '140': 'TEX', '139': 'TB', '111': 'BOS', '113': 'CIN', '115': 'COL',
+      '118': 'KC', '116': 'DET', '142': 'MIN', '145': 'CWS', '147': 'NYY',
+      // Alternative mappings
+      '11': 'ATH',   // Sometimes Athletics use ESPN ID 11
+    };
+
+    console.log('Team ID:', espnTeam?.id, 'Team abbreviation from API:', espnTeam?.abbreviation);
+    
+    // First try direct abbreviation if available
+    if (espnTeam?.abbreviation) {
+      return espnTeam.abbreviation;
+    }
+    
+    // Then try ID mapping
+    const abbr = teamMapping[espnTeam?.id?.toString()];
+    if (abbr) {
+      console.log('Using ID mapping for team ID:', espnTeam.id, '-> abbreviation:', abbr);
+      return abbr;
+    }
+    
+    console.warn('No abbreviation mapping found for team ID:', espnTeam?.id, 'Using fallback');
+    return espnTeam?.shortDisplayName || 'MLB';
+  };
+
   const getGameStatusText = (item) => {
     if (!item.status) return 'Unknown';
     
@@ -375,8 +408,8 @@ const MLBScoreboardScreen = ({ navigation }) => {
   };
 
   const renderDateHeader = (date) => (
-    <View style={styles.dateHeader}>
-      <Text style={styles.dateHeaderText}>{date}</Text>
+    <View style={[styles.dateHeader, { backgroundColor: colors.primary, borderBottomColor: theme.border }]}>
+      <Text style={[styles.dateHeaderText, { color: 'white' }]}>{date}</Text>
     </View>
   );
 
@@ -392,6 +425,32 @@ const MLBScoreboardScreen = ({ navigation }) => {
       (!isAwayTeam && homeScore < awayScore)
     );
     return isLosing ? [styles.teamScore, styles.losingTeamScore] : styles.teamScore;
+  };
+
+  const getScoreColor = (item, isAwayTeam) => {
+    if (!item.awayTeam || !item.homeTeam) return colors.primary;
+    
+    const isGameFinal = item.isCompleted;
+    const awayScore = parseInt(item.awayTeam.score || '0');
+    const homeScore = parseInt(item.homeTeam.score || '0');
+    const isLosing = isGameFinal && (
+      (isAwayTeam && awayScore < homeScore) || 
+      (!isAwayTeam && homeScore < awayScore)
+    );
+    return isLosing ? theme.textSecondary : colors.primary;
+  };
+
+  const getTeamNameColor = (item, isAwayTeam) => {
+    if (!item.awayTeam || !item.homeTeam) return theme.text;
+    
+    const isGameFinal = item.isCompleted;
+    const awayScore = parseInt(item.awayTeam.score || '0');
+    const homeScore = parseInt(item.homeTeam.score || '0');
+    const isLosing = isGameFinal && (
+      (isAwayTeam && awayScore < homeScore) || 
+      (!isAwayTeam && homeScore < awayScore)
+    );
+    return isLosing ? theme.textSecondary : theme.text;
   };
 
   const getTeamNameStyle = (item, isAwayTeam) => {
@@ -415,21 +474,21 @@ const MLBScoreboardScreen = ({ navigation }) => {
     if (item.type === 'no-games') {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>{item.message}</Text>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>{item.message}</Text>
         </View>
       );
     }
 
     return (
       <TouchableOpacity 
-        style={styles.gameCard}
+        style={[styles.gameCard, { backgroundColor: theme.surface }]}
         onPress={() => navigateToGameDetails(item.id)}
       >
         {/* Game Status */}
         <View style={styles.gameHeader}>
-          <Text style={styles.gameStatus}>{getGameStatusText(item)}</Text>
+          <Text style={[styles.gameStatus, { color: theme.text }]}>{getGameStatusText(item)}</Text>
           {getGameTimeText(item) && (
-            <Text style={styles.gameClock}>{getGameTimeText(item)}</Text>
+            <Text style={[styles.gameClock, { color: theme.textSecondary }]}>{getGameTimeText(item)}</Text>
           )}
         </View>
 
@@ -439,47 +498,46 @@ const MLBScoreboardScreen = ({ navigation }) => {
           <View style={styles.teamRow}>
             <View style={styles.teamLogoContainer}>
               <Image 
-                source={{ uri: item.awayTeam?.logo }} 
+                source={{ uri: getTeamLogoUrl('mlb', getMLBTeamAbbreviation(item.awayTeam)) || item.awayTeam?.logo || 'https://via.placeholder.com/40x40?text=MLB' }} 
                 style={styles.teamLogo}
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
               />
             </View>
             <View style={styles.teamInfo}>
-              <Text style={getTeamNameStyle(item, true)}>{item.awayTeam?.displayName || 'TBD'}</Text>
-              <Text style={styles.teamRecord}>{item.awayTeam?.record || ''}</Text>
+              <Text style={[getTeamNameStyle(item, true), { color: getTeamNameColor(item, true) }]}>{item.awayTeam?.displayName || 'TBD'}</Text>
+              <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.awayTeam?.record || ''}</Text>
             </View>
-            <Text style={getTeamScoreStyle(item, true)}>{item.awayTeam?.score || '0'}</Text>
+            <Text style={[getTeamScoreStyle(item, true), { color: getScoreColor(item, true) }]}>{item.awayTeam?.score || '0'}</Text>
           </View>
 
           {/* Home Team */}
           <View style={styles.teamRow}>
             <View style={styles.teamLogoContainer}>
               <Image 
-                source={{ uri: item.homeTeam?.logo }} 
+                source={{ uri: getTeamLogoUrl('mlb', getMLBTeamAbbreviation(item.homeTeam)) || item.homeTeam?.logo || 'https://via.placeholder.com/40x40?text=MLB' }} 
                 style={styles.teamLogo}
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
               />
             </View>
             <View style={styles.teamInfo}>
-              <Text style={getTeamNameStyle(item, false)}>{item.homeTeam?.displayName || 'TBD'}</Text>
-              <Text style={styles.teamRecord}>{item.homeTeam?.record || ''}</Text>
+              <Text style={[getTeamNameStyle(item, false), { color: getTeamNameColor(item, false) }]}>{item.homeTeam?.displayName || 'TBD'}</Text>
+              <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.homeTeam?.record || ''}</Text>
             </View>
-            <Text style={getTeamScoreStyle(item, false)}>{item.homeTeam?.score || '0'}</Text>
+            <Text style={[getTeamScoreStyle(item, false), { color: getScoreColor(item, false) }]}>{item.homeTeam?.score || '0'}</Text>
           </View>
         </View>
 
         {/* Game Info */}
         <View style={styles.gameFooter}>
-          <Text style={styles.venue}>{item.venue || ''}</Text>
+          <Text style={[styles.venue, { color: theme.textSecondary }]}>{item.venue || ''}</Text>
           {item.broadcasts && item.broadcasts.length > 0 && (
-            <Text style={styles.broadcast}>{item.broadcasts.join(', ')}</Text>
+            <Text style={[styles.broadcast, { color: theme.textSecondary }]}>{item.broadcasts.join(', ')}</Text>
           )}
           {/* Show bases for live games */}
           {item.isLive && item.situation?.bases && (
             <View style={styles.basesContainer}>
-              <Text style={styles.basesLabel}>Bases: </Text>
-              <Text style={styles.basesText}>
-                {(() => {
+              <Text style={[styles.basesLabel, { color: theme.textSecondary }]}>
+                Bases: {(() => {
                   const bases = [];
                   if (item.situation.bases.first) bases.push('1st');
                   if (item.situation.bases.second) bases.push('2nd');
@@ -496,40 +554,58 @@ const MLBScoreboardScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#002D72" />
-        <Text style={styles.loadingText}>Loading MLB Scoreboard...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading MLB Scoreboard...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Date Filter Buttons */}
-      <View style={styles.dateFilterContainer}>
+      <View style={[styles.dateFilterContainer, { backgroundColor: theme.surface }]}>
         <TouchableOpacity 
-          style={[styles.dateFilterButton, selectedDateFilter === 'yesterday' && styles.activeFilterButton]}
+          style={[
+            styles.dateFilterButton, 
+            { backgroundColor: selectedDateFilter === 'yesterday' ? colors.primary : theme.surfaceSecondary }
+          ]}
           onPress={() => handleDateFilterChange('yesterday')}
         >
-          <Text style={[styles.dateFilterText, selectedDateFilter === 'yesterday' && styles.activeFilterText]}>
+          <Text style={[
+            styles.dateFilterText, 
+            { color: selectedDateFilter === 'yesterday' ? '#fff' : theme.text }
+          ]}>
             Yesterday
           </Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.dateFilterButton, selectedDateFilter === 'today' && styles.activeFilterButton]}
+          style={[
+            styles.dateFilterButton, 
+            { backgroundColor: selectedDateFilter === 'today' ? colors.primary : theme.surfaceSecondary }
+          ]}
           onPress={() => handleDateFilterChange('today')}
         >
-          <Text style={[styles.dateFilterText, selectedDateFilter === 'today' && styles.activeFilterText]}>
+          <Text style={[
+            styles.dateFilterText, 
+            { color: selectedDateFilter === 'today' ? '#fff' : theme.text }
+          ]}>
             Today
           </Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.dateFilterButton, selectedDateFilter === 'upcoming' && styles.activeFilterButton]}
+          style={[
+            styles.dateFilterButton, 
+            { backgroundColor: selectedDateFilter === 'upcoming' ? colors.primary : theme.surfaceSecondary }
+          ]}
           onPress={() => handleDateFilterChange('upcoming')}
         >
-          <Text style={[styles.dateFilterText, selectedDateFilter === 'upcoming' && styles.activeFilterText]}>
+          <Text style={[
+            styles.dateFilterText, 
+            { color: selectedDateFilter === 'upcoming' ? '#fff' : theme.text }
+          ]}>
             Upcoming
           </Text>
         </TouchableOpacity>
@@ -547,7 +623,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#002D72']}
+            colors={[colors.primary]}
           />
         }
         contentContainerStyle={styles.listContainer}
@@ -555,7 +631,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
         ListEmptyComponent={() => (
           !loading && (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No games scheduled</Text>
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No games scheduled</Text>
             </View>
           )
         )}
@@ -567,24 +643,20 @@ const MLBScoreboardScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
   },
   listContainer: {
     padding: 16,
   },
   gameCard: {
-    backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -673,12 +745,7 @@ const styles = StyleSheet.create({
   },
   basesLabel: {
     fontSize: 12,
-    color: '#002D72',
     fontWeight: '600',
-  },
-  basesText: {
-    fontSize: 12,
-    color: '#666',
   },
   teamLogoContainer: {
     flexDirection: 'row',
@@ -686,7 +753,6 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   dateHeader: {
-    backgroundColor: '#002D72',
     paddingVertical: 12,
     paddingHorizontal: 16,
     marginVertical: 8,
@@ -695,36 +761,31 @@ const styles = StyleSheet.create({
   dateHeaderText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: 'white',
     textAlign: 'center',
   },
   dateFilterContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    backgroundColor: 'white',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   dateFilterButton: {
     paddingVertical: 8,
     paddingHorizontal: 20,
     borderRadius: 20,
-    backgroundColor: '#f5f5f5',
     minWidth: 80,
     alignItems: 'center',
   },
   activeFilterButton: {
-    backgroundColor: '#002D72',
+    // Dynamic color applied in render
   },
   dateFilterText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
   },
   activeFilterText: {
-    color: 'white',
+    // Dynamic color applied in render
   },
   emptyContainer: {
     flex: 1,
@@ -734,7 +795,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
     textAlign: 'center',
   },
 });

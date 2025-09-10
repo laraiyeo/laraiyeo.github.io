@@ -12,8 +12,10 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NFLService } from '../../services/NFLService';
+import { useTheme } from '../../context/ThemeContext';
 
 const NFLScoreboardScreen = ({ navigation }) => {
+  const { theme, colors, getTeamLogoUrl } = useTheme();
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
+import { useTheme } from '../../context/ThemeContext';
 
 const TeamPageScreen = ({ route, navigation }) => {
   const { teamId, sport } = route.params;
+  const { theme, colors, getTeamLogoUrl: getThemeTeamLogoUrl } = useTheme();
   const [activeTab, setActiveTab] = useState('Games');
   const [teamData, setTeamData] = useState(null);
   const [teamRecord, setTeamRecord] = useState(null);
@@ -287,64 +289,45 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   const getTeamLogo = (abbreviation) => {
     if (!abbreviation) return null;
-    const abbrev = abbreviation.toLowerCase();
-    return `https://a.espncdn.com/i/teamlogos/mlb/500/${abbrev}.png`;
+    return getThemeTeamLogoUrl('mlb', abbreviation);
   };
 
   const getTeamLogoUrl = (teamAbbreviation) => {
     if (!teamAbbreviation) return 'https://via.placeholder.com/40x40?text=MLB';
-    
-    // Handle special cases where ESPN uses different abbreviations
-    const abbreviationMap = {
-      'ARI': 'ari', // Arizona Diamondbacks
-      'AZ': 'ari',  // Alternative Arizona abbreviation
-      'WSH': 'wsh', // Washington Nationals
-      'WAS': 'wsh', // Alternative Washington abbreviation
-      'CWS': 'chw', // Chicago White Sox (ESPN uses 'chw' not 'cws')
-      'KCR': 'kc',  // Kansas City Royals
-      'SDP': 'sd',  // San Diego Padres
-      'SFG': 'sf',  // San Francisco Giants
-      'TBR': 'tb',  // Tampa Bay Rays
-      'LAA': 'laa', // Los Angeles Angels
-      'LAD': 'lad'  // Los Angeles Dodgers
-    };
-
-    const mappedAbbr = abbreviationMap[teamAbbreviation.toUpperCase()] || teamAbbreviation.toLowerCase();
-    console.log(`Team ${teamAbbreviation} mapped to ${mappedAbbr} for logo URL`);
-    
-    return `https://a.espncdn.com/i/teamlogos/mlb/500/${mappedAbbr}.png`;
+    return getThemeTeamLogoUrl('mlb', teamAbbreviation);
   };
 
   const getTeamColor = (abbreviation) => {
     // Normalize abbreviation for consistent lookup
     const normalizedAbbr = abbreviation === 'AZ' ? 'ARI' : abbreviation;
     
-    const teamColors = {
+    // Team color definitions for light mode
+    const lightModeColors = {
       'LAA': '#BA0021', // Angels - Red
-      'HOU': '#EB6E1F', // Astros - Orange
-      'ATH': '#003831', // Athletics - Green
+      'HOU': '#002D62', // Astros - Navy
+      'OAK': '#003831', // Athletics - Green
       'TOR': '#134A8E', // Blue Jays - Blue
       'ATL': '#CE1141', // Braves - Red
-      'MIL': '#FFC52F', // Brewers - Yellow (but will use dark blue instead)
+      'MIL': '#FFC52F', // Brewers - Yellow
       'STL': '#C41E3A', // Cardinals - Red
       'CHC': '#0E3386', // Cubs - Blue
       'ARI': '#A71930', // Diamondbacks - Red
       'LAD': '#005A9C', // Dodgers - Blue
       'SF': '#FD5A1E', // Giants - Orange
-      'CLE': '#E31937', // Guardians - Red
-      'SEA': '#0C2C56', // Mariners - Navy
+      'CLE': '#E31937', // Indians - Red
+      'SEA': '#C4CED4', // Mariners - Silver
       'MIA': '#00A3E0', // Marlins - Blue
-      'NYM': '#FF5910', // Mets - Orange
+      'NYM': '#002D72', // Mets - Blue
       'WSH': '#AB0003', // Nationals - Red
       'BAL': '#DF4601', // Orioles - Orange
-      'SD': '#FFC425', // Padres - Yellow (but will use brown instead)
+      'SD': '#2F241D', // Padres - Brown
       'PHI': '#E81828', // Phillies - Red
-      'PIT': '#FDB827', // Pirates - Yellow (but will use black instead)
+      'PIT': '#FDB827', // Pirates - Yellow
       'TEX': '#C0111F', // Rangers - Red
       'TB': '#092C5C', // Rays - Navy
       'BOS': '#BD3039', // Red Sox - Red
       'CIN': '#C6011F', // Reds - Red
-      'COL': '#C4CED4', // Rockies - Silver (will use purple instead)
+      'COL': '#33006F', // Rockies - Purple
       'KC': '#004687', // Royals - Blue
       'DET': '#0C2340', // Tigers - Navy
       'MIN': '#002B5C', // Twins - Navy
@@ -352,17 +335,42 @@ const TeamPageScreen = ({ route, navigation }) => {
       'NYY': '#132448'  // Yankees - Navy
     };
 
-    // Special handling for teams with light/white primary colors
-    const lightColorOverrides = {
-      'MIL': '#12284B', // Use navy instead of yellow
-      'SD': '#2F241D',  // Use brown instead of yellow
-      'PIT': '#27251F', // Use black instead of yellow
-      'COL': '#33006F'  // Use purple instead of silver
+    // Team color definitions for dark mode (brighter/more vibrant variants)
+    const darkModeColors = {
+      'LAA': '#FF3366', // Angels - Brighter Red
+      'HOU': '#4A90E2', // Astros - Brighter Blue
+      'OAK': '#00B359', // Athletics - Brighter Green
+      'TOR': '#4A7BC8', // Blue Jays - Brighter Blue
+      'ATL': '#FF4466', // Braves - Brighter Red
+      'MIL': '#FFD700', // Brewers - Gold
+      'STL': '#FF4466', // Cardinals - Brighter Red
+      'CHC': '#4A7BC8', // Cubs - Brighter Blue
+      'ARI': '#FF4466', // Diamondbacks - Brighter Red
+      'LAD': '#4A90E2', // Dodgers - Brighter Blue
+      'SF': '#FF8C42', // Giants - Brighter Orange
+      'CLE': '#FF4466', // Indians - Brighter Red
+      'SEA': '#7FB3D3', // Mariners - Light Blue
+      'MIA': '#42C5F0', // Marlins - Brighter Blue
+      'NYM': '#4A7BC8', // Mets - Brighter Blue
+      'WSH': '#FF3344', // Nationals - Brighter Red
+      'BAL': '#FF7A33', // Orioles - Brighter Orange
+      'SD': '#8B4513', // Padres - Lighter Brown
+      'PHI': '#FF4466', // Phillies - Brighter Red
+      'PIT': '#FFD700', // Pirates - Gold
+      'TEX': '#FF3344', // Rangers - Brighter Red
+      'TB': '#4A7BC8', // Rays - Brighter Blue
+      'BOS': '#FF4466', // Red Sox - Brighter Red
+      'CIN': '#FF3344', // Reds - Brighter Red
+      'COL': '#8A2BE2', // Rockies - Brighter Purple
+      'KC': '#4A90E2', // Royals - Brighter Blue
+      'DET': '#4A7BC8', // Tigers - Brighter Blue
+      'MIN': '#4A7BC8', // Twins - Brighter Blue
+      'CWS': '#666666', // White Sox - Gray (since black doesn't work in dark mode)
+      'NYY': '#4A7BC8'  // Yankees - Brighter Blue
     };
 
-    const color = lightColorOverrides[normalizedAbbr] || teamColors[normalizedAbbr];
-    console.log(`Team color for ${abbreviation} (normalized: ${normalizedAbbr}):`, color);
-    return color || '#333'; // Default to dark gray if team not found
+    const colorMap = theme.isDarkMode ? darkModeColors : lightModeColors;
+    return colorMap[normalizedAbbr] || colors.primary;
   };
 
   // Helper functions for determining losing team styles (from scoreboard)
@@ -734,15 +742,15 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#013369" />
-        <Text style={styles.loadingText}>Loading team information...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.text }]}>Loading team information...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {renderTeamHeader()}
       
       {/* Fixed Tab Container */}
@@ -760,18 +768,15 @@ const TeamPageScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
   },
   teamHeader: {
     backgroundColor: '#fff',

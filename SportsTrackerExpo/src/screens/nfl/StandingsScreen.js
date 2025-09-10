@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../../context/ThemeContext';
 
 const StandingsScreen = ({ route }) => {
   const { sport } = route.params;
+  const { theme, colors, getTeamLogoUrl } = useTheme();
   const [standings, setStandings] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigation = useNavigation();
@@ -28,8 +30,7 @@ const StandingsScreen = ({ route }) => {
   };
 
   const getTeamLogo = (teamAbbreviation) => {
-    const abbrev = teamAbbreviation.toLowerCase();
-    return `https://a.espncdn.com/i/teamlogos/nfl/500/${abbrev}.png`;
+    return getTeamLogoUrl('nfl', teamAbbreviation);
   };
 
   const renderNFLStandings = () => {

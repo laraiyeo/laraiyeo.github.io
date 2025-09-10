@@ -5,6 +5,9 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+// Import theme context
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+
 // Import our screens
 import HomeScreen from './src/screens/HomeScreen';
 import FavoritesScreen from './src/screens/FavoritesScreen';
@@ -32,83 +35,88 @@ const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 // Home Tab Navigator (for main app navigation)
-const HomeTabNavigator = () => (
-  <Tab.Navigator
-    screenOptions={({ route }) => ({
-      tabBarIcon: ({ focused, color, size }) => {
-        let iconName;
+const HomeTabNavigator = () => {
+  const { theme, colors } = useTheme();
+  
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
 
-        if (route.name === 'Home') {
-          iconName = 'home';
-        } else if (route.name === 'Favorites') {
-          iconName = 'star';
-        } else if (route.name === 'Settings') {
-          iconName = 'settings';
-        }
+          if (route.name === 'Home') {
+            iconName = 'home';
+          } else if (route.name === 'Favorites') {
+            iconName = 'star';
+          } else if (route.name === 'Settings') {
+            iconName = 'settings';
+          }
 
-        return <Ionicons name={iconName} size={size} color={color} />;
-      },
-      tabBarActiveTintColor: '#013369',
-      tabBarInactiveTintColor: 'gray',
-      headerShown: false,
-      tabBarStyle: {
-        backgroundColor: 'white',
-        borderTopWidth: 1,
-        borderTopColor: '#e0e0e0',
-      },
-    })}
-  >
-    <Tab.Screen 
-      name="Home" 
-      component={HomeScreen}
-      options={{ 
-        title: 'Home',
-        headerShown: true,
-        headerStyle: {
-          backgroundColor: '#013369',
+          return <Ionicons name={iconName} size={size} color={color} />;
         },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: theme.textTertiary,
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: theme.surface,
+          borderTopWidth: 1,
+          borderTopColor: theme.border,
         },
-      }}
-    />
-    <Tab.Screen 
-      name="Favorites" 
-      component={FavoritesScreen}
-      options={{ 
-        title: 'Favorites',
-        headerShown: true,
-        headerStyle: {
-          backgroundColor: '#013369',
-        },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
-      }}
-    />
-    <Tab.Screen 
-      name="Settings" 
-      component={SettingsScreen}
-      options={{ 
-        title: 'Settings',
-        headerShown: true,
-        headerStyle: {
-          backgroundColor: '#013369',
-        },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
-      }}
-    />
-  </Tab.Navigator>
-);
+      })}
+    >
+      <Tab.Screen 
+        name="Home" 
+        component={HomeScreen}
+        options={{ 
+          title: 'Home',
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Tab.Screen 
+        name="Favorites" 
+        component={FavoritesScreen}
+        options={{ 
+          title: 'Favorites',
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Tab.Screen 
+        name="Settings" 
+        component={SettingsScreen}
+        options={{ 
+          title: 'Settings',
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+    </Tab.Navigator>
+  );
+};
 
 // Sport Tab Navigator (for specific sport navigation)
 const SportTabNavigator = ({ route }) => {
   const { sport } = route.params;
+  const { theme, colors } = useTheme();
   
   // Get sport-specific components
   const getScreenComponents = (sport) => {
@@ -132,11 +140,11 @@ const SportTabNavigator = ({ route }) => {
       default:
         // For other sports, return placeholder components (can be extended later)
         return {
-          ScoreboardScreen: () => <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}><Text>Coming Soon</Text></View>,
-          StandingsScreen: () => <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}><Text>Coming Soon</Text></View>,
-          SearchScreen: () => <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}><Text>Coming Soon</Text></View>,
-          CompareScreen: () => <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}><Text>Coming Soon</Text></View>,
-          StatsScreen: () => <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}><Text>Coming Soon</Text></View>,
+          ScoreboardScreen: () => <View style={styles.placeholderContainer}><Text style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
+          StandingsScreen: () => <View style={styles.placeholderContainer}><Text style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
+          SearchScreen: () => <View style={styles.placeholderContainer}><Text style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
+          CompareScreen: () => <View style={styles.placeholderContainer}><Text style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
+          StatsScreen: () => <View style={styles.placeholderContainer}><Text style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
         };
     }
   };
@@ -163,13 +171,13 @@ const SportTabNavigator = ({ route }) => {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#013369',
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: theme.textTertiary,
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: 'white',
+          backgroundColor: theme.surface,
           borderTopWidth: 1,
-          borderTopColor: '#e0e0e0',
+          borderTopColor: theme.border,
         },
       })}
     >
@@ -181,7 +189,7 @@ const SportTabNavigator = ({ route }) => {
           title: 'Scores',
           headerShown: true,
           headerStyle: {
-            backgroundColor: '#013369',
+            backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
           headerTitleStyle: {
@@ -198,7 +206,7 @@ const SportTabNavigator = ({ route }) => {
           title: 'Standings',
           headerShown: true,
           headerStyle: {
-            backgroundColor: '#013369',
+            backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
           headerTitleStyle: {
@@ -215,7 +223,7 @@ const SportTabNavigator = ({ route }) => {
           title: 'Search',
           headerShown: true,
           headerStyle: {
-            backgroundColor: '#013369',
+            backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
           headerTitleStyle: {
@@ -232,7 +240,7 @@ const SportTabNavigator = ({ route }) => {
           title: 'Compare',
           headerShown: true,
           headerStyle: {
-            backgroundColor: '#013369',
+            backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
           headerTitleStyle: {
@@ -249,7 +257,7 @@ const SportTabNavigator = ({ route }) => {
           title: 'Stats',
           headerShown: true,
           headerStyle: {
-            backgroundColor: '#013369',
+            backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
           headerTitleStyle: {
@@ -263,82 +271,92 @@ const SportTabNavigator = ({ route }) => {
 };
 
 // Main Stack Navigator
-const MainStackNavigator = () => (
-  <Stack.Navigator>
-    <Stack.Screen 
-      name="HomeTabs" 
-      component={HomeTabNavigator}
-      options={{ headerShown: false }}
-    />
-    <Stack.Screen 
-      name="SportTabs" 
-      component={SportTabNavigator}
-      options={({ route }) => {
-        const { sport } = route.params;
-        return {
-          headerShown: false,
-          title: sport.toUpperCase(),
-        };
-      }}
-    />
-    <Stack.Screen 
-      name="GameDetails" 
-      component={({ route, navigation }) => {
-        const { sport } = route?.params || {};
-        const props = { route, navigation };
-        switch(sport?.toLowerCase()) {
-          case 'nfl':
-            return <NFLGameDetailsScreen {...props} />;
-          case 'mlb':
-            return <MLBGameDetailsScreen {...props} />;
-          default:
-            return <NFLGameDetailsScreen {...props} />; // Default fallback
-        }
-      }}
-      options={{ 
-        title: 'Game Details',
-        headerStyle: {
-          backgroundColor: '#013369',
-        },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
-      }}
-    />
-    <Stack.Screen 
-      name="TeamPage" 
-      component={({ route, navigation }) => {
-        const { sport } = route?.params || {};
-        const props = { route, navigation };
-        switch(sport?.toLowerCase()) {
-          case 'nfl':
-            return <NFLTeamPageScreen {...props} />;
-          case 'mlb':
-            return <MLBTeamPageScreen {...props} />;
-          default:
-            return <NFLTeamPageScreen {...props} />; // Default fallback
-        }
-      }}
-      options={{ 
-        title: 'Team Details',
-        headerStyle: {
-          backgroundColor: '#013369',
-        },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
-      }}
-    />
-  </Stack.Navigator>
+const MainStackNavigator = () => {
+  const { colors } = useTheme();
+  
+  return (
+    <Stack.Navigator>
+      <Stack.Screen 
+        name="HomeTabs" 
+        component={HomeTabNavigator}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="SportTabs" 
+        component={SportTabNavigator}
+        options={({ route }) => {
+          const { sport } = route.params;
+          return {
+            headerShown: false,
+            title: sport.toUpperCase(),
+          };
+        }}
+      />
+      <Stack.Screen 
+        name="GameDetails" 
+        component={({ route, navigation }) => {
+          const { sport } = route?.params || {};
+          const props = { route, navigation };
+          switch(sport?.toLowerCase()) {
+            case 'nfl':
+              return <NFLGameDetailsScreen {...props} />;
+            case 'mlb':
+              return <MLBGameDetailsScreen {...props} />;
+            default:
+              return <NFLGameDetailsScreen {...props} />; // Default fallback
+          }
+        }}
+        options={{ 
+          title: 'Game Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="TeamPage" 
+        component={({ route, navigation }) => {
+          const { sport } = route?.params || {};
+          const props = { route, navigation };
+          switch(sport?.toLowerCase()) {
+            case 'nfl':
+              return <NFLTeamPageScreen {...props} />;
+            case 'mlb':
+              return <MLBTeamPageScreen {...props} />;
+            default:
+              return <NFLTeamPageScreen {...props} />; // Default fallback
+          }
+        }}
+        options={{ 
+          title: 'Team Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+    </Stack.Navigator>
+  );
+};
+
+const AppContent = () => (
+  <NavigationContainer>
+    <MainStackNavigator />
+  </NavigationContainer>
 );
 
 export default function App() {
   return (
-    <NavigationContainer>
-      <MainStackNavigator />
-    </NavigationContainer>
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
 
@@ -347,11 +365,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
   },
   placeholderText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#666',
   },
 });
