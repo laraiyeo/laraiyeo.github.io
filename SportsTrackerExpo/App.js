@@ -6,80 +6,44 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 // Import our screens
-import NFLScoreboardScreen from './src/screens/NFLScoreboardScreen';
-import GameDetailsScreen from './src/screens/GameDetailsScreen';
+import HomeScreen from './src/screens/HomeScreen';
+import FavoritesScreen from './src/screens/FavoritesScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
+
+// NFL specific screens
+import NFLScoreboardScreen from './src/screens/nfl/ScoreboardScreen';
+import NFLStandingsScreen from './src/screens/nfl/StandingsScreen';
+import NFLSearchScreen from './src/screens/nfl/SearchScreen';
+import NFLCompareScreen from './src/screens/nfl/CompareScreen';
+import NFLStatsScreen from './src/screens/nfl/StatsScreen';
+import NFLGameDetailsScreen from './src/screens/nfl/GameDetailsScreen';
+import NFLTeamPageScreen from './src/screens/nfl/TeamPageScreen';
+
+// MLB specific screens
+import MLBScoreboardScreen from './src/screens/mlb/ScoreboardScreen';
+import MLBStandingsScreen from './src/screens/mlb/StandingsScreen';
+import MLBSearchScreen from './src/screens/mlb/SearchScreen';
+import MLBCompareScreen from './src/screens/mlb/CompareScreen';
+import MLBStatsScreen from './src/screens/mlb/StatsScreen';
+import MLBGameDetailsScreen from './src/screens/mlb/GameDetailsScreen';
+import MLBTeamPageScreen from './src/screens/mlb/TeamPageScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-// Placeholder screens for other sports
-const NBAScreen = () => (
-  <View style={styles.placeholderContainer}>
-    <Text style={styles.placeholderText}>NBA Coming Soon!</Text>
-  </View>
-);
-
-const MLBScreen = () => (
-  <View style={styles.placeholderContainer}>
-    <Text style={styles.placeholderText}>MLB Coming Soon!</Text>
-  </View>
-);
-
-const NHLScreen = () => (
-  <View style={styles.placeholderContainer}>
-    <Text style={styles.placeholderText}>NHL Coming Soon!</Text>
-  </View>
-);
-
-// Stack navigator for NFL section
-const NFLStack = () => (
-  <Stack.Navigator>
-    <Stack.Screen 
-      name="NFLScoreboard" 
-      component={NFLScoreboardScreen}
-      options={{ 
-        title: 'NFL Scores',
-        headerStyle: {
-          backgroundColor: '#013369',
-        },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
-      }}
-    />
-    <Stack.Screen 
-      name="GameDetails" 
-      component={GameDetailsScreen}
-      options={{ 
-        title: 'Game Details',
-        headerStyle: {
-          backgroundColor: '#013369',
-        },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
-      }}
-    />
-  </Stack.Navigator>
-);
-
-// Main tab navigator
-const MainTabNavigator = () => (
+// Home Tab Navigator (for main app navigation)
+const HomeTabNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
       tabBarIcon: ({ focused, color, size }) => {
         let iconName;
 
-        if (route.name === 'NFL') {
-          iconName = 'american-football';
-        } else if (route.name === 'NBA') {
-          iconName = 'basketball';
-        } else if (route.name === 'MLB') {
-          iconName = 'baseball';
-        } else if (route.name === 'NHL') {
-          iconName = 'disc';
+        if (route.name === 'Home') {
+          iconName = 'home';
+        } else if (route.name === 'Favorites') {
+          iconName = 'star';
+        } else if (route.name === 'Settings') {
+          iconName = 'settings';
         }
 
         return <Ionicons name={iconName} size={size} color={color} />;
@@ -95,46 +59,285 @@ const MainTabNavigator = () => (
     })}
   >
     <Tab.Screen 
-      name="NFL" 
-      component={NFLStack}
-      options={({ route }) => ({
-        title: 'NFL',
-        tabBarStyle: ((route) => {
-          const routeName = getFocusedRouteNameFromRoute(route) ?? '';
-          
-          if (routeName === 'GameDetails') {
-            return { display: 'none' };
-          }
-          return {
-            backgroundColor: 'white',
-            borderTopWidth: 1,
-            borderTopColor: '#e0e0e0',
-          };
-        })(route),
-      })}
+      name="Home" 
+      component={HomeScreen}
+      options={{ 
+        title: 'Home',
+        headerShown: true,
+        headerStyle: {
+          backgroundColor: '#013369',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
+      }}
     />
     <Tab.Screen 
-      name="NBA" 
-      component={NBAScreen}
-      options={{ title: 'NBA' }}
+      name="Favorites" 
+      component={FavoritesScreen}
+      options={{ 
+        title: 'Favorites',
+        headerShown: true,
+        headerStyle: {
+          backgroundColor: '#013369',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
+      }}
     />
     <Tab.Screen 
-      name="MLB" 
-      component={MLBScreen}
-      options={{ title: 'MLB' }}
-    />
-    <Tab.Screen 
-      name="NHL" 
-      component={NHLScreen}
-      options={{ title: 'NHL' }}
+      name="Settings" 
+      component={SettingsScreen}
+      options={{ 
+        title: 'Settings',
+        headerShown: true,
+        headerStyle: {
+          backgroundColor: '#013369',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
+      }}
     />
   </Tab.Navigator>
+);
+
+// Sport Tab Navigator (for specific sport navigation)
+const SportTabNavigator = ({ route }) => {
+  const { sport } = route.params;
+  
+  // Get sport-specific components
+  const getScreenComponents = (sport) => {
+    switch(sport.toLowerCase()) {
+      case 'nfl':
+        return {
+          ScoreboardScreen: NFLScoreboardScreen,
+          StandingsScreen: NFLStandingsScreen,
+          SearchScreen: NFLSearchScreen,
+          CompareScreen: NFLCompareScreen,
+          StatsScreen: NFLStatsScreen,
+        };
+      case 'mlb':
+        return {
+          ScoreboardScreen: MLBScoreboardScreen,
+          StandingsScreen: MLBStandingsScreen,
+          SearchScreen: MLBSearchScreen,
+          CompareScreen: MLBCompareScreen,
+          StatsScreen: MLBStatsScreen,
+        };
+      default:
+        // For other sports, return placeholder components (can be extended later)
+        return {
+          ScoreboardScreen: () => <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}><Text>Coming Soon</Text></View>,
+          StandingsScreen: () => <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}><Text>Coming Soon</Text></View>,
+          SearchScreen: () => <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}><Text>Coming Soon</Text></View>,
+          CompareScreen: () => <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}><Text>Coming Soon</Text></View>,
+          StatsScreen: () => <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}><Text>Coming Soon</Text></View>,
+        };
+    }
+  };
+
+  const screens = getScreenComponents(sport);
+  
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+
+          if (route.name === 'Scores') {
+            iconName = 'stats-chart';
+          } else if (route.name === 'Standings') {
+            iconName = 'trophy';
+          } else if (route.name === 'Search') {
+            iconName = 'search';
+          } else if (route.name === 'Compare') {
+            iconName = 'git-compare';
+          } else if (route.name === 'Stats') {
+            iconName = 'bar-chart';
+          }
+
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#013369',
+        tabBarInactiveTintColor: 'gray',
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: 'white',
+          borderTopWidth: 1,
+          borderTopColor: '#e0e0e0',
+        },
+      })}
+    >
+      <Tab.Screen 
+        name="Scores" 
+        component={screens.ScoreboardScreen}
+        initialParams={{ sport }}
+        options={{ 
+          title: 'Scores',
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: '#013369',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+          headerTitle: `${sport.toUpperCase()} Scores`,
+        }}
+      />
+      <Tab.Screen 
+        name="Standings" 
+        component={screens.StandingsScreen}
+        initialParams={{ sport }}
+        options={{ 
+          title: 'Standings',
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: '#013369',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+          headerTitle: `${sport.toUpperCase()} Standings`,
+        }}
+      />
+      <Tab.Screen 
+        name="Search" 
+        component={screens.SearchScreen}
+        initialParams={{ sport }}
+        options={{ 
+          title: 'Search',
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: '#013369',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+          headerTitle: `${sport.toUpperCase()} Search`,
+        }}
+      />
+      <Tab.Screen 
+        name="Compare" 
+        component={screens.CompareScreen}
+        initialParams={{ sport }}
+        options={{ 
+          title: 'Compare',
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: '#013369',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+          headerTitle: `${sport.toUpperCase()} Compare`,
+        }}
+      />
+      <Tab.Screen 
+        name="Stats" 
+        component={screens.StatsScreen}
+        initialParams={{ sport }}
+        options={{ 
+          title: 'Stats',
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: '#013369',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+          headerTitle: `${sport.toUpperCase()} Stats`,
+        }}
+      />
+    </Tab.Navigator>
+  );
+};
+
+// Main Stack Navigator
+const MainStackNavigator = () => (
+  <Stack.Navigator>
+    <Stack.Screen 
+      name="HomeTabs" 
+      component={HomeTabNavigator}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen 
+      name="SportTabs" 
+      component={SportTabNavigator}
+      options={({ route }) => {
+        const { sport } = route.params;
+        return {
+          headerShown: false,
+          title: sport.toUpperCase(),
+        };
+      }}
+    />
+    <Stack.Screen 
+      name="GameDetails" 
+      component={({ route, navigation }) => {
+        const { sport } = route?.params || {};
+        const props = { route, navigation };
+        switch(sport?.toLowerCase()) {
+          case 'nfl':
+            return <NFLGameDetailsScreen {...props} />;
+          case 'mlb':
+            return <MLBGameDetailsScreen {...props} />;
+          default:
+            return <NFLGameDetailsScreen {...props} />; // Default fallback
+        }
+      }}
+      options={{ 
+        title: 'Game Details',
+        headerStyle: {
+          backgroundColor: '#013369',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
+      }}
+    />
+    <Stack.Screen 
+      name="TeamPage" 
+      component={({ route, navigation }) => {
+        const { sport } = route?.params || {};
+        const props = { route, navigation };
+        switch(sport?.toLowerCase()) {
+          case 'nfl':
+            return <NFLTeamPageScreen {...props} />;
+          case 'mlb':
+            return <MLBTeamPageScreen {...props} />;
+          default:
+            return <NFLTeamPageScreen {...props} />; // Default fallback
+        }
+      }}
+      options={{ 
+        title: 'Team Details',
+        headerStyle: {
+          backgroundColor: '#013369',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
+      }}
+    />
+  </Stack.Navigator>
 );
 
 export default function App() {
   return (
     <NavigationContainer>
-      <MainTabNavigator />
+      <MainStackNavigator />
     </NavigationContainer>
   );
 }

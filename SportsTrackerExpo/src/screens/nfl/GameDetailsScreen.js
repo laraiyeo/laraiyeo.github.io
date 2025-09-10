@@ -11,7 +11,7 @@ import {
   Modal,
   Animated
 } from 'react-native';
-import { NFLService } from '../services/NFLService';
+import { NFLService } from '../../services/NFLService';
 
 const GameDetailsScreen = ({ route }) => {
   const { gameId, sport } = route.params;

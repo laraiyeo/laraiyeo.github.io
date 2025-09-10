@@ -9,19 +9,20 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@expo/metro-runtime": "~5.0.4",
     "@react-navigation/bottom-tabs": "^7.4.7",
     "@react-navigation/native": "^7.1.17",
     "@react-navigation/stack": "^7.4.8",
     "expo": "~53.0.22",
     "expo-status-bar": "~2.2.3",
     "react": "19.0.0",
+    "react-dom": "19.0.0",
     "react-native": "0.79.5",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
     "react-native-vector-icons": "^10.3.0",
-    "react-dom": "19.0.0",
     "react-native-web": "^0.20.0",
-    "@expo/metro-runtime": "~5.0.4"
+    "react-native-webview": "^13.16.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"
