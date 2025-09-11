@@ -2287,7 +2287,26 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         >
           <View style={styles.playInfo}>
             <Image
-              source={{ uri: getTeamLogoUrl('mlb', team?.abbreviation) }}
+              source={{ 
+                uri: isScoringPlay 
+                  ? (() => {
+                      const teamAbbr = team?.abbreviation;
+                      if (!teamAbbr) return 'https://via.placeholder.com/24x24?text=MLB';
+                      
+                      // Handle abbreviation mapping for ESPN logo URLs
+                      const abbreviationMap = {
+                        'AZ': 'ari',   // Arizona Diamondbacks
+                        'CWS': 'chw',  // Chicago White Sox
+                        'KCR': 'kc',   // Kansas City Royals
+                        'SFG': 'sf',   // San Francisco Giants
+                        'TBR': 'tb',   // Tampa Bay Rays
+                      };
+                      
+                      const normalizedTeamId = abbreviationMap[teamAbbr?.toUpperCase()] || teamAbbr?.toLowerCase();
+                      return `https://a.espncdn.com/i/teamlogos/mlb/500-dark/${normalizedTeamId}.png`;
+                    })()
+                  : getTeamLogoUrl('mlb', team?.abbreviation)
+              }}
               style={styles.playTeamLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
             />

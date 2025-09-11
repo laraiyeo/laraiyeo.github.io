@@ -30,6 +30,7 @@ import MLBCompareScreen from './src/screens/mlb/CompareScreen';
 import MLBStatsScreen from './src/screens/mlb/StatsScreen';
 import MLBGameDetailsScreen from './src/screens/mlb/GameDetailsScreen';
 import MLBTeamPageScreen from './src/screens/mlb/TeamPageScreen';
+import MLBPlayerPageScreen from './src/screens/mlb/PlayerPageScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -333,6 +334,29 @@ const MainStackNavigator = () => {
         }}
         options={{ 
           title: 'Team Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="PlayerPage" 
+        component={({ route, navigation }) => {
+          const { sport } = route?.params || {};
+          const props = { route, navigation };
+          switch(sport?.toLowerCase()) {
+            case 'mlb':
+              return <MLBPlayerPageScreen {...props} />;
+            default:
+              return <MLBPlayerPageScreen {...props} />; // Default fallback for now
+          }
+        }}
+        options={{ 
+          title: 'Player Details',
           headerStyle: {
             backgroundColor: colors.primary,
           },

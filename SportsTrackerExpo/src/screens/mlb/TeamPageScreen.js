@@ -14,6 +14,17 @@ const TeamPageScreen = ({ route, navigation }) => {
   const [lastMatchesCollapsed, setLastMatchesCollapsed] = useState(true);
   const [nextMatchesCollapsed, setNextMatchesCollapsed] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [roster, setRoster] = useState(null);
+  const [loadingRoster, setLoadingRoster] = useState(false);
+  const [collapsedRosterSections, setCollapsedRosterSections] = useState({
+    pitchers: true,
+    catchers: true,
+    infielders: true,
+    outfielders: true,
+    others: true
+  });
+  const [teamStats, setTeamStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(false);
   const liveUpdateInterval = useRef(null);
 
   useEffect(() => {
@@ -324,6 +335,57 @@ const TeamPageScreen = ({ route, navigation }) => {
     }
   };
 
+  const fetchRoster = async () => {
+    if (!teamData) return;
+    
+    setLoadingRoster(true);
+    try {
+      const response = await fetch(
+        `https://statsapi.mlb.com/api/v1/teams/${teamId}/roster`
+      );
+      const data = await response.json();
+      
+      if (data.roster) {
+        setRoster(data.roster);
+      }
+    } catch (error) {
+      console.error('Error fetching roster:', error);
+    } finally {
+      setLoadingRoster(false);
+    }
+  };
+
+  const fetchTeamStats = async () => {
+    if (!teamData) return;
+    
+    setLoadingStats(true);
+    try {
+      const currentYear = new Date().getFullYear();
+      
+      // Fetch both hitting and pitching stats
+      const [hittingResponse, pitchingResponse] = await Promise.all([
+        fetch(`https://statsapi.mlb.com/api/v1/teams/${teamId}/stats?stats=season&group=hitting&season=${currentYear}`),
+        fetch(`https://statsapi.mlb.com/api/v1/teams/${teamId}/stats?stats=season&group=pitching&season=${currentYear}`)
+      ]);
+      
+      const [hittingData, pitchingData] = await Promise.all([
+        hittingResponse.json(),
+        pitchingResponse.json()
+      ]);
+      
+      const stats = {
+        hitting: hittingData.stats?.[0]?.splits?.[0]?.stat || null,
+        pitching: pitchingData.stats?.[0]?.splits?.[0]?.stat || null
+      };
+      
+      setTeamStats(stats);
+    } catch (error) {
+      console.error('Error fetching team stats:', error);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
   // Handle game click navigation
   const handleGamePress = (game) => {
     console.log('Navigating to game:', game.gamePk);
@@ -404,6 +466,20 @@ const TeamPageScreen = ({ route, navigation }) => {
 
     return () => stopLiveUpdates();
   }, [currentGame]);
+
+  // Effect to load roster when Roster tab is selected
+  useEffect(() => {
+    if (activeTab === 'Roster' && teamData && !roster && !loadingRoster) {
+      fetchRoster();
+    }
+  }, [activeTab, teamData, roster, loadingRoster]);
+
+  // Effect to load stats when Stats tab is selected
+  useEffect(() => {
+    if (activeTab === 'Stats' && teamData && !teamStats && !loadingStats) {
+      fetchTeamStats();
+    }
+  }, [activeTab, teamData, teamStats, loadingStats]);
 
   const getTeamLogo = (abbreviation) => {
     if (!abbreviation) return null;
@@ -813,6 +889,255 @@ const TeamPageScreen = ({ route, navigation }) => {
     );
   };
 
+  const renderStatsContent = () => {
+    if (loadingStats) {
+      return (
+        <View style={styles.statsLoadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.contentText, { color: theme.textSecondary }]}>Loading team statistics...</Text>
+        </View>
+      );
+    }
+
+    if (!teamStats || (!teamStats.hitting && !teamStats.pitching)) {
+      return (
+        <View style={styles.statsLoadingContainer}>
+          <Text style={[styles.contentText, { color: theme.textSecondary }]}>Team statistics not available</Text>
+        </View>
+      );
+    }
+
+    const renderStatBox = (label, value, key) => (
+      <View key={key} style={[styles.statBox, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.statBoxValue, { color: colors.primary }]}>{value}</Text>
+        <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>{label}</Text>
+      </View>
+    );
+
+    const renderStatsGrid = (stats, title, statDefinitions) => {
+      if (!stats) return null;
+
+      const statBoxes = statDefinitions.map(({ key, label, format }) => {
+        let value = stats[key];
+        if (format && value !== undefined && value !== null) {
+          value = format(value);
+        }
+        return renderStatBox(label, value || '--', `${title}-${key}`);
+      });
+
+      // Group stats into rows of 3
+      const rows = [];
+      for (let i = 0; i < statBoxes.length; i += 3) {
+        rows.push(statBoxes.slice(i, i + 3));
+      }
+
+      return (
+        <View style={styles.statsSection}>
+          <Text style={[styles.statsSectionTitle, { color: theme.text }]}>{title}</Text>
+          {rows.map((row, rowIndex) => (
+            <View key={`${title}-row-${rowIndex}`} style={styles.statsRow}>
+              {row}
+            </View>
+          ))}
+        </View>
+      );
+    };
+
+    // Define batting statistics to display
+    const battingStats = [
+      { key: 'avg', label: 'AVG' },
+      { key: 'homeRuns', label: 'HR' },
+      { key: 'rbi', label: 'RBI' },
+      { key: 'runs', label: 'Runs' },
+      { key: 'hits', label: 'Hits' },
+      { key: 'doubles', label: '2B' },
+      { key: 'triples', label: '3B' },
+      { key: 'obp', label: 'OBP' },
+      { key: 'slg', label: 'SLG' },
+      { key: 'ops', label: 'OPS' },
+      { key: 'strikeOuts', label: 'SO' },
+      { key: 'baseOnBalls', label: 'BB' },
+      { key: 'stolenBases', label: 'SB' },
+      { key: 'stolenBasePercentage', label: 'SB%' },
+      { key: 'babip', label: 'BABIP' }
+    ];
+
+    // Define pitching statistics to display
+    const pitchingStats = [
+      { key: 'era', label: 'ERA' },
+      { key: 'wins', label: 'W' },
+      { key: 'losses', label: 'L' },
+      { key: 'saves', label: 'SV' },
+      { key: 'strikeOuts', label: 'SO' },
+      { key: 'whip', label: 'WHIP' },
+      { key: 'inningsPitched', label: 'IP', format: (val) => parseFloat(val).toFixed(1) },
+      { key: 'hits', label: 'H' },
+      { key: 'baseOnBalls', label: 'BB' },
+      { key: 'homeRuns', label: 'HR' },
+      { key: 'strikeoutWalkRatio', label: 'K/BB' },
+      { key: 'strikeoutsPer9Inn', label: 'K/9' },
+      { key: 'walksPer9Inn', label: 'BB/9' },
+      { key: 'hitsPer9Inn', label: 'H/9' },
+      { key: 'homeRunsPer9', label: 'HR/9' }
+    ];
+
+    // Calculate per-game statistics
+    const gamesPlayed = teamStats.hitting?.gamesPlayed || 1; // Avoid division by zero
+    const perGameStats = teamStats.hitting ? {
+      runs: (teamStats.hitting.runs / gamesPlayed).toFixed(1),
+      hits: (teamStats.hitting.hits / gamesPlayed).toFixed(1),
+      rbi: (teamStats.hitting.rbi / gamesPlayed).toFixed(1),
+      // HA = Hits Allowed (from pitching stats)
+      ha: teamStats.pitching ? (teamStats.pitching.hits / gamesPlayed).toFixed(1) : '--',
+      // BBA = Walks Allowed (from pitching stats) 
+      bba: teamStats.pitching ? (teamStats.pitching.baseOnBalls / gamesPlayed).toFixed(1) : '--',
+      // HRA = Home Runs Allowed (from pitching stats)
+      hra: teamStats.pitching ? (teamStats.pitching.homeRuns / gamesPlayed).toFixed(1) : '--'
+    } : null;
+
+    // Define per-game statistics to display
+    const perGameStatDefinitions = [
+      { key: 'runs', label: 'Runs/G' },
+      { key: 'hits', label: 'Hits/G' },
+      { key: 'rbi', label: 'RBI/G' },
+      { key: 'ha', label: 'HA/G' },
+      { key: 'bba', label: 'BBA/G' },
+      { key: 'hra', label: 'HRA/G' }
+    ];
+
+    return (
+      <ScrollView 
+        style={[styles.statsContainer, { backgroundColor: theme.background }]} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.statsContent}
+      >
+        {perGameStats && renderStatsGrid(perGameStats, 'Per Game Statistics', perGameStatDefinitions)}
+        {renderStatsGrid(teamStats.hitting, 'Batting Statistics', battingStats)}
+        {renderStatsGrid(teamStats.pitching, 'Pitching Statistics', pitchingStats)}
+      </ScrollView>
+    );
+  };
+
+  const renderRosterContent = () => {
+    if (loadingRoster) {
+      return (
+        <View style={styles.matchesSection}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.contentText, { color: theme.textSecondary }]}>Loading roster...</Text>
+        </View>
+      );
+    }
+
+    if (!roster || roster.length === 0) {
+      return (
+        <View style={styles.matchesSection}>
+          <Text style={[styles.contentText, { color: theme.textSecondary }]}>Roster data not available</Text>
+        </View>
+      );
+    }
+
+    // Group players by position
+    const pitchers = roster.filter(player => player.position?.abbreviation === 'P');
+    const catchers = roster.filter(player => player.position?.abbreviation === 'C');
+    const infielders = roster.filter(player => ['1B', '2B', '3B', 'SS'].includes(player.position?.abbreviation));
+    const outfielders = roster.filter(player => ['LF', 'CF', 'RF', 'OF'].includes(player.position?.abbreviation));
+    const others = roster.filter(player => !['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'OF'].includes(player.position?.abbreviation));
+
+    const renderPlayerSection = (title, players, sectionKey) => {
+      if (players.length === 0) return null;
+
+      const isCollapsed = collapsedRosterSections[sectionKey];
+
+      const toggleSection = () => {
+        setCollapsedRosterSections(prev => ({
+          ...prev,
+          [sectionKey]: !prev[sectionKey]
+        }));
+      };
+
+      return (
+        <View style={styles.rosterSection}>
+          <TouchableOpacity 
+            style={styles.rosterSectionHeader}
+            onPress={toggleSection}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.rosterSectionTitle, { color: theme.text }]}>
+              {title} ({players.length})
+            </Text>
+            <Text style={[styles.rosterSectionArrow, { color: theme.text }]}>
+              {isCollapsed ? '▶' : '▼'}
+            </Text>
+          </TouchableOpacity>
+          {!isCollapsed && (
+            <View style={styles.rosterTableContainer}>
+              <View style={[styles.rosterTableHeader, { backgroundColor: theme.surface }]}>
+                <Text style={[styles.rosterTableHeaderPlayer, { color: theme.text }]}>Player</Text>
+                <Text style={[styles.rosterTableHeaderStatus, { color: theme.text }]}>Status</Text>
+              </View>
+              {players.map((player) => (
+                <TouchableOpacity 
+                  key={player.person.id} 
+                  style={[styles.rosterTableRow, { borderBottomColor: theme.border, backgroundColor: theme.surfaceSecondary }]}
+                  onPress={() => {
+                    console.log('Navigating to player page:', player.person.id, player.person.fullName);
+                    navigation.navigate('PlayerPage', { 
+                      playerId: player.person.id,
+                      playerName: player.person.fullName,
+                      teamId: teamId,
+                      sport: sport 
+                    });
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rosterTablePlayerCell}>
+                    <View style={styles.rosterPlayerRow}>
+                      <Image 
+                        source={{ 
+                          uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${player.person.id}/headshot/67/current` 
+                        }}
+                        style={styles.playerHeadshot}
+                        defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
+                      />
+                      <View style={styles.rosterPlayerInfo}>
+                        <Text style={[styles.rosterTablePlayerName, { color: theme.text }]}>
+                          {player.person.fullName}
+                        </Text>
+                        <Text style={[styles.rosterTablePlayerDetails, { color: theme.textTertiary }]}>
+                          <Text style={[styles.rosterTablePlayerNumber, { color: theme.textTertiary }]}>#{player.jerseyNumber || '--'}</Text>
+                          {' • '}
+                          {player.position?.abbreviation || 'N/A'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View style={styles.rosterTableStatusCell}>
+                    <Text style={[
+                      styles.rosterTableStatusText,
+                      player.status?.code === 'A' ? styles.activeStatus : styles.inactiveStatus
+                    ]}>
+                      {player.status?.code === 'A' ? 'Active' : player.status?.description || 'Inactive'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+      );
+    };
+
+    return (
+      <ScrollView style={[styles.rosterContainer, { backgroundColor: theme.background }]} showsVerticalScrollIndicator={false}>
+        {renderPlayerSection('Pitchers', pitchers, 'pitchers')}
+        {renderPlayerSection('Catchers', catchers, 'catchers')}
+        {renderPlayerSection('Infielders', infielders, 'infielders')}
+        {renderPlayerSection('Outfielders', outfielders, 'outfielders')}
+        {others.length > 0 && renderPlayerSection('Others', others, 'others')}
+      </ScrollView>
+    );
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'Games':
@@ -870,17 +1195,9 @@ const TeamPageScreen = ({ route, navigation }) => {
           </ScrollView>
         );
       case 'Stats':
-        return (
-          <View style={[styles.contentContainer, { backgroundColor: theme.background }]}>
-            <Text style={[styles.contentText, { color: theme.textSecondary }]}>Team statistics will be implemented here</Text>
-          </View>
-        );
+        return renderStatsContent();
       case 'Roster':
-        return (
-          <View style={[styles.contentContainer, { backgroundColor: theme.background }]}>
-            <Text style={[styles.contentText, { color: theme.textSecondary }]}>Roster content will be implemented here</Text>
-          </View>
-        );
+        return renderRosterContent();
       default:
         return null;
     }
@@ -1172,6 +1489,164 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  // Roster styles
+  rosterContainer: {
+    flex: 1,
+    padding: 15,
+  },
+  rosterSection: {
+    marginBottom: 20,
+  },
+  rosterSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  rosterSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    flex: 1,
+  },
+  rosterSectionArrow: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  rosterTableContainer: {
+    backgroundColor: 'white',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  rosterTableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#e9ecef',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  rosterTableHeaderPlayer: {
+    flex: 3,
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#495057',
+  },
+  rosterTableHeaderStatus: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#495057',
+    textAlign: 'center',
+  },
+  rosterTableRow: {
+    flexDirection: 'row',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    alignItems: 'center',
+  },
+  rosterTablePlayerCell: {
+    flex: 3,
+  },
+  rosterPlayerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  playerHeadshot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  rosterPlayerInfo: {
+    flex: 1,
+  },
+  rosterTablePlayerName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  rosterTablePlayerDetails: {
+    fontSize: 12,
+  },
+  rosterTablePlayerNumber: {
+    fontWeight: '500',
+  },
+  rosterTableStatusCell: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  rosterTableStatusText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  activeStatus: {
+    backgroundColor: '#d4edda',
+    color: '#155724',
+  },
+  inactiveStatus: {
+    backgroundColor: '#f8d7da',
+    color: '#721c24',
+  },
+  // Stats styles
+  statsContainer: {
+    flex: 1,
+  },
+  statsContent: {
+    padding: 15,
+  },
+  statsLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  statsSection: {
+    marginBottom: 25,
+  },
+  statsSectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+    gap: 10,
+  },
+  statBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    padding: 15,
+    minHeight: 70,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  statBoxValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  statBoxLabel: {
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });
 

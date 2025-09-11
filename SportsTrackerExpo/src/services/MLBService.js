@@ -383,7 +383,7 @@ export class MLBService {
     
     return this.getCachedData(cacheKey, async () => {
       try {
-        const response = await fetch(`${this.BASE_URL}/api/v1/teams/${teamId}/roster/fullRoster`);
+        const response = await fetch(`${this.BASE_URL}/api/v1/teams/${teamId}/roster`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
