@@ -164,7 +164,10 @@ export class MLBService {
       status: game.status?.detailedState || 'Unknown',
       statusType: game.status?.statusCode || 'U',
       isCompleted: game.status?.statusCode === 'F',
-      isLive: game.status?.statusCode === 'I' || game.status?.detailedState === 'In Progress',
+      isLive: game.status?.statusCode === 'I' || 
+               game.status?.detailedState === 'In Progress' ||
+               game.status?.detailedState === 'Manager challenge' ||
+               game.status?.codedGameState === 'M',
       displayClock: this.getGameTimeDisplay(game),
       venue: game.venue?.name || '',
       broadcasts: this.getBroadcasts(game),
@@ -199,7 +202,10 @@ export class MLBService {
       return 'Final';
     }
     
-    if (game.status?.statusCode === 'I') {
+    if (game.status?.statusCode === 'I' || 
+        game.status?.detailedState === 'In Progress' ||
+        game.status?.detailedState === 'Manager challenge' ||
+        game.status?.codedGameState === 'M') {
       // In progress - show inning
       const inning = game.linescore?.currentInning || 0;
       const inningState = game.linescore?.inningState || '';

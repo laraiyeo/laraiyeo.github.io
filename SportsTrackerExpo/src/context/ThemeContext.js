@@ -156,6 +156,7 @@ export const ThemeProvider = ({ children }) => {
     let normalizedTeamId = teamId;
     if (sport === 'mlb') {
       const abbreviationMap = {
+        'AZ': 'ari',   // Arizona Diamondbacks (MLB API uses AZ, logo URL uses ari)
         'CWS': 'chw',  // Chicago White Sox (ESPN uses CWS, logo URL uses chw)
         'KCR': 'kc',   // Kansas City Royals (ESPN uses KCR, logo URL uses kc)
         'SFG': 'sf',   // San Francisco Giants (ESPN uses SFG, logo URL uses sf)

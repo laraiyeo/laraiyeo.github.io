@@ -234,16 +234,19 @@ const MLBScoreboardScreen = ({ navigation }) => {
         const gamesByDate = groupGamesByDate(scoreboardData.events);
         processedGames = [];
         
-        Object.keys(gamesByDate).sort().forEach(date => {
-          // Add date header
-          processedGames.push({
-            type: 'header',
-            date: formatDateHeader(date)
+        // Sort dates chronologically (not alphabetically)
+        Object.keys(gamesByDate)
+          .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+          .forEach(date => {
+            // Add date header
+            processedGames.push({
+              type: 'header',
+              date: formatDateHeader(date)
+            });
+            
+            // Add games for this date
+            processedGames.push(...gamesByDate[date]);
           });
-          
-          // Add games for this date
-          processedGames.push(...gamesByDate[date]);
-        });
       }
       
       // Update cache
@@ -288,6 +291,79 @@ const MLBScoreboardScreen = ({ navigation }) => {
       }
       
       groups[dateKey].push(game);
+    });
+    
+    // Sort games within each date group
+    Object.keys(groups).forEach(dateKey => {
+      console.log(`Sorting games for date: ${dateKey}`);
+      
+      groups[dateKey].sort((a, b) => {
+        // Log game details for debugging
+        console.log('Game A:', {
+          name: `${a.awayTeam?.displayName} vs ${a.homeTeam?.displayName}`,
+          status: a.status,
+          statusType: a.statusType,
+          isLive: a.isLive,
+          date: a.date
+        });
+        console.log('Game B:', {
+          name: `${b.awayTeam?.displayName} vs ${b.homeTeam?.displayName}`,
+          status: b.status,
+          statusType: b.statusType,
+          isLive: b.isLive,
+          date: b.date
+        });
+        
+        // Get status priority (Live = 1, Scheduled = 2, Finished = 3)
+        const getStatusPriority = (game) => {
+          // Check the isLive flag first
+          if (game.isLive || game.statusType === 'I') {
+            return 1; // Live games first
+          }
+          
+          // Check for completed games
+          if (game.isCompleted || game.statusType === 'F') {
+            return 3; // Finished games last
+          }
+          
+          // Check status text for additional context
+          const status = (game.status || '').toLowerCase();
+          if (status.includes('in progress') || 
+              status.includes('live') || 
+              status.includes('manager challenge')) {
+            return 1; // Live games first
+          } else if (status.includes('final') || status.includes('completed')) {
+            return 3; // Finished games last
+          } else {
+            return 2; // Scheduled games (default)
+          }
+        };
+        
+        const statusA = getStatusPriority(a);
+        const statusB = getStatusPriority(b);
+        
+        console.log(`Status priorities - A: ${statusA}, B: ${statusB}`);
+        
+        // First sort by status priority
+        if (statusA !== statusB) {
+          return statusA - statusB;
+        }
+        
+        // If same status, sort by game time
+        const timeA = new Date(a.date).getTime();
+        const timeB = new Date(b.date).getTime();
+        
+        console.log(`Time comparison - A: ${timeA}, B: ${timeB}, diff: ${timeA - timeB}`);
+        
+        return timeA - timeB;
+      });
+      
+      console.log(`Sorted order for ${dateKey}:`, groups[dateKey].map(game => ({
+        teams: `${game.awayTeam?.displayName} vs ${game.homeTeam?.displayName}`,
+        status: game.status,
+        statusType: game.statusType,
+        time: game.date
+      })));
     });
     
     return groups;
@@ -390,21 +466,17 @@ const MLBScoreboardScreen = ({ navigation }) => {
   };
 
   const getGameTimeText = (item) => {
-    // For finished games, don't show additional time info
-    if (item.isCompleted) {
+    // For live games, don't show start time (status shows inning info)
+    if (item.isLive) {
       return '';
     }
     
-    // For scheduled games, show game start time
-    if (!item.isLive && !item.isCompleted) {
-      const gameDate = new Date(item.date);
-      return gameDate.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit'
-      });
-    }
-    
-    return '';
+    // For both scheduled and finished games, show game start time
+    const gameDate = new Date(item.date);
+    return gameDate.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit'
+    });
   };
 
   const renderDateHeader = (date) => (

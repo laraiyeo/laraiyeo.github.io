@@ -39,6 +39,18 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   const [awayRoster, setAwayRoster] = useState(null);
   const [homeRoster, setHomeRoster] = useState(null);
   const [loadingRoster, setLoadingRoster] = useState(false);
+  const [collapsedRosterSections, setCollapsedRosterSections] = useState({
+    awayPitchers: true,
+    awayCatchers: true,
+    awayInfielders: true,
+    awayOutfielders: true,
+    awayOthers: true,
+    homePitchers: true,
+    homeCatchers: true,
+    homeInfielders: true,
+    homeOutfielders: true,
+    homeOthers: true
+  });
   const [seasonStats, setSeasonStats] = useState({ away: null, home: null });
   const [topHitters, setTopHitters] = useState({ away: [], home: [] });
   const [probablePitcherStats, setProbablePitcherStats] = useState({ away: null, home: null });
@@ -49,6 +61,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   const [isStreamLoading, setIsStreamLoading] = useState(true);
   const scrollViewRef = useRef(null);
   const playsScrollViewRef = useRef(null);
+  const [playsScrollPosition, setPlaysScrollPosition] = useState(0);
   const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
 
   // Stream API functions
@@ -473,13 +486,16 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   useEffect(() => {
     if (!gameData) return;
     
-    const isLiveGame = gameData?.gameData?.status?.statusCode === 'I'; // In progress
+    const isLiveGame = gameData?.gameData?.status?.statusCode === 'I' || // In progress
+                       gameData?.gameData?.status?.detailedState === 'In Progress' ||
+                       gameData?.gameData?.status?.detailedState === 'Manager challenge' ||
+                       gameData?.gameData?.status?.codedGameState === 'M'; // Manager challenge
     console.log('MLBGameDetailsScreen: Setting up live updates, isLive:', isLiveGame);
     
     if (isLiveGame) {
       const interval = setInterval(() => {
         console.log('MLBGameDetailsScreen: Live update tick');
-        loadGameDetails(true);
+        loadLiveDataUpdate();
       }, 2000); // Update every 2 seconds for live games
       
       setUpdateInterval(interval);
@@ -553,6 +569,19 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     }
   }, [gameData, activeTab, lastPlaysHash, playsData]);
 
+  // Preserve scroll position when plays data updates
+  useEffect(() => {
+    if (playsScrollViewRef.current && playsScrollPosition > 0 && playsData) {
+      // Small delay to ensure the content has rendered
+      setTimeout(() => {
+        playsScrollViewRef.current?.scrollTo({
+          y: playsScrollPosition,
+          animated: false
+        });
+      }, 100);
+    }
+  }, [playsData]);
+
   const createDataHash = (data) => {
     if (!data) return '';
     
@@ -609,6 +638,55 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     }
   };
 
+  const loadLiveDataUpdate = async () => {
+    try {
+      if (!gameId) return;
+
+      console.log('MLBGameDetailsScreen: Loading live data update for gameId:', gameId);
+      const data = await MLBService.getGameDetails(gameId);
+      
+      // Check for changes in game data
+      const newHash = createDataHash(data);
+      if (newHash === lastUpdateHash) {
+        return; // No changes, skip update
+      }
+
+      // Only update specific live game parts to prevent full re-render
+      setGameData(prevGameData => {
+        if (!prevGameData) return data;
+        
+        return {
+          ...prevGameData,
+          liveData: {
+            ...prevGameData.liveData,
+            linescore: data.liveData?.linescore,
+            boxscore: data.liveData?.boxscore,
+            plays: data.liveData?.plays,
+          },
+          gameData: {
+            ...prevGameData.gameData,
+            status: data.gameData?.status,
+          }
+        };
+      });
+
+      setLastUpdateHash(newHash);
+
+      // Update plays data if there are changes
+      if (data.liveData?.plays) {
+        const playsHash = createDataHash(data.liveData.plays);
+        if (playsHash !== lastPlaysHash) {
+          setLastPlaysHash(playsHash);
+          updatePlaysDataIncremental(data.liveData.plays);
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error loading live data update:', error);
+      // Don't show alerts for live update failures
+    }
+  };
+
   const loadPlaysData = async () => {
     if (!gameId || loadingPlays) return;
     
@@ -637,9 +715,28 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     
     // Check if there are actually new plays
     if (newAllPlays.length <= existingAllPlays.length) {
-      // No new plays, just update the current play and other metadata without touching allPlays
+      // No new plays, but still update existing play data (scores, descriptions, etc.)
+      // Create a map of existing plays by their unique identifier
+      const existingPlaysMap = new Map();
+      existingAllPlays.forEach((play, index) => {
+        const playKey = `${play.about?.atBatIndex || 'unknown'}-${play.about?.playIndex || 0}-${play.about?.startTime || index}`;
+        existingPlaysMap.set(playKey, index);
+      });
+
+      // Update existing plays with new data
+      const updatedAllPlays = [...existingAllPlays];
+      newAllPlays.forEach((newPlay, newIndex) => {
+        const playKey = `${newPlay.about?.atBatIndex || 'unknown'}-${newPlay.about?.playIndex || 0}-${newPlay.about?.startTime || newIndex}`;
+        const existingIndex = existingPlaysMap.get(playKey);
+        if (existingIndex !== undefined) {
+          // Update existing play with new data (scores, descriptions, etc.)
+          updatedAllPlays[existingIndex] = newPlay;
+        }
+      });
+
       setPlaysData(prevData => ({
         ...prevData,
+        allPlays: updatedAllPlays,
         currentPlay: newPlaysData.currentPlay,
         scoringPlays: newPlaysData.scoringPlays,
         playsByInning: newPlaysData.playsByInning
@@ -651,10 +748,27 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     const newPlays = newAllPlays.slice(existingAllPlays.length);
     console.log(`Adding ${newPlays.length} new plays incrementally`);
 
-    // Use functional update to append new plays to existing array without replacing the entire reference
+    // Update existing plays and add new ones
+    const existingPlaysMap = new Map();
+    existingAllPlays.forEach((play, index) => {
+      const playKey = `${play.about?.atBatIndex || 'unknown'}-${play.about?.playIndex || 0}-${play.about?.startTime || index}`;
+      existingPlaysMap.set(playKey, index);
+    });
+
+    // Update existing plays with potentially new data
+    const updatedExistingPlays = [...existingAllPlays];
+    newAllPlays.slice(0, existingAllPlays.length).forEach((newPlay, newIndex) => {
+      const playKey = `${newPlay.about?.atBatIndex || 'unknown'}-${newPlay.about?.playIndex || 0}-${newPlay.about?.startTime || newIndex}`;
+      const existingIndex = existingPlaysMap.get(playKey);
+      if (existingIndex !== undefined) {
+        updatedExistingPlays[existingIndex] = newPlay;
+      }
+    });
+
+    // Use functional update to append new plays to updated existing array
     setPlaysData(prevData => ({
       ...newPlaysData,
-      allPlays: [...prevData.allPlays, ...newPlays]
+      allPlays: [...updatedExistingPlays, ...newPlays]
     }));
 
     // Reset incremental update flag after a short delay
@@ -861,8 +975,21 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         {/* Game Status */}
         <View style={styles.stickyStatus}>
           {status?.statusCode === 'F' ? (
-            <Text style={[styles.stickyStatusText, { color: colors.primary }]}>Final</Text>
-          ) : status?.statusCode === 'I' ? (
+            <>
+              <Text style={[styles.stickyStatusText, { color: colors.primary }]}>Final</Text>
+              {gameData?.gameData?.datetime?.dateTime && (
+                <Text style={[styles.stickyGameTime, { color: theme.textSecondary }]}>
+                  {new Date(gameData.gameData.datetime.dateTime).toLocaleTimeString('en-US', { 
+                    hour: 'numeric', 
+                    minute: '2-digit'
+                  })}
+                </Text>
+              )}
+            </>
+          ) : status?.statusCode === 'I' || 
+               status?.detailedState === 'In Progress' ||
+               status?.detailedState === 'Manager challenge' ||
+               status?.codedGameState === 'M' ? (
             <>
               <Text style={[styles.stickyStatusText, { color: colors.primary }]}>
                 {formatInning(linescore?.currentInning, linescore?.inningState)}
@@ -872,7 +999,17 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               </Text>
             </>
           ) : (
-            <Text style={[styles.stickyStatusText, { color: colors.primary }]}>{status?.detailedState || 'Scheduled'}</Text>
+            <>
+              <Text style={[styles.stickyStatusText, { color: colors.primary }]}>{status?.detailedState || 'Scheduled'}</Text>
+              {gameData?.gameData?.datetime?.dateTime && (
+                <Text style={[styles.stickyGameTime, { color: theme.textSecondary }]}>
+                  {new Date(gameData.gameData.datetime.dateTime).toLocaleTimeString('en-US', { 
+                    hour: 'numeric', 
+                    minute: '2-digit'
+                  })}
+                </Text>
+              )}
+            </>
           )}
         </View>
 
@@ -1016,14 +1153,74 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     const isGameFinal = status?.statusCode === 'F';
     
     // Theme-aware color functions similar to ScoreboardScreen
+    // Enhanced color selection for scoring card with better team color handling
+    const getTeamScoringColor = (team, isLosing, context = 'score') => {
+      if (!team) return colors.primary;
+      
+      const teamName = team.name || team.teamName;
+      const teamColor = MLBService.getTeamColor(teamName);
+      
+      // Define problematic team colors that need special handling
+      const problematicColors = {
+        // Teams with very dark colors that don't work well as text
+        'Baltimore Orioles': '#FF6600',      // Use bright orange instead of black
+        'Chicago White Sox': '#C8C8C8',      // Use silver instead of black
+        'San Francisco Giants': '#FF8C00',   // Use orange instead of black
+        'Pittsburgh Pirates': '#FFD700',     // Use gold instead of black/yellow
+        // Teams with colors too similar to background or poor contrast
+        'San Diego Padres': '#8B4513',       // Use brown variant
+        'Detroit Tigers': '#FF6600',         // Use orange instead of navy
+        'Cleveland Guardians': '#FF3030',    // Brighter red
+        'Houston Astros': '#FF7F00',         // Orange instead of navy
+        'Minnesota Twins': '#FF4444',        // Brighter red instead of navy
+        'Tampa Bay Rays': '#4A90E2',         // Brighter blue
+        'Colorado Rockies': '#9370DB',       // Medium slate blue
+        'Seattle Mariners': '#008B8B',       // Dark turquoise
+        'Toronto Blue Jays': '#1E90FF',      // Dodger blue
+        'Kansas City Royals': '#4169E1',     // Royal blue
+        // Adjust based on context and dark mode
+        'Los Angeles Dodgers': isDarkMode ? '#4A90E2' : '#005A9C',
+        'New York Yankees': isDarkMode ? '#6495ED' : '#003087',
+        'Chicago Cubs': isDarkMode ? '#4A90E2' : '#0E3386',
+        'New York Mets': isDarkMode ? '#FF6347' : '#FF5910',
+        'Boston Red Sox': isDarkMode ? '#FF4444' : '#BD3039',
+      };
+      
+      // Use enhanced color if available, otherwise use original team color
+      const enhancedColor = problematicColors[teamName] || teamColor;
+      
+      // For losing teams, use muted version in final games
+      if (isLosing && context === 'score') {
+        return theme.textSecondary;
+      }
+      
+      // For names, use text color for losing teams, enhanced color for others
+      if (context === 'name') {
+        return isLosing ? theme.textSecondary : enhancedColor;
+      }
+      
+      // Default: use enhanced team color
+      return enhancedColor;
+    };
+    
     const getScoreColor = (isLosing) => isLosing ? theme.textSecondary : colors.primary;
     const getNameColor = (isLosing) => isLosing ? theme.textSecondary : theme.text;
     
     const awayIsLosing = isGameFinal && awayScore < homeScore;
     const homeIsLosing = isGameFinal && homeScore < awayScore;
 
+    // Check if game is live for stream functionality
+    const isGameLive = status?.statusCode === 'I' || 
+                       status?.detailedState === 'In Progress' ||
+                       status?.detailedState === 'Manager challenge' ||
+                       status?.codedGameState === 'M';
+
     return (
-      <TouchableOpacity style={[styles.gameHeader, { backgroundColor: theme.surface }]} onPress={openStreamModal} activeOpacity={0.8}>
+      <TouchableOpacity 
+        style={[styles.gameHeader, { backgroundColor: theme.surface }]} 
+        onPress={isGameLive ? openStreamModal : undefined} 
+        activeOpacity={isGameLive ? 0.8 : 1}
+      >
         <View style={styles.teamContainer}>
           {/* Away Team */}
           <View style={styles.team}>
@@ -1042,8 +1239,21 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           <View style={styles.vsContainer}>
             <Text style={[styles.vsText, { color: theme.textSecondary }]}>vs</Text>
             {status?.statusCode === 'F' ? (
-              <Text style={[styles.gameStatus, { color: colors.primary }]}>Final</Text>
-            ) : status?.statusCode === 'I' ? (
+              <>
+                <Text style={[styles.gameStatus, { color: colors.primary }]}>Final</Text>
+                {gameData.gameData?.datetime?.dateTime && (
+                  <Text style={[styles.gameTime, { color: theme.textSecondary }]}>
+                    {new Date(gameData.gameData.datetime.dateTime).toLocaleTimeString('en-US', { 
+                      hour: 'numeric', 
+                      minute: '2-digit'
+                    })}
+                  </Text>
+                )}
+              </>
+            ) : status?.statusCode === 'I' || 
+                 status?.detailedState === 'In Progress' ||
+                 status?.detailedState === 'Manager challenge' ||
+                 status?.codedGameState === 'M' ? (
               <>
                 <Text style={[styles.gameStatus, { color: colors.primary }]}>
                   {formatInning(linescore?.currentInning, linescore?.inningState)}
@@ -1054,7 +1264,17 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 {renderBases()}
               </>
             ) : (
-              <Text style={[styles.gameStatus, { color: colors.primary }]}>{status?.detailedState || 'Scheduled'}</Text>
+              <>
+                <Text style={[styles.gameStatus, { color: colors.primary }]}>{status?.detailedState || 'Scheduled'}</Text>
+                {gameData.gameData?.datetime?.dateTime && (
+                  <Text style={[styles.gameTime, { color: theme.textSecondary }]}>
+                    {new Date(gameData.gameData.datetime.dateTime).toLocaleTimeString('en-US', { 
+                      hour: 'numeric', 
+                      minute: '2-digit'
+                    })}
+                  </Text>
+                )}
+              </>
             )}
           </View>
 
@@ -1076,15 +1296,23 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           <Text style={[styles.venue, { color: theme.text }]}>{gameData.gameData?.venue?.name || ''}</Text>
           {gameData.gameData?.datetime?.originalDate && (
             <Text style={[styles.date, { color: theme.textSecondary }]}>
-              {new Date(gameData.gameData.datetime.originalDate).toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
+              {(() => {
+                // Parse date in a timezone-neutral way to avoid day shifting
+                const dateStr = gameData.gameData.datetime.originalDate;
+                const [year, month, day] = dateStr.split('-').map(Number);
+                const date = new Date(year, month - 1, day); // month is 0-indexed
+                return date.toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                });
+              })()}
             </Text>
           )}
-          <Text style={[styles.streamHint, { color: colors.primary }]}>Tap to view streams</Text>
+          {isGameLive && (
+            <Text style={[styles.streamHint, { color: colors.primary }]}>Tap to view streams</Text>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -1347,26 +1575,26 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     const pitchers = teamStats.pitchers || [];
 
     return (
-      <View style={styles.teamBoxScoreContainer}>
+      <View style={[styles.teamBoxScoreContainer, { backgroundColor: theme.surfaceSecondary }]}>
         <View style={styles.teamBoxScoreHeader}>
           <Image 
             source={{ uri: getTeamLogoUrl('mlb', team?.abbreviation) }} 
             style={styles.teamBoxScoreLogo}
             defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=MLB' }}
           />
-          <Text style={styles.sectionTitle}>{team?.name || 'Team'}</Text>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>{team?.name || 'Team'}</Text>
         </View>
 
         {/* Batting Stats */}
         <View style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
           <Text style={[styles.statCategoryTitle, { color: colors.primary }]}>Batting</Text>
-          <View style={styles.statTableHeader}>
-            <Text style={styles.statTableHeaderPlayer}>Player</Text>
-            <Text style={styles.statTableHeaderStat}>AB</Text>
-            <Text style={styles.statTableHeaderStat}>R</Text>
-            <Text style={styles.statTableHeaderStat}>H</Text>
-            <Text style={styles.statTableHeaderStat}>RBI</Text>
-            <Text style={styles.statTableHeaderStat}>AVG</Text>
+          <View style={[styles.statTableHeader, { backgroundColor: theme.cardBackground || theme.surfaceSecondary }]}>
+            <Text style={[styles.statTableHeaderPlayer, { color: theme.text }]}>Player</Text>
+            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>AB</Text>
+            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>R</Text>
+            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>H</Text>
+            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>RBI</Text>
+            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>AVG</Text>
           </View>
           {batters.slice(0, 9).map((batterId, index) => {
             const player = teamStats.players?.[`ID${batterId}`];
@@ -1376,22 +1604,22 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             return (
               <TouchableOpacity 
                 key={batterId} 
-                style={styles.statTableRow}
+                style={[styles.statTableRow, { backgroundColor: theme.surface }]}
                 onPress={() => handlePlayerPress(player, team)}
               >
                 <View style={styles.statTablePlayerCell}>
-                  <Text style={styles.statTablePlayerName}>
+                  <Text style={[styles.statTablePlayerName, { color: theme.text }]}>
                     {player.person?.fullName || 'Unknown Player'}
                   </Text>
-                  <Text style={styles.statTablePlayerNumber}>
+                  <Text style={[styles.statTablePlayerNumber, { color: theme.textSecondary }]}>
                     #{player.jerseyNumber || '--'} {player.position?.abbreviation || ''}
                   </Text>
                 </View>
-                <Text style={styles.statTableStatCell}>{stats.atBats || 0}</Text>
-                <Text style={styles.statTableStatCell}>{stats.runs || 0}</Text>
-                <Text style={styles.statTableStatCell}>{stats.hits || 0}</Text>
-                <Text style={styles.statTableStatCell}>{stats.rbi || 0}</Text>
-                <Text style={styles.statTableStatCell}>{player.seasonStats?.batting?.avg || '.000'}</Text>
+                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{stats.atBats || 0}</Text>
+                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{stats.runs || 0}</Text>
+                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{stats.hits || 0}</Text>
+                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{stats.rbi || 0}</Text>
+                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{player.seasonStats?.batting?.avg || '.000'}</Text>
               </TouchableOpacity>
             );
           })}
@@ -1400,13 +1628,13 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         {/* Pitching Stats */}
         <View style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
           <Text style={[styles.statCategoryTitle, { color: colors.primary }]}>Pitching</Text>
-          <View style={styles.statTableHeader}>
-            <Text style={styles.statTableHeaderPlayer}>Player</Text>
-            <Text style={styles.statTableHeaderStat}>IP</Text>
-            <Text style={styles.statTableHeaderStat}>H</Text>
-            <Text style={styles.statTableHeaderStat}>R</Text>
-            <Text style={styles.statTableHeaderStat}>ER</Text>
-            <Text style={styles.statTableHeaderStat}>ERA</Text>
+          <View style={[styles.statTableHeader, { backgroundColor: theme.cardBackground || theme.surface }]}>
+            <Text style={[styles.statTableHeaderPlayer, { color: theme.text }]}>Player</Text>
+            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>IP</Text>
+            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>H</Text>
+            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>R</Text>
+            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>ER</Text>
+            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>ERA</Text>
           </View>
           {pitchers.map((pitcherId, index) => {
             const player = teamStats.players?.[`ID${pitcherId}`];
@@ -1416,22 +1644,22 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             return (
               <TouchableOpacity 
                 key={pitcherId} 
-                style={styles.statTableRow}
+                style={[styles.statTableRow, { backgroundColor: theme.surface }]}
                 onPress={() => handlePlayerPress(player, team)}
               >
                 <View style={styles.statTablePlayerCell}>
-                  <Text style={styles.statTablePlayerName}>
+                  <Text style={[styles.statTablePlayerName, { color: theme.text }]}>
                     {player.person?.fullName || 'Unknown Player'}
                   </Text>
-                  <Text style={styles.statTablePlayerNumber}>
+                  <Text style={[styles.statTablePlayerNumber, { color: theme.textSecondary }]}>
                     #{player.jerseyNumber || '--'} {player.position?.abbreviation || ''}
                   </Text>
                 </View>
-                <Text style={styles.statTableStatCell}>{stats.inningsPitched || '0.0'}</Text>
-                <Text style={styles.statTableStatCell}>{stats.hits || 0}</Text>
-                <Text style={styles.statTableStatCell}>{stats.runs || 0}</Text>
-                <Text style={styles.statTableStatCell}>{stats.earnedRuns || 0}</Text>
-                <Text style={styles.statTableStatCell}>{player.seasonStats?.pitching?.era || '0.00'}</Text>
+                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{stats.inningsPitched || '0.0'}</Text>
+                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{stats.hits || 0}</Text>
+                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{stats.runs || 0}</Text>
+                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{stats.earnedRuns || 0}</Text>
+                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{player.seasonStats?.pitching?.era || '0.00'}</Text>
               </TouchableOpacity>
             );
           })}
@@ -1782,17 +2010,20 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     
     // Show all plays, not just scoring plays - reverse to show most recent first
     const allPlays = [...playsData.allPlays].reverse();
-
+    
     return (
       <View style={styles.playsContainer}>
-        <Text style={styles.sectionTitle}>Play-by-Play</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Play-by-Play</Text>
         <ScrollView 
           ref={playsScrollViewRef}
           style={styles.playsScrollView}
-          maintainVisibleContentPosition={{
-            minIndexForVisible: 0,
-            autoscrollToTopThreshold: 10
+          onScroll={(event) => {
+            const scrollY = event.nativeEvent.contentOffset.y;
+            setPlaysScrollPosition(scrollY);
           }}
+          scrollEventThrottle={16}
+          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="handled"
         >
           {allPlays.map((play, index) => {
             // Use a more unique key that includes multiple identifiers
@@ -1800,122 +2031,6 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             return renderPlayItem(play, playKey, index);
           })}
         </ScrollView>
-      </View>
-    );
-  };
-
-  const renderPlayItem = (play, playKey, index) => {
-    const isOpen = openPlays.has(playKey);
-    const inning = play.about?.inning || 0;
-    const halfInning = play.about?.halfInning || 'top';
-    const isTopInning = halfInning.toLowerCase() === 'top';
-    const team = isTopInning ? gameData.gameData?.teams?.away : gameData.gameData?.teams?.home;
-    
-    // Check if this is a scoring play - only when runs are actually scored
-    const isScoringPlay = (play.result?.rbi && play.result.rbi > 0) || 
-                         (play.result?.description?.toLowerCase().includes('scores')) ||
-                         (play.result?.description?.toLowerCase().includes('home run')) ||
-                         (play.result?.description?.toLowerCase().includes(' run')) ||
-                         (play.result?.eventType === 'home_run') ||
-                         (play.result?.event?.toLowerCase().includes('home run')) ||
-                         (play.about?.isScoringPlay === true);
-    
-    const teamColor = MLBService.getTeamColor(team?.name || '');
-    const cardStyle = isScoringPlay ? 
-      [styles.playCard, { backgroundColor: teamColor }] : 
-      styles.playCard;
-    
-    const textColor = isScoringPlay ? '#fff' : '#333';
-
-    return (
-      <View key={playKey} style={cardStyle}>
-        <TouchableOpacity
-          style={styles.playHeader}
-          onPress={() => {
-            const newOpenPlays = new Set(openPlays);
-            if (isOpen) {
-              newOpenPlays.delete(playKey);
-            } else {
-              newOpenPlays.add(playKey);
-            }
-            setOpenPlays(newOpenPlays);
-          }}
-        >
-          <View style={styles.playInfo}>
-            <Image
-              source={{ uri: getTeamLogoUrl('mlb', team?.abbreviation) }}
-              style={styles.playTeamLogo}
-              defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
-            />
-            <View style={styles.playSummary}>
-              <Text style={[styles.playTeamName, { color: textColor }]}>{team?.abbreviation || 'TEAM'}</Text>
-              <Text style={[styles.playResult, { color: textColor }]}>{play.result?.description || `${play.matchup?.batter.fullName} vs ${play.matchup?.pitcher.fullName}`}</Text>
-            </View>
-          </View>
-          <View style={styles.playScoreSection}>
-            <Text style={[styles.playInning, { color: textColor }]}>
-              {isTopInning ? 'Top' : 'Bot'} {MLBService.getOrdinalSuffix(inning)}
-            </Text>
-            <Text style={[styles.playScore, { color: textColor }]}>
-              {play.result?.awayScore || 0}-{play.result?.homeScore || 0}
-            </Text>
-            {renderPlayBasesSmall(play)}
-          </View>
-          <Text style={[styles.toggleIcon, isOpen && styles.toggleIconOpen, { color: textColor }]}>
-            {isOpen ? '▼' : '▶'}
-          </Text>
-        </TouchableOpacity>
-
-        {isOpen && (
-          <View style={styles.playDetails}>
-            {renderPlayPitches(play)}
-          </View>
-        )}
-      </View>
-    );
-  };
-
-  const renderPlayPitches = (play) => {
-    const pitches = play.playEvents?.filter(event => event.isPitch) || [];
-
-    if (pitches.length === 0) {
-      return (
-        <View style={styles.pitchSequenceBox}>
-          <Text style={styles.pitchSequenceTitle}>At-Bat Result</Text>
-          <Text style={styles.pitchDescription}>{play.result?.description}</Text>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.pitchSequenceBox}>
-        <Text style={styles.pitchSequenceTitle}>At-Bat Pitches ({pitches.length} pitches)</Text>
-        {pitches.map((pitch, index) => (
-          <View key={index} style={styles.pitchRow}>
-            <View style={styles.pitchNumber}>
-              <Text style={styles.pitchNumberText}>{index + 1}</Text>
-            </View>
-            <View style={styles.pitchInfo}>
-              <View style={styles.pitchMainInfo}>
-                <Text style={styles.pitchTypeText}>
-                  {pitch.details?.type?.description || pitch.pitchData?.type?.description || 'Unknown'}
-                </Text>
-                {pitch.pitchData?.startSpeed && (
-                  <Text style={styles.pitchSpeedText}>
-                    {Math.round(pitch.pitchData.startSpeed)} mph
-                  </Text>
-                )}
-                <Text style={styles.pitchCountText}>
-                  ({pitch.count?.balls || 0}-{pitch.count?.strikes || 0})
-                </Text>
-              </View>
-              <Text style={styles.pitchActionText}>
-                {pitch.details?.description || 'Pitch thrown'}
-              </Text>
-            </View>
-          </View>
-        ))}
-        {renderPitchVisualization(pitches, play)}
       </View>
     );
   };
@@ -1939,29 +2054,29 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${pitcher.id}/headshot/67/current` : null;
 
     return (
-      <View style={styles.pitchVisualization}>
+      <View style={[styles.pitchVisualization, { backgroundColor: theme.background }]}>
         {/* Batter Section */}
         <View style={styles.pitchPlayerSection}>
           {batterHeadshot && (
             <View style={styles.pitchPlayerInfo}>
               <Image
                 source={{ uri: batterHeadshot }}
-                style={styles.pitchPlayerHeadshot}
+                style={[styles.pitchPlayerHeadshot, { borderColor: colors.primary }]}
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=B' }}
               />
-              <Text style={styles.pitchPlayerName}>
+              <Text style={[styles.pitchPlayerName, { color: colors.primary }]}>
                 {batter.fullName ? 
                   `${batter.fullName.split(' ')[0][0]}. ${batter.fullName.split(' ').pop()}` : 
                   'Batter'}
               </Text>
-              <Text style={styles.pitchPlayerRole}>Batter</Text>
+              <Text style={[styles.pitchPlayerRole, { color: theme.textSecondary }]}>Batter</Text>
             </View>
           )}
         </View>
 
         {/* Strike Zone Visualization */}
-        <View style={styles.strikeZoneContainer}>
-          <View style={styles.strikeZoneOutline} />
+        <View style={[styles.strikeZoneContainer, { backgroundColor: theme.surface }]}>
+          <View style={[styles.strikeZoneOutline, { borderColor: theme.border }]} />
           {pitchArray.map((pitch, index) => {
             // Try multiple coordinate sources
             let pitchData = null;
@@ -2032,18 +2147,73 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             <View style={styles.pitchPlayerInfo}>
               <Image
                 source={{ uri: pitcherHeadshot }}
-                style={styles.pitchPlayerHeadshot}
+                style={[styles.pitchPlayerHeadshot, { borderColor: colors.primary }]}
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=P' }}
               />
-              <Text style={styles.pitchPlayerName}>
+              <Text style={[styles.pitchPlayerName, { color: colors.primary }]}>
                 {pitcher.fullName ? 
                   `${pitcher.fullName.split(' ')[0][0]}. ${pitcher.fullName.split(' ').pop()}` : 
                   'Pitcher'}
               </Text>
-              <Text style={styles.pitchPlayerRole}>Pitcher</Text>
+              <Text style={[styles.pitchPlayerRole, { color: theme.textSecondary }]}>Pitcher</Text>
             </View>
           )}
         </View>
+      </View>
+    );
+  };
+
+  const renderPlayPitches = (play) => {
+    const pitches = play.playEvents?.filter(event => event.isPitch) || [];
+
+    if (pitches.length === 0) {
+      return (
+        <View style={[styles.pitchSequenceBox, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.pitchSequenceTitle, { color: colors.primary }]}>At-Bat Result</Text>
+          <Text style={[styles.pitchDescription, { color: theme.textSecondary }]}>{play.result?.description}</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={[styles.pitchSequenceBox, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.pitchSequenceTitle, { color: colors.primary }]}>At-Bat Pitches ({pitches.length} pitches)</Text>
+        {pitches.map((pitch, index) => {
+          // Determine pitch color based on call
+          let pitchColor = '#4CAF50'; // Green for balls
+          if (pitch.details?.isStrike) {
+            pitchColor = '#f44336'; // Red for strikes
+          } else if (pitch.details?.isInPlay) {
+            pitchColor = '#2196F3'; // Blue for in play
+          }
+
+          return (
+            <View key={index} style={[styles.pitchRow, { borderBottomColor: theme.border }]}>
+              <View style={[styles.pitchNumber, { backgroundColor: pitchColor }]}>
+                <Text style={[styles.pitchNumberText, { color: '#ffffff' }]}>{index + 1}</Text>
+              </View>
+              <View style={styles.pitchInfo}>
+                <View style={styles.pitchMainInfo}>
+                  <Text style={[styles.pitchTypeText, { color: pitchColor }]}>
+                    {pitch.details?.type?.description || pitch.pitchData?.type?.description || 'Unknown'}
+                  </Text>
+                  {pitch.pitchData?.startSpeed && (
+                    <Text style={[styles.pitchSpeedText, { color: theme.textSecondary }]}>
+                      {Math.round(pitch.pitchData.startSpeed)} mph
+                    </Text>
+                  )}
+                  <Text style={[styles.pitchCountText, { color: theme.textSecondary }]}>
+                    ({pitch.count?.balls || 0}-{pitch.count?.strikes || 0})
+                  </Text>
+                </View>
+                <Text style={[styles.pitchActionText, { color: theme.textSecondary }]}>
+                  {pitch.details?.description || 'Pitch thrown'}
+                </Text>
+              </View>
+            </View>
+          );
+        })}
+        {renderPitchVisualization(pitches, play)}
       </View>
     );
   };
@@ -2062,6 +2232,89 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           <View style={[styles.playBaseSmall, styles.thirdBaseSmall, hasThird && [styles.occupiedBaseSmall, { backgroundColor: colors.primary }]]} />
           <View style={[styles.playBaseSmall, styles.firstBaseSmall, hasFirst && [styles.occupiedBaseSmall, { backgroundColor: colors.primary }]]} />
         </View>
+      </View>
+    );
+  };
+
+  const renderPlayItem = (play, playKey, index) => {
+    const isOpen = openPlays.has(playKey);
+    const inning = play.about?.inning || 0;
+    const halfInning = play.about?.halfInning || 'top';
+    const isTopInning = halfInning.toLowerCase() === 'top';
+    const team = isTopInning ? gameData.gameData?.teams?.away : gameData.gameData?.teams?.home;
+    
+    // Check if this is a scoring play - only when runs are actually scored
+    const isScoringPlay = (play.about?.isScoringPlay === true) && (play.about?.hasReview === false);
+    
+    // Enhanced team color selection for scoring plays
+    const getScoringPlayColor = (teamName) => {
+      if (!teamName) return colors.primary;
+      
+      const originalColor = MLBService.getTeamColor(teamName);
+      
+      // Define enhanced colors for scoring plays that provide better contrast and visibility
+      const scoringPlayColors = {
+        // Teams with black/dark colors that don't work well as backgrounds
+        'San Francisco Giants': '#27251F',
+        'Athletics': '#003831',
+        'Pittsburgh Pirates': '#27251F',
+        'New York Mets': '#002D72',
+      };
+      
+      return scoringPlayColors[teamName] || originalColor;
+    };
+    
+    const teamColor = getScoringPlayColor(team?.name || '');
+    const cardStyle = isScoringPlay ? 
+      [styles.playCard, { backgroundColor: teamColor, shadowColor: isDarkMode ? '#ffffff' : '#000000' }] : 
+      [styles.playCard, { backgroundColor: theme.surface, shadowColor: isDarkMode ? '#ffffff' : '#000000' }];
+    
+    const textColor = isScoringPlay ? '#fff' : theme.text;
+
+    return (
+      <View key={playKey} style={cardStyle}>
+        <TouchableOpacity
+          style={[styles.playHeader, { borderBottomColor: theme.border }]}
+          onPress={() => {
+            const newOpenPlays = new Set(openPlays);
+            if (isOpen) {
+              newOpenPlays.delete(playKey);
+            } else {
+              newOpenPlays.add(playKey);
+            }
+            setOpenPlays(newOpenPlays);
+          }}
+        >
+          <View style={styles.playInfo}>
+            <Image
+              source={{ uri: getTeamLogoUrl('mlb', team?.abbreviation) }}
+              style={styles.playTeamLogo}
+              defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
+            />
+            <View style={styles.playSummary}>
+              <Text style={[styles.playTeamName, { color: textColor }]}>{team?.abbreviation || 'TEAM'}</Text>
+              <Text style={[styles.playResult, { color: textColor }]}>{play.result?.description || `${play.matchup?.batter.fullName} vs ${play.matchup?.pitcher.fullName}`}</Text>
+            </View>
+          </View>
+          <View style={styles.playScoreSection}>
+            <Text style={[styles.playInning, { color: textColor }]}>
+              {isTopInning ? 'Top' : 'Bot'} {MLBService.getOrdinalSuffix(inning)}
+            </Text>
+            <Text style={[styles.playScore, { color: textColor }]}>
+              {play.result?.awayScore || 0}-{play.result?.homeScore || 0}
+            </Text>
+            {renderPlayBasesSmall(play)}
+          </View>
+          <Text style={[styles.toggleIcon, isOpen && styles.toggleIconOpen, { color: textColor }]}>
+            {isOpen ? '▼' : '▶'}
+          </Text>
+        </TouchableOpacity>
+
+        {isOpen && (
+          <View style={[styles.playDetails, { backgroundColor: theme.background }]}>
+            {renderPlayPitches(play)}
+          </View>
+        )}
       </View>
     );
   };
@@ -2104,18 +2357,18 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                        homeTeam.probablePitcher;
 
     return (
-      <View style={[styles.section, { backgroundColor: theme.surface }]}>
+      <View style={[styles.section, { backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Probable Pitchers</Text>
         <View style={styles.probablePitchersContainer}>
           {/* Away Pitcher */}
-          <View style={styles.pitcherCard}>
+          <View style={[styles.pitcherCard, { backgroundColor: theme.surfaceSecondary }]}>
             <View style={styles.pitcherHeader}>
               <Image
-                source={{ uri: MLBService.getLogoUrl(awayTeam?.name || '', awayTeam?.abbreviation) }}
+                source={{ uri: getTeamLogoUrl('mlb', awayTeam?.abbreviation) }}
                 style={styles.pitcherTeamLogo}
                 defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
               />
-              <Text style={styles.pitcherTeamName}>{awayTeam?.teamName || awayTeam?.name}</Text>
+              <Text style={[styles.pitcherTeamName, { color: theme.text }]}>{awayTeam?.teamName || awayTeam?.name}</Text>
             </View>
             {awayPitcher ? (
               <View style={styles.pitcherInfo}>
@@ -2124,24 +2377,24 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   style={styles.pitcherHeadshot}
                   defaultSource={{ uri: 'https://via.placeholder.com/60x60?text=P' }}
                 />
-                <Text style={styles.pitcherName}>{awayPitcher.fullName}</Text>
+                <Text style={[styles.pitcherName, { color: theme.text }]}>{awayPitcher.fullName}</Text>
                 {probablePitcherStats.away?.pitching ? (
                   <View style={styles.pitcherStatsContainer}>
-                    <Text style={styles.pitcherStats}>
+                    <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>
                       {probablePitcherStats.away.pitching.wins || 0}-{probablePitcherStats.away.pitching.losses || 0}
                     </Text>
-                    <Text style={styles.pitcherStats}>
+                    <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>
                       {probablePitcherStats.away.pitching.era || '0.00'} ERA
                     </Text>
-                    <Text style={styles.pitcherStats}>
+                    <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>
                       {probablePitcherStats.away.pitching.whip || '0.00'} WHIP
                     </Text>
-                    <Text style={styles.pitcherStats}>
+                    <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>
                       {probablePitcherStats.away.pitching.strikeOuts || 0} K
                     </Text>
                   </View>
                 ) : (
-                  <Text style={styles.pitcherStats}>Loading stats...</Text>
+                  <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>Loading stats...</Text>
                 )}
               </View>
             ) : (
@@ -2150,14 +2403,14 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           </View>
 
           {/* Home Pitcher */}
-          <View style={styles.pitcherCard}>
+          <View style={[styles.pitcherCard, { backgroundColor: theme.surfaceSecondary }]}>
             <View style={styles.pitcherHeader}>
               <Image
-                source={{ uri: MLBService.getLogoUrl(homeTeam?.name || '', homeTeam?.abbreviation) }}
+                source={{ uri: getTeamLogoUrl('mlb', homeTeam?.abbreviation) }}
                 style={styles.pitcherTeamLogo}
                 defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
               />
-              <Text style={styles.pitcherTeamName}>{homeTeam?.teamName || homeTeam?.name}</Text>
+              <Text style={[styles.pitcherTeamName, { color: theme.text }]}>{homeTeam?.teamName || homeTeam?.name}</Text>
             </View>
             {homePitcher ? (
               <View style={styles.pitcherInfo}>
@@ -2166,24 +2419,24 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   style={styles.pitcherHeadshot}
                   defaultSource={{ uri: 'https://via.placeholder.com/60x60?text=P' }}
                 />
-                <Text style={styles.pitcherName}>{homePitcher.fullName}</Text>
+                <Text style={[styles.pitcherName, { color: theme.text }]}>{homePitcher.fullName}</Text>
                 {probablePitcherStats.home?.pitching ? (
                   <View style={styles.pitcherStatsContainer}>
-                    <Text style={styles.pitcherStats}>
+                    <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>
                       {probablePitcherStats.home.pitching.wins || 0}-{probablePitcherStats.home.pitching.losses || 0}
                     </Text>
-                    <Text style={styles.pitcherStats}>
+                    <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>
                       {probablePitcherStats.home.pitching.era || '0.00'} ERA
                     </Text>
-                    <Text style={styles.pitcherStats}>
+                    <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>
                       {probablePitcherStats.home.pitching.whip || '0.00'} WHIP
                     </Text>
-                    <Text style={styles.pitcherStats}>
+                    <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>
                       {probablePitcherStats.home.pitching.strikeOuts || 0} K
                     </Text>
                   </View>
                 ) : (
-                  <Text style={styles.pitcherStats}>Loading stats...</Text>
+                  <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>Loading stats...</Text>
                 )}
               </View>
             ) : (
@@ -2202,7 +2455,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     const homeTeam = gameData.gameData.teams.home;
 
     return (
-      <View style={[styles.section, { backgroundColor: theme.surface }]}>
+      <View style={[styles.section, { backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Top Hitters</Text>
         <View style={styles.topHittersContainer}>
           {/* Away Team */}
@@ -2213,44 +2466,44 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 style={styles.topHittersTeamLogo}
                 defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
               />
-              <Text style={styles.topHittersTeamName}>{awayTeam?.teamName || awayTeam?.name}</Text>
+              <Text style={[styles.topHittersTeamName, { color: theme.text }]}>{awayTeam?.teamName || awayTeam?.name}</Text>
             </View>
             {topHitters.away && topHitters.away.length > 0 ? (
               topHitters.away.slice(0, 3).map((hitter, index) => (
-                <View key={hitter.player?.id || index} style={styles.topHitterRow}>
+                <View key={hitter.player?.id || index} style={[styles.topHitterRow, { backgroundColor: theme.surfaceSecondary }]}>
                   <View style={styles.topHitterLeft}>
-                    <Text style={styles.topHitterPosition}>{hitter.position?.abbreviation || 'N/A'}</Text>
+                    <Text style={[styles.topHitterPosition, { color: theme.textTertiary }]}>{hitter.position?.abbreviation || 'N/A'}</Text>
                     <Image
                       source={{ uri: MLBService.getHeadshotUrl(hitter.player?.id) }}
                       style={styles.topHitterHeadshot}
                       defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=P' }}
                     />
                     <View style={styles.topHitterInfo}>
-                      <Text style={styles.topHitterName}>{hitter.player?.fullName}</Text>
+                      <Text style={[styles.topHitterName, { color: theme.text }]}>{hitter.player?.fullName}</Text>
                       <View style={styles.topHitterStatsRow}>
                         <View style={styles.topHitterStatItem}>
-                          <Text style={styles.topHitterStatValue}>
+                          <Text style={[styles.topHitterStatValue, { color: colors.primary }]}>
                             {hitter.stat?.avg || '.000'}
                           </Text>
-                          <Text style={styles.topHitterStatLabel}>AVG</Text>
+                          <Text style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>AVG</Text>
                         </View>
                         <View style={styles.topHitterStatItem}>
-                          <Text style={styles.topHitterStatValue}>
+                          <Text style={[styles.topHitterStatValue, { color: colors.primary }]}>
                             {hitter.stat?.ops || '.000'}
                           </Text>
-                          <Text style={styles.topHitterStatLabel}>OPS</Text>
+                          <Text style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>OPS</Text>
                         </View>
                         <View style={styles.topHitterStatItem}>
-                          <Text style={styles.topHitterStatValue}>
+                          <Text style={[styles.topHitterStatValue, { color: colors.primary }]}>
                             {hitter.stat?.homeRuns || 0}
                           </Text>
-                          <Text style={styles.topHitterStatLabel}>HR</Text>
+                          <Text style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>HR</Text>
                         </View>
                         <View style={styles.topHitterStatItem}>
-                          <Text style={styles.topHitterStatValue}>
+                          <Text style={[styles.topHitterStatValue, { color: colors.primary }]}>
                             {hitter.stat?.rbi || 0}
                           </Text>
-                          <Text style={styles.topHitterStatLabel}>RBI</Text>
+                          <Text style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>RBI</Text>
                         </View>
                       </View>
                     </View>
@@ -2258,7 +2511,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 </View>
               ))
             ) : (
-              <Text style={styles.loadingHitters}>Loading...</Text>
+              <Text style={[styles.loadingHitters, { color: theme.textTertiary }]}>Loading...</Text>
             )}
           </View>
 
@@ -2270,44 +2523,44 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 style={styles.topHittersTeamLogo}
                 defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
               />
-              <Text style={styles.topHittersTeamName}>{homeTeam?.teamName || homeTeam?.name}</Text>
+              <Text style={[styles.topHittersTeamName, { color: theme.text }]}>{homeTeam?.teamName || homeTeam?.name}</Text>
             </View>
             {topHitters.home && topHitters.home.length > 0 ? (
               topHitters.home.slice(0, 3).map((hitter, index) => (
-                <View key={hitter.player?.id || index} style={styles.topHitterRow}>
+                <View key={hitter.player?.id || index} style={[styles.topHitterRow, { backgroundColor: theme.surfaceSecondary  }]}>
                   <View style={styles.topHitterLeft}>
-                    <Text style={styles.topHitterPosition}>{hitter.position?.abbreviation || 'N/A'}</Text>
+                    <Text style={[styles.topHitterPosition, { color: theme.textTertiary }]}>{hitter.position?.abbreviation || 'N/A'}</Text>
                     <Image
                       source={{ uri: MLBService.getHeadshotUrl(hitter.player?.id) }}
                       style={styles.topHitterHeadshot}
                       defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=P' }}
                     />
                     <View style={styles.topHitterInfo}>
-                      <Text style={styles.topHitterName}>{hitter.player?.fullName}</Text>
+                      <Text style={[styles.topHitterName, { color: theme.text }]}>{hitter.player?.fullName}</Text>
                       <View style={styles.topHitterStatsRow}>
                         <View style={styles.topHitterStatItem}>
-                          <Text style={styles.topHitterStatValue}>
+                          <Text style={[styles.topHitterStatValue, { color: colors.primary }]}>
                             {hitter.stat?.avg || '.000'}
                           </Text>
-                          <Text style={styles.topHitterStatLabel}>AVG</Text>
+                          <Text style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>AVG</Text>
                         </View>
                         <View style={styles.topHitterStatItem}>
-                          <Text style={styles.topHitterStatValue}>
+                          <Text style={[styles.topHitterStatValue, { color: colors.primary }]}>
                             {hitter.stat?.ops || '.000'}
                           </Text>
-                          <Text style={styles.topHitterStatLabel}>OPS</Text>
+                          <Text style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>OPS</Text>
                         </View>
                         <View style={styles.topHitterStatItem}>
-                          <Text style={styles.topHitterStatValue}>
+                          <Text style={[styles.topHitterStatValue, { color: colors.primary }]}>
                             {hitter.stat?.homeRuns || 0}
                           </Text>
-                          <Text style={styles.topHitterStatLabel}>HR</Text>
+                          <Text style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>HR</Text>
                         </View>
                         <View style={styles.topHitterStatItem}>
-                          <Text style={styles.topHitterStatValue}>
+                          <Text style={[styles.topHitterStatValue, { color: colors.primary }]}>
                             {hitter.stat?.rbi || 0}
                           </Text>
-                          <Text style={styles.topHitterStatLabel}>RBI</Text>
+                          <Text style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>RBI</Text>
                         </View>
                       </View>
                     </View>
@@ -2334,9 +2587,9 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     if (!awayStats || !homeStats) {
       return (
         <View style={styles.teamStatsContainer}>
-          <Text style={styles.sectionTitle}>Season Statistics</Text>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Season Statistics</Text>
           <View style={styles.seasonStatsContainer}>
-            <Text style={styles.placeholderText}>Loading season statistics...</Text>
+            <Text style={[styles.placeholderText, { color: theme.textTertiary }]}>Loading season statistics...</Text>
           </View>
         </View>
       );
@@ -2356,7 +2609,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       return (
         <View key={label} style={{ marginBottom: 28 }}>
           <View style={styles.statsRow}>
-            <Text style={styles.statsValue}>{awayValue}</Text>
+            <Text style={[styles.statsValue, { color: theme.text }]}>{awayValue}</Text>
             <View style={styles.statsBarContainer}>
               <View style={[styles.statsBar, { 
                 flexDirection: 'row', 
@@ -2394,36 +2647,36 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 />
               </View>
             </View>
-            <Text style={styles.statsValue}>{homeValue}</Text>
+            <Text style={[styles.statsValue, { color: theme.text }]}>{homeValue}</Text>
           </View>
           <View style={{ alignItems: 'center', marginTop: -25 }}>
-            <Text style={styles.statsLabel}>{label}</Text>
+            <Text style={[styles.statsLabel, { color: theme.textSecondary }]}>{label}</Text>
           </View>
         </View>
       );
     };
 
     return (
-      <View style={styles.teamStatsContainer}>
-        <Text style={styles.sectionTitle}>Season Statistics</Text>
+      <View style={[styles.teamStatsContainer, { backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Season Statistics</Text>
 
         {/* Team Headers */}
         <View style={styles.statsTeams}>
           <View style={styles.statsTeam}>
             <Image
-              source={{ uri: MLBService.getLogoUrl(awayTeam?.name || '', awayTeam?.abbreviation) }}
+              source={{ uri: getTeamLogoUrl('mlb', awayTeam?.abbreviation) }}
               style={styles.statsTeamLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=MLB' }}
             />
-            <Text style={styles.statsTeamName}>{awayTeam?.name || 'Away Team'}</Text>
+            <Text style={[styles.statsTeamName, { color: theme.text }]}>{awayTeam?.name || 'Away Team'}</Text>
           </View>
           <View style={styles.statsTeam}>
             <Image
-              source={{ uri: MLBService.getLogoUrl(homeTeam?.name || '', homeTeam?.abbreviation) }}
+              source={{ uri: getTeamLogoUrl('mlb', homeTeam?.abbreviation) }}
               style={styles.statsTeamLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=MLB' }}
             />
-            <Text style={styles.statsTeamName}>{homeTeam?.name || 'Home Team'}</Text>
+            <Text style={[styles.statsTeamName, { color: theme.text }]}>{homeTeam?.name || 'Home Team'}</Text>
           </View>
         </View>
 
@@ -2451,9 +2704,9 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
     if (loadingRoster || !roster) {
       return (
-        <View style={styles.rosterContainer}>
-          <ActivityIndicator size="large" color="#002D72" />
-          <Text style={styles.placeholderText}>Loading roster...</Text>
+        <View style={[styles.rosterContainer, { backgroundColor: theme.surface }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.placeholderText, { color: theme.textTertiary }]}>Loading roster...</Text>
         </View>
       );
     }
@@ -2465,51 +2718,73 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     const outfielders = roster.filter(player => ['LF', 'CF', 'RF', 'OF'].includes(player.position?.abbreviation));
     const others = roster.filter(player => !['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'OF'].includes(player.position?.abbreviation));
 
-    const renderPlayerSection = (title, players) => {
+    const renderPlayerSection = (title, players, sectionKey) => {
       if (players.length === 0) return null;
+
+      const isCollapsed = collapsedRosterSections[sectionKey];
+
+      const toggleSection = () => {
+        setCollapsedRosterSections(prev => ({
+          ...prev,
+          [sectionKey]: !prev[sectionKey]
+        }));
+      };
 
       return (
         <View style={styles.rosterSection}>
-          <Text style={styles.rosterSectionTitle}>{title}</Text>
-          <View style={styles.rosterTableContainer}>
-            <View style={styles.rosterTableHeader}>
-              <Text style={styles.rosterTableHeaderPlayer}>Player</Text>
-              <Text style={styles.rosterTableHeaderStatus}>Status</Text>
-            </View>
-            {players.map((player) => (
-              <View key={player.person.id} style={styles.rosterTableRow}>
-                <View style={styles.rosterTablePlayerCell}>
-                  <Text style={styles.rosterTablePlayerName}>
-                    {player.person.fullName}
-                  </Text>
-                  <Text style={styles.rosterTablePlayerDetails}>
-                    <Text style={styles.rosterTablePlayerNumber}>#{player.jerseyNumber || '--'}</Text>
-                    {' • '}
-                    {player.position?.abbreviation || 'N/A'}
-                  </Text>
-                </View>
-                <View style={styles.rosterTableStatusCell}>
-                  <Text style={[
-                    styles.rosterTableStatusText,
-                    player.status?.code === 'A' ? styles.activeStatus : styles.inactiveStatus
-                  ]}>
-                    {player.status?.code === 'A' ? 'Active' : player.status?.description || 'Inactive'}
-                  </Text>
-                </View>
+          <TouchableOpacity 
+            style={styles.rosterSectionHeader}
+            onPress={toggleSection}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.rosterSectionTitle, { color: theme.text }]}>
+              {title} ({players.length})
+            </Text>
+            <Text style={[styles.rosterSectionArrow, { color: theme.text }]}>
+              {isCollapsed ? '▶' : '▼'}
+            </Text>
+          </TouchableOpacity>
+          {!isCollapsed && (
+            <View style={styles.rosterTableContainer}>
+              <View style={[styles.rosterTableHeader, { backgroundColor: theme.surface }]}>
+                <Text style={[styles.rosterTableHeaderPlayer, { color: theme.text }]}>Player</Text>
+                <Text style={[styles.rosterTableHeaderStatus, { color: theme.text }]}>Status</Text>
               </View>
-            ))}
-          </View>
+              {players.map((player) => (
+                <View key={player.person.id} style={[styles.rosterTableRow , { borderBottomColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
+                  <View style={styles.rosterTablePlayerCell}>
+                    <Text style={[styles.rosterTablePlayerName, { color: theme.text }]}>
+                      {player.person.fullName}
+                    </Text>
+                    <Text style={[styles.rosterTablePlayerDetails, { color: theme.textTertiary }]}>
+                      <Text style={[styles.rosterTablePlayerNumber, { color: theme.textTertiary }]}>#{player.jerseyNumber || '--'}</Text>
+                      {' • '}
+                      {player.position?.abbreviation || 'N/A'}
+                    </Text>
+                  </View>
+                  <View style={styles.rosterTableStatusCell}>
+                    <Text style={[
+                      styles.rosterTableStatusText,
+                      player.status?.code === 'A' ? styles.activeStatus : styles.inactiveStatus
+                    ]}>
+                      {player.status?.code === 'A' ? 'Active' : player.status?.description || 'Inactive'}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       );
     };
 
     return (
-      <ScrollView style={styles.rosterContainer}>
-        {renderPlayerSection('Pitchers', pitchers)}
-        {renderPlayerSection('Catchers', catchers)}
-        {renderPlayerSection('Infielders', infielders)}
-        {renderPlayerSection('Outfielders', outfielders)}
-        {others.length > 0 && renderPlayerSection('Others', others)}
+      <ScrollView style={[styles.rosterContainer, { backgroundColor: theme.surfaceSecondary }]}>
+        {renderPlayerSection('Pitchers', pitchers, `${teamType}Pitchers`)}
+        {renderPlayerSection('Catchers', catchers, `${teamType}Catchers`)}
+        {renderPlayerSection('Infielders', infielders, `${teamType}Infielders`)}
+        {renderPlayerSection('Outfielders', outfielders, `${teamType}Outfielders`)}
+        {others.length > 0 && renderPlayerSection('Others', others, `${teamType}Others`)}
       </ScrollView>
     );
   };
@@ -2538,11 +2813,13 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
     // Format game date properly
     const formatGameDate = (dateStr) => {
-      const date = new Date(dateStr);
-      const day = date.getDate();
-      const month = date.toLocaleDateString('en-US', { month: 'short' });
-      const year = date.getFullYear();
-      return `${day} ${month} ${year}`;
+      // Parse date in a timezone-neutral way to avoid day shifting
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const date = new Date(year, month - 1, day); // month is 0-indexed
+      const dayNum = date.getDate();
+      const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+      const yearNum = date.getFullYear();
+      return `${dayNum} ${monthName} ${yearNum}`;
     };
 
     const gameDate = gameData?.gameData?.datetime?.originalDate 
@@ -2553,8 +2830,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       <View>
         {/* Game Info */}
         <View style={styles.gameStatsHeader}>
-          <Text style={styles.gameStatsTitle}>Game Statistics</Text>
-          <Text style={styles.gameStatsDate}>{gameDate}</Text>
+          <Text style={[styles.gameStatsTitle, { color: colors.primary }]}>Game Statistics</Text>
+          <Text style={[styles.gameStatsDate, { color: theme.textSecondary }]}>{gameDate}</Text>
         </View>
 
         {/* Batting Stats */}
@@ -2564,49 +2841,49 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             
             {/* First row: 3 stats */}
             <View style={styles.statGridRow}>
-              <View style={styles.statBox}>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
                 <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.hits || 0}/{battingStats.atBats || 0}</Text>
-                <Text style={styles.statBoxLabel}>H/AB</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>H/AB</Text>
               </View>
-              <View style={styles.statBox}>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
                 <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.runs || 0}</Text>
-                <Text style={styles.statBoxLabel}>R</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>R</Text>
               </View>
-              <View style={styles.statBox}>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
                 <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.rbi || 0}</Text>
-                <Text style={styles.statBoxLabel}>RBI</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>RBI</Text>
               </View>
             </View>
             
             {/* Second row: 3 stats */}
             <View style={styles.statGridRow}>
-              <View style={styles.statBox}>
-                <Text style={styles.statBoxValue}>{battingStats.homeRuns || 0}</Text>
-                <Text style={styles.statBoxLabel}>HR</Text>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.homeRuns || 0}</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>HR</Text>
               </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statBoxValue}>{battingStats.baseOnBalls || 0}</Text>
-                <Text style={styles.statBoxLabel}>BB</Text>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.baseOnBalls || 0}</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>BB</Text>
               </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statBoxValue}>{battingStats.strikeOuts || 0}</Text>
-                <Text style={styles.statBoxLabel}>SO</Text>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.strikeOuts || 0}</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>SO</Text>
               </View>
             </View>
             
             {/* Third row: 3 stats */}
             <View style={styles.statGridRow}>
-              <View style={styles.statBox}>
-                <Text style={styles.statBoxValue}>{(battingStats.singles || 0) + (battingStats.doubles || 0) + (battingStats.triples || 0) + (battingStats.homeRuns || 0)}</Text>
-                <Text style={styles.statBoxLabel}>TB</Text>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{(battingStats.totalBases || 0)}</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>TB</Text>
               </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statBoxValue}>{battingStats.stolenBases || 0}</Text>
-                <Text style={styles.statBoxLabel}>SB</Text>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.stolenBases || 0}</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>SB</Text>
               </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statBoxValue}>{battingStats.leftOnBase || 0}</Text>
-                <Text style={styles.statBoxLabel}>LOB</Text>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.leftOnBase || 0}</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>LOB</Text>
               </View>
             </View>
           </View>
@@ -2619,49 +2896,49 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             
             {/* First row: 3 stats */}
             <View style={styles.statGridRow}>
-              <View style={styles.statBox}>
-                <Text style={styles.statBoxValue}>{pitchingStats.inningsPitched || '0.0'}</Text>
-                <Text style={styles.statBoxLabel}>IP</Text>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.inningsPitched || '0.0'}</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>IP</Text>
               </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statBoxValue}>{pitchingStats.hits || 0}</Text>
-                <Text style={styles.statBoxLabel}>H</Text>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.hits || 0}</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>H</Text>
               </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statBoxValue}>{pitchingStats.runs || 0}</Text>
-                <Text style={styles.statBoxLabel}>R</Text>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.runs || 0}</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>R</Text>
               </View>
             </View>
             
             {/* Second row: 3 stats */}
             <View style={styles.statGridRow}>
-              <View style={styles.statBox}>
-                <Text style={styles.statBoxValue}>{pitchingStats.earnedRuns || 0}</Text>
-                <Text style={styles.statBoxLabel}>ER</Text>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.earnedRuns || 0}</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>ER</Text>
               </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statBoxValue}>{pitchingStats.baseOnBalls || 0}</Text>
-                <Text style={styles.statBoxLabel}>BB</Text>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.baseOnBalls || 0}</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>BB</Text>
               </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statBoxValue}>{pitchingStats.strikeOuts || 0}</Text>
-                <Text style={styles.statBoxLabel}>K</Text>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.strikeOuts || 0}</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>K</Text>
               </View>
             </View>
             
             {/* Third row: 3 stats (P and ST separated) */}
             <View style={styles.statGridRow}>
-              <View style={styles.statBox}>
-                <Text style={styles.statBoxValue}>{pitchingStats.numberOfPitches || 0}</Text>
-                <Text style={styles.statBoxLabel}>P</Text>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.numberOfPitches || 0}</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>P</Text>
               </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statBoxValue}>{pitchingStats.strikes || 0}</Text>
-                <Text style={styles.statBoxLabel}>ST</Text>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.strikes || 0}</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>ST</Text>
               </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statBoxValue}>{pitchingStats.strikePercentage || '0.00'}</Text>
-                <Text style={styles.statBoxLabel}>K%</Text>
+              <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
+                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.strikePercentage || '0.00'}</Text>
+                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>K%</Text>
               </View>
             </View>
           </View>
@@ -2670,7 +2947,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         {/* No Stats Message */}
         {Object.keys(battingStats).length === 0 && Object.keys(pitchingStats).length === 0 && (
           <View style={styles.noStatsContainer}>
-            <Text style={styles.noStatsText}>No statistics available for this game</Text>
+            <Text style={[styles.noStatsText, { color: theme.textSecondary }]}>No statistics available for this game</Text>
           </View>
         )}
       </View>
@@ -2706,9 +2983,38 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
-        {renderGameHeader()}
-        {renderTabNavigation()}
-        {renderTabContent()}
+        <MemoizedGameHeader 
+          gameData={gameData}
+          theme={theme}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          getTeamLogoUrl={getTeamLogoUrl}
+          renderGameHeader={renderGameHeader}
+        />
+        <MemoizedTabNavigation 
+          gameData={gameData}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          theme={theme}
+          colors={colors}
+          renderTabNavigation={renderTabNavigation}
+        />
+        <MemoizedTabContent 
+          activeTab={activeTab}
+          gameData={gameData}
+          playsData={playsData}
+          theme={theme}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          probablePitcherStats={probablePitcherStats}
+          topHitters={topHitters}
+          seasonStats={seasonStats}
+          awayRoster={awayRoster}
+          homeRoster={homeRoster}
+          openPlays={openPlays}
+          collapsedRosterSections={collapsedRosterSections}
+          renderTabContent={renderTabContent}
+        />
       </ScrollView>
       {renderStickyHeader()}
       
@@ -2746,7 +3052,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                     </Text>
                     <View style={styles.playerTeamInfo}>
                       <Image 
-                        source={{ uri: MLBService.getLogoUrl(selectedPlayer.team?.name || '', selectedPlayer.team?.abbreviation) }}
+                        source={{ uri: getTeamLogoUrl('mlb', selectedPlayer.team?.abbreviation) }}
                         style={styles.playerTeamLogo}
                         defaultSource={{ uri: 'https://via.placeholder.com/20x20?text=MLB' }}
                       />
@@ -4683,11 +4989,23 @@ const styles = StyleSheet.create({
   rosterSection: {
     marginBottom: 20,
   },
+  rosterSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
   rosterSectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#002D72',
-    marginBottom: 10,
+    flex: 1,
+  },
+  rosterSectionArrow: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
   rosterTableContainer: {
     backgroundColor: 'white',
@@ -4885,6 +5203,143 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
+  // Game status and time styles
+  scoreDisplay: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  gameTime: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  // Sticky header styles
+  stickyHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+    zIndex: 1000,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  stickyTeamAway: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  stickyTeamHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  stickyTeamLogo: {
+    width: 28,
+    height: 28,
+    marginHorizontal: 8,
+  },
+  stickyTeamScore: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    minWidth: 30,
+    textAlign: 'center',
+  },
+  stickyStatus: {
+    flex: 2,
+    alignItems: 'center',
+  },
+  stickyStatusText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  stickyScoreDisplay: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  stickyGameTime: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  stickyClock: {
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+});
+
+// Memoized components to prevent unnecessary re-renders
+const MemoizedGameHeader = React.memo(({ gameData, theme, colors, isDarkMode, getTeamLogoUrl, renderGameHeader }) => {
+  return renderGameHeader();
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.gameData?.liveData?.linescore === nextProps.gameData?.liveData?.linescore &&
+    prevProps.gameData?.gameData?.teams === nextProps.gameData?.gameData?.teams &&
+    prevProps.gameData?.gameData?.status === nextProps.gameData?.gameData?.status &&
+    prevProps.theme === nextProps.theme &&
+    prevProps.isDarkMode === nextProps.isDarkMode
+  );
+});
+
+const MemoizedTabNavigation = React.memo(({ gameData, activeTab, setActiveTab, theme, colors, renderTabNavigation }) => {
+  return renderTabNavigation();
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.gameData?.gameData?.status === nextProps.gameData?.gameData?.status &&
+    prevProps.activeTab === nextProps.activeTab &&
+    prevProps.theme === nextProps.theme
+  );
+});
+
+const MemoizedTabContent = React.memo(({ activeTab, gameData, playsData, theme, colors, isDarkMode, probablePitcherStats, topHitters, seasonStats, awayRoster, homeRoster, openPlays, collapsedRosterSections, renderTabContent }) => {
+  return renderTabContent();
+}, (prevProps, nextProps) => {
+  // Only re-render if the active tab changes or relevant data for that tab changes
+  if (prevProps.activeTab !== nextProps.activeTab) return false;
+  
+  if (prevProps.activeTab === 'plays') {
+    // For plays tab, check playsData and openPlays state
+    return (
+      prevProps.playsData === nextProps.playsData &&
+      prevProps.openPlays.size === nextProps.openPlays.size &&
+      Array.from(prevProps.openPlays).join(',') === Array.from(nextProps.openPlays).join(',')
+    );
+  } else if (prevProps.activeTab === 'stats') {
+    // For stats tab, check all the stats-related state variables
+    return (
+      prevProps.gameData?.liveData?.boxscore === nextProps.gameData?.liveData?.boxscore &&
+      prevProps.probablePitcherStats === nextProps.probablePitcherStats &&
+      prevProps.topHitters === nextProps.topHitters &&
+      prevProps.seasonStats === nextProps.seasonStats &&
+      prevProps.theme === nextProps.theme &&
+      prevProps.isDarkMode === nextProps.isDarkMode
+    );
+  } else {
+    // For away/home tabs, check roster data, boxscore, and collapsed sections
+    return (
+      prevProps.gameData?.liveData?.boxscore === nextProps.gameData?.liveData?.boxscore &&
+      prevProps.awayRoster === nextProps.awayRoster &&
+      prevProps.homeRoster === nextProps.homeRoster &&
+      JSON.stringify(prevProps.collapsedRosterSections) === JSON.stringify(nextProps.collapsedRosterSections) &&
+      prevProps.theme === nextProps.theme &&
+      prevProps.isDarkMode === nextProps.isDarkMode
+    );
+  }
 });
 
 export default MLBGameDetailsScreen;

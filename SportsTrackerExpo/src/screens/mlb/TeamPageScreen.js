@@ -4,7 +4,7 @@ import { useTheme } from '../../context/ThemeContext';
 
 const TeamPageScreen = ({ route, navigation }) => {
   const { teamId, sport } = route.params;
-  const { theme, colors, getTeamLogoUrl: getThemeTeamLogoUrl } = useTheme();
+  const { theme, colors, isDarkMode, getTeamLogoUrl: getThemeTeamLogoUrl } = useTheme();
   const [activeTab, setActiveTab] = useState('Games');
   const [teamData, setTeamData] = useState(null);
   const [teamRecord, setTeamRecord] = useState(null);
@@ -99,38 +99,101 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   const fetchCurrentGame = async () => {
     try {
-      // Get today's date adjusted for MLB timezone (similar to web version)
+      // Get today's date adjusted for MLB timezone (matches live.js logic)
       const getAdjustedDateForMLB = () => {
         const now = new Date();
-        const utc = new Date(now.getTime() + (now.getTimezoneOffset() * 60000));
-        const easternTime = new Date(utc.getTime() + (-5 * 3600000)); // EST offset
-        return easternTime.toISOString().split('T')[0];
+        
+        // Calculate Eastern Time offset (EST is UTC-5, EDT is UTC-4)
+        // This approach is more reliable than toLocaleString in React Native
+        const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+        const isDST = new Date().getTimezoneOffset() < new Date(new Date().getFullYear(), 0, 1).getTimezoneOffset();
+        const easternOffset = isDST ? -4 : -5; // EDT or EST
+        const easternTime = new Date(utcTime + (easternOffset * 3600000));
+        
+        // MLB considers games before 2 AM as part of the previous day
+        if (easternTime.getHours() < 2) {
+          easternTime.setDate(easternTime.getDate() - 1);
+        }
+
+        const adjustedDate = easternTime.getFullYear() + "-" +
+                           String(easternTime.getMonth() + 1).padStart(2, "0") + "-" +
+                           String(easternTime.getDate()).padStart(2, "0");
+
+        return adjustedDate;
       };
 
       const today = getAdjustedDateForMLB();
+      console.log('MLB adjusted date:', today);
+      
       const todayResponse = await fetch(
         `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId=${teamId}&startDate=${today}&endDate=${today}&hydrate=team,linescore,decisions`
       );
       const todayData = await todayResponse.json();
 
-      // Check if there's a game today
+      // Check if there's a game today - prioritize live games
       if (todayData.dates && todayData.dates.length > 0 && todayData.dates[0].games.length > 0) {
-        const game = todayData.dates[0].games[0];
-        console.log('Found today\'s game:', JSON.stringify(game, null, 2));
-        setCurrentGame(game);
+        const games = todayData.dates[0].games;
+        
+        // First, look for any live games
+        const liveGame = games.find(game => isGameLive(game));
+        if (liveGame) {
+          console.log('Found live game:', liveGame.gamePk);
+          setCurrentGame(liveGame);
+          return;
+        }
+        
+        // If no live games, look for scheduled games
+        const scheduledGame = games.find(game => 
+          game.status.abstractGameState === 'Preview' || 
+          game.status.detailedState.includes('Scheduled')
+        );
+        if (scheduledGame) {
+          console.log('Found scheduled game for today:', scheduledGame.gamePk);
+          setCurrentGame(scheduledGame);
+          return;
+        }
+        
+        // Otherwise, take the first game (likely completed)
+        console.log('Found completed game for today:', games[0].gamePk);
+        setCurrentGame(games[0]);
       } else {
-        // No game today, look for next upcoming game
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const endDate = new Date();
-        endDate.setDate(endDate.getDate() + 14); // Look ahead 14 days
+        // No game today, look for next upcoming game using MLB date logic
+        const getNextMLBDate = () => {
+          const now = new Date();
+          
+          // Calculate Eastern Time offset (same logic as above)
+          const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+          const isDST = new Date().getTimezoneOffset() < new Date(new Date().getFullYear(), 0, 1).getTimezoneOffset();
+          const easternOffset = isDST ? -4 : -5; // EDT or EST
+          const easternTime = new Date(utcTime + (easternOffset * 3600000));
+          
+          // If it's before 2 AM, we're still on the previous MLB day, so next game is "today"
+          if (easternTime.getHours() < 2) {
+            // Don't add a day - look from current calendar date
+            const year = easternTime.getFullYear();
+            const month = String(easternTime.getMonth() + 1).padStart(2, '0');
+            const day = String(easternTime.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          } else {
+            // After 2 AM, look from tomorrow
+            easternTime.setDate(easternTime.getDate() + 1);
+            const year = easternTime.getFullYear();
+            const month = String(easternTime.getMonth() + 1).padStart(2, '0');
+            const day = String(easternTime.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          }
+        };
 
+        const startSearchDate = getNextMLBDate();
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() + 14); // Look ahead 14 days from now
         const formatDate = (date) => date.toISOString().split('T')[0];
-        const startDate = formatDate(tomorrow);
         const end = formatDate(endDate);
 
+        console.log('Searching for upcoming games from:', startSearchDate, 'to:', end);
+
         const upcomingResponse = await fetch(
-          `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId=${teamId}&startDate=${startDate}&endDate=${end}&hydrate=team,linescore,decisions`
+          `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId=${teamId}&startDate=${startSearchDate}&endDate=${end}&hydrate=team,linescore,decisions`
         );
         const upcomingData = await upcomingResponse.json();
 
@@ -142,7 +205,7 @@ const TeamPageScreen = ({ route, navigation }) => {
                 ["Scheduled", "Pre-Game", "Warmup"].includes(game.status.detailedState)
               );
               if (nextGame) {
-                console.log('Found upcoming game:', JSON.stringify(nextGame, null, 2));
+                console.log('Found upcoming game:', nextGame.gamePk, 'on', date.date);
                 setCurrentGame(nextGame);
                 break;
               }
@@ -176,28 +239,79 @@ const TeamPageScreen = ({ route, navigation }) => {
         // Sort games by date
         allGames.sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
         
-        // Find current game index (same as the one in currentGame state)
-        let currentGameIndex = -1;
-        if (currentGame) {
-          currentGameIndex = allGames.findIndex(game => game.gamePk === currentGame.gamePk);
-        }
+        // Get yesterday's date by taking today's MLB date and subtracting 1 day
+        const getTodayMLBDate = () => {
+          const now = new Date();
+          
+          // Calculate Eastern Time offset
+          const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+          const isDST = new Date().getTimezoneOffset() < new Date(new Date().getFullYear(), 0, 1).getTimezoneOffset();
+          const easternOffset = isDST ? -4 : -5; // EDT or EST
+          const easternTime = new Date(utcTime + (easternOffset * 3600000));
+          
+          // MLB considers games before 2 AM as part of the previous day
+          if (easternTime.getHours() < 2) {
+            easternTime.setDate(easternTime.getDate() - 1);
+          }
+
+          return easternTime;
+        };
+
+        const todayMLB = getTodayMLBDate();
+        const yesterdayMLB = new Date(todayMLB);
+        yesterdayMLB.setDate(yesterdayMLB.getDate() - 1);
         
-        // If no current game found, find the next upcoming game
-        if (currentGameIndex === -1) {
-          const today = new Date();
-          currentGameIndex = allGames.findIndex(game => {
-            const gameDate = new Date(game.gameDate);
-            return gameDate >= today && ["Scheduled", "Pre-Game", "Warmup"].includes(game.status.detailedState);
-          });
-        }
+        const yesterdayMLBString = yesterdayMLB.getFullYear() + "-" +
+                                  String(yesterdayMLB.getMonth() + 1).padStart(2, "0") + "-" +
+                                  String(yesterdayMLB.getDate()).padStart(2, "0");
         
-        // Get last matches (games before current game, in reverse order)
-        const lastMatchesData = currentGameIndex > 0 ? 
-          allGames.slice(0, currentGameIndex).reverse() : [];
+        console.log('Yesterday MLB date for last matches:', yesterdayMLBString);
         
-        // Get next matches (games after current game)
-        const nextMatchesData = currentGameIndex >= 0 && currentGameIndex < allGames.length - 1 ? 
-          allGames.slice(currentGameIndex + 1) : [];
+        // Get last matches (completed games from yesterday and earlier, in reverse order)
+        const lastMatchesData = allGames
+          .filter(game => {
+            // Convert game date to Eastern time to match MLB schedule logic
+            const gameUTC = new Date(game.gameDate);
+            const utcTime = gameUTC.getTime();
+            const isDST = new Date().getTimezoneOffset() < new Date(new Date().getFullYear(), 0, 1).getTimezoneOffset();
+            const easternOffset = isDST ? -4 : -5; // EDT or EST
+            const gameEastern = new Date(utcTime + (easternOffset * 3600000));
+            
+            const gameEasternDateString = gameEastern.getFullYear() + "-" +
+                                        String(gameEastern.getMonth() + 1).padStart(2, "0") + "-" +
+                                        String(gameEastern.getDate()).padStart(2, "0");
+            
+            return game.status.abstractGameState === 'Final' && gameEasternDateString <= yesterdayMLBString;
+          })
+          .reverse();
+        
+        // Get next matches (upcoming games from tomorrow and later)
+        const nextMatchesData = allGames.filter(game => {
+          // Only include upcoming games
+          const isUpcoming = game.status.abstractGameState === 'Preview' || 
+                           ["Scheduled", "Pre-Game", "Warmup"].includes(game.status.detailedState);
+          
+          if (!isUpcoming) return false;
+          
+          // Convert game date to Eastern time to match MLB schedule logic
+          const gameUTC = new Date(game.gameDate);
+          const utcTime = gameUTC.getTime();
+          const isDST = new Date().getTimezoneOffset() < new Date(new Date().getFullYear(), 0, 1).getTimezoneOffset();
+          const easternOffset = isDST ? -4 : -5; // EDT or EST
+          const gameEastern = new Date(utcTime + (easternOffset * 3600000));
+          
+          const gameEasternDateString = gameEastern.getFullYear() + "-" +
+                                      String(gameEastern.getMonth() + 1).padStart(2, "0") + "-" +
+                                      String(gameEastern.getDate()).padStart(2, "0");
+          
+          // Get today's MLB date string
+          const todayMLBString = todayMLB.getFullYear() + "-" +
+                               String(todayMLB.getMonth() + 1).padStart(2, "0") + "-" +
+                               String(todayMLB.getDate()).padStart(2, "0");
+          
+          // Only include games from tomorrow onwards
+          return gameEasternDateString > todayMLBString;
+        });
         
         setLastMatches(lastMatchesData);
         setNextMatches(nextMatchesData);
@@ -245,7 +359,11 @@ const TeamPageScreen = ({ route, navigation }) => {
   const isGameLive = (game) => {
     if (!game || !game.status) return false;
     const state = game.status.abstractGameState;
-    return state === 'Live' || state === 'Preview' && game.status.detailedState === 'In Progress';
+    const detailedState = game.status.detailedState;
+    return state === 'Live' || 
+           (state === 'Preview' && detailedState === 'In Progress') ||
+           detailedState === 'Manager challenge' ||
+           game.status.codedGameState === 'M';
   };
 
   // Fetch only current game update for live games
@@ -369,7 +487,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       'NYY': '#4A7BC8'  // Yankees - Brighter Blue
     };
 
-    const colorMap = theme.isDarkMode ? darkModeColors : lightModeColors;
+    const colorMap = isDarkMode ? darkModeColors : lightModeColors;
     return colorMap[normalizedAbbr] || colors.primary;
   };
 
@@ -385,6 +503,32 @@ const TeamPageScreen = ({ route, navigation }) => {
       (!isAwayTeam && homeScore < awayScore)
     );
     return isLosing ? [styles.gameTeamScore, styles.losingTeamScore] : styles.gameTeamScore;
+  };
+
+  const getScoreColor = (game, isAwayTeam) => {
+    if (!game.teams || !game.teams.away || !game.teams.home) return colors.primary;
+    
+    const isGameFinal = game.status.abstractGameState === 'Final';
+    const awayScore = parseInt(game.teams.away.score || '0');
+    const homeScore = parseInt(game.teams.home.score || '0');
+    const isLosing = isGameFinal && (
+      (isAwayTeam && awayScore < homeScore) || 
+      (!isAwayTeam && homeScore < awayScore)
+    );
+    return isLosing ? theme.textSecondary : colors.primary;
+  };
+
+  const getTeamNameColor = (game, isAwayTeam) => {
+    if (!game.teams || !game.teams.away || !game.teams.home) return theme.text;
+    
+    const isGameFinal = game.status.abstractGameState === 'Final';
+    const awayScore = parseInt(game.teams.away.score || '0');
+    const homeScore = parseInt(game.teams.home.score || '0');
+    const isLosing = isGameFinal && (
+      (isAwayTeam && awayScore < homeScore) || 
+      (!isAwayTeam && homeScore < awayScore)
+    );
+    return isLosing ? theme.textSecondary : theme.text;
   };
 
   const getTeamNameStyle = (game, isAwayTeam) => {
@@ -409,7 +553,7 @@ const TeamPageScreen = ({ route, navigation }) => {
     };
 
     return (
-      <View style={styles.teamHeader}>
+      <View style={[styles.teamHeader, { backgroundColor: theme.surface }]}>
         <Image 
           source={{ uri: getTeamLogoUrl(teamData.abbreviation) }}
           style={styles.teamLogo}
@@ -419,21 +563,21 @@ const TeamPageScreen = ({ route, navigation }) => {
           <Text style={[styles.teamName, { color: getTeamColor(teamData.abbreviation) }]}>
             {teamData.name}
           </Text>
-          <Text style={styles.teamDivision}>{teamData.division?.name || 'N/A'}</Text>
+          <Text style={[styles.teamDivision, { color: theme.textSecondary }]}>{teamData.division?.name || 'N/A'}</Text>
           
           {teamRecord && (
             <View style={styles.recordContainer}>
               <View style={styles.recordRow}>
-                <Text style={styles.recordValue}>{teamRecord.wins}-{teamRecord.losses}</Text>
-                <Text style={styles.recordValue}>{teamRecord.lastTen}</Text>
+                <Text style={[styles.recordValue, { color: theme.text }]}>{teamRecord.wins}-{teamRecord.losses}</Text>
+                <Text style={[styles.recordValue, { color: theme.text }]}>{teamRecord.lastTen}</Text>
                 <Text style={[styles.recordValue, { color: getStreakColor(teamRecord.streak) }]}>
                   {teamRecord.streak}
                 </Text>
               </View>
               <View style={styles.recordRow}>
-                <Text style={styles.recordLabel}>RECORD</Text>
-                <Text style={styles.recordLabel}>L10</Text>
-                <Text style={styles.recordLabel}>STRK</Text>
+                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>RECORD</Text>
+                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>L10</Text>
+                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>STRK</Text>
               </View>
             </View>
           )}
@@ -446,9 +590,9 @@ const TeamPageScreen = ({ route, navigation }) => {
     if (!currentGame) {
       return (
         <View style={styles.matchesSection}>
-          <Text style={styles.gameSectionTitle}>Current Game</Text>
+          <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>Current Game</Text>
           <View style={styles.noGameContainer}>
-            <Text style={styles.noGameText}>No current or upcoming games found</Text>
+            <Text style={[styles.noGameText, { color: theme.textSecondary }]}>No current or upcoming games found</Text>
           </View>
         </View>
       );
@@ -481,18 +625,18 @@ const TeamPageScreen = ({ route, navigation }) => {
       }
       // Add live indicator for active games
       if (isGameLive(currentGame)) {
-        return `🔴 ${status}`;
+        return `${status}`;
       }
       return status;
     };
 
     return (
       <View style={styles.matchesSection}>
-        <Text style={styles.gameSectionTitle}>
+        <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>
           {isToday ? 'Current Game' : 'Upcoming Game'}
         </Text>
         <TouchableOpacity 
-          style={styles.gameCard}
+          style={[styles.gameCard, { backgroundColor: theme.surface }]}
           onPress={() => handleGamePress(currentGame)}
           activeOpacity={0.7}
         >
@@ -505,25 +649,25 @@ const TeamPageScreen = ({ route, navigation }) => {
                   defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
                 />
                 {(isGameLive(currentGame) || currentGame.status.abstractGameState === 'Final') && away.score !== undefined && (
-                  <Text style={styles.gameTeamScore}>{away.score}</Text>
+                  <Text style={[getTeamScoreStyle(currentGame, true), { color: getScoreColor(currentGame, true) }]}>{away.score}</Text>
                 )}
               </View>
-              <Text style={styles.gameTeamName}>{away.team.abbreviation}</Text>
-              <Text style={styles.teamRecord}>
+              <Text style={[getTeamNameStyle(currentGame, true), { color: getTeamNameColor(currentGame, true) }]}>{away.team.abbreviation}</Text>
+              <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>
                 {away.leagueRecord ? `(${away.leagueRecord.wins}-${away.leagueRecord.losses})` : ''}
               </Text>
             </View>
             
             <View style={styles.gameInfo}>
-              <Text style={styles.gameStatus}>{getGameStatus()}</Text>
-              <Text style={styles.gameTime}>{formatGameTime(gameDate)}</Text>
-              <Text style={styles.versus}>vs</Text>
+              <Text style={[styles.gameStatus, { color: colors.primary }]}>{getGameStatus()}</Text>
+              <Text style={[styles.gameTime, { color: theme.textSecondary }]}>{formatGameTime(gameDate)}</Text>
+              <Text style={[styles.versus, { color: theme.textSecondary }]}>vs</Text>
             </View>
             
             <View style={styles.teamContainer}>
               <View style={styles.teamLogoContainer}>
                 {(isGameLive(currentGame) || currentGame.status.abstractGameState === 'Final') && home.score !== undefined && (
-                  <Text style={styles.gameTeamScore}>{home.score}</Text>
+                  <Text style={[getTeamScoreStyle(currentGame, false), { color: getScoreColor(currentGame, false) }]}>{home.score}</Text>
                 )}
                 <Image 
                   source={{ uri: getTeamLogoUrl(home.team.abbreviation) }}
@@ -531,8 +675,8 @@ const TeamPageScreen = ({ route, navigation }) => {
                   defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
                 />
               </View>
-              <Text style={styles.gameTeamName}>{home.team.abbreviation}</Text>
-              <Text style={styles.teamRecord}>
+              <Text style={[getTeamNameStyle(currentGame, false), { color: getTeamNameColor(currentGame, false) }]}>{home.team.abbreviation}</Text>
+              <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>
                 {home.leagueRecord ? `(${home.leagueRecord.wins}-${home.leagueRecord.losses})` : ''}
               </Text>
             </View>
@@ -552,13 +696,15 @@ const TeamPageScreen = ({ route, navigation }) => {
             key={tab}
             style={[
               styles.tabButton,
-              activeTab === tab && styles.activeTabButton
+              activeTab === tab && styles.activeTabButton,
+              { borderBottomColor: activeTab === tab ? colors.primary : 'transparent' }
             ]}
             onPress={() => setActiveTab(tab)}
           >
             <Text style={[
               styles.tabText,
-              activeTab === tab && styles.activeTabText
+              activeTab === tab && styles.activeTabText,
+              { color: activeTab === tab ? colors.primary : theme.textSecondary }
             ]}>
               {tab}
             </Text>
@@ -611,13 +757,13 @@ const TeamPageScreen = ({ route, navigation }) => {
 
     return (
       <TouchableOpacity 
-        style={styles.gameCard}
+        style={[styles.gameCard, { backgroundColor: theme.surface }]}
         onPress={() => handleGamePress(game)}
         activeOpacity={0.7}
       >
         {/* Game Description Banner - Full width at top */}
         {game.description && (
-          <View style={styles.gameDescriptionBanner}>
+          <View style={[styles.gameDescriptionBanner, { backgroundColor: colors.primary }]}>
             <Text style={styles.gameDescriptionText}>{game.description}</Text>
           </View>
         )}
@@ -631,25 +777,25 @@ const TeamPageScreen = ({ route, navigation }) => {
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
               />
               {isCompleted && away.score !== undefined && (
-                <Text style={getTeamScoreStyle(game, true)}>{away.score}</Text>
+                <Text style={[getTeamScoreStyle(game, true), { color: getScoreColor(game, true) }]}>{away.score}</Text>
               )}
             </View>
-            <Text style={getTeamNameStyle(game, true)}>{away.team.abbreviation}</Text>
-            <Text style={styles.teamRecord}>
+            <Text style={[getTeamNameStyle(game, true), { color: getTeamNameColor(game, true) }]}>{away.team.abbreviation}</Text>
+            <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>
               {away.leagueRecord ? `(${away.leagueRecord.wins}-${away.leagueRecord.losses})` : ''}
             </Text>
           </View>
           
           <View style={styles.gameInfo}>
-            <Text style={styles.gameStatus}>{getGameStatus()}</Text>
-            <Text style={styles.gameTime}>{getGameTime()}</Text>
-            <Text style={styles.versus}>vs</Text>
+            <Text style={[styles.gameStatus, { color: colors.primary }]}>{getGameStatus()}</Text>
+            <Text style={[styles.gameTime, { color: theme.textSecondary }]}>{getGameTime()}</Text>
+            <Text style={[styles.versus, { color: theme.textSecondary }]}>vs</Text>
           </View>
           
           <View style={styles.teamContainer}>
             <View style={styles.teamLogoContainer}>
               {isCompleted && home.score !== undefined && (
-                <Text style={getTeamScoreStyle(game, false)}>{home.score}</Text>
+                <Text style={[getTeamScoreStyle(game, false), { color: getScoreColor(game, false) }]}>{home.score}</Text>
               )}
               <Image 
                 source={{ uri: getTeamLogoUrl(home.team.abbreviation) }}
@@ -657,8 +803,8 @@ const TeamPageScreen = ({ route, navigation }) => {
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
               />
             </View>
-            <Text style={getTeamNameStyle(game, false)}>{home.team.abbreviation}</Text>
-            <Text style={styles.teamRecord}>
+            <Text style={[getTeamNameStyle(game, false), { color: getTeamNameColor(game, false) }]}>{home.team.abbreviation}</Text>
+            <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>
               {home.leagueRecord ? `(${home.leagueRecord.wins}-${home.leagueRecord.losses})` : ''}
             </Text>
           </View>
@@ -671,7 +817,7 @@ const TeamPageScreen = ({ route, navigation }) => {
     switch (activeTab) {
       case 'Games':
         return (
-          <ScrollView style={styles.gamesContainer}>
+          <ScrollView style={[styles.gamesContainer, { backgroundColor: theme.background }]}>
             {renderCurrentGame()}
             
             <View style={styles.matchesSection}>
@@ -679,8 +825,8 @@ const TeamPageScreen = ({ route, navigation }) => {
                 style={styles.sectionHeader}
                 onPress={() => setLastMatchesCollapsed(!lastMatchesCollapsed)}
               >
-                <Text style={styles.gameSectionTitle}>Last Matches</Text>
-                <Text style={styles.collapseArrow}>
+                <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>Last Matches</Text>
+                <Text style={[styles.collapseArrow, { color: colors.primary }]}>
                   {lastMatchesCollapsed ? '▶' : '▼'}
                 </Text>
               </TouchableOpacity>
@@ -692,8 +838,8 @@ const TeamPageScreen = ({ route, navigation }) => {
                   ))}
                 </View>
               ) : (
-                <View style={styles.gameSectionCard}>
-                  <Text style={styles.noGameText}>No previous games found</Text>
+                <View style={[styles.gameSectionCard, { backgroundColor: theme.surface }]}>
+                  <Text style={[styles.noGameText, { color: theme.textSecondary }]}>No previous games found</Text>
                 </View>
               )}
             </View>
@@ -703,8 +849,8 @@ const TeamPageScreen = ({ route, navigation }) => {
                 style={styles.sectionHeader}
                 onPress={() => setNextMatchesCollapsed(!nextMatchesCollapsed)}
               >
-                <Text style={styles.gameSectionTitle}>Next Matches</Text>
-                <Text style={styles.collapseArrow}>
+                <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>Next Matches</Text>
+                <Text style={[styles.collapseArrow, { color: colors.primary }]}>
                   {nextMatchesCollapsed ? '▶' : '▼'}
                 </Text>
               </TouchableOpacity>
@@ -716,8 +862,8 @@ const TeamPageScreen = ({ route, navigation }) => {
                   ))}
                 </View>
               ) : (
-                <View style={styles.gameSectionCard}>
-                  <Text style={styles.noGameText}>No upcoming games found</Text>
+                <View style={[styles.gameSectionCard, { backgroundColor: theme.surface }]}>
+                  <Text style={[styles.noGameText, { color: theme.textSecondary }]}>No upcoming games found</Text>
                 </View>
               )}
             </View>
@@ -725,14 +871,14 @@ const TeamPageScreen = ({ route, navigation }) => {
         );
       case 'Stats':
         return (
-          <View style={styles.contentContainer}>
-            <Text style={styles.contentText}>Team statistics will be implemented here</Text>
+          <View style={[styles.contentContainer, { backgroundColor: theme.background }]}>
+            <Text style={[styles.contentText, { color: theme.textSecondary }]}>Team statistics will be implemented here</Text>
           </View>
         );
       case 'Roster':
         return (
-          <View style={styles.contentContainer}>
-            <Text style={styles.contentText}>Roster content will be implemented here</Text>
+          <View style={[styles.contentContainer, { backgroundColor: theme.background }]}>
+            <Text style={[styles.contentText, { color: theme.textSecondary }]}>Roster content will be implemented here</Text>
           </View>
         );
       default:
@@ -754,11 +900,11 @@ const TeamPageScreen = ({ route, navigation }) => {
       {renderTeamHeader()}
       
       {/* Fixed Tab Container */}
-      <View style={styles.fixedTabContainer}>
+      <View style={[styles.fixedTabContainer, { backgroundColor: theme.surface }]}>
         {renderTabButtons()}
       </View>
       
-      <ScrollView style={styles.contentScrollView}>
+      <ScrollView style={[styles.contentScrollView, { backgroundColor: theme.background }]}>
         {renderContent()}
       </ScrollView>
     </View>
@@ -779,7 +925,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   teamHeader: {
-    backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
     padding: 20,
@@ -807,7 +952,6 @@ const styles = StyleSheet.create({
   },
   teamDivision: {
     fontSize: 16,
-    color: '#888',
     marginBottom: 8,
   },
   recordContainer: {
@@ -822,13 +966,11 @@ const styles = StyleSheet.create({
   recordValue: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
     textAlign: 'center',
     flex: 1,
   },
   recordLabel: {
     fontSize: 12,
-    color: '#888',
     textAlign: 'center',
     flex: 1,
     marginTop: 2,
@@ -848,7 +990,6 @@ const styles = StyleSheet.create({
   },
   fixedTabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -861,7 +1002,6 @@ const styles = StyleSheet.create({
   },
   contentScrollView: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   tabButton: {
     flex: 1,
@@ -871,15 +1011,13 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   activeTabButton: {
-    borderBottomColor: '#013369',
+    borderBottomWidth: 3,
   },
   tabText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#666',
   },
   activeTabText: {
-    color: '#013369',
     fontWeight: 'bold',
   },
   contentContainer: {
@@ -888,17 +1026,14 @@ const styles = StyleSheet.create({
   },
   gamesContainer: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
     paddingTop: 5,
   },
   matchesSection: {
-    backgroundColor: '#f5f5f5',
     paddingHorizontal: 15,
     paddingVertical: 5,
   },
   contentText: {
     fontSize: 16,
-    color: '#666',
     textAlign: 'center',
     fontStyle: 'italic',
   },
@@ -908,11 +1043,9 @@ const styles = StyleSheet.create({
   gameSectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#013369',
     marginBottom: 5,
   },
   gameSectionCard: {
-    backgroundColor: '#fff',
     borderRadius: 8,
     padding: 20,
     alignItems: 'center',
@@ -929,7 +1062,6 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   gameCard: {
-    backgroundColor: '#fff',
     borderRadius: 8,
     padding: 15,
     marginBottom: 10,
@@ -960,18 +1092,15 @@ const styles = StyleSheet.create({
   gameTeamName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
     marginBottom: 2,
   },
   versus: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#888',
     marginTop: 5,
   },
   teamRecord: {
     fontSize: 12,
-    color: '#888',
   },
   gameInfo: {
     alignItems: 'center',
@@ -981,12 +1110,10 @@ const styles = StyleSheet.create({
   gameStatus: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#013369',
     marginBottom: 2,
   },
   gameTime: {
     fontSize: 12,
-    color: '#888',
   },
   noGameContainer: {
     backgroundColor: '#f8f8f8',
@@ -999,7 +1126,6 @@ const styles = StyleSheet.create({
   },
   noGameText: {
     fontSize: 14,
-    color: '#888',
     fontStyle: 'italic',
   },
   sectionHeader: {
@@ -1013,7 +1139,6 @@ const styles = StyleSheet.create({
   },
   collapseArrow: {
     fontSize: 16,
-    color: '#013369',
     fontWeight: 'bold',
   },
   teamLogoContainer: {
@@ -1025,7 +1150,6 @@ const styles = StyleSheet.create({
   gameTeamScore: {
     fontSize: 30,
     fontWeight: 'bold',
-    color: '#013369',
     marginHorizontal: 8,
   },
   losingTeamScore: {
@@ -1035,7 +1159,6 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   gameDescriptionBanner: {
-    backgroundColor: '#013369',
     paddingVertical: 8,
     paddingHorizontal: 15,
     marginBottom: 10,
