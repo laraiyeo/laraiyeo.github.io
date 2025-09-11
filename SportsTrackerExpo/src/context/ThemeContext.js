@@ -5,51 +5,51 @@ const ThemeContext = createContext();
 
 const colorPalettes = {
   blue: {
-    primary: '#002D72',
-    primaryDark: '#001F4F',
-    secondary: '#4A90E2',
-    accent: '#007AFF',
-    light: '#E3F2FD',
+    primary: '#1e40af',      // Brighter blue for better visibility in dark mode
+    primaryDark: '#1e3a8a',  // Slightly lighter than original for dark mode
+    secondary: '#3b82f6',    // More vibrant blue for both modes
+    accent: '#60a5fa',       // Lighter accent for dark mode visibility
+    light: '#dbeafe',        // Adjusted for better contrast
     name: 'Classic Blue'
   },
   red: {
-    primary: '#C41E3A',
-    primaryDark: '#8B0000',
-    secondary: '#FF6B6B',
-    accent: '#FF4444',
-    light: '#FFEBEE',
+    primary: '#dc2626',      // Brighter red for better visibility
+    primaryDark: '#b91c1c',  // Lighter than original for dark mode
+    secondary: '#ef4444',    // More vibrant red for both modes
+    accent: '#f87171',       // Lighter accent for dark mode visibility
+    light: '#fecaca',        // Adjusted for better contrast
     name: 'Championship Red'
   },
   green: {
-    primary: '#00A651',
-    primaryDark: '#006B35',
-    secondary: '#4CAF50',
-    accent: '#2E7D32',
-    light: '#E8F5E8',
+    primary: '#16a34a',      // Slightly brighter green
+    primaryDark: '#15803d',  // Lighter than original for dark mode
+    secondary: '#22c55e',    // More vibrant green for both modes
+    accent: '#4ade80',       // Lighter accent for dark mode visibility
+    light: '#bbf7d0',        // Adjusted for better contrast
     name: 'Victory Green'
   },
   purple: {
-    primary: '#6A1B9A',
-    primaryDark: '#4A148C',
-    secondary: '#9C27B0',
-    accent: '#8E24AA',
-    light: '#F3E5F5',
+    primary: '#7c3aed',      // Brighter purple for better visibility
+    primaryDark: '#6d28d9',  // Lighter than original for dark mode
+    secondary: '#8b5cf6',    // More vibrant purple for both modes
+    accent: '#a78bfa',       // Lighter accent for dark mode visibility
+    light: '#ddd6fe',        // Adjusted for better contrast
     name: 'Royal Purple'
   },
   orange: {
-    primary: '#FF6900',
-    primaryDark: '#CC5500',
-    secondary: '#FF9800',
-    accent: '#F57C00',
-    light: '#FFF3E0',
+    primary: '#ea580c',      // Brighter orange for better visibility
+    primaryDark: '#c2410c',  // Lighter than original for dark mode
+    secondary: '#f97316',    // More vibrant orange for both modes
+    accent: '#fb923c',       // Lighter accent for dark mode visibility
+    light: '#fed7aa',        // Adjusted for better contrast
     name: 'Energy Orange'
   },
   teal: {
-    primary: '#00695C',
-    primaryDark: '#004D40',
-    secondary: '#26A69A',
-    accent: '#00897B',
-    light: '#E0F2F1',
+    primary: '#0d9488',      // Brighter teal for better visibility
+    primaryDark: '#0f766e',  // Lighter than original for dark mode
+    secondary: '#14b8a6',    // More vibrant teal for both modes
+    accent: '#2dd4bf',       // Lighter accent for dark mode visibility
+    light: '#99f6e4',        // Adjusted for better contrast
     name: 'Ocean Teal'
   }
 };

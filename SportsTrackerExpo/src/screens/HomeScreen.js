@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sportIcon: {
-    width: 60,
+    width: 100,
     height: 60,
     marginBottom: 12,
     resizeMode: 'contain',
