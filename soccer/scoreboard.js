@@ -2260,18 +2260,17 @@ window.switchToStream = function(streamType) {
     console.log('Retrieved team names:', currentAwayTeam, currentHomeTeam);
   }
 
-  // Generate new embed URL using renderStreamEmbed to avoid browser history
+  // Generate new embed URL using renderStreamEmbed
   if (currentAwayTeam && currentHomeTeam) {
     streamInitialized = false; // Reset flag to allow stream switching
     
-    // Get the HTML from renderStreamEmbed and set it to the container
-    const streamHTML = renderStreamEmbed(gameId);
-    const streamContainer = document.getElementById('stream-container');
-    if (streamContainer && streamHTML) {
-      streamContainer.innerHTML = streamHTML;
-      console.log('Soccer switchToStream: Updated stream container with new HTML');
+    // Call renderStreamEmbed which now sets the HTML directly to the container
+    const gameId = getQueryParam("gameId");
+    if (gameId) {
+      renderStreamEmbed(gameId).catch(console.error);
+      console.log('Soccer switchToStream: Called renderStreamEmbed for stream switch');
     } else {
-      console.error('Soccer switchToStream: Stream container not found or no HTML returned');
+      console.error('Soccer switchToStream: No gameId available');
     }
     
     streamInitialized = true; // Set flag after successful switch
@@ -2532,6 +2531,10 @@ async function renderStreamEmbed(gameId) {
       </div>
   `;
 
+  // Set the HTML to the container
+  streamContainer.innerHTML = streamHTML;
+  console.log('Soccer renderStreamEmbed: Set HTML to container (length:', streamHTML.length, ')');
+
   // Show the iframe after a delay
   setTimeout(() => {
     const iframe = document.getElementById('streamIframe');
@@ -2543,10 +2546,6 @@ async function renderStreamEmbed(gameId) {
       connectingDiv.style.display = 'none';
     }
   }, 1000);
-
-  // Return the HTML content
-  console.log('Soccer renderStreamEmbed returning HTML content (length:', streamHTML.length, ')');
-  return streamHTML;
 }
 
 // Stream control functions (adapted from CWC/MLB)

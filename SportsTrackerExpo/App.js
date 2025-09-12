@@ -50,6 +50,7 @@ import SpainCompareScreen from './src/screens/soccer/spain/SpainCompareScreen';
 import SpainStatsScreen from './src/screens/soccer/spain/SpainStatsScreen';
 import SpainGameDetailsScreen from './src/screens/soccer/spain/SpainGameDetailsScreen';
 import SpainTeamPageScreen from './src/screens/soccer/spain/SpainTeamPageScreen';
+import SpainPlayerPageScreen from './src/screens/soccer/spain/SpainPlayerPageScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -527,6 +528,20 @@ const MainStackNavigator = () => {
         component={SpainTeamPageScreen}
         options={{ 
           title: 'Team Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="SpainPlayerPage" 
+        component={SpainPlayerPageScreen}
+        options={{ 
+          title: 'Player Details',
           headerStyle: {
             backgroundColor: colors.primary,
           },

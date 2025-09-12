@@ -280,17 +280,46 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
       const timeText = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       
       return {
-        text: timeText,
+        text: 'Scheduled',
+        time: timeText,
         detail: dateText,
         isLive: false,
         isPre: true,
         isPost: false
       };
     } else if (state === 'in') {
-      // Match in progress
+      // Match in progress - show clock time and half info
+      const displayClock = status.displayClock || "0'";
+      const period = status.period;
+      
+      // Check if it's halftime
+      if (status.type?.description === "Halftime") {
+        return {
+          text: 'Live',
+          time: status.type.description, // "Halftime"
+          detail: status.type.shortDetail, // "HT"
+          isLive: true,
+          isPre: false,
+          isPost: false
+        };
+      }
+      
+      // Determine half based on period
+      let halfText = '';
+      if (period === 1) {
+        halfText = '1st Half';
+      } else if (period === 2) {
+        halfText = '2nd Half';
+      } else if (period > 2) {
+        halfText = 'Extra Time';
+      } else {
+        halfText = 'Live';
+      }
+      
       return {
-        text: status.displayClock || "LIVE",
-        detail: status.period ? `${status.period}'` : '',
+        text: 'Live',
+        time: displayClock,
+        detail: halfText,
         isLive: true,
         isPre: false,
         isPost: false
@@ -298,7 +327,8 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
     } else {
       // Match finished
       return {
-        text: 'FT',
+        text: 'Final',
+        time: '',
         detail: status.type?.description || '',
         isLive: false,
         isPre: false,
@@ -356,96 +386,109 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
     const awayTeam = competition?.competitors[1];
     const matchStatus = getMatchStatus(game);
 
-    // Get team colors for styling
-    const homeColor = SpainServiceEnhanced.getTeamColorWithAlternateLogic(homeTeam?.team);
-    const awayColor = SpainServiceEnhanced.getTeamColorWithAlternateLogic(awayTeam?.team);
-
     return (
       <TouchableOpacity
         style={[styles.gameCard, { backgroundColor: theme.surface }]}
         onPress={() => handleGamePress(game)}
         activeOpacity={0.7}
       >
-        {/* Competition Header */}
-        {game.competitionName && (
-          <View style={[styles.competitionHeader, { backgroundColor: theme.border }]}>
-            <Text style={[styles.competitionText, { color: theme.textSecondary }]}>
-              {game.competitionName}
-            </Text>
-            {game.isDomesticCup && (
-              <View style={[styles.cupBadge, { backgroundColor: colors.primary }]}>
-                <Text style={styles.cupBadgeText}>CUP</Text>
-              </View>
-            )}
-          </View>
-        )}
+        {/* League Header */}
+        <View style={[styles.leagueHeader, { backgroundColor: theme.border }]}>
+          <Text style={[styles.leagueText, { color: colors.primary }]}>
+            {game.competitionName || 'La Liga'}
+          </Text>
+        </View>
 
-        <View style={styles.gameContent}>
-          {/* Away Team */}
-          <View style={styles.teamContainer}>
-            <Image
-              source={{ uri: game.awayLogo }}
-              style={styles.teamLogo}
-              resizeMode="contain"
-            />
-            <Text style={[styles.teamName, { color: theme.text }]} numberOfLines={2}>
-              {awayTeam?.team?.displayName || 'TBD'}
-            </Text>
-            <View style={[styles.scoreContainer, matchStatus.isLive && { backgroundColor: `#${awayColor}20` }]}>
-              <Text style={[styles.scoreText, { color: theme.text }]}>
-                {awayTeam?.score || '0'}
-              </Text>
-            </View>
-          </View>
-
-          {/* Match Status */}
-          <View style={styles.statusContainer}>
-            <View style={[
-              styles.statusBadge,
-              matchStatus.isLive && { backgroundColor: colors.danger },
-              matchStatus.isPre && { backgroundColor: colors.primary },
-              matchStatus.isPost && { backgroundColor: theme.textTertiary }
-            ]}>
-              <Text style={[
-                styles.statusText,
-                { color: matchStatus.isLive || matchStatus.isPre ? '#fff' : theme.text }
-              ]}>
-                {matchStatus.text}
-              </Text>
-              {matchStatus.detail && (
+        {/* Match Content */}
+        <View style={styles.matchContent}>
+          {/* Home Team Section */}
+          <View style={styles.teamSection}>
+            <View style={styles.teamLogoRow}>
+              <Image
+                source={{ uri: game.homeLogo }}
+                style={[
+                  styles.teamLogo,
+                  matchStatus.isPost && homeTeam?.score < awayTeam?.score && styles.losingTeamLogo
+                ]}
+                resizeMode="contain"
+              />
+              {(matchStatus.isLive || matchStatus.isPost) && (
                 <Text style={[
-                  styles.statusDetail,
-                  { color: matchStatus.isLive || matchStatus.isPre ? '#fff' : theme.textSecondary }
+                  styles.teamScore, 
+                  { color: theme.text },
+                  matchStatus.isPost && homeTeam?.score < awayTeam?.score && styles.losingScore
                 ]}>
-                  {matchStatus.detail}
+                  {homeTeam?.score || '0'}
                 </Text>
               )}
             </View>
+            <Text style={[
+              styles.teamAbbreviation, 
+              { color: theme.text },
+              matchStatus.isPost && homeTeam?.score < awayTeam?.score && styles.losingTeamName
+            ]}>
+              {homeTeam?.team?.abbreviation || homeTeam?.team?.displayName || 'TBD'}
+            </Text>
           </View>
 
-          {/* Home Team */}
-          <View style={styles.teamContainer}>
-            <Image
-              source={{ uri: game.homeLogo }}
-              style={styles.teamLogo}
-              resizeMode="contain"
-            />
-            <Text style={[styles.teamName, { color: theme.text }]} numberOfLines={2}>
-              {homeTeam?.team?.displayName || 'TBD'}
+          {/* Status Section */}
+          <View style={styles.statusSection}>
+            <Text style={[
+              styles.gameStatus,
+              { color: matchStatus.isLive ? theme.error : theme.text }
+            ]}>
+              {matchStatus.text}
             </Text>
-            <View style={[styles.scoreContainer, matchStatus.isLive && { backgroundColor: `#${homeColor}20` }]}>
-              <Text style={[styles.scoreText, { color: theme.text }]}>
-                {homeTeam?.score || '0'}
+            
+            {matchStatus.time && (
+              <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                {matchStatus.time}
               </Text>
+            )}
+            
+            {matchStatus.detail && (
+              <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                {matchStatus.detail}
+              </Text>
+            )}
+          </View>
+
+          {/* Away Team Section */}
+          <View style={styles.teamSection}>
+            <View style={styles.teamLogoRow}>
+              {(matchStatus.isLive || matchStatus.isPost) && (
+                <Text style={[
+                  styles.teamScore, 
+                  { color: theme.text },
+                  matchStatus.isPost && awayTeam?.score < homeTeam?.score && styles.losingScore
+                ]}>
+                  {awayTeam?.score || '0'}
+                </Text>
+              )}
+              <Image
+                source={{ uri: game.awayLogo }}
+                style={[
+                  styles.teamLogo,
+                  matchStatus.isPost && awayTeam?.score < homeTeam?.score && styles.losingTeamLogo
+                ]}
+                resizeMode="contain"
+              />
             </View>
+            <Text style={[
+              styles.teamAbbreviation, 
+              { color: theme.text },
+              matchStatus.isPost && awayTeam?.score < homeTeam?.score && styles.losingTeamName
+            ]}>
+              {awayTeam?.team?.abbreviation || awayTeam?.team?.displayName || 'TBD'}
+            </Text>
           </View>
         </View>
 
-        {/* Round/Week Info - Show competition round if available */}
-        {game.week?.text && (
-          <View style={styles.roundContainer}>
-            <Text style={[styles.roundText, { color: theme.textSecondary }]}>
-              {game.week.text}
+        {/* Venue Section */}
+        {competition?.venue?.fullName && (
+          <View style={[styles.venueSection, { borderTopColor: theme.border }]}>
+            <Text style={[styles.venueText, { color: theme.textSecondary }]}>
+              {competition.venue.fullName}
             </Text>
           </View>
         )}
@@ -544,97 +587,92 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   gameCard: {
-    borderRadius: 12,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  competitionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-  },
-  competitionText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  cupBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
     borderRadius: 8,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+    overflow: 'hidden',
   },
-  cupBadgeText: {
-    color: '#fff',
-    fontSize: 10,
+  leagueHeader: {
+    backgroundColor: '#f8f9fa',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+  },
+  leagueText: {
+    fontSize: 12,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
-  gameContent: {
+  matchContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 15,
+    paddingHorizontal: 12,
   },
-  teamContainer: {
+  teamSection: {
     flex: 1,
     alignItems: 'center',
   },
-  teamLogo: {
-    width: 32,
-    height: 32,
+  teamLogoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
   },
-  teamName: {
+  teamLogo: {
+    width: 40,
+    height: 40,
+  },
+  losingTeamLogo: {
+    opacity: 0.5,
+  },
+  teamScore: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginHorizontal: 8,
+  },
+  losingScore: {
+    color: '#999',
+  },
+  teamAbbreviation: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
     textAlign: 'center',
+  },
+  losingTeamName: {
+    color: '#999',
+  },
+  statusSection: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
+  gameStatus: {
+    fontSize: 14,
+    fontWeight: 'bold',
     marginBottom: 4,
-    minHeight: 32,
   },
-  scoreContainer: {
-    minWidth: 32,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    borderRadius: 6,
-    alignItems: 'center',
+  gameDateTime: {
+    fontSize: 11,
+    marginBottom: 2,
   },
-  scoreText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  statusContainer: {
-    flex: 0.8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statusBadge: {
+  venueSection: {
+    paddingVertical: 8,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    alignItems: 'center',
-    minWidth: 60,
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
   },
-  statusText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  statusDetail: {
-    fontSize: 10,
-    marginTop: 2,
-  },
-  roundContainer: {
-    paddingHorizontal: 12,
-    paddingBottom: 8,
-  },
-  roundText: {
+  venueText: {
     fontSize: 11,
     textAlign: 'center',
+    fontStyle: 'italic',
   },
 });
 
