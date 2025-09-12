@@ -1,0 +1,641 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  RefreshControl,
+  ActivityIndicator,
+  Alert,
+  Dimensions
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { SpainServiceEnhanced } from '../../../services/soccer/SpainServiceEnhanced';
+import { useTheme } from '../../../context/ThemeContext';
+
+const { width } = Dimensions.get('window');
+
+const SpainScoreboardScreen = ({ navigation, route }) => {
+  const { theme, colors, isDarkMode } = useTheme();
+  const [games, setGames] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdateHash, setLastUpdateHash] = useState('');
+  const [updateInterval, setUpdateInterval] = useState(null);
+  const [selectedDateFilter, setSelectedDateFilter] = useState('today'); // 'yesterday', 'today', 'upcoming'
+  const [isScreenFocused, setIsScreenFocused] = useState(true);
+  
+  // Cache for each date filter
+  const [gameCache, setGameCache] = useState({
+    yesterday: null,
+    today: null,
+    upcoming: null
+  });
+  
+  // Cache timestamps to know when to refresh
+  const [cacheTimestamps, setCacheTimestamps] = useState({
+    yesterday: 0,
+    today: 0,
+    upcoming: 0
+  });
+
+  // Track if preloading has been done to prevent multiple calls
+  const hasPreloadedRef = useRef(false);
+  
+  // Cache duration: 30 seconds for today and upcoming (live/soon-to-be-live games), 5 minutes for others
+  const getCacheDuration = (filter) => {
+    return (filter === 'today' || filter === 'upcoming') ? 30000 : 300000; // 30s for today/upcoming, 5min for others
+  };
+
+  const getNoGamesMessage = (dateFilter) => {
+    switch (dateFilter) {
+      case 'yesterday':
+        return 'No matches scheduled for yesterday';
+      case 'today':
+        return 'No matches scheduled for today';
+      case 'upcoming':
+        return 'No upcoming matches scheduled';
+      default:
+        return 'No matches scheduled';
+    }
+  };
+
+  // Track screen focus to pause/resume updates
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('SpainScoreboardScreen: Screen focused');
+      setIsScreenFocused(true);
+      
+      return () => {
+        console.log('SpainScoreboardScreen: Screen unfocused, clearing intervals');
+        setIsScreenFocused(false);
+        // Clear any existing interval when screen loses focus
+        setUpdateInterval(prevInterval => {
+          if (prevInterval) clearInterval(prevInterval);
+          return null;
+        });
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    console.log('SpainScoreboardScreen: Main useEffect triggered for filter:', selectedDateFilter, 'focused:', isScreenFocused);
+    // Load the current filter first
+    loadScoreboard();
+    
+    // Set up continuous fetching for 'today' and 'upcoming' - only if screen is focused
+    if ((selectedDateFilter === 'today' || selectedDateFilter === 'upcoming') && isScreenFocused) {
+      const interval = setInterval(() => {
+        loadScoreboard(true, selectedDateFilter);
+      }, 30000); // 30 seconds for soccer
+      
+      setUpdateInterval(interval);
+      
+      return () => {
+        clearInterval(interval);
+      };
+    } else {
+      // Clear interval for non-live filters or when screen is not focused
+      if (updateInterval) {
+        clearInterval(updateInterval);
+        setUpdateInterval(null);
+      }
+    }
+  }, [selectedDateFilter, isScreenFocused]);
+
+  // Separate effect for initial preloading - only runs once on mount
+  useEffect(() => {
+    console.log('SpainScoreboardScreen: Preload useEffect triggered, hasPreloaded:', hasPreloadedRef.current);
+    // Only preload if we haven't done it before
+    if (hasPreloadedRef.current) {
+      console.log('SpainScoreboardScreen: Skipping preload, already done');
+      return;
+    }
+    
+    // Mark that we're doing preloading
+    hasPreloadedRef.current = true;
+    console.log('SpainScoreboardScreen: Starting preload for other filters');
+    
+    // Preload the other filters in the background after initial load
+    const preloadTimer = setTimeout(() => {
+      if (selectedDateFilter !== 'yesterday') {
+        console.log('SpainScoreboardScreen: Preloading yesterday data');
+        loadScoreboard(true, 'yesterday');
+      }
+      if (selectedDateFilter !== 'upcoming') {
+        console.log('SpainScoreboardScreen: Preloading upcoming data');
+        loadScoreboard(true, 'upcoming');
+      }
+    }, 1000); // Wait 1 second after initial load to preload others
+    
+    return () => clearTimeout(preloadTimer);
+  }, []); // Empty dependency array - only run once on mount
+
+  const loadScoreboard = async (silentUpdate = false, dateFilter = selectedDateFilter) => {
+    console.log('SpainScoreboardScreen: loadScoreboard called - silentUpdate:', silentUpdate, 'dateFilter:', dateFilter);
+    const now = Date.now();
+    const cachedData = gameCache[dateFilter];
+    const cacheTime = cacheTimestamps[dateFilter];
+    const cacheDuration = getCacheDuration(dateFilter);
+    const isCacheValid = cachedData && (now - cacheTime) < cacheDuration;
+    
+    // If we have valid cached data, show it immediately
+    if (isCacheValid && !silentUpdate) {
+      console.log('SpainScoreboardScreen: Using cached data for', dateFilter);
+      setGames(cachedData);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      if (!silentUpdate) {
+        setLoading(true);
+      }
+
+      console.log('SpainScoreboardScreen: Fetching fresh data for', dateFilter);
+      const data = await SpainServiceEnhanced.getScoreboard(dateFilter);
+      
+      // Process games with enhanced data
+      const processedGames = await Promise.all((data.events || []).map(async (game) => {
+        // Get team logos
+        const awayLogo = await SpainServiceEnhanced.getTeamLogoWithFallback(game.competitions[0]?.competitors[1]?.team?.id);
+        const homeLogo = await SpainServiceEnhanced.getTeamLogoWithFallback(game.competitions[0]?.competitors[0]?.team?.id);
+        
+        return {
+          ...game,
+          awayLogo,
+          homeLogo
+        };
+      }));
+
+      // Sort games by date and time
+      const sortedGames = processedGames.sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return dateA - dateB;
+      });
+
+      // Create hash for change detection
+      const currentHash = JSON.stringify(sortedGames.map(g => ({
+        id: g.id,
+        status: g.status?.type?.state,
+        awayScore: g.competitions[0]?.competitors[1]?.score,
+        homeScore: g.competitions[0]?.competitors[0]?.score,
+        clock: g.status?.displayClock
+      })));
+
+      // Update cache
+      setGameCache(prev => ({
+        ...prev,
+        [dateFilter]: sortedGames
+      }));
+      setCacheTimestamps(prev => ({
+        ...prev,
+        [dateFilter]: now
+      }));
+
+      // Only update state if this is the currently selected filter
+      if (dateFilter === selectedDateFilter) {
+        setGames(sortedGames);
+        
+        // Check if there were actual changes
+        if (currentHash !== lastUpdateHash) {
+          setLastUpdateHash(currentHash);
+          console.log('SpainScoreboardScreen: Data updated for', dateFilter);
+        }
+      }
+
+      setLoading(false);
+    } catch (error) {
+      console.error('SpainScoreboardScreen: Error loading scoreboard:', error);
+      if (!silentUpdate) {
+        setLoading(false);
+        Alert.alert('Error', 'Failed to load matches. Please try again.');
+      }
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    // Clear cache for current filter to force fresh data
+    setCacheTimestamps(prev => ({
+      ...prev,
+      [selectedDateFilter]: 0
+    }));
+    await loadScoreboard(false, selectedDateFilter);
+    setRefreshing(false);
+  };
+
+  const handleDateFilterChange = (filter) => {
+    if (filter === selectedDateFilter) return;
+    
+    console.log('SpainScoreboardScreen: Changing filter to:', filter);
+    setSelectedDateFilter(filter);
+    
+    // Check if we have cached data for this filter
+    const now = Date.now();
+    const cachedData = gameCache[filter];
+    const cacheTime = cacheTimestamps[filter];
+    const cacheDuration = getCacheDuration(filter);
+    const isCacheValid = cachedData && (now - cacheTime) < cacheDuration;
+    
+    if (isCacheValid) {
+      console.log('SpainScoreboardScreen: Using cached data for filter change to:', filter);
+      setGames(cachedData);
+      setLoading(false);
+    } else {
+      console.log('SpainScoreboardScreen: No valid cache for filter:', filter, '- will fetch fresh data');
+    }
+  };
+
+  const getMatchStatus = (game) => {
+    const status = game.status;
+    const state = status?.type?.state;
+    
+    if (state === 'pre') {
+      // Match not started - show date and time
+      const date = new Date(game.date);
+      const today = new Date();
+      const isToday = date.toDateString() === today.toDateString();
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      const isYesterday = date.toDateString() === yesterday.toDateString();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+      const isTomorrow = date.toDateString() === tomorrow.toDateString();
+      
+      let dateText = '';
+      if (isToday) {
+        dateText = 'Today';
+      } else if (isYesterday) {
+        dateText = 'Yesterday';
+      } else if (isTomorrow) {
+        dateText = 'Tomorrow';
+      } else {
+        dateText = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      }
+      
+      const timeText = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      return {
+        text: timeText,
+        detail: dateText,
+        isLive: false,
+        isPre: true,
+        isPost: false
+      };
+    } else if (state === 'in') {
+      // Match in progress
+      return {
+        text: status.displayClock || "LIVE",
+        detail: status.period ? `${status.period}'` : '',
+        isLive: true,
+        isPre: false,
+        isPost: false
+      };
+    } else {
+      // Match finished
+      return {
+        text: 'FT',
+        detail: status.type?.description || '',
+        isLive: false,
+        isPre: false,
+        isPost: true
+      };
+    }
+  };
+
+  const handleGamePress = (game) => {
+    console.log('SpainScoreboardScreen: Game pressed:', game.id);
+    navigation.navigate('GameDetails', {
+      gameId: game.id,
+      sport: 'soccer',
+      competition: game.competitionName || 'Spain',
+      homeTeam: game.competitions[0]?.competitors[0]?.team,
+      awayTeam: game.competitions[0]?.competitors[1]?.team
+    });
+  };
+
+  const renderDateFilter = () => {
+    const filters = [
+      { key: 'yesterday', label: 'Yesterday' },
+      { key: 'today', label: 'Today' },
+      { key: 'upcoming', label: 'Upcoming' }
+    ];
+
+    return (
+      <View style={[styles.filterContainer, { backgroundColor: theme.surface }]}>
+        {filters.map((filter) => (
+          <TouchableOpacity
+            key={filter.key}
+            style={[
+              styles.filterButton,
+              selectedDateFilter === filter.key && { backgroundColor: colors.primary }
+            ]}
+            onPress={() => handleDateFilterChange(filter.key)}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                { color: selectedDateFilter === filter.key ? '#fff' : theme.text }
+              ]}
+            >
+              {filter.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
+
+  const renderGameItem = ({ item: game }) => {
+    const competition = game.competitions[0];
+    const homeTeam = competition?.competitors[0];
+    const awayTeam = competition?.competitors[1];
+    const matchStatus = getMatchStatus(game);
+
+    // Get team colors for styling
+    const homeColor = SpainServiceEnhanced.getTeamColorWithAlternateLogic(homeTeam?.team);
+    const awayColor = SpainServiceEnhanced.getTeamColorWithAlternateLogic(awayTeam?.team);
+
+    return (
+      <TouchableOpacity
+        style={[styles.gameCard, { backgroundColor: theme.surface }]}
+        onPress={() => handleGamePress(game)}
+        activeOpacity={0.7}
+      >
+        {/* Competition Header */}
+        {game.competitionName && (
+          <View style={[styles.competitionHeader, { backgroundColor: theme.border }]}>
+            <Text style={[styles.competitionText, { color: theme.textSecondary }]}>
+              {game.competitionName}
+            </Text>
+            {game.isDomesticCup && (
+              <View style={[styles.cupBadge, { backgroundColor: colors.primary }]}>
+                <Text style={styles.cupBadgeText}>CUP</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        <View style={styles.gameContent}>
+          {/* Away Team */}
+          <View style={styles.teamContainer}>
+            <Image
+              source={{ uri: game.awayLogo }}
+              style={styles.teamLogo}
+              resizeMode="contain"
+            />
+            <Text style={[styles.teamName, { color: theme.text }]} numberOfLines={2}>
+              {awayTeam?.team?.displayName || 'TBD'}
+            </Text>
+            <View style={[styles.scoreContainer, matchStatus.isLive && { backgroundColor: `#${awayColor}20` }]}>
+              <Text style={[styles.scoreText, { color: theme.text }]}>
+                {awayTeam?.score || '0'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Match Status */}
+          <View style={styles.statusContainer}>
+            <View style={[
+              styles.statusBadge,
+              matchStatus.isLive && { backgroundColor: colors.danger },
+              matchStatus.isPre && { backgroundColor: colors.primary },
+              matchStatus.isPost && { backgroundColor: theme.textTertiary }
+            ]}>
+              <Text style={[
+                styles.statusText,
+                { color: matchStatus.isLive || matchStatus.isPre ? '#fff' : theme.text }
+              ]}>
+                {matchStatus.text}
+              </Text>
+              {matchStatus.detail && (
+                <Text style={[
+                  styles.statusDetail,
+                  { color: matchStatus.isLive || matchStatus.isPre ? '#fff' : theme.textSecondary }
+                ]}>
+                  {matchStatus.detail}
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {/* Home Team */}
+          <View style={styles.teamContainer}>
+            <Image
+              source={{ uri: game.homeLogo }}
+              style={styles.teamLogo}
+              resizeMode="contain"
+            />
+            <Text style={[styles.teamName, { color: theme.text }]} numberOfLines={2}>
+              {homeTeam?.team?.displayName || 'TBD'}
+            </Text>
+            <View style={[styles.scoreContainer, matchStatus.isLive && { backgroundColor: `#${homeColor}20` }]}>
+              <Text style={[styles.scoreText, { color: theme.text }]}>
+                {homeTeam?.score || '0'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Round/Week Info - Show competition round if available */}
+        {game.week?.text && (
+          <View style={styles.roundContainer}>
+            <Text style={[styles.roundText, { color: theme.textSecondary }]}>
+              {game.week.text}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  if (loading && games.length === 0) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        {renderDateFilter()}
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.text }]}>
+            Loading matches...
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {renderDateFilter()}
+      
+      {games.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+            {getNoGamesMessage(selectedDateFilter)}
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={games}
+          renderItem={renderGameItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  filterButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginHorizontal: 4,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  filterText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  listContainer: {
+    padding: 16,
+  },
+  gameCard: {
+    borderRadius: 12,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  competitionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  competitionText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  cupBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  cupBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  gameContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  teamContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  teamLogo: {
+    width: 32,
+    height: 32,
+    marginBottom: 8,
+  },
+  teamName: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 4,
+    minHeight: 32,
+  },
+  scoreContainer: {
+    minWidth: 32,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  scoreText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  statusContainer: {
+    flex: 0.8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignItems: 'center',
+    minWidth: 60,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  statusDetail: {
+    fontSize: 10,
+    marginTop: 2,
+  },
+  roundContainer: {
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+  },
+  roundText: {
+    fontSize: 11,
+    textAlign: 'center',
+  },
+});
+
+export default SpainScoreboardScreen;
