@@ -34,23 +34,66 @@ import MLBPlayerPageScreen from './src/screens/mlb/PlayerPageScreen';
 
 // Soccer specific screens
 import SoccerHomeScreen from './src/screens/soccer/SoccerHomeScreen';
-import EnglandScreen from './src/screens/soccer/england/EnglandScreen';
-import ItalyScreen from './src/screens/soccer/italy/ItalyScreen';
-import GermanyScreen from './src/screens/soccer/germany/GermanyScreen';
-import FranceScreen from './src/screens/soccer/france/FranceScreen';
-import ChampionsLeagueScreen from './src/screens/soccer/champions-league/ChampionsLeagueScreen';
-import EuropaLeagueScreen from './src/screens/soccer/europa-league/EuropaLeagueScreen';
-import EuropaConferenceScreen from './src/screens/soccer/europa-conference/EuropaConferenceScreen';
+
+// Italy enhanced screens
+import ItalyScoreboardScreen from './src/screens/soccer/italy/ItalyScoreboardScreen';
+import ItalyStandingsScreen from './src/screens/soccer/italy/ItalyStandingsScreen';
+import ItalySearchScreen from './src/screens/soccer/italy/ItalySearchScreen';
+import ItalyCompareScreen from './src/screens/soccer/italy/ItalyCompareScreen';
+import ItalyTransferScreen from './src/screens/soccer/italy/ItalyTransferScreen';
+import ItalyGameDetailsScreen from './src/screens/soccer/italy/ItalyGameDetailsScreen';
+import ItalyTeamPageScreen from './src/screens/soccer/italy/ItalyTeamPageScreen';
+import ItalyPlayerPageScreen from './src/screens/soccer/italy/ItalyPlayerPageScreen';
 
 // Spain enhanced screens
 import SpainScoreboardScreen from './src/screens/soccer/spain/SpainScoreboardScreen';
 import SpainStandingsScreen from './src/screens/soccer/spain/SpainStandingsScreen';
 import SpainSearchScreen from './src/screens/soccer/spain/SpainSearchScreen';
 import SpainCompareScreen from './src/screens/soccer/spain/SpainCompareScreen';
-import SpainStatsScreen from './src/screens/soccer/spain/SpainStatsScreen';
+import SpainTransferScreen from './src/screens/soccer/spain/SpainTransferScreen';
 import SpainGameDetailsScreen from './src/screens/soccer/spain/SpainGameDetailsScreen';
 import SpainTeamPageScreen from './src/screens/soccer/spain/SpainTeamPageScreen';
 import SpainPlayerPageScreen from './src/screens/soccer/spain/SpainPlayerPageScreen';
+
+// England enhanced screens
+import EnglandScoreboardScreen from './src/screens/soccer/england/EnglandScoreboardScreen';
+import EnglandStandingsScreen from './src/screens/soccer/england/EnglandStandingsScreen';
+import EnglandSearchScreen from './src/screens/soccer/england/EnglandSearchScreen';
+import EnglandCompareScreen from './src/screens/soccer/england/EnglandCompareScreen';
+import EnglandTransferScreen from './src/screens/soccer/england/EnglandTransferScreen';
+import EnglandGameDetailsScreen from './src/screens/soccer/england/EnglandGameDetailsScreen';
+import EnglandTeamPageScreen from './src/screens/soccer/england/EnglandTeamPageScreen';
+import EnglandPlayerPageScreen from './src/screens/soccer/england/EnglandPlayerPageScreen';
+
+// France enhanced screens
+import FranceScoreboardScreen from './src/screens/soccer/france/FranceScoreboardScreen';
+import FranceStandingsScreen from './src/screens/soccer/france/FranceStandingsScreen';
+import FranceSearchScreen from './src/screens/soccer/france/FranceSearchScreen';
+import FranceCompareScreen from './src/screens/soccer/france/FranceCompareScreen';
+import FranceTransferScreen from './src/screens/soccer/france/FranceTransferScreen';
+import FranceGameDetailsScreen from './src/screens/soccer/france/FranceGameDetailsScreen';
+import FranceTeamPageScreen from './src/screens/soccer/france/FranceTeamPageScreen';
+import FrancePlayerPageScreen from './src/screens/soccer/france/FrancePlayerPageScreen';
+
+// Germany enhanced screens
+import GermanyScoreboardScreen from './src/screens/soccer/germany/GermanyScoreboardScreen';
+import GermanyStandingsScreen from './src/screens/soccer/germany/GermanyStandingsScreen';
+import GermanySearchScreen from './src/screens/soccer/germany/GermanySearchScreen';
+import GermanyCompareScreen from './src/screens/soccer/germany/GermanyCompareScreen';
+import GermanyTransferScreen from './src/screens/soccer/germany/GermanyTransferScreen';
+import GermanyGameDetailsScreen from './src/screens/soccer/germany/GermanyGameDetailsScreen';
+import GermanyTeamPageScreen from './src/screens/soccer/germany/GermanyTeamPageScreen';
+import GermanyPlayerPageScreen from './src/screens/soccer/germany/GermanyPlayerPageScreen';
+
+// Champions League enhanced screens
+import UCLScoreboardScreen from './src/screens/soccer/champions-league/UCLScoreboardScreen';
+import UCLStandingsScreen from './src/screens/soccer/champions-league/UCLStandingsScreen';
+import UCLSearchScreen from './src/screens/soccer/champions-league/UCLSearchScreen';
+import UCLCompareScreen from './src/screens/soccer/champions-league/UCLCompareScreen';
+import UCLTransferScreen from './src/screens/soccer/champions-league/UCLTransferScreen';
+import UCLGameDetailsScreen from './src/screens/soccer/champions-league/UCLGameDetailsScreen';
+import UCLTeamPageScreen from './src/screens/soccer/champions-league/UCLTeamPageScreen';
+import UCLPlayerPageScreen from './src/screens/soccer/champions-league/UCLPlayerPageScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -264,11 +307,11 @@ const SoccerTabNavigator = ({ route }) => {
     switch(leagueId) {
       case 'england':
         return {
-          ScoresScreen: EnglandScreen,
-          StandingsScreen: EnglandScreen,
-          SearchScreen: EnglandScreen,
-          CompareScreen: EnglandScreen,
-          StatsScreen: EnglandScreen,
+          ScoresScreen: EnglandScoreboardScreen,
+          StandingsScreen: EnglandStandingsScreen,
+          SearchScreen: EnglandSearchScreen,
+          CompareScreen: EnglandCompareScreen,
+          StatsScreen: EnglandTransferScreen,
         };
       case 'spain':
         return {
@@ -276,39 +319,39 @@ const SoccerTabNavigator = ({ route }) => {
           StandingsScreen: SpainStandingsScreen,
           SearchScreen: SpainSearchScreen,
           CompareScreen: SpainCompareScreen,
-          StatsScreen: SpainStatsScreen,
+          StatsScreen: SpainTransferScreen,
         };
       case 'italy':
         return {
-          ScoresScreen: ItalyScreen,
-          StandingsScreen: ItalyScreen,
-          SearchScreen: ItalyScreen,
-          CompareScreen: ItalyScreen,
-          StatsScreen: ItalyScreen,
+          ScoresScreen: ItalyScoreboardScreen,
+          StandingsScreen: ItalyStandingsScreen,
+          SearchScreen: ItalySearchScreen,
+          CompareScreen: ItalyCompareScreen,
+          StatsScreen: ItalyTransferScreen,
         };
       case 'germany':
         return {
-          ScoresScreen: GermanyScreen,
-          StandingsScreen: GermanyScreen,
-          SearchScreen: GermanyScreen,
-          CompareScreen: GermanyScreen,
-          StatsScreen: GermanyScreen,
+          ScoresScreen: GermanyScoreboardScreen,
+          StandingsScreen: GermanyStandingsScreen,
+          SearchScreen: GermanySearchScreen,
+          CompareScreen: GermanyCompareScreen,
+          StatsScreen: GermanyTransferScreen,
         };
       case 'france':
         return {
-          ScoresScreen: FranceScreen,
-          StandingsScreen: FranceScreen,
-          SearchScreen: FranceScreen,
-          CompareScreen: FranceScreen,
-          StatsScreen: FranceScreen,
+          ScoresScreen: FranceScoreboardScreen,
+          StandingsScreen: FranceStandingsScreen,
+          SearchScreen: FranceSearchScreen,
+          CompareScreen: FranceCompareScreen,
+          StatsScreen: FranceTransferScreen,
         };
       case 'champions-league':
         return {
-          ScoresScreen: ChampionsLeagueScreen,
-          StandingsScreen: ChampionsLeagueScreen,
-          SearchScreen: ChampionsLeagueScreen,
-          CompareScreen: ChampionsLeagueScreen,
-          StatsScreen: ChampionsLeagueScreen,
+          ScoresScreen: UCLScoreboardScreen,
+          StandingsScreen: UCLStandingsScreen,
+          SearchScreen: UCLSearchScreen,
+          CompareScreen: UCLCompareScreen,
+          StatsScreen: UCLTransferScreen,
         };
       case 'europa-league':
         return {
@@ -339,6 +382,12 @@ const SoccerTabNavigator = ({ route }) => {
 
   const screens = getLeagueComponents(leagueId);
   
+  // Check if it's a soccer league that should have Transfers instead of Stats
+  const shouldShowTransfers = ['spain', 'england', 'italy', 'germany', 'france'].includes(leagueId);
+  
+  // Check if it's a UEFA competition that should have Bracket instead of Stats
+  const shouldShowBracket = ['champions-league', 'europa-conference', 'europa-league'].includes(leagueId);
+  
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -355,6 +404,10 @@ const SoccerTabNavigator = ({ route }) => {
             iconName = 'git-compare';
           } else if (route.name === 'Stats') {
             iconName = 'bar-chart';
+          } else if (route.name === 'Transfers') {
+            iconName = 'cash';
+          } else if (route.name === 'Bracket') {
+            iconName = 'git-network';
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -401,14 +454,34 @@ const SoccerTabNavigator = ({ route }) => {
           title: 'Compare',
         }}
       />
-      <Tab.Screen 
-        name="Stats" 
-        component={screens.StatsScreen}
-        initialParams={{ leagueId, leagueName }}
-        options={{ 
-          title: 'Stats',
-        }}
-      />
+      {shouldShowBracket ? (
+        <Tab.Screen 
+          name="Bracket" 
+          component={screens.StatsScreen}
+          initialParams={{ leagueId, leagueName }}
+          options={{ 
+            title: 'Bracket',
+          }}
+        />
+      ) : shouldShowTransfers ? (
+        <Tab.Screen 
+          name="Transfers" 
+          component={screens.StatsScreen}
+          initialParams={{ leagueId, leagueName }}
+          options={{ 
+            title: 'Transfers',
+          }}
+        />
+      ) : (
+        <Tab.Screen 
+          name="Stats" 
+          component={screens.StatsScreen}
+          initialParams={{ leagueId, leagueName }}
+          options={{ 
+            title: 'Stats',
+          }}
+        />
+      )}
     </Tab.Navigator>
   );
 };
@@ -492,6 +565,76 @@ const MainStackNavigator = () => {
         }}
       />
       <Stack.Screen 
+        name="EnglandGameDetails" 
+        component={EnglandGameDetailsScreen}
+        options={{ 
+          title: 'Game Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="ItalyGameDetails" 
+        component={ItalyGameDetailsScreen}
+        options={{ 
+          title: 'Game Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="FranceGameDetails" 
+        component={FranceGameDetailsScreen}
+        options={{ 
+          title: 'Game Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="GermanyGameDetails" 
+        component={GermanyGameDetailsScreen}
+        options={{ 
+          title: 'Game Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="UCLGameDetails" 
+        component={UCLGameDetailsScreen}
+        options={{ 
+          title: 'Game Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
         name="TeamPage" 
         component={({ route, navigation }) => {
           const { sport } = route?.params || {};
@@ -538,8 +681,148 @@ const MainStackNavigator = () => {
         }}
       />
       <Stack.Screen 
+        name="EnglandTeamPage" 
+        component={EnglandTeamPageScreen}
+        options={{ 
+          title: 'Team Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="ItalyTeamPage" 
+        component={ItalyTeamPageScreen}
+        options={{ 
+          title: 'Team Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="FranceTeamPage" 
+        component={FranceTeamPageScreen}
+        options={{ 
+          title: 'Team Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="GermanyTeamPage" 
+        component={GermanyTeamPageScreen}
+        options={{ 
+          title: 'Team Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="UCLTeamPage" 
+        component={UCLTeamPageScreen}
+        options={{ 
+          title: 'Team Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
         name="SpainPlayerPage" 
         component={SpainPlayerPageScreen}
+        options={{ 
+          title: 'Player Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="EnglandPlayerPage" 
+        component={EnglandPlayerPageScreen}
+        options={{ 
+          title: 'Player Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="ItalyPlayerPage" 
+        component={ItalyPlayerPageScreen}
+        options={{ 
+          title: 'Player Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="FrancePlayerPage" 
+        component={FrancePlayerPageScreen}
+        options={{ 
+          title: 'Player Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="GermanyPlayerPage" 
+        component={GermanyPlayerPageScreen}
+        options={{ 
+          title: 'Player Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="UCLPlayerPage" 
+        component={UCLPlayerPageScreen}
         options={{ 
           title: 'Player Details',
           headerStyle: {

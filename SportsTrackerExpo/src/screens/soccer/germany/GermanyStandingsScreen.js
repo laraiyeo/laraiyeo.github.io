@@ -10,7 +10,7 @@ import {
   Image,
   FlatList
 } from 'react-native';
-import { SpainServiceEnhanced } from '../../../services/soccer/SpainServiceEnhanced';
+import { GermanyServiceEnhanced } from '../../../services/soccer/GermanyServiceEnhanced';
 import { useTheme } from '../../../context/ThemeContext';
 
 // Same NOTE_COLORS mapping as soccer web app
@@ -23,7 +23,7 @@ const NOTE_COLORS = {
   "Relegation": "#FF7F84", // Red
 };
 
-const SpainStandingsScreen = ({ navigation, route }) => {
+const GermanyStandingsScreen = ({ navigation, route }) => {
   const { theme, colors, isDarkMode } = useTheme();
   const [standings, setStandings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -91,8 +91,8 @@ const SpainStandingsScreen = ({ navigation, route }) => {
   const loadStandings = async () => {
     try {
       setLoading(true);
-      console.log('Loading Spain standings...');
-      const data = await SpainServiceEnhanced.getStandings();
+      console.log('Loading Germany standings...');
+      const data = await GermanyServiceEnhanced.getStandings();
       
       console.log('Standings data received:', JSON.stringify(data, null, 2));
       
@@ -110,7 +110,7 @@ const SpainStandingsScreen = ({ navigation, route }) => {
         // Load team logos
         const processedStandings = await Promise.all(
           standingsData.map(async (team) => {
-            const logo = await SpainServiceEnhanced.getTeamLogoWithFallback(team.team.id);
+            const logo = await GermanyServiceEnhanced.getTeamLogoWithFallback(team.team.id);
             return { ...team, logo };
           })
         );
@@ -133,7 +133,7 @@ const SpainStandingsScreen = ({ navigation, route }) => {
 
           const processedStandings = await Promise.all(
             standingsData.map(async (team) => {
-              const logo = await SpainServiceEnhanced.getTeamLogoWithFallback(team.team.id);
+              const logo = await GermanyServiceEnhanced.getTeamLogoWithFallback(team.team.id);
               return { ...team, logo };
             })
           );
@@ -144,7 +144,7 @@ const SpainStandingsScreen = ({ navigation, route }) => {
       
       setLoading(false);
     } catch (error) {
-      console.error('Error loading Spain standings:', error);
+      console.error('Error loading Germany standings:', error);
       setLoading(false);
     }
   };
@@ -157,11 +157,11 @@ const SpainStandingsScreen = ({ navigation, route }) => {
 
   const handleTeamPress = (team) => {
     console.log('Team pressed:', team.team.displayName);
-    navigation.navigate('SpainTeamPage', {
+    navigation.navigate('GermanyTeamPage', {
       teamId: team.team.id,
       teamName: team.team.displayName,
       sport: 'soccer',
-      league: 'spain'
+      league: 'germany'
     });
   };
 
@@ -490,4 +490,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SpainStandingsScreen;
+export default GermanyStandingsScreen;

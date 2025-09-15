@@ -12,7 +12,7 @@ import {
   Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SpainServiceEnhanced } from '../../../services/soccer/SpainServiceEnhanced';
+import { FranceServiceEnhanced } from '../../../services/soccer/FranceServiceEnhanced';
 import { useTheme } from '../../../context/ThemeContext';
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
@@ -23,7 +23,7 @@ const convertToHttps = (url) => {
   return url;
 };
 
-const SpainCompareScreen = ({ navigation, route }) => {
+const FranceCompareScreen = ({ navigation, route }) => {
   const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
   
   // State for player comparison
@@ -45,8 +45,8 @@ const SpainCompareScreen = ({ navigation, route }) => {
   const [showYear1Picker, setShowYear1Picker] = useState(false);
   const [showYear2Picker, setShowYear2Picker] = useState(false);
   
-  // All La Liga players cache
-  const [allLaLigaPlayers, setAllLaLigaPlayers] = useState([]);
+  // All Ligue 1 players cache
+  const [allLigue1Players, setAllLigue1Players] = useState([]);
 
   // Generate year options
   const currentYear = new Date().getFullYear();
@@ -54,7 +54,7 @@ const SpainCompareScreen = ({ navigation, route }) => {
   const yearOptions = Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i);
 
   useEffect(() => {
-    fetchAllLaLigaPlayers();
+    fetchAllLigue1Players();
   }, []);
 
   useEffect(() => {
@@ -122,12 +122,12 @@ const SpainCompareScreen = ({ navigation, route }) => {
     return { primaryUrl, fallbackUrl, finalFallback };
   };
 
-  const fetchAllLaLigaPlayers = async () => {
+  const fetchAllLigue1Players = async () => {
     try {
-      console.log('Fetching all La Liga players...');
-      const allPlayers = await SpainServiceEnhanced.searchPlayers('');
+      console.log('Fetching all Ligue 1 players...');
+      const allPlayers = await FranceServiceEnhanced.searchPlayers('');
       
-      // Filter out any invalid player data - use the same structure as SpainSearchScreen
+      // Filter out any invalid player data - use the same structure as EnglandSearchScreen
       const validPlayers = allPlayers.filter(player => 
         player && 
         (player.name || player.displayName || player.fullName) && 
@@ -135,10 +135,10 @@ const SpainCompareScreen = ({ navigation, route }) => {
         player.id
       );
       
-      console.log(`Fetched ${validPlayers.length} valid La Liga players for comparison (${allPlayers.length} total)`);
-      setAllLaLigaPlayers(validPlayers);
+      console.log(`Fetched ${validPlayers.length} valid Ligue 1 players for comparison (${allPlayers.length} total)`);
+      setAllLigue1Players(validPlayers);
     } catch (error) {
-      console.error('Error fetching all La Liga players:', error);
+      console.error('Error fetching all Ligue 1 players:', error);
     }
   };
 
@@ -148,9 +148,9 @@ const SpainCompareScreen = ({ navigation, route }) => {
       return;
     }
 
-    const filteredPlayers = allLaLigaPlayers
+    const filteredPlayers = allLigue1Players
       .filter(player => {
-        // Add null check for player name - handle different name properties like SpainSearchScreen
+        // Add null check for player name - handle different name properties like EnglandSearchScreen
         if (!player) {
           return false;
         }
@@ -181,7 +181,7 @@ const SpainCompareScreen = ({ navigation, route }) => {
   const selectPlayer = (player, playerNumber) => {
     console.log('Selected player:', player);
     
-    // Get the player name from different possible properties (matching SpainSearchScreen structure)
+    // Get the player name from different possible properties (matching EnglandSearchScreen structure)
     const playerName = player.name || player.displayName || player.fullName || '';
     
     // Add safety checks for player data
@@ -339,11 +339,11 @@ const SpainCompareScreen = ({ navigation, route }) => {
     try {
       console.log(`Fetching real stats for player ${playerId} for year ${year}`);
       
-      // Define competitions like in SpainPlayerPageScreen
+      // Define competitions like in FrancePlayerPageScreen
       const competitions = [
-        { code: 'esp.1', name: 'La Liga', seasonType: '0' },
-        { code: 'esp.copa_del_rey', name: 'Copa del Rey', seasonType: '0' },
-        { code: 'esp.super_cup', name: 'Spanish Supercopa', seasonType: '0' }
+        { code: 'fra.1', name: 'Ligue 1', seasonType: '0' },
+        { code: 'fra.coupe_de_france', name: 'Coupe de France', seasonType: '0' },
+        { code: 'fra.super_cup', name: 'Trophée des Champions', seasonType: '0' }
       ];
       
       let combinedStats = null;
@@ -359,7 +359,7 @@ const SpainCompareScreen = ({ navigation, route }) => {
             const data = await response.json();
             console.log(`Successfully fetched ${competition.name} stats for player ${playerId}`);
             
-            // Process the stats using the same logic as SpainPlayerPageScreen
+            // Process the stats using the same logic as EnglandPlayerPageScreen
             const processedStats = processPlayerStats(data);
             if (processedStats && Object.keys(processedStats).length > 0) {
               if (!combinedStats) {
@@ -389,7 +389,7 @@ const SpainCompareScreen = ({ navigation, route }) => {
     }
   };
 
-  // Process player stats similar to SpainPlayerPageScreen
+  // Process player stats similar to EnglandPlayerPageScreen
   const processPlayerStats = (statsData) => {
     const stats = {};
     
@@ -484,7 +484,7 @@ const SpainCompareScreen = ({ navigation, route }) => {
     return combined;
   };
 
-  // Get team color like in SpainSearchScreen
+  // Get team color like in EnglandSearchScreen
   const getTeamColor = (teamColorInfo) => {
     if (!teamColorInfo) return colors.primary;
     
@@ -703,10 +703,10 @@ const SpainCompareScreen = ({ navigation, route }) => {
             // Get the player name from different possible properties
             const playerName = player.name || player.displayName || player.fullName || 'Unknown Player';
             
-            // Generate player initials like in SpainSearchScreen
+            // Generate player initials like in EnglandSearchScreen
             const playerInitials = playerName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
             
-            // Get team color using the same logic as SpainSearchScreen
+            // Get team color using the same logic as EnglandSearchScreen
             const teamColor = getTeamColor(player.teamColor);
             
             return (
@@ -761,7 +761,7 @@ const SpainCompareScreen = ({ navigation, route }) => {
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.primary }]}>Player Comparison</Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-            Compare La Liga players side by side
+            Compare Ligue 1 players side by side
           </Text>
         </View>
 
@@ -1213,4 +1213,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SpainCompareScreen;
+export default FranceCompareScreen;

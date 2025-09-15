@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   Alert 
 } from 'react-native';
-import { SpainServiceEnhanced } from '../../../services/soccer/SpainServiceEnhanced';
+import { ChampionsLeagueServiceEnhanced } from '../../../services/soccer/ChampionsLeagueServiceEnhanced';
 import { useTheme } from '../../../context/ThemeContext';
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
@@ -21,7 +21,7 @@ const convertToHttps = (url) => {
   return url;
 };
 
-const SpainSearchScreen = ({ route, navigation }) => {
+const UCLSearchScreen = ({ route, navigation }) => {
   const { sport } = route?.params || { sport: 'soccer' };
   const { theme, colors, isDarkMode } = useTheme();
   
@@ -144,13 +144,13 @@ const SpainSearchScreen = ({ route, navigation }) => {
 
   const searchTeams = async (query) => {
     try {
-      const teamsData = await SpainServiceEnhanced.searchTeams(query);
+      const teamsData = await ChampionsLeagueServiceEnhanced.searchTeams(query);
       
       if (teamsData && Array.isArray(teamsData)) {
         const processedTeams = await Promise.all(
           teamsData.map(async (teamData) => {
             try {
-              const logo = await SpainServiceEnhanced.getTeamLogoWithFallback(teamData.team.id);
+              const logo = await ChampionsLeagueServiceEnhanced.getTeamLogoWithFallback(teamData.team.id);
               return {
                 id: teamData.team.id,
                 type: 'team',
@@ -186,7 +186,7 @@ const SpainSearchScreen = ({ route, navigation }) => {
 
   const searchPlayers = async (query) => {
     try {
-      const playersData = await SpainServiceEnhanced.searchPlayers(query);
+      const playersData = await ChampionsLeagueServiceEnhanced.searchPlayers(query);
       
       if (playersData && Array.isArray(playersData)) {
         // Fetch team data to get colors
@@ -197,7 +197,7 @@ const SpainSearchScreen = ({ route, navigation }) => {
             // Try to fetch team data for color information
             if (playerData.teamId) {
               try {
-                const teamResponse = await fetch(convertToHttps(`https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/teams/${playerData.teamId}`));
+                const teamResponse = await fetch(convertToHttps(`https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/teams/${playerData.teamId}`));
                 const teamData = await teamResponse.json();
                 
                 if (teamData.team) {
@@ -262,20 +262,20 @@ const SpainSearchScreen = ({ route, navigation }) => {
   const handleItemPress = (item) => {
     if (item.type === 'team') {
       // Navigate to team page
-      navigation.navigate('SpainTeamPage', { 
+      navigation.navigate('UCLTeamPage', { 
         teamId: item.id,
         teamName: item.name,
         sport: sport,
-        league: 'spain'
+        league: 'UCL'
       });
     } else if (item.type === 'player') {
       // Navigate to player page
-      navigation.navigate('SpainPlayerPage', {
+      navigation.navigate('UCLPlayerPage', {
         playerId: item.id,
         playerName: item.fullName,
         teamId: item.teamId || null, // Use teamId from player data
         sport: sport,
-        league: 'spain'
+        league: 'UCL'
       });
     }
   };
@@ -557,4 +557,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SpainSearchScreen;
+export default UCLSearchScreen;

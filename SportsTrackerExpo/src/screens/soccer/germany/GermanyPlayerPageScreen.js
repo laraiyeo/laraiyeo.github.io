@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView, Modal } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
-import { SpainServiceEnhanced } from '../../../services/soccer/SpainServiceEnhanced';
+import { GermanyServiceEnhanced } from '../../../services/soccer/GermanyServiceEnhanced';
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
 const convertToHttps = (url) => {
@@ -11,7 +11,7 @@ const convertToHttps = (url) => {
   return url;
 };
 
-const SpainPlayerPageScreen = ({ route, navigation }) => {
+const GermanyPlayerPageScreen = ({ route, navigation }) => {
   const { playerId, playerName, teamId, sport } = route.params;
   const { theme, colors, isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState('Stats');
@@ -148,7 +148,7 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
   };
 
   useEffect(() => {
-    console.log('SpainPlayerPageScreen received - playerId:', playerId, 'playerName:', playerName, 'teamId:', teamId);
+    console.log('GermanyPlayerPageScreen received - playerId:', playerId, 'playerName:', playerName, 'teamId:', teamId);
     fetchPlayerData();
   }, [playerId]);
 
@@ -259,7 +259,7 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
         position: { displayName: 'Forward' }, // Better default than 'Unknown'
         team: { 
           id: teamId, 
-          displayName: 'Manchester United', // Better default for eng.1 teams
+          displayName: 'Bayern Munich', // Better default for ger.1 teams
           name: 'Real Madrid'
         },
         headshot: { href: `https://via.placeholder.com/80x80?text=${playerName?.charAt(0) || 'P'}` }
@@ -268,7 +268,7 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
       // Try to fetch enhanced data from ESPN APIs with better error handling
       try {
         console.log('Attempting to fetch from site API...');
-        const siteResponse = await fetch(convertToHttps(`https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/athletes/${playerId}`), {
+        const siteResponse = await fetch(convertToHttps(`https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/athletes/${playerId}`), {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
@@ -326,7 +326,7 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
         
       // Fallback to core API
       try {
-        const coreResponse = await fetch(convertToHttps(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/esp.1/athletes/${playerId}?lang=en&region=us`));
+        const coreResponse = await fetch(convertToHttps(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/ger.1/athletes/${playerId}?lang=en&region=us`));
         if (coreResponse.ok) {
           const coreData = await coreResponse.json();
           console.log('Core API response:', coreData);
@@ -477,9 +477,9 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
       
       // Define competitions - all use types/0/ as you specified
       const competitions = [
-        { code: 'esp.1', name: 'La Liga', seasonType: '0' },
-        { code: 'esp.copa_del_rey', name: 'Copa del Rey', seasonType: '0' },
-        { code: 'esp.super_cup', name: 'Spanish Supercopa', seasonType: '0' }
+        { code: 'ger.1', name: 'Bundesliga', seasonType: '0' },
+        { code: 'ger.dfb_pokal', name: 'DFB Pokal', seasonType: '0' },
+        { code: 'ger.super_cup', name: 'German Super Cup', seasonType: '0' }
       ];
       
       const allStats = {};
@@ -561,10 +561,10 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
       // Get current year for eventlog (following fantasy.js pattern exactly)
       const currentYear = new Date().getFullYear();
       
-      // Spain competitions to fetch game logs from
-      const competitions = ['esp.1', 'esp.copa_del_rey', 'esp.super_cup'];
-
-      // Fetch game logs from all Spain competitions in parallel
+      // Germany competitions to fetch game logs from
+      const competitions = ['ger.1', 'ger.dfb_pokal', 'ger.super_cup'];
+      
+      // Fetch game logs from all Germany competitions in parallel
       const fetchPromises = competitions.map(async (competition) => {
         try {
           const gameLogUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/seasons/${currentYear}/athletes/${playerId}/eventlog?lang=en&region=us&played=true`;
@@ -634,14 +634,14 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
     
     // Map league codes to display names
     switch (leagueCode) {
-      case 'esp.1': 
-        return 'La Liga';
-      case 'esp.copa_del_rey':
-        return 'Copa del Rey';
-      case 'esp.super_cup':
-        return 'Spanish Supercopa';
+      case 'ger.1': 
+        return 'Bundesliga';
+      case 'ger.dfb_pokal':
+        return 'DFB Pokal';
+      case 'ger.super_cup':
+        return 'German Super Cup';
       default:
-        return leagueCode.replace('esp.', '').replace('_', ' ').toUpperCase();
+        return leagueCode.replace('ger.', '').replace('_', ' ').toUpperCase();
     }
   };
 
@@ -662,7 +662,7 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
           // Extract league code from the event URL
           const eventUrl = eventData.event.$ref;
           const leagueCodeMatch = eventUrl.match(/\/leagues\/([^\/]+)\//);
-          const leagueCode = leagueCodeMatch ? leagueCodeMatch[1] : 'esp.1';
+          const leagueCode = leagueCodeMatch ? leagueCodeMatch[1] : 'ger.1';
           
           // Fetch event, competition, and stats in parallel
           const [eventResponse, competitionResponse, statsResponse] = await Promise.all([
@@ -996,7 +996,7 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
       
       // Get the player's team and league for the specific year
       let teamIdForYear = playerData?.team?.id || ''; // Default to current team
-      let leagueForYear = 'esp.1'; // Default to La Liga
+      let leagueForYear = 'ger.1'; // Default to Bundesliga
       
       // If not current year, try to get team/league for the specific year
       if (year !== new Date().getFullYear()) {
@@ -1256,7 +1256,7 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
             console.log('No transaction data available, using fallback approach for year:', year);
             
             // Try multiple leagues to find where the player was in this year (in parallel)
-            const leaguesToTry = ['esp.1', 'esp.copa_del_rey', 'esp.super_cup', 'eng.1', 'fra.1', 'ger.1', 'ita.1', 'usa.1', 'ksa.1'];
+            const leaguesToTry = ['ger.1', 'ger.dfb_pokal', 'ger.super_cup', 'eng.1', 'esp.1', 'fra.1', 'ita.1', 'usa.1', 'ksa.1'];
             
             const playerSeasonPromises = leaguesToTry.map(async (league) => {
               try {
@@ -1302,7 +1302,7 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
               // Use current team as absolute fallback
               teamsForSeason.push({
                 teamId: teamId,
-                league: 'esp.1',
+                league: 'ger.1',
                 period: 'current'
               });
             }
@@ -2253,21 +2253,20 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
                 {/* Team Matchup - Moved to bottom */}
                 <TouchableOpacity 
                   style={[styles.modalSeasonHeader, { backgroundColor: theme.surface, marginTop: -5 }]}
-                  activeOpacity={0.7}
                   onPress={() => {
-                    if (selectedGameStats.gameId) {
-                      setShowStatsModal(false);
-                      setTimeout(() => {
-                        navigation.navigate('SpainGameDetails', {
-                          gameId: selectedGameStats.gameId,
-                          sport: 'soccer',
-                          competition: selectedGameStats.competition || 'esp.1',
-                          homeTeam: selectedGameStats.isHome ? playerData?.team : selectedGameStats.opponent,
-                          awayTeam: selectedGameStats.isHome ? selectedGameStats.opponent : playerData?.team
-                        });
-                      }, 300);
-                    }
+                    console.log('Navigating to game details for gameId:', selectedGameStats.gameId);
+                    setShowStatsModal(false); // Close the current modal first
+                    setTimeout(() => {
+                      navigation.navigate('GermanyGameDetails', {
+                        gameId: selectedGameStats.gameId,
+                        sport: 'soccer',
+                        competition: getCompetitionName(selectedGameStats.leagueCode),
+                        homeTeam: selectedGameStats.isHome ? playerData?.team : selectedGameStats.opponent,
+                        awayTeam: selectedGameStats.isHome ? selectedGameStats.opponent : playerData?.team
+                      });
+                    }, 100);
                   }}
+                  activeOpacity={0.7}
                 >
                   <View style={[styles.modalSeasonTopRow, { justifyContent: 'center' }]}>
                     <View style={styles.modalTeamContainer}>
@@ -2954,4 +2953,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SpainPlayerPageScreen;
+export default GermanyPlayerPageScreen;

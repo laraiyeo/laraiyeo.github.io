@@ -10,20 +10,12 @@ import {
   Image,
   FlatList
 } from 'react-native';
-import { SpainServiceEnhanced } from '../../../services/soccer/SpainServiceEnhanced';
+import { ChampionsLeagueServiceEnhanced } from '../../../services/soccer/ChampionsLeagueServiceEnhanced';
 import { useTheme } from '../../../context/ThemeContext';
 
-// Same NOTE_COLORS mapping as soccer web app
-const NOTE_COLORS = {
-  "Champions League": "#008000", // Green
-  "Champions League qualifying": "#81D6AC", // Light Green
-  "Europa League": "#469dfa", // Dark Blue
-  "Conference League qualifying": "#ADD8E6", // Light Blue
-  "Relegation playoff": "#FFFF00", // Yellow
-  "Relegation": "#FF7F84", // Red
-};
+// We'll use the note colors directly from the API response like standings.js does
 
-const SpainStandingsScreen = ({ navigation, route }) => {
+const UCLStandingsScreen = ({ navigation, route }) => {
   const { theme, colors, isDarkMode } = useTheme();
   const [standings, setStandings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -91,8 +83,8 @@ const SpainStandingsScreen = ({ navigation, route }) => {
   const loadStandings = async () => {
     try {
       setLoading(true);
-      console.log('Loading Spain standings...');
-      const data = await SpainServiceEnhanced.getStandings();
+      console.log('Loading UCL standings...');
+      const data = await ChampionsLeagueServiceEnhanced.getStandings();
       
       console.log('Standings data received:', JSON.stringify(data, null, 2));
       
@@ -110,7 +102,7 @@ const SpainStandingsScreen = ({ navigation, route }) => {
         // Load team logos
         const processedStandings = await Promise.all(
           standingsData.map(async (team) => {
-            const logo = await SpainServiceEnhanced.getTeamLogoWithFallback(team.team.id);
+            const logo = await ChampionsLeagueServiceEnhanced.getTeamLogoWithFallback(team.team.id);
             return { ...team, logo };
           })
         );
@@ -133,7 +125,7 @@ const SpainStandingsScreen = ({ navigation, route }) => {
 
           const processedStandings = await Promise.all(
             standingsData.map(async (team) => {
-              const logo = await SpainServiceEnhanced.getTeamLogoWithFallback(team.team.id);
+              const logo = await ChampionsLeagueServiceEnhanced.getTeamLogoWithFallback(team.team.id);
               return { ...team, logo };
             })
           );
@@ -144,7 +136,7 @@ const SpainStandingsScreen = ({ navigation, route }) => {
       
       setLoading(false);
     } catch (error) {
-      console.error('Error loading Spain standings:', error);
+      console.error('Error loading UCL standings:', error);
       setLoading(false);
     }
   };
@@ -157,20 +149,18 @@ const SpainStandingsScreen = ({ navigation, route }) => {
 
   const handleTeamPress = (team) => {
     console.log('Team pressed:', team.team.displayName);
-    navigation.navigate('SpainTeamPage', {
+    navigation.navigate('UCLTeamPage', {
       teamId: team.team.id,
       teamName: team.team.displayName,
       sport: 'soccer',
-      league: 'spain'
+      league: 'UCL'
     });
   };
 
   const getPositionColor = (position, note) => {
-    // Use the same logic as soccer web app
-    if (note && note.description) {
-      // First try to get color from NOTE_COLORS mapping by description
-      const customColor = NOTE_COLORS[note.description] || note.color;
-      return customColor;
+    // Use the note color directly from the API like standings.js does
+    if (note && note.color) {
+      return note.color;
     }
     
     // If no note from API, return neutral grey for all positions
@@ -253,47 +243,35 @@ const SpainStandingsScreen = ({ navigation, route }) => {
     );
   };
 
-  const renderLegend = () => (
-    <View style={[styles.legendContainer, { backgroundColor: theme.surface }]}>
-      <Text style={[styles.legendTitle, { color: theme.text }]}>Qualification</Text>
-      
-      {/* Champions League */}
-      <View style={styles.legendRow}>
-        <View style={[styles.legendColor, { backgroundColor: NOTE_COLORS["Champions League"] }]} />
-        <Text style={[styles.legendText, { color: theme.textSecondary }]}>Champions League</Text>
+  const renderLegend = () => {
+    // Generate legend from actual standings data like standings.js does
+    const legend = new Map();
+    
+    // Collect unique notes and their colors from the standings data
+    standings.forEach(entry => {
+      if (entry.note && entry.note.color && entry.note.description) {
+        legend.set(entry.note.color, entry.note.description);
+      }
+    });
+
+    // Only render legend if we have entries
+    if (legend.size === 0) {
+      return null;
+    }
+
+    return (
+      <View style={[styles.legendContainer, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.legendTitle, { color: theme.text }]}>Qualification</Text>
+        
+        {Array.from(legend.entries()).map(([color, description]) => (
+          <View key={color} style={styles.legendRow}>
+            <View style={[styles.legendColor, { backgroundColor: color }]} />
+            <Text style={[styles.legendText, { color: theme.textSecondary }]}>{description}</Text>
+          </View>
+        ))}
       </View>
-      
-      {/* Champions League qualifying */}
-      <View style={styles.legendRow}>
-        <View style={[styles.legendColor, { backgroundColor: NOTE_COLORS["Champions League qualifying"] }]} />
-        <Text style={[styles.legendText, { color: theme.textSecondary }]}>Champions League qualifying</Text>
-      </View>
-      
-      {/* Europa League */}
-      <View style={styles.legendRow}>
-        <View style={[styles.legendColor, { backgroundColor: NOTE_COLORS["Europa League"] }]} />
-        <Text style={[styles.legendText, { color: theme.textSecondary }]}>Europa League</Text>
-      </View>
-      
-      {/* Conference League qualifying */}
-      <View style={styles.legendRow}>
-        <View style={[styles.legendColor, { backgroundColor: NOTE_COLORS["Conference League qualifying"] }]} />
-        <Text style={[styles.legendText, { color: theme.textSecondary }]}>Conference League qualifying</Text>
-      </View>
-      
-      {/* Relegation playoff */}
-      <View style={styles.legendRow}>
-        <View style={[styles.legendColor, { backgroundColor: NOTE_COLORS["Relegation playoff"] }]} />
-        <Text style={[styles.legendText, { color: theme.textSecondary }]}>Relegation playoff</Text>
-      </View>
-      
-      {/* Relegation */}
-      <View style={styles.legendRow}>
-        <View style={[styles.legendColor, { backgroundColor: NOTE_COLORS["Relegation"] }]} />
-        <Text style={[styles.legendText, { color: theme.textSecondary }]}>Relegation</Text>
-      </View>
-    </View>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -490,4 +468,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SpainStandingsScreen;
+export default UCLStandingsScreen;

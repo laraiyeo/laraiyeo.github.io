@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
-import { SpainServiceEnhanced } from '../../../services/soccer/SpainServiceEnhanced';
+import { ChampionsLeagueServiceEnhanced } from '../../../services/soccer/ChampionsLeagueServiceEnhanced';
 
-const SpainTeamPageScreen = ({ route, navigation }) => {
+const UCLTeamPageScreen = ({ route, navigation }) => {
   const { teamId, teamName } = route.params;
   const { theme, colors, isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState('Games');
   const [teamData, setTeamData] = useState(null);
   const [teamRecord, setTeamRecord] = useState(null);
+  const [teamRanking, setTeamRanking] = useState(null);
   const [currentGame, setCurrentGame] = useState(null);
   const [lastMatches, setLastMatches] = useState([]);
   const [nextMatches, setNextMatches] = useState([]);
@@ -92,7 +93,7 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
   };
 
   useEffect(() => {
-    console.log('SpainTeamPageScreen received - teamId:', teamId, 'teamName:', teamName);
+    console.log('UCLTeamPageScreen received - teamId:', teamId, 'teamName:', teamName);
     fetchTeamData();
     
     // Cleanup interval on unmount
@@ -106,7 +107,7 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
   const fetchTeamData = async () => {
     try {
       // Fetch team basic info from ESPN Soccer API
-      const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/teams/${teamId}`;
+      const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/teams/${teamId}`;
       console.log('Fetching team data from:', url);
       const response = await fetch(url);
       const data = await response.json();
@@ -134,7 +135,7 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
   const fetchTeamRecord = async (teamId) => {
     try {
       console.log('Fetching team record for teamId:', teamId);
-      const standingsData = await SpainServiceEnhanced.getStandings();
+      const standingsData = await ChampionsLeagueServiceEnhanced.getStandings();
       
       if (standingsData?.standings?.entries) {
         const teamEntry = standingsData.standings.entries.find(
@@ -148,8 +149,27 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
           const draws = teamEntry.stats.find(stat => stat.name === "ties")?.displayValue || "0";
           const points = teamEntry.stats.find(stat => stat.name === "points")?.displayValue || "0";
           const position = teamEntry.stats.find(stat => stat.name === "rank")?.displayValue || "N/A";
+
+          const getOrdinalSuffix = (num) => {
+        const j = num % 10;
+        const k = num % 100;
+        if (j === 1 && k !== 11) return num + "st";
+        if (j === 2 && k !== 12) return num + "nd";
+        if (j === 3 && k !== 13) return num + "rd";
+        return num + "th";
+      };
           
           setTeamRecord({ wins, losses, draws, points, position });
+          
+          // Set ranking information like team-page.js does
+          const teamPosition = standingsData.standings.entries.findIndex(entry => 
+            entry.team.id === teamId
+          ) + 1;
+          
+          const totalTeams = standingsData.standings.entries.length;
+          const rankingText = `${getOrdinalSuffix(teamPosition)} in Champions League`;
+          
+          setTeamRanking(rankingText);
           return;
         }
         console.log('Team not found in standings for teamId:', teamId);
@@ -163,10 +183,10 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
     try {
       console.log('Fetching all matches for team:', teamId);
       
-      // Fetch from all Spain competitions in parallel
-      const spanishCompetitions = ['esp.1', 'esp.copa_del_rey', 'esp.super_cup'];
+      // Fetch from all UCL competitions in parallel
+      const UCLCompetitions = ['uefa.champions', 'uefa.champions_qual'];
 
-      const competitionPromises = spanishCompetitions.map(async (leagueCode) => {
+      const competitionPromises = UCLCompetitions.map(async (leagueCode) => {
         try {
           // Get team events from ESPN Core API for each competition
           const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/2025/teams/${teamId}/events?lang=en&region=us&limit=100`;
@@ -352,7 +372,7 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
     try {
       const currentYear = new Date().getFullYear();
       const response = await fetch(
-        `https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/teams/${teamId}/roster?season=${currentYear}`
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/teams/${teamId}/roster?season=${currentYear}`
       );
       const data = await response.json();
       
@@ -361,7 +381,7 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
       } else {
         // Try previous year if current year has no data
         const prevResponse = await fetch(
-          `https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/teams/${teamId}/roster?season=${currentYear - 1}`
+          `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/teams/${teamId}/roster?season=${currentYear - 1}`
         );
         const prevData = await prevResponse.json();
         if (prevData.athletes) {
@@ -382,11 +402,10 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
     try {
       console.log('Fetching team statistics for team:', teamId);
       
-      // Fetch statistics for different Spain competitions
+      // Fetch statistics for different UCL competitions
       const seasonTypes = [
-        { id: '1', name: 'La Liga', leagueCode: 'esp.1' },
-        { id: '7', name: 'Copa del Rey', leagueCode: 'esp.copa_del_rey' },
-        { id: '8', name: 'Supercopa de España', leagueCode: 'esp.super_cup' }
+        { id: '1', name: 'Champions League', leagueCode: 'uefa.champions' },
+        { id: '7', name: 'Champions League Qualifiers', leagueCode: 'uefa.champions_qual' },
       ];
       
       const allStats = {};
@@ -444,7 +463,7 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
   // Handle game click navigation
   const handleGamePress = (game) => {
     console.log('Navigating to game:', game.id);
-    navigation.navigate('SpainGameDetails', {
+    navigation.navigate('UCLGameDetails', {
       gameId: game.id,
       sport: 'soccer'
     });
@@ -488,18 +507,16 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
 
   // Function to get competition display name from league code
   const getCompetitionName = (leagueCode) => {
-    if (!leagueCode) return 'Premier League';
+    if (!leagueCode) return 'Champions League';
     
     // Map league codes to display names
     switch (leagueCode) {
-      case 'esp.1':
-        return 'La Liga';
-      case 'esp.copa_del_rey':
-        return 'Copa del Rey';
-      case 'esp.super_cup':
-        return 'Spanish Supercopa';
+      case 'uefa.champions': 
+        return 'Champions League';
+      case 'uefa.champions_qual':
+        return 'Champions League Qualifiers';
       default:
-        return leagueCode.replace('esp.', '').replace('_', ' ').toUpperCase();
+        return leagueCode.replace('uefa.', '').replace('_', ' ').toUpperCase();
     }
   };
 
@@ -519,7 +536,7 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
             {teamData.displayName || teamData.name}
           </Text>
           <Text style={[styles.teamDivision, { color: theme.textSecondary }]}>
-            {teamData.standingSummary || 'Spain'}
+            {teamRanking || teamData.standingSummary || 'Champions League'}
           </Text>
           <View style={styles.recordContainer}>
             <View style={styles.recordRow}>
@@ -722,7 +739,7 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
         {/* League Header */}
         <View style={[styles.leagueHeader, { backgroundColor: theme.surfaceSecondary }]}>
           <Text style={[styles.leagueText, { color: colors.primary }]}>
-            {getCompetitionName(game.leagueCode) || competition?.name || competition?.league?.name || 'Premier League'}
+            {getCompetitionName(game.leagueCode) || competition?.name || competition?.league?.name || 'Champions League'}
           </Text>
         </View>
         
@@ -1047,7 +1064,7 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
                     onPress={() => {
                       console.log('Player selected:', player.id, player.fullName || player.displayName);
                       // Navigate to player page
-                      navigation.navigate('SpainPlayerPage', {
+                      navigation.navigate('UCLPlayerPage', {
                         playerId: player.id,
                         playerName: player.fullName || player.displayName || player.name,
                         teamId: teamId,
@@ -1662,4 +1679,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SpainTeamPageScreen;
+export default UCLTeamPageScreen;

@@ -1,17 +1,17 @@
-// Enhanced Spain Soccer Service
-// Handles API calls for Spanish football leagues (La Liga, Copa del Rey, Supercopa de España)
+// Enhanced Italy Soccer Service
+// Handles API calls for Italian football leagues (Serie A, Coppa Italia, Italian Supercoppa)
 // Combines soccer web logic with React Native patterns
 
-const SPAIN_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1';
+const ITALY_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/ita.1';
 
 // Competition configurations
-const SPAIN_COMPETITIONS = {
-  'esp.1': { name: 'La Liga', logo: '15', isPrimary: true },
-  'esp.copa_del_rey': { name: 'Copa del Rey', logo: '80', isPrimary: false },
-  'esp.super_cup': { name: 'Spanish Supercopa', logo: '431', isPrimary: false }
+const ITALY_COMPETITIONS = {
+  'ita.1': { name: 'Serie A', logo: '12', isPrimary: true },
+  'ita.coppa_italia': { name: 'Coppa Italia', logo: '2192', isPrimary: false },
+  'ita.super_cup': { name: 'Italian Supercoppa', logo: '2316', isPrimary: false }
 };
 
-export const SpainServiceEnhanced = {
+export const ItalyServiceEnhanced = {
   // Logo cache to prevent repeated fetches
   logoCache: new Map(),
 
@@ -132,18 +132,18 @@ export const SpainServiceEnhanced = {
     return start === end ? start : `${start}-${end}`;
   },
 
-  // Fetch games from all Spanish competitions (main league + domestic cups)
+  // Fetch games from all Italian competitions (main league + domestic cups)
   async fetchGamesFromAllCompetitions(dateRange) {
     const allGames = [];
     
-    // Get competitions for Spain
+    // Get competitions for Italy
     const allCompetitionsToCheck = [
-      { code: 'esp.copa_del_rey', name: 'Copa del Rey' }, // Domestic cups FIRST (prioritized)
-      { code: 'esp.super_cup', name: 'Spanish Supercopa' },
-      { code: 'esp.1', name: 'La Liga' } // Main league LAST
+      { code: 'ita.coppa_italia', name: 'Coppa Italia' }, // Domestic cups FIRST (prioritized)
+      { code: 'ita.super_cup', name: 'Italian Supercoppa' },
+      { code: 'ita.1', name: 'Serie A' } // Main league LAST
     ];
     
-    console.log(`Fetching Spain games from ${allCompetitionsToCheck.length} competitions:`, allCompetitionsToCheck.map(c => c.code));
+    console.log(`Fetching Italy games from ${allCompetitionsToCheck.length} competitions:`, allCompetitionsToCheck.map(c => c.code));
     
     // Create all fetch promises in parallel
     const fetchPromises = allCompetitionsToCheck.map(async (competition) => {
@@ -158,9 +158,9 @@ export const SpainServiceEnhanced = {
           // Add competition information to each game
           competitionGames.forEach(game => {
             game.competitionCode = competition.code;
-            game.competitionName = SPAIN_COMPETITIONS[competition.code]?.name || competition.name;
-            game.isDomesticCup = competition.code !== 'esp.1';
-            game.priority = competition.code !== 'esp.1' ? 1 : 2; // Competition = 1, League = 2
+            game.competitionName = ITALY_COMPETITIONS[competition.code]?.name || competition.name;
+            game.isDomesticCup = competition.code !== 'ita.1';
+            game.priority = competition.code !== 'ita.1' ? 1 : 2; // Competition = 1, League = 2
             // Add leagues data for round information
             game.leaguesData = data.leagues?.[0];
           });
@@ -193,7 +193,7 @@ export const SpainServiceEnhanced = {
       return new Date(a.date) - new Date(b.date);
     });
     
-    console.log(`Total Spain games found: ${allGames.length}`);
+    console.log(`Total Italy games found: ${allGames.length}`);
     return allGames;
   },
 
@@ -203,7 +203,7 @@ export const SpainServiceEnhanced = {
       const { startDate, endDate } = this.getDateRange(dateFilter);
       const dateRange = this.createDateRangeString(startDate, endDate);
       
-      console.log(`Fetching Spain scoreboard for ${dateFilter}:`, dateRange);
+      console.log(`Fetching Italy scoreboard for ${dateFilter}:`, dateRange);
       
       // Fetch from all competitions
       const games = await this.fetchGamesFromAllCompetitions(dateRange);
@@ -213,7 +213,7 @@ export const SpainServiceEnhanced = {
         leagues: games.length > 0 ? [games[0].leaguesData] : []
       };
     } catch (error) {
-      console.error('Error fetching Spain scoreboard:', error);
+      console.error('Error fetching Italy scoreboard:', error);
       throw error;
     }
   },
@@ -223,20 +223,20 @@ export const SpainServiceEnhanced = {
     try {
       // First, if we don't already have a strong hint, query the sports core API
       // event resource which includes a season.$ref that identifies the league code
-      // (e.g. esp.copa_del_rey). Using that is the most reliable way to determine
+      // (e.g. ita.coppa_italia). Using that is the most reliable way to determine
       // the actual competition for the event.
       let detectedHint = null;
       if (!competitionHint) {
         try {
-          // Try each Spain competition to find the right one
-          for (const comp of ['esp.1', 'esp.copa_del_rey', 'esp.super_cup']) {
+          // Try each Italy competition to find the right one
+          for (const comp of ['ita.1', 'ita.coppa_italia', 'ita.super_cup']) {
             const coreResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${comp}/events/${gameId}?lang=en&region=us`);
             if (coreResponse.ok) {
               const coreData = await coreResponse.json();
               // Try to read season.$ref or seasonType.$ref which include the league code
               const seasonRef = coreData?.season?.$ref || coreData?.seasonType?.$ref || coreData?.$ref;
               if (seasonRef && typeof seasonRef === 'string') {
-                // seasonRef example: http://sports.core.api.espn.com/v2/sports/soccer/leagues/esp.copa_del_rey/seasons/2024?lang=en&region=us
+                // seasonRef example: http://sports.core.api.espn.com/v2/sports/soccer/leagues/ita.coppa_italia/seasons/2024?lang=en&region=us
                 const match = seasonRef.match(/leagues\/([^\/]+)\/seasons/);
                 if (match && match[1]) {
                   detectedHint = match[1];
@@ -253,11 +253,11 @@ export const SpainServiceEnhanced = {
 
       // Build competition order. If we have a hint (from params or core API),
       // put it first to prefer that endpoint. Otherwise use cup-first order.
-      let competitionOrder = ['esp.copa_del_rey', 'esp.super_cup', 'esp.1'];
+      let competitionOrder = ['ita.coppa_italia', 'ita.super_cup', 'ita.1'];
       const effectiveHint = competitionHint || detectedHint;
       if (effectiveHint) {
         // Normalize hint to a key if it matches one of our known codes
-        const normalized = Object.keys(SPAIN_COMPETITIONS).find(k => k === effectiveHint || SPAIN_COMPETITIONS[k].name.toLowerCase() === String(effectiveHint).toLowerCase() || k === String(effectiveHint));
+        const normalized = Object.keys(ITALY_COMPETITIONS).find(k => k === effectiveHint || ITALY_COMPETITIONS[k].name.toLowerCase() === String(effectiveHint).toLowerCase() || k === String(effectiveHint));
         if (normalized) {
           // Place the hinted competition at the front
           competitionOrder = [normalized, ...competitionOrder.filter(c => c !== normalized)];
@@ -269,19 +269,19 @@ export const SpainServiceEnhanced = {
           const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${gameId}`);
           if (response.ok) {
             const data = await response.json();
-            // For Spain competitions, always use our mapping instead of API-provided names
-            // to avoid getting Spanish/foreign competition names in Spain games
+            // For Italy competitions, always use our mapping instead of API-provided names
+            // to avoid getting Spanish/foreign competition names in Italy games
             data.competitionCode = competition;
-            data.competitionName = SPAIN_COMPETITIONS[competition].name;
+            data.competitionName = ITALY_COMPETITIONS[competition].name;
             return data;
           }
         } catch (err) {
           console.log(`Game ${gameId} not found in ${competition}`, err);
         }
       }
-      throw new Error(`Game ${gameId} not found in any Spanish competition`);
+      throw new Error(`Game ${gameId} not found in any Italian competition`);
     } catch (error) {
-      console.error('Error fetching Spain game details:', error);
+      console.error('Error fetching Italy game details:', error);
       throw error;
     }
   },
@@ -290,7 +290,7 @@ export const SpainServiceEnhanced = {
   async getStandings() {
     try {
       const currentSeason = new Date().getFullYear().toString();
-      const leagueCode = 'esp.1'; // La Liga
+      const leagueCode = 'ita.1'; // Serie A
       
       // Use the same CDN endpoint that works in soccer web app
       const STANDINGS_URL = `https://cdn.espn.com/core/soccer/table?xhr=1&league=${leagueCode}&season=${currentSeason}`;
@@ -329,7 +329,7 @@ export const SpainServiceEnhanced = {
         throw new Error('Unexpected standings structure');
       }
     } catch (error) {
-      console.error('Error fetching Spain standings:', error);
+      console.error('Error fetching Italy standings:', error);
       throw error;
     }
   },
@@ -337,11 +337,11 @@ export const SpainServiceEnhanced = {
   // Fetch team information
   async getTeam(teamId) {
     try {
-      const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/teams/${teamId}`);
+      const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/ita.1/teams/${teamId}`);
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error fetching Spain team:', error);
+      console.error('Error fetching Italy team:', error);
       throw error;
     }
   },
@@ -353,7 +353,7 @@ export const SpainServiceEnhanced = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error fetching Spain player:', error);
+      console.error('Error fetching Italy player:', error);
       throw error;
     }
   },
@@ -361,7 +361,7 @@ export const SpainServiceEnhanced = {
   // Search for teams
   async searchTeams(query) {
     try {
-      const response = await fetch(`${SPAIN_BASE_URL}/teams?limit=50`);
+      const response = await fetch(`${ITALY_BASE_URL}/teams?limit=50`);
       const data = await response.json();
 
       if (data.sports && data.sports[0] && data.sports[0].leagues && data.sports[0].leagues[0]) {
@@ -372,7 +372,7 @@ export const SpainServiceEnhanced = {
       }
       return [];
     } catch (error) {
-      console.error('Error searching Spain teams:', error);
+      console.error('Error searching Italy teams:', error);
       throw error;
     }
   },
@@ -381,7 +381,7 @@ export const SpainServiceEnhanced = {
   async searchPlayers(query) {
     try {
       // Get all teams first
-      const response = await fetch(`${SPAIN_BASE_URL}/teams`);
+      const response = await fetch(`${ITALY_BASE_URL}/teams`);
       const data = await response.json();
       
       if (!data.sports || !data.sports[0] || !data.sports[0].leagues || !data.sports[0].leagues[0]) {
@@ -395,7 +395,7 @@ export const SpainServiceEnhanced = {
       const teamPromises = teams.map(async (team) => {
         try {
           const teamId = team.team.id;
-          const rosterResponse = await fetch(`${SPAIN_BASE_URL}/teams/${teamId}/roster?season=2025`);
+          const rosterResponse = await fetch(`${ITALY_BASE_URL}/teams/${teamId}/roster?season=2025`);
           const rosterData = await rosterResponse.json();
           
           if (rosterData.athletes) {
@@ -467,7 +467,7 @@ export const SpainServiceEnhanced = {
       }); // Removed the .slice(0, 50) limit to allow all matching players
       
     } catch (error) {
-      console.error('Error searching Spain players:', error);
+      console.error('Error searching Italy players:', error);
       // Return empty array instead of throwing to prevent crashes
       return [];
     }
@@ -476,20 +476,20 @@ export const SpainServiceEnhanced = {
   // Get competition details
   getCompetitionInfo() {
     return {
-      leagues: SPAIN_COMPETITIONS,
-      apiCode: 'esp.1'
+      leagues: ITALY_COMPETITIONS,
+      apiCode: 'ita.1'
     };
   },
 
   // Get league information
   getLeagueInfo() {
     return {
-      id: 'spain',
-      name: 'Spain',
-      fullName: 'La Liga',
-      country: 'Spain',
-      flag: 'https://a.espncdn.com/i/teamlogos/countries/500/esp.png',
-      apiCode: 'esp.1'
+      id: 'italy',
+      name: 'Italy',
+      fullName: 'Serie A',
+      country: 'Italy',
+      flag: 'https://a.espncdn.com/i/teamlogos/countries/500/ita.png',
+      apiCode: 'ita.1'
     };
   }
 };
