@@ -2032,7 +2032,7 @@ const UCLPlayerPageScreen = ({ route, navigation }) => {
                       setTimeout(() => {
                         navigation.navigate('UCLGameDetails', {
                           gameId: selectedGameStats.gameId,
-                          sport: 'soccer',
+                          sport: 'Champions League',
                           competition: selectedGameStats.competition || 'uefa.champions',
                           homeTeam: selectedGameStats.isHome ? playerData?.team : selectedGameStats.opponent,
                           awayTeam: selectedGameStats.isHome ? selectedGameStats.opponent : playerData?.team

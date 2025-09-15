@@ -22,7 +22,7 @@ const convertToHttps = (url) => {
 };
 
 const UCLSearchScreen = ({ route, navigation }) => {
-  const { sport } = route?.params || { sport: 'soccer' };
+  const { sport } = route?.params || { sport: 'Champions League' };
   const { theme, colors, isDarkMode } = useTheme();
   
   const [searchQuery, setSearchQuery] = useState('');

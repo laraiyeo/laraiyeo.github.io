@@ -12,12 +12,12 @@ import {
   Dimensions
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { EnglandServiceEnhanced } from '../../../services/soccer/EnglandServiceEnhanced';
+import { EuropaConferenceLeagueServiceEnhanced } from '../../../services/soccer/EuropaConferenceLeagueServiceEnhanced';
 import { useTheme } from '../../../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
-const EnglandScoreboardScreen = ({ navigation, route }) => {
+const UECLScoreboardScreen = ({ navigation, route }) => {
   const { theme, colors, isDarkMode } = useTheme();
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -132,11 +132,11 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
   // Track screen focus to pause/resume updates
   useFocusEffect(
     React.useCallback(() => {
-      console.log('EnglandScoreboardScreen: Screen focused');
+      console.log('UECLScoreboardScreen: Screen focused');
       setIsScreenFocused(true);
       
       return () => {
-        console.log('EnglandScoreboardScreen: Screen unfocused, clearing intervals');
+        console.log('UECLScoreboardScreen: Screen unfocused, clearing intervals');
         setIsScreenFocused(false);
         // Clear any existing interval when screen loses focus
         setUpdateInterval(prevInterval => {
@@ -148,7 +148,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
   );
 
   useEffect(() => {
-    console.log('EnglandScoreboardScreen: Main useEffect triggered for filter:', selectedDateFilter, 'focused:', isScreenFocused);
+    console.log('UECLScoreboardScreen: Main useEffect triggered for filter:', selectedDateFilter, 'focused:', isScreenFocused);
     // Load the current filter first
     loadScoreboard();
     
@@ -174,25 +174,25 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
 
   // Separate effect for initial preloading - only runs once on mount
   useEffect(() => {
-    console.log('EnglandScoreboardScreen: Preload useEffect triggered, hasPreloaded:', hasPreloadedRef.current);
+    console.log('UECLScoreboardScreen: Preload useEffect triggered, hasPreloaded:', hasPreloadedRef.current);
     // Only preload if we haven't done it before
     if (hasPreloadedRef.current) {
-      console.log('EnglandScoreboardScreen: Skipping preload, already done');
+      console.log('UECLScoreboardScreen: Skipping preload, already done');
       return;
     }
     
     // Mark that we're doing preloading
     hasPreloadedRef.current = true;
-    console.log('EnglandScoreboardScreen: Starting preload for other filters');
+    console.log('UECLScoreboardScreen: Starting preload for other filters');
     
     // Preload the other filters in the background after initial load
     const preloadTimer = setTimeout(() => {
       if (selectedDateFilter !== 'yesterday') {
-        console.log('EnglandScoreboardScreen: Preloading yesterday data');
+        console.log('UECLScoreboardScreen: Preloading yesterday data');
         loadScoreboard(true, 'yesterday');
       }
       if (selectedDateFilter !== 'upcoming') {
-        console.log('EnglandScoreboardScreen: Preloading upcoming data');
+        console.log('UECLScoreboardScreen: Preloading upcoming data');
         loadScoreboard(true, 'upcoming');
       }
     }, 1000); // Wait 1 second after initial load to preload others
@@ -201,7 +201,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
   }, []); // Empty dependency array - only run once on mount
 
   const loadScoreboard = async (silentUpdate = false, dateFilter = selectedDateFilter) => {
-    console.log('EnglandScoreboardScreen: loadScoreboard called - silentUpdate:', silentUpdate, 'dateFilter:', dateFilter);
+    console.log('UECLScoreboardScreen: loadScoreboard called - silentUpdate:', silentUpdate, 'dateFilter:', dateFilter);
     const now = Date.now();
     const cachedData = gameCache[dateFilter];
     const cacheTime = cacheTimestamps[dateFilter];
@@ -210,7 +210,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
     
     // If we have valid cached data, show it immediately
     if (isCacheValid && !silentUpdate) {
-      console.log('EnglandScoreboardScreen: Using cached data for', dateFilter);
+      console.log('UECLScoreboardScreen: Using cached data for', dateFilter);
       setGames(cachedData);
       setLoading(false);
       return;
@@ -221,14 +221,14 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
         setLoading(true);
       }
 
-      console.log('EnglandScoreboardScreen: Fetching fresh data for', dateFilter);
-      const data = await EnglandServiceEnhanced.getScoreboard(dateFilter);
+      console.log('UECLScoreboardScreen: Fetching fresh data for', dateFilter);
+      const data = await EuropaConferenceLeagueServiceEnhanced.getScoreboard(dateFilter);
       
       // Process games with enhanced data
       const processedGames = await Promise.all((data.events || []).map(async (game) => {
         // Get team logos
-        const awayLogo = await EnglandServiceEnhanced.getTeamLogoWithFallback(game.competitions[0]?.competitors[1]?.team?.id);
-        const homeLogo = await EnglandServiceEnhanced.getTeamLogoWithFallback(game.competitions[0]?.competitors[0]?.team?.id);
+        const awayLogo = await EuropaConferenceLeagueServiceEnhanced.getTeamLogoWithFallback(game.competitions[0]?.competitors[1]?.team?.id);
+        const homeLogo = await EuropaConferenceLeagueServiceEnhanced.getTeamLogoWithFallback(game.competitions[0]?.competitors[0]?.team?.id);
         
         return {
           ...game,
@@ -305,13 +305,13 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
         // Check if there were actual changes
         if (currentHash !== lastUpdateHash) {
           setLastUpdateHash(currentHash);
-          console.log('EnglandScoreboardScreen: Data updated for', dateFilter);
+          console.log('UECLScoreboardScreen: Data updated for', dateFilter);
         }
       }
 
       setLoading(false);
     } catch (error) {
-      console.error('EnglandScoreboardScreen: Error loading scoreboard:', error);
+      console.error('UECLScoreboardScreen: Error loading scoreboard:', error);
       if (!silentUpdate) {
         setLoading(false);
         Alert.alert('Error', 'Failed to load matches. Please try again.');
@@ -333,7 +333,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
   const handleDateFilterChange = (filter) => {
     if (filter === selectedDateFilter) return;
     
-    console.log('EnglandScoreboardScreen: Changing filter to:', filter);
+    console.log('UECLScoreboardScreen: Changing filter to:', filter);
     setSelectedDateFilter(filter);
     
     // Check if we have cached data for this filter
@@ -344,11 +344,11 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
     const isCacheValid = cachedData && (now - cacheTime) < cacheDuration;
     
     if (isCacheValid) {
-      console.log('EnglandScoreboardScreen: Using cached data for filter change to:', filter);
+      console.log('UECLScoreboardScreen: Using cached data for filter change to:', filter);
       setGames(cachedData);
       setLoading(false);
     } else {
-      console.log('EnglandScoreboardScreen: No valid cache for filter:', filter, '- will fetch fresh data');
+      console.log('UECLScoreboardScreen: No valid cache for filter:', filter, '- will fetch fresh data');
     }
   };
 
@@ -440,11 +440,11 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
   };
 
   const handleGamePress = (game) => {
-    console.log('EnglandScoreboardScreen: Game pressed:', game.id);
-    navigation.navigate('EnglandGameDetails', {
+    console.log('UECLScoreboardScreen: Game pressed:', game.id);
+    navigation.navigate('UECLGameDetails', {
       gameId: game.id,
-      sport: 'English',
-      competition: game.competitionName || 'England',
+      sport: 'Europa Conference League',
+      competition: game.competitionName || 'UECL',
       homeTeam: game.competitions[0]?.competitors[0]?.team,
       awayTeam: game.competitions[0]?.competitors[1]?.team
     });
@@ -776,4 +776,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default EnglandScoreboardScreen;
+export default UECLScoreboardScreen;

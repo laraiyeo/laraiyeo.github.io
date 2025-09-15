@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
-import { ChampionsLeagueServiceEnhanced } from '../../../services/soccer/ChampionsLeagueServiceEnhanced';
+import { EuropaLeagueServiceEnhanced } from '../../../services/soccer/EuropaLeagueServiceEnhanced';
 
-const UCLTeamPageScreen = ({ route, navigation }) => {
+const UELTeamPageScreen = ({ route, navigation }) => {
   const { teamId, teamName } = route.params;
   const { theme, colors, isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState('Games');
@@ -93,7 +93,7 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
   };
 
   useEffect(() => {
-    console.log('UCLTeamPageScreen received - teamId:', teamId, 'teamName:', teamName);
+    console.log('UELTeamPageScreen received - teamId:', teamId, 'teamName:', teamName);
     fetchTeamData();
     
     // Cleanup interval on unmount
@@ -107,7 +107,7 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
   const fetchTeamData = async () => {
     try {
       // Fetch team basic info from ESPN Soccer API
-      const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/teams/${teamId}`;
+      const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/teams/${teamId}`;
       console.log('Fetching team data from:', url);
       const response = await fetch(url);
       const data = await response.json();
@@ -135,7 +135,7 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
   const fetchTeamRecord = async (teamId) => {
     try {
       console.log('Fetching team record for teamId:', teamId);
-      const standingsData = await ChampionsLeagueServiceEnhanced.getStandings();
+      const standingsData = await EuropaLeagueServiceEnhanced.getStandings();
       
       if (standingsData?.standings?.entries) {
         const teamEntry = standingsData.standings.entries.find(
@@ -183,10 +183,10 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
     try {
       console.log('Fetching all matches for team:', teamId);
       
-      // Fetch from all UCL competitions in parallel
-      const UCLCompetitions = ['uefa.champions', 'uefa.champions_qual'];
+      // Fetch from all UEL competitions in parallel
+      const UELCompetitions = ['uefa.europa', 'uefa.europa_qual'];
 
-      const competitionPromises = UCLCompetitions.map(async (leagueCode) => {
+      const competitionPromises = UELCompetitions.map(async (leagueCode) => {
         try {
           // Get team events from ESPN Core API for each competition
           const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/2025/teams/${teamId}/events?lang=en&region=us&limit=100`;
@@ -372,7 +372,7 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
     try {
       const currentYear = new Date().getFullYear();
       const response = await fetch(
-        `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/teams/${teamId}/roster?season=${currentYear}`
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/teams/${teamId}/roster?season=${currentYear}`
       );
       const data = await response.json();
       
@@ -381,7 +381,7 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
       } else {
         // Try previous year if current year has no data
         const prevResponse = await fetch(
-          `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/teams/${teamId}/roster?season=${currentYear - 1}`
+          `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/teams/${teamId}/roster?season=${currentYear - 1}`
         );
         const prevData = await prevResponse.json();
         if (prevData.athletes) {
@@ -402,10 +402,10 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
     try {
       console.log('Fetching team statistics for team:', teamId);
       
-      // Fetch statistics for different UCL competitions
+      // Fetch statistics for different UEL competitions
       const seasonTypes = [
-        { id: '1', name: 'Champions League', leagueCode: 'uefa.champions' },
-        { id: '7', name: 'Champions League Qualifiers', leagueCode: 'uefa.champions_qual' },
+        { id: '1', name: 'Champions League', leagueCode: 'uefa.europa' },
+        { id: '7', name: 'Champions League Qualifiers', leagueCode: 'uefa.europa_qual' },
       ];
       
       const allStats = {};
@@ -463,7 +463,7 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
   // Handle game click navigation
   const handleGamePress = (game) => {
     console.log('Navigating to game:', game.id);
-    navigation.navigate('UCLGameDetails', {
+    navigation.navigate('UELGameDetails', {
       gameId: game.id,
       sport: 'Champions League',
     });
@@ -511,9 +511,9 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
     
     // Map league codes to display names
     switch (leagueCode) {
-      case 'uefa.champions': 
+      case 'uefa.europa': 
         return 'Champions League';
-      case 'uefa.champions_qual':
+      case 'uefa.europa_qual':
         return 'Champions League Qualifiers';
       default:
         return leagueCode.replace('uefa.', '').replace('_', ' ').toUpperCase();
@@ -1064,7 +1064,7 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
                     onPress={() => {
                       console.log('Player selected:', player.id, player.fullName || player.displayName);
                       // Navigate to player page
-                      navigation.navigate('UCLPlayerPage', {
+                      navigation.navigate('UELPlayerPage', {
                         playerId: player.id,
                         playerName: player.fullName || player.displayName || player.name,
                         teamId: teamId,
@@ -1679,4 +1679,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default UCLTeamPageScreen;
+export default UELTeamPageScreen;

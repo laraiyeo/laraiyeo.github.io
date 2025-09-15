@@ -446,7 +446,7 @@ const ItalyTeamPageScreen = ({ route, navigation }) => {
     console.log('Navigating to game:', game.id);
     navigation.navigate('ItalyGameDetails', {
       gameId: game.id,
-      sport: 'soccer'
+      sport: 'Italian'
     });
   };
 
@@ -1051,7 +1051,7 @@ const ItalyTeamPageScreen = ({ route, navigation }) => {
                         playerId: player.id,
                         playerName: player.fullName || player.displayName || player.name,
                         teamId: teamId,
-                        sport: 'soccer'
+                        sport: 'Italian'
                       });
                     }}
                     activeOpacity={0.7}

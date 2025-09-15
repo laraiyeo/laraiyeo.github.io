@@ -95,6 +95,26 @@ import UCLGameDetailsScreen from './src/screens/soccer/champions-league/UCLGameD
 import UCLTeamPageScreen from './src/screens/soccer/champions-league/UCLTeamPageScreen';
 import UCLPlayerPageScreen from './src/screens/soccer/champions-league/UCLPlayerPageScreen';
 
+// Europa League enhanced screens
+import UELScoreboardScreen from './src/screens/soccer/europa-league/UELScoreboardScreen';
+import UELStandingsScreen from './src/screens/soccer/europa-league/UELStandingsScreen';
+import UELSearchScreen from './src/screens/soccer/europa-league/UELSearchScreen';
+import UELCompareScreen from './src/screens/soccer/europa-league/UELCompareScreen';
+import UELBracketScreen from './src/screens/soccer/europa-league/UELBracketScreen';
+import UELGameDetailsScreen from './src/screens/soccer/europa-league/UELGameDetailsScreen';
+import UELTeamPageScreen from './src/screens/soccer/europa-league/UELTeamPageScreen';
+import UELPlayerPageScreen from './src/screens/soccer/europa-league/UELPlayerPageScreen';
+
+// Europa Conference League enhanced screens
+import UECLScoreboardScreen from './src/screens/soccer/europa-conference/UECLScoreboardScreen';
+import UECLStandingsScreen from './src/screens/soccer/europa-conference/UECLStandingsScreen';
+import UECLSearchScreen from './src/screens/soccer/europa-conference/UECLSearchScreen';
+import UECLCompareScreen from './src/screens/soccer/europa-conference/UECLCompareScreen';
+import UECLBracketScreen from './src/screens/soccer/europa-conference/UECLBracketScreen';
+import UECLGameDetailsScreen from './src/screens/soccer/europa-conference/UECLGameDetailsScreen';
+import UECLTeamPageScreen from './src/screens/soccer/europa-conference/UECLTeamPageScreen';
+import UECLPlayerPageScreen from './src/screens/soccer/europa-conference/UECLPlayerPageScreen';
+
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
@@ -355,19 +375,19 @@ const SoccerTabNavigator = ({ route }) => {
         };
       case 'europa-league':
         return {
-          ScoresScreen: EuropaLeagueScreen,
-          StandingsScreen: EuropaLeagueScreen,
-          SearchScreen: EuropaLeagueScreen,
-          CompareScreen: EuropaLeagueScreen,
-          StatsScreen: EuropaLeagueScreen,
+          ScoresScreen: UELScoreboardScreen,
+          StandingsScreen: UELStandingsScreen,
+          SearchScreen: UELSearchScreen,
+          CompareScreen: UELCompareScreen,
+          StatsScreen: UELBracketScreen,
         };
       case 'europa-conference':
         return {
-          ScoresScreen: EuropaConferenceScreen,
-          StandingsScreen: EuropaConferenceScreen,
-          SearchScreen: EuropaConferenceScreen,
-          CompareScreen: EuropaConferenceScreen,
-          StatsScreen: EuropaConferenceScreen,
+          ScoresScreen: UECLScoreboardScreen,
+          StandingsScreen: UECLStandingsScreen,
+          SearchScreen: UECLSearchScreen,
+          CompareScreen: UECLCompareScreen,
+          StatsScreen: UECLBracketScreen,
         };
       default:
         return {
@@ -635,6 +655,34 @@ const MainStackNavigator = () => {
         }}
       />
       <Stack.Screen 
+        name="UELGameDetails" 
+        component={UELGameDetailsScreen}
+        options={{ 
+          title: 'Game Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="UECLGameDetails" 
+        component={UECLGameDetailsScreen}
+        options={{ 
+          title: 'Game Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
         name="TeamPage" 
         component={({ route, navigation }) => {
           const { sport } = route?.params || {};
@@ -751,6 +799,34 @@ const MainStackNavigator = () => {
         }}
       />
       <Stack.Screen 
+        name="UELTeamPage" 
+        component={UELTeamPageScreen}
+        options={{ 
+          title: 'Team Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="UECLTeamPage" 
+        component={UECLTeamPageScreen}
+        options={{ 
+          title: 'Team Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
         name="SpainPlayerPage" 
         component={SpainPlayerPageScreen}
         options={{ 
@@ -823,6 +899,34 @@ const MainStackNavigator = () => {
       <Stack.Screen 
         name="UCLPlayerPage" 
         component={UCLPlayerPageScreen}
+        options={{ 
+          title: 'Player Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="UELPlayerPage" 
+        component={UELPlayerPageScreen}
+        options={{ 
+          title: 'Player Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="UECLPlayerPage" 
+        component={UECLPlayerPageScreen}
         options={{ 
           title: 'Player Details',
           headerStyle: {

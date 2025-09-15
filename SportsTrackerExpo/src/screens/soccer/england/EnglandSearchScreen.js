@@ -22,7 +22,7 @@ const convertToHttps = (url) => {
 };
 
 const EnglandSearchScreen = ({ route, navigation }) => {
-  const { sport } = route?.params || { sport: 'soccer' };
+  const { sport } = route?.params || { sport: 'English' };
   const { theme, colors, isDarkMode } = useTheme();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -349,7 +349,7 @@ const EnglandSearchScreen = ({ route, navigation }) => {
       <View style={[styles.searchHeader, { backgroundColor: theme.surface }]}>
         <Text style={[styles.title, { color: colors.primary }]}>Search</Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Search for {(sport || 'soccer').toUpperCase()} teams and players
+          Search for {(sport || 'English').toUpperCase()} teams and players
         </Text>
       </View>
 

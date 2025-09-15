@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import Svg, { Line, Circle, Defs, LinearGradient, Stop, Path } from 'react-native-svg';
-import { ItalyServiceEnhanced } from '../../../services/soccer/ItalyServiceEnhanced';
+import { EuropaConferenceLeagueServiceEnhanced } from '../../../services/soccer/EuropaConferenceLeagueServiceEnhanced';
 import { useTheme } from '../../../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
@@ -31,7 +31,7 @@ const convertToHttps = (url) => {
   return url;
 };
 
-const ItalyGameDetailsScreen = ({ route, navigation }) => {
+const UECLGameDetailsScreen = ({ route, navigation }) => {
   const { gameId, sport, competition, homeTeam, awayTeam } = route?.params || {};
   const { theme, colors, isDarkMode } = useTheme();
   const [gameData, setGameData] = useState(null);
@@ -166,7 +166,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
   // Enhanced logo function with dark mode support and fallbacks
   const getTeamLogo = async (teamId, isDarkMode) => {
     // Use the service's enhanced logo logic with caching and fallbacks
-    const logoUrl = await ItalyServiceEnhanced.getTeamLogoWithFallback(teamId);
+    const logoUrl = await EuropaConferenceLeagueServiceEnhanced.getTeamLogoWithFallback(teamId);
     return { primaryUrl: logoUrl, fallbackUrl: logoUrl };
   };
 
@@ -284,12 +284,12 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
           // ignore
         }
 
-        console.log('[ItalyGameDetails] incremental update: added=', addedCount, 'patched=', patchedCount);
+        console.log('[UECLGameDetails] incremental update: added=', addedCount, 'patched=', patchedCount);
         return updated;
       }
 
       if (changed) {
-        console.log('[ItalyGameDetails] incremental update: added=', addedCount, 'patched=', patchedCount);
+        console.log('[UECLGameDetails] incremental update: added=', addedCount, 'patched=', patchedCount);
         return patchedPlays;
       }
       return prevPlays; // no-op: keep same reference to avoid re-render
@@ -472,7 +472,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
   // Reload data when the screen comes into focus (useful when navigating back)
   useFocusEffect(
     React.useCallback(() => {
-      console.log('[ItalyGameDetails] useFocusEffect triggered');
+      console.log('[UECLGameDetails] useFocusEffect triggered');
       loadGameDetails();
       // Only clear plays and stats data when the gameId changes, not on every focus
       // This prevents losing data when navigating back from other screens with same gameId
@@ -492,7 +492,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
 
   // Clear data when gameId changes (different game)
   useEffect(() => {
-    console.log('[ItalyGameDetails] gameId changed - clearing data states');
+    console.log('[UECLGameDetails] gameId changed - clearing data states');
     setPlaysData(null);
     setStatsData(null);
   }, [gameId]);
@@ -502,9 +502,9 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       if (!silentUpdate) {
         setLoading(true);
       }
-      console.log('[ItalyGameDetails] loadGameDetails START', { gameId, silentUpdate });
-      console.debug('[ItalyGameDetails] requesting game details for', gameId);
-      const data = await ItalyServiceEnhanced.getGameDetails(gameId);
+      console.log('[UECLGameDetails] loadGameDetails START', { gameId, silentUpdate });
+      console.debug('[UECLGameDetails] requesting game details for', gameId);
+      const data = await EuropaConferenceLeagueServiceEnhanced.getGameDetails(gameId);
       
       // Process the data similar to soccer web logic
       const processedData = await processGameData(data);
@@ -521,7 +521,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       if (currentHash !== lastUpdateHash) {
         setGameData(processedData);
         setLastUpdateHash(currentHash);
-        console.log('[ItalyGameDetails] Game data updated - hash changed', currentHash);
+        console.log('[UECLGameDetails] Game data updated - hash changed', currentHash);
         
         // Clear stats data when game state changes to ensure fresh stats are fetched
         setStatsData(null);
@@ -529,17 +529,17 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
         // Fetch lineup data when game data is updated
         const lineupResult = await fetchLineupData();
         setLineupData(lineupResult);
-        console.log('[ItalyGameDetails] Lineup data updated:', lineupResult);
+        console.log('[UECLGameDetails] Lineup data updated:', lineupResult);
         
         // Do not forcibly clear playsData here; the plays effect will compare hashes and merge/refresh
       } else {
-        console.debug('[ItalyGameDetails] Game data hash unchanged');
+        console.debug('[UECLGameDetails] Game data hash unchanged');
       }
 
       setLoading(false);
-      console.log('[ItalyGameDetails] loadGameDetails END', { gameId, silentUpdate });
+      console.log('[UECLGameDetails] loadGameDetails END', { gameId, silentUpdate });
     } catch (error) {
-      console.error('Error loading Italy game details:', error);
+      console.error('Error loading UECL game details:', error);
       if (!silentUpdate) {
         setLoading(false);
         Alert.alert('Error', 'Failed to load game details. Please try again.');
@@ -560,8 +560,8 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     const awayTeamId = awayCompetitor?.team?.id;
     
     const [homeLogo, awayLogo] = await Promise.all([
-      homeTeamId ? ItalyServiceEnhanced.getTeamLogoWithFallback(homeTeamId) : null,
-      awayTeamId ? ItalyServiceEnhanced.getTeamLogoWithFallback(awayTeamId) : null
+      homeTeamId ? EuropaConferenceLeagueServiceEnhanced.getTeamLogoWithFallback(homeTeamId) : null,
+      awayTeamId ? EuropaConferenceLeagueServiceEnhanced.getTeamLogoWithFallback(awayTeamId) : null
     ]);
 
     let homeScore = null;
@@ -1865,15 +1865,15 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     const awayIsLoser = !matchStatus.isLive && !matchStatus.isPre && !isDraw && !awayIsWinner;
 
     // Get team colors
-    const homeColor = ItalyServiceEnhanced.getTeamColorWithAlternateLogic(homeTeam?.team);
-    const awayColor = ItalyServiceEnhanced.getTeamColorWithAlternateLogic(awayTeam?.team);
+    const homeColor = EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(homeTeam?.team);
+    const awayColor = EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(awayTeam?.team);
 
     return (
       <View style={[styles.headerContainer, { backgroundColor: theme.surface }]}>
         {/* Competition Info */}
         <View style={styles.competitionContainer}>
           <Text style={[styles.competitionText, { color: theme.textSecondary }]}>
-            {gameData.competitionName || 'Italy'}
+            {gameData.competitionName || 'UECL'}
           </Text>
         </View>
 
@@ -2186,7 +2186,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
           return Number.isFinite(parsed) ? parsed : (stat.value != null ? stat.value : 0);
         }
       } catch (err) {
-        console.log('[ItalyGameDetails] getStat error:', err);
+        console.log('[UECLGameDetails] getStat error:', err);
       }
       return 0;
     };
@@ -2204,8 +2204,8 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     const awayLogo = gameData?.awayLogo || 'https://via.placeholder.com/40';
     
     // Ensure colors are properly formatted with # prefix
-    let homeColor = ItalyServiceEnhanced.getTeamColorWithAlternateLogic(homeTeam?.team) || '#007bff';
-    let awayColor = ItalyServiceEnhanced.getTeamColorWithAlternateLogic(awayTeam?.team) || '#28a745';
+    let homeColor = EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(homeTeam?.team) || '#007bff';
+    let awayColor = EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(awayTeam?.team) || '#28a745';
     
     // Add # prefix if missing
     homeColor = homeColor.startsWith('#') ? homeColor : `#${homeColor}`;
@@ -2466,9 +2466,9 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
             if (event.id) {
               // Try to pass a competition hint so the details service queries the correct competition first
               const competitionHint = event.competitionCode || event.competition?.id || event.leagueId || event.league?.id || event.competitionName || event.leagueName || null;
-              navigation.navigate('ItalyGameDetails', {
+              navigation.navigate('UECLGameDetails', {
                 gameId: event.id,
-                sport: 'Italian',
+                sport: 'Europa Conference League',
                 competitionHint
               });
             }
@@ -2952,7 +2952,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     if (!gameId) return { homeLineup: [], awayLineup: [] };
     
     try {
-      console.log('[ItalyGameDetails] Fetching lineup data for gameId:', gameId);
+      console.log('[UECLGameDetails] Fetching lineup data for gameId:', gameId);
       
       // Use the exact same API endpoint as scoreboard.js line 424
       const LINEUP_API_URL = `https://cdn.espn.com/core/soccer/lineups?xhr=1&gameId=${gameId}`;
@@ -2963,7 +2963,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       }
       
       const data = await response.json();
-      console.log('[ItalyGameDetails] Lineup API response:', data);
+      console.log('[UECLGameDetails] Lineup API response:', data);
       
       // Extract rosters and formations exactly like scoreboard.js does
       const rosters = data?.gamepackageJSON?.rosters || [];
@@ -2977,7 +2977,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       const homeFormation = homeRoster?.formation || "4-3-3";
       const awayFormation = awayRoster?.formation || "4-3-3";
       
-      console.log('[ItalyGameDetails] Lineup data extracted:', { 
+      console.log('[UECLGameDetails] Lineup data extracted:', { 
         homeLineup: homeLineup.length, 
         awayLineup: awayLineup.length,
         homeFormation,
@@ -2990,7 +2990,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       return { homeLineup, awayLineup, homeFormation, awayFormation };
       
     } catch (error) {
-      console.error('[ItalyGameDetails] fetchLineupData error:', error);
+      console.error('[UECLGameDetails] fetchLineupData error:', error);
       return { homeLineup: [], awayLineup: [] };
     }
   };
@@ -3121,7 +3121,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
         }
       };
     } catch (err) {
-      console.log('[ItalyGameDetails] mapTeamStats error:', err);
+      console.log('[UECLGameDetails] mapTeamStats error:', err);
       return {};
     }
   };
@@ -3147,16 +3147,16 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       // This ensures we fetch the exact per-competitor statistics resource (as in c1/c2)
       let coreCompetitors = [];
       try {
-        const CORE_EVENT_URL = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/ita.1/events/${gameId}?lang=en&region=us`;
+        const CORE_EVENT_URL = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${gameId}?lang=en&region=us`;
         const coreResp = await fetch(convertToHttps(CORE_EVENT_URL));
         if (coreResp.ok) {
           const coreData = await coreResp.json();
           coreCompetitors = coreData?.competitions?.[0]?.competitors || [];
         } else {
-          console.log('[ItalyGameDetails] core event resource responded with', coreResp.status);
+          console.log('[UECLGameDetails] core event resource responded with', coreResp.status);
         }
       } catch (coreErr) {
-        console.log('[ItalyGameDetails] Error fetching core event resource:', coreErr);
+        console.log('[UECLGameDetails] Error fetching core event resource:', coreErr);
       }
 
       // Map competitor by homeAway or team id for easy lookup
@@ -3173,7 +3173,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
           if (!statRef) return { comp, rawText: null, parsed: null };
           const sResp = await fetch(convertToHttps(statRef));
           if (!sResp.ok) {
-            console.log('[ItalyGameDetails] statRef fetch failed', statRef, sResp.status);
+            console.log('[UECLGameDetails] statRef fetch failed', statRef, sResp.status);
             return { comp, rawText: null, parsed: null };
           }
           const rawText = await sResp.text();
@@ -3182,7 +3182,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
           try { parsed = JSON.parse(rawText); } catch (e) { parsed = null; }
           return { comp, rawText, parsed, statRef };
         } catch (err) {
-          console.log('[ItalyGameDetails] Failed to fetch statRef for competitor', comp?.id, err);
+          console.log('[UECLGameDetails] Failed to fetch statRef for competitor', comp?.id, err);
           return { comp, rawText: null, parsed: null };
         }
       });
@@ -3232,12 +3232,12 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
                 });
               });
               team.statistics = flattened;
-              console.log(`[ItalyGameDetails] Processed ${flattened.length} stats from $ref for ${homeAway} team`);
+              console.log(`[UECLGameDetails] Processed ${flattened.length} stats from $ref for ${homeAway} team`);
             }
           }
         });
       } catch (attachErr) {
-        console.log('[ItalyGameDetails] Error attaching parsed stats to teams:', attachErr);
+        console.log('[UECLGameDetails] Error attaching parsed stats to teams:', attachErr);
       }
 
       // If we have gameData and competitor statistics $refs, fetch those and
@@ -3322,7 +3322,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       };
       
     } catch (error) {
-      console.error('[ItalyGameDetails] fetchMatchStats error:', error);
+      console.error('[UECLGameDetails] fetchMatchStats error:', error);
       return null;
     }
   };
@@ -3349,7 +3349,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
   const fetchPlaysDataInternal = async ({ silent = true } = {}) => {
     // Skip if user is actively scrolling
     if (isUserScrollingRef.current) {
-      console.log('[ItalyGameDetails] skipping plays fetch - user is scrolling');
+      console.log('[UECLGameDetails] skipping plays fetch - user is scrolling');
       return;
     }
 
@@ -3357,7 +3357,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
 
     // Prevent concurrent fetches
     if (playsFetchingRef.current) {
-      console.debug('[ItalyGameDetails] plays fetch already in progress - skipping');
+      console.debug('[UECLGameDetails] plays fetch already in progress - skipping');
       return;
     }
 
@@ -3368,11 +3368,11 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       setLoadingPlays(true);
     }
 
-    console.log('[ItalyGameDetails] fetchPlaysData START', { gameId, lastUpdateHash, playsDataCount: playsData ? playsData.length : 0, silent });
+    console.log('[UECLGameDetails] fetchPlaysData START', { gameId, lastUpdateHash, playsDataCount: playsData ? playsData.length : 0, silent });
 
     try {
       // Fetch plays data from ESPN API exactly like scoreboard.js
-      const PLAYS_API_URL = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/ita.1/events/${gameId}/competitions/${gameId}/plays?lang=en&region=us&limit=1000`;
+      const PLAYS_API_URL = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${gameId}/competitions/${gameId}/plays?lang=en&region=us&limit=1000`;
 
       const response = await fetch(convertToHttps(PLAYS_API_URL));
       if (!response.ok) {
@@ -3382,7 +3382,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       const data = await response.json();
 
       if (!data.items || data.items.length === 0) {
-        console.warn('[ItalyGameDetails] No plays data available in response');
+        console.warn('[UECLGameDetails] No plays data available in response');
         if (initialLoad) setPlaysData([]);
         // Keep lastPlaysHashRef aligned with game-level hash (so we don't repeatedly try)
         lastPlaysHashRef.current = lastUpdateHash;
@@ -3399,16 +3399,16 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       const playsHash = JSON.stringify({ count: fetchedPlays.length, topKey, topSeq });
 
       if (playsHash !== lastPlaysHashRef.current) {
-        console.log('[ItalyGameDetails] plays changed - applying incremental update', { playsHash, prev: lastPlaysHashRef.current });
+        console.log('[UECLGameDetails] plays changed - applying incremental update', { playsHash, prev: lastPlaysHashRef.current });
         updatePlaysDataIncremental(fetchedPlays);
         lastPlaysHashRef.current = playsHash;
       } else {
-        console.debug('[ItalyGameDetails] plays hash unchanged - skipping merge');
+        console.debug('[UECLGameDetails] plays hash unchanged - skipping merge');
       }
 
-      console.log('[ItalyGameDetails] fetchPlaysData END - items', fetchedPlays.length);
+      console.log('[UECLGameDetails] fetchPlaysData END - items', fetchedPlays.length);
     } catch (error) {
-      console.error('[ItalyGameDetails] Error fetching plays data:', error);
+      console.error('[UECLGameDetails] Error fetching plays data:', error);
       if (initialLoad) setPlaysData([]);
     } finally {
       playsFetchingRef.current = false;
@@ -3449,7 +3449,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
 
   // Fetch plays data silently when gameData is loaded (for scorers box functionality)
   useEffect(() => {
-    console.log('[ItalyGameDetails] Plays fetch useEffect triggered', {
+    console.log('[UECLGameDetails] Plays fetch useEffect triggered', {
       hasGameData: !!gameData,
       gameId,
       hasPlaysData: !!playsData,
@@ -3457,7 +3457,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     });
     
     if (gameData && gameId && !playsData) {
-      console.log('[ItalyGameDetails] Fetching plays data for scorers box');
+      console.log('[UECLGameDetails] Fetching plays data for scorers box');
       fetchPlaysDataInternal({ silent: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3472,7 +3472,7 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
       scrollTimeoutRef.current = setTimeout(() => {
         isUserScrollingRef.current = false;
-        console.log('[ItalyGameDetails] user stopped scrolling - updates will resume');
+        console.log('[UECLGameDetails] user stopped scrolling - updates will resume');
       }, 600);
     };
 
@@ -3591,10 +3591,10 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
           if (playTeamId) {
             if (String(playTeamId) === String(awayId)) {
               teamSide = 'away';
-              teamColor = ItalyServiceEnhanced.getTeamColorWithAlternateLogic(awayTeam?.team || awayTeam) || '#28a745';
+              teamColor = EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(awayTeam?.team || awayTeam) || '#28a745';
             } else if (String(playTeamId) === String(homeId)) {
               teamSide = 'home';
-              teamColor = ItalyServiceEnhanced.getTeamColorWithAlternateLogic(homeTeam?.team || homeTeam) || '#007bff';
+              teamColor = EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(homeTeam?.team || homeTeam) || '#007bff';
             }
           }
           
@@ -3936,9 +3936,9 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     
     let teamColor = '#000'; // Default black
     if (selectedPlayer.teamType === 'home') {
-      teamColor = ItalyServiceEnhanced.getTeamColorWithAlternateLogic(homeTeam?.team) || '#007bff';
+      teamColor = EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(homeTeam?.team) || '#007bff';
     } else if (selectedPlayer.teamType === 'away') {
-      teamColor = ItalyServiceEnhanced.getTeamColorWithAlternateLogic(awayTeam?.team) || '#28a745';
+      teamColor = EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(awayTeam?.team) || '#28a745';
     }
 
     // Ensure the color has a # prefix
@@ -5401,4 +5401,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ItalyGameDetailsScreen;
+export default UECLGameDetailsScreen;

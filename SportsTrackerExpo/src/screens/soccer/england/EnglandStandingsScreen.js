@@ -160,7 +160,7 @@ const EnglandStandingsScreen = ({ navigation, route }) => {
     navigation.navigate('EnglandTeamPage', {
       teamId: team.team.id,
       teamName: team.team.displayName,
-      sport: 'soccer',
+      sport: 'English',
       league: 'england'
     });
   };

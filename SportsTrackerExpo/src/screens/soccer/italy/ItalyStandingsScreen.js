@@ -160,7 +160,7 @@ const ItalyStandingsScreen = ({ navigation, route }) => {
     navigation.navigate('ItalyTeamPage', {
       teamId: team.team.id,
       teamName: team.team.displayName,
-      sport: 'soccer',
+      sport: 'Italian',
       league: 'italy'
     });
   };

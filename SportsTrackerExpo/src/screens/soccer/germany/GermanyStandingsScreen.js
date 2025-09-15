@@ -160,7 +160,7 @@ const GermanyStandingsScreen = ({ navigation, route }) => {
     navigation.navigate('GermanyTeamPage', {
       teamId: team.team.id,
       teamName: team.team.displayName,
-      sport: 'soccer',
+      sport: 'German',
       league: 'germany'
     });
   };

@@ -446,7 +446,7 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
     console.log('Navigating to game:', game.id);
     navigation.navigate('SpainGameDetails', {
       gameId: game.id,
-      sport: 'soccer'
+      sport: 'Spanish'
     });
   };
 
@@ -1051,7 +1051,7 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
                         playerId: player.id,
                         playerName: player.fullName || player.displayName || player.name,
                         teamId: teamId,
-                        sport: 'soccer'
+                        sport: 'Spanish'
                       });
                     }}
                     activeOpacity={0.7}

@@ -20,12 +20,12 @@ const { width } = Dimensions.get('window');
 // In-memory cache for prefetched logo URIs to avoid flicker
 const logoUriCache = {};
 
-// League configuration - only Champions League
+// League configuration - only Europa Conference League
 const LEAGUES = {
-  "Champions League": { code: "uefa.champions", logo: "2" },
+  "Europa Conference League": { code: "uefa.europa.conf", logo: "20296" },
 };
 
-const UCLBracketScreen = ({ navigation, route }) => {
+const UECLBracketScreen = ({ navigation, route }) => {
   const { theme, colors, isDarkMode } = useTheme();
 
   // View state: 'bracket' or 'knockout' (default to 'knockout')
@@ -75,7 +75,7 @@ const UCLBracketScreen = ({ navigation, route }) => {
         return cachedStandings;
       }
 
-      const STANDINGS_URL = `https://cdn.espn.com/core/soccer/table?xhr=1&league=uefa.champions`;
+      const STANDINGS_URL = `https://cdn.espn.com/core/soccer/table?xhr=1&league=uefa.europa.conf`;
       const response = await fetch(STANDINGS_URL);
       const data = await response.json();
 
@@ -99,7 +99,7 @@ const UCLBracketScreen = ({ navigation, route }) => {
   const fetchKnockoutPlayoffs = async () => {
     try {
       const currentYear = new Date().getFullYear() + 1;
-      const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=${currentYear}0101`;
+      const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/scoreboard?dates=${currentYear}0101`;
 
       const calendarResponse = await fetch(CALENDAR_API_URL);
       const calendarText = await calendarResponse.text();
@@ -124,7 +124,7 @@ const UCLBracketScreen = ({ navigation, route }) => {
       }
 
       const dates = `${knockoutStage.startDate.split("T")[0].replace(/-/g, "")}-${knockoutStage.endDate.split("T")[0].replace(/-/g, "")}`;
-      const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=${dates}`;
+      const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/scoreboard?dates=${dates}`;
 
       const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
       const scoreboardData = await scoreboardResponse.json();
@@ -251,7 +251,7 @@ const UCLBracketScreen = ({ navigation, route }) => {
       }
 
       const currentYear = new Date().getFullYear() + 1;
-      const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=${currentYear}0101`;
+      const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/scoreboard?dates=${currentYear}0101`;
 
       const calendarResponse = await fetch(CALENDAR_API_URL);
       const calendarData = await calendarResponse.json();
@@ -273,7 +273,7 @@ const UCLBracketScreen = ({ navigation, route }) => {
       }
 
       const dates = `${roundOf16Stage.startDate.split("T")[0].replace(/-/g, "")}-${roundOf16Stage.endDate.split("T")[0].replace(/-/g, "")}`;
-      const ROUND_OF_16_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=${dates}`;
+      const ROUND_OF_16_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/scoreboard?dates=${dates}`;
 
       const response = await fetch(ROUND_OF_16_API_URL);
       const data = await response.json();
@@ -364,7 +364,7 @@ const UCLBracketScreen = ({ navigation, route }) => {
       }
 
       const currentYear = new Date().getFullYear() + 1;
-      const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=${currentYear}0101`;
+      const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/scoreboard?dates=${currentYear}0101`;
 
       const calendarResponse = await fetch(CALENDAR_API_URL);
       const calendarData = await calendarResponse.json();
@@ -379,7 +379,7 @@ const UCLBracketScreen = ({ navigation, route }) => {
       }
 
       const dates = `${quarterfinalsStage.startDate.split("T")[0].replace(/-/g, "")}-${quarterfinalsStage.endDate.split("T")[0].replace(/-/g, "")}`;
-      const API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=${dates}`;
+      const API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/scoreboard?dates=${dates}`;
 
       const response = await fetch(API_URL);
       const data = await response.json();
@@ -405,7 +405,7 @@ const UCLBracketScreen = ({ navigation, route }) => {
       }
 
       const currentYear = new Date().getFullYear() + 1;
-      const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=${currentYear}0101`;
+      const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/scoreboard?dates=${currentYear}0101`;
 
       const calendarResponse = await fetch(CALENDAR_API_URL);
       const calendarData = await calendarResponse.json();
@@ -420,7 +420,7 @@ const UCLBracketScreen = ({ navigation, route }) => {
       }
 
       const dates = `${semifinalsStage.startDate.split("T")[0].replace(/-/g, "")}-${semifinalsStage.endDate.split("T")[0].replace(/-/g, "")}`;
-      const API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=${dates}`;
+      const API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/scoreboard?dates=${dates}`;
 
       const response = await fetch(API_URL);
       const data = await response.json();
@@ -446,7 +446,7 @@ const UCLBracketScreen = ({ navigation, route }) => {
       }
 
       const currentYear = new Date().getFullYear() + 1;
-      const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=${currentYear}0101`;
+      const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/scoreboard?dates=${currentYear}0101`;
 
       const calendarResponse = await fetch(CALENDAR_API_URL);
       const calendarData = await calendarResponse.json();
@@ -461,7 +461,7 @@ const UCLBracketScreen = ({ navigation, route }) => {
       }
 
       const dates = `${finalsStage.startDate.split("T")[0].replace(/-/g, "")}-${finalsStage.endDate.split("T")[0].replace(/-/g, "")}`;
-      const API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=${dates}`;
+      const API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/scoreboard?dates=${dates}`;
 
       const response = await fetch(API_URL);
       const data = await response.json();
@@ -603,7 +603,7 @@ const UCLBracketScreen = ({ navigation, route }) => {
   // Focus effect to reload data when screen is focused
   useFocusEffect(
     React.useCallback(() => {
-      console.log('UCLBracketScreen: Screen focused');
+      console.log('UECLBracketScreen: Screen focused');
       loadData();
 
       // Set up periodic updates
@@ -633,10 +633,10 @@ const UCLBracketScreen = ({ navigation, route }) => {
   // Handle game press for navigation
   const handleGamePress = (gameId) => {
     setModalVisible(false);
-    navigation.navigate('UCLGameDetails', {
+    navigation.navigate('UECLGameDetails', {
       gameId: gameId,
-      sport: 'Champions League',
-      competition: 'UCL'
+      sport: 'Europa Conference League',
+      competition: 'UECL'
     });
   };
 
@@ -926,7 +926,7 @@ const UCLBracketScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           );
         })}
-        
+
         {/* Add TBD placeholders when there are missing matchups */}
         {type === 'qf-row' && matchups.length < 2 && (
           Array.from({ length: 2 - matchups.length }, (_, index) => (
@@ -1095,11 +1095,11 @@ const UCLBracketScreen = ({ navigation, route }) => {
               <Text style={[styles.vsText, { color: theme.textSecondary }]}>vs</Text>
             </View>
             <View style={styles.pairingRight}>
-              <View style={[styles.teamMatchup, styles.tbaMatchup , { backgroundColor: theme.surfaceSecondary, shadowColor: theme.text, borderColor: theme.border }]}>
+              <View style={[styles.teamMatchup, styles.tbaMatchup, { backgroundColor: theme.surfaceSecondary, shadowColor: theme.text, borderColor: theme.border }]}>
                 <Text style={[styles.teamName, { color: theme.textSecondary }]}>Round of 16</Text>
                 <Text style={[styles.matchScore, { color: theme.textSecondary }]}>TBD vs TBD</Text>
               </View>
-              <View style={[styles.teamMatchup, styles.tbaMatchup , { backgroundColor: theme.surfaceSecondary, shadowColor: theme.text, borderColor: theme.border }]}>
+              <View style={[styles.teamMatchup, styles.tbaMatchup, { backgroundColor: theme.surfaceSecondary, shadowColor: theme.text, borderColor: theme.border }]}>
                 <Text style={[styles.teamName, { color: theme.textSecondary }]}>Round of 16</Text>
                 <Text style={[styles.matchScore, { color: theme.textSecondary }]}>TBD vs TBD</Text>
               </View>
@@ -1765,4 +1765,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default UCLBracketScreen;
+export default UECLBracketScreen;

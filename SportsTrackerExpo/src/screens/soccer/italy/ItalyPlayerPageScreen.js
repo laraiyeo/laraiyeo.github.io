@@ -2260,7 +2260,7 @@ const ItalyPlayerPageScreen = ({ route, navigation }) => {
                       setTimeout(() => {
                         navigation.navigate('ItalyGameDetails', {
                           gameId: selectedGameStats.gameId,
-                          sport: 'soccer',
+                          sport: 'Italian',
                           competition: selectedGameStats.competition || 'ita.1',
                           homeTeam: selectedGameStats.isHome ? playerData?.team : selectedGameStats.opponent,
                           awayTeam: selectedGameStats.isHome ? selectedGameStats.opponent : playerData?.team

@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   Alert 
 } from 'react-native';
-import { FranceServiceEnhanced } from '../../../services/soccer/FranceServiceEnhanced';
+import { EuropaConferenceLeagueServiceEnhanced } from '../../../services/soccer/EuropaConferenceLeagueServiceEnhanced';
 import { useTheme } from '../../../context/ThemeContext';
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
@@ -21,8 +21,8 @@ const convertToHttps = (url) => {
   return url;
 };
 
-const FranceSearchScreen = ({ route, navigation }) => {
-  const { sport } = route?.params || { sport: 'French' };
+const UECLSearchScreen = ({ route, navigation }) => {
+  const { sport } = route?.params || { sport: 'Europa Conference League' };
   const { theme, colors, isDarkMode } = useTheme();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -144,13 +144,13 @@ const FranceSearchScreen = ({ route, navigation }) => {
 
   const searchTeams = async (query) => {
     try {
-      const teamsData = await FranceServiceEnhanced.searchTeams(query);
+      const teamsData = await EuropaConferenceLeagueServiceEnhanced.searchTeams(query);
       
       if (teamsData && Array.isArray(teamsData)) {
         const processedTeams = await Promise.all(
           teamsData.map(async (teamData) => {
             try {
-              const logo = await FranceServiceEnhanced.getTeamLogoWithFallback(teamData.team.id);
+              const logo = await EuropaConferenceLeagueServiceEnhanced.getTeamLogoWithFallback(teamData.team.id);
               return {
                 id: teamData.team.id,
                 type: 'team',
@@ -186,7 +186,7 @@ const FranceSearchScreen = ({ route, navigation }) => {
 
   const searchPlayers = async (query) => {
     try {
-      const playersData = await FranceServiceEnhanced.searchPlayers(query);
+      const playersData = await EuropaConferenceLeagueServiceEnhanced.searchPlayers(query);
       
       if (playersData && Array.isArray(playersData)) {
         // Fetch team data to get colors
@@ -197,7 +197,7 @@ const FranceSearchScreen = ({ route, navigation }) => {
             // Try to fetch team data for color information
             if (playerData.teamId) {
               try {
-                const teamResponse = await fetch(convertToHttps(`https://site.api.espn.com/apis/site/v2/sports/soccer/fra.1/teams/${playerData.teamId}`));
+                const teamResponse = await fetch(convertToHttps(`https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/teams/${playerData.teamId}`));
                 const teamData = await teamResponse.json();
                 
                 if (teamData.team) {
@@ -262,20 +262,20 @@ const FranceSearchScreen = ({ route, navigation }) => {
   const handleItemPress = (item) => {
     if (item.type === 'team') {
       // Navigate to team page
-      navigation.navigate('FranceTeamPage', { 
+      navigation.navigate('UECLTeamPage', { 
         teamId: item.id,
         teamName: item.name,
         sport: sport,
-        league: 'france'
+        league: 'UECL'
       });
     } else if (item.type === 'player') {
       // Navigate to player page
-      navigation.navigate('FrancePlayerPage', {
+      navigation.navigate('UECLPlayerPage', {
         playerId: item.id,
         playerName: item.fullName,
         teamId: item.teamId || null, // Use teamId from player data
         sport: sport,
-        league: 'france'
+        league: 'UECL'
       });
     }
   };
@@ -349,7 +349,7 @@ const FranceSearchScreen = ({ route, navigation }) => {
       <View style={[styles.searchHeader, { backgroundColor: theme.surface }]}>
         <Text style={[styles.title, { color: colors.primary }]}>Search</Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Search for {(sport || 'French').toUpperCase()} teams and players
+          Search for {(sport || 'Europa Conference League').toUpperCase()} teams and players
         </Text>
       </View>
 
@@ -557,4 +557,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default FranceSearchScreen;
+export default UECLSearchScreen;

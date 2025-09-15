@@ -2468,7 +2468,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
               const competitionHint = event.competitionCode || event.competition?.id || event.leagueId || event.league?.id || event.competitionName || event.leagueName || null;
               navigation.navigate('UCLGameDetails', {
                 gameId: event.id,
-                sport: 'soccer',
+                sport: 'Champions League',
                 competitionHint
               });
             }

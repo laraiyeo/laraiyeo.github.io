@@ -443,7 +443,7 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
     console.log('UCLScoreboardScreen: Game pressed:', game.id);
     navigation.navigate('UCLGameDetails', {
       gameId: game.id,
-      sport: 'soccer',
+      sport: 'Champions League',
       competition: game.competitionName || 'UCL',
       homeTeam: game.competitions[0]?.competitors[0]?.team,
       awayTeam: game.competitions[0]?.competitors[1]?.team

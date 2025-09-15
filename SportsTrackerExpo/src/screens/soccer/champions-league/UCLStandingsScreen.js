@@ -152,7 +152,7 @@ const UCLStandingsScreen = ({ navigation, route }) => {
     navigation.navigate('UCLTeamPage', {
       teamId: team.team.id,
       teamName: team.team.displayName,
-      sport: 'soccer',
+      sport: 'Champions League',
       league: 'UCL'
     });
   };

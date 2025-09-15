@@ -446,7 +446,7 @@ const FranceTeamPageScreen = ({ route, navigation }) => {
     console.log('Navigating to game:', game.id);
     navigation.navigate('FranceGameDetails', {
       gameId: game.id,
-      sport: 'soccer'
+      sport: 'French',
     });
   };
 
@@ -1051,7 +1051,7 @@ const FranceTeamPageScreen = ({ route, navigation }) => {
                         playerId: player.id,
                         playerName: player.fullName || player.displayName || player.name,
                         teamId: teamId,
-                        sport: 'soccer'
+                        sport: 'French',
                       });
                     }}
                     activeOpacity={0.7}

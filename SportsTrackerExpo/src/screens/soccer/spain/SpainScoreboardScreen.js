@@ -443,7 +443,7 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
     console.log('SpainScoreboardScreen: Game pressed:', game.id);
     navigation.navigate('SpainGameDetails', {
       gameId: game.id,
-      sport: 'soccer',
+      sport: 'Spanish',
       competition: game.competitionName || 'Spain',
       homeTeam: game.competitions[0]?.competitors[0]?.team,
       awayTeam: game.competitions[0]?.competitors[1]?.team

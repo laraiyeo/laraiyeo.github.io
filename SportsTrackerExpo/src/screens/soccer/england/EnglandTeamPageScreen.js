@@ -446,7 +446,7 @@ const EnglandTeamPageScreen = ({ route, navigation }) => {
     console.log('Navigating to game:', game.id);
     navigation.navigate('EnglandGameDetails', {
       gameId: game.id,
-      sport: 'soccer'
+      sport: 'English'
     });
   };
 
@@ -1051,7 +1051,7 @@ const EnglandTeamPageScreen = ({ route, navigation }) => {
                         playerId: player.id,
                         playerName: player.fullName || player.displayName || player.name,
                         teamId: teamId,
-                        sport: 'soccer'
+                        sport: 'English'
                       });
                     }}
                     activeOpacity={0.7}

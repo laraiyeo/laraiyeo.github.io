@@ -446,7 +446,7 @@ const GermanyTeamPageScreen = ({ route, navigation }) => {
     console.log('Navigating to game:', game.id);
     navigation.navigate('GermanyGameDetails', {
       gameId: game.id,
-      sport: 'soccer'
+      sport: 'German',
     });
   };
 
@@ -1051,7 +1051,7 @@ const GermanyTeamPageScreen = ({ route, navigation }) => {
                         playerId: player.id,
                         playerName: player.fullName || player.displayName || player.name,
                         teamId: teamId,
-                        sport: 'soccer'
+                        sport: 'German',
                       });
                     }}
                     activeOpacity={0.7}

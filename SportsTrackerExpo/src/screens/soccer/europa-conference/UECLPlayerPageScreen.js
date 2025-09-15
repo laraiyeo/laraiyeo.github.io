@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView, Modal } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
-import { FranceServiceEnhanced } from '../../../services/soccer/FranceServiceEnhanced';
+import { EuropaConferenceLeagueServiceEnhanced } from '../../../services/soccer/EuropaConferenceLeagueServiceEnhanced';
+
+// UEFA leagues configuration for career stats
+const LEAGUES = {
+  "Champions League": { code: "uefa.champions", logo: "2" },
+  "Europa League": { code: "uefa.europa", logo: "2310" },
+  "Europa Conference League": { code: "uefa.europa.conf", logo: "20296" },
+};
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
 const convertToHttps = (url) => {
@@ -11,7 +18,7 @@ const convertToHttps = (url) => {
   return url;
 };
 
-const FrancePlayerPageScreen = ({ route, navigation }) => {
+const UECLPlayerPageScreen = ({ route, navigation }) => {
   const { playerId, playerName, teamId, sport } = route.params;
   const { theme, colors, isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState('Stats');
@@ -148,7 +155,7 @@ const FrancePlayerPageScreen = ({ route, navigation }) => {
   };
 
   useEffect(() => {
-    console.log('FrancePlayerPageScreen received - playerId:', playerId, 'playerName:', playerName, 'teamId:', teamId);
+    console.log('UECLPlayerPageScreen received - playerId:', playerId, 'playerName:', playerName, 'teamId:', teamId);
     fetchPlayerData();
   }, [playerId]);
 
@@ -259,7 +266,7 @@ const FrancePlayerPageScreen = ({ route, navigation }) => {
         position: { displayName: 'Forward' }, // Better default than 'Unknown'
         team: { 
           id: teamId, 
-          displayName: 'Paris Saint-Germain', // Better default for fra.1 teams
+          displayName: 'Manchester United', // Better default for uefa.europa.conf teams
           name: 'Real Madrid'
         },
         headshot: { href: `https://via.placeholder.com/80x80?text=${playerName?.charAt(0) || 'P'}` }
@@ -268,7 +275,7 @@ const FrancePlayerPageScreen = ({ route, navigation }) => {
       // Try to fetch enhanced data from ESPN APIs with better error handling
       try {
         console.log('Attempting to fetch from site API...');
-        const siteResponse = await fetch(convertToHttps(`https://site.api.espn.com/apis/site/v2/sports/soccer/fra.1/athletes/${playerId}`), {
+        const siteResponse = await fetch(convertToHttps(`https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/athletes/${playerId}`), {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
@@ -326,7 +333,7 @@ const FrancePlayerPageScreen = ({ route, navigation }) => {
         
       // Fallback to core API
       try {
-        const coreResponse = await fetch(convertToHttps(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/fra.1/athletes/${playerId}?lang=en&region=us`));
+        const coreResponse = await fetch(convertToHttps(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/athletes/${playerId}?lang=en&region=us`));
         if (coreResponse.ok) {
           const coreData = await coreResponse.json();
           console.log('Core API response:', coreData);
@@ -477,9 +484,8 @@ const FrancePlayerPageScreen = ({ route, navigation }) => {
       
       // Define competitions - all use types/0/ as you specified
       const competitions = [
-        { code: 'fra.1', name: 'Ligue 1', seasonType: '0' },
-        { code: 'fra.coupe_de_france', name: 'Coupe de France', seasonType: '0' },
-        { code: 'fra.super_cup', name: 'Trophée des Champions', seasonType: '0' }
+        { code: 'uefa.europa.conf', name: 'Europa Conference League', seasonType: '0' },
+        { code: 'uefa.europa.conf_qual', name: 'Europa Conference League Qualifiers', seasonType: '0' },
       ];
       
       const allStats = {};
@@ -561,10 +567,10 @@ const FrancePlayerPageScreen = ({ route, navigation }) => {
       // Get current year for eventlog (following fantasy.js pattern exactly)
       const currentYear = new Date().getFullYear();
       
-      // France competitions to fetch game logs from
-      const competitions = ['fra.1', 'fra.coupe_de_france', 'fra.super_cup'];
+      // UECL competitions to fetch game logs from
+      const competitions = ['uefa.europa.conf', 'uefa.europa.conf_qual'];
       
-      // Fetch game logs from all France competitions in parallel
+      // Fetch game logs from all UECL competitions in parallel
       const fetchPromises = competitions.map(async (competition) => {
         try {
           const gameLogUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/seasons/${currentYear}/athletes/${playerId}/eventlog?lang=en&region=us&played=true`;
@@ -634,14 +640,12 @@ const FrancePlayerPageScreen = ({ route, navigation }) => {
     
     // Map league codes to display names
     switch (leagueCode) {
-      case 'fra.1': 
-        return 'Ligue 1';
-      case 'fra.coupe_de_france':
-        return 'Coupe de France';
-      case 'fra.super_cup':
-        return 'Trophée des Champions';
+      case 'uefa.europa.conf': 
+        return 'Europa Conference League';
+      case 'uefa.europa.conf_qual':
+        return 'Europa Conference League Qualifiers';
       default:
-        return leagueCode.replace('fra.', '').replace('_', ' ').toUpperCase();
+        return leagueCode.replace('uefa.', '').replace('_', ' ').toUpperCase();
     }
   };
 
@@ -662,7 +666,7 @@ const FrancePlayerPageScreen = ({ route, navigation }) => {
           // Extract league code from the event URL
           const eventUrl = eventData.event.$ref;
           const leagueCodeMatch = eventUrl.match(/\/leagues\/([^\/]+)\//);
-          const leagueCode = leagueCodeMatch ? leagueCodeMatch[1] : 'fra.1';
+          const leagueCode = leagueCodeMatch ? leagueCodeMatch[1] : 'uefa.europa.conf';
           
           // Fetch event, competition, and stats in parallel
           const [eventResponse, competitionResponse, statsResponse] = await Promise.all([
@@ -996,7 +1000,7 @@ const FrancePlayerPageScreen = ({ route, navigation }) => {
       
       // Get the player's team and league for the specific year
       let teamIdForYear = playerData?.team?.id || ''; // Default to current team
-      let leagueForYear = 'fra.1'; // Default to Ligue 1
+      let leagueForYear = 'uefa.europa.conf'; // Default to Europa Conference League
       
       // If not current year, try to get team/league for the specific year
       if (year !== new Date().getFullYear()) {
@@ -1224,265 +1228,85 @@ const FrancePlayerPageScreen = ({ route, navigation }) => {
     
     setLoadingCareer(true);
     try {
-      console.log('Fetching career data for player ID:', playerId);
-      console.log('Current playerData in fetchCareerData:', playerData);
-      console.log('playerData.transactions available:', !!playerData?.transactions);
-      console.log('playerData.transactions items count:', playerData?.transactions?.items?.length || 0);
+      console.log('Fetching UEFA career data for player ID:', playerId);
       
-      // We'll fetch career stats from multiple years (current and past 4 years)
-      const currentYear = new Date().getFullYear();
-      const yearsToFetch = [];
-      for (let i = 0; i < 5; i++) {
-        yearsToFetch.push(currentYear - i);
-      }
-      
-      // Process all years in parallel, but handle transfers within each year
-      const careerPromises = yearsToFetch.map(async (year) => {
+      // Fetch seasons from all UEFA competitions
+      const careerPromises = Object.entries(LEAGUES).map(async ([leagueName, league]) => {
         try {
-          console.log(`Fetching career stats for year: ${year}`);
+          console.log(`Fetching seasons for ${leagueName} (${league.code})`);
+          const seasonsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${league.code}/athletes/${playerId}/seasons?lang=en&region=us`;
+          const response = await fetch(convertToHttps(seasonsUrl));
           
-          // Check if player has transfer history and get teams for this season
-          let teamsForSeason = [];
-          
-          // Use transaction data to determine teams for the season
-          if (playerData?.transactions) {
-            console.log('Using transaction data to find teams for year:', year);
-            teamsForSeason = getPlayerTeamsForSeason(playerData.transactions, year);
-            console.log('Teams found for season:', teamsForSeason);
-          }
-          
-          // If no transaction data or no transfers in this season, use fallback approach
-          if (teamsForSeason.length === 0) {
-            console.log('No transaction data available, using fallback approach for year:', year);
+          if (response.ok) {
+            const seasonsData = await response.json();
+            console.log(`Found ${seasonsData.count || 0} seasons for ${leagueName}`);
             
-            // Try multiple leagues to find where the player was in this year (in parallel)
-            const leaguesToTry = ['fra.1', 'fra.coupe_de_france', 'fra.super_cup', 'eng.1', 'esp.1', 'ger.1', 'ita.1', 'usa.1', 'ksa.1'];
-            
-            const playerSeasonPromises = leaguesToTry.map(async (league) => {
-              try {
-                const playerSeasonResponse = await fetch(convertToHttps(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${league}/seasons/${year}/athletes/${playerId}?lang=en&region=us`));
-                if (playerSeasonResponse.ok) {
-                  const playerSeasonData = await playerSeasonResponse.json();
+            if (seasonsData.items && seasonsData.items.length > 0) {
+              // Extract years from season references and fetch stats for each
+              const seasonStatsPromises = seasonsData.items.map(async (seasonRef) => {
+                try {
+                  // Extract year from season reference URL
+                  const yearMatch = seasonRef.$ref.match(/seasons\/(\d+)/);
+                  if (!yearMatch) return null;
                   
-                  if (playerSeasonData.defaultTeam && playerSeasonData.defaultTeam.$ref) {
-                    const teamRefMatch = playerSeasonData.defaultTeam.$ref.match(/teams\/(\d+)/);
-                    if (teamRefMatch) {
-                      let leagueForYear = league;
-                      if (playerSeasonData.defaultLeague && playerSeasonData.defaultLeague.$ref) {
-                        const leagueRefMatch = playerSeasonData.defaultLeague.$ref.match(/leagues\/([^?]+)/);
-                        if (leagueRefMatch) {
-                          leagueForYear = leagueRefMatch[1];
-                        }
-                      }
-                      
-                      return {
-                        teamId: teamRefMatch[1],
-                        league: leagueForYear,
-                        found: true
-                      };
-                    }
+                  const year = yearMatch[1];
+                  console.log(`Fetching ${leagueName} stats for year ${year}`);
+                  
+                  // Fetch statistics for this season
+                  const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${league.code}/seasons/${year}/types/1/athletes/${playerId}/statistics?lang=en&region=us`;
+                  const statsResponse = await fetch(convertToHttps(statsUrl));
+                  
+                  if (statsResponse.ok) {
+                    const statsData = await statsResponse.json();
+                    console.log(`Successfully fetched ${leagueName} stats for ${year}`);
+                    
+                    return {
+                      season: year,
+                      league: league.code,
+                      leagueName: leagueName,
+                      logoId: league.logo,
+                      statistics: statsData
+                    };
+                  } else {
+                    console.log(`Failed to fetch ${leagueName} stats for ${year}: ${statsResponse.status}`);
                   }
+                } catch (error) {
+                  console.error(`Error fetching ${leagueName} stats for season:`, error);
                 }
-                return { found: false };
-              } catch (error) {
-                return { found: false };
-              }
-            });
-
-            const playerSeasonResults = await Promise.all(playerSeasonPromises);
-            const foundData = playerSeasonResults.find(result => result.found);
-            
-            if (foundData) {
-              teamsForSeason.push({
-                teamId: foundData.teamId,
-                league: foundData.league,
-                period: 'fallback'
+                return null;
               });
-            } else {
-              // Use current team as absolute fallback
-              teamsForSeason.push({
-                teamId: teamId,
-                league: 'fra.1',
-                period: 'current'
-              });
+              
+              const seasonStats = await Promise.all(seasonStatsPromises);
+              return seasonStats.filter(stat => stat !== null);
             }
+          } else if (response.status === 404) {
+            console.log(`No seasons found for ${leagueName} (expected for some competitions)`);
+          } else {
+            console.log(`Failed to fetch seasons for ${leagueName}: ${response.status}`);
           }
-          
-          // Now fetch stats for each team the player was at during this season
-          const teamStatsPromises = teamsForSeason.map(async (teamInfo, index) => {
-            try {
-              console.log(`Fetching stats for team ${teamInfo.teamId} in league ${teamInfo.league} for year ${year} (${teamInfo.period})`);
-              
-              // Fetch stats, team data, and competitions in parallel
-              const [statsResponse, teamResponse, competitions] = await Promise.allSettled([
-                fetch(convertToHttps(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${teamInfo.league}/seasons/${year}/types/0/athletes/${playerId}/statistics?lang=en&region=us`)),
-                fetch(convertToHttps(`https://site.api.espn.com/apis/site/v2/sports/soccer/${teamInfo.league}/teams/${teamInfo.teamId}`)),
-                fetchCompetitionsForYear(playerId, teamInfo.league, year)
-              ]);
-              
-              // Process stats response
-              if (statsResponse.status === 'fulfilled' && statsResponse.value.ok) {
-                const statsData = await statsResponse.value.json();
-                
-                if (statsData.splits && statsData.splits.categories) {
-                  // Process team data
-                  let teamData = null;
-                  if (teamResponse.status === 'fulfilled' && teamResponse.value.ok) {
-                    try {
-                      const teamInfo_response = await teamResponse.value.json();
-                      teamData = teamInfo_response.team;
-                    } catch (e) {
-                      console.log(`Error parsing team data for ${teamInfo.teamId}:`, e);
-                    }
-                  }
-                  
-                  // Process competitions
-                  const competitionsData = competitions.status === 'fulfilled' ? competitions.value : [];
-                  
-                  console.log(`Successfully fetched stats for team ${teamInfo.teamId} in year ${year}`);
-                  
-                  // Create unique identifier for transfer situations - use simple index for uniqueness
-                  const seasonKey = teamsForSeason.length > 1 ? 
-                    `${year}` : 
-                    year.toString();
-                  
-                  return {
-                    season: seasonKey,
-                    displaySeason: year.toString(),
-                    league: teamInfo.league,
-                    team: teamData || { id: teamInfo.teamId, displayName: 'Unknown Team' },
-                    statistics: statsData,
-                    competitions: competitionsData,
-                    transferPeriod: teamInfo.period,
-                    transferDate: teamInfo.transactionDate || null,
-                    isTransferYear: teamsForSeason.length > 1
-                  };
-                }
-              } else {
-                console.log(`No stats available for team ${teamInfo.teamId} in year ${year}`);
-              }
-              
-              return null;
-            } catch (error) {
-              console.log(`Error fetching stats for team ${teamInfo.teamId} in year ${year}:`, error);
-              return null;
-            }
-          });
-          
-          // Wait for all teams in this season to complete
-          const seasonResults = await Promise.all(teamStatsPromises);
-          return seasonResults.filter(result => result !== null);
-          
         } catch (error) {
-          console.log(`Error fetching stats for year ${year}:`, error);
-          return [];
+          console.error(`Error fetching ${leagueName} seasons:`, error);
         }
+        return [];
       });
       
-      // Wait for all years to complete processing
+      // Wait for all competitions to complete
       const careerResults = await Promise.all(careerPromises);
       
-      // Flatten results (since each year can have multiple teams) and sort
+      // Flatten and sort results by year (newest first)
       const careerStats = careerResults
         .flat()
         .filter(result => result !== null)
-        .sort((a, b) => {
-          // Sort by display season first, then by transfer order
-          const yearA = parseInt(a.displaySeason);
-          const yearB = parseInt(b.displaySeason);
-          if (yearA !== yearB) {
-            return yearB - yearA; // Newest first
-          }
-          // Within same year, sort by transfer order (to team first, then from team)
-          if (a.transferPeriod === 'to' && b.transferPeriod === 'from') return -1;
-          if (a.transferPeriod === 'from' && b.transferPeriod === 'to') return 1;
-          return 0;
-        });
+        .sort((a, b) => parseInt(b.season) - parseInt(a.season));
       
-      console.log('Final career data with transfers:', careerStats);
-      
-      // Extract unique league codes and fetch their names
-      const uniqueLeagues = [...new Set(careerStats.map(stat => stat.league).filter(Boolean))];
-      console.log('Unique leagues found in career data:', uniqueLeagues);
-      
-      // Fetch league names for all unique leagues
-      const leagueNamePromises = uniqueLeagues.map(leagueCode => fetchLeagueName(leagueCode));
-      await Promise.all(leagueNamePromises);
-      
+      console.log('Final UEFA career data:', careerStats);
       setCareerData({ seasons: careerStats });
       
     } catch (error) {
-      console.error('Error fetching career data:', error);
+      console.error('Error fetching UEFA career data:', error);
     } finally {
       setLoadingCareer(false);
     }
-  };
-
-  // Helper function to fetch competitions for a specific year
-  const fetchCompetitionsForYear = async (playerId, leagueCode, year) => {
-    console.log(`Fetching competitions for player ${playerId} in league ${leagueCode} for year ${year}`);
-    const competitions = [];
-    
-    // Define competitions based on league (matching team-page.js)
-    const LEAGUE_COMPETITIONS = {
-      "eng.1": [
-    { code: "eng.fa", name: "FA Cup", logo: "40" },
-    { code: "eng.league_cup", name: "EFL Cup", logo: "41" }
-  ],
-  "esp.1": [
-    { code: "esp.copa_del_rey", name: "Copa del Rey", logo: "80" },
-    { code: "esp.super_cup", name: "Spanish Supercopa", logo: "431" }
-  ],
-  "ger.1": [
-    { code: "ger.dfb_pokal", name: "DFB Pokal", logo: "2061" },
-    { code: "ger.super_cup", name: "German Super Cup", logo: "2315" }
-  ],
-  "ita.1": [
-    { code: "ita.coppa_italia", name: "Coppa Italia", logo: "2192" },
-    { code: "ita.super_cup", name: "Italian Supercoppa", logo: "2316" }
-  ],
-  "fra.1": [
-    { code: "fra.coupe_de_france", name: "Coupe de France", logo: "182" },
-    { code: "fra.super_cup", name: "Trophee des Champions", logo: "2345" }
-  ],
-  "usa.1": [
-    { code: "usa.open", name: "US Open Cup", logo: "69" }
-  ],
-  "ksa.1": [
-    { code: "ksa.kings.cup", name: "Saudi King's Cup", logo: "2490" }
-  ]
-    };
-    
-    const leagueCompetitions = LEAGUE_COMPETITIONS[leagueCode] || [];
-    console.log(`Found ${leagueCompetitions.length} competitions for league ${leagueCode}:`, leagueCompetitions.map(c => c.name));
-    
-    for (const competition of leagueCompetitions) {
-      try {
-        const compUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition.code}/seasons/${year}/types/0/athletes/${playerId}/statistics?lang=en&region=us`;
-        console.log(`Fetching ${competition.name} from: ${compUrl}`);
-        const response = await fetch(convertToHttps(compUrl));
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.splits && data.splits.categories) {
-            console.log(`Successfully fetched ${competition.name} stats for ${year}`);
-            competitions.push({
-              ...competition,
-              statistics: data
-            });
-          } else {
-            console.log(`${competition.name} response OK but no stats data for ${year}`);
-          }
-        } else {
-          console.log(`Failed to fetch ${competition.name} for ${year}: ${response.status}`);
-        }
-      } catch (error) {
-        console.log(`Error fetching ${competition.name} stats for ${year}:`, error);
-      }
-    }
-    
-    console.log(`Final competitions found for ${year}:`, competitions.map(c => c.name));
-    return competitions;
   };
 
   const renderPlayerHeader = () => {
@@ -1780,7 +1604,7 @@ const FrancePlayerPageScreen = ({ route, navigation }) => {
     return (
       <ScrollView style={[styles.statsContainer, { backgroundColor: theme.background }]} showsVerticalScrollIndicator={false}>
         <View style={styles.careerContainer}>
-          <Text style={[styles.careerSectionTitle, { color: colors.primary }]}>Soccer Career</Text>
+          <Text style={[styles.careerSectionTitle, { color: colors.primary }]}>UEFA Career</Text>
           {careerData.seasons.map((season, index) => renderCareerSeasonItem(season, index))}
         </View>
       </ScrollView>
@@ -1811,11 +1635,11 @@ const FrancePlayerPageScreen = ({ route, navigation }) => {
     
     if (isGoalkeeper) {
       primaryStat1 = getStatValue('cleanSheet', 'goalKeeping');
-      primaryStat2 = getStatValue('goalsAgainst', 'goalKeeping');
+      primaryStat2 = getStatValue('goalsConceded', 'goalKeeping');
       stat1Label = 'CS';
       stat2Label = 'GA';
     } else {
-      primaryStat1 = getStatValue('totalGoals', 'offensive');
+      primaryStat1 = getStatValue('goals', 'offensive') || getStatValue('totalGoals', 'offensive');
       primaryStat2 = getStatValue('goalAssists', 'offensive');
       stat1Label = 'Goals';
       stat2Label = 'Assists';
@@ -1835,16 +1659,13 @@ const FrancePlayerPageScreen = ({ route, navigation }) => {
       >
         <View style={styles.careerSeasonHeader}>
           <View style={styles.careerTeamInfo}>
-            <Image 
-              source={getTeamLogoUrl(season.team.id, isDarkMode) ? 
-                { uri: getTeamLogoUrl(season.team.id, isDarkMode) } : 
-                require('../../../../assets/soccer.png')}
+            <CompetitionLogo 
+              logoId={season.logoId}
               style={styles.careerTeamLogo}
-              defaultSource={getTeamLogoFallbackUrl(season.team.id, isDarkMode)}
-              onError={() => handleLogoError(season.team.id, isDarkMode)}
+              useDarkMode={isDarkMode}
             />
-            <Text style={[styles.careerTeamName, { color: theme.textSecondary }]}>
-              {season.team.displayName || season.team.name || 'Unknown Team'}
+            <Text style={[styles.careerTeamName, { color: theme.text }]}>
+              {season.leagueName}
             </Text>
           </View>
           <Text style={[styles.careerSeasonYear, { color: theme.text }]}>{season.season}</Text>
@@ -1869,46 +1690,6 @@ const FrancePlayerPageScreen = ({ route, navigation }) => {
             <Text style={[styles.careerStatLabel, { color: theme.textSecondary }]}>{stat2Label}</Text>
           </View>
         </View>
-
-        {/* Competition Stats */}
-        {season.competitions && season.competitions.length > 0 && (
-          <View style={styles.competitionsContainer}>
-            <Text style={[styles.competitionsTitle, { color: theme.textSecondary }]}>Competitions:</Text>
-            {season.competitions.map((competition, compIndex) => {
-              const compApps = competition.statistics?.splits?.categories?.find(c => c.name === 'general')?.stats?.find(s => s.name === 'appearances')?.displayValue || '0';
-              
-              let compStat1, compStat2, compStat1Label, compStat2Label;
-              
-              if (isGoalkeeper) {
-                compStat1 = competition.statistics?.splits?.categories?.find(c => c.name === 'general')?.stats?.find(s => s.name === 'cleanSheet')?.displayValue || '0';
-                compStat2 = competition.statistics?.splits?.categories?.find(c => c.name === 'general')?.stats?.find(s => s.name === 'goalsAgainst')?.displayValue || '0';
-                compStat1Label = 'CS';
-                compStat2Label = 'GA';
-              } else {
-                compStat1 = competition.statistics?.splits?.categories?.find(c => c.name === 'offensive')?.stats?.find(s => s.name === 'totalGoals')?.displayValue || '0';
-                compStat2 = competition.statistics?.splits?.categories?.find(c => c.name === 'offensive')?.stats?.find(s => s.name === 'goalAssists')?.displayValue || '0';
-                compStat1Label = 'Goal' + (compStat1 === '1' ? '' : 's');
-                compStat2Label = 'Assist' + (compStat2 === '1' ? '' : 's');
-              }
-              
-              return (
-                <View key={compIndex} style={styles.competitionRow}>
-                  <CompetitionLogo 
-                    logoId={competition.logo}
-                    style={styles.competitionLogo}
-                    useDarkMode={isDarkMode}
-                  />
-                  <Text style={[styles.competitionName, { color: theme.textSecondary }]}>{competition.name}</Text>
-                  <View style={styles.competitionStats}>
-                    <Text style={[styles.competitionStatText, { color: theme.text }]}>{compApps} App{compApps === '1' ? '' : 's'}</Text>
-                    <Text style={[styles.competitionStatText, { color: theme.text }]}>{compStat1} {compStat1Label}</Text>
-                    <Text style={[styles.competitionStatText, { color: theme.text }]}>{compStat2} {compStat2Label}</Text>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
       </TouchableOpacity>
     );
   };
@@ -1945,32 +1726,23 @@ const FrancePlayerPageScreen = ({ route, navigation }) => {
                 <View style={styles.modalSeasonInfo}>
                   <Text style={[styles.modalSeasonYear, { color: theme.text }]}>{season.season}</Text>
                   <Text style={[styles.modalLeagueName, { color: theme.textSecondary }]}>
-                    {getLeagueDisplayName(season.league)}
+                    {season.leagueName}
                   </Text>
                 </View>
                 <View style={styles.modalTeamContainer}>
-                  <Image 
-                    source={getTeamLogoUrl(season.team.id, isDarkMode) ? 
-                      { uri: getTeamLogoUrl(season.team.id, isDarkMode) } : 
-                      require('../../../../assets/soccer.png')}
+                  <CompetitionLogo 
+                    logoId={season.logoId}
                     style={styles.modalSeasonTeamLogo}
-                    defaultSource={getTeamLogoFallbackUrl(season.team.id, isDarkMode)}
-                    onError={() => handleLogoError(season.team.id, isDarkMode)}
+                    useDarkMode={isDarkMode}
                   />
-                  <Text style={[styles.modalTeamName, { color: theme.text }]}>
-                    {season.team.displayName || season.team.name || 'Unknown Team'}
-                  </Text>
                 </View>
               </View>
             </View>
 
             {/* Main League Statistics */}
-            {season.statistics && renderSeasonStatistics('Main League', season.statistics)}
+            {season.statistics && renderSeasonStatistics(season.leagueName, season.statistics, season.logoId)}
             
             {/* Competition Statistics */}
-            {season.competitions && season.competitions.map((competition, index) => 
-              renderSeasonStatistics(competition.name, competition.statistics, competition.logo)
-            )}
           </ScrollView>
         </View>
       </Modal>
@@ -2258,10 +2030,10 @@ const FrancePlayerPageScreen = ({ route, navigation }) => {
                     if (selectedGameStats.gameId) {
                       setShowStatsModal(false);
                       setTimeout(() => {
-                        navigation.navigate('FranceGameDetails', {
+                        navigation.navigate('UECLGameDetails', {
                           gameId: selectedGameStats.gameId,
-                          sport: 'French',
-                          competition: selectedGameStats.competition || 'fra.1',
+                          sport: 'Europa Conference League',
+                          competition: selectedGameStats.competition || 'uefa.europa.conf',
                           homeTeam: selectedGameStats.isHome ? playerData?.team : selectedGameStats.opponent,
                           awayTeam: selectedGameStats.isHome ? selectedGameStats.opponent : playerData?.team
                         });
@@ -2954,4 +2726,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default FrancePlayerPageScreen;
+export default UECLPlayerPageScreen;

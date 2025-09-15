@@ -2259,7 +2259,7 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
                     setTimeout(() => {
                       navigation.navigate('GermanyGameDetails', {
                         gameId: selectedGameStats.gameId,
-                        sport: 'soccer',
+                        sport: 'German',
                         competition: getCompetitionName(selectedGameStats.leagueCode),
                         homeTeam: selectedGameStats.isHome ? playerData?.team : selectedGameStats.opponent,
                         awayTeam: selectedGameStats.isHome ? selectedGameStats.opponent : playerData?.team

@@ -2260,7 +2260,7 @@ const EnglandPlayerPageScreen = ({ route, navigation }) => {
                       setTimeout(() => {
                         navigation.navigate('EnglandGameDetails', {
                           gameId: selectedGameStats.gameId,
-                          sport: 'soccer',
+                          sport: 'English',
                           competition: selectedGameStats.competition || 'eng.1',
                           homeTeam: selectedGameStats.isHome ? playerData?.team : selectedGameStats.opponent,
                           awayTeam: selectedGameStats.isHome ? selectedGameStats.opponent : playerData?.team

@@ -2468,7 +2468,7 @@ const EnglandGameDetailsScreen = ({ route, navigation }) => {
               const competitionHint = event.competitionCode || event.competition?.id || event.leagueId || event.league?.id || event.competitionName || event.leagueName || null;
               navigation.navigate('EnglandGameDetails', {
                 gameId: event.id,
-                sport: 'soccer',
+                sport: 'English',
                 competitionHint
               });
             }
