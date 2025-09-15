@@ -237,11 +237,46 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
         };
       }));
 
-      // Sort games by date and time
+      // Enhanced sorting function: date first, then status, then time
       const sortedGames = processedGames.sort((a, b) => {
         const dateA = new Date(a.date);
         const dateB = new Date(b.date);
-        return dateA - dateB;
+        const statusA = a.status?.type?.state;
+        const statusB = b.status?.type?.state;
+        
+        // First, sort by date
+        const dateDiff = dateA - dateB;
+        if (Math.abs(dateDiff) > 24 * 60 * 60 * 1000) { // Different days
+          return dateDiff;
+        }
+        
+        // Same day or within 24 hours - sort by status priority
+        const getStatusPriority = (status) => {
+          switch (status) {
+            case 'in': return 1; // Live games first
+            case 'pre': return 2; // Upcoming games second
+            case 'post': return 3; // Finished games last
+            default: return 4; // Unknown status last
+          }
+        };
+        
+        const statusPriorityA = getStatusPriority(statusA);
+        const statusPriorityB = getStatusPriority(statusB);
+        
+        if (statusPriorityA !== statusPriorityB) {
+          return statusPriorityA - statusPriorityB;
+        }
+        
+        // Same status - sort by time
+        if (statusA === 'in') {
+          // For live games, sort by match minute (most recent activity first)
+          const clockA = parseInt(a.status?.displayClock?.replace(/[^\d]/g, '') || '0');
+          const clockB = parseInt(b.status?.displayClock?.replace(/[^\d]/g, '') || '0');
+          return clockB - clockA; // Higher minutes first (more advanced in game)
+        } else {
+          // For pre/post games, sort by actual time
+          return dateA - dateB;
+        }
       });
 
       // Create hash for change detection

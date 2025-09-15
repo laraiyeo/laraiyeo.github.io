@@ -36,7 +36,7 @@ async function fetchStandings() {
       return cachedStandings;
     }
 
-    const STANDINGS_URL = `https://cdn.espn.com/core/soccer/table?xhr=1&league=${currentUefaLeague}`;
+    const STANDINGS_URL = `https://cdn.espn.com/core/soccer/table?xhr=1&league=${currentUefaLeague}&season=2024`; // Remove &season=2024
     const response = await fetch(STANDINGS_URL);
     const data = await response.json();
     
@@ -62,7 +62,7 @@ async function fetchKnockoutPlayoffs() {
       localStorage.setItem("currentUefaLeague", currentUefaLeague);
     }
 
-    const currentYear = new Date().getFullYear()+1;
+    const currentYear = new Date().getFullYear(); // + 1;
     const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/scoreboard?dates=${currentYear}0101`;
 
     const calendarResponse = await fetch(CALENDAR_API_URL);
@@ -213,7 +213,7 @@ async function fetchRoundOf16Matchups() {
       return cachedRoundOf16;
     }
 
-    const currentYear = new Date().getFullYear()+1;
+    const currentYear = new Date().getFullYear(); // + 1;
     const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/scoreboard?dates=${currentYear}0101`;
 
     const calendarResponse = await fetch(CALENDAR_API_URL);
@@ -1695,7 +1695,7 @@ async function fetchQuarterfinalsMatchups() {
       return cachedQuarterfinals;
     }
 
-    const currentYear = new Date().getFullYear()+1;
+    const currentYear = new Date().getFullYear(); // + 1;
     const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/scoreboard?dates=${currentYear}0101`;
 
     const calendarResponse = await fetch(CALENDAR_API_URL);
@@ -1734,7 +1734,7 @@ async function fetchSemifinalsMatchups() {
       return cachedSemifinals;
     }
 
-    const currentYear = new Date().getFullYear()+1;
+    const currentYear = new Date().getFullYear(); // + 1;
     const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/scoreboard?dates=${currentYear}0101`;
 
     const calendarResponse = await fetch(CALENDAR_API_URL);
@@ -1772,7 +1772,7 @@ async function fetchFinalsMatchups() {
       return cachedFinals;
     }
 
-    const currentYear = new Date().getFullYear()+1;
+    const currentYear = new Date().getFullYear(); //+ 1;
     const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/${currentUefaLeague}/scoreboard?dates=${currentYear}0101`;
 
     const calendarResponse = await fetch(CALENDAR_API_URL);

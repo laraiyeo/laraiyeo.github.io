@@ -90,7 +90,7 @@ import UCLScoreboardScreen from './src/screens/soccer/champions-league/UCLScoreb
 import UCLStandingsScreen from './src/screens/soccer/champions-league/UCLStandingsScreen';
 import UCLSearchScreen from './src/screens/soccer/champions-league/UCLSearchScreen';
 import UCLCompareScreen from './src/screens/soccer/champions-league/UCLCompareScreen';
-import UCLTransferScreen from './src/screens/soccer/champions-league/UCLTransferScreen';
+import UCLBracketScreen from './src/screens/soccer/champions-league/UCLBracketScreen';
 import UCLGameDetailsScreen from './src/screens/soccer/champions-league/UCLGameDetailsScreen';
 import UCLTeamPageScreen from './src/screens/soccer/champions-league/UCLTeamPageScreen';
 import UCLPlayerPageScreen from './src/screens/soccer/champions-league/UCLPlayerPageScreen';
@@ -351,7 +351,7 @@ const SoccerTabNavigator = ({ route }) => {
           StandingsScreen: UCLStandingsScreen,
           SearchScreen: UCLSearchScreen,
           CompareScreen: UCLCompareScreen,
-          StatsScreen: UCLTransferScreen,
+          StatsScreen: UCLBracketScreen,
         };
       case 'europa-league':
         return {
