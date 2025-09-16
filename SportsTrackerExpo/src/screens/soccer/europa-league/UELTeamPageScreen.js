@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
+import { useFavorites } from '../../../context/FavoritesContext';
 import { EuropaLeagueServiceEnhanced } from '../../../services/soccer/EuropaLeagueServiceEnhanced';
 
 const UELTeamPageScreen = ({ route, navigation }) => {
   const { teamId, teamName } = route.params;
   const { theme, colors, isDarkMode } = useTheme();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const [activeTab, setActiveTab] = useState('Games');
   const [teamData, setTeamData] = useState(null);
   const [teamRecord, setTeamRecord] = useState(null);
@@ -59,13 +61,8 @@ const UELTeamPageScreen = ({ route, navigation }) => {
         setLogoSource({ uri: logos.fallbackUrl });
         setRetryCount(1);
       } else {
-        // Final fallback - use actual logo URL first if teamId exists
-        if (teamId) {
-          const finalFallbackUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
-          setLogoSource({ uri: finalFallbackUrl });
-        } else {
-          setLogoSource(require('../../../../assets/soccer.png'));
-        }
+        // Final fallback - use soccer.png asset for all cases
+        setLogoSource(require('../../../../assets/soccer.png'));
       }
     };
 
@@ -167,7 +164,7 @@ const UELTeamPageScreen = ({ route, navigation }) => {
           ) + 1;
           
           const totalTeams = standingsData.standings.entries.length;
-          const rankingText = `${getOrdinalSuffix(teamPosition)} in Champions League`;
+          const rankingText = `${getOrdinalSuffix(teamPosition)} in Europa League`;
           
           setTeamRanking(rankingText);
           return;
@@ -404,8 +401,8 @@ const UELTeamPageScreen = ({ route, navigation }) => {
       
       // Fetch statistics for different UEL competitions
       const seasonTypes = [
-        { id: '1', name: 'Champions League', leagueCode: 'uefa.europa' },
-        { id: '7', name: 'Champions League Qualifiers', leagueCode: 'uefa.europa_qual' },
+        { id: '1', name: 'Europa League', leagueCode: 'uefa.europa' },
+        { id: '7', name: 'Europa League Qualifiers', leagueCode: 'uefa.europa_qual' },
       ];
       
       const allStats = {};
@@ -465,7 +462,7 @@ const UELTeamPageScreen = ({ route, navigation }) => {
     console.log('Navigating to game:', game.id);
     navigation.navigate('UELGameDetails', {
       gameId: game.id,
-      sport: 'Champions League',
+      sport: 'Europa League',
     });
   };
 
@@ -507,14 +504,14 @@ const UELTeamPageScreen = ({ route, navigation }) => {
 
   // Function to get competition display name from league code
   const getCompetitionName = (leagueCode) => {
-    if (!leagueCode) return 'Champions League';
+    if (!leagueCode) return 'Europa League';
     
     // Map league codes to display names
     switch (leagueCode) {
       case 'uefa.europa': 
-        return 'Champions League';
+        return 'Europa League';
       case 'uefa.europa_qual':
-        return 'Champions League Qualifiers';
+        return 'Europa League Qualifiers';
       default:
         return leagueCode.replace('uefa.', '').replace('_', ' ').toUpperCase();
     }
@@ -524,6 +521,15 @@ const UELTeamPageScreen = ({ route, navigation }) => {
     if (!teamData) return null;
 
     const teamColor = getTeamColor(teamData);
+    const isTeamFavorite = isFavorite(teamData.id);
+
+    const handleToggleFavorite = () => {
+      toggleFavorite({
+        teamId: teamData.id,
+        teamName: teamData.displayName || teamData.name,
+        sport: 'Europa League'
+      });
+    };
 
     return (
       <View style={[styles.teamHeader, { backgroundColor: theme.surface }]}>
@@ -536,7 +542,7 @@ const UELTeamPageScreen = ({ route, navigation }) => {
             {teamData.displayName || teamData.name}
           </Text>
           <Text style={[styles.teamDivision, { color: theme.textSecondary }]}>
-            {teamRanking || teamData.standingSummary || 'Champions League'}
+            {teamRanking || teamData.standingSummary || 'Europa League'}
           </Text>
           <View style={styles.recordContainer}>
             <View style={styles.recordRow}>
@@ -559,6 +565,15 @@ const UELTeamPageScreen = ({ route, navigation }) => {
             </View>
           </View>
         </View>
+        <TouchableOpacity 
+          style={styles.favoriteButton} 
+          onPress={handleToggleFavorite}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.favoriteIcon, { color: isTeamFavorite ? colors.primary : theme.textSecondary }]}>
+            {isTeamFavorite ? '★' : '☆'}
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -739,7 +754,7 @@ const UELTeamPageScreen = ({ route, navigation }) => {
         {/* League Header */}
         <View style={[styles.leagueHeader, { backgroundColor: theme.surfaceSecondary }]}>
           <Text style={[styles.leagueText, { color: colors.primary }]}>
-            {getCompetitionName(game.leagueCode) || competition?.name || competition?.league?.name || 'Champions League'}
+            {getCompetitionName(game.leagueCode) || competition?.name || competition?.league?.name || 'Europa League'}
           </Text>
         </View>
         
@@ -772,9 +787,10 @@ const UELTeamPageScreen = ({ route, navigation }) => {
               )}
             </View>
             <Text style={[styles.teamAbbreviation, { 
-              color: homeIsLoser ? '#999' : theme.text 
+              color: homeIsLoser ? '#999' : 
+                     isFavorite(homeTeam.team?.id) ? colors.primary : theme.text 
             }]}>
-              {homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
+              {isFavorite(homeTeam.team?.id) ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
             </Text>
           </View>
           
@@ -818,9 +834,10 @@ const UELTeamPageScreen = ({ route, navigation }) => {
               />
             </View>
             <Text style={[styles.teamAbbreviation, { 
-              color: awayIsLoser ? '#999' : theme.text 
+              color: awayIsLoser ? '#999' : 
+                     isFavorite(awayTeam.team?.id) ? colors.primary : theme.text 
             }]}>
-              {awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
+              {isFavorite(awayTeam.team?.id) ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
             </Text>
           </View>
         </View>
@@ -1068,7 +1085,7 @@ const UELTeamPageScreen = ({ route, navigation }) => {
                         playerId: player.id,
                         playerName: player.fullName || player.displayName || player.name,
                         teamId: teamId,
-                        sport: 'Champions League',
+                        sport: 'Europa League',
                       });
                     }}
                     activeOpacity={0.7}
@@ -1676,6 +1693,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  favoriteButton: {
+    padding: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  favoriteIcon: {
+    fontSize: 24,
+    fontWeight: 'bold',
   },
 });
 

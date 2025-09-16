@@ -483,7 +483,7 @@ export const EuropaConferenceLeagueServiceEnhanced = {
   // Get league information
   getLeagueInfo() {
     return {
-      id: 'champions-league',
+      id: 'europa-conference',
       name: 'Europa Conference League',
       fullName: 'UEFA Europa Conference League',
       country: 'Europe',

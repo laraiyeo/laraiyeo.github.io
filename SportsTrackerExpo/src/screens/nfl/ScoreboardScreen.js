@@ -41,6 +41,82 @@ const NFLScoreboardScreen = ({ navigation }) => {
   // Track if preloading has been done to prevent multiple calls
   const hasPreloadedRef = useRef(false);
   
+  // Helper function to get NFL team abbreviation from ESPN team data
+  const getNFLTeamAbbreviation = (espnTeam) => {
+    // First try direct abbreviation if available
+    if (espnTeam?.abbreviation) {
+      return espnTeam.abbreviation;
+    }
+    
+    // ESPN team ID to abbreviation mapping
+    const teamMapping = {
+      '2': 'BUF', '15': 'MIA', '17': 'NE', '20': 'NYJ',
+      '33': 'BAL', '4': 'CIN', '5': 'CLE', '23': 'PIT',
+      '34': 'HOU', '11': 'IND', '30': 'JAX', '10': 'TEN',
+      '7': 'DEN', '12': 'KC', '13': 'LV', '24': 'LAC',
+      '6': 'DAL', '19': 'NYG', '21': 'PHI', '28': 'WAS',
+      '3': 'CHI', '8': 'DET', '9': 'GB', '16': 'MIN',
+      '1': 'ATL', '29': 'CAR', '18': 'NO', '27': 'TB',
+      '22': 'ARI', '14': 'LAR', '25': 'SF', '26': 'SEA'
+    };
+    
+    const abbr = teamMapping[espnTeam?.id?.toString()];
+    if (abbr) {
+      return abbr;
+    }
+    
+    console.warn('No NFL abbreviation mapping found for team:', espnTeam?.id);
+    return null;
+  };
+  
+  // TeamLogoImage component with fallback support  
+  const TeamLogoImage = React.memo(({ team, style, isLosingTeam = false }) => {
+    const [logoSource, setLogoSource] = useState(() => {
+      const teamAbbr = getNFLTeamAbbreviation(team);
+      if (teamAbbr) {
+        return { uri: getTeamLogoUrl('nfl', teamAbbr) };
+      } else {
+        return require('../../../assets/nfl.png');
+      }
+    });
+    const [retryCount, setRetryCount] = useState(0);
+
+    useEffect(() => {
+      const teamAbbr = getNFLTeamAbbreviation(team);
+      if (teamAbbr) {
+        setLogoSource({ uri: getTeamLogoUrl('nfl', teamAbbr) });
+        setRetryCount(0);
+      } else {
+        setLogoSource(require('../../../assets/nfl.png'));
+      }
+    }, [team]);
+
+    const handleError = () => {
+      if (retryCount === 0) {
+        const teamAbbr = getNFLTeamAbbreviation(team);
+        if (teamAbbr) {
+          // Try alternative URL format
+          setLogoSource({ uri: `https://a.espncdn.com/i/teamlogos/nfl/500/${teamAbbr}.png` });
+          setRetryCount(1);
+        } else {
+          setLogoSource(require('../../../assets/nfl.png'));
+        }
+      } else {
+        // Final fallback
+        setLogoSource(require('../../../assets/nfl.png'));
+      }
+    };
+
+    return (
+      <Image
+        style={[style, isLosingTeam && styles.losingTeamLogo]}
+        source={logoSource}
+        onError={handleError}
+        resizeMode="contain"
+      />
+    );
+  });
+  
   // Cache duration: 30 seconds for today and upcoming (live/soon-to-be-live games), 5 minutes for others
   const getCacheDuration = (filter) => {
     return (filter === 'today' || filter === 'upcoming') ? 30000 : 300000; // 30s for today/upcoming, 5min for others
@@ -405,8 +481,8 @@ const NFLScoreboardScreen = ({ navigation }) => {
   };
 
   const renderDateHeader = (date) => (
-    <View style={styles.dateHeader}>
-      <Text style={styles.dateHeaderText}>{date}</Text>
+    <View style={[styles.dateHeader, { backgroundColor: colors.primary }]}>
+      <Text style={[styles.dateHeaderText, { color: 'white' }]}>{date}</Text>
     </View>
   );
 
@@ -424,6 +500,19 @@ const NFLScoreboardScreen = ({ navigation }) => {
     return isLosing ? [styles.teamScore, styles.losingTeamScore] : styles.teamScore;
   };
 
+  const getTeamScoreColor = (item, isAwayTeam) => {
+    if (!item.awayTeam || !item.homeTeam) return colors.primary;
+    
+    const isGameFinal = item.isCompleted;
+    const awayScore = parseInt(item.awayTeam.score || '0');
+    const homeScore = parseInt(item.homeTeam.score || '0');
+    const isLosing = isGameFinal && (
+      (isAwayTeam && awayScore < homeScore) || 
+      (!isAwayTeam && homeScore < awayScore)
+    );
+    return isLosing ? theme.textSecondary : colors.primary;
+  };
+
   const getTeamNameStyle = (item, isAwayTeam) => {
     if (!item.awayTeam || !item.homeTeam) return styles.teamName;
     
@@ -437,6 +526,31 @@ const NFLScoreboardScreen = ({ navigation }) => {
     return isLosing ? [styles.teamName, styles.losingTeamName] : styles.teamName;
   };
 
+  const getTeamNameColor = (item, isAwayTeam) => {
+    if (!item.awayTeam || !item.homeTeam) return theme.text;
+    
+    const isGameFinal = item.isCompleted;
+    const awayScore = parseInt(item.awayTeam.score || '0');
+    const homeScore = parseInt(item.homeTeam.score || '0');
+    const isLosing = isGameFinal && (
+      (isAwayTeam && awayScore < homeScore) || 
+      (!isAwayTeam && homeScore < awayScore)
+    );
+    return isLosing ? theme.textSecondary : theme.text;
+  };
+
+  const isLosingTeam = (item, isAwayTeam) => {
+    if (!item.awayTeam || !item.homeTeam) return false;
+    
+    const isGameFinal = item.isCompleted;
+    const awayScore = parseInt(item.awayTeam.score || '0');
+    const homeScore = parseInt(item.homeTeam.score || '0');
+    return isGameFinal && (
+      (isAwayTeam && awayScore < homeScore) || 
+      (!isAwayTeam && homeScore < awayScore)
+    );
+  };
+
   const renderGameCard = ({ item }) => {
     if (item.type === 'header') {
       return renderDateHeader(item.date);
@@ -445,21 +559,21 @@ const NFLScoreboardScreen = ({ navigation }) => {
     if (item.type === 'no-games') {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>{item.message}</Text>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>{item.message}</Text>
         </View>
       );
     }
 
     return (
       <TouchableOpacity 
-        style={styles.gameCard}
+        style={[styles.gameCard, { backgroundColor: theme.surface, shadowColor: theme.text }]}
         onPress={() => navigateToGameDetails(item.id)}
       >
         {/* Game Status */}
         <View style={styles.gameHeader}>
-          <Text style={styles.gameStatus}>{getGameStatusText(item)}</Text>
+          <Text style={[styles.gameStatus, { color: colors.primary }]}>{getGameStatusText(item)}</Text>
           {getGameTimeText(item) && (
-            <Text style={styles.gameClock}>{getGameTimeText(item)}</Text>
+            <Text style={[styles.gameClock, { color: theme.textSecondary }]}>{getGameTimeText(item)}</Text>
           )}
         </View>
 
@@ -474,53 +588,53 @@ const NFLScoreboardScreen = ({ navigation }) => {
                item.status && item.status.toLowerCase() !== 'halftime' && (
                 <Text style={[styles.possessionIndicator, styles.awayPossession]}>🏈</Text>
               )}
-              <Image 
-                source={{ uri: item.awayTeam?.logo }} 
+              <TeamLogoImage 
+                team={item.awayTeam}
                 style={styles.teamLogo}
-                defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=NFL' }}
+                isLosingTeam={isLosingTeam(item, true)}
               />
             </View>
             <View style={styles.teamInfo}>
-              <Text style={getTeamNameStyle(item, true)}>{item.awayTeam?.displayName || 'TBD'}</Text>
-              <Text style={styles.teamRecord}>{item.awayTeam?.record || ''}</Text>
+              <Text style={[getTeamNameStyle(item, true), { color: getTeamNameColor(item, true) }]}>{item.awayTeam?.displayName || 'TBD'}</Text>
+              <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.awayTeam?.record || ''}</Text>
             </View>
-            <Text style={getTeamScoreStyle(item, true)}>{item.awayTeam?.score || '0'}</Text>
+            <Text style={[getTeamScoreStyle(item, true), { color: getTeamScoreColor(item, true) }]}>{item.awayTeam?.score || '0'}</Text>
           </View>
 
           {/* Home Team */}
           <View style={styles.teamRow}>
             <View style={styles.teamLogoContainer}>
-              <Image 
-                source={{ uri: item.homeTeam?.logo }} 
-                style={styles.teamLogo}
-                defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=NFL' }}
-              />
               {/* Possession indicator for home team (not during halftime) */}
               {item.situation?.possession && item.homeTeam?.id && 
                item.situation.possession === item.homeTeam.id && 
                item.status && item.status.toLowerCase() !== 'halftime' && (
                 <Text style={[styles.possessionIndicator, styles.homePossession]}>🏈</Text>
               )}
+              <TeamLogoImage 
+                team={item.homeTeam}
+                style={styles.teamLogo}
+                isLosingTeam={isLosingTeam(item, false)}
+              />
             </View>
             <View style={styles.teamInfo}>
-              <Text style={getTeamNameStyle(item, false)}>{item.homeTeam?.displayName || 'TBD'}</Text>
-              <Text style={styles.teamRecord}>{item.homeTeam?.record || ''}</Text>
+              <Text style={[getTeamNameStyle(item, false), { color: getTeamNameColor(item, false) }]}>{item.homeTeam?.displayName || 'TBD'}</Text>
+              <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.homeTeam?.record || ''}</Text>
             </View>
-            <Text style={getTeamScoreStyle(item, false)}>{item.homeTeam?.score || '0'}</Text>
+            <Text style={[getTeamScoreStyle(item, false), { color: getTeamScoreColor(item, false) }]}>{item.homeTeam?.score || '0'}</Text>
           </View>
         </View>
 
         {/* Game Info */}
-        <View style={styles.gameFooter}>
-          <Text style={styles.venue}>{item.venue || ''}</Text>
+        <View style={[styles.gameFooter, { borderTopColor: theme.border }]}>
+          <Text style={[styles.venue, { color: theme.textSecondary }]}>{item.venue || ''}</Text>
           {item.broadcasts && item.broadcasts.length > 0 && (
-            <Text style={styles.broadcast}>{item.broadcasts.join(', ')}</Text>
+            <Text style={[styles.broadcast, { color: theme.textSecondary }]}>{item.broadcasts.join(', ')}</Text>
           )}
           {/* Show down and distance for in-progress games (but not halftime) */}
           {item.situation?.shortDownDistanceText && 
            !item.isCompleted && 
            item.status && item.status.toLowerCase() !== 'halftime' && (
-            <Text style={styles.downDistance}>{item.situation.shortDownDistanceText}</Text>
+            <Text style={[styles.downDistance, { color: colors.primary }]}>{item.situation.shortDownDistanceText}</Text>
           )}
         </View>
       </TouchableOpacity>
@@ -529,40 +643,58 @@ const NFLScoreboardScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#013369" />
-        <Text style={styles.loadingText}>Loading NFL Scoreboard...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading NFL Scoreboard...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Date Filter Buttons */}
-      <View style={styles.dateFilterContainer}>
+      <View style={[styles.dateFilterContainer, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         <TouchableOpacity 
-          style={[styles.dateFilterButton, selectedDateFilter === 'yesterday' && styles.activeFilterButton]}
+          style={[
+            styles.dateFilterButton, 
+            { backgroundColor: selectedDateFilter === 'yesterday' ? colors.primary : theme.surfaceSecondary }
+          ]}
           onPress={() => handleDateFilterChange('yesterday')}
         >
-          <Text style={[styles.dateFilterText, selectedDateFilter === 'yesterday' && styles.activeFilterText]}>
+          <Text style={[
+            styles.dateFilterText, 
+            { color: selectedDateFilter === 'yesterday' ? '#fff' : theme.text }
+          ]}>
             Yesterday
           </Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.dateFilterButton, selectedDateFilter === 'today' && styles.activeFilterButton]}
+          style={[
+            styles.dateFilterButton, 
+            { backgroundColor: selectedDateFilter === 'today' ? colors.primary : theme.surfaceSecondary }
+          ]}
           onPress={() => handleDateFilterChange('today')}
         >
-          <Text style={[styles.dateFilterText, selectedDateFilter === 'today' && styles.activeFilterText]}>
+          <Text style={[
+            styles.dateFilterText, 
+            { color: selectedDateFilter === 'today' ? '#fff' : theme.text }
+          ]}>
             Today
           </Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.dateFilterButton, selectedDateFilter === 'upcoming' && styles.activeFilterButton]}
+          style={[
+            styles.dateFilterButton, 
+            { backgroundColor: selectedDateFilter === 'upcoming' ? colors.primary : theme.surfaceSecondary }
+          ]}
           onPress={() => handleDateFilterChange('upcoming')}
         >
-          <Text style={[styles.dateFilterText, selectedDateFilter === 'upcoming' && styles.activeFilterText]}>
+          <Text style={[
+            styles.dateFilterText, 
+            { color: selectedDateFilter === 'upcoming' ? '#fff' : theme.text }
+          ]}>
             Upcoming
           </Text>
         </TouchableOpacity>
@@ -580,7 +712,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#013369']}
+            colors={[colors.primary]}
           />
         }
         contentContainerStyle={styles.listContainer}
@@ -588,7 +720,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
         ListEmptyComponent={() => (
           !loading && (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No games scheduled</Text>
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No games scheduled</Text>
             </View>
           )
         )}
@@ -600,24 +732,20 @@ const NFLScoreboardScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
   },
   listContainer: {
     padding: 16,
   },
   gameCard: {
-    backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -639,11 +767,9 @@ const styles = StyleSheet.create({
   gameStatus: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#013369',
   },
   gameClock: {
     fontSize: 14,
-    color: '#666',
   },
   teamsContainer: {
     marginBottom: 12,
@@ -664,19 +790,25 @@ const styles = StyleSheet.create({
   teamName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
   },
   teamRecord: {
     fontSize: 12,
-    color: '#666',
     marginTop: 2,
   },
   teamScore: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#013369',
     minWidth: 40,
     textAlign: 'center',
+  },
+  losingTeamScore: {
+    opacity: 0.6,
+  },
+  losingTeamName: {
+    opacity: 0.6,
+  },
+  losingTeamLogo: {
+    opacity: 0.5,
   },
   losingTeamScore: {
     color: '#999',
@@ -686,22 +818,18 @@ const styles = StyleSheet.create({
   },
   gameFooter: {
     borderTopWidth: 1,
-    borderTopColor: '#eee',
     paddingTop: 8,
   },
   venue: {
     fontSize: 12,
-    color: '#666',
     marginBottom: 2,
   },
   broadcast: {
     fontSize: 12,
-    color: '#666',
     fontStyle: 'italic',
   },
   downDistance: {
     fontSize: 12,
-    color: '#013369',
     fontWeight: '600',
     marginTop: 2,
   },
@@ -724,7 +852,6 @@ const styles = StyleSheet.create({
     top: -2,
   },
   dateHeader: {
-    backgroundColor: '#013369',
     paddingVertical: 12,
     paddingHorizontal: 16,
     marginVertical: 8,
@@ -733,36 +860,31 @@ const styles = StyleSheet.create({
   dateHeaderText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: 'white',
     textAlign: 'center',
   },
   dateFilterContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    backgroundColor: 'white',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   dateFilterButton: {
     paddingVertical: 8,
     paddingHorizontal: 20,
     borderRadius: 20,
-    backgroundColor: '#f5f5f5',
     minWidth: 80,
     alignItems: 'center',
   },
   activeFilterButton: {
-    backgroundColor: '#013369',
+    // Background color applied dynamically
   },
   dateFilterText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
   },
   activeFilterText: {
-    color: 'white',
+    // Color applied dynamically
   },
   emptyContainer: {
     flex: 1,
@@ -772,7 +894,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
     textAlign: 'center',
   },
 });

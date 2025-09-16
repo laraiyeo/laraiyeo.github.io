@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
-import { EuropaLeagueServiceEnhanced } from '../../../services/soccer/EuropaLeagueServiceEnhanced';
+import { useFavorites } from '../../../context/FavoritesContext';
+import { EuropaConferenceLeagueServiceEnhanced } from '../../../services/soccer/EuropaConferenceLeagueServiceEnhanced';
 
 const UECLTeamPageScreen = ({ route, navigation }) => {
   const { teamId, teamName } = route.params;
   const { theme, colors, isDarkMode } = useTheme();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const [activeTab, setActiveTab] = useState('Games');
   const [teamData, setTeamData] = useState(null);
   const [teamRecord, setTeamRecord] = useState(null);
@@ -59,13 +61,8 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
         setLogoSource({ uri: logos.fallbackUrl });
         setRetryCount(1);
       } else {
-        // Final fallback - use actual logo URL first if teamId exists
-        if (teamId) {
-          const finalFallbackUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
-          setLogoSource({ uri: finalFallbackUrl });
-        } else {
-          setLogoSource(require('../../../../assets/soccer.png'));
-        }
+        // Final fallback - use soccer.png asset for all cases
+        setLogoSource(require('../../../../assets/soccer.png'));
       }
     };
 
@@ -135,7 +132,7 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
   const fetchTeamRecord = async (teamId) => {
     try {
       console.log('Fetching team record for teamId:', teamId);
-      const standingsData = await EuropaLeagueServiceEnhanced.getStandings();
+      const standingsData = await EuropaConferenceLeagueServiceEnhanced.getStandings();
       
       if (standingsData?.standings?.entries) {
         const teamEntry = standingsData.standings.entries.find(
@@ -167,7 +164,7 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
           ) + 1;
           
           const totalTeams = standingsData.standings.entries.length;
-          const rankingText = `${getOrdinalSuffix(teamPosition)} in Champions League`;
+          const rankingText = `${getOrdinalSuffix(teamPosition)} in Europa Conference League`;
           
           setTeamRanking(rankingText);
           return;
@@ -404,8 +401,8 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
       
       // Fetch statistics for different UECL competitions
       const seasonTypes = [
-        { id: '1', name: 'Champions League', leagueCode: 'uefa.europa.conf' },
-        { id: '7', name: 'Champions League Qualifiers', leagueCode: 'uefa.europa.conf_qual' },
+        { id: '1', name: 'Europa Conference League', leagueCode: 'uefa.europa.conf' },
+        { id: '7', name: 'Europa Conference League Qualifiers', leagueCode: 'uefa.europa.conf_qual' },
       ];
       
       const allStats = {};
@@ -465,7 +462,7 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
     console.log('Navigating to game:', game.id);
     navigation.navigate('UECLGameDetails', {
       gameId: game.id,
-      sport: 'Champions League',
+      sport: 'Europa Conference League',
     });
   };
 
@@ -507,14 +504,14 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
 
   // Function to get competition display name from league code
   const getCompetitionName = (leagueCode) => {
-    if (!leagueCode) return 'Champions League';
+    if (!leagueCode) return 'Europa Conference League';
     
     // Map league codes to display names
     switch (leagueCode) {
       case 'uefa.europa.conf': 
-        return 'Champions League';
+        return 'Europa Conference League';
       case 'uefa.europa.conf_qual':
-        return 'Champions League Qualifiers';
+        return 'Europa Conference League Qualifiers';
       default:
         return leagueCode.replace('uefa.', '').replace('_', ' ').toUpperCase();
     }
@@ -524,6 +521,16 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
     if (!teamData) return null;
 
     const teamColor = getTeamColor(teamData);
+    const isTeamFavorite = isFavorite(teamData.id);
+
+    const handleToggleFavorite = () => {
+      toggleFavorite({
+        teamId: teamData.id,
+        teamName: teamData.displayName || teamData.name,
+        sport: 'Europa Conference League',
+        leagueCode: 'uefa.europa.conf'
+      });
+    };
 
     return (
       <View style={[styles.teamHeader, { backgroundColor: theme.surface }]}>
@@ -536,7 +543,7 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
             {teamData.displayName || teamData.name}
           </Text>
           <Text style={[styles.teamDivision, { color: theme.textSecondary }]}>
-            {teamRanking || teamData.standingSummary || 'Champions League'}
+            {teamRanking || teamData.standingSummary || 'Europa Conference League'}
           </Text>
           <View style={styles.recordContainer}>
             <View style={styles.recordRow}>
@@ -559,6 +566,15 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
             </View>
           </View>
         </View>
+        <TouchableOpacity 
+          style={styles.favoriteButton} 
+          onPress={handleToggleFavorite}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.favoriteIcon, { color: isTeamFavorite ? colors.primary : theme.textSecondary }]}>
+            {isTeamFavorite ? '★' : '☆'}
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -739,7 +755,7 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
         {/* League Header */}
         <View style={[styles.leagueHeader, { backgroundColor: theme.surfaceSecondary }]}>
           <Text style={[styles.leagueText, { color: colors.primary }]}>
-            {getCompetitionName(game.leagueCode) || competition?.name || competition?.league?.name || 'Champions League'}
+            {getCompetitionName(game.leagueCode) || competition?.name || competition?.league?.name || 'Europa Conference League'}
           </Text>
         </View>
         
@@ -772,9 +788,9 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
               )}
             </View>
             <Text style={[styles.teamAbbreviation, { 
-              color: homeIsLoser ? '#999' : theme.text 
+              color: isFavorite(homeTeam.team?.id) ? colors.primary : (homeIsLoser ? '#999' : theme.text)
             }]}>
-              {homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
+              {isFavorite(homeTeam.team?.id) ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
             </Text>
           </View>
           
@@ -818,9 +834,9 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
               />
             </View>
             <Text style={[styles.teamAbbreviation, { 
-              color: awayIsLoser ? '#999' : theme.text 
+              color: isFavorite(awayTeam.team?.id) ? colors.primary : (awayIsLoser ? '#999' : theme.text)
             }]}>
-              {awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
+              {isFavorite(awayTeam.team?.id) ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
             </Text>
           </View>
         </View>
@@ -1068,7 +1084,7 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
                         playerId: player.id,
                         playerName: player.fullName || player.displayName || player.name,
                         teamId: teamId,
-                        sport: 'Champions League',
+                        sport: 'Europa Conference League',
                       });
                     }}
                     activeOpacity={0.7}
@@ -1237,6 +1253,14 @@ const styles = StyleSheet.create({
   teamInfo: {
     flex: 1,
     marginLeft: 10,
+  },
+  favoriteButton: {
+    padding: 8,
+    marginLeft: 10,
+  },
+  favoriteIcon: {
+    fontSize: 24,
+    fontWeight: 'bold',
   },
   teamName: {
     fontSize: 24,

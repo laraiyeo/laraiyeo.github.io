@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -12,9 +13,77 @@ import {
   Animated
 } from 'react-native';
 import { NFLService } from '../../services/NFLService';
+import { useTheme } from '../../context/ThemeContext';
+
+// Component to display play probability like scoreboard copy card
+const PlayProbability = ({ probabilityRef, driveTeam, homeTeam, awayTeam }) => {
+  const [probabilityData, setProbabilityData] = useState(null);
+  const { theme } = useTheme();
+
+  useEffect(() => {
+    const fetchProbability = async () => {
+      try {
+        const response = await fetch(NFLService.convertToHttps(probabilityRef));
+        const data = await response.json();
+        
+        const homeWinPct = data.homeWinPercentage || 0;
+        const awayWinPct = data.awayWinPercentage || 0;
+        
+        // Determine which team's probability to show based on drive team
+        let displayProbability = '';
+        let teamLogo = '';
+        
+        // Check if drive team matches home or away team
+        if (driveTeam?.id === homeTeam?.id) {
+          // Drive team is home team
+          displayProbability = `${(homeWinPct * 100).toFixed(1)}%`;
+          teamLogo = homeTeam?.logo;
+        } else if (driveTeam?.id === awayTeam?.id) {
+          // Drive team is away team  
+          displayProbability = `${(awayWinPct * 100).toFixed(1)}%`;
+          teamLogo = awayTeam?.logo;
+        } else {
+          // Fallback to higher percentage
+          if (homeWinPct > awayWinPct) {
+            displayProbability = `${(homeWinPct * 100).toFixed(1)}%`;
+            teamLogo = homeTeam?.logo;
+          } else {
+            displayProbability = `${(awayWinPct * 100).toFixed(1)}%`;
+            teamLogo = awayTeam?.logo;
+          }
+        }
+        
+        setProbabilityData({ displayProbability, teamLogo });
+      } catch (error) {
+        console.error('Error fetching probability data:', error);
+      }
+    };
+
+    if (probabilityRef) {
+      fetchProbability();
+    }
+  }, [probabilityRef, driveTeam, homeTeam, awayTeam]);
+
+  if (!probabilityData) return null;
+
+  return (
+    <View style={styles.playProbability}>
+      <Text style={[styles.playProbabilityText, { color: theme.textSecondary }]}>
+        W {probabilityData.displayProbability}
+      </Text>
+      {probabilityData.teamLogo && (
+        <Image 
+          source={{ uri: NFLService.convertToHttps(probabilityData.teamLogo) }}
+          style={styles.playProbabilityLogo}
+        />
+      )}
+    </View>
+  );
+};
 
 const GameDetailsScreen = ({ route }) => {
   const { gameId, sport } = route.params;
+  const { theme, colors, getTeamLogoUrl } = useTheme();
   const [gameDetails, setGameDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('stats'); // Default to stats tab
@@ -25,30 +94,123 @@ const GameDetailsScreen = ({ route }) => {
   const [playerStats, setPlayerStats] = useState(null);
   const [loadingPlayerStats, setLoadingPlayerStats] = useState(false);
   const [gameSituation, setGameSituation] = useState(null);
+  const [formattedGameData, setFormattedGameData] = useState(null); // Formatted like scoreboard
   const [selectedDrive, setSelectedDrive] = useState(null);
   const [driveModalVisible, setDriveModalVisible] = useState(false);
   const [updateInterval, setUpdateInterval] = useState(null);
+  const [lastUpdateHash, setLastUpdateHash] = useState('');
+  const [lastSituationHash, setLastSituationHash] = useState('');
   const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [awayRosterData, setAwayRosterData] = useState(null);
   const [homeRosterData, setHomeRosterData] = useState(null);
   const [loadingRoster, setLoadingRoster] = useState(false);
   const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
 
+  // Helper function to get NFL team abbreviation from ESPN team data
+  const getNFLTeamAbbreviation = (espnTeam) => {
+    // First try direct abbreviation if available
+    if (espnTeam?.abbreviation) {
+      return espnTeam.abbreviation;
+    }
+    
+    // ESPN team ID to abbreviation mapping
+    const teamMapping = {
+      '2': 'BUF', '15': 'MIA', '17': 'NE', '20': 'NYJ',
+      '33': 'BAL', '4': 'CIN', '5': 'CLE', '23': 'PIT',
+      '34': 'HOU', '11': 'IND', '30': 'JAX', '10': 'TEN',
+      '7': 'DEN', '12': 'KC', '13': 'LV', '24': 'LAC',
+      '6': 'DAL', '19': 'NYG', '21': 'PHI', '28': 'WAS',
+      '3': 'CHI', '8': 'DET', '9': 'GB', '16': 'MIN',
+      '1': 'ATL', '29': 'CAR', '18': 'NO', '27': 'TB',
+      '22': 'ARI', '14': 'LAR', '25': 'SF', '26': 'SEA'
+    };
+    
+    const abbr = teamMapping[espnTeam?.id?.toString()];
+    if (abbr) {
+      return abbr;
+    }
+    
+    console.warn('No NFL abbreviation mapping found for team:', espnTeam?.id);
+    return null;
+  };
+  
+  // TeamLogoImage component with fallback support  
+  const TeamLogoImage = React.memo(({ team, style, isLosingTeam = false }) => {
+    const [logoSource, setLogoSource] = useState(() => {
+      const teamAbbr = getNFLTeamAbbreviation(team);
+      if (teamAbbr) {
+        return { uri: getTeamLogoUrl('nfl', teamAbbr) };
+      } else {
+        return require('../../../assets/nfl.png');
+      }
+    });
+    const [retryCount, setRetryCount] = useState(0);
+
+    useEffect(() => {
+      const teamAbbr = getNFLTeamAbbreviation(team);
+      if (teamAbbr) {
+        setLogoSource({ uri: getTeamLogoUrl('nfl', teamAbbr) });
+        setRetryCount(0);
+      } else {
+        setLogoSource(require('../../../assets/nfl.png'));
+      }
+    }, [team]);
+
+    const handleError = () => {
+      if (retryCount === 0) {
+        const teamAbbr = getNFLTeamAbbreviation(team);
+        if (teamAbbr) {
+          // Try alternative URL format
+          setLogoSource({ uri: `https://a.espncdn.com/i/teamlogos/nfl/500/${teamAbbr}.png` });
+          setRetryCount(1);
+        } else {
+          setLogoSource(require('../../../assets/nfl.png'));
+        }
+      } else {
+        // Final fallback
+        setLogoSource(require('../../../assets/nfl.png'));
+      }
+    };
+
+    return (
+      <Image
+        style={[style, isLosingTeam && { opacity: 0.5 }]}
+        source={logoSource}
+        onError={handleError}
+        resizeMode="contain"
+      />
+    );
+  });
+
   useEffect(() => {
     loadGameDetails();
+    
+    // Load drives data immediately in parallel
+    loadDrives();
+    
+    // Also load game situation data in parallel for live games
+    loadGameSituation();
   }, [gameId]);
 
-  // Separate effect to handle drives preloading after gameDetails is loaded
+  // Clear data when gameId changes (different game)
   useEffect(() => {
-    if (gameDetails) {
-      const competition = gameDetails.header?.competitions?.[0] || gameDetails.competitions?.[0];
-      const status = competition?.status || gameDetails.header?.status;
-      const statusDesc = status?.type?.description?.toLowerCase();
-      if (!statusDesc?.includes('scheduled')) {
-        loadDrives();
-      }
-    }
-  }, [gameDetails]);
+    setDrivesData(null);
+    setFormattedGameData(null);
+    setGameSituation(null);
+    setLastUpdateHash('');
+    setLastSituationHash('');
+  }, [gameId]);
+
+  // Reload data when the screen comes into focus (useful when navigating back)
+  useFocusEffect(
+    React.useCallback(() => {
+      loadGameDetails();
+      
+      return () => {
+        // Cleanup if needed
+      };
+    }, [gameId])
+  );
 
   // Effect to load roster data for scheduled games
   useEffect(() => {
@@ -63,52 +225,39 @@ const GameDetailsScreen = ({ route }) => {
     }
   }, [gameDetails, homeRosterData, awayRosterData]);
 
+  // Set up live updates when gameDetails is loaded
   useEffect(() => {
-    // Set up continuous fetching for live games - only once on mount
-    const interval = setInterval(() => {
-      if (gameDetails) {
-        const competition = gameDetails.header?.competitions?.[0] || gameDetails.competitions?.[0];
-        const status = competition?.status || gameDetails.header?.status;
-        if (!status?.type?.completed) {
-          const statusDesc = status?.type?.description?.toLowerCase();
-          const isScheduled = statusDesc?.includes('scheduled');
-          
-          loadGameDetails(true); // Silent update - this will update all game data including stats
-          
-          // Only update drives if the drives tab is active OR if we haven't loaded drives yet, and game is not scheduled
-          if ((activeTab === 'drives' || !drivesData) && !isScheduled) {
-            loadDrives(true); // Silent update drives
-          }
-          
-          // Only load game situation for non-scheduled games
-          if (!isScheduled) {
-            loadGameSituation(true); // Silent update
-          }
-        }
-      }
-    }, 2000);
-    
-    setUpdateInterval(interval);
-    
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, []); // Empty dependency array - only run once on mount
+    if (!gameDetails) return;
 
-  // Separate effect to monitor game status and clear interval when game is final
-  useEffect(() => {
-    if (gameDetails) {
-      const competition = gameDetails.header?.competitions?.[0] || gameDetails.competitions?.[0];
-      const status = competition?.status || gameDetails.header?.status;
-      if (status?.type?.completed && updateInterval) {
-        clearInterval(updateInterval);
-        setUpdateInterval(null);
-        console.log('Game is final, stopping updates');
-      }
+    const competition = gameDetails.header?.competitions?.[0] || gameDetails.competitions?.[0];
+    const status = competition?.status || gameDetails.header?.status;
+    const isLiveGame = !status?.type?.completed;
+    
+    if (isLiveGame) {
+      const interval = setInterval(() => {
+        const statusDesc = status?.type?.description?.toLowerCase();
+        const isScheduled = statusDesc?.includes('scheduled');
+        
+        loadGameDetails(true); // Silent update - this will update all game data including stats
+        
+        // Always update drives for live games since yard line graphic depends on drive data
+        if (!isScheduled) {
+          loadDrives(true); // Silent update drives for yard line graphic
+        }
+        
+        // Only load game situation for non-scheduled games
+        if (!isScheduled) {
+          loadGameSituation(true); // Silent update
+        }
+      }, 2000);
+      
+      setUpdateInterval(interval);
+      
+      return () => {
+        clearInterval(interval);
+      };
     }
-  }, [gameDetails, updateInterval]); // Only run when gameDetails or updateInterval changes
+  }, [gameDetails, activeTab, drivesData]); // Include all dependencies
 
   useEffect(() => {
     if (gameDetails) {
@@ -125,12 +274,19 @@ const GameDetailsScreen = ({ route }) => {
       if (activeTab === 'drives' && !isScheduled) {
         loadDrives();
       }
-      // Load game situation for in-progress games only (not scheduled)
-      if (!status?.type?.completed && !isScheduled) {
-        loadGameSituation();
-      }
     }
   }, [activeTab, gameId, gameDetails]);
+
+  // Update selected drive when drives data changes and modal is visible
+  useEffect(() => {
+    if (driveModalVisible && selectedDrive && drivesData) {
+      // Find the updated drive that matches the selected drive ID
+      const updatedDrive = drivesData.find(drive => drive.id === selectedDrive.id);
+      if (updatedDrive) {
+        setSelectedDrive(updatedDrive);
+      }
+    }
+  }, [drivesData, driveModalVisible, selectedDrive?.id]);
 
   const loadGameSituation = async (silentUpdate = false) => {
     try {
@@ -149,7 +305,31 @@ const GameDetailsScreen = ({ route }) => {
       }
       
       const situation = await NFLService.getGameSituation(gameId, gameDate);
-      setGameSituation(situation);
+      
+      // Create hash for change detection
+      const currentSituationHash = JSON.stringify({
+        down: situation?.down,
+        distance: situation?.distance,
+        yardLine: situation?.yardLine,
+        team: situation?.possession,
+        quarter: situation?.status?.period,
+        clock: situation?.status?.displayClock
+      });
+
+      // Only update state if data has changed
+      if (currentSituationHash !== lastSituationHash || !silentUpdate) {
+        setGameSituation(situation);
+        setLastSituationHash(currentSituationHash);
+        
+        // Debug logging for possession data
+        console.log('=== GAME SITUATION LOADED ===');
+        console.log('Full situation data:', situation);
+        console.log('Direct possession property:', situation?.possession);
+        console.log('Down:', situation?.down);
+        console.log('Distance:', situation?.distance);
+        console.log('Yard Line:', situation?.yardLine);
+        console.log('============================');
+      }
     } catch (error) {
       if (!silentUpdate) {
         console.error('Error loading game situation:', error);
@@ -164,18 +344,39 @@ const GameDetailsScreen = ({ route }) => {
       }
       const details = await NFLService.getGameDetails(gameId);
       
-      // Debug team records and status
+      // Get the competition data first for both formatting and hash calculation
       const competition = details.header?.competitions?.[0] || details.competitions?.[0];
+      const status = competition?.status || details.header?.status;
+      
+      // Also create formatted game data like scoreboard screen for possession logic
+      const formattedGame = NFLService.formatGameForMobile({ 
+        id: gameId, 
+        competitions: [competition],
+        status: status
+      });
+      
+      // Create hash for change detection
       const homeTeam = competition?.competitors?.find(c => c.homeAway === 'home');
       const awayTeam = competition?.competitors?.find(c => c.homeAway === 'away');
       
-      const status = competition?.status || details.header?.status;
-      console.log('Game status:', status?.type?.description);
-      console.log('Game details status object:', status);
-      console.log('Competition status:', competition?.status);
-      console.log('Header status:', details.header?.status);
-      
-      setGameDetails(details);
+      const currentHash = JSON.stringify({
+        homeScore: homeTeam?.score,
+        awayScore: awayTeam?.score,
+        status: status?.type?.description,
+        clock: status?.displayClock,
+        period: status?.period,
+        down: status?.down,
+        distance: status?.distance,
+        yardLine: status?.yardLine
+      });
+
+      // Only update state if data has changed
+      if (currentHash !== lastUpdateHash || !silentUpdate) {
+        setGameDetails(details);
+        setFormattedGameData(formattedGame);
+        setLastUpdateHash(currentHash);
+      } else {
+      }
     } catch (error) {
       if (!silentUpdate) {
         Alert.alert('Error', 'Failed to load game details');
@@ -263,22 +464,16 @@ const GameDetailsScreen = ({ route }) => {
 
     try {
       // Fetch game-specific player stats using ESPN box score API
-      console.log('Fetching game stats for player ID:', player.id, 'in game:', gameId);
       const gameStats = await NFLService.getPlayerGameStats(gameId, player.id);
-      console.log('Game stats received:', gameStats);
-      
       if (gameStats && gameStats.splits && gameStats.splits.categories) {
         setPlayerStats(gameStats);
       } else {
         // Fallback to season stats if game stats not available
-        console.log('Game stats not available, trying season stats');
         const seasonStats = await NFLService.getPlayerStats(player.id);
-        console.log('Season stats received:', seasonStats);
         
         if (seasonStats && seasonStats.splits && seasonStats.splits.categories) {
           setPlayerStats(seasonStats);
         } else {
-          console.log('No valid stats data received');
           setPlayerStats(null);
         }
       }
@@ -385,7 +580,7 @@ const GameDetailsScreen = ({ route }) => {
         {/* Drive Progress Bar */}
         <View style={styles.driveProgressBar}>
           {/* Base bar */}
-          <View style={styles.driveBaseBar} />
+          <View style={[styles.driveBaseBar, { backgroundColor: theme.border, borderColor: theme.border }]} />
           
           {/* Progress fill with solid team color */}
           <View 
@@ -408,7 +603,7 @@ const GameDetailsScreen = ({ route }) => {
               { 
                 left: `${startPosition}%`, 
                 borderColor: teamColor,
-                transform: [{ translateX: -10 }] // Center the marker
+                transform: [{ translateX: -10 }] // Center the marker,
               }
             ]}
           >
@@ -422,8 +617,8 @@ const GameDetailsScreen = ({ route }) => {
               driveIsInProgress ? styles.driveCurrentMarker : styles.driveEndMarker,
               { 
                 left: `${currentPosition}%`, 
-                borderColor: driveIsInProgress ? '#FFA500' : teamColor, 
-                backgroundColor: driveIsInProgress ? '#FFA500' : teamColor,
+                borderColor: driveIsInProgress ? colors.primary : teamColor, 
+                backgroundColor: driveIsInProgress ? colors.secondary : teamColor,
                 transform: [{ translateX: -10 }] // Center the marker
               }
             ]}
@@ -434,9 +629,9 @@ const GameDetailsScreen = ({ route }) => {
         
         {/* Yard line labels */}
         <View style={styles.driveYardLabels}>
-          <Text style={styles.driveYardLabel}>0</Text>
-          <Text style={styles.driveYardLabel}>50</Text>
-          <Text style={styles.driveYardLabel}>100</Text>
+          <Text style={[styles.driveYardLabel, { color: theme.textTertiary }]}>0</Text>
+          <Text style={[styles.driveYardLabel, { color: theme.textTertiary }]}>50</Text>
+          <Text style={[styles.driveYardLabel, { color: theme.textTertiary }]}>0</Text>
         </View>
       </View>
     );
@@ -495,8 +690,8 @@ const GameDetailsScreen = ({ route }) => {
             
             return (
               <View key={`${rowIndex}-${index}`} style={styles.statItem}>
-                <Text style={styles.statValue}>{displayValue}</Text>
-                <Text style={styles.statLabel}>{label}</Text>
+                <Text style={[styles.statValue, { color: theme.text }]}>{displayValue}</Text>
+                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{label}</Text>
               </View>
             );
           })}
@@ -505,15 +700,14 @@ const GameDetailsScreen = ({ route }) => {
     };
 
     const renderCategoryHeader = (categoryTitle) => (
-      <View style={styles.statCategoryHeader}>
-        {teamLogo && (
-          <Image 
-            source={{ uri: NFLService.convertToHttps(teamLogo) }}
+      <View style={[styles.statCategoryHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+        {team && (
+          <TeamLogoImage 
+            team={team}
             style={styles.teamHeaderLogo}
-            defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=NFL' }}
           />
         )}
-        <Text style={styles.teamHeaderName}>{teamName}</Text>
+        <Text style={[styles.teamHeaderName, { color: theme.text }]}>{teamName}</Text>
       </View>
     );
 
@@ -532,7 +726,6 @@ const GameDetailsScreen = ({ route }) => {
     };
 
     // Debug: log the position to see what we're getting
-    console.log('Player position:', position, 'Type:', typeof position);
 
     if (['QB'].includes(position)) {
       // Handle QB stats - check if we have 8 stats and skip the 7th if so
@@ -556,19 +749,19 @@ const GameDetailsScreen = ({ route }) => {
       return (
         <View>
           {qbStats.length > 0 && (
-            <View style={styles.statCategory}>
+            <View style={[styles.statCategory, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
               <View style={styles.statSubcategoryHeader}>
                 <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={styles.statCategoryTitle}>Passing</Text>
+                <Text style={[styles.statCategoryTitle, { color: theme.text }]}>Passing</Text>
               </View>
               {renderStatRow(qbStats, qbLabels)}
             </View>
           )}
           {rushingStats.length > 0 && (
-            <View style={styles.statCategory}>
+            <View style={[styles.statCategory, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
               <View style={styles.statSubcategoryHeader}>
                 <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={styles.statCategoryTitle}>Rushing</Text>
+                <Text style={[styles.statCategoryTitle, { color: theme.text }]}>Rushing</Text>
               </View>
               {renderStatRow(rushingStats, ['CAR', 'RUSH YDS', 'YDS/CAR', 'RUSH TD', 'LNG'])}
             </View>
@@ -579,19 +772,19 @@ const GameDetailsScreen = ({ route }) => {
       return (
         <View>
           {rushingStats.length > 0 && (
-            <View style={styles.statCategory}>
+            <View style={[styles.statCategory, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
               <View style={styles.statSubcategoryHeader}>
                 <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={styles.statCategoryTitle}>Rushing</Text>
+                <Text style={[styles.statCategoryTitle, { color: theme.text }]}>Rushing</Text>
               </View>
               {renderStatRow(rushingStats, ['CAR', 'RUSH YDS', 'YDS/CAR', 'RUSH TD', 'LNG'])}
             </View>
           )}
           {receivingStats.length > 0 && (
-            <View style={styles.statCategory}>
+            <View style={[styles.statCategory, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
               <View style={styles.statSubcategoryHeader}>
                 <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={styles.statCategoryTitle}>Receiving</Text>
+                <Text style={[styles.statCategoryTitle, { color: theme.text }]}>Receiving</Text>
               </View>
               {renderStatRow(receivingStats, ['REC', 'REC YDS', 'YDS/REC', 'REC TD', 'LNG', 'TGT'])}
             </View>
@@ -602,19 +795,19 @@ const GameDetailsScreen = ({ route }) => {
       return (
         <View>
           {receivingStats.length > 0 && (
-            <View style={styles.statCategory}>
+            <View style={[styles.statCategory, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
               <View style={styles.statSubcategoryHeader}>
                 <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={styles.statCategoryTitle}>Receiving</Text>
+                <Text style={[styles.statCategoryTitle, { color: theme.text }]}>Receiving</Text>
               </View>
               {renderStatRow(receivingStats, ['REC', 'REC YDS', 'YDS/REC', 'REC TD', 'LNG', 'TGT'])}
             </View>
           )}
           {rushingStats.length > 0 && (
-            <View style={styles.statCategory}>
+            <View style={[styles.statCategory, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
               <View style={styles.statSubcategoryHeader}>
                 <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={styles.statCategoryTitle}>Rushing</Text>
+                <Text style={[styles.statCategoryTitle, { color: theme.text }]}>Rushing</Text>
               </View>
               {renderStatRow(rushingStats, ['CAR', 'RUSH YDS', 'YDS/CAR', 'RUSH TD', 'LNG'])}
             </View>
@@ -625,10 +818,10 @@ const GameDetailsScreen = ({ route }) => {
       return (
         <View>
           {defensiveStats.length > 0 && (
-            <View style={styles.statCategory}>
+            <View style={[styles.statCategory, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
               <View style={styles.statSubcategoryHeader}>
                 <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={styles.statCategoryTitle}>Defensive</Text>
+                <Text style={[styles.statCategoryTitle, { color: theme.text }]}>Defensive</Text>
               </View>
               {renderStatRow(defensiveStats, ['TOT TCKL', 'SOLO', 'SACKS', 'TFL', 'PD', 'QB HIT'])}
             </View>
@@ -688,8 +881,6 @@ const GameDetailsScreen = ({ route }) => {
           {playerStats.splits.categories.map((category, categoryIndex) => {
             // Try to get labels from the category or construct them from stat names
             let statLabels = [];
-            
-            console.log('Category:', category.name, 'Labels:', category.labels, 'Stats:', category.stats);
             
             if (category.labels && category.labels.length > 0) {
               statLabels = category.labels;
@@ -774,9 +965,9 @@ const GameDetailsScreen = ({ route }) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#013369" />
-        <Text style={styles.loadingText}>Loading Game Details...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.text }]}>Loading Game Details...</Text>
       </View>
     );
   }
@@ -807,15 +998,15 @@ const GameDetailsScreen = ({ route }) => {
   const isHomeTeamLosing = isGameFinal && homeScore < awayScore;
 
   const getTeamScoreStyle = (isLosing) => {
-    return isLosing ? [styles.teamScore, styles.losingTeamScore] : styles.teamScore;
+    return isLosing ? [styles.teamScore, { color: theme.textSecondary }] : [styles.teamScore, { color: colors.primary }];
   };
 
   const getTeamNameStyle = (isLosing) => {
-    return isLosing ? [styles.teamName, styles.losingTeamName] : styles.teamName;
+    return isLosing ? [styles.teamName, { color: theme.textSecondary }] : [styles.teamName, { color: theme.text }];
   };
 
   const getStickyTeamScoreStyle = (isLosing) => {
-    return isLosing ? [styles.stickyTeamScore, styles.losingStickyTeamScore] : styles.stickyTeamScore;
+    return isLosing ? [styles.stickyTeamScore, { color: theme.textSecondary }] : [styles.stickyTeamScore, { color: colors.primary }];
   };
 
   // Helper function to render team stats
@@ -850,10 +1041,10 @@ const GameDetailsScreen = ({ route }) => {
           const homeValue = findStatValue(homeStats, statConfig.key);
           
           return (
-            <View key={index} style={styles.statRow}>
-              <Text style={styles.statAwayValue}>{awayValue}</Text>
-              <Text style={styles.statLabel}>{statConfig.label}</Text>
-              <Text style={styles.statHomeValue}>{homeValue}</Text>
+            <View key={index} style={[styles.statRow, { borderBottomColor: theme.border }]}>
+              <Text style={[styles.statAwayValue, { color: theme.textSecondary }]}>{awayValue}</Text>
+              <Text style={[styles.statLabel, { color: theme.text }]}>{statConfig.label}</Text>
+              <Text style={[styles.statHomeValue, { color: theme.textSecondary }]}>{homeValue}</Text>
             </View>
           );
         })}
@@ -901,18 +1092,17 @@ const GameDetailsScreen = ({ route }) => {
           const homeLeader = homeCategoryData.leaders[0];
 
           return (
-            <View key={categoryIndex} style={styles.leaderCategory}>
-              <Text style={styles.leaderCategoryTitle}>{awayCategoryData.displayName || category}</Text>
-              
+            <View key={categoryIndex} style={[styles.leaderCategory, { backgroundColor: theme.surface }]}>
+              <Text style={[styles.leaderCategoryTitle, { color: theme.text }]}>{awayCategoryData.displayName || category}</Text>
+
               {/* Away Team Leader Row */}
-              <View style={styles.leaderPlayerRow}>
+              <View style={[styles.leaderPlayerRow, { borderBottomColor: theme.border }]}>
                 <View style={styles.leaderTeamLogoContainer}>
-                  <Image 
-                    source={{ uri: NFLService.convertToHttps(awayTeam?.team?.logo || awayTeam?.team?.logos?.[0]?.href) }}
+                  <TeamLogoImage 
+                    team={awayTeam?.team}
                     style={styles.leaderTeamLogo}
-                    defaultSource={{ uri: 'https://via.placeholder.com/20x20?text=NFL' }}
                   />
-                  <Text style={styles.leaderJerseyNumber}>{awayLeader.athlete?.jersey || '#'}</Text>
+                  <Text style={[styles.leaderJerseyNumber, { color: theme.textSecondary }]}>{awayLeader.athlete?.jersey || '#'}</Text>
                 </View>
                 <Image 
                   source={{ uri: awayLeader.athlete?.headshot?.href || 'https://via.placeholder.com/40x40?text=P' }}
@@ -921,22 +1111,21 @@ const GameDetailsScreen = ({ route }) => {
                 />
                 <View style={styles.leaderPlayerInfo}>
                   <View style={styles.leaderNameRow}>
-                    <Text style={styles.leaderPlayerName}>{awayLeader.athlete?.shortName || awayLeader.athlete?.displayName}</Text>
-                    <Text style={styles.leaderPlayerPosition}> {awayLeader.athlete?.position?.abbreviation}</Text>
+                    <Text style={[styles.leaderPlayerName, { color: theme.text }]}>{awayLeader.athlete?.shortName || awayLeader.athlete?.displayName}</Text>
+                    <Text style={[styles.leaderPlayerPosition, { color: theme.textSecondary }]}> {awayLeader.athlete?.position?.abbreviation}</Text>
                   </View>
-                  <Text style={styles.leaderStatsValue}>{awayLeader.displayValue}</Text>
+                  <Text style={[styles.leaderStatsValue, { color: colors.primary }]}>{awayLeader.displayValue}</Text>
                 </View>
               </View>
 
               {/* Home Team Leader Row */}
-              <View style={styles.leaderPlayerRow}>
+              <View style={[styles.leaderPlayerRow, { borderBottomColor: theme.border }]}>
                 <View style={styles.leaderTeamLogoContainer}>
-                  <Image 
-                    source={{ uri: NFLService.convertToHttps(homeTeam?.team?.logo || homeTeam?.team?.logos?.[0]?.href) }}
+                  <TeamLogoImage 
+                    team={homeTeam?.team}
                     style={styles.leaderTeamLogo}
-                    defaultSource={{ uri: 'https://via.placeholder.com/20x20?text=NFL' }}
                   />
-                  <Text style={styles.leaderJerseyNumber}>{homeLeader.athlete?.jersey || '#'}</Text>
+                  <Text style={[styles.leaderJerseyNumber, { color: theme.textSecondary }]}>{homeLeader.athlete?.jersey || '#'}</Text>
                 </View>
                 <Image 
                   source={{ uri: homeLeader.athlete?.headshot?.href || 'https://via.placeholder.com/40x40?text=P' }}
@@ -945,10 +1134,10 @@ const GameDetailsScreen = ({ route }) => {
                 />
                 <View style={styles.leaderPlayerInfo}>
                   <View style={styles.leaderNameRow}>
-                    <Text style={styles.leaderPlayerName}>{homeLeader.athlete?.shortName || homeLeader.athlete?.displayName}</Text>
-                    <Text style={styles.leaderPlayerPosition}> {homeLeader.athlete?.position?.abbreviation}</Text>
+                    <Text style={[styles.leaderPlayerName, { color: theme.text }]}>{homeLeader.athlete?.shortName || homeLeader.athlete?.displayName}</Text>
+                    <Text style={[styles.leaderPlayerPosition, { color: theme.textSecondary }]}> {homeLeader.athlete?.position?.abbreviation}</Text>
                   </View>
-                  <Text style={styles.leaderStatsValue}>{homeLeader.displayValue}</Text>
+                  <Text style={[styles.leaderStatsValue, { color: colors.primary }]}>{homeLeader.displayValue}</Text>
                 </View>
               </View>
             </View>
@@ -988,7 +1177,7 @@ const GameDetailsScreen = ({ route }) => {
           const value = findStatValue(teamStats, statConfig.key);
           
           return (
-            <View key={index} style={styles.individualStatRow}>
+            <View key={index} style={[styles.individualStatRow, { borderBottomColor: theme.border }]}>
               <Text style={styles.individualStatLabel}>{statConfig.label}</Text>
               <Text style={styles.individualStatValue}>{value}</Text>
             </View>
@@ -1055,72 +1244,72 @@ const GameDetailsScreen = ({ route }) => {
   const renderStatsContent = () => (
     <View>
       {/* Linescore */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Line Score</Text>
-        <View style={styles.linescoreContainer}>
-          <View style={styles.linescoreTable}>
-            <View style={styles.linescoreHeader}>
-              <Text style={styles.linescoreHeaderCell}></Text>
-              <Text style={styles.linescoreHeaderCell}>1</Text>
-              <Text style={styles.linescoreHeaderCell}>2</Text>
-              <Text style={styles.linescoreHeaderCell}>3</Text>
-              <Text style={styles.linescoreHeaderCell}>4</Text>
-              <Text style={styles.linescoreHeaderCell}>T</Text>
+      <View style={[styles.section, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.sectionTitle, { color: colors.primary }]}>Line Score</Text>
+        <View style={[styles.linescoreContainer, {backgroundColor: theme.surfaceSecondary}]}>
+          <View style={[styles.linescoreTable, { backgroundColor: theme.surfaceSecondary }]}>
+            <View style={[styles.linescoreHeader, { backgroundColor: theme.surface }]}>
+              <Text style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}></Text>
+              <Text style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}>1</Text>
+              <Text style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}>2</Text>
+              <Text style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}>3</Text>
+              <Text style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}>4</Text>
+              <Text style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}>T</Text>
             </View>
-            <View style={styles.linescoreRow}>
+            <View style={[styles.linescoreRow, { borderBottomColor: theme.border }]}>
               <View style={styles.linescoreTeamContainer}>
-                <Image 
-                  source={{ uri: NFLService.convertToHttps(awayTeam?.team?.logo || awayTeam?.team?.logos?.[0]?.href) }}
+                <TeamLogoImage 
+                  team={awayTeam?.team}
                   style={styles.linescoreTeamLogo}
-                  defaultSource={{ uri: 'https://via.placeholder.com/20x20?text=NFL' }}
+                  isLosingTeam={isAwayTeamLosing}
                 />
-                <Text style={styles.linescoreTeamCell}>{awayTeam?.team?.abbreviation}</Text>
+                <Text style={[styles.linescoreTeamCell, { color: theme.text }]}>{awayTeam?.team?.abbreviation}</Text>
               </View>
               {[0, 1, 2, 3].map(quarterIndex => {
                 const score = awayTeam?.linescores?.[quarterIndex]?.displayValue || "-";
-                return <Text key={quarterIndex} style={styles.linescoreCell}>{score}</Text>;
+                return <Text key={quarterIndex} style={[styles.linescoreCell, { color: theme.text }]}>{score}</Text>;
               })}
-              <Text style={styles.linescoreTotalCell}>{awayTeam?.score || '0'}</Text>
+              <Text style={[styles.linescoreTotalCell, { color: colors.primary }]}>{awayTeam?.score || '0'}</Text>
             </View>
-            <View style={styles.linescoreRow}>
+            <View style={[styles.linescoreRow, { borderBottomColor: theme.border }]}>
               <View style={styles.linescoreTeamContainer}>
-                <Image 
-                  source={{ uri: NFLService.convertToHttps(homeTeam?.team?.logo || homeTeam?.team?.logos?.[0]?.href) }}
+                <TeamLogoImage 
+                  team={homeTeam?.team}
                   style={styles.linescoreTeamLogo}
-                  defaultSource={{ uri: 'https://via.placeholder.com/20x20?text=NFL' }}
+                  isLosingTeam={isHomeTeamLosing}
                 />
-                <Text style={styles.linescoreTeamCell}>{homeTeam?.team?.abbreviation}</Text>
+                <Text style={[styles.linescoreTeamCell, { color: theme.text }]}>{homeTeam?.team?.abbreviation}</Text>
               </View>
               {[0, 1, 2, 3].map(quarterIndex => {
                 const score = homeTeam?.linescores?.[quarterIndex]?.displayValue || "-";
-                return <Text key={quarterIndex} style={styles.linescoreCell}>{score}</Text>;
+                return <Text key={quarterIndex} style={[styles.linescoreCell, { color: theme.text }]}>{score}</Text>;
               })}
-              <Text style={styles.linescoreTotalCell}>{homeTeam?.score || '0'}</Text>
+              <Text style={[styles.linescoreTotalCell, { color: colors.primary }]}>{homeTeam?.score || '0'}</Text>
             </View>
           </View>
         </View>
       </View>
 
       {/* Team Stats */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Team Statistics</Text>
-        <View style={styles.statsContainer}>
-          <View style={styles.statsHeader}>
+      <View style={[styles.section, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.sectionTitle, { color: colors.primary }]}>Team Statistics</Text>
+        <View style={[styles.statsContainer, { backgroundColor: theme.surfaceSecondary }]}>
+          <View style={[styles.statsHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
             <View style={styles.statsTeamHeader}>
-              <Image 
-                source={{ uri: NFLService.convertToHttps(awayTeam?.team?.logo || awayTeam?.team?.logos?.[0]?.href) }}
+              <TeamLogoImage 
+                team={awayTeam?.team}
                 style={styles.statsTeamLogo}
-                defaultSource={{ uri: 'https://via.placeholder.com/20x20?text=NFL' }}
+                isLosingTeam={isAwayTeamLosing}
               />
-              <Text style={styles.statsTeamName}>{awayTeam?.team?.abbreviation}</Text>
+              <Text style={[styles.statsTeamName, { color: theme.text }]}>{awayTeam?.team?.abbreviation}</Text>
             </View>
-            <Text style={styles.statsLabel}>Stat</Text>
+            <Text style={[styles.statsLabel, { color: theme.textSecondary }]}>Stat</Text>
             <View style={styles.statsTeamHeader}>
-              <Text style={styles.statsTeamName}>{homeTeam?.team?.abbreviation}</Text>
-              <Image 
-                source={{ uri: NFLService.convertToHttps(homeTeam?.team?.logo || homeTeam?.team?.logos?.[0]?.href) }}
+              <Text style={[styles.statsTeamName, { color: theme.text }]}>{homeTeam?.team?.abbreviation}</Text>
+              <TeamLogoImage 
+                team={homeTeam?.team}
                 style={styles.statsTeamLogo}
-                defaultSource={{ uri: 'https://via.placeholder.com/20x20?text=NFL' }}
+                isLosingTeam={isHomeTeamLosing}
               />
             </View>
           </View>
@@ -1129,15 +1318,14 @@ const GameDetailsScreen = ({ route }) => {
       </View>
 
       {/* Game/Team Leaders */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
+      <View style={[styles.section, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.sectionTitle, { color: colors.primary }]}>
           {(() => {
             const statusDesc = status?.type?.description?.toLowerCase();
-            console.log('Status description for leaders:', statusDesc);
             return statusDesc?.includes('scheduled') ? 'Team Leaders' : 'Game Leaders';
           })()}
         </Text>
-        <View style={styles.leadersContainer}>
+        <View style={[styles.leadersContainer, { backgroundColor: theme.surfaceSecondary }]}>
           {gameDetails.leaders && renderGameLeaders(gameDetails.leaders, awayTeam, homeTeam)}
         </View>
       </View>
@@ -1165,23 +1353,23 @@ const GameDetailsScreen = ({ route }) => {
 
     if (loadingRoster) {
       return (
-        <View style={styles.rosterContainer}>
-          <ActivityIndicator size="small" color="#013369" />
-          <Text style={styles.placeholderText}>Loading roster...</Text>
+        <View style={[styles.rosterContainer, { backgroundColor: theme.surface }]}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>Loading roster...</Text>
         </View>
       );
     }
 
     if (!rosterData?.athletes) {
       return (
-        <View style={styles.rosterContainer}>
-          <Text style={styles.placeholderText}>Roster data not available</Text>
+        <View style={[styles.rosterContainer, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>Roster data not available</Text>
         </View>
       );
     }
 
     return (
-      <View style={styles.rosterContainer}>
+      <View style={[styles.rosterContainer, { backgroundColor: theme.surface }]}>
         {rosterData.athletes
           .filter(positionGroup => 
             positionGroup.position !== 'practiceSquad' && 
@@ -1190,7 +1378,7 @@ const GameDetailsScreen = ({ route }) => {
           )
           .map((positionGroup, groupIndex) => (
           <View key={groupIndex} style={styles.rosterSection}>
-            <Text style={styles.rosterSectionTitle}>
+            <Text style={[styles.rosterSectionTitle, { color: colors.primary }]}>
               {formatPositionGroupName(positionGroup.position) || `Position Group ${groupIndex + 1}`}
             </Text>
             <View style={styles.rosterPlayersList}>
@@ -1216,19 +1404,19 @@ const GameDetailsScreen = ({ route }) => {
                 return (
                   <View key={playerIndex}>
                     {/* Player Name Row */}
-                    <View style={styles.rosterTableRow}>
+                    <View style={[styles.rosterTableRow, { borderBottomColor: theme.border }]}>
                       <View style={styles.rosterTablePlayerCell}>
-                        <Text style={styles.rosterTablePlayerName}>
+                        <Text style={[styles.rosterTablePlayerName, { color: theme.text }]}>
                           {player.displayName || `${player.firstName || ''} ${player.lastName || ''}`.trim()}
                         </Text>
-                        <Text style={styles.rosterTablePlayerDetails}>
-                          <Text style={styles.rosterTablePlayerNumber}>#{player.jersey || 'N/A'}</Text> • {player.position?.abbreviation || positionGroup.position || 'N/A'}
+                        <Text style={[styles.rosterTablePlayerDetails, { color: theme.textSecondary }]}>
+                          <Text style={[styles.rosterTablePlayerNumber, { color: theme.textTertiary }]}>#{player.jersey || 'N/A'}</Text> • {player.position?.abbreviation || positionGroup.position || 'N/A'}
                         </Text>
                       </View>
                     </View>
                     
                     {/* Status Row */}
-                    <View style={styles.rosterTableStatusRow}>
+                    <View style={[styles.rosterTableStatusRow, { backgroundColor: theme.surfaceSecondary }]}>
                       <Text style={[styles.rosterTableStatusText, { color: statusColor }]}>
                         {statusText || 'Active'}
                       </Text>
@@ -1247,22 +1435,19 @@ const GameDetailsScreen = ({ route }) => {
   const renderTeamContent = (team, teamType) => {
     const statusDesc = status?.type?.description?.toLowerCase();
     const isScheduled = statusDesc?.includes('scheduled');
-    console.log('Status description for team content:', statusDesc);
-    console.log('Is scheduled (team content):', isScheduled);
     const sectionTitle = isScheduled ? 'Roster' : 'Box Score';
     
     if (!gameDetails.boxscore?.players && !isScheduled) {
       return (
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: theme.surface }]}>
           <View style={styles.teamBoxScoreHeader}>
-            <Image 
-              source={{ uri: NFLService.convertToHttps(team?.team?.logo || team?.team?.logos?.[0]?.href) }}
+            <TeamLogoImage 
+              team={team?.team}
               style={styles.teamBoxScoreLogo}
-              defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=NFL' }}
             />
-            <Text style={styles.sectionTitle}>{team?.team?.displayName || team?.team?.name} {sectionTitle}</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{team?.team?.displayName || team?.team?.name} {sectionTitle}</Text>
           </View>
-          <Text style={styles.placeholderText}>Box score data not available</Text>
+          <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>Box score data not available</Text>
         </View>
       );
     }
@@ -1270,16 +1455,15 @@ const GameDetailsScreen = ({ route }) => {
     // For scheduled games, show roster instead of box score
     if (isScheduled) {
       return (
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: theme.surface }]}>
           <View style={styles.teamBoxScoreHeader}>
-            <Image 
-              source={{ uri: NFLService.convertToHttps(team?.team?.logo || team?.team?.logos?.[0]?.href) }}
+            <TeamLogoImage 
+              team={team?.team}
               style={styles.teamBoxScoreLogo}
-              defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=NFL' }}
             />
-            <Text style={styles.sectionTitle}>{team?.team?.displayName || team?.team?.name} {sectionTitle}</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{team?.team?.displayName || team?.team?.name} {sectionTitle}</Text>
           </View>
-          <View style={styles.teamBoxScoreContainer}>
+          <View style={[styles.teamBoxScoreContainer, { backgroundColor: theme.surfaceSecondary }]}>
             {renderTeamRoster(team)}
           </View>
         </View>
@@ -1294,45 +1478,45 @@ const GameDetailsScreen = ({ route }) => {
     
     if (!teamBoxScore || !teamBoxScore.statistics) {
       return (
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: theme.surface }]}>
           <View style={styles.teamBoxScoreHeader}>
-            <Image 
-              source={{ uri: NFLService.convertToHttps(team?.team?.logo || team?.team?.logos?.[0]?.href) }}
+            <TeamLogoImage 
+              team={team?.team}
               style={styles.teamBoxScoreLogo}
-              defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=NFL' }}
             />
-            <Text style={styles.sectionTitle}>{team?.team?.displayName || team?.team?.name} {sectionTitle}</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{team?.team?.displayName || team?.team?.name} {sectionTitle}</Text>
           </View>
-          <Text style={styles.placeholderText}>No statistics available for this team</Text>
+          <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>No statistics available for this team</Text>
         </View>
       );
     }
 
     return (
-      <View style={styles.section}>
+      <View style={[styles.section, { backgroundColor: theme.surface }]}>
         <View style={styles.teamBoxScoreHeader}>
-          <Image 
-            source={{ uri: NFLService.convertToHttps(team?.team?.logo || team?.team?.logos?.[0]?.href) }}
+          <TeamLogoImage 
+            team={team?.team}
             style={styles.teamBoxScoreLogo}
-            defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=NFL' }}
           />
-          <Text style={styles.sectionTitle}>{team?.team?.displayName || team?.team?.name} {sectionTitle}</Text>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>{team?.team?.displayName || team?.team?.name} {sectionTitle}</Text>
         </View>
-        <View style={styles.teamBoxScoreContainer}>
+        <View style={[styles.teamBoxScoreContainer, { backgroundColor: theme.surfaceSecondary }]}>
           {teamBoxScore.statistics.map((statCategory, categoryIndex) => {
             if (!statCategory.athletes || statCategory.athletes.length === 0) return null;
 
             return (
-              <View key={categoryIndex} style={styles.statCategoryContainer}>
-                <Text style={styles.statCategoryTitle}>
+              <View key={categoryIndex} style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
+                <Text style={[styles.statCategoryTitle, { color: theme.text }]}>
                   {statCategory.text || statCategory.name.charAt(0).toUpperCase() + statCategory.name.slice(1)}
                 </Text>
                 
                 {/* Header */}
-                <View style={styles.statTableHeader}>
-                  <Text style={styles.statTableHeaderPlayer}>Player</Text>
+                <View style={[styles.statTableHeader, { backgroundColor: theme.surfaceSecondary }]}>
+                  <Text style={[styles.statTableHeaderPlayer, { color: theme.text }]}>Player</Text>
                   {(statCategory.labels || []).slice(0, 4).map((label, labelIndex) => (
-                    <Text key={labelIndex} style={styles.statTableHeaderStat}>{label}</Text>
+                    <Text key={labelIndex} style={[styles.statTableHeaderStat, { color: theme.text }]}>
+                      {label}
+                    </Text>
                   ))}
                 </View>
 
@@ -1344,18 +1528,18 @@ const GameDetailsScreen = ({ route }) => {
                   return (
                     <TouchableOpacity 
                       key={playerIndex} 
-                      style={styles.statTableRow}
+                      style={[styles.statTableRow, { borderBottomColor: theme.border }]}
                       onPress={() => handlePlayerPress(player, statCategory, team)}
                       activeOpacity={0.7}
                     >
                       <View style={styles.statTablePlayerCell}>
-                        <Text style={styles.statTablePlayerName} numberOfLines={1}>
+                        <Text style={[styles.statTablePlayerName, { color: theme.text }]} numberOfLines={1}>
                           {player.firstName ? `${player.firstName.charAt(0)}. ` : ''}{player.lastName || player.displayName || 'Unknown'}
                         </Text>
-                        <Text style={styles.statTablePlayerNumber}>#{player.jersey || 'N/A'}</Text>
+                        <Text style={[styles.statTablePlayerNumber, { color: theme.textTertiary }]} >#{player.jersey || 'N/A'}</Text>
                       </View>
                       {stats.slice(0, 4).map((stat, statIndex) => (
-                        <Text key={statIndex} style={styles.statTableStatCell}>{stat || '0'}</Text>
+                        <Text key={statIndex} style={[styles.statTableStatCell, { color: theme.text }]}>{stat || '0'}</Text>
                       ))}
                     </TouchableOpacity>
                   );
@@ -1373,11 +1557,11 @@ const GameDetailsScreen = ({ route }) => {
     // Only show loading if we're loading drives AND we don't have existing data
     if (loadingDrives && !drivesData) {
       return (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Drive Information</Text>
-          <View style={styles.drivesContainer}>
-            <ActivityIndicator size="small" color="#013369" />
-            <Text style={styles.placeholderText}>Loading drives...</Text>
+        <View style={[styles.section, { backgroundColor: theme.background }]}>
+          <Text style={[styles.sectionTitle, { color: colors.primary }]}>Drive Information</Text>
+          <View style={[styles.drivesContainer, { backgroundColor: theme.surface }]}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>Loading drives...</Text>
           </View>
         </View>
       );
@@ -1385,10 +1569,10 @@ const GameDetailsScreen = ({ route }) => {
 
     if (!drivesData || !drivesData.length) {
       return (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Drive Information</Text>
+        <View style={[styles.section, { backgroundColor: theme.background }]}>
+          <Text style={[styles.sectionTitle, { color: colors.primary }]}>Drive Information</Text>
           <View style={styles.drivesContainer}>
-            <Text style={styles.placeholderText}>
+            <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>
               No drive information available for this game
             </Text>
           </View>
@@ -1397,8 +1581,8 @@ const GameDetailsScreen = ({ route }) => {
     }
 
     return (
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Drive Information</Text>
+      <View style={[styles.section, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.sectionTitle, { color: colors.primary }]}>Drive Information</Text>
         <ScrollView style={styles.drivesScrollView}>
           {[...drivesData].reverse().map((drive, index) => {
             const driveNumber = drivesData.length - index;
@@ -1406,38 +1590,37 @@ const GameDetailsScreen = ({ route }) => {
             return (
               <TouchableOpacity 
                 key={`drive-${drive.id || index}`}
-                style={styles.driveCard}
+                style={[styles.driveCard, { backgroundColor: theme.surfaceSecondary }]}
                 onPress={() => handleDrivePress(drive)}
                 activeOpacity={0.7}
               >
                 <View style={styles.driveHeader}>
                   <View style={styles.driveTeamInfo}>
-                    {drive.team?.logos?.[0]?.href && (
-                      <Image 
-                        source={{ uri: NFLService.convertToHttps(drive.team.logos[0]?.href) }}
+                    {drive.team && (
+                      <TeamLogoImage 
+                        team={drive.team}
                         style={styles.driveTeamLogo}
-                        defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=NFL' }}
                       />
                     )}
-                    <Text style={styles.driveTeamName}>{drive.team?.displayName || 'Unknown Team'}</Text>
+                    <Text style={[styles.driveTeamName, { color: theme.text }]}>{drive.team?.displayName || 'Unknown Team'}</Text>
                   </View>
-                  <Text style={styles.driveNumber}>Drive {driveNumber}</Text>
+                  <Text style={[styles.driveNumber, { color: colors.primary }]}>{`Drive ${driveNumber}`}</Text>
                 </View>
 
                 <View style={styles.driveDetails}>
-                  <Text style={styles.driveResult}>{drive.displayResult || drive.result || 'In Progress'}</Text>
+                  <Text style={[styles.driveResult, { color: colors.primary }]}>{drive.displayResult || drive.result || 'In Progress'}</Text>
                   {drive.description && (
-                    <Text style={styles.driveDescription}>{drive.description}</Text>
+                    <Text style={[styles.driveDescription, { color: theme.textTertiary }]}>{drive.description}</Text>
                   )}
                 </View>
 
                 {/* Visual Yard Line Display */}
                 {renderDriveYardLine(drive, awayTeam, homeTeam)}
 
-                <View style={styles.driveStats}>
+                <View style={[styles.driveStats, { backgroundColor: theme.surface }]}>
                   <View style={styles.driveStatItem}>
-                    <Text style={styles.driveStatLabel}>Start</Text>
-                    <Text style={styles.driveStatValue}>{drive.start?.text || 'N/A'}</Text>
+                    <Text style={[styles.driveStatLabel, { color: theme.textSecondary }]}>Start</Text>
+                    <Text style={[styles.driveStatValue, { color: theme.text }]}>{drive.start?.text || 'N/A'}</Text>
                   </View>
                   
                   {/* Show End for completed drives or Current for drives in progress */}
@@ -1447,8 +1630,8 @@ const GameDetailsScreen = ({ route }) => {
                     if (driveEnded) {
                       return (
                         <View style={styles.driveStatItem}>
-                          <Text style={styles.driveStatLabel}>End</Text>
-                          <Text style={styles.driveStatValue}>{drive.end.text}</Text>
+                          <Text style={[styles.driveStatLabel, { color: theme.textSecondary }]}>End</Text>
+                          <Text style={[styles.driveStatValue, { color: theme.text }]}>{drive.end.text}</Text>
                         </View>
                       );
                     } else {
@@ -1475,7 +1658,7 @@ const GameDetailsScreen = ({ route }) => {
                             const opponentTeam = drive.team?.abbreviation === homeTeam?.team?.abbreviation ? awayTeam : homeTeam;
                             currentPosition = `${opponentTeam?.team?.abbreviation || opponentTeam?.abbreviation} ${yardLineFromGoal}`;
                           } else {
-                            currentPosition = `${drive.team?.abbreviation} ${yardLine}`;
+                            currentPosition = `${mostRecentPlay.end.possessionText}`;
                           }
                         }
                       }
@@ -1487,8 +1670,8 @@ const GameDetailsScreen = ({ route }) => {
                       
                       return (
                         <View style={styles.driveStatItem}>
-                          <Text style={styles.driveStatLabel}>Current</Text>
-                          <Text style={styles.driveStatValue}>{currentPosition}</Text>
+                          <Text style={[styles.driveStatLabel, { color: theme.textSecondary }]}>Current</Text>
+                          <Text style={[styles.driveStatValue, { color: theme.text }]}>{currentPosition}</Text>
                         </View>
                       );
                     }
@@ -1496,21 +1679,21 @@ const GameDetailsScreen = ({ route }) => {
                   
                   {drive.timeElapsed?.displayValue && (
                     <View style={styles.driveStatItem}>
-                      <Text style={styles.driveStatLabel}>Time</Text>
-                      <Text style={styles.driveStatValue}>{drive.timeElapsed.displayValue}</Text>
+                      <Text style={[styles.driveStatLabel, { color: theme.textSecondary }]}>Time</Text>
+                      <Text style={[styles.driveStatValue, { color: theme.text }]}>{drive.timeElapsed.displayValue}</Text>
                     </View>
                   )}
                   {drive.plays && drive.plays.length > 0 && (
                     <View style={styles.driveStatItem}>
-                      <Text style={styles.driveStatLabel}>Plays</Text>
-                      <Text style={styles.driveStatValue}>{drive.plays.length}</Text>
+                      <Text style={[styles.driveStatLabel, { color: theme.textSecondary }]}>Plays</Text>
+                      <Text style={[styles.driveStatValue, { color: theme.text }]}>{drive.plays.length}</Text>
                     </View>
                   )}
                 </View>
 
                 {/* Tap indicator */}
-                <View style={styles.tapIndicator}>
-                  <Text style={styles.tapIndicatorText}>Tap to view plays</Text>
+                <View style={[styles.tapIndicator, { borderTopColor: theme.border }]}>
+                  <Text style={[styles.tapIndicatorText, { color: theme.textSecondary }]}>Tap to view plays</Text>
                 </View>
               </TouchableOpacity>
             );
@@ -1527,7 +1710,7 @@ const GameDetailsScreen = ({ route }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Game Summary</Text>
           <View style={styles.summaryContainer}>
-            <ActivityIndicator size="small" color="#013369" />
+            <ActivityIndicator size="small" color={colors.primary} />
             <Text style={styles.placeholderText}>Loading summary...</Text>
           </View>
         </View>
@@ -1566,7 +1749,7 @@ const GameDetailsScreen = ({ route }) => {
             <View style={styles.summaryCard}>
               <Text style={styles.summarySectionTitle}>Highlights</Text>
               {summaryData.highlights.map((highlight, index) => (
-                <View key={index} style={styles.highlightItem}>
+                <View key={index} style={[styles.highlightItem, { borderBottomColor: theme.border }]}>
                   <Text style={styles.highlightTitle}>{highlight.headline || highlight.title}</Text>
                   <Text style={styles.highlightDescription}>
                     {highlight.description || 'No description available'}
@@ -1711,28 +1894,40 @@ const GameDetailsScreen = ({ route }) => {
                 outputRange: [-20, 0], // Smaller, more subtle slide effect
               })
             }]
-          }
+          },
+          { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }
         ]}
         pointerEvents={showStickyHeader ? 'auto' : 'none'}
       >
         {/* Away Team */}
         <View style={styles.stickyTeamAway}>
-          <Image 
-            source={{ uri: NFLService.convertToHttps(awayTeam?.team?.logo || awayTeam?.team?.logos?.[0]?.href) }} 
-            style={styles.stickyTeamLogo} 
-            defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=NFL' }}
+          <TeamLogoImage 
+            team={awayTeam?.team}
+            style={styles.stickyTeamLogo}
+            isLosingTeam={isAwayTeamLosing}
           />
           <Text style={getStickyTeamScoreStyle(isAwayTeamLosing)}>{awayTeam?.score || '0'}</Text>
           {/* Possession indicator for away team */}
-          {gameSituation?.possession === awayTeam?.id && 
-           status?.type?.description !== 'Halftime' && (
-            <Text style={styles.stickyPossessionIndicator}>🏈</Text>
-          )}
+          {(() => {
+            // Find possession from drives data
+            if (!drivesData || status?.type?.description === 'Halftime') return null;
+            
+            const currentDrive = drivesData.find(drive => 
+              !drive.end?.text && drive.result !== 'End of Game'
+            );
+            
+            const possessionTeamId = currentDrive?.team?.id;
+            const showPossession = possessionTeamId === awayTeam?.team?.id;
+            
+            return showPossession ? (
+              <Text style={styles.stickyPossessionIndicator}>🏈</Text>
+            ) : null;
+          })()}
         </View>
 
         {/* Status and Time */}
         <View style={styles.stickyStatus}>
-          <Text style={styles.stickyStatusText}>
+          <Text style={[styles.stickyStatusText, { color: colors.primary }]}>
             {status?.type?.completed ? 'Final' :
              status?.type?.description === 'Halftime' ? 'Halftime' :
              status?.period && status?.period > 0 && !status?.type?.completed ? 
@@ -1741,11 +1936,11 @@ const GameDetailsScreen = ({ route }) => {
           </Text>
           {/* Show clock for in-progress games or start time for scheduled games */}
           {status?.displayClock && !status?.type?.completed && status?.type?.description !== 'Halftime' ? (
-            <Text style={styles.stickyClock}>
+            <Text style={[styles.stickyClock, { color: theme.textSecondary }]}>
               {status.displayClock}
             </Text>
           ) : (!status?.type?.completed && !status?.period && gameDate) ? (
-            <Text style={styles.stickyClock}>
+            <Text style={[styles.stickyClock, { color: theme.textSecondary }]}>
               {new Date(gameDate).toLocaleTimeString("en-US", {
                 hour: "numeric",
                 minute: "2-digit",
@@ -1758,15 +1953,26 @@ const GameDetailsScreen = ({ route }) => {
         {/* Home Team */}
         <View style={styles.stickyTeamHome}>
           {/* Possession indicator for home team */}
-          {gameSituation?.possession === homeTeam?.id && 
-           status?.type?.description !== 'Halftime' && (
-            <Text style={styles.stickyPossessionIndicator}>🏈</Text>
-          )}
+          {(() => {
+            // Find possession from drives data
+            if (!drivesData || status?.type?.description === 'Halftime') return null;
+            
+            const currentDrive = drivesData.find(drive => 
+              !drive.end?.text && drive.result !== 'End of Game'
+            );
+            
+            const possessionTeamId = currentDrive?.team?.id;
+            const showPossession = possessionTeamId === homeTeam?.team?.id;
+            
+            return showPossession ? (
+              <Text style={styles.stickyPossessionIndicator}>🏈</Text>
+            ) : null;
+          })()}
           <Text style={getStickyTeamScoreStyle(isHomeTeamLosing)}>{homeTeam?.score || '0'}</Text>
-          <Image 
-            source={{ uri: NFLService.convertToHttps(homeTeam?.team?.logo || homeTeam?.team?.logos?.[0]?.href) }} 
-            style={styles.stickyTeamLogo} 
-            defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=NFL' }}
+          <TeamLogoImage 
+            team={homeTeam?.team}
+            style={styles.stickyTeamLogo}
+            isLosingTeam={isHomeTeamLosing}
           />
         </View>
       </Animated.View>
@@ -1807,44 +2013,78 @@ const GameDetailsScreen = ({ route }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Sticky Header - Always render but animated */}
       {renderStickyHeader()}
       
       {/* Main Content */}
       <ScrollView 
-        style={styles.scrollView}
+        style={[styles.scrollView, { backgroundColor: theme.background }]}
         contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
       {/* Game Header */}
-      <View style={styles.gameHeader}>
+      <View style={[styles.gameHeader, { backgroundColor: theme.surface }]}>
         <View style={styles.teamContainer}>
+          {/* Debug possession data */}
+          {(() => {
+            // Find possession from drives data like the yard line graphic does
+            let possessionTeamId = null;
+            if (drivesData) {
+              const currentDrive = drivesData.find(drive => 
+                !drive.end?.text && drive.result !== 'End of Game'
+              );
+              if (currentDrive?.team?.id) {
+                possessionTeamId = currentDrive.team.id;
+              }
+            }
+            
+            console.log('=== POSSESSION DEBUG ===');
+            console.log('drivesData found current drive possession team ID:', possessionTeamId);
+            console.log('awayTeam.team.id:', awayTeam?.team?.id);
+            console.log('homeTeam.team.id:', homeTeam?.team?.id);
+            console.log('Possession match away:', possessionTeamId === awayTeam?.team?.id);
+            console.log('Possession match home:', possessionTeamId === homeTeam?.team?.id);
+            console.log('status.type.description:', status?.type?.description);
+            console.log('========================');
+            return null;
+          })()}
           {/* Away Team */}
           <View style={styles.team}>
             <Text style={getTeamScoreStyle(isAwayTeamLosing)}>{awayTeam?.score || '0'}</Text>
             <View style={styles.teamLogoContainer}>
-              <Image 
-                source={{ uri: NFLService.convertToHttps(awayTeam?.team?.logo || awayTeam?.team?.logos?.[0]?.href) }} 
-                style={styles.teamLogo} 
-                defaultSource={{ uri: 'https://via.placeholder.com/60x60?text=NFL' }}
+              {/* Possession indicator for away team (not during halftime) */}
+              {(() => {
+                // Find possession from drives data
+                if (!drivesData || status?.type?.description === 'Halftime') return null;
+                
+                const currentDrive = drivesData.find(drive => 
+                  !drive.end?.text && drive.result !== 'End of Game'
+                );
+                
+                const possessionTeamId = currentDrive?.team?.id;
+                const showPossession = possessionTeamId === awayTeam?.team?.id;
+                
+                return showPossession ? (
+                  <Text style={[styles.possessionIndicator, styles.awayPossession]}>🏈</Text>
+                ) : null;
+              })()}
+              <TeamLogoImage 
+                team={awayTeam?.team}
+                style={styles.teamLogo}
+                isLosingTeam={isAwayTeamLosing}
               />
             </View>
             <View style={styles.teamNameContainer}>
               <Text style={getTeamNameStyle(isAwayTeamLosing)}>{awayTeam?.team?.abbreviation || awayTeam?.team?.shortDisplayName || awayTeam?.team?.name}</Text>
-              {/* Possession indicator for away team (not during halftime) */}
-              {gameSituation?.possession === awayTeam?.id && 
-               status?.type?.description !== 'Halftime' && (
-                <Text style={[styles.possessionIndicator, styles.awayPossession]}>🏈</Text>
-              )}
             </View>
           </View>
 
           {/* VS/Quarter Info */}
           <View style={styles.vsContainer}>
-            <Text style={styles.vsText}>VS</Text>
-            <Text style={styles.gameStatus}>
+            <Text style={[styles.vsText, { color: theme.textSecondary }]}>VS</Text>
+            <Text style={[styles.gameStatus, { color: colors.primary }]}>
               {status?.type?.completed ? 'Final' :
                status?.type?.description === 'Halftime' ? 'Halftime' :
                status?.period && status?.period > 0 && !status?.type?.completed ? 
@@ -1853,11 +2093,11 @@ const GameDetailsScreen = ({ route }) => {
             </Text>
             {/* Show clock for in-progress games or start time for scheduled games */}
             {status?.displayClock && !status?.type?.completed && status?.type?.description !== 'Halftime' ? (
-              <Text style={styles.gameClock}>
+              <Text style={[styles.gameClock, { color: theme.textSecondary }]}>
                 {status.displayClock}
               </Text>
             ) : (!status?.type?.completed && !status?.period && gameDate) ? (
-              <Text style={styles.gameClock}>
+              <Text style={[styles.gameClock, { color: theme.textSecondary }]}>
                 {new Date(gameDate).toLocaleTimeString("en-US", {
                   hour: "numeric",
                   minute: "2-digit",
@@ -1871,19 +2111,30 @@ const GameDetailsScreen = ({ route }) => {
           <View style={styles.team}>
             <Text style={getTeamScoreStyle(isHomeTeamLosing)}>{homeTeam?.score || '0'}</Text>
             <View style={styles.teamLogoContainer}>
-              <Image 
-                source={{ uri: NFLService.convertToHttps(homeTeam?.team?.logo || homeTeam?.team?.logos?.[0]?.href) }} 
-                style={styles.teamLogo} 
-                defaultSource={{ uri: 'https://via.placeholder.com/60x60?text=NFL' }}
+              <TeamLogoImage 
+                team={homeTeam?.team}
+                style={styles.teamLogo}
+                isLosingTeam={isHomeTeamLosing}
               />
+              {/* Possession indicator for home team (not during halftime) */}
+              {(() => {
+                // Find possession from drives data
+                if (!drivesData || status?.type?.description === 'Halftime') return null;
+                
+                const currentDrive = drivesData.find(drive => 
+                  !drive.end?.text && drive.result !== 'End of Game'
+                );
+                
+                const possessionTeamId = currentDrive?.team?.id;
+                const showPossession = possessionTeamId === homeTeam?.team?.id;
+                
+                return showPossession ? (
+                  <Text style={[styles.possessionIndicator, styles.homePossession]}>🏈</Text>
+                ) : null;
+              })()}
             </View>
             <View style={styles.teamNameContainer}>
               <Text style={getTeamNameStyle(isHomeTeamLosing)}>{homeTeam?.team?.abbreviation || homeTeam?.team?.shortDisplayName || homeTeam?.team?.name}</Text>
-              {/* Possession indicator for home team (not during halftime) */}
-              {gameSituation?.possession === homeTeam?.id && 
-               status?.type?.description !== 'Halftime' && (
-                <Text style={[styles.possessionIndicator, styles.homePossession]}>🏈</Text>
-              )}
             </View>
           </View>
         </View>
@@ -1891,25 +2142,6 @@ const GameDetailsScreen = ({ route }) => {
         {/* Game Info or Yard Line */}
         {!status?.type?.completed && status?.period && status?.period > 0 ? (
           <View style={styles.yardLineContainer}>
-            {/* Down and Distance Info - only show if not halftime and have valid data */}
-            {status?.type?.description !== 'Halftime' && 
-             gameSituation && 
-             gameSituation.down && gameSituation.down > 0 && 
-             gameSituation.distance !== undefined && gameSituation.distance !== null &&
-             gameSituation.yardLine && typeof gameSituation.yardLine === 'number' && (
-              <View style={styles.downAndDistance}>
-                <Text style={styles.downText}>
-                  {gameSituation.shortDownDistanceText || 
-                   `${['1st', '2nd', '3rd', '4th'][gameSituation.down - 1]} & ${gameSituation.distance}`}
-                </Text>
-                {gameSituation.possessionText && (
-                  <Text style={styles.possessionText}>
-                    {gameSituation.possessionText}
-                  </Text>
-                )}
-              </View>
-            )}
-            
             {/* Football Field - always show during active game */}
             <View style={styles.yardLineField}>
               {/* Field yard lines - proper football field layout (Away left, Home right) */}
@@ -1928,15 +2160,15 @@ const GameDetailsScreen = ({ route }) => {
                   >
                     {isLeftEndZone ? (
                       // Away team end zone (left)
-                      <Image 
-                        source={{ uri: NFLService.convertToHttps(awayTeam?.team?.logo || awayTeam?.team?.logos?.[0]?.href) }} 
-                        style={styles.endZoneLogo} 
+                      <TeamLogoImage 
+                        team={awayTeam?.team}
+                        style={styles.endZoneLogo}
                       />
                     ) : isRightEndZone ? (
                       // Home team end zone (right)
-                      <Image 
-                        source={{ uri: NFLService.convertToHttps(homeTeam?.team?.logo || homeTeam?.team?.logos?.[0]?.href) }} 
-                        style={styles.endZoneLogo} 
+                      <TeamLogoImage 
+                        team={homeTeam?.team}
+                        style={styles.endZoneLogo}
                       />
                     ) : (
                       <Text style={styles.yardLineNumber}>
@@ -1947,30 +2179,131 @@ const GameDetailsScreen = ({ route }) => {
                 );
               })}
               
-              {/* Ball position indicator - only show if not halftime and we have valid yard line data */}
-              {status?.type?.description !== 'Halftime' &&
-               gameSituation && 
-               gameSituation.yardLine && 
-               typeof gameSituation.yardLine === 'number' && 
-               gameSituation.yardLine >= 0 && 
-               gameSituation.yardLine <= 100 && (
-                <View 
-                  style={[
-                    styles.ballPosition, 
-                    { left: `${Math.max(2, Math.min(98, gameSituation.yardLine))}%` }
-                  ]}
-                >
-                  <Text style={styles.ballIcon}>🏈</Text>
-                </View>
-              )}
+              {/* Ball position indicator - use drives data */}
+              {status?.type?.description !== 'Halftime' && drivesData && (() => {
+                // Find the current drive in progress
+                const currentDrive = drivesData.find(drive => 
+                  !drive.end?.text && drive.result !== 'End of Game'
+                );
+                
+                if (!currentDrive?.plays?.length) return null;
+                
+                // Get the most recent play
+                const sortedPlays = [...currentDrive.plays].sort((a, b) => {
+                  const seqA = parseInt(a.sequenceNumber) || 0;
+                  const seqB = parseInt(b.sequenceNumber) || 0;
+                  return seqB - seqA;
+                });
+                const mostRecentPlay = sortedPlays[0];
+                
+                if (!mostRecentPlay?.end) return null;
+                
+                // Get the possession team abbreviation and yard line
+                const possessionText = mostRecentPlay.end.possessionText; // e.g., "LV 22"
+                const yardLine = mostRecentPlay.end.yardLine; // e.g., 22
+                
+                if (!possessionText || yardLine === undefined) return null;
+                
+                // Extract team abbreviation from possessionText (e.g., "LV" from "LV 22")
+                const teamAbbr = possessionText.split(' ')[0];
+                
+                console.log('Ball Position Debug:', {
+                  possessionText,
+                  teamAbbr,
+                  yardLine,
+                  homeTeamAbbr: homeTeam?.team?.abbreviation,
+                  awayTeamAbbr: awayTeam?.team?.abbreviation
+                });
+                
+                // Determine which side of the field the ball is on
+                let ballPosition = 50; // default to midfield
+                
+                // NFL field logic: Away team (left) = 0-50%, Home team (right) = 50-100%
+                // possessionText like "LV 7" means the ball is at LV's 7-yard line (7 yards from LV's goal)
+                if (teamAbbr === homeTeam?.team?.abbreviation) {
+                  // Ball is on HOME team's side of field (right side, 50-100%)
+                  // "LV 7" = 7 yards from home endzone = 93% from left edge
+                  // Formula: 100 - (yardLine / 50 * 50) = 100 - yardLine
+                  ballPosition = 100 - yardLine;
+                } else if (teamAbbr === awayTeam?.team?.abbreviation) {
+                  // Ball is on AWAY team's side of field (left side, 0-50%)
+                  // "LAC 7" = 7 yards from away endzone = 7% from left edge
+                  // Formula: yardLine / 50 * 50 = yardLine
+                  ballPosition = 100 - yardLine;
+                } else {
+                  // Fallback: try to determine based on possession team
+                  const possessionTeam = currentDrive.team?.abbreviation;
+                  if (possessionTeam === homeTeam?.team?.abbreviation) {
+                    // Home team has possession - ball is on home side
+                    ballPosition = 100 - yardLine;
+                  } else if (possessionTeam === awayTeam?.team?.abbreviation) {
+                    // Away team has possession - ball is on away side
+                    ballPosition = yardLine;
+                  }
+                }
+                
+                console.log('Calculated ball position:', ballPosition);
+                
+                return (
+                  <View 
+                    style={[
+                      styles.ballPosition, 
+                      { left: `${Math.max(2, Math.min(98, ballPosition))}%` }
+                    ]}
+                  >
+                    <Text style={styles.ballIcon}>🏈</Text>
+                  </View>
+                );
+              })()}
             </View>
+            
+            {/* Down and Distance Info - show under the yard line graphic */}
+            {status?.type?.description !== 'Halftime' && drivesData && (() => {
+              // Find the current drive in progress
+              const currentDrive = drivesData.find(drive => 
+                !drive.end?.text && drive.result !== 'End of Game'
+              );
+              
+              if (!currentDrive?.plays?.length) return null;
+              
+              // Get the most recent play
+              const sortedPlays = [...currentDrive.plays].sort((a, b) => {
+                const seqA = parseInt(a.sequenceNumber) || 0;
+                const seqB = parseInt(b.sequenceNumber) || 0;
+                return seqB - seqA;
+              });
+              const mostRecentPlay = sortedPlays[0];
+              
+              if (!mostRecentPlay?.end) return null;
+              
+              // Extract down, distance, and position from the play end data
+              const down = mostRecentPlay.end.down;
+              const distance = mostRecentPlay.end.distance;
+              const shortDownDistanceText = mostRecentPlay.end.shortDownDistanceText; // e.g., "1st & 10"
+              const possessionText = mostRecentPlay.end.possessionText; // e.g., "LV 22"
+              
+              if (!down || distance === undefined) return null;
+              
+              return (
+                <View style={styles.headerDownAndDistance}>
+                  <Text style={[styles.headerDownText, { color: colors.primary }]}>
+                    {shortDownDistanceText || `${['1st', '2nd', '3rd', '4th'][down - 1]} & ${distance}`}
+                  </Text>
+                  {possessionText && (
+                    <Text style={[styles.headerPossessionText, { color: theme.textSecondary }]}>
+                      {possessionText}
+                    </Text>
+                  )}
+                </View>
+              );
+            })()}
           </View>
         ) : (
           <View style={styles.gameInfo}>
-            <Text style={styles.venue}>
+            <Text style={[styles.venue, { color: theme.textSecondary }]}>
               {venue || competition?.venue || 'TBD'}
             </Text>
-            <Text style={styles.date}>
+            <Text style={[styles.date, { color: theme.textSecondary }]}>
               {gameDate ? new Date(gameDate).toLocaleDateString('en-US', {
                 weekday: 'long',
                 year: 'numeric',
@@ -1985,38 +2318,60 @@ const GameDetailsScreen = ({ route }) => {
       </View>
 
       {/* Tab Navigation */}
-      <View style={styles.tabContainer}>
+      <View style={[styles.tabContainer, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'stats' && styles.activeTabButton]}
+          style={[
+            styles.tabButton, 
+            { backgroundColor: activeTab === 'stats' ? colors.primary : 'transparent' , borderRightColor: theme.border }
+          ]}
           onPress={() => setActiveTab('stats')}
         >
-          <Text style={[styles.tabText, activeTab === 'stats' && styles.activeTabText]}>Stats</Text>
+          <Text style={[
+            styles.tabText, 
+            { color: activeTab === 'stats' ? '#fff' : theme.text }
+          ]}>Stats</Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'away' && styles.activeTabButton]}
+          style={[
+            styles.tabButton, 
+            { backgroundColor: activeTab === 'away' ? colors.primary : 'transparent', borderRightColor: theme.border }
+          ]}
           onPress={() => setActiveTab('away')}
         >
-          <Text style={[styles.tabText, activeTab === 'away' && styles.activeTabText]}>Away</Text>
+          <Text style={[
+            styles.tabText, 
+            { color: activeTab === 'away' ? '#fff' : theme.text }
+          ]}>Away</Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'home' && styles.activeTabButton]}
+          style={[
+            styles.tabButton, 
+            { backgroundColor: activeTab === 'home' ? colors.primary : 'transparent', borderRightColor: theme.border }
+          ]}
           onPress={() => setActiveTab('home')}
         >
-          <Text style={[styles.tabText, activeTab === 'home' && styles.activeTabText]}>Home</Text>
+          <Text style={[
+            styles.tabText, 
+            { color: activeTab === 'home' ? '#fff' : theme.text }
+          ]}>Home</Text>
         </TouchableOpacity>
         {/* Only show drives tab for non-scheduled games */}
         {(() => {
           const statusDesc = status?.type?.description?.toLowerCase();
-          console.log('Status description for drives tab:', statusDesc);
           const isScheduled = statusDesc?.includes('scheduled');
-          console.log('Is scheduled (drives tab):', isScheduled);
           return !isScheduled;
         })() && (
           <TouchableOpacity 
-            style={[styles.tabButton, activeTab === 'drives' && styles.activeTabButton]}
+            style={[
+              styles.tabButton, 
+              { backgroundColor: activeTab === 'drives' ? colors.primary : 'transparent' , borderRightColor: 'transparent' }
+            ]}
             onPress={() => setActiveTab('drives')}
           >
-            <Text style={[styles.tabText, activeTab === 'drives' && styles.activeTabText]}>Drives</Text>
+            <Text style={[
+              styles.tabText, 
+              { color: activeTab === 'drives' ? '#fff' : theme.text }
+            ]}>Drives</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -2032,10 +2387,10 @@ const GameDetailsScreen = ({ route }) => {
         onRequestClose={closePlayerModal}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
             {/* Close Button */}
-            <TouchableOpacity style={styles.modalCloseButton} onPress={closePlayerModal}>
-              <Text style={styles.modalCloseText}>×</Text>
+            <TouchableOpacity style={[styles.modalCloseButton, { backgroundColor: theme.error }]} onPress={closePlayerModal}>
+              <Text style={[styles.modalCloseText, { color: '#fff' }]}>×</Text>
             </TouchableOpacity>
 
             {selectedPlayer && (
@@ -2050,18 +2405,17 @@ const GameDetailsScreen = ({ route }) => {
                     defaultSource={{ uri: 'https://via.placeholder.com/80x80?text=Player' }}
                   />
                   <View style={styles.playerInfo}>
-                    <Text style={styles.playerName}>
-                      {selectedPlayer.displayName || `${selectedPlayer.firstName || ''} ${selectedPlayer.lastName || ''}`.trim()} <Text style={styles.playerDetails}>#{selectedPlayer.jersey || 'N/A'}</Text>
+                    <Text style={[styles.playerName, { color: theme.text }]}>
+                      {selectedPlayer.displayName || `${selectedPlayer.firstName || ''} ${selectedPlayer.lastName || ''}`.trim()} <Text style={[styles.playerDetails, { color: theme.textSecondary }]}>#{selectedPlayer.jersey || 'N/A'}</Text>
                     </Text>
                     <View style={styles.playerTeamInfo}>
-                      {(selectedPlayer.team?.team?.logo || selectedPlayer.team?.team?.logos?.[0]?.href) && (
-                        <Image 
-                          source={{ uri: NFLService.convertToHttps(selectedPlayer.team.team.logo || selectedPlayer.team.team.logos?.[0]?.href) }}
+                      {selectedPlayer.team?.team && (
+                        <TeamLogoImage 
+                          team={selectedPlayer.team.team}
                           style={styles.playerTeamLogo}
-                          defaultSource={{ uri: 'https://via.placeholder.com/20x20?text=NFL' }}
                         />
                       )}
-                      <Text style={styles.playerTeamName}>
+                      <Text style={[styles.playerTeamName, { color: theme.textSecondary }]}>
                         {selectedPlayer.team?.team?.displayName || selectedPlayer.team?.team?.name || selectedPlayer.team?.team?.abbreviation || 'No team info'}
                       </Text>
                     </View>
@@ -2072,7 +2426,7 @@ const GameDetailsScreen = ({ route }) => {
                 <View style={styles.playerStatsContainer}>
                   {loadingPlayerStats ? (
                     <View style={styles.playerStatsLoading}>
-                      <ActivityIndicator size="large" color="#013369" />
+                      <ActivityIndicator size="large" color={colors.primary} />
                       <Text style={styles.loadingText}>Loading player stats...</Text>
                     </View>
                   ) : playerStats ? (
@@ -2097,10 +2451,10 @@ const GameDetailsScreen = ({ route }) => {
         onRequestClose={closeDriveModal}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
             {/* Close Button */}
-            <TouchableOpacity style={styles.modalCloseButton} onPress={closeDriveModal}>
-              <Text style={styles.modalCloseText}>×</Text>
+            <TouchableOpacity style={[styles.modalCloseButton, { backgroundColor: theme.error }]} onPress={closeDriveModal}>
+              <Text style={[styles.modalCloseText, { color: '#fff' }]}>×</Text>
             </TouchableOpacity>
 
             {selectedDrive && (
@@ -2108,20 +2462,19 @@ const GameDetailsScreen = ({ route }) => {
                 {/* Drive Header */}
                 <View style={styles.driveModalHeader}>
                   <View style={styles.driveModalTeamInfo}>
-                    {selectedDrive.team?.logos?.[0]?.href && (
-                      <Image 
-                        source={{ uri: NFLService.convertToHttps(selectedDrive.team.logos[0].href) }}
+                    {selectedDrive.team && (
+                      <TeamLogoImage 
+                        team={selectedDrive.team}
                         style={styles.driveModalTeamLogo}
-                        defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=NFL' }}
                       />
                     )}
                     <View>
-                      <Text style={styles.driveModalTeamName}>{selectedDrive.team?.displayName || 'Unknown Team'}</Text>
-                      <Text style={styles.driveModalResult}>{selectedDrive.displayResult || selectedDrive.result || 'In Progress'}</Text>
+                      <Text style={[styles.driveModalTeamName, {color: theme.text}]}>{selectedDrive.team?.displayName || 'Unknown Team'}</Text>
+                      <Text style={[styles.driveModalResult, {color: colors.primary}]}>{selectedDrive.displayResult || selectedDrive.result || 'In Progress'}</Text>
                     </View>
                   </View>
                   <View style={styles.driveModalDescriptionContainer}>
-                    <Text style={styles.driveModalDescription}>
+                    <Text style={[styles.driveModalDescription, {color: theme.textSecondary}]}>
                       {getDriveSummary(selectedDrive)}
                     </Text>
                   </View>
@@ -2131,10 +2484,10 @@ const GameDetailsScreen = ({ route }) => {
                 {renderDriveYardLine(selectedDrive, awayTeam, homeTeam)}
 
                 {/* Drive Stats */}
-                <View style={styles.driveModalStats}>
+                <View style={[styles.driveModalStats, { backgroundColor: theme.surfaceSecondary }]}>
                   <View style={styles.driveModalStatItem}>
-                    <Text style={styles.driveModalStatLabel}>Start</Text>
-                    <Text style={styles.driveModalStatValue}>{selectedDrive.start?.text || 'N/A'}</Text>
+                    <Text style={[styles.driveModalStatLabel, { color: theme.textSecondary }]}>Start</Text>
+                    <Text style={[styles.driveModalStatValue, { color: theme.text }]}>{selectedDrive.start?.text || 'N/A'}</Text>
                   </View>
                   
                   {/* Show End for completed drives or Current for drives in progress */}
@@ -2145,8 +2498,8 @@ const GameDetailsScreen = ({ route }) => {
                     if (driveEnded) {
                       return (
                         <View style={styles.driveModalStatItem}>
-                          <Text style={styles.driveModalStatLabel}>End</Text>
-                          <Text style={styles.driveModalStatValue}>{selectedDrive.end.text}</Text>
+                          <Text style={[styles.driveModalStatLabel, { color: theme.textSecondary }]}>End</Text>
+                          <Text style={[styles.driveModalStatValue, { color: theme.text }]}>{selectedDrive.end.text}</Text>
                         </View>
                       );
                     } else if (driveInProgress) {
@@ -2190,8 +2543,8 @@ const GameDetailsScreen = ({ route }) => {
                       
                       return (
                         <View style={styles.driveModalStatItem}>
-                          <Text style={styles.driveModalStatLabel}>Current</Text>
-                          <Text style={styles.driveModalStatValue}>{currentPosition}</Text>
+                          <Text style={[styles.driveModalStatLabel, { color: theme.textSecondary }]}>Current</Text>
+                          <Text style={[styles.driveModalStatValue, { color: theme.text }]}>{currentPosition}</Text>
                         </View>
                       );
                     }
@@ -2200,37 +2553,37 @@ const GameDetailsScreen = ({ route }) => {
                   
                   {selectedDrive.timeElapsed?.displayValue && (
                     <View style={styles.driveModalStatItem}>
-                      <Text style={styles.driveModalStatLabel}>Time</Text>
-                      <Text style={styles.driveModalStatValue}>{selectedDrive.timeElapsed.displayValue}</Text>
+                      <Text style={[styles.driveModalStatLabel, { color: theme.textSecondary }]}>Time</Text>
+                      <Text style={[styles.driveModalStatValue, { color: theme.text }]}>{selectedDrive.timeElapsed.displayValue}</Text>
                     </View>
                   )}
                 </View>
 
                 {/* Plays List */}
-                <View style={styles.driveModalPlaysContainer}>
-                  <Text style={styles.driveModalPlaysTitle}>
+                <View style={[styles.driveModalPlaysContainer, { backgroundColor: theme.surfaceSecondary }]}>
+                  <Text style={[styles.driveModalPlaysTitle, { color: colors.primary }]}>
                     Plays ({selectedDrive.plays?.length || 0})
                   </Text>
                   <ScrollView style={styles.driveModalPlaysList}>
                     {selectedDrive.plays && selectedDrive.plays.length > 0 ? (
-                      selectedDrive.plays.map((play, index) => (
-                        <View key={index} style={styles.driveModalPlayItem}>
+                      [...selectedDrive.plays].reverse().map((play, index) => (
+                        <View key={index} style={[styles.driveModalPlayItem, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                           <View style={styles.driveModalPlayHeader}>
-                            <Text style={styles.driveModalPlayNumber}>Play {index + 1}</Text>
+                            <Text style={[styles.driveModalPlayNumber, { color: colors.primary }]}>Play {selectedDrive.plays.length - index}</Text>
                             {play.clock?.displayValue && play.period?.number && (
-                              <Text style={styles.driveModalPlayTime}>
+                              <Text style={[styles.driveModalPlayTime, { color: theme.textSecondary }]}>
                                 Q{play.period.number} {play.clock.displayValue}
                               </Text>
                             )}
                           </View>
-                          <Text style={styles.driveModalPlayText}>
+                          <Text style={[styles.driveModalPlayText, { color: theme.text }]}>
                             {play.text || 'No description available'}
                           </Text>
                           {/* Down and Yard information similar to scoreboard copycard */}
                           {(() => {
                             const downDistanceText = play.start?.downDistanceText || play.end?.downDistanceText || '';
                             return (downDistanceText || play.scoringPlay || play.type?.text) && (
-                              <Text style={styles.driveModalPlayYards}>
+                              <Text style={[styles.driveModalPlayYards, { color: theme.textSecondary }]}>
                                 {[
                                   downDistanceText,
                                   play.type?.text
@@ -2238,10 +2591,20 @@ const GameDetailsScreen = ({ route }) => {
                               </Text>
                             );
                           })()}
+                          
+                          {/* Probability indicator in bottom right like scoreboard copy card */}
+                          {play.probability?.$ref && (
+                            <PlayProbability 
+                              probabilityRef={play.probability.$ref}
+                              driveTeam={selectedDrive.team}
+                              homeTeam={homeTeam?.team}
+                              awayTeam={awayTeam?.team}
+                            />
+                          )}
                         </View>
                       ))
                     ) : (
-                      <Text style={styles.driveModalNoPlays}>No plays available for this drive</Text>
+                      <Text style={[styles.driveModalNoPlays, { color: theme.textSecondary }]}>No plays available for this drive</Text>
                     )}
                   </ScrollView>
                 </View>
@@ -2353,7 +2716,6 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   gameHeader: {
-    backgroundColor: 'white',
     padding: 20,
     marginBottom: 10,
   },
@@ -2378,13 +2740,16 @@ const styles = StyleSheet.create({
   },
   possessionIndicator: {
     fontSize: 12,
-    marginHorizontal: 3,
+    position: 'absolute',
+    zIndex: 10,
   },
   awayPossession: {
-    // Inline with team name
+    right: -5,
+    top: -2,
   },
   homePossession: {
-    // Inline with team name
+    left: -5,
+    top: -2,
   },
   teamName: {
     fontSize: 12,
@@ -2518,7 +2883,6 @@ const styles = StyleSheet.create({
   // Tab Navigation Styles
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: 'white',
     marginBottom: 10,
     borderRadius: 8,
     margin: 10,
@@ -2530,22 +2894,14 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 8,
-    backgroundColor: '#f8f9fa',
     alignItems: 'center',
     justifyContent: 'center',
     borderRightWidth: 1,
     borderRightColor: '#e9ecef',
   },
-  activeTabButton: {
-    backgroundColor: '#013369',
-  },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
-  },
-  activeTabText: {
-    color: 'white',
   },
   section: {
     backgroundColor: 'white',
@@ -3353,6 +3709,7 @@ const styles = StyleSheet.create({
     borderColor: '#e1e5e9',
     boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
     elevation: 2,
+    position: 'relative',
   },
   driveModalPlayHeader: {
     flexDirection: 'row',
@@ -3387,6 +3744,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     padding: 40,
     fontStyle: 'italic',
+  },
+  // Probability Styles
+  playProbabilityContainer: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  playProbabilityLogo: {
+    width: 14,
+    height: 14,
+    marginRight: 4,
+  },
+  playProbabilityText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#ffffff',
   },
   // Summary Content Styles
   summaryContainer: {
@@ -3692,6 +4071,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  // Down and distance styles
+  headerDownAndDistance: {
+    alignItems: 'center',
+    marginTop: 8,
+    paddingHorizontal: 16,
+  },
+  headerDownText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  headerPossessionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 2,
   },
 });
 

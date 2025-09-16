@@ -12,11 +12,13 @@ import {
 } from 'react-native';
 import { ChampionsLeagueServiceEnhanced } from '../../../services/soccer/ChampionsLeagueServiceEnhanced';
 import { useTheme } from '../../../context/ThemeContext';
+import { useFavorites } from '../../../context/FavoritesContext';
 
 // We'll use the note colors directly from the API response like standings.js does
 
 const UCLStandingsScreen = ({ navigation, route }) => {
   const { theme, colors, isDarkMode } = useTheme();
+  const { isFavorite } = useFavorites();
   const [standings, setStandings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -43,13 +45,8 @@ const UCLStandingsScreen = ({ navigation, route }) => {
         setLogoSource({ uri: logos.fallbackUrl });
         setRetryCount(1);
       } else {
-        // Final fallback - use actual logo URL first if teamId exists
-        if (teamId) {
-          const finalFallbackUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
-          setLogoSource({ uri: finalFallbackUrl });
-        } else {
-          setLogoSource(require('../../../../assets/soccer.png'));
-        }
+        // Final fallback - use soccer.png asset for all cases
+        setLogoSource(require('../../../../assets/soccer.png'));
       }
     };
 
@@ -226,7 +223,13 @@ const UCLStandingsScreen = ({ navigation, route }) => {
             teamId={item.team.id}
             style={styles.teamLogo}
           />
-          <Text style={[styles.teamName, { color: theme.text }]} numberOfLines={1}>
+          <Text style={[
+            styles.teamName, 
+            { 
+              color: isFavorite(item.team.id) ? colors.primary : theme.text 
+            }
+          ]} numberOfLines={1}>
+            {isFavorite(item.team.id) && '★ '}
             {item.team.displayName}
           </Text>
         </View>

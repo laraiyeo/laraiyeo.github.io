@@ -20,6 +20,7 @@ import { WebView } from 'react-native-webview';
 import Svg, { Line, Circle, Defs, LinearGradient, Stop, Path } from 'react-native-svg';
 import { EuropaLeagueServiceEnhanced } from '../../../services/soccer/EuropaLeagueServiceEnhanced';
 import { useTheme } from '../../../context/ThemeContext';
+import { useFavorites } from '../../../context/FavoritesContext';
 
 const { width } = Dimensions.get('window');
 
@@ -34,6 +35,7 @@ const convertToHttps = (url) => {
 const UELGameDetailsScreen = ({ route, navigation }) => {
   const { gameId, sport, competition, homeTeam, awayTeam } = route?.params || {};
   const { theme, colors, isDarkMode } = useTheme();
+  const { isFavorite } = useFavorites();
   const [gameData, setGameData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

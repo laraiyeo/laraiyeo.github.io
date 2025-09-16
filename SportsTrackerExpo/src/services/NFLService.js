@@ -75,21 +75,16 @@ export class NFLService {
     
     return this.getCachedData(cacheKey, async () => {
       let url = this.SCOREBOARD_API_URL;
-      console.log('NFLService.getScoreboard called with:', { startDate, endDate });
       
       if (startDate) {
         if (endDate && endDate !== startDate) {
           // Date range format: dates=20250910-20250917
           url += `?dates=${startDate}-${endDate}`;
-          console.log('NFLService: Using date range format:', `${startDate}-${endDate}`);
         } else {
           // Single date format: dates=20250910
           url += `?dates=${startDate}`;
-          console.log('NFLService: Using single date format:', startDate);
         }
       }
-      
-      console.log('NFLService: Final API URL:', url);
       const response = await fetch(url);
       const data = await response.json();
       return data;
@@ -102,8 +97,6 @@ export class NFLService {
     
     return this.getCachedData(cacheKey, async () => {
       const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
-      console.log('NFLService.getGameDetails called with gameId:', gameId);
-      console.log('NFLService.getGameDetails: Using summary endpoint:', url);
       
       const response = await fetch(this.convertToHttps(url));
       const data = await response.json();
@@ -338,7 +331,6 @@ export class NFLService {
       // Helper function to try fetching stats
       const tryFetchStats = async (year, type) => {
         const url = `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${year}/types/${type}/athletes/${playerId}/statistics?lang=en&region=us`;
-        console.log('Fetching player stats from:', url);
         
         const response = await fetch(this.convertToHttps(url));
         
@@ -347,14 +339,11 @@ export class NFLService {
           
           // Check if the response contains the error message about no stats found
           if (data.error && data.error.code === 404 && data.error.message === "No stats found.") {
-            console.log(`No stats found for types/${type}, year ${year}`);
             return null;
           } else if (data.splits && data.splits.categories && data.splits.categories.length > 0) {
-            console.log(`Successfully fetched types/${type} stats for athlete ${playerId}, year ${year}`);
             return data;
           }
         } else if (response.status === 404) {
-          console.log(`404 error for types/${type}, year ${year}`);
           return null;
         }
         return null;
@@ -375,8 +364,6 @@ export class NFLService {
       // Try previous year, types/1
       data = await tryFetchStats(previousYear, 1);
       if (data) return data;
-
-      console.log('No player stats found for any year/type combination');
       return null;
       
     } catch (error) {
@@ -389,7 +376,6 @@ export class NFLService {
   static async getPlayerGameStats(gameId, playerId) {
     try {
       const url = `https://cdn.espn.com/core/nfl/boxscore?xhr=1&gameId=${gameId}`;
-      console.log('Fetching game box score from:', url);
       
       const response = await fetch(this.convertToHttps(url));
       if (!response.ok) {
@@ -397,14 +383,11 @@ export class NFLService {
       }
       
       const gameData = await response.json();
-      console.log('Game box score data received:', gameData);
       
       // Use the exact same structure as team-page.js
       const players = gameData.gamepackageJSON?.boxscore?.players || [];
-      console.log("Players data:", players);
 
       if (players.length === 0) {
-        console.log('No box score data available for this game');
         return null;
       }
 
@@ -432,7 +415,6 @@ export class NFLService {
               displayName: statCategory.displayName || statCategory.name,
               stats: foundPlayerInCategory.stats || []
             };
-            console.log(`Player found in ${statCategory.name}:`, foundPlayerInCategory.stats);
           }
         }
 
@@ -440,7 +422,6 @@ export class NFLService {
       }
 
       if (!foundPlayer) {
-        console.log('Player not found in game statistics');
         return null;
       }
 
@@ -491,11 +472,9 @@ export class NFLService {
   // Get current game situation (possession, down, distance, field position)
   static async getGameSituation(gameId, gameDate = null) {
     try {
-      console.log('NFLService.getGameSituation called with gameId:', gameId);
       
       // Use the game summary endpoint directly instead of searching through scoreboard
       const summaryUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
-      console.log('NFLService.getGameSituation: Using summary endpoint:', summaryUrl);
       
       const response = await fetch(this.convertToHttps(summaryUrl));
       const data = await response.json();

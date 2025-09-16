@@ -20,6 +20,7 @@ import { WebView } from 'react-native-webview';
 import Svg, { Line, Circle, Defs, LinearGradient, Stop, Path } from 'react-native-svg';
 import { FranceServiceEnhanced } from '../../../services/soccer/FranceServiceEnhanced';
 import { useTheme } from '../../../context/ThemeContext';
+import { useFavorites } from '../../../context/FavoritesContext';
 
 const { width } = Dimensions.get('window');
 
@@ -34,6 +35,7 @@ const convertToHttps = (url) => {
 const FranceGameDetailsScreen = ({ route, navigation }) => {
   const { gameId, sport, competition, homeTeam, awayTeam } = route?.params || {};
   const { theme, colors, isDarkMode } = useTheme();
+  const { isFavorite } = useFavorites();
   const [gameData, setGameData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -1421,13 +1423,15 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
               />
               <Text style={[
                 styles.stickyTeamAbbr, 
-                { color: theme.text },
+                { 
+                  color: isFavorite(homeTeam?.team?.id) ? colors.primary : theme.text 
+                },
                 // Apply loser styling if home team is losing (only for finished games)
                 homeIsLoser && {
                   opacity: 0.6
                 }
               ]}>
-                {homeTeam?.team?.abbreviation || homeTeam?.team?.displayName?.substring(0, 3) || 'TBD'}
+                {isFavorite(homeTeam?.team?.id) ? '★ ' : ''}{homeTeam?.team?.abbreviation || homeTeam?.team?.displayName?.substring(0, 3) || 'TBD'}
               </Text>
             </View>
             {(matchStatus.isLive || matchStatus.isPost) && (
@@ -1511,13 +1515,15 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
             <View style={styles.stickyTeamInfo}>
               <Text style={[
                 styles.stickyTeamAbbr, 
-                { color: theme.text },
+                { 
+                  color: isFavorite(awayTeam?.team?.id) ? colors.primary : theme.text 
+                },
                 // Apply loser styling if away team is losing (only for finished games)
                 awayIsLoser && {
                   opacity: 0.6
                 }
               ]}>
-                {awayTeam?.team?.abbreviation || awayTeam?.team?.displayName?.substring(0, 3) || 'TBD'}
+                {isFavorite(awayTeam?.team?.id) ? '★ ' : ''}{awayTeam?.team?.abbreviation || awayTeam?.team?.displayName?.substring(0, 3) || 'TBD'}
               </Text>
               <TeamLogoImage 
                 teamId={gameData.awayCompetitor?.team?.id}
@@ -1922,13 +1928,15 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
             </View>
             <Text style={[
               styles.teamName, 
-              { color: theme.text },
+              { 
+                color: isFavorite(homeTeam?.team?.id) ? colors.primary : theme.text 
+              },
               // Apply loser styling if home team is losing (only for finished games)
               homeIsLoser && {
                 opacity: 0.6
               }
             ]} numberOfLines={2}>
-              {homeTeam?.team?.displayName}
+              {isFavorite(homeTeam?.team?.id) ? '★ ' : ''}{homeTeam?.team?.displayName}
             </Text>
           </View>
 
@@ -2013,13 +2021,15 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
             </View>
             <Text style={[
               styles.teamName, 
-              { color: theme.text },
+              { 
+                color: isFavorite(awayTeam?.team?.id) ? colors.primary : theme.text 
+              },
               // Apply loser styling if away team is losing (only for finished games)
               awayIsLoser && {
                 opacity: 0.6
               }
             ]} numberOfLines={2}>
-              {awayTeam?.team?.displayName}
+              {isFavorite(awayTeam?.team?.id) ? '★ ' : ''}{awayTeam?.team?.displayName}
             </Text>
           </View>
         </View>

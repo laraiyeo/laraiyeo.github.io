@@ -8,13 +8,38 @@ const StandingsScreen = ({ route }) => {
   const { theme, colors, getTeamLogoUrl } = useTheme();
   const [standings, setStandings] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [intervalId, setIntervalId] = useState(null);
   const navigation = useNavigation();
 
   useEffect(() => {
     fetchStandings();
-    const interval = setInterval(fetchStandings, 30000); // Update every 30 seconds
-    return () => clearInterval(interval);
-  }, []);
+    
+    // Focus listener to start updates when screen becomes active
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      console.log('Standings screen focused - starting updates');
+      fetchStandings();
+      const interval = setInterval(fetchStandings, 30000);
+      setIntervalId(interval);
+    });
+    
+    // Blur listener to stop updates when screen becomes inactive
+    const unsubscribeBlur = navigation.addListener('blur', () => {
+      console.log('Standings screen blurred - stopping updates');
+      if (intervalId) {
+        clearInterval(intervalId);
+        setIntervalId(null);
+      }
+    });
+    
+    return () => {
+      console.log('Standings screen unmounted - cleaning up');
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+      unsubscribeFocus();
+      unsubscribeBlur();
+    };
+  }, [navigation, intervalId]);
 
   const fetchStandings = async () => {
     try {
@@ -33,6 +58,32 @@ const StandingsScreen = ({ route }) => {
     return getTeamLogoUrl('nfl', teamAbbreviation);
   };
 
+  const getNFLTeamId = (espnTeam) => {
+    // ESPN team abbreviations to NFL team IDs mapping
+    const teamMapping = {
+      'BUF': '2', 'MIA': '15', 'NE': '17', 'NYJ': '20',
+      'BAL': '33', 'CIN': '4', 'CLE': '5', 'PIT': '23',
+      'HOU': '34', 'IND': '11', 'JAX': '30', 'TEN': '10',
+      'DEN': '7', 'KC': '12', 'LV': '13', 'LAC': '24',
+      'DAL': '6', 'NYG': '19', 'PHI': '21', 'WAS': '28',
+      'CHI': '3', 'DET': '8', 'GB': '9', 'MIN': '16',
+      'ATL': '1', 'CAR': '29', 'NO': '18', 'TB': '27',
+      'ARI': '22', 'LAR': '14', 'SF': '25', 'SEA': '26'
+    };
+
+    console.log('Team abbreviation:', espnTeam.abbreviation, 'ESPN ID:', espnTeam.id);
+    
+    let nflId = teamMapping[espnTeam.abbreviation];
+    
+    if (!nflId) {
+      console.warn('No NFL ID mapping found for team:', espnTeam.abbreviation, 'ESPN ID:', espnTeam.id, 'Using ESPN ID as fallback');
+      return espnTeam.id;
+    }
+    
+    console.log('Final NFL ID:', nflId);
+    return nflId;
+  };
+
   const renderNFLStandings = () => {
     if (!standings?.content?.standings?.groups) return null;
 
@@ -41,25 +92,25 @@ const StandingsScreen = ({ route }) => {
     const nfc = groups.find(group => group.name === "National Football Conference");
 
     return (
-      <ScrollView style={styles.container}>
+      <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
         {[afc, nfc].filter(Boolean).map((conference, confIndex) => (
-          <View key={confIndex} style={styles.conferenceContainer}>
-            <Text style={styles.conferenceTitle}>{conference.name}</Text>
+          <View key={confIndex} style={[styles.conferenceContainer, { backgroundColor: theme.surface }]}>
+            <Text style={[styles.conferenceTitle, { color: colors.primary }]}>{conference.name}</Text>
             
             {conference.groups.map((division, divIndex) => (
               <View key={divIndex} style={styles.divisionContainer}>
-                <Text style={styles.divisionTitle}>{division.name}</Text>
+                <Text style={[styles.divisionTitle, { color: theme.text }]}>{division.name}</Text>
                 
-                <View style={styles.tableContainer}>
-                  <View style={styles.tableHeader}>
-                    <Text style={[styles.headerCell, styles.teamColumn]}>Team</Text>
-                    <Text style={styles.headerCell}>W</Text>
-                    <Text style={styles.headerCell}>L</Text>
-                    <Text style={styles.headerCell}>T</Text>
-                    <Text style={styles.headerCell}>PCT</Text>
-                    <Text style={styles.headerCell}>PF</Text>
-                    <Text style={styles.headerCell}>PA</Text>
-                    <Text style={styles.headerCell}>DIFF</Text>
+                <View style={[styles.tableContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  <View style={[styles.tableHeader, { backgroundColor: colors.primary }]}>
+                    <Text style={[styles.headerCell, styles.teamColumn, { color: 'white' }]}>Team</Text>
+                    <Text style={[styles.headerCell, { color: 'white' }]}>W</Text>
+                    <Text style={[styles.headerCell, { color: 'white' }]}>L</Text>
+                    <Text style={[styles.headerCell, { color: 'white' }]}>T</Text>
+                    <Text style={[styles.headerCell, { color: 'white' }]}>PCT</Text>
+                    <Text style={[styles.headerCell, { color: 'white' }]}>PF</Text>
+                    <Text style={[styles.headerCell, { color: 'white' }]}>PA</Text>
+                    <Text style={[styles.headerCell, { color: 'white' }]}>DIFF</Text>
                   </View>
                   
                   {division.standings.entries
@@ -82,13 +133,14 @@ const StandingsScreen = ({ route }) => {
                       const differential = entry.stats.find(stat => stat.name === "differential")?.displayValue || "0";
                       
                       const diffValue = parseInt(differential);
-                      const diffColor = diffValue > 0 ? '#008000' : diffValue < 0 ? '#FF0000' : '#666';
+                      const diffColor = diffValue > 0 ? '#008000' : diffValue < 0 ? '#FF0000' : theme.textSecondary;
+                      const nflTeamId = getNFLTeamId(entry.team);
                       
                       return (
                         <TouchableOpacity 
                           key={teamIndex} 
-                          style={styles.tableRow}
-                          onPress={() => navigation.navigate('TeamPage', { teamId: entry.team.id, sport: 'nfl' })}
+                          style={[styles.tableRow, { borderBottomColor: theme.border }]}
+                          onPress={() => navigation.navigate('TeamPage', { teamId: nflTeamId, sport: 'nfl' })}
                         >
                           <View style={[styles.tableCell, styles.teamColumn]}>
                             <Image 
@@ -96,16 +148,16 @@ const StandingsScreen = ({ route }) => {
                               style={styles.teamLogo}
                               defaultSource={{ uri: `https://via.placeholder.com/20x20?text=NFL` }}
                             />
-                            <Text style={styles.teamName} numberOfLines={1}>
+                            <Text style={[styles.teamName, { color: theme.text }]} numberOfLines={1}>
                               {entry.team.shortDisplayName}
                             </Text>
                           </View>
-                          <Text style={styles.tableCell}>{wins}</Text>
-                          <Text style={styles.tableCell}>{losses}</Text>
-                          <Text style={styles.tableCell}>{ties}</Text>
-                          <Text style={styles.tableCell}>{winPercent}</Text>
-                          <Text style={styles.tableCell}>{pointsFor}</Text>
-                          <Text style={styles.tableCell}>{pointsAgainst}</Text>
+                          <Text style={[styles.tableCell, { color: theme.text }]}>{wins}</Text>
+                          <Text style={[styles.tableCell, { color: theme.text }]}>{losses}</Text>
+                          <Text style={[styles.tableCell, { color: theme.text }]}>{ties}</Text>
+                          <Text style={[styles.tableCell, { color: theme.text }]}>{winPercent}</Text>
+                          <Text style={[styles.tableCell, { color: theme.text }]}>{pointsFor}</Text>
+                          <Text style={[styles.tableCell, { color: theme.text }]}>{pointsAgainst}</Text>
                           <Text style={[styles.tableCell, { color: diffColor }]}>{differential}</Text>
                         </TouchableOpacity>
                       );
@@ -121,17 +173,17 @@ const StandingsScreen = ({ route }) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#013369" />
-        <Text style={styles.loadingText}>Loading standings...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading standings...</Text>
       </View>
     );
   }
 
   if (!standings) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Standings not available</Text>
+      <View style={[styles.errorContainer, { backgroundColor: theme.background }]}>
+        <Text style={[styles.errorText, { color: theme.text }]}>Standings not available</Text>
       </View>
     );
   }
@@ -142,33 +194,27 @@ const StandingsScreen = ({ route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
     padding: 20,
   },
   errorText: {
     fontSize: 16,
-    color: '#666',
     textAlign: 'center',
   },
   conferenceContainer: {
-    backgroundColor: '#fff',
     margin: 10,
     borderRadius: 8,
     shadowColor: '#000',
@@ -183,7 +229,6 @@ const styles = StyleSheet.create({
   conferenceTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#013369',
     padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
@@ -194,17 +239,14 @@ const styles = StyleSheet.create({
   divisionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
     marginBottom: 10,
   },
   tableContainer: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
     borderRadius: 4,
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#f0f0f0',
     paddingVertical: 10,
     paddingHorizontal: 5,
   },
@@ -213,20 +255,17 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 5,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
     alignItems: 'center',
   },
   headerCell: {
     flex: 1,
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#666',
     textAlign: 'center',
   },
   tableCell: {
     flex: 1,
     fontSize: 12,
-    color: '#333',
     textAlign: 'center',
   },
   teamColumn: {
@@ -242,7 +281,6 @@ const styles = StyleSheet.create({
   },
   teamName: {
     fontSize: 12,
-    color: '#333',
     fontWeight: '500',
     flex: 1,
   },

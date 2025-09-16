@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 // Import theme context
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+import { FavoritesProvider } from './src/context/FavoritesContext';
 
 // Import our screens
 import HomeScreen from './src/screens/HomeScreen';
@@ -1095,7 +1096,9 @@ const AppContent = () => (
 export default function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <FavoritesProvider>
+        <AppContent />
+      </FavoritesProvider>
     </ThemeProvider>
   );
 }

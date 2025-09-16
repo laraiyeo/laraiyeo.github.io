@@ -14,11 +14,13 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { ItalyServiceEnhanced } from '../../../services/soccer/ItalyServiceEnhanced';
 import { useTheme } from '../../../context/ThemeContext';
+import { useFavorites } from '../../../context/FavoritesContext';
 
 const { width } = Dimensions.get('window');
 
 const ItalyScoreboardScreen = ({ navigation, route }) => {
   const { theme, colors, isDarkMode } = useTheme();
+  const { isFavorite } = useFavorites();
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -78,13 +80,8 @@ const ItalyScoreboardScreen = ({ navigation, route }) => {
         setLogoSource({ uri: logos.fallbackUrl });
         setRetryCount(1);
       } else {
-        // Final fallback - use actual logo URL first if teamId exists
-        if (teamId) {
-          const finalFallbackUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
-          setLogoSource({ uri: finalFallbackUrl });
-        } else {
-          setLogoSource(require('../../../../assets/soccer.png'));
-        }
+        // Final fallback - use soccer.png asset for all cases
+        setLogoSource(require('../../../../assets/soccer.png'));
       }
     };
 
@@ -525,10 +522,10 @@ const ItalyScoreboardScreen = ({ navigation, route }) => {
             </View>
             <Text style={[
               styles.teamAbbreviation, 
-              { color: theme.text },
+              { color: isFavorite(homeTeam?.team?.id) ? colors.primary : theme.text },
               matchStatus.isPost && homeTeam?.score < awayTeam?.score && styles.losingTeamName
             ]}>
-              {homeTeam?.team?.abbreviation || homeTeam?.team?.displayName || 'TBD'}
+              {isFavorite(homeTeam?.team?.id) ? '★ ' : ''}{homeTeam?.team?.abbreviation || homeTeam?.team?.displayName || 'TBD'}
             </Text>
           </View>
 
@@ -576,10 +573,10 @@ const ItalyScoreboardScreen = ({ navigation, route }) => {
             </View>
             <Text style={[
               styles.teamAbbreviation, 
-              { color: theme.text },
+              { color: isFavorite(awayTeam?.team?.id) ? colors.primary : theme.text },
               matchStatus.isPost && awayTeam?.score < homeTeam?.score && styles.losingTeamName
             ]}>
-              {awayTeam?.team?.abbreviation || awayTeam?.team?.displayName || 'TBD'}
+              {isFavorite(awayTeam?.team?.id) ? '★ ' : ''}{awayTeam?.team?.abbreviation || awayTeam?.team?.displayName || 'TBD'}
             </Text>
           </View>
         </View>

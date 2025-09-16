@@ -52,13 +52,8 @@ const FranceSearchScreen = ({ route, navigation }) => {
         setLogoSource({ uri: logos.fallbackUrl });
         setRetryCount(1);
       } else {
-        // Final fallback - use actual logo URL first if teamId exists
-        if (teamId) {
-          const finalFallbackUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
-          setLogoSource({ uri: finalFallbackUrl });
-        } else {
-          setLogoSource(require('../../../../assets/soccer.png'));
-        }
+        // Final fallback - use soccer.png asset for all cases
+        setLogoSource(require('../../../../assets/soccer.png'));
       }
     };
 

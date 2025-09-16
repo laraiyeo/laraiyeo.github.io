@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
+import { useFavorites } from '../../../context/FavoritesContext';
 import { GermanyServiceEnhanced } from '../../../services/soccer/GermanyServiceEnhanced';
 
 const GermanyTeamPageScreen = ({ route, navigation }) => {
   const { teamId, teamName } = route.params;
   const { theme, colors, isDarkMode } = useTheme();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const [activeTab, setActiveTab] = useState('Games');
   const [teamData, setTeamData] = useState(null);
   const [teamRecord, setTeamRecord] = useState(null);
@@ -58,13 +60,8 @@ const GermanyTeamPageScreen = ({ route, navigation }) => {
         setLogoSource({ uri: logos.fallbackUrl });
         setRetryCount(1);
       } else {
-        // Final fallback - use actual logo URL first if teamId exists
-        if (teamId) {
-          const finalFallbackUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
-          setLogoSource({ uri: finalFallbackUrl });
-        } else {
-          setLogoSource(require('../../../../assets/soccer.png'));
-        }
+        // Final fallback - use soccer.png asset for all cases
+        setLogoSource(require('../../../../assets/soccer.png'));
       }
     };
 
@@ -507,6 +504,16 @@ const GermanyTeamPageScreen = ({ route, navigation }) => {
     if (!teamData) return null;
 
     const teamColor = getTeamColor(teamData);
+    const isTeamFavorite = isFavorite(teamData.id);
+
+    const handleToggleFavorite = () => {
+      toggleFavorite({
+        teamId: teamData.id,
+        teamName: teamData.displayName || teamData.name,
+        sport: 'Bundesliga',
+        leagueCode: 'ger.1'
+      });
+    };
 
     return (
       <View style={[styles.teamHeader, { backgroundColor: theme.surface }]}>
@@ -542,6 +549,15 @@ const GermanyTeamPageScreen = ({ route, navigation }) => {
             </View>
           </View>
         </View>
+        <TouchableOpacity 
+          style={styles.favoriteButton} 
+          onPress={handleToggleFavorite}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.favoriteIcon, { color: isTeamFavorite ? colors.primary : theme.textSecondary }]}>
+            {isTeamFavorite ? '★' : '☆'}
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -755,9 +771,10 @@ const GermanyTeamPageScreen = ({ route, navigation }) => {
               )}
             </View>
             <Text style={[styles.teamAbbreviation, { 
-              color: homeIsLoser ? '#999' : theme.text 
+              color: homeIsLoser ? '#999' : 
+                     isFavorite(homeTeam.team?.id) ? colors.primary : theme.text  
             }]}>
-              {homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
+              {isFavorite(homeTeam.team?.id) ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
             </Text>
           </View>
           
@@ -801,9 +818,10 @@ const GermanyTeamPageScreen = ({ route, navigation }) => {
               />
             </View>
             <Text style={[styles.teamAbbreviation, { 
-              color: awayIsLoser ? '#999' : theme.text 
+              color: awayIsLoser ? '#999' : 
+                     isFavorite(awayTeam.team?.id) ? colors.primary : theme.text 
             }]}>
-              {awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
+              {isFavorite(awayTeam.team?.id) ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
             </Text>
           </View>
         </View>
@@ -1220,6 +1238,14 @@ const styles = StyleSheet.create({
   teamInfo: {
     flex: 1,
     marginLeft: 10,
+  },
+  favoriteButton: {
+    padding: 8,
+    marginLeft: 10,
+  },
+  favoriteIcon: {
+    fontSize: 24,
+    fontWeight: 'bold',
   },
   teamName: {
     fontSize: 24,

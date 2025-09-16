@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
+import { useFavorites } from '../../../context/FavoritesContext';
 import { FranceServiceEnhanced } from '../../../services/soccer/FranceServiceEnhanced';
 
 const FranceTeamPageScreen = ({ route, navigation }) => {
   const { teamId, teamName } = route.params;
   const { theme, colors, isDarkMode } = useTheme();
+  const { isFavorite, addFavorite, removeFavorite } = useFavorites();
   const [activeTab, setActiveTab] = useState('Games');
   const [teamData, setTeamData] = useState(null);
   const [teamRecord, setTeamRecord] = useState(null);
@@ -58,13 +60,8 @@ const FranceTeamPageScreen = ({ route, navigation }) => {
         setLogoSource({ uri: logos.fallbackUrl });
         setRetryCount(1);
       } else {
-        // Final fallback - use actual logo URL first if teamId exists
-        if (teamId) {
-          const finalFallbackUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
-          setLogoSource({ uri: finalFallbackUrl });
-        } else {
-          setLogoSource(require('../../../../assets/soccer.png'));
-        }
+        // Final fallback - use soccer.png asset for all cases
+        setLogoSource(require('../../../../assets/soccer.png'));
       }
     };
 
@@ -542,6 +539,26 @@ const FranceTeamPageScreen = ({ route, navigation }) => {
             </View>
           </View>
         </View>
+        <TouchableOpacity
+          style={styles.favoriteButton}
+          onPress={() => {
+            if (isFavorite(teamData.id)) {
+              removeFavorite(teamData.id);
+            } else {
+              addFavorite({
+                teamId: teamData.id,
+                displayName: teamData.displayName || teamData.name,
+                sport: 'Ligue 1'
+              });
+            }
+          }}
+        >
+          <Text style={[styles.favoriteIcon, { 
+            color: isFavorite(teamData.id) ? colors.primary : theme.textSecondary 
+          }]}>
+            {isFavorite(teamData.id) ? '★' : '☆'}
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -755,9 +772,9 @@ const FranceTeamPageScreen = ({ route, navigation }) => {
               )}
             </View>
             <Text style={[styles.teamAbbreviation, { 
-              color: homeIsLoser ? '#999' : theme.text 
+              color: isFavorite(homeTeam.team?.id) ? colors.primary : (homeIsLoser ? '#999' : theme.text)
             }]}>
-              {homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
+              {isFavorite(homeTeam.team?.id) ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
             </Text>
           </View>
           
@@ -801,9 +818,9 @@ const FranceTeamPageScreen = ({ route, navigation }) => {
               />
             </View>
             <Text style={[styles.teamAbbreviation, { 
-              color: awayIsLoser ? '#999' : theme.text 
+              color: isFavorite(awayTeam.team?.id) ? colors.primary : (awayIsLoser ? '#999' : theme.text)
             }]}>
-              {awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
+              {isFavorite(awayTeam.team?.id) ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
             </Text>
           </View>
         </View>
@@ -1220,6 +1237,14 @@ const styles = StyleSheet.create({
   teamInfo: {
     flex: 1,
     marginLeft: 10,
+  },
+  favoriteButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  favoriteIcon: {
+    fontSize: 24,
+    fontWeight: 'bold',
   },
   teamName: {
     fontSize: 24,
