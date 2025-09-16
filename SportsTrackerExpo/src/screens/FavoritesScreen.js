@@ -2272,20 +2272,22 @@ const FavoritesScreen = ({ navigation }) => {
               />
               {!matchStatus.isPre && (
                 <View style={styles.scoreContainer}>
-                  <Text style={[styles.teamScore, { 
-                    color: matchStatus.isPost && homeIsWinner ? colors.primary : 
-                           homeIsLoser ? '#999' : theme.text 
-                  }]}>
-                    {homeScore}
-                  </Text>
-                  {homeShootoutScore && (
-                    <Text style={[
-                      styles.shootoutScore, 
-                      { color: homeIsLoser ? '#999' : colors.primary }
-                    ]}>
-                      ({homeShootoutScore})
+                  <View style={styles.scoreRow}>
+                    <Text style={[styles.teamScore, { 
+                      color: matchStatus.isPost && homeIsWinner ? colors.primary : 
+                             homeIsLoser ? '#999' : theme.text 
+                    }]}>
+                      {homeScore}
                     </Text>
-                  )}
+                    {homeShootoutScore && (
+                      <Text style={[
+                        styles.shootoutSuperscript, 
+                        { color: homeIsLoser ? '#999' : colors.primary }
+                      ]}>
+                       ({homeShootoutScore})
+                      </Text>
+                    )}
+                  </View>
                 </View>
               )}
             </View>
@@ -2332,20 +2334,22 @@ const FavoritesScreen = ({ navigation }) => {
             <View style={styles.teamLogoRow}>
               {!matchStatus.isPre && (
                 <View style={styles.scoreContainer}>
-                  {awayShootoutScore && (
-                    <Text style={[
-                      styles.shootoutScore, 
-                      { color: awayIsLoser ? '#999' : colors.primary }
-                    ]}>
-                      ({awayShootoutScore})
+                  <View style={styles.scoreRow}>
+                    {awayShootoutScore && (
+                      <Text style={[
+                        styles.shootoutSuperscript, 
+                        { color: awayIsLoser ? '#999' : colors.primary }
+                      ]}>
+                        ({awayShootoutScore})
+                      </Text>
+                    )}
+                    <Text style={[styles.teamScore, { 
+                      color: matchStatus.isPost && awayIsWinner ? colors.primary : 
+                             awayIsLoser ? '#999' : theme.text 
+                    }]}>
+                      {awayScore}
                     </Text>
-                  )}
-                  <Text style={[styles.teamScore, { 
-                    color: matchStatus.isPost && awayIsWinner ? colors.primary : 
-                           awayIsLoser ? '#999' : theme.text 
-                  }]}>
-                    {awayScore}
-                  </Text>
+                  </View>
                 </View>
               )}
               <TeamLogoImage
@@ -2640,6 +2644,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
     marginTop: 2,
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  shootoutSuperscript: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginLeft: 2,
+    marginBottom: 4,
   },
   teamAbbreviation: {
     fontSize: 12,
