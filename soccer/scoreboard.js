@@ -1591,8 +1591,8 @@ window.togglePlay = function(index) {
 function normalizeTeamName(teamName) {
   // Special cases for specific team names
   const specialCases = {
-    'paris saint germain': 'psg',
-    'paris saint-germain': 'psg',
+    'paris saint germain': 'paris sg',
+    'paris saint-germain': 'paris sg',
     'tottenham hotspur': 'tottenham-hotspur',
     'tottenham': 'tottenham-hotspur',
     'manchester united': 'manchester-united',

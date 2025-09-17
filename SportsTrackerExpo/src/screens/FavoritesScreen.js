@@ -2276,6 +2276,295 @@ const FavoritesScreen = ({ navigation }) => {
     };
   };
 
+  // Component-scoped helper: Robust extraction of the most recent play for MLB and ESPN shapes
+  // Accept homeTeam and awayTeam so the helper doesn't rely on outer-scope variables
+  const extractMostRecentPlay = (game, homeTeam = null, awayTeam = null) => {
+    try {
+      // Helper to build a human-friendly play text from an MLB playEvent
+      const buildMLBPlayTextFromEvent = (ev, playObj) => {
+        try {
+          if (!ev || !ev.details) return null;
+          const details = ev.details || {};
+          const desc = details.description || '';
+
+          // Batter and pitcher names - prefer matchup in the parent play object
+          const batter = (playObj?.matchup?.batter?.fullName) || (ev.player && ev.player.fullName) || (ev.player && ev.player?.player && ev.player.player.fullName) || '';
+          const pitcher = (playObj?.matchup?.pitcher?.fullName) || '';
+
+          // Pitch/swing info
+          const speed = ev.pitchData?.startSpeed || ev.pitchData?.speed || playObj?.pitchData?.startSpeed || null;
+          const pitchType = details.type?.description || details.type || '';
+
+          const balls = ev.count?.balls ?? playObj?.count?.balls ?? '';
+          const strikes = ev.count?.strikes ?? playObj?.count?.strikes ?? '';
+
+          const callCode = (details.call && details.call.code) ? String(details.call.code).toUpperCase() : null;
+
+          // Format according to the c2.txt rules
+          if (callCode === 'F') {
+            // Foul
+            const speedText = speed ? `${Math.round(speed)} mph ` : '';
+            return `${batter} fouls off ${speedText}${pitchType} from ${pitcher}. Strike ${strikes}`.trim();
+          }
+
+          if (callCode === 'B') {
+            // Ball
+            const speedText = speed ? `${Math.round(speed)} mph ` : '';
+            return `${pitcher || 'Pitcher'} throws ${speedText}${pitchType} outside to ${batter}. Ball ${balls}`.trim();
+          }
+
+          if (callCode === '*B') {
+            // Hit by pitch
+            return `${pitcher} throws the ball in dirt. Ball ${balls}`.trim();
+          }
+
+          if (callCode === 'W') {
+            // Wild pitch
+            return `${pitcher} throws a wild pitch. Ball ${balls}`.trim();
+          }
+
+          if (callCode === 'H') {
+            // Hit (non-specific)
+            return `${batter} ${desc}`.trim();
+          }
+
+          if (callCode === 'C') {
+            // Called strike
+            return `${batter} takes strike ${strikes} looking from ${pitcher}`.trim();
+          }
+
+          if (callCode === 'S') {
+            // Swinging strike
+            const speedText = speed ? `${Math.round(speed)} mph ` : '';
+            return `${batter} swings at ${speedText}${pitchType} from ${pitcher}. Strike ${strikes}`.trim();
+          }
+
+          // D or X (hit / play result) - fallback to description
+          if (callCode === 'D' || callCode === 'X') {
+            return `${batter} ${desc}`.trim();
+          }
+
+          // If no call code or unknown, prefer details.description but try to enrich with batter/pitcher
+          if (desc) {
+            // If description already contains batter name, return as-is
+            if (batter && desc.includes(batter)) return desc;
+            if (batter) return `${desc}`.trim();
+            return desc;
+          }
+
+          return null;
+        } catch (e) {
+          return null;
+        }
+      };
+
+      // Small helper: return trimmed non-empty string or null
+      const nonEmpty = (v) => {
+        try {
+          if (v === null || v === undefined) return null;
+          const s = String(v).trim();
+          return s.length > 0 ? s : null;
+        } catch (e) {
+          return null;
+        }
+      };
+
+      // Determine whether this game is an MLB game (MLB parsing should only run for MLB)
+      const isMLB = String(game.sport || game.actualLeagueCode || '').toLowerCase().includes('mlb') || Boolean(game.mlbGameData);
+
+      // 1) If we have MLB statsapi liveData with plays.allPlays, prefer that (only for MLB)
+      const mlbAllPlays = (isMLB && (game.liveData?.plays?.allPlays || game.liveData?.allPlays || game.mlbGameData?.liveData?.plays?.allPlays || game.liveData?.allPlays)) || null;
+      if (isMLB && mlbAllPlays && Array.isArray(mlbAllPlays) && mlbAllPlays.length > 0) {
+        const last = mlbAllPlays[mlbAllPlays.length - 1];
+        try {
+          console.log(`FavoritesScreen detected statsapi allPlays for game ${game.id}, last play summary:`, {
+            about: last.about || null,
+            resultKeys: last.result ? Object.keys(last.result).slice(0,6) : null,
+            rawKeys: Object.keys(last).slice(0,8)
+          });
+        } catch (e) {}
+
+        let playText = '';
+        try {
+          if (Array.isArray(last.playEvents) && last.playEvents.length > 0) {
+            const filtered = last.playEvents
+              .filter(ev => ev && ev.details)
+              .filter(ev => {
+                const evType = String(ev.details.eventType || ev.type || '').toLowerCase();
+                return !(evType.includes('game_advisory') || (ev.details && String(ev.details.description || '').toLowerCase().includes('status change')));
+              });
+
+            if (filtered.length > 0) {
+              const lastEv = filtered[filtered.length - 1];
+              const built = buildMLBPlayTextFromEvent(lastEv, last);
+              if (built) playText = built;
+              else if (lastEv.details && lastEv.details.description) playText = String(lastEv.details.description).trim();
+            }
+          }
+
+          if (!nonEmpty(playText)) {
+            const currentPlayObj = game.liveData?.plays?.currentPlay || null;
+            const currentPlayDesc = nonEmpty(currentPlayObj?.result?.description) || nonEmpty(currentPlayObj?.about?.playText) || nonEmpty(currentPlayObj?.about?.description) || null;
+            if (currentPlayDesc) playText = currentPlayDesc;
+          }
+
+          if (!nonEmpty(playText)) {
+            playText = nonEmpty(last.result?.description) || nonEmpty(last.about?.playText) || nonEmpty(last.about?.description) || nonEmpty(last.playDescription) || nonEmpty(last.playText) || nonEmpty(last.result?.event) || '';
+          }
+
+          if (!nonEmpty(playText)) {
+            const batterName = last.matchup?.batter?.fullName || last.runners?.[0]?.details?.runner?.fullName || last.matchup?.batter?.player?.fullName || '';
+            const pitcherName = last.matchup?.pitcher?.fullName || '';
+            if (batterName || pitcherName) {
+              playText = `Matchup: ${batterName}${batterName && pitcherName ? ' vs ' : ''}${pitcherName}`.trim();
+              try {
+                console.log(`FavoritesScreen MLB – matchup fallback used for game ${game.id}. Diagnostics:`, {
+                  mostRecent_result: last.result || null,
+                  mostRecent_about: last.about || null,
+                  mostRecent_playEvents_count: Array.isArray(last.playEvents) ? last.playEvents.length : 0,
+                  currentPlay: game.liveData?.plays?.currentPlay || null,
+                  mostRecent_raw_sample: last
+                });
+              } catch (diagErr) { console.log('Error logging matchup diagnostics:', diagErr?.message || diagErr); }
+            }
+          }
+        } catch (e) {
+          playText = last.result?.description || last.about?.playText || '';
+        }
+
+        let inferredTeamId = null;
+        let inferredIsHome = null;
+        try {
+          const half = (last.about && (last.about.halfInning || last.about.half)) || last.about?.inningState || null;
+          if (half) {
+            if (String(half).toLowerCase().startsWith('t') || String(half).toLowerCase().includes('top')) {
+              inferredIsHome = false;
+              inferredTeamId = awayTeam?.team?.id || awayTeam?.id || (awayTeam?.team && awayTeam.team.id) || null;
+            } else if (String(half).toLowerCase().startsWith('b') || String(half).toLowerCase().includes('bot') || String(half).toLowerCase().includes('bottom')) {
+              inferredIsHome = true;
+              inferredTeamId = homeTeam?.team?.id || homeTeam?.id || (homeTeam?.team && homeTeam.team.id) || null;
+            }
+          }
+        } catch (e) {}
+
+        const matchupBatHome = last.matchup?.batHomeId || null;
+        const matchupBatAway = last.matchup?.batAwayId || null;
+        const teamField = last.team || (inferredTeamId ? { id: inferredTeamId } : (matchupBatHome ? { id: matchupBatHome } : (matchupBatAway ? { id: matchupBatAway } : null)));
+
+        return {
+          text: playText || '',
+          shortText: last.result?.brief || last.result?.eventType || last.result?.event || '',
+          team: teamField,
+          inferredIsHome,
+          inferredTeamId,
+          halfInning: last.about?.halfInning || last.about?.half || last.about?.inningState || null,
+          raw: last
+        };
+      }
+
+      // 2) If we have a playsData array (could be ESPN items or MLB statsapi allPlays reversed)
+      if (game.playsData && Array.isArray(game.playsData) && game.playsData.length > 0) {
+        const mostRecent = game.playsData[0];
+        let mlbText = '';
+        if (isMLB) {
+          try {
+            if (Array.isArray(mostRecent?.playEvents) && mostRecent.playEvents.length > 0) {
+              const filtered = mostRecent.playEvents
+                .filter(ev => ev && ev.details)
+                .filter(ev => {
+                  const evType = String(ev.details.eventType || ev.type || '').toLowerCase();
+                  return !(evType.includes('game_advisory') || (ev.details && String(ev.details.description || '').toLowerCase().includes('status change')));
+                });
+
+              if (filtered.length > 0) {
+                const lastEv = filtered[filtered.length - 1];
+                const built = buildMLBPlayTextFromEvent(lastEv, mostRecent);
+                if (built) mlbText = built;
+                else if (lastEv.details && lastEv.details.description) mlbText = String(lastEv.details.description).trim();
+              }
+            }
+          } catch (e) { mlbText = ''; }
+        }
+
+        const mlbShort = mostRecent?.result?.brief || mostRecent?.result?.eventType || mostRecent?.result?.event || mostRecent?.about?.period?.displayValue;
+        if (!nonEmpty(mlbText)) {
+          const currentPlayObj = game.liveData?.plays?.currentPlay || null;
+          const currentPlayDesc = nonEmpty(currentPlayObj?.result?.description) || nonEmpty(currentPlayObj?.about?.playText) || nonEmpty(currentPlayObj?.about?.description) || null;
+          if (currentPlayDesc) mlbText = currentPlayDesc;
+        }
+
+        if (!nonEmpty(mlbText)) mlbText = nonEmpty(mostRecent?.result?.description) || nonEmpty(mostRecent?.about?.playText) || nonEmpty(mostRecent?.about?.description) || nonEmpty(mostRecent?.playDescription) || nonEmpty(mostRecent?.playText) || nonEmpty(mostRecent?.result?.event) || nonEmpty(mostRecent?.result?.eventType) || '';
+
+        if (isMLB && !nonEmpty(mlbText)) {
+          const batterName = mostRecent?.matchup?.batter?.fullName || mostRecent?.runners?.[0]?.details?.runner?.fullName || '';
+          const pitcherName = mostRecent?.matchup?.pitcher?.fullName || '';
+          if (batterName || pitcherName) {
+            mlbText = `Matchup: ${batterName}${batterName && pitcherName ? ' vs ' : ''}${pitcherName}`.trim();
+            try {
+              console.log(`FavoritesScreen MLB – matchup fallback used for game ${game.id} (playsData branch). Diagnostics:`, {
+                mostRecent_result: mostRecent.result || null,
+                mostRecent_about: mostRecent.about || null,
+                mostRecent_playEvents_count: Array.isArray(mostRecent.playEvents) ? mostRecent.playEvents.length : 0,
+                currentPlay: game.liveData?.plays?.currentPlay || null,
+                mostRecent_raw_sample: mostRecent
+              });
+            } catch (diagErr) { console.log('Error logging matchup diagnostics:', diagErr?.message || diagErr); }
+          }
+        }
+
+        const mlbTeam = (mostRecent?.team && (mostRecent.team.id || mostRecent.team.teamId)) || null;
+        const matchupBatHome = mostRecent?.matchup?.batHomeId;
+        const matchupBatAway = mostRecent?.matchup?.batAwayId;
+
+        if (mlbText) {
+          let inferredTeamId2 = null;
+          let inferredIsHome2 = null;
+          try {
+            const half2 = (mostRecent.about && (mostRecent.about.halfInning || mostRecent.about.half)) || mostRecent.about?.inningState || null;
+            if (half2) {
+              if (String(half2).toLowerCase().startsWith('t') || String(half2).toLowerCase().includes('top')) {
+                inferredIsHome2 = false;
+                inferredTeamId2 = awayTeam?.team?.id || awayTeam?.id || (awayTeam?.team && awayTeam.team.id) || null;
+              } else if (String(half2).toLowerCase().startsWith('b') || String(half2).toLowerCase().includes('bot') || String(half2).toLowerCase().includes('bottom')) {
+                inferredIsHome2 = true;
+                inferredTeamId2 = homeTeam?.team?.id || homeTeam?.id || (homeTeam?.team && homeTeam.team.id) || null;
+              }
+            }
+          } catch (e) {}
+
+          return {
+            text: mlbText,
+            shortText: mlbShort || mlbText,
+            team: mlbTeam || (matchupBatHome ? { id: matchupBatHome } : (matchupBatAway ? { id: matchupBatAway } : null)),
+            inferredIsHome: inferredIsHome2,
+            inferredTeamId: inferredTeamId2,
+            halfInning: mostRecent?.about?.halfInning || mostRecent?.about?.half || mostRecent?.about?.inningState || null,
+            raw: mostRecent
+          };
+        }
+
+        // Fallback to ESPN-like field names (used for soccer and other sports)
+        return {
+          text: mostRecent.text || mostRecent.shortText || mostRecent.type?.text || '',
+          shortText: mostRecent.shortText || mostRecent.text || '',
+          team: mostRecent.team || mostRecent.by || mostRecent.actor || null,
+          raw: mostRecent
+        };
+      }
+
+      // 3) Some endpoints return an object with items (espn core) under plays.items
+      if (game.plays && Array.isArray(game.plays)) {
+        const first = game.plays[0];
+        return { text: first.text || first.shortText || '', shortText: first.shortText || first.text || '', team: first.team || null, raw: first };
+      }
+
+      return null;
+    } catch (err) {
+      console.log('Error extracting most recent play:', err?.message || err);
+      return null;
+    }
+  };
+
   const renderMLBGameCard = (game) => {
     if (!game?.competitions?.[0]) return null;
 
@@ -2428,275 +2717,9 @@ const FavoritesScreen = ({ navigation }) => {
       }
     };
 
-    // Robust extraction of the most recent play for MLB and ESPN shapes
-    const extractMostRecentPlay = (game) => {
-      try {
-        // Helper to build a human-friendly play text from an MLB playEvent
-        const buildMLBPlayTextFromEvent = (ev, playObj) => {
-          try {
-            if (!ev || !ev.details) return null;
-            const details = ev.details || {};
-            const desc = details.description || '';
 
-            // Batter and pitcher names - prefer matchup in the parent play object
-            const batter = (playObj?.matchup?.batter?.fullName) || (ev.player && ev.player.fullName) || (ev.player && ev.player?.player && ev.player.player.fullName) || '';
-            const pitcher = (playObj?.matchup?.pitcher?.fullName) || '';
 
-            // Pitch/swing info
-            const speed = ev.pitchData?.startSpeed || ev.pitchData?.speed || playObj?.pitchData?.startSpeed || null;
-            const pitchType = details.type?.description || details.type || '';
-
-            const balls = ev.count?.balls ?? playObj?.count?.balls ?? '';
-            const strikes = ev.count?.strikes ?? playObj?.count?.strikes ?? '';
-
-            const callCode = (details.call && details.call.code) ? String(details.call.code).toUpperCase() : null;
-
-            // Format according to the c2.txt rules
-            if (callCode === 'F') {
-              // Foul
-              const speedText = speed ? `${Math.round(speed)} mph ` : '';
-              return `${batter} fouls off ${speedText}${pitchType} from ${pitcher}. Strike ${strikes}`.trim();
-            }
-
-            if (callCode === 'B') {
-              // Ball
-              const speedText = speed ? `${Math.round(speed)} mph ` : '';
-              return `${pitcher || 'Pitcher'} throws ${speedText}${pitchType} outside to ${batter}. Ball ${balls}`.trim();
-            }
-
-            if (callCode === '*B') {
-              // Hit by pitch
-              return `${pitcher} throws the ball in dirt. Ball ${balls}`.trim();
-            }
-
-            if (callCode === 'W') {
-              // Wild pitch
-              return `${pitcher} throws a wild pitch. Ball ${balls}`.trim();
-            }
-
-            if (callCode === 'H') {
-              // Hit (non-specific)
-              return `${batter} ${desc}`.trim();
-            }
-
-            if (callCode === 'C') {
-              // Called strike
-              return `${batter} takes strike ${strikes} looking from ${pitcher}`.trim();
-            }
-
-            if (callCode === 'S') {
-              // Swinging strike
-              const speedText = speed ? `${Math.round(speed)} mph ` : '';
-              return `${batter} swings at ${speedText}${pitchType} from ${pitcher}. Strike ${strikes}`.trim();
-            }
-
-            // D or X (hit / play result) - fallback to description
-            if (callCode === 'D' || callCode === 'X') {
-              return `${batter} ${desc}`.trim();
-            }
-
-            // If no call code or unknown, prefer details.description but try to enrich with batter/pitcher
-            if (desc) {
-              // If description already contains batter name, return as-is
-              if (batter && desc.includes(batter)) return desc;
-              if (batter) return `${desc}`.trim();
-              return desc;
-            }
-
-            return null;
-          } catch (e) {
-            return null;
-          }
-        };
-
-        // 1) If we have MLB statsapi liveData with plays.allPlays, prefer that
-        const mlbAllPlays = game.liveData?.plays?.allPlays || game.liveData?.allPlays || game.mlbGameData?.liveData?.plays?.allPlays || game.liveData?.allPlays;
-        if (mlbAllPlays && Array.isArray(mlbAllPlays) && mlbAllPlays.length > 0) {
-          // GameDetails expects newest first in rendering; statsapi allPlays is chronological, so take last
-          const last = mlbAllPlays[mlbAllPlays.length - 1];
-          // Debug: log a summary of the last play shape so we can ensure mapping is correct
-          try {
-            console.log(`FavoritesScreen detected statsapi allPlays for game ${game.id}, last play summary:`, {
-              about: last.about || null,
-              resultKeys: last.result ? Object.keys(last.result).slice(0,6) : null,
-              rawKeys: Object.keys(last).slice(0,8)
-            });
-          } catch (e) {
-            // ignore logging errors
-          }
-
-          // Build descriptive play text from playEvents when available (GameDetails uses playEvents)
-          let playText = '';
-          try {
-            if (Array.isArray(last.playEvents) && last.playEvents.length > 0) {
-              // Prefer playEvents' details.description. Skip non-informative "game_advisory" entries.
-              const filtered = last.playEvents
-                .filter(ev => ev && ev.details)
-                .filter(ev => {
-                  const evType = String(ev.details.eventType || ev.type || '').toLowerCase();
-                  return !(evType.includes('game_advisory') || (ev.details && String(ev.details.description || '').toLowerCase().includes('status change')));
-                });
-
-              if (filtered.length > 0) {
-                const lastEv = filtered[filtered.length - 1];
-                // Try to build enriched MLB play text from the last playEvent
-                const built = buildMLBPlayTextFromEvent(lastEv, last);
-                if (built) {
-                  playText = built;
-                } else if (lastEv.details && lastEv.details.description) {
-                  playText = String(lastEv.details.description).trim();
-                }
-              }
-            }
-
-            // Fallbacks
-            if (!playText) playText = last.result?.description || last.about?.playText || last.about?.description || last.playDescription || last.playText || last.result?.event || '';
-
-            // If no description/result available, fall back to matchup "batter vs pitcher"
-            if (!playText) {
-              const batterName = last.matchup?.batter?.fullName || last.runners?.[0]?.details?.runner?.fullName || last.matchup?.batter?.player?.fullName || '';
-              const pitcherName = last.matchup?.pitcher?.fullName || '';
-              if (batterName || pitcherName) {
-                playText = `matchup ${batterName}${batterName && pitcherName ? ' vs ' : ''}${pitcherName}`.trim();
-              }
-            }
-          } catch (e) {
-            playText = last.result?.description || last.about?.playText || '';
-          }
-
-          // Infer team by inning half if team id is not present
-          let inferredTeamId = null;
-          let inferredIsHome = null;
-          try {
-            const half = (last.about && (last.about.halfInning || last.about.half)) || last.about?.inningState || null; // 'top' or 'bottom'
-            if (half) {
-              if (String(half).toLowerCase().startsWith('t') || String(half).toLowerCase().includes('top')) {
-                // Top = away batting (away made the play)
-                inferredIsHome = false;
-                inferredTeamId = awayTeam?.team?.id || awayTeam?.id || (awayTeam?.team && awayTeam.team.id) || null;
-              } else if (String(half).toLowerCase().startsWith('b') || String(half).toLowerCase().includes('bot') || String(half).toLowerCase().includes('bottom')) {
-                inferredIsHome = true;
-                inferredTeamId = homeTeam?.team?.id || homeTeam?.id || (homeTeam?.team && homeTeam.team.id) || null;
-              }
-            }
-          } catch (e) {
-            // ignore
-          }
-
-          // Try to default team using matchup batHomeId/batAwayId when team field is missing
-          const matchupBatHome = last.matchup?.batHomeId || null;
-          const matchupBatAway = last.matchup?.batAwayId || null;
-          const teamField = last.team || (inferredTeamId ? { id: inferredTeamId } : (matchupBatHome ? { id: matchupBatHome } : (matchupBatAway ? { id: matchupBatAway } : null)));
-
-          return {
-            text: playText || '',
-            shortText: last.result?.brief || last.result?.eventType || last.result?.event || '',
-            team: teamField,
-            inferredIsHome,
-            inferredTeamId,
-            halfInning: last.about?.halfInning || last.about?.half || last.about?.inningState || null,
-            raw: last
-          };
-        }
-
-        // 2) If we have a playsData array (could be ESPN items or MLB statsapi allPlays reversed)
-        if (game.playsData && Array.isArray(game.playsData) && game.playsData.length > 0) {
-          const mostRecent = game.playsData[0];
-          // Try MLB statsapi shape first
-          // If this mostRecent came from MLB allPlays mapping it may have playEvents
-          let mlbText = '';
-          try {
-            if (Array.isArray(mostRecent?.playEvents) && mostRecent.playEvents.length > 0) {
-              const filtered = mostRecent.playEvents
-                .filter(ev => ev && ev.details)
-                .filter(ev => {
-                  const evType = String(ev.details.eventType || ev.type || '').toLowerCase();
-                  return !(evType.includes('game_advisory') || (ev.details && String(ev.details.description || '').toLowerCase().includes('status change')));
-                });
-
-              if (filtered.length > 0) {
-                const lastEv = filtered[filtered.length - 1];
-                const built = buildMLBPlayTextFromEvent(lastEv, mostRecent);
-                if (built) {
-                  mlbText = built;
-                } else if (lastEv.details && lastEv.details.description) {
-                  mlbText = String(lastEv.details.description).trim();
-                }
-              }
-            }
-          } catch (e) {
-            mlbText = '';
-          }
-
-          const mlbShort = mostRecent?.result?.brief || mostRecent?.result?.eventType || mostRecent?.result?.event || mostRecent?.about?.period?.displayValue;
-          if (!mlbText) mlbText = mostRecent?.result?.description || mostRecent?.about?.playText || mostRecent?.about?.description || mostRecent?.playDescription || mostRecent?.playText || mostRecent?.result?.event || mostRecent?.result?.eventType;
-
-          // If still no mlbText, fallback to matchup batter vs pitcher
-          if (!mlbText) {
-            const batterName = mostRecent?.matchup?.batter?.fullName || mostRecent?.runners?.[0]?.details?.runner?.fullName || '';
-            const pitcherName = mostRecent?.matchup?.pitcher?.fullName || '';
-            if (batterName || pitcherName) {
-              mlbText = `Matchup: ${batterName}${batterName && pitcherName ? ' vs ' : ''}${pitcherName}`.trim();
-            }
-          }
-          const mlbTeam = (mostRecent?.team && (mostRecent.team.id || mostRecent.team.teamId)) || null;
-          // matchup may contain batting team ids
-          const matchupBatHome = mostRecent?.matchup?.batHomeId;
-          const matchupBatAway = mostRecent?.matchup?.batAwayId;
-
-          if (mlbText) {
-            // attempt to infer side (home/away) from about.halfInning when explicit team id isn't present
-            let inferredTeamId2 = null;
-            let inferredIsHome2 = null;
-            try {
-              const half2 = (mostRecent.about && (mostRecent.about.halfInning || mostRecent.about.half)) || mostRecent.about?.inningState || null;
-              if (half2) {
-                if (String(half2).toLowerCase().startsWith('t') || String(half2).toLowerCase().includes('top')) {
-                  inferredIsHome2 = false;
-                  inferredTeamId2 = awayTeam?.team?.id || awayTeam?.id || (awayTeam?.team && awayTeam.team.id) || null;
-                } else if (String(half2).toLowerCase().startsWith('b') || String(half2).toLowerCase().includes('bot') || String(half2).toLowerCase().includes('bottom')) {
-                  inferredIsHome2 = true;
-                  inferredTeamId2 = homeTeam?.team?.id || homeTeam?.id || (homeTeam?.team && homeTeam.team.id) || null;
-                }
-              }
-            } catch (e) {
-              // ignore
-            }
-
-            return {
-              text: mlbText,
-              shortText: mlbShort || mlbText,
-              team: mlbTeam || (matchupBatHome ? { id: matchupBatHome } : (matchupBatAway ? { id: matchupBatAway } : null)),
-              inferredIsHome: inferredIsHome2,
-              inferredTeamId: inferredTeamId2,
-              halfInning: mostRecent?.about?.halfInning || mostRecent?.about?.half || mostRecent?.about?.inningState || null,
-              raw: mostRecent
-            };
-          }
-
-          // Fallback to ESPN-like field names
-          return {
-            text: mostRecent.text || mostRecent.shortText || mostRecent.type?.text || '',
-            shortText: mostRecent.shortText || mostRecent.text || '',
-            team: mostRecent.team || mostRecent.by || mostRecent.actor || null,
-            raw: mostRecent
-          };
-        }
-
-        // 3) Some endpoints return an object with items (espn core) under plays.items
-        if (game.plays && Array.isArray(game.plays)) {
-          const first = game.plays[0];
-          return { text: first.text || first.shortText || '', shortText: first.shortText || '', team: first.team || null, raw: first };
-        }
-
-        return null;
-      } catch (err) {
-        console.log('Error extracting most recent play:', err?.message || err);
-        return null;
-      }
-    };
-
-    const currentPlay = extractMostRecentPlay(game);
+  const currentPlay = extractMostRecentPlay(game, homeTeam, awayTeam);
     let playText = '';
     let playBorderStyle = {};
     if (currentPlay) {
@@ -3020,7 +3043,7 @@ const FavoritesScreen = ({ navigation }) => {
     // Helper function to get the current/most recent play for live games (reuses extractor)
     const getCurrentPlay = (game) => {
       try {
-        const most = extractMostRecentPlay(game);
+  const most = extractMostRecentPlay(game, homeTeam, awayTeam);
         if (!most) {
           console.log(`No plays data for game ${game.id}`);
           return null;
@@ -3118,7 +3141,7 @@ const FavoritesScreen = ({ navigation }) => {
 
     // Component to display live play text with team color border
     const LivePlayDisplay = ({ game, theme }) => {
-      const extracted = extractMostRecentPlay(game);
+  const extracted = extractMostRecentPlay(game, homeTeam, awayTeam);
       // Log diagnostic summary so we can verify play text and team/color mapping
       try {
         const resolvedTeamName = (extracted && (extracted.team?.id ? (extracted.team?.id === homeTeam?.team?.id ? homeTeam?.team?.name : awayTeam?.team?.name) : (extracted.inferredTeamId ? (extracted.inferredIsHome ? homeTeam?.team?.name : awayTeam?.team?.name) : null))) || null;

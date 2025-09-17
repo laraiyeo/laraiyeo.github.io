@@ -1145,6 +1145,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
           // Strategy 3: Soccer-specific abbreviations and common names
           () => {
             const abbreviations = {
+              'psg': ['psg', 'paris-saint-germain', 'paris-sg', 'paris'],
               'tottenham': ['tottenham', 'spurs', 'tottenham-hotspur', 'hotspur', 'spurs-fc'],
               'bournemouth': ['bournemouth', 'afc-bournemouth', 'bournemouth-afc', 'cherries'],
               'manchester': ['manchester', 'manchester-united', 'manchester-city', 'man-utd', 'man-city', 'manc'],

@@ -777,8 +777,8 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
   const normalizeTeamName = (teamName) => {
     // Special cases for specific team names (from scoreboard.js)
     const specialCases = {
-      'paris saint germain': 'psg',
-      'paris saint-germain': 'psg',
+      'paris saint germain': 'paris sg',
+      'paris saint-germain': 'paris sg',
       'tottenham hotspur': 'tottenham-hotspur',
       'tottenham': 'tottenham-hotspur',
       'manchester united': 'manchester-united',
