@@ -7,7 +7,7 @@ import { ChampionsLeagueServiceEnhanced } from '../../../services/soccer/Champio
 const UCLTeamPageScreen = ({ route, navigation }) => {
   const { teamId, teamName } = route.params;
   const { theme, colors, isDarkMode } = useTheme();
-  const { isFavorite, toggleFavorite } = useFavorites();
+  const { isFavorite, toggleFavorite, updateTeamCurrentGame } = useFavorites();
   const [activeTab, setActiveTab] = useState('Games');
   const [teamData, setTeamData] = useState(null);
   const [teamRecord, setTeamRecord] = useState(null);
@@ -30,6 +30,42 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
   const [teamStats, setTeamStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const liveUpdateInterval = useRef(null);
+
+  // local updating state to avoid races while AsyncStorage writes
+  const [isUpdatingFavorites, setIsUpdatingFavorites] = useState(false);
+
+  const handleToggleFavorite = async () => {
+    if (!teamData) return;
+    try {
+      setIsUpdatingFavorites(true);
+      // Build a normalized currentGame payload so FavoritesContext stores eventId/eventLink/gameDate/competition
+      let currentGamePayload = null;
+      if (currentGame) {
+        const eventId = currentGame.id || currentGame.eventId || currentGame.gameId || currentGame.gamePk || (currentGame.competitions?.[0]?.id) || null;
+        const gameDate = currentGame.date || currentGame.gameDate || null;
+        const competition = currentGame.leagueCode || 'uefa.champions' || (currentGame.competitions?.[0]?.league?.id) || null;
+        const eventLink = currentGame.$ref || currentGame.eventLink || (eventId ? `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/events/${eventId}` : null);
+
+        currentGamePayload = {
+          eventId: eventId ? String(eventId) : null,
+          eventLink: eventLink || null,
+          gameDate: gameDate || null,
+          competition: competition || 'uefa.champions'
+        };
+      }
+
+      await toggleFavorite({
+        teamId: teamData.id,
+        teamName: teamData.displayName || teamData.name,
+        sport: 'Champions League',
+        leagueCode: 'uefa.champions'
+      }, currentGamePayload);
+    } catch (e) {
+      console.warn('Error toggling favorite for', teamData?.id, e);
+    } finally {
+      setIsUpdatingFavorites(false);
+    }
+  };
 
   // Convert HTTP URLs to HTTPS to avoid mixed content issues
   const convertToHttps = (url) => {
@@ -317,7 +353,40 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
         // Set current game
         if (foundCurrentGame) {
           console.log('Setting current game:', foundCurrentGame.name);
+          // Diagnostic log for Favorites persistence debugging
+          try {
+            const teamIdStr = teamData?.id || teamId || 'unknown-team-id';
+            const gameIdStr = foundCurrentGame?.id || foundCurrentGame?.eventId || foundCurrentGame?.gameId || 'unknown-game-id';
+            const competitionCode = foundCurrentGame?.leagueCode || (foundCurrentGame?.competitions?.[0]?.league?.id) || 'unknown-competition';
+            console.log(`UCL currentGame diagnostic -> TeamId: ${teamIdStr}  GameId: ${gameIdStr}  Competition: ${competitionCode}`);
+          } catch (diagErr) {
+            console.log('Error logging currentGame diagnostic:', diagErr);
+          }
+
           setCurrentGame(foundCurrentGame);
+
+          // If this team is already favorited, update the persisted favorite with a normalized currentGame
+          try {
+            const favId = teamData?.id || teamId || null;
+            if (favId && isFavorite(favId)) {
+              const eventId = foundCurrentGame.id || foundCurrentGame.eventId || foundCurrentGame.gameId || foundCurrentGame.gamePk || (foundCurrentGame.competitions?.[0]?.id) || null;
+              const gameDate = foundCurrentGame.date || foundCurrentGame.gameDate || null;
+              const competition = foundCurrentGame.leagueCode || (foundCurrentGame.competitions?.[0]?.league?.id) || 'uefa.champions';
+              const eventLink = foundCurrentGame.$ref || foundCurrentGame.eventLink || (eventId ? `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/events/${eventId}` : null);
+
+              const currentGamePayload = {
+                eventId: eventId ? String(eventId) : null,
+                eventLink: eventLink || null,
+                gameDate: gameDate || null,
+                competition: competition || 'uefa.champions'
+              };
+
+              console.log('UCLTeamPageScreen: team is favorited - updating persisted currentGame:', currentGamePayload);
+              await updateTeamCurrentGame(favId, currentGamePayload);
+            }
+          } catch (updateErr) {
+            console.log('Error updating persisted favorite currentGame:', updateErr);
+          }
         } else {
           console.log('No current game found');
           setCurrentGame(null);
@@ -523,14 +592,7 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
     const teamColor = getTeamColor(teamData);
     const isTeamFavorite = isFavorite(teamData.id);
 
-    const handleToggleFavorite = () => {
-      toggleFavorite({
-        teamId: teamData.id,
-        teamName: teamData.displayName || teamData.name,
-        sport: 'Champions League',
-        leagueCode: 'uefa.champions'
-      });
-    };
+    // isUpdatingFavorites and handleToggleFavorite moved to component scope
 
     return (
       <View style={[styles.teamHeader, { backgroundColor: theme.surface }]}>

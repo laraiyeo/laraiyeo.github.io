@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
+import { useFavorites } from '../../context/FavoritesContext';
 
 const StandingsScreen = ({ route }) => {
   const { sport } = route.params;
   const { theme, colors, getTeamLogoUrl } = useTheme();
+  const { isFavorite } = useFavorites();
   const [standings, setStandings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [intervalId, setIntervalId] = useState(null);
@@ -155,8 +157,15 @@ const StandingsScreen = ({ route }) => {
                               style={styles.teamLogo}
                               defaultSource={{ uri: `https://via.placeholder.com/20x20?text=MLB` }}
                             />
-                            <Text style={[styles.teamName, { color: theme.text }]} numberOfLines={1}>
-                              <Text style={[styles.teamSeed, { color: colors.primary }]}>({entry.team.seed})</Text> {entry.team.shortDisplayName}
+                            <Text style={[
+                              styles.teamName, 
+                              { 
+                                color: isFavorite(mlbTeamId) ? colors.primary : theme.text 
+                              }
+                            ]} numberOfLines={1}>
+                              <Text style={[styles.teamSeed, { color: colors.primary }]}>({entry.team.seed})</Text> 
+                              {isFavorite(mlbTeamId) && '★ '}
+                              {entry.team.shortDisplayName}
                             </Text>
                           </View>
                           <Text style={[styles.tableCell, { color: theme.text }]}>{wins}</Text>

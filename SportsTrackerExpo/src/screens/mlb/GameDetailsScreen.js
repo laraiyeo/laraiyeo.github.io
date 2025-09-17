@@ -15,10 +15,12 @@ import {
 import { WebView } from 'react-native-webview';
 import { MLBService } from '../../services/MLBService';
 import { useTheme } from '../../context/ThemeContext';
+import { useFavorites } from '../../context/FavoritesContext';
 
 const MLBGameDetailsScreen = ({ route, navigation }) => {
   const { gameId, sport } = route?.params || {};
   const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const [gameData, setGameData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updateInterval, setUpdateInterval] = useState(null);
@@ -970,6 +972,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             defaultSource={{ uri: 'https://via.placeholder.com/28x28?text=MLB' }}
           />
           <Text style={[styles.stickyTeamScore, { color: getStickyScoreColor(awayIsLosing) }]}>{awayScore}</Text>
+          <Text style={[styles.stickyTeamName, { color: isFavorite(awayTeam?.id?.toString()) ? colors.primary : (awayIsLosing ? theme.textSecondary : theme.text) }]}>
+            {isFavorite(awayTeam?.id?.toString()) && <Text style={{ color: colors.primary }}>★ </Text>}
+            {awayTeam?.abbreviation || 'AWAY'}
+          </Text>
         </View>
 
         {/* Game Status */}
@@ -1015,6 +1021,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
         {/* Home Team */}
         <View style={styles.stickyTeamHome}>
+          <Text style={[styles.stickyTeamName, { color: isFavorite(homeTeam?.id?.toString()) ? colors.primary : (homeIsLosing ? theme.textSecondary : theme.text) }]}>
+            {isFavorite(homeTeam?.id?.toString()) && <Text style={{ color: colors.primary }}>★ </Text>}
+            {homeTeam?.abbreviation || 'HOME'}
+          </Text>
           <Text style={[styles.stickyTeamScore, { color: getStickyScoreColor(homeIsLosing) }]}>{homeScore}</Text>
           <Image
             source={{ uri: getTeamLogoUrl('mlb', homeTeam?.abbreviation) }}
@@ -1231,7 +1241,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               defaultSource={{ uri: 'https://via.placeholder.com/50x50?text=MLB' }}
             />
             <View style={styles.teamNameContainer}>
-              <Text style={[styles.teamName, { color: getNameColor(awayIsLosing) }]}>{awayTeam?.abbreviation || 'AWAY'}</Text>
+              <Text style={[styles.teamName, { color: isFavorite(awayTeam?.id?.toString()) ? colors.primary : getNameColor(awayIsLosing) }]}>
+                {isFavorite(awayTeam?.id?.toString()) && <Text style={{ color: colors.primary }}>★ </Text>}
+                {awayTeam?.abbreviation || 'AWAY'}
+              </Text>
             </View>
           </View>
 
@@ -1287,7 +1300,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               defaultSource={{ uri: 'https://via.placeholder.com/50x50?text=MLB' }}
             />
             <View style={styles.teamNameContainer}>
-              <Text style={[styles.teamName, { color: getNameColor(homeIsLosing) }]}>{homeTeam?.abbreviation || 'HOME'}</Text>
+              <Text style={[styles.teamName, { color: isFavorite(homeTeam?.id?.toString()) ? colors.primary : getNameColor(homeIsLosing) }]}>
+                {isFavorite(homeTeam?.id?.toString()) && <Text style={{ color: colors.primary }}>★ </Text>}
+                {homeTeam?.abbreviation || 'HOME'}
+              </Text>
             </View>
           </View>
         </View>
@@ -3577,6 +3593,11 @@ const styles = StyleSheet.create({
     color: '#002D72',
     minWidth: 35,
     textAlign: 'center',
+  },
+  stickyTeamName: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginHorizontal: 4,
   },
   losingStickyTeamScore: {
     fontSize: 20,

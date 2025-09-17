@@ -13,9 +13,11 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { MLBService } from '../../services/MLBService';
 import { useTheme } from '../../context/ThemeContext';
+import { useFavorites } from '../../context/FavoritesContext';
 
 const MLBScoreboardScreen = ({ navigation }) => {
   const { theme, colors, getTeamLogoUrl } = useTheme();
+  const { isFavorite } = useFavorites();
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -422,6 +424,22 @@ const MLBScoreboardScreen = ({ navigation }) => {
     navigation.navigate('GameDetails', { gameId, sport: 'mlb' });
   };
 
+  const getMLBTeamId = (espnTeam) => {
+    // ESPN team ID to MLB team ID mapping (same as in standings)
+    const espnToMLBMapping = {
+      '108': '108', '117': '117', '133': '133', '141': '141', '144': '144',
+      '158': '158', '138': '138', '112': '112', '109': '109', '119': '119',
+      '137': '137', '114': '114', '136': '136', '146': '146', '121': '121',
+      '120': '120', '110': '110', '135': '135', '143': '143', '134': '134',
+      '140': '140', '139': '139', '111': '111', '113': '113', '115': '115',
+      '118': '118', '116': '116', '142': '142', '145': '145', '147': '147',
+      // Alternative mappings
+      '11': '133',   // Sometimes Athletics use ESPN ID 11
+    };
+
+    return espnToMLBMapping[espnTeam?.id?.toString()] || espnTeam?.id?.toString();
+  };
+
   const getMLBTeamAbbreviation = (espnTeam) => {
     // ESPN team ID to abbreviation mapping (reverse of what standings does)
     const teamMapping = {
@@ -576,7 +594,15 @@ const MLBScoreboardScreen = ({ navigation }) => {
               />
             </View>
             <View style={styles.teamInfo}>
-              <Text style={[getTeamNameStyle(item, true), { color: getTeamNameColor(item, true) }]}>{item.awayTeam?.displayName || 'TBD'}</Text>
+              <Text style={[
+                getTeamNameStyle(item, true), 
+                { 
+                  color: isFavorite(getMLBTeamId(item.awayTeam)) ? colors.primary : getTeamNameColor(item, true) 
+                }
+              ]}>
+                {isFavorite(getMLBTeamId(item.awayTeam)) && '★ '}
+                {item.awayTeam?.displayName || 'TBD'}
+              </Text>
               <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.awayTeam?.record || ''}</Text>
             </View>
             <Text style={[getTeamScoreStyle(item, true), { color: getScoreColor(item, true) }]}>{item.awayTeam?.score || '0'}</Text>
@@ -592,7 +618,15 @@ const MLBScoreboardScreen = ({ navigation }) => {
               />
             </View>
             <View style={styles.teamInfo}>
-              <Text style={[getTeamNameStyle(item, false), { color: getTeamNameColor(item, false) }]}>{item.homeTeam?.displayName || 'TBD'}</Text>
+              <Text style={[
+                getTeamNameStyle(item, false), 
+                { 
+                  color: isFavorite(getMLBTeamId(item.homeTeam)) ? colors.primary : getTeamNameColor(item, false) 
+                }
+              ]}>
+                {isFavorite(getMLBTeamId(item.homeTeam)) && '★ '}
+                {item.homeTeam?.displayName || 'TBD'}
+              </Text>
               <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.homeTeam?.record || ''}</Text>
             </View>
             <Text style={[getTeamScoreStyle(item, false), { color: getScoreColor(item, false) }]}>{item.homeTeam?.score || '0'}</Text>

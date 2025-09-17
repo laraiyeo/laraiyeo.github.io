@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { useFavorites } from '../../context/FavoritesContext';
 
 const TeamPageScreen = ({ route, navigation }) => {
   const { teamId, sport } = route.params;
   const { theme, colors, isDarkMode, getTeamLogoUrl: getThemeTeamLogoUrl } = useTheme();
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const [isUpdatingFavorites, setIsUpdatingFavorites] = useState(false);
   const [activeTab, setActiveTab] = useState('Games');
   const [teamData, setTeamData] = useState(null);
   const [teamRecord, setTeamRecord] = useState(null);
@@ -597,6 +600,15 @@ const TeamPageScreen = ({ route, navigation }) => {
   const getTeamNameColor = (game, isAwayTeam) => {
     if (!game.teams || !game.teams.away || !game.teams.home) return theme.text;
     
+    // Check if current team is favorited
+    const currentTeam = isAwayTeam ? game.teams.away : game.teams.home;
+    const isTeamFavorited = isFavorite(currentTeam.team.id?.toString());
+    
+    // If team is favorited, use primary color
+    if (isTeamFavorited) {
+      return colors.primary;
+    }
+    
     const isGameFinal = game.status.abstractGameState === 'Final';
     const awayScore = parseInt(game.teams.away.score || '0');
     const homeScore = parseInt(game.teams.home.score || '0');
@@ -610,6 +622,10 @@ const TeamPageScreen = ({ route, navigation }) => {
   const getTeamNameStyle = (game, isAwayTeam) => {
     if (!game.teams || !game.teams.away || !game.teams.home) return styles.gameTeamName;
     
+    // Check if current team is favorited
+    const currentTeam = isAwayTeam ? game.teams.away : game.teams.home;
+    const isTeamFavorited = isFavorite(currentTeam.team.id?.toString());
+    
     const isGameFinal = game.status.abstractGameState === 'Final';
     const awayScore = parseInt(game.teams.away.score || '0');
     const homeScore = parseInt(game.teams.home.score || '0');
@@ -617,7 +633,24 @@ const TeamPageScreen = ({ route, navigation }) => {
       (isAwayTeam && awayScore < homeScore) || 
       (!isAwayTeam && homeScore < awayScore)
     );
+    
+    // Apply losing style for all losing teams (favorited teams get special color handling in getTeamNameColor)
     return isLosing ? [styles.gameTeamName, styles.losingTeamName] : styles.gameTeamName;
+  };
+
+  const getTeamLogoStyle = (game, isAwayTeam) => {
+    if (!game.teams || !game.teams.away || !game.teams.home) return styles.gameTeamLogo;
+    
+    const isGameFinal = game.status.abstractGameState === 'Final';
+    const awayScore = parseInt(game.teams.away.score || '0');
+    const homeScore = parseInt(game.teams.home.score || '0');
+    const isLosing = isGameFinal && (
+      (isAwayTeam && awayScore < homeScore) || 
+      (!isAwayTeam && homeScore < awayScore)
+    );
+    
+    // Apply reduced opacity for losing teams
+    return isLosing ? [styles.gameTeamLogo, { opacity: 0.5 }] : styles.gameTeamLogo;
   };
 
   const renderTeamHeader = () => {
@@ -626,6 +659,51 @@ const TeamPageScreen = ({ route, navigation }) => {
     const getStreakColor = (streak) => {
       if (!streak || streak === 'N/A') return '#666';
       return streak.startsWith('W') ? '#008000' : streak.startsWith('L') ? '#FF0000' : '#666';
+    };
+
+    const isTeamFavorite = isFavorite(teamId);
+
+    const handleToggleFavorite = async () => {
+      const teamPayload = {
+        teamId: teamId,
+        teamName: teamData.name,
+        sport: 'MLB',
+        abbreviation: teamData.abbreviation
+      };
+
+      // Prefer the explicit currentGame, but fall back to nextMatches or lastMatches
+      // so Favorites has an event to fast-path to even when there is no live game.
+      let sourceGame = currentGame;
+      if (!sourceGame) {
+        // Prefer the next upcoming match if available
+        if (nextMatches && nextMatches.length > 0) {
+          sourceGame = nextMatches[0];
+        } else if (lastMatches && lastMatches.length > 0) {
+          // Otherwise use the most recent completed game
+          sourceGame = lastMatches[0];
+        }
+      }
+
+      const currentGameData = sourceGame ? {
+        eventId: sourceGame.gamePk,
+        eventLink: sourceGame.link,
+        gameDate: sourceGame.gameDate,
+        competition: 'mlb'
+      } : null;
+
+      if (currentGameData) {
+        console.log('MLB TeamPage: favoriting with currentGameData (fallback applied if needed)', currentGameData);
+      } else {
+        console.log('MLB TeamPage: favoriting without a currentGame (no candidate found)');
+      }
+
+      try {
+        // optional local processing flag if needed
+        setIsUpdatingFavorites(true);
+        await toggleFavorite(teamPayload, currentGameData);
+      } finally {
+        setTimeout(() => setIsUpdatingFavorites(false), 400);
+      }
     };
 
     return (
@@ -658,6 +736,15 @@ const TeamPageScreen = ({ route, navigation }) => {
             </View>
           )}
         </View>
+        <TouchableOpacity 
+          style={styles.favoriteButton} 
+          onPress={handleToggleFavorite}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.favoriteIcon, { color: isTeamFavorite ? colors.primary : theme.textSecondary }]}>
+            {isTeamFavorite ? '★' : '☆'}
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -721,14 +808,17 @@ const TeamPageScreen = ({ route, navigation }) => {
               <View style={styles.teamLogoContainer}>
                 <Image 
                   source={{ uri: getTeamLogoUrl(away.team.abbreviation) }}
-                  style={styles.gameTeamLogo}
+                  style={getTeamLogoStyle(currentGame, true)}
                   defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
                 />
                 {(isGameLive(currentGame) || currentGame.status.abstractGameState === 'Final') && away.score !== undefined && (
                   <Text style={[getTeamScoreStyle(currentGame, true), { color: getScoreColor(currentGame, true) }]}>{away.score}</Text>
                 )}
               </View>
-              <Text style={[getTeamNameStyle(currentGame, true), { color: getTeamNameColor(currentGame, true) }]}>{away.team.abbreviation}</Text>
+              <Text style={[getTeamNameStyle(currentGame, true), { color: getTeamNameColor(currentGame, true) }]}>
+                {isFavorite(away.team.id?.toString()) && <Text style={{ color: colors.primary }}>★ </Text>}
+                {away.team.abbreviation}
+              </Text>
               <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>
                 {away.leagueRecord ? `(${away.leagueRecord.wins}-${away.leagueRecord.losses})` : ''}
               </Text>
@@ -747,11 +837,14 @@ const TeamPageScreen = ({ route, navigation }) => {
                 )}
                 <Image 
                   source={{ uri: getTeamLogoUrl(home.team.abbreviation) }}
-                  style={styles.gameTeamLogo}
+                  style={getTeamLogoStyle(currentGame, false)}
                   defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
                 />
               </View>
-              <Text style={[getTeamNameStyle(currentGame, false), { color: getTeamNameColor(currentGame, false) }]}>{home.team.abbreviation}</Text>
+              <Text style={[getTeamNameStyle(currentGame, false), { color: getTeamNameColor(currentGame, false) }]}>
+                {isFavorite(home.team.id?.toString()) && <Text style={{ color: colors.primary }}>★ </Text>}
+                {home.team.abbreviation}
+              </Text>
               <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>
                 {home.leagueRecord ? `(${home.leagueRecord.wins}-${home.leagueRecord.losses})` : ''}
               </Text>
@@ -849,14 +942,17 @@ const TeamPageScreen = ({ route, navigation }) => {
             <View style={styles.teamLogoContainer}>
               <Image 
                 source={{ uri: getTeamLogoUrl(away.team.abbreviation) }}
-                style={styles.gameTeamLogo}
+                style={getTeamLogoStyle(game, true)}
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
               />
               {isCompleted && away.score !== undefined && (
                 <Text style={[getTeamScoreStyle(game, true), { color: getScoreColor(game, true) }]}>{away.score}</Text>
               )}
             </View>
-            <Text style={[getTeamNameStyle(game, true), { color: getTeamNameColor(game, true) }]}>{away.team.abbreviation}</Text>
+            <Text style={[getTeamNameStyle(game, true), { color: getTeamNameColor(game, true) }]}>
+              {isFavorite(away.team.id?.toString()) && <Text style={{ color: colors.primary }}>★ </Text>}
+              {away.team.abbreviation}
+            </Text>
             <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>
               {away.leagueRecord ? `(${away.leagueRecord.wins}-${away.leagueRecord.losses})` : ''}
             </Text>
@@ -875,11 +971,14 @@ const TeamPageScreen = ({ route, navigation }) => {
               )}
               <Image 
                 source={{ uri: getTeamLogoUrl(home.team.abbreviation) }}
-                style={styles.gameTeamLogo}
+                style={getTeamLogoStyle(game, false)}
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
               />
             </View>
-            <Text style={[getTeamNameStyle(game, false), { color: getTeamNameColor(game, false) }]}>{home.team.abbreviation}</Text>
+            <Text style={[getTeamNameStyle(game, false), { color: getTeamNameColor(game, false) }]}>
+              {isFavorite(home.team.id?.toString()) && <Text style={{ color: colors.primary }}>★ </Text>}
+              {home.team.abbreviation}
+            </Text>
             <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>
               {home.leagueRecord ? `(${home.leagueRecord.wins}-${home.leagueRecord.losses})` : ''}
             </Text>
@@ -1647,6 +1746,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     fontWeight: '500',
+  },
+  favoriteButton: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    padding: 10,
+    zIndex: 1,
+  },
+  favoriteIcon: {
+    fontSize: 24,
+    fontWeight: 'bold',
   },
 });
 

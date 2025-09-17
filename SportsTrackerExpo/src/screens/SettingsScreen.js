@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, FlatList } from 'react-native';
+import { useFavorites } from '../context/FavoritesContext';
 import { useTheme } from '../context/ThemeContext';
 
 const SettingsScreen = () => {
   const { isDarkMode, theme, colors, colorPalettes, currentColorPalette, toggleTheme, changeColorPalette } = useTheme();
+  const { favorites, removeFavorite, getFavoriteTeams, clearAllFavorites } = useFavorites();
 
   const renderColorOption = (paletteKey, palette) => {
     const isSelected = currentColorPalette === paletteKey;
@@ -113,6 +115,50 @@ const SettingsScreen = () => {
                 <Text style={styles.previewButtonText}>Sample Button</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+
+        {/* Favorites Section */}
+        <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Favorites</Text>
+            <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>Your Favorite Teams</Text>
+          </View>
+          <View style={{ padding: 12 }}>
+            <FlatList
+              data={getFavoriteTeams()}
+              keyExtractor={(item) => item.teamId ? String(item.teamId) : (item.displayName || item.teamName || Math.random()).toString()}
+              numColumns={2}
+              columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 6 }}
+              renderItem={({ item }) => (
+                <View style={[styles.favoriteTile, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  <Text style={[styles.favoriteText, { color: theme.text }]} numberOfLines={1}>
+                    {item.displayName || item.teamName || 'Unnamed Team'}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={async () => {
+                      if (item.teamId) await removeFavorite(item.teamId);
+                    }}
+                  >
+                    <Text style={styles.deleteButtonText}>×</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              ListEmptyComponent={() => (
+                <Text style={[styles.previewText, { color: theme.textSecondary }]}>No favorite teams yet.</Text>
+              )}
+            />
+
+            <TouchableOpacity
+              style={[styles.resetButton, { backgroundColor: colors.primary, opacity: (favorites && favorites.length > 0) ? 1 : 0.5 }]}
+              disabled={!(favorites && favorites.length > 0)}
+              onPress={async () => {
+                await clearAllFavorites();
+              }}
+            >
+              <Text style={styles.resetButtonText}>Reset Favorites</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -263,6 +309,47 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: '600',
+  },
+  favoriteTile: {
+    flex: 1,
+    minWidth: '48%',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginBottom: 6,
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  favoriteText: {
+    fontSize: 14,
+  },
+  resetButton: {
+    marginTop: 8,
+    paddingVertical: 10,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  resetButtonText: {
+    color: 'white',
+    fontWeight: '700',
+  },
+  deleteButton: {
+    position: 'absolute',
+    right: 6,
+    top: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#ff4d4f',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteButtonText: {
+    color: 'white',
+    fontWeight: '700',
+    lineHeight: 18,
+    fontSize: 14,
   },
 });
 

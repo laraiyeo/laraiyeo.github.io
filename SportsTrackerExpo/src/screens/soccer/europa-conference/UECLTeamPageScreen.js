@@ -7,7 +7,7 @@ import { EuropaConferenceLeagueServiceEnhanced } from '../../../services/soccer/
 const UECLTeamPageScreen = ({ route, navigation }) => {
   const { teamId, teamName } = route.params;
   const { theme, colors, isDarkMode } = useTheme();
-  const { isFavorite, toggleFavorite } = useFavorites();
+  const { isFavorite, toggleFavorite, updateTeamCurrentGame } = useFavorites();
   const [activeTab, setActiveTab] = useState('Games');
   const [teamData, setTeamData] = useState(null);
   const [teamRecord, setTeamRecord] = useState(null);
@@ -30,6 +30,41 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
   const [teamStats, setTeamStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const liveUpdateInterval = useRef(null);
+
+  // local updating state to avoid races while AsyncStorage writes
+  const [isUpdatingFavorites, setIsUpdatingFavorites] = useState(false);
+
+  const handleToggleFavorite = async () => {
+    if (!teamData) return;
+    try {
+      setIsUpdatingFavorites(true);
+      let currentGamePayload = null;
+      if (currentGame) {
+        const eventId = currentGame.id || currentGame.eventId || currentGame.gameId || currentGame.gamePk || (currentGame.competitions?.[0]?.id) || null;
+        const gameDate = currentGame.date || currentGame.gameDate || null;
+        const competition = currentGame.leagueCode || 'uefa.europa.conf' || (currentGame.competitions?.[0]?.league?.id) || null;
+        const eventLink = currentGame.$ref || currentGame.eventLink || (eventId ? `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/events/${eventId}` : null);
+
+        currentGamePayload = {
+          eventId: eventId ? String(eventId) : null,
+          eventLink: eventLink || null,
+          gameDate: gameDate || null,
+          competition: competition || 'uefa.europa.conf'
+        };
+      }
+
+      await toggleFavorite({
+        teamId: teamData.id,
+        teamName: teamData.displayName || teamData.name,
+        sport: 'Europa Conference League',
+        leagueCode: 'uefa.europa.conf'
+      }, currentGamePayload);
+    } catch (e) {
+      console.warn('Error toggling favorite for', teamData?.id, e);
+    } finally {
+      setIsUpdatingFavorites(false);
+    }
+  };
 
   // Convert HTTP URLs to HTTPS to avoid mixed content issues
   const convertToHttps = (url) => {
@@ -318,6 +353,28 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
         if (foundCurrentGame) {
           console.log('Setting current game:', foundCurrentGame.name);
           setCurrentGame(foundCurrentGame);
+
+          try {
+            const favId = teamData?.id || teamId || null;
+            if (favId && isFavorite(favId)) {
+              const eventId = foundCurrentGame.id || foundCurrentGame.eventId || foundCurrentGame.gameId || foundCurrentGame.gamePk || (foundCurrentGame.competitions?.[0]?.id) || null;
+              const gameDate = foundCurrentGame.date || foundCurrentGame.gameDate || null;
+              const competition = foundCurrentGame.leagueCode || (foundCurrentGame.competitions?.[0]?.league?.id) || 'uefa.europa.conf';
+              const eventLink = foundCurrentGame.$ref || foundCurrentGame.eventLink || (eventId ? `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/events/${eventId}` : null);
+
+              const currentGamePayload = {
+                eventId: eventId ? String(eventId) : null,
+                eventLink: eventLink || null,
+                gameDate: gameDate || null,
+                competition: competition || 'uefa.europa.conf'
+              };
+
+              console.log('UECLTeamPageScreen: team is favorited - updating persisted currentGame:', currentGamePayload);
+              await updateTeamCurrentGame(favId, currentGamePayload);
+            }
+          } catch (updateErr) {
+            console.log('Error updating persisted favorite currentGame:', updateErr);
+          }
         } else {
           console.log('No current game found');
           setCurrentGame(null);
@@ -523,14 +580,7 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
     const teamColor = getTeamColor(teamData);
     const isTeamFavorite = isFavorite(teamData.id);
 
-    const handleToggleFavorite = () => {
-      toggleFavorite({
-        teamId: teamData.id,
-        teamName: teamData.displayName || teamData.name,
-        sport: 'Europa Conference League',
-        leagueCode: 'uefa.europa.conf'
-      });
-    };
+    // isUpdatingFavorites and handleToggleFavorite moved to component scope
 
     return (
       <View style={[styles.teamHeader, { backgroundColor: theme.surface }]}>

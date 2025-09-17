@@ -1,0 +1,6 @@
+Obtain batter and pitcher matchup. Full name for both
+If details.call.code for play is F, text will be {batter} fouls off {pitchData.startSpeed} mph {type.description} from {pitcher}. Strike {count.strikes}
+If details.call.code for play is B, text will be {pitcher} throws {pitchData.startSpeed} mph {type.description} outside to {batter}. Ball {count.balls}
+If details.call.code for play is C, text will be {batter} takes strike {count.strikes} looking from {pitcher}
+If details.call.code for play is S, text will be {batter} swings at {pitchData.startSpeed} mph {type.description} from {pitcher}. Strike {count.strikes}
+iF details.call.code for play is D or X, text will be {batter} {description}

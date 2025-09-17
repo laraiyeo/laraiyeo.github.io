@@ -7,7 +7,7 @@ import { FranceServiceEnhanced } from '../../../services/soccer/FranceServiceEnh
 const FranceTeamPageScreen = ({ route, navigation }) => {
   const { teamId, teamName } = route.params;
   const { theme, colors, isDarkMode } = useTheme();
-  const { isFavorite, addFavorite, removeFavorite } = useFavorites();
+  const { isFavorite, toggleFavorite, updateTeamCurrentGame } = useFavorites();
   const [activeTab, setActiveTab] = useState('Games');
   const [teamData, setTeamData] = useState(null);
   const [teamRecord, setTeamRecord] = useState(null);
@@ -29,6 +29,42 @@ const FranceTeamPageScreen = ({ route, navigation }) => {
   const [teamStats, setTeamStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const liveUpdateInterval = useRef(null);
+
+  // local updating state to avoid races while AsyncStorage writes
+  const [isUpdatingFavorites, setIsUpdatingFavorites] = useState(false);
+
+  const handleToggleFavorite = async () => {
+    if (!teamData) return;
+    try {
+      setIsUpdatingFavorites(true);
+      const favObj = {
+        teamId: teamData.id,
+        displayName: teamData.displayName || teamData.name,
+        sport: 'Ligue 1'
+      };
+
+      let currentGamePayload = null;
+      if (currentGame) {
+        const eventId = currentGame.id || currentGame.eventId || currentGame.gameId || currentGame.gamePk || (currentGame.competitions?.[0]?.id) || null;
+        const gameDate = currentGame.date || currentGame.gameDate || null;
+        const competition = currentGame.leagueCode || 'fra.1' || (currentGame.competitions?.[0]?.league?.id) || null;
+        const eventLink = currentGame.$ref || currentGame.eventLink || (eventId ? `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/events/${eventId}` : null);
+
+        currentGamePayload = {
+          eventId: eventId ? String(eventId) : null,
+          eventLink: eventLink || null,
+          gameDate: gameDate || null,
+          competition: competition || 'fra.1'
+        };
+      }
+
+      await toggleFavorite(favObj, currentGamePayload);
+    } catch (err) {
+      console.error('Error toggling favorite for France team:', err);
+    } finally {
+      setIsUpdatingFavorites(false);
+    }
+  };
 
   // Convert HTTP URLs to HTTPS to avoid mixed content issues
   const convertToHttps = (url) => {
@@ -298,6 +334,28 @@ const FranceTeamPageScreen = ({ route, navigation }) => {
         if (foundCurrentGame) {
           console.log('Setting current game:', foundCurrentGame.name);
           setCurrentGame(foundCurrentGame);
+
+          try {
+            const favId = teamData?.id || teamId || null;
+            if (favId && isFavorite(favId)) {
+              const eventId = foundCurrentGame.id || foundCurrentGame.eventId || foundCurrentGame.gameId || foundCurrentGame.gamePk || (foundCurrentGame.competitions?.[0]?.id) || null;
+              const gameDate = foundCurrentGame.date || foundCurrentGame.gameDate || null;
+              const competition = foundCurrentGame.leagueCode || (foundCurrentGame.competitions?.[0]?.league?.id) || 'fra.1';
+              const eventLink = foundCurrentGame.$ref || foundCurrentGame.eventLink || (eventId ? `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/events/${eventId}` : null);
+
+              const currentGamePayload = {
+                eventId: eventId ? String(eventId) : null,
+                eventLink: eventLink || null,
+                gameDate: gameDate || null,
+                competition: competition || 'fra.1'
+              };
+
+              console.log('FranceTeamPageScreen: team is favorited - updating persisted currentGame:', currentGamePayload);
+              await updateTeamCurrentGame(favId, currentGamePayload);
+            }
+          } catch (updateErr) {
+            console.log('Error updating persisted favorite currentGame:', updateErr);
+          }
         } else {
           console.log('No current game found');
           setCurrentGame(null);
@@ -505,6 +563,8 @@ const FranceTeamPageScreen = ({ route, navigation }) => {
 
     const teamColor = getTeamColor(teamData);
 
+    // handler/state moved to component scope
+
     return (
       <View style={[styles.teamHeader, { backgroundColor: theme.surface }]}>
         <TeamLogoImage
@@ -512,27 +572,27 @@ const FranceTeamPageScreen = ({ route, navigation }) => {
           style={styles.teamLogoHeader}
         />
         <View style={styles.teamInfo}>
-          <Text style={[styles.teamName, { color: teamColor }]}>
+          <Text style={[styles.teamName, { color: teamColor }]}>\
             {teamData.displayName || teamData.name}
           </Text>
-          <Text style={[styles.teamDivision, { color: theme.textSecondary }]}>
+          <Text style={[styles.teamDivision, { color: theme.textSecondary }]}>\
             {teamData.standingSummary || 'France'}
           </Text>
           <View style={styles.recordContainer}>
             <View style={styles.recordRow}>
               <View style={[styles.recordItem, { marginRight: 20 }]}>
-                <Text style={[styles.recordValue, { color: teamColor }]}>
+                <Text style={[styles.recordValue, { color: teamColor }]}>\
                   {teamRecord?.wins || '0'}-{teamRecord?.draws || '0'}-{teamRecord?.losses || '0'}
                 </Text>
-                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>
+                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>\
                   Record
                 </Text>
               </View>
               <View style={styles.recordItem}>
-                <Text style={[styles.recordValue, { color: teamColor }]}>
+                <Text style={[styles.recordValue, { color: teamColor }]}>\
                   {teamRecord?.points || '0'}
                 </Text>
-                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>
+                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>\
                   Points
                 </Text>
               </View>
@@ -541,22 +601,13 @@ const FranceTeamPageScreen = ({ route, navigation }) => {
         </View>
         <TouchableOpacity
           style={styles.favoriteButton}
-          onPress={() => {
-            if (isFavorite(teamData.id)) {
-              removeFavorite(teamData.id);
-            } else {
-              addFavorite({
-                teamId: teamData.id,
-                displayName: teamData.displayName || teamData.name,
-                sport: 'Ligue 1'
-              });
-            }
-          }}
+          onPress={handleToggleFavorite}
+          disabled={isUpdatingFavorites}
         >
           <Text style={[styles.favoriteIcon, { 
             color: isFavorite(teamData.id) ? colors.primary : theme.textSecondary 
           }]}>
-            {isFavorite(teamData.id) ? '★' : '☆'}
+            {isUpdatingFavorites ? '⏳' : (isFavorite(teamData.id) ? '★' : '☆')}
           </Text>
         </TouchableOpacity>
       </View>
