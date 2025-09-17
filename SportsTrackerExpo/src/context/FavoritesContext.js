@@ -68,18 +68,57 @@ export const FavoritesProvider = ({ children }) => {
   const addFavorite = async (team) => {
     const id = resolveId(team) || null;
     const normalizedTeam = { ...team, teamId: id };
-    const newFavorites = [...favorites, normalizedTeam];
-    setFavorites(newFavorites);
-    await saveFavorites(newFavorites);
-    return newFavorites;
+
+    // Prevent adding duplicates with the same teamId
+    // Use functional updater to avoid races with concurrent updates
+    let result = null;
+    setFavorites(prev => {
+      const exists = id && prev.some(fav => String(fav.teamId) === id);
+      if (exists) {
+        console.log(`FavoritesContext: addFavorite skipped duplicate teamId=${id}`);
+        result = prev;
+        return prev;
+      }
+      const newFavorites = [...prev, normalizedTeam];
+      result = newFavorites;
+      return newFavorites;
+    });
+    try {
+      await saveFavorites(result || []);
+    } catch (e) {
+      console.error('FavoritesContext: saveFavorites failed after addFavorite', e);
+    }
+    return result || favorites;
   };
 
   const removeFavorite = async (teamId) => {
     const id = resolveId(teamId) || null;
-    const newFavorites = favorites.filter(fav => String(fav.teamId) !== id);
-    setFavorites(newFavorites);
-    await saveFavorites(newFavorites);
-    return newFavorites;
+    if (!id) {
+      console.log('FavoritesContext: removeFavorite called with empty id, skipping');
+      return favorites;
+    }
+
+    // Use functional updater to avoid races; remove only the first matching occurrence
+    let newFavorites = null;
+    setFavorites(prev => {
+      const index = prev.findIndex(fav => String(fav.teamId) === id);
+      if (index === -1) {
+        console.log(`FavoritesContext: removeFavorite did not find teamId=${id}`);
+        newFavorites = prev;
+        return prev;
+      }
+      const copy = [...prev];
+      copy.splice(index, 1);
+      newFavorites = copy;
+      console.log(`FavoritesContext: removed favorite teamId=${id} at index=${index} (before count=${prev.length}, after count=${copy.length})`);
+      return copy;
+    });
+    try {
+      await saveFavorites(newFavorites || []);
+    } catch (e) {
+      console.error('FavoritesContext: saveFavorites failed after removeFavorite', e);
+    }
+    return newFavorites || favorites;
   };
 
   const toggleFavorite = async (team, currentGameData = null) => {
@@ -222,7 +261,14 @@ export const FavoritesProvider = ({ children }) => {
       }
 
       console.log(`FavoritesContext: updateTeamCurrentGame for teamId=${id}, eventId=${currentGameData?.eventId}`);
-      setFavorites(updatedFavorites);
+      // Use functional updater to avoid races with concurrent modifications
+      setFavorites(prev => {
+        try {
+          const prevLength = (prev || []).length;
+          console.log(`FavoritesContext: updateTeamCurrentGame merging (prevCount=${prevLength})`);
+        } catch (e) {}
+        return updatedFavorites;
+      });
       await saveFavorites(updatedFavorites);
       console.log('FavoritesContext: favorite after updateTeamCurrentGame ->', updatedFavorites.find(f => String(f.teamId) === id));
       return updatedFavorites;
@@ -258,17 +304,20 @@ export const FavoritesProvider = ({ children }) => {
 
   const clearTeamCurrentGame = async (teamId) => {
     const id = resolveId(teamId) || null;
-    const updatedFavorites = favorites.map(fav => {
-      if (String(fav.teamId) === id) {
-        const { currentGame, ...teamWithoutGame } = fav;
-        return teamWithoutGame;
-      }
-      return fav;
+    setFavorites(prev => {
+      const updatedFavorites = (prev || []).map(fav => {
+        if (String(fav.teamId) === id) {
+          const { currentGame, ...teamWithoutGame } = fav;
+          return teamWithoutGame;
+        }
+        return fav;
+      });
+      (async () => {
+        try { await saveFavorites(updatedFavorites); } catch (e) { console.error('FavoritesContext: saveFavorites failed in clearTeamCurrentGame', e); }
+      })();
+      return updatedFavorites;
     });
-    
-    setFavorites(updatedFavorites);
-    await saveFavorites(updatedFavorites);
-    return updatedFavorites;
+    return favorites;
   };
 
   const clearAllFavorites = async () => {

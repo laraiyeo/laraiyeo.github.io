@@ -670,6 +670,12 @@ const TeamPageScreen = ({ route, navigation }) => {
         sport: 'MLB',
         abbreviation: teamData.abbreviation
       };
+      // Ensure we have the freshest currentGame information before deciding what to save
+      try {
+        await fetchCurrentGame();
+      } catch (e) {
+        console.log('handleToggleFavorite: fetchCurrentGame failed or was unavailable:', e?.message || e);
+      }
 
       // Prefer the explicit currentGame, but fall back to nextMatches or lastMatches
       // so Favorites has an event to fast-path to even when there is no live game.
@@ -692,7 +698,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       } : null;
 
       if (currentGameData) {
-        console.log('MLB TeamPage: favoriting with currentGameData (fallback applied if needed)', currentGameData);
+        console.log('MLB TeamPage: favoriting with currentGameData (sourceGame chosen)', currentGameData);
       } else {
         console.log('MLB TeamPage: favoriting without a currentGame (no candidate found)');
       }

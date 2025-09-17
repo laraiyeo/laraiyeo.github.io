@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AppState } from 'react-native';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity, Image, RefreshControl } from 'react-native';
 import { Modal, FlatList } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,6 +8,49 @@ import { useTheme } from '../context/ThemeContext';
 import { useFavorites } from '../context/FavoritesContext';
 import { ChampionsLeagueServiceEnhanced } from '../services/soccer/ChampionsLeagueServiceEnhanced';
 import { MLBService } from '../services/MLBService';
+
+// Module-level helpers so any function in the file can use them reliably
+const promiseWithTimeout = (p, ms = 3000) => {
+  return new Promise(resolve => {
+    let finished = false;
+    const timer = setTimeout(() => {
+      if (!finished) {
+        finished = true;
+        resolve(null);
+      }
+    }, ms);
+    Promise.resolve(p).then(v => {
+      if (!finished) {
+        finished = true;
+        clearTimeout(timer);
+        resolve(v);
+      }
+    }).catch(() => {
+      if (!finished) {
+        finished = true;
+        clearTimeout(timer);
+        resolve(null);
+      }
+    });
+  });
+};
+
+const raceForNonNull = (promises) => {
+  return new Promise(resolve => {
+    let pending = promises.length;
+    if (pending === 0) return resolve(null);
+    promises.forEach(p => {
+      Promise.resolve(p).then(v => {
+        if (v) return resolve(v);
+        pending -= 1;
+        if (pending === 0) resolve(null);
+      }).catch(() => {
+        pending -= 1;
+        if (pending === 0) resolve(null);
+      });
+    });
+  });
+};
 
 // Enhanced logo function with dark mode support and fallbacks
 const getTeamLogoUrls = (teamId, isDarkMode) => {
@@ -79,7 +123,7 @@ const LEAGUE_COMPETITIONS = {
 
 const FavoritesScreen = ({ navigation }) => {
   const { theme, colors, isDarkMode, getTeamLogoUrl } = useTheme();
-  const { getFavoriteTeams, isFavorite, favorites, getTeamCurrentGame, updateTeamCurrentGame } = useFavorites();
+  const { getFavoriteTeams, isFavorite, favorites, getTeamCurrentGame, updateTeamCurrentGame, clearTeamCurrentGame } = useFavorites();
   const [favoriteGames, setFavoriteGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -92,6 +136,8 @@ const FavoritesScreen = ({ navigation }) => {
   const [isScreenFocused, setIsScreenFocused] = useState(true);
   const [updateInterval, setUpdateInterval] = useState(null);
   const [liveGamesInterval, setLiveGamesInterval] = useState(null);
+
+  // Using module-level helpers promiseWithTimeout and raceForNonNull defined above.
 
   // Function to sort games by status then time
   const sortGamesByStatusAndTime = (games) => {
@@ -268,6 +314,15 @@ const FavoritesScreen = ({ navigation }) => {
       setIsScreenFocused(true);
       fetchFavoriteGames(true); // Refresh data when screen is focused
 
+      // Listen for app coming back to foreground while this screen is focused
+      const onAppStateChange = (nextAppState) => {
+        if (nextAppState === 'active') {
+          console.log('FavoritesScreen: App returned to foreground - refreshing favorites');
+          fetchFavoriteGames(true);
+        }
+      };
+      const sub = AppState.addEventListener ? AppState.addEventListener('change', onAppStateChange) : null;
+
       return () => {
         console.log('FavoritesScreen: Screen unfocused - pausing updates');
         setIsScreenFocused(false);
@@ -279,6 +334,7 @@ const FavoritesScreen = ({ navigation }) => {
           clearInterval(liveGamesInterval);
           setLiveGamesInterval(null);
         }
+        if (sub && sub.remove) sub.remove();
       };
     }, [getFavoriteTeams, favorites])
   );
@@ -443,119 +499,318 @@ const FavoritesScreen = ({ navigation }) => {
       console.log('Fetching games for teams:', favoriteTeams.map(t => `${t.displayName || t.teamName || 'Unknown'} (${t.sport})`));
       
       // Get unique teams by normalized key to avoid duplicates and malformed team objects
+      // Prefer deduplication by teamId when present. If teamId is missing, fall back to displayName|sport.
       const seenKeys = new Set();
       const uniqueTeams = [];
       for (const team of favoriteTeams) {
-        const id = team?.teamId ? String(team.teamId).trim() : null;
+        const rawId = team?.teamId ?? team?.id ?? null;
+        const id = rawId != null ? String(rawId).trim() : null;
         const display = team?.displayName || team?.teamName || 'Unknown';
         const sport = team?.sport || '';
-        const key = id || `${display}|${sport}`;
+        const key = id ? `id:${id}` : `name:${display}|${sport}`;
+
         if (!seenKeys.has(key)) {
           seenKeys.add(key);
           uniqueTeams.push(team);
+        } else {
+          console.log(`FavoritesScreen: skipped duplicate favorite key=${key} for team=${display}`);
         }
       }
       
       console.log(`Processing ${uniqueTeams.length} unique teams from ${favoriteTeams.length} favorites`);
       
+      // Use the module-level promiseWithTimeout and raceForNonNull helpers
+
       // For each unique team, check if we have current game data first, then fallback to fetching
-      const gamesPromises = uniqueTeams.flatMap(async (team) => {
+  const gamesPromises = uniqueTeams.flatMap(async (team) => {
         const teamGames = [];
   const teamName = (team && (team.displayName || team.teamName)) || 'Unknown Team';
+        const teamStart = Date.now();
+        const phaseTimes = {};
         
         // Check if we have current game data for this team
-      // Pass the entire team object so the FavoritesContext can resolve legacy id shapes
-      const currentGameData = getTeamCurrentGame(team);
-        
-        if (currentGameData) {
-          console.log(`Found current game data for ${teamName}, using direct event link`);
-          
-          // Try to fetch the game directly using the event link
-          const directGame = await fetchGameFromEventLink(team, currentGameData);
-          if (directGame) {
-            console.log(`Successfully fetched game directly for ${teamName}`);
-            return [directGame]; // Return early with the direct game
-          } else {
-            console.log(`Direct fetch failed for ${teamName}, falling back to normal fetch`);
+        // Pass the entire team object so the FavoritesContext can resolve legacy id shapes
+        let currentGameData = getTeamCurrentGame(team);
+
+        // Diagnostic: log stored currentGame split by country vs UEFA competitions
+        try {
+          const stored = currentGameData;
+          const storedCompetition = stored?.competition || null;
+          const countryGame = stored && storedCompetition && !String(storedCompetition).toLowerCase().startsWith('uefa') ? stored : null;
+          const uefaGame = stored && storedCompetition && String(storedCompetition).toLowerCase().startsWith('uefa') ? stored : null;
+          const teamObjCurrent = team?.currentGame || null; // if team object itself carried a currentGame
+          console.log(`FavoritesScreen: team ${teamName} currentGame -> country: ${countryGame ? `${countryGame.eventId} (${countryGame.competition})` : 'none'}, uefa: ${uefaGame ? `${uefaGame.eventId} (${uefaGame.competition})` : 'none'}, teamObj: ${teamObjCurrent ? JSON.stringify(teamObjCurrent) : 'none'}, storedRaw: ${stored ? JSON.stringify(stored) : 'none'}`);
+        } catch (e) {
+          console.log('FavoritesScreen: error logging currentGame diagnostics for', teamName, e?.message || e);
+        }
+
+      // If we have stored currentGameData for an MLB favorite, re-validate it against today's schedule
+      // Do this asynchronously so it doesn't block the per-team resolution (it's a best-effort refresh)
+      try {
+        const sportValLower = String(team?.sport || '').toLowerCase();
+        if (currentGameData && (sportValLower === 'mlb' || sportValLower === 'mlbteam' || String(team?.actualLeagueCode || '').toLowerCase() === 'mlb' )) {
+          (async () => {
+            try {
+              // Compute adjusted MLB "today" date (Eastern with 2AM cutoff)
+              const getAdjustedDateForMLB = () => {
+                const now = new Date();
+                const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+                const isDST = new Date().getTimezoneOffset() < new Date(new Date().getFullYear(), 0, 1).getTimezoneOffset();
+                const easternOffset = isDST ? -4 : -5;
+                const easternTime = new Date(utcTime + (easternOffset * 3600000));
+                if (easternTime.getHours() < 2) easternTime.setDate(easternTime.getDate() - 1);
+                return easternTime.getFullYear() + "-" + String(easternTime.getMonth() + 1).padStart(2, "0") + "-" + String(easternTime.getDate()).padStart(2, "0");
+              };
+
+              const adjusted = getAdjustedDateForMLB();
+              const mlbTeamId = team.teamId || team.id || (team.team && (team.team.teamId || team.team.id));
+              if (mlbTeamId) {
+                try {
+                  const scheduleUrl = `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId=${mlbTeamId}&startDate=${adjusted}&endDate=${adjusted}&hydrate=team,linescore,decisions`;
+                  const scheduleRes = await promiseWithTimeout(fetch(scheduleUrl).then(r => r.ok ? r.json() : null), 2500);
+                  if (scheduleRes && scheduleRes.dates && scheduleRes.dates.length > 0 && scheduleRes.dates[0].games.length > 0) {
+                    const gamesToday = scheduleRes.dates[0].games;
+                    // Prefer live, then scheduled, then completed (same logic as TeamPage)
+                    const liveGame = gamesToday.find(g => {
+                      return g.status && (g.status.abstractGameState === 'Live' || g.status.detailedState === 'In Progress' || g.status.codedGameState === 'I' || g.status.detailedState === 'Manager Challenge');
+                    });
+                    const scheduledGame = gamesToday.find(g => g.status && (g.status.abstractGameState === 'Preview' || (g.status.detailedState && g.status.detailedState.includes('Scheduled') || g.status.detailedState.includes('Pre-Game')) || g.status.detailedGameState.includes('Warmup')));
+                    const chosen = liveGame || scheduledGame || gamesToday[0];
+                    if (chosen && String(chosen.gamePk) !== String(currentGameData.eventId)) {
+                      // Persist the fresher today's event to favorites so direct fetch will work
+                      const updatedCurrentGame = {
+                        eventId: chosen.gamePk,
+                        eventLink: chosen.link || `/api/v1.1/game/${chosen.gamePk}/feed/live`,
+                        gameDate: chosen.gameDate,
+                        competition: 'mlb'
+                      };
+                      try {
+                        await updateTeamCurrentGame(team.teamId || String(mlbTeamId), updatedCurrentGame);
+                        console.log(`FavoritesScreen: updated stored currentGame for team ${teamName} to today's game ${updatedCurrentGame.eventId}`);
+                        // Do not overwrite local currentGameData here (we intentionally avoid blocking)
+                      } catch (e) {
+                        console.log('FavoritesScreen: failed to update stored currentGame:', e?.message || e);
+                      }
+                    }
+                  }
+                } catch (e) {
+                  // ignore schedule validation errors
+                  console.log('FavoritesScreen: MLB schedule validation failed for', teamName, e?.message || e);
+                }
+              }
+            } catch (e) {
+              console.log('FavoritesScreen: error during async MLB currentGame validation', e?.message || e);
+            }
+          })();
+        }
+      } catch (e) {
+        console.log('FavoritesScreen: error during currentGame validation', e?.message || e);
+      }
+
+  // Additional: if stored currentGameData exists for soccer/UEFA favorites, ensure it is for today's date
+  let clearedSoccerCurrentGame = false;
+  try {
+        const soccerIndicators = ['champions', 'uefa', 'premier', 'league', 'eng', 'esp', 'serie', 'bundesliga', 'ligue'];
+        const sportValLower = String(team?.sport || '').toLowerCase();
+        const hasSoccer = soccerIndicators.some(ind => sportValLower.includes(ind) || String(team?.actualLeagueCode || '').toLowerCase().includes(ind));
+        if (currentGameData && hasSoccer) {
+          // Use getTodayDateRange defined earlier in this file
+          try {
+            const { todayStart, todayEnd } = getTodayDateRange();
+            const gameDate = currentGameData.gameDate ? new Date(currentGameData.gameDate) : null;
+            if (!gameDate || gameDate < todayStart || gameDate >= todayEnd) {
+              // Stored currentGame not from today - clear it so normal fetch can find a fresh game
+              try {
+                await clearTeamCurrentGame(team.teamId || (team?.id ? String(team.id) : null));
+                console.log(`FavoritesScreen: cleared stale soccer currentGame for ${teamName} (was ${currentGameData.eventId})`);
+                clearedSoccerCurrentGame = true;
+              } catch (e) {
+                console.log('FavoritesScreen: failed to clear stale soccer currentGame', e?.message || e);
+              }
+              currentGameData = null;
+            }
+          } catch (e) {
+            // ignore date parse errors
+            console.log('FavoritesScreen: soccer date validation failed for', teamName, e?.message || e);
           }
         }
-        
-        // Fallback to normal fetching if no current game data or direct fetch failed
-        console.log(`Using normal fetch for ${teamName}`);
+      } catch (e) {
+        // ignore
+      }
 
-        // First, try domestic league fetch based on the favorite's origin
-        let domesticGame = null;
+      // If we have a stored currentGame, start a timed direct fetch but do not block other fetches.
+      // We'll include this in the race with domestic/UEFA so the fastest non-null wins.
+      let directFetchPromise = Promise.resolve(null);
+      if (currentGameData) {
+        console.log(`Found current game data for ${teamName}, starting timed direct fetch -> eventId=${currentGameData.eventId || 'none'}, competition=${currentGameData.competition || 'none'}, eventLink=${currentGameData.eventLink || 'none'}`);
+        // Start but don't await; use a slightly longer timeout for direct fetch
+        directFetchPromise = promiseWithTimeout(fetchGameFromEventLink(team, currentGameData), 4500);
+      }
+        
+        // If we just cleared a stored soccer currentGame for this team in this pass, skip the immediate normal fetch
+        if (!currentGameData && clearedSoccerCurrentGame) {
+          console.log(`Skipping normal fetch for ${teamName} because a stale soccer currentGame was just cleared; will let subsequent refresh resolve any new games.`);
+          return []; // No games for this team in this resolution pass
+        }
+
+        // If this is a soccer-like team and we have no stored country or UEFA currentGame, skip processing now
+        try {
+          const sportValLowerCheck = String(team?.sport || '').toLowerCase();
+          const indicatorsCheck = ['champions', 'uefa', 'premier', 'league', 'eng', 'esp', 'serie', 'bundesliga', 'ligue'];
+          const isSoccerLike = indicatorsCheck.some(ind => sportValLowerCheck.includes(ind) || String(team?.actualLeagueCode || '').toLowerCase().includes(ind));
+          if (isSoccerLike && !currentGameData) {
+            console.log(`Skipping processing for ${teamName}: no stored country or UEFA currentGame and team is soccer-like`);
+            return []; // Skip normal fetch for soccer favorites with no stored matches
+          }
+        } catch (e) {
+          // ignore
+        }
+
+        // Fallback to normal fetching if no current game data or direct fetch failed
+        console.log(`Using normal (parallelized) fetch for ${teamName}`);
+
+        // First, try domestic league fetch based on the favorite's origin, but do not await it synchronously.
+        let domesticPromise = Promise.resolve(null);
         console.log(`[DEBUG] Checking team sport for ${teamName}: "${team?.sport}"`);
         const sportVal = String(team?.sport || '').toLowerCase();
         if (sportVal === 'la liga') {
-          domesticGame = await fetchSpainTeamGame(team);
+          domesticPromise = fetchSpainTeamGame(team);
         } else if (sportVal === 'serie a') {
-          domesticGame = await fetchItalyTeamGame(team);
+          domesticPromise = fetchItalyTeamGame(team);
         } else if (sportVal === 'bundesliga') {
-          domesticGame = await fetchGermanyTeamGame(team);
+          domesticPromise = fetchGermanyTeamGame(team);
         } else if (sportVal === 'premier league') {
-          domesticGame = await fetchEnglandTeamGame(team);
+          domesticPromise = fetchEnglandTeamGame(team);
         } else if (sportVal === 'ligue 1') {
-          domesticGame = await fetchFranceTeamGame(team);
+          domesticPromise = fetchFranceTeamGame(team);
         } else if (sportVal === 'mlb') {
           console.log(`[DEBUG] MLB condition matched for ${teamName}, calling fetchMLBTeamGame`);
-          domesticGame = await fetchMLBTeamGame(team);
+          domesticPromise = fetchMLBTeamGame(team);
         } else if (team.sport === 'Champions League' || team.sport === 'Europa League' || team.sport === 'Europa Conference League') {
           // If the favorite originated from a European competition, prefer that competition
           console.log(`Fetching European competition games for: ${team.displayName} (${team.sport})`);
           if (team.sport === 'Champions League') {
-            domesticGame = await fetchUCLTeamGame(team);
+            domesticPromise = fetchUCLTeamGame(team);
           } else if (team.sport === 'Europa League') {
-            domesticGame = await fetchUELTeamGame(team);
+            domesticPromise = fetchUELTeamGame(team);
           } else if (team.sport === 'Europa Conference League') {
-            domesticGame = await fetchUECLTeamGame(team);
+            domesticPromise = fetchUECLTeamGame(team);
           }
         }
 
-        // If domestic fetch didn't find anything, try UEFA competitions (UCL, UEL, UECL)
-        if (!domesticGame) {
-          console.log(`No domestic game found for ${teamName}, checking UEFA competitions`);
-          const europeanGames = await Promise.all([
-            fetchUCLTeamGame(team),
-            fetchUELTeamGame(team),
-            fetchUECLTeamGame(team)
-          ]);
-          teamGames.push(...europeanGames.filter(game => game !== null));
+        // Start UEFA group fetches in parallel but don't block domestic early results
+        const uclP = fetchUCLTeamGame(team).catch(() => null);
+        const uelP = fetchUELTeamGame(team).catch(() => null);
+        const ueclP = fetchUECLTeamGame(team).catch(() => null);
+
+        // Race domestic and UEFA results for the first non-null result (with timeouts)
+        const domesticWithTimeout = promiseWithTimeout(domesticPromise, 3500);
+        const uefaFirst = raceForNonNull([promiseWithTimeout(uclP, 3500), promiseWithTimeout(uelP, 3500), promiseWithTimeout(ueclP, 3500)]);
+
+  // Prefer the first non-null of direct fetch, domestic, or UEFA
+  // Include directFetchPromise so stored currentGame direct fetches (e.g. MLB statsapi) are considered
+  const winner = await raceForNonNull([directFetchPromise, domesticWithTimeout, uefaFirst]);
+        phaseTimes.fetchResolved = Date.now() - teamStart;
+
+        if (winner) {
+          // winner might be single game or array depending on fetch; normalize to array
+          const results = Array.isArray(winner) ? winner : [winner];
+          // filter nulls
+          const valid = results.filter(r => r !== null);
+          if (valid.length > 0) teamGames.push(...valid);
+        } else {
+          // if none returned, as a fallback await both (but with timeouts) to collect anything partially available
+          const settledDomestic = await promiseWithTimeout(domesticPromise, 2000);
+          const settledUefa = await Promise.all([promiseWithTimeout(uclP, 2000), promiseWithTimeout(uelP, 2000), promiseWithTimeout(ueclP, 2000)]);
+          const fallback = [settledDomestic, ...settledUefa].flat().filter(Boolean);
+          if (fallback.length > 0) teamGames.push(...fallback);
         }
-        
-        if (domesticGame) {
-          teamGames.push(domesticGame);
-        }
-        
+
+        phaseTimes.total = Date.now() - teamStart;
+        console.log(`FavoritesScreen: team ${teamName} fetch phases (ms):`, phaseTimes);
+
         return teamGames;
       });
 
-      const gamesArrays = await Promise.all(gamesPromises);
+      // Merge results incrementally as individual team promises resolve to improve perceived load time.
+      // We still wait for all promises to settle before doing the final dedupe/replace, but
+      // the UI will receive updates as soon as each team returns.
+      let incrementalRendered = false;
+
+      const mergeAndSetGames = (newGames) => {
+        if (!newGames || newGames.length === 0) return;
+        setFavoriteGames(prev => {
+          const merged = [...prev, ...newGames];
+          // dedupe by id
+          const unique = merged.reduce((acc, game) => {
+            if (!acc.find(g => g.id === game.id)) acc.push(game);
+            return acc;
+          }, []);
+          return sortGamesByStatusAndTime(unique);
+        });
+      };
+
+      gamesPromises.forEach(p => {
+        p.then(games => {
+          try {
+            mergeAndSetGames(games);
+            if (!incrementalRendered) {
+              incrementalRendered = true;
+              // Hide the initial loading spinner as soon as we have at least one result
+              setLoading(false);
+            }
+          } catch (e) {
+            console.log('Error processing incremental games result:', e);
+          }
+        }).catch(e => {
+          console.log('Team fetch error (non-fatal):', e);
+        });
+      });
+
+      // Wait for all to finish, then compute final unique set and replace state with final sorted list
+      const settled = await Promise.allSettled(gamesPromises);
+      const gamesArrays = settled.map(s => s.status === 'fulfilled' ? s.value : null);
       // Flatten the arrays since each team can return multiple games
-      const allGames = gamesArrays.flat();
+      const allGames = (gamesArrays.filter(a => a).flat());
       const validGames = allGames.filter(game => game !== null);
-      
+
       // Remove duplicate games (when both teams in a match are favorited)
       const uniqueGames = validGames.reduce((acc, game) => {
         if (!game || !game.id) {
           console.warn('Game without ID found, skipping:', game);
           return acc;
         }
-        
         // Use game ID as unique identifier
         const existingGame = acc.find(g => g.id === game.id);
         if (!existingGame) {
           acc.push(game);
         } else {
-          // If game already exists, we can just skip it since it's the same game
           console.log(`Duplicate game removed: ${game.id} (${game.sport})`);
         }
         return acc;
       }, []);
-      
+
       console.log(`Found ${validGames.length} games (${uniqueGames.length} unique) for ${favoriteTeams.length} favorite teams`);
       console.log('Unique game IDs:', uniqueGames.map(g => g.id));
-      setFavoriteGames(uniqueGames);
+      // Preserve any incremental results already in state (merge union) so fast direct fetches aren't lost
+      try {
+        setFavoriteGames(prev => {
+          try {
+            const unionMap = new Map();
+            uniqueGames.forEach(g => unionMap.set(String(g.id), g));
+            (prev || []).forEach(g => {
+              if (g && g.id && !unionMap.has(String(g.id))) unionMap.set(String(g.id), g);
+            });
+            return sortGamesByStatusAndTime(Array.from(unionMap.values()));
+          } catch (inner) {
+            console.log('Error merging incremental games with final results (inside updater):', inner);
+            return sortGamesByStatusAndTime(uniqueGames);
+          }
+        });
+      } catch (e) {
+        console.log('Error merging incremental games with final results, falling back to uniqueGames:', e);
+        setFavoriteGames(sortGamesByStatusAndTime(uniqueGames));
+      }
     } catch (error) {
       console.error('Error fetching favorite games:', error);
     } finally {
@@ -699,13 +954,12 @@ const FavoritesScreen = ({ navigation }) => {
     }
     if (eventFetchCache.has(url)) return eventFetchCache.get(url);
     try {
-      const res = await fetch(url);
-      if (!res.ok) return null;
-      const data = await res.json();
+      const data = await promiseWithTimeout(fetch(url).then(r => r.ok ? r.json() : null), 3500);
+      if (!data) return null;
       eventFetchCache.set(url, data);
       return data;
     } catch (e) {
-      console.log('Error fetching event URL:', url, e);
+      console.log('Error fetching event URL (with timeout):', url, e);
       return null;
     }
   };
@@ -963,6 +1217,10 @@ const FavoritesScreen = ({ navigation }) => {
 
         for (const eventRef of eventsData.items) {
           const eventData = await getEventData(eventRef.$ref);
+          if (!eventData || !eventData.date) {
+            console.log(`Skipping null/invalid UCL event data for ${eventRef.$ref}`);
+            continue;
+          }
           const eventDate = new Date(eventData.date);
 
           // Check if this is today's game
@@ -1060,6 +1318,10 @@ const FavoritesScreen = ({ navigation }) => {
 
         for (const eventRef of eventsData.items) {
           const eventData = await getEventData(eventRef.$ref);
+          if (!eventData || !eventData.date) {
+            console.log(`Skipping null/invalid UEL event data for ${eventRef.$ref}`);
+            continue;
+          }
           const eventDate = new Date(eventData.date);
 
           if (eventDate >= todayStart && eventDate < todayEnd) {
@@ -1151,8 +1413,11 @@ const FavoritesScreen = ({ navigation }) => {
         const { todayStart, todayEnd } = getTodayDateRange();
 
         for (const eventRef of eventsData.items) {
-          const eventResponse = await fetch(eventRef.$ref);
-          const eventData = await eventResponse.json();
+          const eventData = await getEventData(eventRef.$ref);
+          if (!eventData || !eventData.date) {
+            console.log(`Skipping null/invalid UECL event data for ${eventRef.$ref}`);
+            continue;
+          }
           const eventDate = new Date(eventData.date);
 
           if (eventDate >= todayStart && eventDate < todayEnd) {
@@ -1250,6 +1515,10 @@ const FavoritesScreen = ({ navigation }) => {
 
             for (const eventRef of eventsData.items) {
               const eventData = await getEventData(eventRef.$ref);
+              if (!eventData || !eventData.date) {
+                console.log(`Skipping null/invalid event data for ${eventRef.$ref}`);
+                continue;
+              }
               const eventDate = new Date(eventData.date);
 
               if (eventDate >= todayStart && eventDate < todayEnd) {
@@ -1348,6 +1617,10 @@ const FavoritesScreen = ({ navigation }) => {
 
             for (const eventRef of eventsData.items) {
               const eventData = await getEventData(eventRef.$ref);
+              if (!eventData || !eventData.date) {
+                console.log(`Skipping null/invalid event data for ${eventRef.$ref}`);
+                continue;
+              }
               const eventDate = new Date(eventData.date);
 
               if (eventDate >= todayStart && eventDate < todayEnd) {
@@ -1446,6 +1719,10 @@ const FavoritesScreen = ({ navigation }) => {
 
             for (const eventRef of eventsData.items) {
               const eventData = await getEventData(eventRef.$ref);
+              if (!eventData || !eventData.date) {
+                console.log(`Skipping null/invalid event data for ${eventRef.$ref}`);
+                continue;
+              }
               const eventDate = new Date(eventData.date);
 
               if (eventDate >= todayStart && eventDate < todayEnd) {
@@ -1547,8 +1824,12 @@ const FavoritesScreen = ({ navigation }) => {
 
             for (const eventRef of eventsData.items) {
               const eventData = await getEventData(eventRef.$ref);
+              if (!eventData || !eventData.date) {
+                console.log(`Skipping null/invalid event data for ${eventRef.$ref}`);
+                continue;
+              }
               const eventDate = new Date(eventData.date);
-              
+
               console.log(`Event ${eventData.id}: ${eventDate.toISOString()} (${eventDate >= todayStart && eventDate < todayEnd ? 'MATCHES' : 'FILTERED OUT'})`);
 
               if (eventDate >= todayStart && eventDate < todayEnd) {
@@ -2218,7 +2499,7 @@ const FavoritesScreen = ({ navigation }) => {
             if (desc) {
               // If description already contains batter name, return as-is
               if (batter && desc.includes(batter)) return desc;
-              if (batter) return `${batter} ${desc}`.trim();
+              if (batter) return `${desc}`.trim();
               return desc;
             }
 
@@ -2270,6 +2551,15 @@ const FavoritesScreen = ({ navigation }) => {
 
             // Fallbacks
             if (!playText) playText = last.result?.description || last.about?.playText || last.about?.description || last.playDescription || last.playText || last.result?.event || '';
+
+            // If no description/result available, fall back to matchup "batter vs pitcher"
+            if (!playText) {
+              const batterName = last.matchup?.batter?.fullName || last.runners?.[0]?.details?.runner?.fullName || last.matchup?.batter?.player?.fullName || '';
+              const pitcherName = last.matchup?.pitcher?.fullName || '';
+              if (batterName || pitcherName) {
+                playText = `matchup ${batterName}${batterName && pitcherName ? ' vs ' : ''}${pitcherName}`.trim();
+              }
+            }
           } catch (e) {
             playText = last.result?.description || last.about?.playText || '';
           }
@@ -2293,10 +2583,15 @@ const FavoritesScreen = ({ navigation }) => {
             // ignore
           }
 
+          // Try to default team using matchup batHomeId/batAwayId when team field is missing
+          const matchupBatHome = last.matchup?.batHomeId || null;
+          const matchupBatAway = last.matchup?.batAwayId || null;
+          const teamField = last.team || (inferredTeamId ? { id: inferredTeamId } : (matchupBatHome ? { id: matchupBatHome } : (matchupBatAway ? { id: matchupBatAway } : null)));
+
           return {
             text: playText || '',
             shortText: last.result?.brief || last.result?.eventType || last.result?.event || '',
-            team: last.team || (inferredTeamId ? { id: inferredTeamId } : null),
+            team: teamField,
             inferredIsHome,
             inferredTeamId,
             halfInning: last.about?.halfInning || last.about?.half || last.about?.inningState || null,
@@ -2335,6 +2630,15 @@ const FavoritesScreen = ({ navigation }) => {
 
           const mlbShort = mostRecent?.result?.brief || mostRecent?.result?.eventType || mostRecent?.result?.event || mostRecent?.about?.period?.displayValue;
           if (!mlbText) mlbText = mostRecent?.result?.description || mostRecent?.about?.playText || mostRecent?.about?.description || mostRecent?.playDescription || mostRecent?.playText || mostRecent?.result?.event || mostRecent?.result?.eventType;
+
+          // If still no mlbText, fallback to matchup batter vs pitcher
+          if (!mlbText) {
+            const batterName = mostRecent?.matchup?.batter?.fullName || mostRecent?.runners?.[0]?.details?.runner?.fullName || '';
+            const pitcherName = mostRecent?.matchup?.pitcher?.fullName || '';
+            if (batterName || pitcherName) {
+              mlbText = `Matchup: ${batterName}${batterName && pitcherName ? ' vs ' : ''}${pitcherName}`.trim();
+            }
+          }
           const mlbTeam = (mostRecent?.team && (mostRecent.team.id || mostRecent.team.teamId)) || null;
           // matchup may contain batting team ids
           const matchupBatHome = mostRecent?.matchup?.batHomeId;
@@ -2628,8 +2932,10 @@ const FavoritesScreen = ({ navigation }) => {
           {gameStatus.isLive ? (
             // Show most recent play text for live MLB games with colored side border
             (() => {
-              // Defensive: sometimes playText may be empty though raw contains result.description
-              const candidate = (playText && String(playText).trim()) ? playText : (currentPlay?.raw?.result?.description || currentPlay?.raw?.about?.playText || currentPlay?.shortText || null);
+              // Prefer result.description first, then playText from playEvents, then other fallbacks
+              const candidate = (currentPlay?.raw?.result?.description && String(currentPlay.raw.result.description).trim()) ? 
+                currentPlay.raw.result.description : 
+                ((playText && String(playText).trim()) ? playText : (currentPlay?.raw?.about?.playText || currentPlay?.shortText || null));
               if (candidate) {
                 return (
                   <Text style={[styles.livePlayText, { color: theme.text }]} numberOfLines={2}>{candidate}</Text>
@@ -2850,7 +3156,7 @@ const FavoritesScreen = ({ navigation }) => {
         });
 
         if (state === 'pre') {
-          // Match not started - show date and time
+          // Match not started - show date and time but render label as 'Scheduled'
           const today = new Date();
           const isToday = gameDate.toDateString() === today.toDateString();
           const yesterday = new Date(today);
@@ -2869,8 +3175,9 @@ const FavoritesScreen = ({ navigation }) => {
           const timeText = formatGameTime(gameDate);
 
           // For pre-match state return a normalized status object similar to other states
+          // Use 'Scheduled' as the primary label and keep date/time in detail/time
           return {
-            text: `${dateText} ${timeText}`.trim(),
+            text: 'Scheduled',
             time: timeText,
             detail: dateText,
             isLive: false,
