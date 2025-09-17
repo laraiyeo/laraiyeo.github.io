@@ -214,8 +214,9 @@ const FavoritesScreen = ({ navigation }) => {
       const timeA = new Date(a.date).getTime();
       const timeB = new Date(b.date).getTime();
       
-      if (statusA === 'Final') {
-        return timeB - timeA; // Most recent final games first
+        if (statusA === 'Final') {
+        // For final games keep the original scheduled start-time ordering (earlier games first)
+        return timeA - timeB;
       } else {
         return timeA - timeB; // Earliest upcoming/live games first
       }
@@ -485,7 +486,7 @@ const FavoritesScreen = ({ navigation }) => {
       const now = Date.now();
 
       // Reduce debounce time to 2 seconds for better responsiveness
-      if (!forceRefresh && lastFetchTime && (now - lastFetchTime) < 2000) {
+      if (!forceRefresh && lastFetchTime && (now - lastFetchTime) < 5000) {
         console.log('Skipping fetch - too soon since last fetch (5s cooldown)');
         setLoading(false);
         setRefreshing(false);
@@ -2197,13 +2198,15 @@ const FavoritesScreen = ({ navigation }) => {
     
     // If MLB data exists, prefer its codedGameState (mlbGameData or liveData)
     const mlbCoded = game.mlbGameData?.status?.codedGameState || game.liveData?.status?.codedGameState;
-    if (mlbCoded) {
-      if (mlbCoded === 'I') {
+      if (mlbCoded) {
+      if (mlbCoded === 'I' || mlbCoded === 'M') {
         isLive = true;
         text = 'Live';
-      } else if (mlbCoded === 'F') {
+      } else if (mlbCoded === 'F' || mlbCoded === 'O' || mlbCoded === 'D') {
         isPost = true;
         text = 'Final';
+        // For final games prefer to show the original scheduled start time/date instead of 'TBD'
+        time = gameDate ? gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : '';
       } else {
         isPre = true;
         text = 'Scheduled';
@@ -2220,10 +2223,10 @@ const FavoritesScreen = ({ navigation }) => {
       };
     }
 
-    if (statusType === 'in') {
+    if (mlbCoded === 'I' || mlbCoded === 'M') {
       isLive = true;
       text = 'Live';
-    } else if (statusType === 'pre') {
+    } else if (mlbCoded === 'P' || mlbCoded === 'S' || mlbCoded === 'W') {
       isPre = true;
       text = 'Scheduled';
       time = gameDate.toLocaleTimeString('en-US', {
@@ -2235,7 +2238,7 @@ const FavoritesScreen = ({ navigation }) => {
         month: 'short',
         day: 'numeric'
       });
-    } else if (statusType === 'post') {
+    } else if (mlbCoded === 'F' || mlbCoded === 'O' || mlbCoded === 'D') {
       isPost = true;
       text = 'Final';
       detail = gameDate.toLocaleDateString('en-US', {
@@ -2822,7 +2825,7 @@ const FavoritesScreen = ({ navigation }) => {
         style={[
           styles.gameCard,
           { backgroundColor: theme.surface, borderColor: theme.border },
-          playBorderStyle
+          gameStatus.isLive ? playBorderStyle : {}
         ]}
         onPress={() => handleGamePress(game)}
         activeOpacity={0.7}
@@ -2910,7 +2913,7 @@ const FavoritesScreen = ({ navigation }) => {
               // Scheduled or finished games
               <>
                 <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
-                  {gameStatus.detail || 'TBD'}
+                  {gameStatus.detail}
                 </Text>
                 {gameStatus.time && (
                   <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
