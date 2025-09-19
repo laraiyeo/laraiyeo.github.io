@@ -89,8 +89,8 @@ const darkTheme = {
 };
 
 export const ThemeProvider = ({ children }) => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [currentColorPalette, setCurrentColorPalette] = useState('blue');
+  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [currentColorPalette, setCurrentColorPalette] = useState('red');
   const [isLoading, setIsLoading] = useState(true);
 
   // Load saved preferences
@@ -209,9 +209,12 @@ export const ThemeProvider = ({ children }) => {
     getTeamLogoUrl
   };
 
+  // Prevent rendering children until we've loaded saved preferences to avoid
+  // a flash of the hard-coded defaults. Consumers can still read `isLoading`
+  // from context if they want to show their own loading UI.
   return (
     <ThemeContext.Provider value={value}>
-      {children}
+      {isLoading ? null : children}
     </ThemeContext.Provider>
   );
 };
