@@ -3,15 +3,19 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Scr
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 
+// Keep a reference to the original console.log so important diagnostics remain visible
+const __orig_console_log = (typeof console !== 'undefined' && console.log) ? console.log.bind(console) : () => {};
+
 const TeamPageScreen = ({ route, navigation }) => {
   const { teamId, sport } = route.params;
   const { theme, colors, isDarkMode, getTeamLogoUrl: getThemeTeamLogoUrl } = useTheme();
-  const { isFavorite, toggleFavorite } = useFavorites();
+  const { isFavorite, toggleFavorite, updateTeamCurrentGame } = useFavorites();
   const [isUpdatingFavorites, setIsUpdatingFavorites] = useState(false);
   const [activeTab, setActiveTab] = useState('Games');
   const [teamData, setTeamData] = useState(null);
   const [teamRecord, setTeamRecord] = useState(null);
   const [currentGame, setCurrentGame] = useState(null);
+  const [lastStatusString, setLastStatusString] = useState(null);
   const [lastMatches, setLastMatches] = useState([]);
   const [nextMatches, setNextMatches] = useState([]);
   const [lastMatchesCollapsed, setLastMatchesCollapsed] = useState(true);
@@ -151,8 +155,23 @@ const TeamPageScreen = ({ route, navigation }) => {
         // First, look for any live games
         const liveGame = games.find(game => isGameLive(game));
         if (liveGame) {
-          console.log('Found live game:', liveGame.gamePk);
+          __orig_console_log('Found live game:', liveGame.gamePk);
+          // Persist to favorites if this team is favorited so the Favorites screen can use direct fetch
+          try {
+            if (isFavorite(teamId)) {
+              await updateTeamCurrentGame(teamId, {
+                eventId: liveGame.gamePk,
+                eventLink: liveGame.link || `/api/v1.1/game/${liveGame.gamePk}/feed/live`,
+                gameDate: liveGame.gameDate,
+                competition: 'mlb',
+                updatedAt: new Date().toISOString()
+              });
+            }
+          } catch (e) {
+            console.log('TeamPage: failed to persist live currentGame to favorites', e?.message || e);
+          }
           setCurrentGame(liveGame);
+          try { setLastStatusString(`Live: true Scheduled: false Finished: false Start Time: ${new Date(liveGame.gameDate).toLocaleString()} Direct Link: ${liveGame.link || `/api/v1.1/game/${liveGame.gamePk}/feed/live`}`); } catch (e) {}
           return;
         }
         
@@ -162,14 +181,42 @@ const TeamPageScreen = ({ route, navigation }) => {
           game.status.detailedState.includes('Scheduled')
         );
         if (scheduledGame) {
-          console.log('Found scheduled game for today:', scheduledGame.gamePk);
+          __orig_console_log('Found scheduled game for today:', scheduledGame.gamePk);
+          try {
+            if (isFavorite(teamId)) {
+              await updateTeamCurrentGame(teamId, {
+                eventId: scheduledGame.gamePk,
+                eventLink: scheduledGame.link || `/api/v1.1/game/${scheduledGame.gamePk}/feed/live`,
+                gameDate: scheduledGame.gameDate,
+                competition: 'mlb',
+                updatedAt: new Date().toISOString()
+              });
+            }
+          } catch (e) {
+            console.log('TeamPage: failed to persist scheduled currentGame to favorites', e?.message || e);
+          }
           setCurrentGame(scheduledGame);
+          try { setLastStatusString(`Live: false Scheduled: true Finished: false Start Time: ${new Date(scheduledGame.gameDate).toLocaleString()} Direct Link: ${scheduledGame.link || `/api/v1.1/game/${scheduledGame.gamePk}/feed/live`}`); } catch (e) {}
           return;
         }
         
         // Otherwise, take the first game (likely completed)
-        console.log('Found completed game for today:', games[0].gamePk);
-        setCurrentGame(games[0]);
+  __orig_console_log('Found completed game for today:', games[0].gamePk);
+        try {
+          if (isFavorite(teamId)) {
+            await updateTeamCurrentGame(teamId, {
+              eventId: games[0].gamePk,
+              eventLink: games[0].link || `/api/v1.1/game/${games[0].gamePk}/feed/live`,
+              gameDate: games[0].gameDate,
+              competition: 'mlb',
+              updatedAt: new Date().toISOString()
+            });
+          }
+        } catch (e) {
+          console.log('TeamPage: failed to persist completed currentGame to favorites', e?.message || e);
+        }
+  setCurrentGame(games[0]);
+  try { setLastStatusString(`Live: false Scheduled: false Finished: true Start Time: ${new Date(games[0].gameDate).toLocaleString()} Direct Link: ${games[0].link || `/api/v1.1/game/${games[0].gamePk}/feed/live`}`); } catch (e) {}
       } else {
         // No game today, look for next upcoming game using MLB date logic
         const getNextMLBDate = () => {
@@ -220,6 +267,19 @@ const TeamPageScreen = ({ route, navigation }) => {
               );
               if (nextGame) {
                 console.log('Found upcoming game:', nextGame.gamePk, 'on', date.date);
+                try {
+                  if (isFavorite(teamId)) {
+                    await updateTeamCurrentGame(teamId, {
+                      eventId: nextGame.gamePk,
+                      eventLink: nextGame.link || `/api/v1.1/game/${nextGame.gamePk}/feed/live`,
+                      gameDate: nextGame.gameDate,
+                      competition: 'mlb',
+                      updatedAt: new Date().toISOString()
+                    });
+                  }
+                } catch (e) {
+                  console.log('TeamPage: failed to persist upcoming currentGame to favorites', e?.message || e);
+                }
                 setCurrentGame(nextGame);
                 break;
               }
@@ -460,11 +520,30 @@ const TeamPageScreen = ({ route, navigation }) => {
   // Effect to manage live updates
   useEffect(() => {
     if (currentGame) {
-      if (isGameLive(currentGame)) {
+      // Compute status flags
+      const isLiveFlag = isGameLive(currentGame);
+      // Determine finished from MLB coded states or status
+      const mlbCoded = currentGame.mlbGameData?.status?.codedGameState || currentGame.liveData?.status?.codedGameState;
+      const statusType = currentGame.status || currentGame.header?.competitions?.[0]?.status || null;
+      const isFinishedFlag = Boolean(mlbCoded === 'F' || mlbCoded === 'O' || (statusType && (statusType.abstractGameState === 'Final' || statusType.type?.state === 'post')));
+      const isScheduledFlag = !isLiveFlag && !isFinishedFlag;
+
+      // Start/stop live updates as before
+      if (isLiveFlag) {
         startLiveUpdates();
       } else {
         stopLiveUpdates();
       }
+
+      // Format start time
+      const startDateRaw = currentGame.gameDate || currentGame.date || currentGame.startDate || (currentGame.header && currentGame.header.competitions && currentGame.header.competitions[0] && currentGame.header.competitions[0].date);
+      const startTimeStr = startDateRaw ? new Date(startDateRaw).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) : 'unknown';
+      const directLink = currentGame.link || currentGame.eventLink || (currentGame.gamePk ? `/api/v1.1/game/${currentGame.gamePk}/feed/live` : (currentGame.eventId ? `/api/v1.1/game/${currentGame.eventId}/feed/live` : 'none'));
+
+  const statusString = `Live: ${isLiveFlag} Scheduled: ${isScheduledFlag} Finished: ${isFinishedFlag} Start Time: ${startTimeStr} Direct Link: ${directLink}`;
+  __orig_console_log(`TeamPage currentGame status - ${statusString}`);
+  // Also expose on-screen for debugging
+  try { setLastStatusString(statusString); } catch (e) {}
     }
 
     return () => stopLiveUpdates();
@@ -1336,6 +1415,12 @@ const TeamPageScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  debugBanner: {
+    padding: 8,
+    backgroundColor: '#111',
+    margin: 8,
+    borderRadius: 6
   },
   loadingContainer: {
     flex: 1,

@@ -22,6 +22,7 @@ import NFLCompareScreen from './src/screens/nfl/CompareScreen';
 import NFLStatsScreen from './src/screens/nfl/StatsScreen';
 import NFLGameDetailsScreen from './src/screens/nfl/GameDetailsScreen';
 import NFLTeamPageScreen from './src/screens/nfl/TeamPageScreen';
+import NFLPlayerPageScreen from './src/screens/nfl/NFLPlayerPageScreen';
 
 // MLB specific screens
 import MLBScoreboardScreen from './src/screens/mlb/ScoreboardScreen';
@@ -945,6 +946,8 @@ const MainStackNavigator = () => {
           const { sport } = route?.params || {};
           const props = { route, navigation };
           switch(sport?.toLowerCase()) {
+            case 'nfl':
+              return <NFLPlayerPageScreen {...props} />;
             case 'mlb':
               return <MLBPlayerPageScreen {...props} />;
             default:

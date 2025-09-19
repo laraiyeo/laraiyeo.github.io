@@ -63,11 +63,11 @@ function smallHash(str) {
 
 // Cached fetch with conditional headers, in-flight dedupe, and same-pass dedupe
 async function fetchJsonWithCache(url, options = {}) {
-  const { timeout = 3500, force = false } = options;
+  const { timeout = 3500, force = false, bypassGating = false } = options;
   // During poll passes, avoid making expensive discovery requests to ESPN Core / Site APIs
-  // unless explicitly forced. Return cached data when available, otherwise null.
+  // unless explicitly forced or bypassing gating. Return cached data when available, otherwise null.
   try {
-    if (!force && currentFetchPhase === 'poll') {
+    if (!force && !bypassGating && currentFetchPhase === 'poll') {
       const blockedPatterns = ['sports.core.api.espn.com', 'site.api.espn.com', '/v2/sports/'];
       if (blockedPatterns.some(p => String(url).includes(p))) {
         const cached = eventFetchCache.get(url);
@@ -75,6 +75,8 @@ async function fetchJsonWithCache(url, options = {}) {
         // don't perform network fetch during poll for these endpoints
         return null;
       }
+    } else if (bypassGating && currentFetchPhase === 'poll') {
+      console.log('[BYPASS] Allowing gated URL during poll mode:', url.substring(0, 100));
     }
   } catch (e) {
     // ignore gating errors and continue to normal behavior
@@ -625,6 +627,7 @@ const FavoritesScreen = ({ navigation }) => {
 
   // Helper function to get "today's" date range with 2 AM cutoff
   // Games are considered "today's" until 2 AM of the next day
+  // Extended range to include recent games from previous day to handle timezone issues
   const getTodayDateRange = () => {
     const now = new Date();
     const currentHour = now.getHours();
@@ -637,10 +640,11 @@ const FavoritesScreen = ({ navigation }) => {
       today = new Date(); // Today
     }
     
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+    // Extend the range backwards by 12 hours to catch games from the previous evening
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 12, 0, 0); // Start from noon yesterday
+    const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1, 12, 0, 0); // End at noon tomorrow
     
-    console.log(`Date range calculation: Current time: ${now.toISOString()}, Hour: ${currentHour}, Using date: ${today.toDateString()}, Range: ${todayStart.toISOString()} to ${todayEnd.toISOString()}`);
+    __orig_console_log(`Date range calculation: Current time: ${now.toISOString()}, Hour: ${currentHour}, Using date: ${today.toDateString()}, Range: ${todayStart.toISOString()} to ${todayEnd.toISOString()}`);
     
     return { todayStart, todayEnd };
   };
@@ -663,7 +667,12 @@ const FavoritesScreen = ({ navigation }) => {
     };
     loadSectionOrder();
 
-    const newHash = `${favorites.length}-${favorites.map(f => f.teamId).sort().join(',')}`;
+    // Hash favorites by teamId and currentGame to detect updates to stored currentGame (eventId/updatedAt)
+    const newHash = JSON.stringify((favorites || []).map(f => ({
+      teamId: String(f.teamId || ''),
+      eventId: f?.currentGame?.eventId || null,
+      updatedAt: f?.currentGame?.updatedAt || null
+    })).sort((a,b) => (a.teamId || '').localeCompare(b.teamId || '')));
     
     if (favoritesHash && favoritesHash !== newHash) {
       console.log('Favorites list changed, refreshing games...', favorites.length, 'teams');
@@ -681,7 +690,7 @@ const FavoritesScreen = ({ navigation }) => {
     }
     
     setFavoritesHash(newHash);
-  }, [favorites.length, favorites.map(f => f.teamId).sort().join(',')]); // React to changes in favorites count and team IDs
+  }, [favorites]); // React to any change in favorites (including currentGame updates)
 
   // Default section order if none present
   const DEFAULT_SECTION_ORDER = ['MLB', 'Champions League', 'England Soccer', 'Spain Soccer', 'Italy Soccer', 'Germany Soccer', 'France Soccer'];
@@ -752,10 +761,19 @@ const FavoritesScreen = ({ navigation }) => {
     }
 
     // Check if we have any live games among scheduled games only (use computed flags)
-    const hasLiveGames = favoriteGames.some(game => game && game.isScheduled && game.isLive);
+    // Check if we have any games that need updates (live or approaching start time)
+    const hasGamesNeedingUpdates = favoriteGames.some(game => {
+      if (!game) return false;
+      const statusInfo = { 
+        isLive: game.isLive, 
+        isPre: game.isScheduled && !game.isLive, 
+        isPost: game.isFinished 
+      };
+      return shouldGameReceiveUpdates(game, statusInfo, game.sport || 'Unknown');
+    });
 
-    if (hasLiveGames && isScreenFocused) {
-      console.log('FavoritesScreen: Live games detected - setting up continuous refresh');
+    if (hasGamesNeedingUpdates && isScreenFocused) {
+      console.log('FavoritesScreen: Games needing updates detected - setting up continuous refresh');
       // Set up continuous refresh for live games (every 10 seconds)
       const interval = setInterval(() => {
         console.log('FavoritesScreen: Auto-refresh triggered for games that need updates');
@@ -780,7 +798,7 @@ const FavoritesScreen = ({ navigation }) => {
           }
           return currentGames; // Return unchanged to prevent re-render
         });
-      }, 10000); // 10 seconds
+  }, 5000); // 5 seconds
 
       setUpdateInterval(interval);
 
@@ -833,7 +851,7 @@ const FavoritesScreen = ({ navigation }) => {
         
         return currentGames; // Return unchanged to prevent unnecessary re-render
       });
-    }, 10 * 1000); // 10 seconds
+  }, 5 * 1000); // 5 seconds
 
     setLiveGamesInterval(playsInterval);
     
@@ -908,7 +926,7 @@ const FavoritesScreen = ({ navigation }) => {
         } catch (err) {
           console.warn('MLB polling loop error', err?.message || err);
         }
-      }, 10000);
+  }, 5000);
     };
 
     startPolling();
@@ -1021,13 +1039,26 @@ const FavoritesScreen = ({ navigation }) => {
       for (const team of uniqueTeams) {
         const currentGameData = getTeamCurrentGame(team);
         const sportValLower = String(team?.sport || '').toLowerCase();
-        // Only consider MLB teams with stored currentGame. During normal polling (not forced),
-        // only validate if the stored currentGame appears scheduled (this avoids discovery fetches on every poll).
-        const shouldConsider = Boolean(currentGameData) && (sportValLower === 'mlb' || sportValLower === 'mlbteam' || String(team?.actualLeagueCode || '').toLowerCase() === 'mlb');
+        const actualLeagueLower = String(team?.actualLeagueCode || '').toLowerCase();
+        // Only consider MLB teams with stored currentGame. Broaden detection to include 'baseball',
+        // teams where currentGameData indicates MLB, or when actualLeagueCode includes 'mlb'.
+        // This avoids missing teams that use 'Baseball' or other variants for the sport field.
+        const currentComp = String(currentGameData?.competition || '').toLowerCase();
+        const eventLinkHint = String(currentGameData?.eventLink || '').toLowerCase();
+        const shouldConsider = Boolean(currentGameData) && (
+          sportValLower === 'mlb' ||
+          sportValLower === 'mlbteam' ||
+          sportValLower === 'baseball' ||
+          actualLeagueLower === 'mlb' ||
+          currentComp === 'mlb' ||
+          eventLinkHint.includes('/api/v1.1/game/')
+        );
+
         if (shouldConsider) {
           const mlbTeamId = team.teamId || team.id || (team.team && (team.team.teamId || team.team.id));
           if (mlbTeamId && !mlbTeamsToValidate.find(t => t.mlbTeamId === mlbTeamId)) {
             mlbTeamsToValidate.push({ team, currentGameData, mlbTeamId, teamName: (team && (team.displayName || team.teamName)) || 'Unknown Team' });
+            __orig_console_log(`[MLB VALIDATE QUEUE] Queued team ${team.displayName || team.teamName || mlbTeamId} for MLB schedule validation (teamId=${mlbTeamId})`);
           }
         }
       }
@@ -1064,9 +1095,50 @@ const FavoritesScreen = ({ navigation }) => {
                     const liveGame = teamGames.find(g => {
                       return g.status && (g.status.abstractGameState === 'Live' || g.status.detailedState === 'In Progress' || g.status.codedGameState === 'I' || g.status.detailedState === 'Manager Challenge');
                     });
-                    const scheduledGame = teamGames.find(g => g.status && (g.status.abstractGameState === 'Preview' || (g.status.detailedState && g.status.detailedState.includes('Scheduled') || g.status.detailedState.includes('Pre-Game')) || g.status.detailedGameState?.includes('Warmup')));
-                    const chosen = liveGame || scheduledGame || teamGames[0];
-                    
+
+                    // Prefer an upcoming/scheduled game but choose the one closest to now if multiple exist.
+                    const scheduledCandidates = teamGames.filter(g => g.gameDate && g.status && (g.status.abstractGameState === 'Preview' || (g.status.detailedState && (g.status.detailedState.includes('Scheduled') || g.status.detailedState.includes('Pre-Game'))) || (g.status.detailedGameState && g.status.detailedGameState.includes('Warmup'))));
+
+                    let chosen = null;
+                    if (liveGame) {
+                      chosen = liveGame;
+                    } else if (scheduledCandidates.length > 0) {
+                      const now = Date.now();
+                      // Sort by absolute time difference to now, but prefer future games if diff ties
+                      scheduledCandidates.sort((a, b) => {
+                        const ta = new Date(a.gameDate).getTime();
+                        const tb = new Date(b.gameDate).getTime();
+                        const da = Math.abs(ta - now);
+                        const db = Math.abs(tb - now);
+                        if (da === db) return ta - tb; // prefer later (future)
+                        return da - db;
+                      });
+                      chosen = scheduledCandidates[0];
+                    } else {
+                      // Fallback to any listed game closest to now
+                      const withDates = teamGames.filter(g => g.gameDate);
+                      if (withDates.length > 0) {
+                        const now = Date.now();
+                        withDates.sort((a, b) => {
+                          const ta = new Date(a.gameDate).getTime();
+                          const tb = new Date(b.gameDate).getTime();
+                          const da = Math.abs(ta - now);
+                          const db = Math.abs(tb - now);
+                          if (da === db) return ta - tb;
+                          return da - db;
+                        });
+                        chosen = withDates[0];
+                      } else {
+                        chosen = teamGames[0];
+                      }
+                    }
+
+                    __orig_console_log(`[MLB SCHEDULE] team ${teamName} - teamGames count=${teamGames.length}`);
+                    for (const g of teamGames) {
+                      __orig_console_log(`  candidate gamePk=${g.gamePk}, gameDate=${g.gameDate}, status=${g.status?.abstractGameState || g.status?.detailedState || 'unknown'}`);
+                    }
+                    __orig_console_log(`[MLB SCHEDULE] chosen for ${teamName}: ${chosen ? `${chosen.gamePk} (${chosen.gameDate})` : 'none'} - live=${Boolean(liveGame)}`);
+
                     if (chosen && String(chosen.gamePk) !== String(currentGameData.eventId)) {
                       const updatedCurrentGame = {
                         eventId: chosen.gamePk,
@@ -1129,6 +1201,14 @@ const FavoritesScreen = ({ navigation }) => {
       // If we have a stored currentGame, use direct fetch. Otherwise, skip this team.
       if (currentGameData) {
         console.log(`Found current game data for ${teamName}, using direct fetch -> eventId=${currentGameData.eventId || 'none'}, competition=${currentGameData.competition || 'none'}, eventLink=${currentGameData.eventLink || 'none'}`);
+        __orig_console_log(`[DEBUG] Full currentGameData for ${teamName}:`, JSON.stringify(currentGameData, null, 2));
+        
+        // Ensure MLB games have eventLink set (fallback if missing)
+        if ((currentGameData.competition === 'mlb' || team.sport === 'MLB') && !currentGameData.eventLink && currentGameData.eventId) {
+          __orig_console_log(`[DEBUG] Setting missing eventLink for MLB game ${currentGameData.eventId}`);
+          currentGameData.eventLink = `/api/v1.1/game/${currentGameData.eventId}/feed/live`;
+        }
+        
         try {
           const directResult = await promiseWithTimeout(fetchGameFromEventLink(team, currentGameData), 4500);
           if (directResult) {
@@ -1270,7 +1350,9 @@ const FavoritesScreen = ({ navigation }) => {
         });
       } catch (e) {
         console.log('Error merging incremental games with final results, falling back to uniqueGames:', e);
-        setFavoriteGames(sortGamesByStatusAndTime(uniqueGames.map(g => ({ ...(g || {}), ...computeMatchFlags(g || {}) }))));
+        const finalGames = sortGamesByStatusAndTime(uniqueGames.map(g => ({ ...(g || {}), ...computeMatchFlags(g || {}) })));
+        __orig_console_log(`[FAVORITES STATE] Setting ${finalGames.length} games to favoriteGames state:`, finalGames.map(g => `${g.id} (${g.sport})`));
+        setFavoriteGames(finalGames);
       }
     } catch (error) {
       console.error('Error fetching favorite games:', error);
@@ -1323,7 +1405,7 @@ const FavoritesScreen = ({ navigation }) => {
       console.log(`Updating plays for ${gamesToUpdate.length} games that need updates`);
 
       const updatedGames = await Promise.all(
-        favoriteGames.map(async (game) => {
+        (currentGamesSnapshot || favoriteGames).map(async (game) => {
           // Check if this game is one that should receive updates
           const shouldUpdate = gamesToUpdate.find(g => g.id === game.id);
           
@@ -1331,56 +1413,409 @@ const FavoritesScreen = ({ navigation }) => {
             return game; // Return unchanged if not in update list
           }
 
+          // temporary holder for status data fetched alongside plays
+          let extraStatusForMerge = null;
+          // temporary holder for individual competitor score data
+          let extraScoreDataForMerge = null;
+
           try {
             let playsData = null;
             
             // Determine the correct API endpoint based on sport
+            __orig_console_log(`[BRANCH DEBUG] Game ${game.id} - sport: "${game.sport}", actualLeagueCode: "${game.actualLeagueCode}"`);
             if (game.sport === 'Champions League' || game.actualLeagueCode === 'uefa.champions') {
-              const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.champions/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=200`);
+              __orig_console_log(`[BRANCH DEBUG] Using Champions League branch for game ${game.id}`);
+              const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.champions/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`);
               if (playsResponseData.items && playsResponseData.items.length > 0) {
                 playsData = [...playsResponseData.items].reverse();
-                console.log(`Updated plays for UCL game ${game.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
+                __orig_console_log(`Updated plays for UCL game ${game.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
+              }
+              
+              // Also fetch Site API status for Champions League
+              try {
+                const siteApiUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/summary?event=${game.id}`;
+                __orig_console_log(`[SITE API UCL] Fetching status from: ${siteApiUrl}`);
+                const statusJson = await fetchJsonWithCache(siteApiUrl);
+                if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
+                  extraStatusForMerge = statusJson.header.competitions[0];
+                  __orig_console_log(`[SITE API UCL] Fetched Site API status for UCL game ${game.id}`);
+                } else {
+                  __orig_console_log(`[SITE API UCL] No valid status data in response for game ${game.id}`);
+                }
+              } catch (statusErr) {
+                __orig_console_log(`[SITE API UCL] Could not fetch Site API status for UCL game ${game.id}:`, statusErr?.message || statusErr);
+              }
+
+              // Also fetch individual competitor score data like initial load does
+              if (game.competitions?.[0]?.competitors) {
+                try {
+                  __orig_console_log(`[SCORE FETCH UCL] Fetching individual competitor scores for game ${game.id}`);
+                  const scorePromises = game.competitions[0].competitors.map(async (competitor, index) => {
+                    if (competitor.score?.$ref) {
+                      __orig_console_log(`[SCORE FETCH UCL] Fetching score data from: ${competitor.score.$ref}`);
+                      const scoreData = await getEventData(competitor.score.$ref, true).catch(() => null);
+                      return { index, scoreData };
+                    }
+                    return { index, scoreData: null };
+                  });
+                  const scoreResults = await Promise.all(scorePromises);
+                  __orig_console_log(`[SCORE FETCH UCL] Retrieved ${scoreResults.filter(s => s.scoreData !== null).length} score updates for game ${game.id}`);
+                  
+                  // Store score data for later merging
+                  extraScoreDataForMerge = scoreResults.filter(r => r.scoreData !== null);
+                } catch (scoreErr) {
+                  __orig_console_log(`[SCORE FETCH UCL] Error fetching competitor scores for game ${game.id}:`, scoreErr?.message || scoreErr);
+                }
               }
             } else if (game.sport === 'Europa League' || game.actualLeagueCode === 'uefa.europa') {
-              const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=200`);
+              __orig_console_log(`[BRANCH DEBUG] Using Europa League branch for game ${game.id}`);
+              const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`);
               if (playsResponseData.items && playsResponseData.items.length > 0) {
                 playsData = [...playsResponseData.items].reverse();
-                console.log(`Updated plays for UEL game ${game.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
+                __orig_console_log(`Updated plays for UEL game ${game.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
+              }
+              
+              // Also fetch Site API status for Europa League
+              try {
+                const siteApiUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/summary?event=${game.id}`;
+                __orig_console_log(`[SITE API UEL] Fetching status from: ${siteApiUrl}`);
+                const statusJson = await fetchJsonWithCache(siteApiUrl);
+                if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
+                  extraStatusForMerge = statusJson.header.competitions[0];
+                  __orig_console_log(`[SITE API UEL] Fetched Site API status for UEL game ${game.id}`);
+                } else {
+                  __orig_console_log(`[SITE API UEL] No valid status data in response for game ${game.id}`);
+                }
+              } catch (statusErr) {
+                __orig_console_log(`[SITE API UEL] Could not fetch Site API status for UEL game ${game.id}:`, statusErr?.message || statusErr);
+              }
+
+              // Also fetch individual competitor score data like initial load does
+              if (game.competitions?.[0]?.competitors) {
+                try {
+                  __orig_console_log(`[SCORE FETCH UEL] Fetching individual competitor scores for game ${game.id}`);
+                  const scorePromises = game.competitions[0].competitors.map(async (competitor, index) => {
+                    if (competitor.score?.$ref) {
+                      __orig_console_log(`[SCORE FETCH UEL] Fetching score data from: ${competitor.score.$ref}`);
+                      const scoreData = await getEventData(competitor.score.$ref, true).catch(() => null);
+                      return { index, scoreData };
+                    }
+                    return { index, scoreData: null };
+                  });
+                  const scoreResults = await Promise.all(scorePromises);
+                  __orig_console_log(`[SCORE FETCH UEL] Retrieved ${scoreResults.filter(s => s.scoreData !== null).length} score updates for game ${game.id}`);
+                  
+                  // Store score data for later merging
+                  extraScoreDataForMerge = scoreResults.filter(r => r.scoreData !== null);
+                } catch (scoreErr) {
+                  __orig_console_log(`[SCORE FETCH UEL] Error fetching competitor scores for game ${game.id}:`, scoreErr?.message || scoreErr);
+                }
               }
             } else if (game.sport === 'Europa Conference League' || game.actualLeagueCode === 'uefa.europa.conf') {
-              const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=200`);
+              __orig_console_log(`[BRANCH DEBUG] Using Europa Conference League branch for game ${game.id}`);
+              const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`);
               if (playsResponseData.items && playsResponseData.items.length > 0) {
                 playsData = [...playsResponseData.items].reverse();
-                console.log(`Updated plays for UECL game ${game.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
+                __orig_console_log(`Updated plays for UECL game ${game.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
+              }
+              
+              // Also fetch Site API status for Europa Conference League
+              try {
+                const siteApiUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/summary?event=${game.id}`;
+                __orig_console_log(`[SITE API UECL] Fetching status from: ${siteApiUrl}`);
+                const statusJson = await fetchJsonWithCache(siteApiUrl);
+                if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
+                  extraStatusForMerge = statusJson.header.competitions[0];
+                  __orig_console_log(`[SITE API UECL] Fetched Site API status for UECL game ${game.id}`);
+                } else {
+                  __orig_console_log(`[SITE API UECL] No valid status data in response for game ${game.id}`);
+                }
+              } catch (statusErr) {
+                __orig_console_log(`[SITE API UECL] Could not fetch Site API status for UECL game ${game.id}:`, statusErr?.message || statusErr);
+              }
+
+              // Also fetch individual competitor score data like initial load does
+              if (game.competitions?.[0]?.competitors) {
+                try {
+                  __orig_console_log(`[SCORE FETCH UECL] Fetching individual competitor scores for game ${game.id}`);
+                  const scorePromises = game.competitions[0].competitors.map(async (competitor, index) => {
+                    if (competitor.score?.$ref) {
+                      __orig_console_log(`[SCORE FETCH UECL] Fetching score data from: ${competitor.score.$ref}`);
+                      const scoreData = await getEventData(competitor.score.$ref, true).catch(() => null);
+                      return { index, scoreData };
+                    }
+                    return { index, scoreData: null };
+                  });
+                  const scoreResults = await Promise.all(scorePromises);
+                  __orig_console_log(`[SCORE FETCH UECL] Retrieved ${scoreResults.filter(s => s.scoreData !== null).length} score updates for game ${game.id}`);
+                  
+                  // Store score data for later merging
+                  extraScoreDataForMerge = scoreResults.filter(r => r.scoreData !== null);
+                } catch (scoreErr) {
+                  __orig_console_log(`[SCORE FETCH UECL] Error fetching competitor scores for game ${game.id}:`, scoreErr?.message || scoreErr);
+                }
               }
             } else if (game.sport === 'MLB' || game.actualLeagueCode === 'mlb') {
-              const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=50`);
-              if (playsResponseData.items && playsResponseData.items.length > 0) {
-                playsData = [...playsResponseData.items].reverse();
-                console.log(`Updated plays for MLB game ${game.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
+              // For MLB games, use the direct game link (statsapi) instead of ESPN plays endpoint
+              console.log(`[DEBUG] Processing MLB game ${game.id}, eventLink: ${game.eventLink || 'MISSING'}`);
+              if (game.eventLink) {
+                console.log(`[DEBUG] Fetching MLB game data from: ${game.eventLink}`);
+                const gameData = await getEventData(game.eventLink, true); // bypass gating for live updates
+                console.log(`[DEBUG] MLB game data response:`, {
+                  hasGameData: !!gameData,
+                  hasLiveData: !!(gameData && gameData.liveData),
+                  hasPlays: !!(gameData && gameData.liveData && gameData.liveData.plays),
+                  hasAllPlays: !!(gameData && gameData.liveData && gameData.liveData.plays && gameData.liveData.plays.allPlays),
+                  playsCount: gameData?.liveData?.plays?.allPlays?.length || 0
+                });
+                // If statsapi returned liveData, pull both plays and updated situation info
+                if (gameData && gameData.liveData) {
+                  const allPlays = gameData.liveData.plays?.allPlays;
+                  if (Array.isArray(allPlays) && allPlays.length > 0) {
+                    // Preserve the raw statsapi allPlays array (reversed) so the extractor
+                    // that understands MLB shapes can use full play objects and descriptions.
+                    playsData = [...allPlays].reverse();
+                    __orig_console_log(`Updated plays for MLB game ${game.id} from statsapi, total plays: ${playsData.length}`);
+                    // Log a sample of the most recent play keys to help debugging shape issues
+                    const sample = playsData[0];
+                    if (sample) {
+                      __orig_console_log(`Sample MLB play keys for game ${game.id}:`, Object.keys(sample).slice(0,10));
+                    }
+                  } else {
+                    __orig.console_log(`No plays data found in statsapi response for MLB game ${game.id}`);
+                  }
+
+                  // Build a normalized situation object from statsapi, preferring currentPlay.count
+                  // for live balls/strikes/outs, with linescore as fallback. UI reads game.liveData.situation.
+                  try {
+                    const ls = gameData.liveData.linescore || {};
+                    const currentPlay = gameData.liveData.plays?.currentPlay;
+                    const currentCount = currentPlay?.count;
+                    const matchup = currentPlay?.matchup || {};
+                    
+                    var newSituation = {
+                      balls: currentCount?.balls ?? ls.balls ?? 0,
+                      strikes: currentCount?.strikes ?? ls.strikes ?? 0,
+                      outs: currentCount?.outs ?? ls.outs ?? 0,
+                      inning: ls.currentInning || ls.inning || currentPlay?.about?.inning || 1,
+                      isTopInning: (ls.inningState === 'Top') || (currentPlay?.about?.isTopInning === false ? false : true),
+                      bases: {
+                        first: !!matchup.postOnFirst,
+                        second: !!matchup.postOnSecond,
+                        third: !!matchup.postOnThird
+                      }
+                    };
+                    
+                    // Debug log the extracted situation values
+                    __orig_console_log(`[SITUATION DEBUG] Game ${game.id}:`, {
+                      fromCurrentPlay: currentCount ? `${currentCount.balls}-${currentCount.strikes}, ${currentCount.outs} outs` : 'null',
+                      fromLinescore: ls ? `${ls.balls || 0}-${ls.strikes || 0}, ${ls.outs || 0} outs` : 'null',
+                      finalSituation: `${newSituation.balls}-${newSituation.strikes}, ${newSituation.outs} outs, inning ${newSituation.inning}, top: ${newSituation.isTopInning}`,
+                      basesFromMatchup: `1st: ${!!matchup.postOnFirst}, 2nd: ${!!matchup.postOnSecond}, 3rd: ${!!matchup.postOnThird}`,
+                      basesFromLinescore: `1st: ${!!ls.offense?.first}, 2nd: ${!!ls.offense?.second}, 3rd: ${!!ls.offense?.third}`
+                    });
+                  } catch (e) {
+                    // ignore building situation
+                    var newSituation = null;
+                    __orig_console_log(`[SITUATION DEBUG] Error building situation for game ${game.id}:`, e?.message || e);
+                  }
+                }
+                // If we fetched plays but they lack usable description fields, don't overwrite
+                // the existing playsData for this game (prevents losing rich descriptions).
+                if (playsData && Array.isArray(playsData) && playsData.length > 0) {
+                  const latest = playsData[0];
+                  const hasDescription = (latest && (
+                    (latest.result && latest.result.description) ||
+                    latest.about && (latest.about.playText || latest.about.description) ||
+                    latest.playText || latest.description ||
+                    (Array.isArray(latest.playEvents) && latest.playEvents.some(ev => ev?.details?.description))
+                  ));
+                  if (!hasDescription && game.playsData && Array.isArray(game.playsData) && game.playsData.length > 0) {
+                    __orig_console_log(`Fetched MLB plays for game ${game.id} lack descriptions; preserving existing playsData (${game.playsData.length} items)`);
+                    playsData = game.playsData; // preserve previous rich plays
+                  }
+                }
+
+                // For MLB games, handle both plays and situation updates here where gameData is available
+                let updatedGame = game;
+                
+                // Update plays if changed
+                if (playsData) {
+                  const currentPlaysJson = JSON.stringify(game.playsData);
+                  const newPlaysJson = JSON.stringify(playsData);
+                  if (currentPlaysJson !== newPlaysJson) {
+                    updatedGame = { ...updatedGame, playsData };
+                  }
+                }
+
+                // Update scores from currentPlay if available
+                if (gameData && gameData.liveData && gameData.liveData.plays && gameData.liveData.plays.currentPlay) {
+                  const currentPlay = gameData.liveData.plays.currentPlay;
+                  if (currentPlay.result && (currentPlay.result.awayScore !== undefined || currentPlay.result.homeScore !== undefined)) {
+                    const updatedCompetitions = [...(updatedGame.competitions || [])];
+                    if (updatedCompetitions[0] && updatedCompetitions[0].competitors) {
+                      const updatedCompetitors = updatedCompetitions[0].competitors.map(competitor => {
+                        if (competitor.homeAway === 'away' && currentPlay.result.awayScore !== undefined) {
+                          return { ...competitor, score: String(currentPlay.result.awayScore) };
+                        } else if (competitor.homeAway === 'home' && currentPlay.result.homeScore !== undefined) {
+                          return { ...competitor, score: String(currentPlay.result.homeScore) };
+                        }
+                        return competitor;
+                      });
+                      
+                      updatedCompetitions[0] = { ...updatedCompetitions[0], competitors: updatedCompetitors };
+                      updatedGame = { ...updatedGame, competitions: updatedCompetitions };
+                      
+                      __orig_console_log(`[SCORE UPDATE] Game ${game.id} scores updated - Away: ${currentPlay.result.awayScore}, Home: ${currentPlay.result.homeScore}`);
+                    }
+                  }
+                }
+
+                // Update situation if changed (gameData is available here)
+                if (typeof newSituation !== 'undefined') {
+                  try {
+                    const currentSituationJson = JSON.stringify((game.liveData && game.liveData.situation) || null);
+                    const newSituationJson = JSON.stringify(newSituation);
+                    if (currentSituationJson !== newSituationJson) {
+                      const mergedLive = { ...(updatedGame.liveData || {}), situation: newSituation };
+                      // Prefer the liveData.status from statsapi if available
+                      if (gameData && gameData.liveData && gameData.liveData.status) mergedLive.status = gameData.liveData.status;
+                      updatedGame = { ...updatedGame, liveData: mergedLive };
+                      __orig_console_log(`[SITUATION UPDATE] Game ${game.id} situation changed - updating state`);
+                    } else {
+                      __orig_console_log(`[SITUATION UPDATE] Game ${game.id} situation unchanged - no state update needed`);
+                    }
+                  } catch (e) {
+                    __orig_console_log(`[SITUATION UPDATE] Error comparing situation for game ${game.id}:`, e?.message || e);
+                  }
+                }
+
+                return updatedGame;
+              } else {
+                __orig_console_log(`No eventLink available for MLB game ${game.id}, skipping plays update`);
               }
             } else if (game.actualLeagueCode) {
               // Handle domestic leagues using the actualLeagueCode
-              const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${game.actualLeagueCode}/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=200`);
-              if (playsResponseData.items && playsResponseData.items.length > 0) {
+              __orig_console_log(`[BRANCH DEBUG] Using generic actualLeagueCode branch for game ${game.id}`);
+              __orig_console_log(`[LIVE UPDATE] Starting update for ${game.actualLeagueCode} game ${game.id}`);
+              const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${game.actualLeagueCode}/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`);
+                if (playsResponseData?.items && playsResponseData.items.length > 0) {
                 playsData = [...playsResponseData.items].reverse();
-                console.log(`Updated plays for ${game.actualLeagueCode} game ${game.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
+                __orig_console_log(`Updated plays for ${game.actualLeagueCode} game ${game.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
               } else {
-                console.warn(`Failed to fetch plays for ${game.actualLeagueCode} game ${game.id}, status: ${playsResponse.status}`);
+                __orig_console_log(`Failed to fetch plays for ${game.actualLeagueCode} game ${game.id}`);
+              }
+
+              // Also attempt to fetch the Site API summary to get authoritative status/score/displayClock
+              try {
+                const leagueCode = game.actualLeagueCode;
+                const siteApiUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${game.id}`;
+                __orig_console_log(`[SITE API] Attempting to fetch status for ${leagueCode} game ${game.id} from: ${siteApiUrl}`);
+                const statusJson = await fetchJsonWithCache(siteApiUrl);
+                __orig_console_log(`[SITE API] Response for ${game.id}:`, { hasData: !!statusJson, hasHeader: !!statusJson?.header, hasCompetitions: !!statusJson?.header?.competitions, hasComp0: !!statusJson?.header?.competitions?.[0] });
+                if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
+                  // Attach to a temporary variable so we can merge after plays/updatedGame is constructed
+                  extraStatusForMerge = statusJson.header.competitions[0];
+                  __orig_console_log(`Fetched Site API status for ${leagueCode} game ${game.id}`);
+                } else {
+                  __orig_console_log(`[SITE API] No valid status data in response for ${game.id}`);
+                }
+              } catch (statusErr) {
+                __orig_console_log(`Could not fetch Site API status for ${game.id} (${game.actualLeagueCode}):`, statusErr?.message || statusErr);
+              }
+
+              // Also fetch individual competitor score data like initial load does
+              if (game.competitions?.[0]?.competitors) {
+                try {
+                  __orig_console_log(`[SCORE FETCH] Fetching individual competitor scores for ${game.actualLeagueCode} game ${game.id}`);
+                  const scorePromises = game.competitions[0].competitors.map(async (competitor, index) => {
+                    if (competitor.score?.$ref) {
+                      __orig_console_log(`[SCORE FETCH] Fetching score data from: ${competitor.score.$ref}`);
+                      const scoreData = await getEventData(competitor.score.$ref, true).catch(() => null);
+                      return { index, scoreData };
+                    }
+                    return { index, scoreData: null };
+                  });
+                  const scoreResults = await Promise.all(scorePromises);
+                  __orig_console_log(`[SCORE FETCH] Retrieved ${scoreResults.filter(s => s.scoreData !== null).length} score updates for game ${game.id}`);
+                  
+                  // Store score data for later merging
+                  extraScoreDataForMerge = scoreResults.filter(r => r.scoreData !== null);
+                } catch (scoreErr) {
+                  __orig_console_log(`[SCORE FETCH] Error fetching competitor scores for game ${game.id}:`, scoreErr?.message || scoreErr);
+                }
               }
             }
             // Add more sports here as needed
             
-            // Only update if plays data actually changed to prevent unnecessary re-renders
+            // Decide whether we need to update this game object in state.
+            // We update if playsData changed (for non-MLB games).
+            // MLB games are handled completely within their branch above.
+                let updatedGame = game;
             if (playsData) {
               const currentPlaysJson = JSON.stringify(game.playsData);
               const newPlaysJson = JSON.stringify(playsData);
               if (currentPlaysJson !== newPlaysJson) {
-                return { ...game, playsData };
+                updatedGame = { ...updatedGame, playsData };
               }
             }
-            
-            return game;
+
+                // If we fetched site API status for this league, merge status and scores
+                if (extraStatusForMerge && updatedGame.competitions && updatedGame.competitions[0]) {
+                  try {
+                    __orig_console_log(`[STATUS MERGE] Starting merge for game ${game.id}, extraStatusForMerge has status:`, !!extraStatusForMerge.status);
+                    const updatedCompetitions = (updatedGame.competitions || []).map(c => ({ ...c }));
+                    // Merge status object
+                    updatedCompetitions[0].status = extraStatusForMerge.status || updatedCompetitions[0].status;
+                    // Merge competitor scores from extraStatusForMerge where available
+                    if (Array.isArray(extraStatusForMerge.competitors) && Array.isArray(updatedCompetitions[0].competitors)) {
+                      const scoreMap = new Map();
+                      for (const hc of extraStatusForMerge.competitors) {
+                        const tid = hc.team?.id || hc.team?.teamId || null;
+                        if (tid != null) scoreMap.set(String(tid), hc.score);
+                      }
+                      updatedCompetitions[0].competitors = updatedCompetitions[0].competitors.map(comp => {
+                        try {
+                          const compTeamId = comp.team?.id || comp.team?.teamId || comp.id || (comp.$$ref && String(comp.$$ref).match(/teams\/(\d+)/)?.[1]);
+                          const s = compTeamId ? scoreMap.get(String(compTeamId)) : undefined;
+                          if (s !== undefined && s !== null) return { ...comp, score: String(s) };
+                        } catch (e) {}
+                        return comp;
+                      });
+                    }
+                    updatedGame = { ...updatedGame, competitions: updatedCompetitions, gameDataWithStatus: { header: { competitions: [ extraStatusForMerge ] } } };
+                    __orig_console_log(`[STATUS MERGE] Merged Site API status for game ${game.id}, displayClock: ${extraStatusForMerge.status?.displayClock}`);
+                  } catch (e) {
+                    __orig_console_log('Error merging Site API status into game object:', e);
+                  }
+                } else {
+                  __orig_console_log(`[STATUS MERGE] Skipping merge for game ${game.id} - extraStatusForMerge: ${!!extraStatusForMerge}, competitions: ${!!updatedGame.competitions}, comp[0]: ${!!updatedGame.competitions?.[0]}`);
+                }
+
+                // Merge individual competitor score data if available
+                if (extraScoreDataForMerge && extraScoreDataForMerge.length > 0 && updatedGame.competitions && updatedGame.competitions[0]) {
+                  try {
+                    __orig_console_log(`[SCORE MERGE] Merging ${extraScoreDataForMerge.length} individual score updates for game ${game.id}`);
+                    const updatedCompetitions = [...(updatedGame.competitions || [])];
+                    if (updatedCompetitions[0]) {
+                      const updatedCompetitors = [...(updatedCompetitions[0].competitors || [])];
+                      extraScoreDataForMerge.forEach(({ index, scoreData }) => {
+                        if (scoreData && updatedCompetitors[index]) {
+                          updatedCompetitors[index] = { ...updatedCompetitors[index], score: scoreData };
+                          __orig_console_log(`[SCORE MERGE] Updated competitor ${index} score for game ${game.id}:`, scoreData);
+                        }
+                      });
+                      updatedCompetitions[0] = { ...updatedCompetitions[0], competitors: updatedCompetitors };
+                      updatedGame = { ...updatedGame, competitions: updatedCompetitions };
+                    }
+                  } catch (e) {
+                    __orig_console_log('Error merging individual score data into game object:', e);
+                  }
+                } else {
+                  __orig_console_log(`[SCORE MERGE] Skipping score merge for game ${game.id} - extraScoreDataForMerge: ${extraScoreDataForMerge ? extraScoreDataForMerge.length : 'null'} items`);
+                }
+
+            return updatedGame;
           } catch (error) {
             console.error(`Error updating plays for game ${game.id}:`, error);
             return game;
@@ -1389,16 +1824,41 @@ const FavoritesScreen = ({ navigation }) => {
       );
 
       // Only update state if there were actual changes
+      const baseGames = currentGamesSnapshot || favoriteGames;
+      const extractCompetitionsScoreSnapshot = (g) => {
+        try {
+          if (!g || !g.competitions || !g.competitions[0]) return null;
+          const comps = g.competitions[0];
+          const competitors = (comps.competitors || []).map(c => ({ id: c.team?.id || c.id || null, score: c.score }));
+          const status = comps.status || null;
+          return { competitors, status };
+        } catch (e) {
+          return null;
+        }
+      };
+
       const hasChanges = updatedGames.some((game, index) => {
-        const currentPlays = JSON.stringify(favoriteGames[index]?.playsData);
-        const newPlays = JSON.stringify(game.playsData);
-        return currentPlays !== newPlays;
+        const prev = baseGames[index] || {};
+        const currentPlays = JSON.stringify(prev?.playsData || null);
+        const newPlays = JSON.stringify(game.playsData || null);
+        if (currentPlays !== newPlays) return true;
+        const currentSituation = JSON.stringify(prev?.liveData?.situation || null);
+        const newSituation = JSON.stringify(updatedGames[index]?.liveData?.situation || null);
+        if (currentSituation !== newSituation) return true;
+
+        // Compare competition scores/status
+        const prevCompSnap = JSON.stringify(extractCompetitionsScoreSnapshot(prev));
+        const newCompSnap = JSON.stringify(extractCompetitionsScoreSnapshot(game));
+        if (prevCompSnap !== newCompSnap) return true;
+
+        return false;
       });
       
       if (hasChanges) {
+        __orig_console_log('Plays data changed, updating state');
         setFavoriteGames(updatedGames);
       } else {
-        console.log('No changes in plays data, skipping state update');
+        __orig_console_log('No changes in plays data, skipping state update');
       }
     } catch (error) {
       console.error('Error updating live games plays:', error);
@@ -1406,7 +1866,7 @@ const FavoritesScreen = ({ navigation }) => {
   };
 
   // Function to fetch game data directly using event link
-  const getEventData = async (url) => {
+  const getEventData = async (url, bypassGating = false) => {
     if (!url) return null;
     // Resolve known relative MLB feed links to full statsapi URL
     try {
@@ -1416,7 +1876,7 @@ const FavoritesScreen = ({ navigation }) => {
     } catch (e) {
       // ignore
     }
-    return await fetchJsonWithCache(url);
+    return await fetchJsonWithCache(url, { bypassGating });
   };
 
   const fetchGameFromEventLink = async (team, currentGameData) => {
@@ -1431,6 +1891,7 @@ const FavoritesScreen = ({ navigation }) => {
         return null;
       }
       console.log(`Fetching game directly from event link for ${teamName}:`, currentGameData.eventLink || currentGameData.eventId);
+      console.log(`[DIRECT FETCH] Live game update for ${teamName} - bypassing poll gating`);
 
       // Check if the current game is from today
       const { todayStart, todayEnd } = getTodayDateRange();
@@ -1440,7 +1901,7 @@ const FavoritesScreen = ({ navigation }) => {
         return null;
       }
       if (gameDate < todayStart || gameDate >= todayEnd) {
-        console.log(`Game for ${teamName} is not from today, skipping direct fetch`);
+        __orig_console_log(`[DATE FILTER] Game for ${teamName} excluded - gameDate: ${gameDate.toISOString()}, todayStart: ${todayStart.toISOString()}, todayEnd: ${todayEnd.toISOString()}`);
         return null;
       }
       
@@ -1459,6 +1920,16 @@ const FavoritesScreen = ({ navigation }) => {
         const mlbData = eventData;
         
   // Convert MLB data to the expected format for the favorites screen
+        // Resolve the eventLink to a full statsapi URL if it's a relative path
+        let resolvedMlbEventLink = currentGameData.eventLink;
+        try {
+          if (typeof resolvedMlbEventLink === 'string' && resolvedMlbEventLink.startsWith('/api/v1.1/game/')) {
+            resolvedMlbEventLink = `https://statsapi.mlb.com${resolvedMlbEventLink}`;
+          }
+        } catch (e) {
+          // ignore
+        }
+
         const convertedGame = {
           id: currentGameData.eventId,
           sport: 'MLB',
@@ -1468,6 +1939,8 @@ const FavoritesScreen = ({ navigation }) => {
             name: mlbData.gameData?.venue?.name,
             fullName: mlbData.gameData?.venue?.name
           },
+          // Include resolved direct link for MLB so callers can use it for live updates
+          eventLink: resolvedMlbEventLink,
           mlbGameData: mlbData.gameData || null,
           mlbLiveData: mlbData.liveData || null,
           competitions: [{
@@ -1535,7 +2008,18 @@ const FavoritesScreen = ({ navigation }) => {
       }
       
   // For non-MLB games (or if MLB branch didn't run), use the existing helper which caches and is null-safe
-      const eventData = await getEventData(currentGameData.eventLink);
+      // Resolve the URL first so we can save it in the return object
+      let resolvedEventLink = currentGameData.eventLink;
+      try {
+        if (typeof resolvedEventLink === 'string' && resolvedEventLink.startsWith('/api/v1.1/game/')) {
+          resolvedEventLink = `https://statsapi.mlb.com${resolvedEventLink}`;
+        }
+      } catch (e) {
+        // ignore
+      }
+      __orig_console_log(`[DEBUG] Resolved eventLink for ${teamName}: ${resolvedEventLink}`);
+      
+      const eventData = await getEventData(currentGameData.eventLink, true); // Bypass gating for direct game links
       if (!eventData) {
         console.log(`No event JSON returned for ${teamName} from link: ${currentGameData.eventLink}`);
         return null;
@@ -1546,8 +2030,8 @@ const FavoritesScreen = ({ navigation }) => {
         const competitorPromises = eventData.competitions[0].competitors.map(async (competitor) => {
           try {
             const [teamData, scoreData] = await Promise.all([
-              competitor.team?.$ref ? getEventData(competitor.team.$ref).catch(() => null) : null,
-              competitor.score?.$ref ? getEventData(competitor.score.$ref).catch(() => null) : null
+              competitor.team?.$ref ? getEventData(competitor.team.$ref, true).catch(() => null) : null,
+              competitor.score?.$ref ? getEventData(competitor.score.$ref, true).catch(() => null) : null
             ]);
             return { ...competitor, team: teamData || competitor.team, score: scoreData || competitor.score };
           } catch (e) {
@@ -1629,16 +2113,20 @@ const FavoritesScreen = ({ navigation }) => {
         // ignore
       }
 
-      return {
+      const returnObject = {
         ...eventData,
         favoriteTeam: team,
         sport: team.sport,
+        eventLink: resolvedEventLink, // Use the resolved full URL instead of relative path
         // Prefer the inferred league code from the event link, fall back to provided competition or team.sport
         actualLeagueCode: inferredLeagueCode || currentGameData.competition || team.sport,
         gameDataWithStatus: gameDataWithStatus,
         playsData: playsData,
         fromDirectLink: true // Flag to indicate this came from direct link
       };
+      
+      __orig_console_log(`[DEBUG] Returning game object for ${teamName}, eventLink: ${returnObject.eventLink}`);
+      return returnObject;
       
     } catch (error) {
       const teamName = team.displayName || team.teamName || 'Unknown Team';
@@ -2511,6 +2999,7 @@ const FavoritesScreen = ({ navigation }) => {
               favoriteTeam: team,
               sport: 'MLB',
               actualLeagueCode: 'mlb',
+              eventLink: `https://statsapi.mlb.com/api/v1.1/game/${eventData.id}/feed/live`, // Add the direct statsapi link
               liveData,
               playsData,
               mlbGameData
@@ -2891,6 +3380,13 @@ const FavoritesScreen = ({ navigation }) => {
         if (isMLB) {
           const currentPlayObj = game.liveData?.plays?.currentPlay || null;
           
+          // For MLB, check if we also have direct access to allPlays for more complete data
+          const directAllPlays = game.liveData?.plays?.allPlays || game.liveData?.allPlays || game.mlbGameData?.liveData?.plays?.allPlays;
+          const lastFromAllPlays = (directAllPlays && Array.isArray(directAllPlays) && directAllPlays.length > 0) ? directAllPlays[directAllPlays.length - 1] : null;
+          
+          // Use the more complete data source if available, otherwise fall back to mostRecent
+          const playToAnalyze = lastFromAllPlays || mostRecent;
+          
           try {
             // Priority order for MLB:
             // 1. currentPlay raw result description
@@ -2898,24 +3394,24 @@ const FavoritesScreen = ({ navigation }) => {
               mlbText = String(currentPlayObj.result.description).trim();
               console.log(`MLB play text (playsData) from currentPlay result description: ${mlbText}`);
             }
-            // 2. lastPlay raw result description  
-            else if (nonEmpty(mostRecent?.result?.description)) {
-              mlbText = String(mostRecent.result.description).trim();
-              console.log(`MLB play text (playsData) from lastPlay result description: ${mlbText}`);
+            // 2. playToAnalyze raw result description  
+            else if (nonEmpty(playToAnalyze?.result?.description)) {
+              mlbText = String(playToAnalyze.result.description).trim();
+              console.log(`MLB play text (playsData) from ${lastFromAllPlays ? 'allPlays' : 'playsData'} result description: ${mlbText}`);
             }
             // 3. current play play text (about.playText or about.description)
             else if (nonEmpty(currentPlayObj?.about?.playText) || nonEmpty(currentPlayObj?.about?.description)) {
               mlbText = String(nonEmpty(currentPlayObj.about?.playText) || nonEmpty(currentPlayObj.about?.description)).trim();
               console.log(`MLB play text (playsData) from currentPlay playText: ${mlbText}`);
             }
-            // 3b. lastPlay play text (about.playText or about.description)
-            else if (nonEmpty(mostRecent?.about?.playText) || nonEmpty(mostRecent?.about?.description)) {
-              mlbText = String(nonEmpty(mostRecent.about?.playText) || nonEmpty(mostRecent.about?.description)).trim();
-              console.log(`MLB play text (playsData) from lastPlay playText: ${mlbText}`);
+            // 3b. playToAnalyze play text (about.playText or about.description)
+            else if (nonEmpty(playToAnalyze?.about?.playText) || nonEmpty(playToAnalyze?.about?.description)) {
+              mlbText = String(nonEmpty(playToAnalyze.about?.playText) || nonEmpty(playToAnalyze.about?.description)).trim();
+              console.log(`MLB play text (playsData) from ${lastFromAllPlays ? 'allPlays' : 'playsData'} playText: ${mlbText}`);
             }
             // 4. Try to extract from playEvents with built logic
-            else if (Array.isArray(mostRecent?.playEvents) && mostRecent.playEvents.length > 0) {
-              const filtered = mostRecent.playEvents
+            else if (Array.isArray(playToAnalyze?.playEvents) && playToAnalyze.playEvents.length > 0) {
+              const filtered = playToAnalyze.playEvents
                 .filter(ev => ev && ev.details)
                 .filter(ev => {
                   const evType = String(ev.details.eventType || ev.type || '').toLowerCase();
@@ -2924,7 +3420,7 @@ const FavoritesScreen = ({ navigation }) => {
 
               if (filtered.length > 0) {
                 const lastEv = filtered[filtered.length - 1];
-                const built = buildMLBPlayTextFromEvent(lastEv, mostRecent);
+                const built = buildMLBPlayTextFromEvent(lastEv, playToAnalyze);
                 if (built) {
                   mlbText = built;
                   console.log(`MLB play text (playsData) from buildMLBPlayTextFromEvent: ${mlbText}`);
@@ -2937,8 +3433,8 @@ const FavoritesScreen = ({ navigation }) => {
             }
             // 5. matchup text (only if no other play information found)
             else {
-              const batterName = mostRecent?.matchup?.batter?.fullName || currentPlayObj?.matchup?.batter?.fullName || '';
-              const pitcherName = mostRecent?.matchup?.pitcher?.fullName || currentPlayObj?.matchup?.pitcher?.fullName || '';
+              const batterName = playToAnalyze?.matchup?.batter?.fullName || currentPlayObj?.matchup?.batter?.fullName || '';
+              const pitcherName = playToAnalyze?.matchup?.pitcher?.fullName || currentPlayObj?.matchup?.pitcher?.fullName || '';
               if (batterName || pitcherName) {
                 mlbText = `Matchup: ${batterName}${batterName && pitcherName ? ' vs ' : ''}${pitcherName}`.trim();
                 console.log(`MLB play text (playsData) from matchup (fallback): ${mlbText}`);
@@ -2947,7 +3443,7 @@ const FavoritesScreen = ({ navigation }) => {
 
             // Final fallback to any remaining fields
             if (!nonEmpty(mlbText)) {
-              mlbText = nonEmpty(mostRecent?.playDescription) || nonEmpty(mostRecent?.playText) || nonEmpty(mostRecent?.result?.event) || nonEmpty(mostRecent?.result?.eventType) || '';
+              mlbText = nonEmpty(playToAnalyze?.playDescription) || nonEmpty(playToAnalyze?.playText) || nonEmpty(playToAnalyze?.result?.event) || nonEmpty(playToAnalyze?.result?.eventType) || '';
               if (mlbText) console.log(`MLB play text (playsData) from final fallback: ${mlbText}`);
             }
           } catch (e) { mlbText = ''; }
@@ -3079,6 +3575,18 @@ const FavoritesScreen = ({ navigation }) => {
     
     const liveData = game.liveData || {};
     const gameId = game.id;
+
+    // Debug: log what the UI is actually reading from liveData.situation
+    if (gameStatus.isLive && liveData.situation) {
+      __orig_console_log(`[UI RENDER DEBUG] Game ${gameId} rendering with liveData.situation:`, {
+        balls: liveData.situation.balls,
+        strikes: liveData.situation.strikes,
+        outs: liveData.situation.outs,
+        inning: liveData.situation.inning,
+        isTopInning: liveData.situation.isTopInning,
+        bases: liveData.situation.bases
+      });
+    }
 
     // Parse scores and determine winner/loser for MLB finished games
     const parseScoreValue = (s) => {
@@ -3332,7 +3840,7 @@ const FavoritesScreen = ({ navigation }) => {
               // Live MLB game - show inning, balls/strikes, bases, outs
               <>
                 <Text style={[styles.gameDateTime, { color: theme.text }]}>
-                  {`${liveData.situation.isTopInning ? 'Top' : 'Bot'} ${liveData.situation.inning || 1}`}
+                  {`${liveData.situation.isTopInning ? 'Top' : 'Bot'} ${liveData.situation.inning || 1}`} • {`${liveData.situation.balls || 0}-${liveData.situation.strikes || 0}`}
                 </Text>
                 {/* Mini bases display */}
                 <View style={styles.miniBasesContainer}>
@@ -3626,15 +4134,16 @@ const FavoritesScreen = ({ navigation }) => {
     const getMatchStatus = () => {
       // Try to get status from Site API data first (like Game Details screen)
       const statusFromSiteAPI = game.gameDataWithStatus?.header?.competitions?.[0]?.status;
+      __orig_console_log(`[STATUS READ] Game ${game.id} - statusFromSiteAPI found: ${!!statusFromSiteAPI}, displayClock: ${statusFromSiteAPI?.displayClock}`);
+      
       if (statusFromSiteAPI) {
         const state = statusFromSiteAPI.type?.state;
         
-        console.log(`Using Site API status for game ${game.id}:`, {
+        __orig_console_log(`Using Site API status for game ${game.id}:`, {
           state,
           displayClock: statusFromSiteAPI.displayClock,
           period: statusFromSiteAPI.period,
-          typeDescription: statusFromSiteAPI.type?.description,
-          fullStatus: JSON.stringify(statusFromSiteAPI, null, 2)
+          typeDescription: statusFromSiteAPI.type?.description
         });
 
         if (state === 'pre') {
@@ -3859,7 +4368,8 @@ const FavoritesScreen = ({ navigation }) => {
     const logKey = `${game.id}-${isLive}-${isScheduled}-${isFinished}`;
     if (!loggedGames.has(logKey)) {
       const gameStartTime = formatGameTime(gameDate);
-      __orig_console_log(`Game ${game.id} (${game.sport || 'Unknown'}) Status - Live: ${isLive}, Scheduled: ${isScheduled}, Finished: ${isFinished}, Start Time: ${gameStartTime} EST`);
+      const directLink = game.eventLink ? `, Direct Link: ${game.eventLink}` : ', Direct Link: None';
+      __orig_console_log(`Game ${game.id} (${game.sport || 'Unknown'}) Status - Live: ${isLive}, Scheduled: ${isScheduled}, Finished: ${isFinished}, Start Time: ${gameStartTime} EST${directLink}`);
       loggedGames.add(logKey);
       
       // Determine if this game should receive updates and track it
@@ -4237,15 +4747,30 @@ const FavoritesScreen = ({ navigation }) => {
         'Trophee des Champions': 'France Soccer',
         'Champions League': 'Champions League',
         'Europa League': 'Europa League',
-        'Europa Conference League': 'Europa Conference League'
+        'Europa Conference League': 'Europa Conference League',
+        // Baseball/MLB mappings
+        'Baseball': 'MLB',
+        'mlb': 'MLB'
       };
       
-      return groupNames[competitionName] || fallbackSport || 'Unknown';
+      const groupName = groupNames[competitionName];
+      if (groupName) {
+        return groupName;
+      }
+      
+      // Fallback logic for sports not in groupNames
+      if (fallbackSport === 'Baseball' || fallbackSport === 'baseball' || 
+          actualLeagueCode === 'mlb' || actualLeagueCode === 'MLB') {
+        return 'MLB';
+      }
+      
+      return fallbackSport || 'Unknown';
     };
 
     // Group games by actual competition using actualLeagueCode
     const grouped = favoriteGames.reduce((acc, game) => {
       const sport = getLeagueGroupName(game.actualLeagueCode, game.sport);
+      __orig_console_log(`[GROUPING] Game ${game.id} (${game.actualLeagueCode}) -> sport group: "${sport}"`);
       if (!acc[sport]) {
         acc[sport] = [];
       }

@@ -173,7 +173,20 @@ export const ThemeProvider = ({ children }) => {
       case 'mlb':
         return `https://a.espncdn.com/i/teamlogos/mlb/${size}${themeSuffix}/${normalizedTeamId}.png`;
       case 'nfl':
-        return `https://a.espncdn.com/i/teamlogos/nfl/${size}${themeSuffix}/${normalizedTeamId}.png`;
+        // Some ESPN payloads provide numeric team IDs; map those to the standard abbreviations used in the logo filenames
+        const nflIdToAbbr = {
+          '2': 'buf', '15': 'mia', '17': 'ne', '20': 'nyj',
+          '33': 'bal', '4': 'cin', '5': 'cle', '23': 'pit',
+          '34': 'hou', '11': 'ind', '30': 'jax', '10': 'ten',
+          '7': 'den', '12': 'kc', '13': 'lv', '24': 'lac',
+          '6': 'dal', '19': 'nyg', '21': 'phi', '28': 'was',
+          '3': 'chi', '8': 'det', '9': 'gb', '16': 'min',
+          '1': 'atl', '29': 'car', '18': 'no', '27': 'tb',
+          '22': 'ari', '14': 'lar', '25': 'sf', '26': 'sea'
+        };
+        // If teamId looks numeric and we have a mapping, prefer the abbreviation
+        const nflNormalized = (nflIdToAbbr[normalizedTeamId] || normalizedTeamId);
+        return `https://a.espncdn.com/i/teamlogos/nfl/${size}${themeSuffix}/${nflNormalized}.png`;
       case 'nba':
         return `https://a.espncdn.com/i/teamlogos/nba/${size}${themeSuffix}/${normalizedTeamId}.png`;
       case 'nhl':

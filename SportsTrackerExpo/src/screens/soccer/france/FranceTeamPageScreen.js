@@ -572,27 +572,27 @@ const FranceTeamPageScreen = ({ route, navigation }) => {
           style={styles.teamLogoHeader}
         />
         <View style={styles.teamInfo}>
-          <Text style={[styles.teamName, { color: teamColor }]}>\
+          <Text style={[styles.teamName, { color: teamColor }]}>
             {teamData.displayName || teamData.name}
           </Text>
-          <Text style={[styles.teamDivision, { color: theme.textSecondary }]}>\
+          <Text style={[styles.teamDivision, { color: theme.textSecondary }]}>
             {teamData.standingSummary || 'France'}
           </Text>
           <View style={styles.recordContainer}>
             <View style={styles.recordRow}>
               <View style={[styles.recordItem, { marginRight: 20 }]}>
-                <Text style={[styles.recordValue, { color: teamColor }]}>\
+                <Text style={[styles.recordValue, { color: teamColor }]}>
                   {teamRecord?.wins || '0'}-{teamRecord?.draws || '0'}-{teamRecord?.losses || '0'}
                 </Text>
-                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>\
+                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>
                   Record
                 </Text>
               </View>
               <View style={styles.recordItem}>
-                <Text style={[styles.recordValue, { color: teamColor }]}>\
+                <Text style={[styles.recordValue, { color: teamColor }]}>
                   {teamRecord?.points || '0'}
                 </Text>
-                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>\
+                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>
                   Points
                 </Text>
               </View>

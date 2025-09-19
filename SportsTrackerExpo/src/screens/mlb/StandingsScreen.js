@@ -75,6 +75,7 @@ const StandingsScreen = ({ route }) => {
       '11': '133',  // Athletics ESPN ID 11 -> MLB ID 133
       '12': '117',  // Astros
       '13': '110',  // Orioles
+      '4' : '145',   // Angels
       // Add more as needed
     };
     
