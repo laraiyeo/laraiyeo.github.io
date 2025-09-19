@@ -393,7 +393,7 @@ const FranceTransferScreen = ({ navigation, route }) => {
       <View style={[styles.searchContainer, { backgroundColor: theme.surface }]}>
         <View style={[styles.searchInputContainer, { backgroundColor: theme.background }]}>
           <Ionicons name="search" size={20} color={theme.textSecondary} />
-          <Text allowFontScaling={false}Input
+          <TextInput
             style={[styles.searchInput, { color: theme.text }]}
             placeholder="Search players, teams, or transfer type..."
             placeholderTextColor={theme.textSecondary}

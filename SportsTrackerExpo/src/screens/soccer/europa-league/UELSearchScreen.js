@@ -350,7 +350,7 @@ const UELSearchScreen = ({ route, navigation }) => {
 
       {/* Search Input */}
       <View style={[styles.searchInputContainer, { backgroundColor: theme.surface }]}>
-        <Text allowFontScaling={false}Input
+        <TextInput
           style={[styles.searchInput, { 
             color: theme.text, 
             backgroundColor: theme.background,

@@ -676,7 +676,7 @@ const FranceCompareScreen = ({ navigation, route }) => {
         </View>
         
         <View style={styles.searchContainer}>
-          <Text allowFontScaling={false}Input
+          <TextInput
             style={[styles.searchInput, { 
               backgroundColor: theme.surface, 
               color: theme.text,
