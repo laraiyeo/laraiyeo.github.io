@@ -332,7 +332,7 @@ const ScoresScreen = ({ route, navigation }) => {
         activeOpacity={0.7}
       >
         <View style={styles.gameHeader}>
-          <Text style={[
+          <Text allowFontScaling={false} style={[
             styles.gameStatus,
             isLive && styles.liveStatus,
             isFinal && styles.finalStatus
@@ -351,12 +351,12 @@ const ScoresScreen = ({ route, navigation }) => {
               defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=NFL' }}
             />
             <View style={styles.teamInfo}>
-              <Text style={styles.teamName}>{awayTeam.team?.displayName || awayTeam.team?.name}</Text>
-              <Text style={styles.teamRecord}>
+              <Text allowFontScaling={false} style={styles.teamName}>{awayTeam.team?.displayName || awayTeam.team?.name}</Text>
+              <Text allowFontScaling={false} style={styles.teamRecord}>
                 {awayTeam.records?.[0]?.summary || `${awayTeam.wins || 0}-${awayTeam.losses || 0}`}
               </Text>
             </View>
-            <Text style={[
+            <Text allowFontScaling={false} style={[
               styles.teamScore,
               isFinal && parseInt(awayTeam.score || '0') < parseInt(homeTeam.score || '0') && styles.losingScore
             ]}>
@@ -372,12 +372,12 @@ const ScoresScreen = ({ route, navigation }) => {
               defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=NFL' }}
             />
             <View style={styles.teamInfo}>
-              <Text style={styles.teamName}>{homeTeam.team?.displayName || homeTeam.team?.name}</Text>
-              <Text style={styles.teamRecord}>
+              <Text allowFontScaling={false} style={styles.teamName}>{homeTeam.team?.displayName || homeTeam.team?.name}</Text>
+              <Text allowFontScaling={false} style={styles.teamRecord}>
                 {homeTeam.records?.[0]?.summary || `${homeTeam.wins || 0}-${homeTeam.losses || 0}`}
               </Text>
             </View>
-            <Text style={[
+            <Text allowFontScaling={false} style={[
               styles.teamScore,
               isFinal && parseInt(homeTeam.score || '0') < parseInt(awayTeam.score || '0') && styles.losingScore
             ]}>
@@ -388,7 +388,7 @@ const ScoresScreen = ({ route, navigation }) => {
 
         {/* Additional game info */}
         {game.competitions?.[0]?.venue && (
-          <Text style={styles.venueText}>
+          <Text allowFontScaling={false} style={styles.venueText}>
             {game.competitions[0].venue.fullName}
           </Text>
         )}
@@ -413,7 +413,7 @@ const ScoresScreen = ({ route, navigation }) => {
             setSelectedDateFilter(filter.key);
           }}
         >
-          <Text style={[
+          <Text allowFontScaling={false} style={[
             styles.dateFilterText,
             selectedDateFilter === filter.key && styles.activeDateFilterText
           ]}>
@@ -428,7 +428,7 @@ const ScoresScreen = ({ route, navigation }) => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#013369" />
-        <Text style={styles.loadingText}>Loading {sport.toUpperCase()} games...</Text>
+        <Text allowFontScaling={false} style={styles.loadingText}>Loading {sport.toUpperCase()} games...</Text>
       </View>
     );
   }
@@ -448,7 +448,7 @@ const ScoresScreen = ({ route, navigation }) => {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
+            <Text allowFontScaling={false} style={styles.emptyText}>
               No {sport.toUpperCase()} games available for {selectedDateFilter}
             </Text>
           </View>

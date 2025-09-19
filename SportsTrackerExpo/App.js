@@ -9,6 +9,26 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { FavoritesProvider } from './src/context/FavoritesContext';
 
+// Custom header title component that disables font scaling
+const HeaderTitle = ({ children, style }) => {
+  const { colors } = useTheme();
+  return (
+    <Text 
+      allowFontScaling={false} 
+      style={[
+        {
+          fontSize: 17,
+          fontWeight: 'bold',
+          color: '#fff'
+        },
+        style
+      ]}
+    >
+      {children}
+    </Text>
+  );
+};
+
 // Import our screens
 import HomeScreen from './src/screens/HomeScreen';
 import FavoritesScreen from './src/screens/FavoritesScreen';
@@ -160,9 +180,7 @@ const HomeTabNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Tab.Screen 
@@ -175,9 +193,7 @@ const HomeTabNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Tab.Screen 
@@ -190,9 +206,7 @@ const HomeTabNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
     </Tab.Navigator>
@@ -234,11 +248,11 @@ const SportTabNavigator = ({ route }) => {
       default:
         // For other sports, return placeholder components (can be extended later)
         return {
-          ScoreboardScreen: () => <View style={styles.placeholderContainer}><Text style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
-          StandingsScreen: () => <View style={styles.placeholderContainer}><Text style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
-          SearchScreen: () => <View style={styles.placeholderContainer}><Text style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
-          CompareScreen: () => <View style={styles.placeholderContainer}><Text style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
-          StatsScreen: () => <View style={styles.placeholderContainer}><Text style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
+          ScoreboardScreen: () => <View style={styles.placeholderContainer}><Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
+          StandingsScreen: () => <View style={styles.placeholderContainer}><Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
+          SearchScreen: () => <View style={styles.placeholderContainer}><Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
+          CompareScreen: () => <View style={styles.placeholderContainer}><Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
+          StatsScreen: () => <View style={styles.placeholderContainer}><Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
         };
     }
   };
@@ -539,9 +553,7 @@ const MainStackNavigator = () => {
               backgroundColor: colors.primary,
             },
             headerTintColor: '#fff',
-            headerTitleStyle: {
-              fontWeight: 'bold',
-            },
+            headerTitle: (props) => <HeaderTitle {...props} />,
           };
         }}
       />
@@ -567,9 +579,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -581,9 +591,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -595,9 +603,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -609,9 +615,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -623,9 +627,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -637,9 +639,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -651,9 +651,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -665,9 +663,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -679,9 +675,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -711,9 +705,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -725,9 +717,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -739,9 +729,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -753,9 +741,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -767,9 +753,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -781,9 +765,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -795,9 +777,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -809,9 +789,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -823,9 +801,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -837,9 +813,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -851,9 +825,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -865,9 +837,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -879,9 +849,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -893,9 +861,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -907,9 +873,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -921,9 +885,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -935,9 +897,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -960,9 +920,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       {/* Soccer League Screens */}
@@ -976,9 +934,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -991,9 +947,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -1006,9 +960,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -1021,9 +973,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -1036,9 +986,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -1051,9 +999,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -1066,9 +1012,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       <Stack.Screen 
@@ -1081,9 +1025,7 @@ const MainStackNavigator = () => {
             backgroundColor: colors.primary,
           },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
     </Stack.Navigator>

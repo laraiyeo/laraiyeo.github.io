@@ -260,16 +260,16 @@ const GermanyTransferScreen = ({ navigation, route }) => {
       <View style={[styles.transferItem, { backgroundColor: theme.surface }]}>
         <View style={styles.transferHeader}>
           <View style={styles.playerInfo}>
-            <Text style={[styles.playerName, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>
               {item.athlete.name}
             </Text>
-            <Text style={[styles.playerDetails, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.playerDetails, { color: theme.textSecondary }]}>
               {item.athlete.position}
               {item.athlete.age && ` • ${item.athlete.age} years`}
               {item.athlete.jersey && ` • #${item.athlete.jersey}`}
             </Text>
           </View>
-          <Text style={[styles.transferDate, { color: theme.textSecondary }]}>
+          <Text allowFontScaling={false} style={[styles.transferDate, { color: theme.textSecondary }]}>
             {formattedDate}
           </Text>
         </View>
@@ -281,7 +281,7 @@ const GermanyTransferScreen = ({ navigation, route }) => {
                 teamId={item.fromTeam.teamId}
                 style={styles.teamLogo}
               />
-              <Text style={[styles.teamName, { color: theme.text }]}>
+              <Text allowFontScaling={false} style={[styles.teamName, { color: theme.text }]}>
                 {item.fromTeam.abbreviation || item.fromTeam.name}
               </Text>
             </View>
@@ -297,7 +297,7 @@ const GermanyTransferScreen = ({ navigation, route }) => {
                 teamId={item.toTeam.teamId}
                 style={styles.teamLogo}
               />
-              <Text style={[styles.teamName, { color: theme.text }]}>
+              <Text allowFontScaling={false} style={[styles.teamName, { color: theme.text }]}>
                 {item.toTeam.abbreviation || item.toTeam.name}
               </Text>
             </View>
@@ -306,18 +306,18 @@ const GermanyTransferScreen = ({ navigation, route }) => {
         
         <View style={styles.transferDetails}>
           <View style={[styles.transferType, { backgroundColor: getTransferTypeColor(item.type) + '20' }]}>
-            <Text style={[styles.transferTypeText, { color: getTransferTypeColor(item.type) }]}>
+            <Text allowFontScaling={false} style={[styles.transferTypeText, { color: getTransferTypeColor(item.type) }]}>
               {item.type}
             </Text>
           </View>
           {shouldShowAmountBubble(item.amount, item.type) ? (
             <View style={[styles.transferAmountBubble, { backgroundColor: colors.primary + '20' }]}>
-              <Text style={[styles.transferAmountText, { color: colors.primary }]}>
+              <Text allowFontScaling={false} style={[styles.transferAmountText, { color: colors.primary }]}>
                 {getAmountDisplay(item.amount, item.displayAmount, item.type)}
               </Text>
             </View>
           ) : (
-            <Text style={[styles.transferAmount, { color: colors.primary }]}>
+            <Text allowFontScaling={false} style={[styles.transferAmount, { color: colors.primary }]}>
               {getAmountDisplay(item.amount, item.displayAmount, item.type)}
             </Text>
           )}
@@ -341,14 +341,14 @@ const GermanyTransferScreen = ({ navigation, route }) => {
           disabled={currentPage <= 1}
           onPress={() => setCurrentPage(currentPage - 1)}
         >
-          <Text style={[styles.paginationBtnText, { 
+          <Text allowFontScaling={false} style={[styles.paginationBtnText, { 
             color: currentPage > 1 ? '#fff' : theme.textSecondary 
           }]}>
             Prev
           </Text>
         </TouchableOpacity>
         
-        <Text style={[styles.pageInfo, { color: theme.text }]}>
+        <Text allowFontScaling={false} style={[styles.pageInfo, { color: theme.text }]}>
           Page {currentPage} of {totalPages}
         </Text>
         
@@ -360,7 +360,7 @@ const GermanyTransferScreen = ({ navigation, route }) => {
           disabled={currentPage >= totalPages}
           onPress={() => setCurrentPage(currentPage + 1)}
         >
-          <Text style={[styles.paginationBtnText, { 
+          <Text allowFontScaling={false} style={[styles.paginationBtnText, { 
             color: currentPage < totalPages ? '#fff' : theme.textSecondary 
           }]}>
             Next
@@ -380,7 +380,7 @@ const GermanyTransferScreen = ({ navigation, route }) => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.text }]}>
+        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>
           Loading Ligue 1 transfers...
         </Text>
       </View>
@@ -393,7 +393,7 @@ const GermanyTransferScreen = ({ navigation, route }) => {
       <View style={[styles.searchContainer, { backgroundColor: theme.surface }]}>
         <View style={[styles.searchInputContainer, { backgroundColor: theme.background }]}>
           <Ionicons name="search" size={20} color={theme.textSecondary} />
-          <TextInput
+          <Text allowFontScaling={false}Input
             style={[styles.searchInput, { color: theme.text }]}
             placeholder="Search players, teams, or transfer type..."
             placeholderTextColor={theme.textSecondary}
@@ -420,7 +420,7 @@ const GermanyTransferScreen = ({ navigation, route }) => {
               ]}
               onPress={() => setFilterType(filter.key)}
             >
-              <Text
+              <Text allowFontScaling={false}
                 style={[
                   styles.filterBtnText,
                   {
@@ -437,7 +437,7 @@ const GermanyTransferScreen = ({ navigation, route }) => {
 
       {/* Results Info */}
       <View style={styles.resultsInfo}>
-        <Text style={[styles.resultsText, { color: theme.textSecondary }]}>
+        <Text allowFontScaling={false} style={[styles.resultsText, { color: theme.textSecondary }]}>
           Showing {filteredTransfers.length} transfers
         </Text>
       </View>
@@ -452,7 +452,7 @@ const GermanyTransferScreen = ({ navigation, route }) => {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="swap-horizontal" size={64} color={theme.textSecondary} />
-            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.emptyText, { color: theme.textSecondary }]}>
               No transfers found
             </Text>
           </View>

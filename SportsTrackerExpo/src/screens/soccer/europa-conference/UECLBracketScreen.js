@@ -798,7 +798,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
           ]}
           onPress={() => setCurrentView('knockout')}
         >
-          <Text
+          <Text allowFontScaling={false}
             style={[
               styles.selectorText,
               { color: currentView === 'knockout' ? '#fff' : theme.text }
@@ -815,7 +815,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
           ]}
           onPress={() => setCurrentView('bracket')}
         >
-          <Text
+          <Text allowFontScaling={false}
             style={[
               styles.selectorText,
               { color: currentView === 'bracket' ? '#fff' : theme.text }
@@ -940,7 +940,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
               ]}
             >
               <View style={[styles.cardContent, styles.tbaCard]}>
-                <Text style={[styles.teamName, { color: theme.textSecondary }]}>TBD vs TBD</Text>
+                <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>TBD vs TBD</Text>
               </View>
             </View>
           ))
@@ -956,7 +956,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
             ]}
           >
             <View style={[styles.cardContent, styles.tbaCard]}>
-              <Text style={[styles.teamName, { color: theme.textSecondary }]}>TBD vs TBD</Text>
+              <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>TBD vs TBD</Text>
             </View>
           </View>
         )}
@@ -971,8 +971,8 @@ const UECLBracketScreen = ({ navigation, route }) => {
             ]}
           >
             <View style={[styles.cardContent, styles.tbaCard]}>
-              <Text style={[styles.teamName, { color: theme.textSecondary }]}>FINAL</Text>
-              <Text style={[styles.matchScore, { color: theme.textSecondary }]}>TBD vs TBD</Text>
+              <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>FINAL</Text>
+              <Text allowFontScaling={false} style={[styles.matchScore, { color: theme.textSecondary }]}>TBD vs TBD</Text>
             </View>
           </View>
         )}
@@ -1031,24 +1031,24 @@ const UECLBracketScreen = ({ navigation, route }) => {
 
       return (
         <View style={styles.finalsCard}>
-          <Text style={[styles.finalsTitle, { color: theme.text }]}>FINAL</Text>
+          <Text allowFontScaling={false} style={[styles.finalsTitle, { color: theme.text }]}>FINAL</Text>
           <View style={styles.finalsMatchupHorizontal}>
             <View style={styles.finalTeamLeft}>
               <TeamLogoImage teamId={firstTeam?.id} style={styles.finalLogoLeft} />
               <View style={styles.finalTeamTexts}>
-                <Text style={[styles.teamAbbrev, { color: firstIsWinner ? colors.primary : theme.text }]}>{firstAbbrev}</Text>
-                <Text style={[styles.teamScore, { color: firstIsWinner ? colors.primary : theme.text }]}>{firstScoreDisplay}</Text>
+                <Text allowFontScaling={false} style={[styles.teamAbbrev, { color: firstIsWinner ? colors.primary : theme.text }]}>{firstAbbrev}</Text>
+                <Text allowFontScaling={false} style={[styles.teamScore, { color: firstIsWinner ? colors.primary : theme.text }]}>{firstScoreDisplay}</Text>
               </View>
             </View>
 
             <View style={styles.finalSeparator}>
-              <Text style={[styles.vsText, { color: theme.textSecondary }]}>vs</Text>
+              <Text allowFontScaling={false} style={[styles.vsText, { color: theme.textSecondary }]}>vs</Text>
             </View>
 
             <View style={styles.finalTeamRight}>
               <View style={styles.finalTeamTexts}>
-                <Text style={[styles.teamAbbrev, { color: !isTie && !firstIsWinner ? colors.primary : theme.text }]}>{secondAbbrev}</Text>
-                <Text style={[styles.teamScore, { color: !isTie && !firstIsWinner ? colors.primary : theme.text }]}>{secondScoreDisplay}</Text>
+                <Text allowFontScaling={false} style={[styles.teamAbbrev, { color: !isTie && !firstIsWinner ? colors.primary : theme.text }]}>{secondAbbrev}</Text>
+                <Text allowFontScaling={false} style={[styles.teamScore, { color: !isTie && !firstIsWinner ? colors.primary : theme.text }]}>{secondScoreDisplay}</Text>
               </View>
               <TeamLogoImage teamId={secondTeam?.id} style={styles.finalLogoRight} />
             </View>
@@ -1062,13 +1062,13 @@ const UECLBracketScreen = ({ navigation, route }) => {
       <View style={styles.matchupCard}>
         <View style={styles.teamSectionVertical}>
           <TeamLogoImage teamId={firstTeam?.id} style={styles.bracketLogoTop} />
-          <Text style={[styles.teamName, { color: firstIsWinner ? colors.primary : theme.text }]}>{firstTeam.shortDisplayName}</Text>
-          <Text style={[styles.teamScore, { color: firstIsWinner ? colors.primary : theme.text }]}>{firstScoreDisplay}</Text>
+          <Text allowFontScaling={false} style={[styles.teamName, { color: firstIsWinner ? colors.primary : theme.text }]}>{firstTeam.shortDisplayName}</Text>
+          <Text allowFontScaling={false} style={[styles.teamScore, { color: firstIsWinner ? colors.primary : theme.text }]}>{firstScoreDisplay}</Text>
         </View>
         <View style={styles.teamSectionVertical}>
           <TeamLogoImage teamId={secondTeam?.id} style={styles.bracketLogoTop} />
-          <Text style={[styles.teamName, { color: !isTie && !firstIsWinner ? colors.primary : theme.text }]}>{secondTeam.shortDisplayName}</Text>
-          <Text style={[styles.teamScore, { color: !isTie && !firstIsWinner ? colors.primary : theme.text }]}>{secondScoreDisplay}</Text>
+          <Text allowFontScaling={false} style={[styles.teamName, { color: !isTie && !firstIsWinner ? colors.primary : theme.text }]}>{secondTeam.shortDisplayName}</Text>
+          <Text allowFontScaling={false} style={[styles.teamScore, { color: !isTie && !firstIsWinner ? colors.primary : theme.text }]}>{secondScoreDisplay}</Text>
         </View>
       </View>
     );
@@ -1079,29 +1079,29 @@ const UECLBracketScreen = ({ navigation, route }) => {
     if (matchups.length === 0) {
       return (
         <View style={[styles.pairingRow, { backgroundColor: theme.surface }]}>
-          <Text style={[styles.pairingTitle, { color: theme.text }]}>{pairingName}</Text>
+          <Text allowFontScaling={false} style={[styles.pairingTitle, { color: theme.text }]}>{pairingName}</Text>
           <View style={styles.pairingContent}>
             <View style={styles.pairingLeft}>
               <View style={[styles.teamMatchup, styles.tbaMatchup, { backgroundColor: theme.surfaceSecondary, shadowColor: theme.text, borderColor: theme.border }]}>
-                <Text style={[styles.teamName, { color: theme.textSecondary }]}>TBD vs TBD</Text>
-                <Text style={[styles.matchScore, { color: theme.textSecondary }]}>Agg: - : -</Text>
+                <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>TBD vs TBD</Text>
+                <Text allowFontScaling={false} style={[styles.matchScore, { color: theme.textSecondary }]}>Agg: - : -</Text>
               </View>
               <View style={[styles.teamMatchup, styles.tbaMatchup, { backgroundColor: theme.surfaceSecondary, shadowColor: theme.text, borderColor: theme.border }]}>
-                <Text style={[styles.teamName, { color: theme.textSecondary }]}>TBD vs TBD</Text>
-                <Text style={[styles.matchScore, { color: theme.textSecondary }]}>Agg: - : -</Text>
+                <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>TBD vs TBD</Text>
+                <Text allowFontScaling={false} style={[styles.matchScore, { color: theme.textSecondary }]}>Agg: - : -</Text>
               </View>
             </View>
             <View style={styles.vsSection}>
-              <Text style={[styles.vsText, { color: theme.textSecondary }]}>vs</Text>
+              <Text allowFontScaling={false} style={[styles.vsText, { color: theme.textSecondary }]}>vs</Text>
             </View>
             <View style={styles.pairingRight}>
               <View style={[styles.teamMatchup, styles.tbaMatchup, { backgroundColor: theme.surfaceSecondary, shadowColor: theme.text, borderColor: theme.border }]}>
-                <Text style={[styles.teamName, { color: theme.textSecondary }]}>Round of 16</Text>
-                <Text style={[styles.matchScore, { color: theme.textSecondary }]}>TBD vs TBD</Text>
+                <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>Round of 16</Text>
+                <Text allowFontScaling={false} style={[styles.matchScore, { color: theme.textSecondary }]}>TBD vs TBD</Text>
               </View>
               <View style={[styles.teamMatchup, styles.tbaMatchup, { backgroundColor: theme.surfaceSecondary, shadowColor: theme.text, borderColor: theme.border }]}>
-                <Text style={[styles.teamName, { color: theme.textSecondary }]}>Round of 16</Text>
-                <Text style={[styles.matchScore, { color: theme.textSecondary }]}>TBD vs TBD</Text>
+                <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>Round of 16</Text>
+                <Text allowFontScaling={false} style={[styles.matchScore, { color: theme.textSecondary }]}>TBD vs TBD</Text>
               </View>
             </View>
           </View>
@@ -1111,7 +1111,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
 
     return (
       <View style={[styles.pairingRow, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.pairingTitle, { color: theme.text }]}>{pairingName}</Text>
+        <Text allowFontScaling={false} style={[styles.pairingTitle, { color: theme.text }]}>{pairingName}</Text>
         <View style={styles.pairingContent}>
           <View style={styles.pairingLeft}>
             {matchups.map((matchup, index) => (
@@ -1125,7 +1125,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
             ))}
           </View>
           <View style={styles.vsSection}>
-            <Text style={[styles.vsText, { color: theme.textSecondary }]}>-</Text>
+            <Text allowFontScaling={false} style={[styles.vsText, { color: theme.textSecondary }]}>-</Text>
           </View>
           <View style={styles.pairingRight}>
             {matchups.map((matchup, index) => {
@@ -1186,19 +1186,19 @@ const UECLBracketScreen = ({ navigation, route }) => {
     return (
       <View style={styles.cardContent}>
         <View style={styles.teamInfo}>
-          <Text style={[styles.teamName, { color: firstIsWinner && !isTie ? colors.primary : theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.teamName, { color: firstIsWinner && !isTie ? colors.primary : theme.text }]}>
             {firstTeam.shortDisplayName}
           </Text>
-          <Text style={[styles.teamName, { color: !firstIsWinner && !isTie ? colors.primary : theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.teamName, { color: !firstIsWinner && !isTie ? colors.primary : theme.text }]}>
             {secondTeam.shortDisplayName}
           </Text>
         </View>
         <View style={styles.scoreSection}>
-          <Text style={[styles.matchScore, { color: firstIsWinner && !isTie ? colors.primary : theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.matchScore, { color: firstIsWinner && !isTie ? colors.primary : theme.text }]}>
             {firstScoreDisplay}
           </Text>
-          <Text style={[styles.matchScore, { color: theme.textSecondary }]}>:</Text>
-          <Text style={[styles.matchScore, { color: !firstIsWinner && !isTie ? colors.primary : theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.matchScore, { color: theme.textSecondary }]}>:</Text>
+          <Text allowFontScaling={false} style={[styles.matchScore, { color: !firstIsWinner && !isTie ? colors.primary : theme.text }]}>
             {secondScoreDisplay}
           </Text>
         </View>
@@ -1213,8 +1213,8 @@ const UECLBracketScreen = ({ navigation, route }) => {
     if (!roundOf16Matchup) {
       return (
         <View style={[styles.cardContent, styles.tbaCard, { backgroundColor: theme.surfaceSecondary, shadowColor: theme.text, borderColor: theme.border }]}>
-          <Text style={[styles.teamName, { color: theme.textSecondary }]}>Round of 16</Text>
-          <Text style={[styles.matchScore, { color: theme.textSecondary }]}>TBD vs TBD</Text>
+          <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>Round of 16</Text>
+          <Text allowFontScaling={false} style={[styles.matchScore, { color: theme.textSecondary }]}>TBD vs TBD</Text>
         </View>
       );
     }
@@ -1238,19 +1238,19 @@ const UECLBracketScreen = ({ navigation, route }) => {
     return (
       <View style={styles.cardContent}>
         <View style={styles.teamInfo}>
-          <Text style={[styles.teamName, { color: homeTeam.id === winnerId ? colors.primary : theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.teamName, { color: homeTeam.id === winnerId ? colors.primary : theme.text }]}>
             {homeTeam.shortDisplayName}
           </Text>
-          <Text style={[styles.teamName, { color: awayTeam.id === winnerId ? colors.primary : theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.teamName, { color: awayTeam.id === winnerId ? colors.primary : theme.text }]}>
             {awayTeam.shortDisplayName}
           </Text>
         </View>
         <View style={styles.scoreSection}>
-          <Text style={[styles.matchScore, { color: homeTeam.id === winnerId ? colors.primary : theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.matchScore, { color: homeTeam.id === winnerId ? colors.primary : theme.text }]}>
             {homeScoreDisplay}
           </Text>
-          <Text style={[styles.matchScore, { color: theme.textSecondary }]}>:</Text>
-          <Text style={[styles.matchScore, { color: awayTeam.id === winnerId ? colors.primary : theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.matchScore, { color: theme.textSecondary }]}>:</Text>
+          <Text allowFontScaling={false} style={[styles.matchScore, { color: awayTeam.id === winnerId ? colors.primary : theme.text }]}>
             {awayScoreDisplay}
           </Text>
         </View>
@@ -1295,10 +1295,10 @@ const UECLBracketScreen = ({ navigation, route }) => {
               style={styles.closeButton}
               onPress={() => setModalVisible(false)}
             >
-              <Text style={[styles.closeButtonText, { color: theme.text }]}>×</Text>
+              <Text allowFontScaling={false} style={[styles.closeButtonText, { color: theme.text }]}>×</Text>
             </TouchableOpacity>
 
-            <Text style={[styles.modalTitle, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.modalTitle, { color: theme.text }]}>
               {selectedMatchup.homeTeam.shortDisplayName} vs {selectedMatchup.awayTeam.shortDisplayName}
             </Text>
 
@@ -1315,11 +1315,11 @@ const UECLBracketScreen = ({ navigation, route }) => {
                       activeOpacity={0.85}
                     >
                       <View style={styles.legHeader}>
-                        <Text style={[styles.legTitle, { color: theme.text }]}>
+                        <Text allowFontScaling={false} style={[styles.legTitle, { color: theme.text }]}>
                           Leg {legNumber} - {match.status === "post" ? "Finished" : match.status === "in" ? "In Progress" : "Scheduled"}
                         </Text>
                         {match.date && (
-                          <Text style={[styles.legDate, { color: theme.textSecondary }]}>({match.date})</Text>
+                          <Text allowFontScaling={false} style={[styles.legDate, { color: theme.textSecondary }]}>({match.date})</Text>
                         )}
                       </View>
 
@@ -1327,20 +1327,20 @@ const UECLBracketScreen = ({ navigation, route }) => {
                         <View style={styles.legTeam}>
                           <TeamLogoImage teamId={match.homeTeam?.id} style={[styles.legLogo, styles.legLogoLeft]} />
                           <View style={[styles.legTeamTextsCenter, styles.legTeamTextsHome]}>
-                            <Text style={[styles.legTeamName, { color: match.status === "post" && match.homeScore > match.awayScore ? colors.primary : theme.text }]}>{match.homeTeam.shortDisplayName}</Text>
-                            <Text style={[styles.legScore, { color: match.status === "post" && match.homeScore > match.awayScore ? colors.primary : theme.text }]}>
+                            <Text allowFontScaling={false} style={[styles.legTeamName, { color: match.status === "post" && match.homeScore > match.awayScore ? colors.primary : theme.text }]}>{match.homeTeam.shortDisplayName}</Text>
+                            <Text allowFontScaling={false} style={[styles.legScore, { color: match.status === "post" && match.homeScore > match.awayScore ? colors.primary : theme.text }]}>
                               {match.homeShootoutScore > 0 ? `${match.homeScore}(${match.homeShootoutScore})` : match.homeScore}
                             </Text>
                           </View>
                         </View>
 
-                        <Text style={[styles.legVs, { color: theme.textSecondary }]}>:</Text>
+                        <Text allowFontScaling={false} style={[styles.legVs, { color: theme.textSecondary }]}>:</Text>
 
                         <View style={styles.legTeam}>
                           <TeamLogoImage teamId={match.awayTeam?.id} style={[styles.legLogo, styles.legLogoRight]} />
                           <View style={[styles.legTeamTextsCenter, styles.legTeamTextsAway]}>
-                            <Text style={[styles.legTeamName, { color: match.status === "post" && match.awayScore > match.homeScore ? colors.primary : theme.text }]}>{match.awayTeam.shortDisplayName}</Text>
-                            <Text style={[styles.legScore, { color: match.status === "post" && match.awayScore > match.homeScore ? colors.primary : theme.text }]}>
+                            <Text allowFontScaling={false} style={[styles.legTeamName, { color: match.status === "post" && match.awayScore > match.homeScore ? colors.primary : theme.text }]}>{match.awayTeam.shortDisplayName}</Text>
+                            <Text allowFontScaling={false} style={[styles.legScore, { color: match.status === "post" && match.awayScore > match.homeScore ? colors.primary : theme.text }]}>
                               {match.awayShootoutScore > 0 ? `${match.awayScore}(${match.awayShootoutScore})` : match.awayScore}
                             </Text>
                           </View>
@@ -1350,7 +1350,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
                       {/* Show an indicator for live/scheduled but avoid an inner Touchable to prevent nested touchables */}
                       {match.status === "pre" || match.status === "in" ? (
                         <View style={[styles.viewGameButton, { backgroundColor: colors.primary }]}> 
-                          <Text style={[styles.viewGameText, { color: '#fff' }]}>{match.status === "in" ? "Watch Live" : "View Game"}</Text>
+                          <Text allowFontScaling={false} style={[styles.viewGameText, { color: '#fff' }]}>{match.status === "in" ? "Watch Live" : "View Game"}</Text>
                         </View>
                       ) : null}
                     </TouchableOpacity>
@@ -1360,14 +1360,14 @@ const UECLBracketScreen = ({ navigation, route }) => {
                 // No match scheduled for this leg
                 return (
                   <View key={legNumber} style={[styles.legCard, { backgroundColor: theme.background }]}>
-                    <Text style={[styles.legTitle, { color: theme.textSecondary }]}>Leg {legNumber} - Not Scheduled</Text>
+                    <Text allowFontScaling={false} style={[styles.legTitle, { color: theme.textSecondary }]}>Leg {legNumber} - Not Scheduled</Text>
                   </View>
                 );
               })}
             </ScrollView>
 
             <View style={[styles.aggregateSection, { backgroundColor: theme.background }]}>
-              <Text style={[styles.aggregateText, { color: theme.text }]}>
+              <Text allowFontScaling={false} style={[styles.aggregateText, { color: theme.text }]}>
                 Aggregate Score - {homeAggregateDisplay} : {awayAggregateDisplay}
               </Text>
             </View>
@@ -1382,7 +1382,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         {renderViewSelector()}
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: theme.text }]}>Loading bracket data...</Text>
+          <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>Loading bracket data...</Text>
         </View>
       </View>
     );

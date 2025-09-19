@@ -6,8 +6,8 @@ const SearchScreen = ({ route }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Search</Text>
-      <Text style={styles.subtitle}>Search for {sport.toUpperCase()} teams, players, and games</Text>
+      <Text allowFontScaling={false} style={styles.title}>Search</Text>
+      <Text allowFontScaling={false} style={styles.subtitle}>Search for {sport.toUpperCase()} teams, players, and games</Text>
     </View>
   );
 };

@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
+import { useFavorites } from '../../context/FavoritesContext';
 
 const StandingsScreen = ({ route }) => {
   const { sport } = route.params;
   const { theme, colors, getTeamLogoUrl } = useTheme();
+  const { isFavorite } = useFavorites();
   const [standings, setStandings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [intervalId, setIntervalId] = useState(null);
@@ -95,22 +97,22 @@ const StandingsScreen = ({ route }) => {
       <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
         {[afc, nfc].filter(Boolean).map((conference, confIndex) => (
           <View key={confIndex} style={[styles.conferenceContainer, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.conferenceTitle, { color: colors.primary }]}>{conference.name}</Text>
+            <Text allowFontScaling={false} style={[styles.conferenceTitle, { color: colors.primary }]}>{conference.name}</Text>
             
             {conference.groups.map((division, divIndex) => (
               <View key={divIndex} style={styles.divisionContainer}>
-                <Text style={[styles.divisionTitle, { color: theme.text }]}>{division.name}</Text>
+                <Text allowFontScaling={false} style={[styles.divisionTitle, { color: theme.text }]}>{division.name}</Text>
                 
                 <View style={[styles.tableContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                   <View style={[styles.tableHeader, { backgroundColor: colors.primary }]}>
-                    <Text style={[styles.headerCell, styles.teamColumn, { color: 'white' }]}>Team</Text>
-                    <Text style={[styles.headerCell, { color: 'white' }]}>W</Text>
-                    <Text style={[styles.headerCell, { color: 'white' }]}>L</Text>
-                    <Text style={[styles.headerCell, { color: 'white' }]}>T</Text>
-                    <Text style={[styles.headerCell, { color: 'white' }]}>PCT</Text>
-                    <Text style={[styles.headerCell, { color: 'white' }]}>PF</Text>
-                    <Text style={[styles.headerCell, { color: 'white' }]}>PA</Text>
-                    <Text style={[styles.headerCell, { color: 'white' }]}>DIFF</Text>
+                    <Text allowFontScaling={false} style={[styles.headerCell, styles.teamColumn, { color: 'white' }]}>Team</Text>
+                    <Text allowFontScaling={false} style={[styles.headerCell, { color: 'white' }]}>W</Text>
+                    <Text allowFontScaling={false} style={[styles.headerCell, { color: 'white' }]}>L</Text>
+                    <Text allowFontScaling={false} style={[styles.headerCell, { color: 'white' }]}>T</Text>
+                    <Text allowFontScaling={false} style={[styles.headerCell, { color: 'white' }]}>PCT</Text>
+                    <Text allowFontScaling={false} style={[styles.headerCell, { color: 'white' }]}>PF</Text>
+                    <Text allowFontScaling={false} style={[styles.headerCell, { color: 'white' }]}>PA</Text>
+                    <Text allowFontScaling={false} style={[styles.headerCell, { color: 'white' }]}>DIFF</Text>
                   </View>
                   
                   {division.standings.entries
@@ -148,17 +150,23 @@ const StandingsScreen = ({ route }) => {
                               style={styles.teamLogo}
                               defaultSource={{ uri: `https://via.placeholder.com/20x20?text=NFL` }}
                             />
-                            <Text style={[styles.teamName, { color: theme.text }]} numberOfLines={1}>
+                            <Text allowFontScaling={false} style={[
+                              styles.teamName, 
+                              { 
+                                color: isFavorite(nflTeamId) ? colors.primary : theme.text 
+                              }
+                            ]} numberOfLines={1}>
+                              {isFavorite(nflTeamId) && '★ '}
                               {entry.team.shortDisplayName}
                             </Text>
                           </View>
-                          <Text style={[styles.tableCell, { color: theme.text }]}>{wins}</Text>
-                          <Text style={[styles.tableCell, { color: theme.text }]}>{losses}</Text>
-                          <Text style={[styles.tableCell, { color: theme.text }]}>{ties}</Text>
-                          <Text style={[styles.tableCell, { color: theme.text }]}>{winPercent}</Text>
-                          <Text style={[styles.tableCell, { color: theme.text }]}>{pointsFor}</Text>
-                          <Text style={[styles.tableCell, { color: theme.text }]}>{pointsAgainst}</Text>
-                          <Text style={[styles.tableCell, { color: diffColor }]}>{differential}</Text>
+                          <Text allowFontScaling={false} style={[styles.tableCell, { color: theme.text }]}>{wins}</Text>
+                          <Text allowFontScaling={false} style={[styles.tableCell, { color: theme.text }]}>{losses}</Text>
+                          <Text allowFontScaling={false} style={[styles.tableCell, { color: theme.text }]}>{ties}</Text>
+                          <Text allowFontScaling={false} style={[styles.tableCell, { color: theme.text }]}>{winPercent}</Text>
+                          <Text allowFontScaling={false} style={[styles.tableCell, { color: theme.text }]}>{pointsFor}</Text>
+                          <Text allowFontScaling={false} style={[styles.tableCell, { color: theme.text }]}>{pointsAgainst}</Text>
+                          <Text allowFontScaling={false} style={[styles.tableCell, { color: diffColor }]}>{differential}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -175,7 +183,7 @@ const StandingsScreen = ({ route }) => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading standings...</Text>
+        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>Loading standings...</Text>
       </View>
     );
   }
@@ -183,7 +191,7 @@ const StandingsScreen = ({ route }) => {
   if (!standings) {
     return (
       <View style={[styles.errorContainer, { backgroundColor: theme.background }]}>
-        <Text style={[styles.errorText, { color: theme.text }]}>Standings not available</Text>
+        <Text allowFontScaling={false} style={[styles.errorText, { color: theme.text }]}>Standings not available</Text>
       </View>
     );
   }

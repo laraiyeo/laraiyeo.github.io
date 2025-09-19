@@ -971,9 +971,9 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             style={styles.stickyTeamLogo}
             defaultSource={{ uri: 'https://via.placeholder.com/28x28?text=MLB' }}
           />
-          <Text style={[styles.stickyTeamScore, { color: getStickyScoreColor(awayIsLosing) }]}>{awayScore}</Text>
-          <Text style={[styles.stickyTeamName, { color: isFavorite(awayTeam?.id?.toString()) ? colors.primary : (awayIsLosing ? theme.textSecondary : theme.text) }]}>
-            {isFavorite(awayTeam?.id?.toString()) && <Text style={{ color: colors.primary }}>★ </Text>}
+          <Text allowFontScaling={false} style={[styles.stickyTeamScore, { color: getStickyScoreColor(awayIsLosing) }]}>{awayScore}</Text>
+          <Text allowFontScaling={false} style={[styles.stickyTeamName, { color: isFavorite(awayTeam?.id?.toString()) ? colors.primary : (awayIsLosing ? theme.textSecondary : theme.text) }]}>
+            {isFavorite(awayTeam?.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
             {awayTeam?.abbreviation || 'AWAY'}
           </Text>
         </View>
@@ -982,9 +982,9 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         <View style={styles.stickyStatus}>
           {status?.statusCode === 'F' ? (
             <>
-              <Text style={[styles.stickyStatusText, { color: colors.primary }]}>Final</Text>
+              <Text allowFontScaling={false} style={[styles.stickyStatusText, { color: colors.primary }]}>Final</Text>
               {gameData?.gameData?.datetime?.dateTime && (
-                <Text style={[styles.stickyGameTime, { color: theme.textSecondary }]}>
+                <Text allowFontScaling={false} style={[styles.stickyGameTime, { color: theme.textSecondary }]}>
                   {new Date(gameData.gameData.datetime.dateTime).toLocaleTimeString('en-US', { 
                     hour: 'numeric', 
                     minute: '2-digit'
@@ -997,18 +997,18 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                status?.detailedState === 'Manager challenge' ||
                status?.codedGameState === 'M' ? (
             <>
-              <Text style={[styles.stickyStatusText, { color: colors.primary }]}>
+              <Text allowFontScaling={false} style={[styles.stickyStatusText, { color: colors.primary }]}>
                 {formatInning(linescore?.currentInning, linescore?.inningState)}
               </Text>
-              <Text style={[styles.stickyClock, { color: theme.textSecondary }]}>
+              <Text allowFontScaling={false} style={[styles.stickyClock, { color: theme.textSecondary }]}>
                 {linescore?.balls || 0}-{linescore?.strikes || 0}, {linescore?.outs || 0} out{(linescore?.outs || 0) !== 1 ? 's' : ''}
               </Text>
             </>
           ) : (
             <>
-              <Text style={[styles.stickyStatusText, { color: colors.primary }]}>{status?.detailedState || 'Scheduled'}</Text>
+              <Text allowFontScaling={false} style={[styles.stickyStatusText, { color: colors.primary }]}>{status?.detailedState || 'Scheduled'}</Text>
               {gameData?.gameData?.datetime?.dateTime && (
-                <Text style={[styles.stickyGameTime, { color: theme.textSecondary }]}>
+                <Text allowFontScaling={false} style={[styles.stickyGameTime, { color: theme.textSecondary }]}>
                   {new Date(gameData.gameData.datetime.dateTime).toLocaleTimeString('en-US', { 
                     hour: 'numeric', 
                     minute: '2-digit'
@@ -1021,11 +1021,11 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
         {/* Home Team */}
         <View style={styles.stickyTeamHome}>
-          <Text style={[styles.stickyTeamName, { color: isFavorite(homeTeam?.id?.toString()) ? colors.primary : (homeIsLosing ? theme.textSecondary : theme.text) }]}>
-            {isFavorite(homeTeam?.id?.toString()) && <Text style={{ color: colors.primary }}>★ </Text>}
+          <Text allowFontScaling={false} style={[styles.stickyTeamName, { color: isFavorite(homeTeam?.id?.toString()) ? colors.primary : (homeIsLosing ? theme.textSecondary : theme.text) }]}>
+            {isFavorite(homeTeam?.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
             {homeTeam?.abbreviation || 'HOME'}
           </Text>
-          <Text style={[styles.stickyTeamScore, { color: getStickyScoreColor(homeIsLosing) }]}>{homeScore}</Text>
+          <Text allowFontScaling={false} style={[styles.stickyTeamScore, { color: getStickyScoreColor(homeIsLosing) }]}>{homeScore}</Text>
           <Image
             source={{ uri: getTeamLogoUrl('mlb', homeTeam?.abbreviation) }}
             style={styles.stickyTeamLogo}
@@ -1077,7 +1077,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               }
             }}
           >
-            <Text style={[
+            <Text allowFontScaling={false} style={[
               styles.tabText,
               { color: activeTab === tab.key ? '#fff' : theme.text }
             ]}>
@@ -1234,15 +1234,15 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         <View style={styles.teamContainer}>
           {/* Away Team */}
           <View style={styles.team}>
-            <Text style={[styles.teamScore, { color: getScoreColor(awayIsLosing) }]}>{awayScore}</Text>
+            <Text allowFontScaling={false} style={[styles.teamScore, { color: getScoreColor(awayIsLosing) }]}>{awayScore}</Text>
             <Image 
               source={{ uri: getTeamLogoUrl('mlb', awayTeam?.abbreviation) }} 
               style={styles.teamLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/50x50?text=MLB' }}
             />
             <View style={styles.teamNameContainer}>
-              <Text style={[styles.teamName, { color: isFavorite(awayTeam?.id?.toString()) ? colors.primary : getNameColor(awayIsLosing) }]}>
-                {isFavorite(awayTeam?.id?.toString()) && <Text style={{ color: colors.primary }}>★ </Text>}
+              <Text allowFontScaling={false} style={[styles.teamName, { color: isFavorite(awayTeam?.id?.toString()) ? colors.primary : getNameColor(awayIsLosing) }]}>
+                {isFavorite(awayTeam?.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
                 {awayTeam?.abbreviation || 'AWAY'}
               </Text>
             </View>
@@ -1250,12 +1250,12 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
           {/* Game Status */}
           <View style={styles.vsContainer}>
-            <Text style={[styles.vsText, { color: theme.textSecondary }]}>vs</Text>
+            <Text allowFontScaling={false} style={[styles.vsText, { color: theme.textSecondary }]}>vs</Text>
             {status?.statusCode === 'F' ? (
               <>
-                <Text style={[styles.gameStatus, { color: colors.primary }]}>Final</Text>
+                <Text allowFontScaling={false} style={[styles.gameStatus, { color: colors.primary }]}>Final</Text>
                 {gameData.gameData?.datetime?.dateTime && (
-                  <Text style={[styles.gameTime, { color: theme.textSecondary }]}>
+                  <Text allowFontScaling={false} style={[styles.gameTime, { color: theme.textSecondary }]}>
                     {new Date(gameData.gameData.datetime.dateTime).toLocaleTimeString('en-US', { 
                       hour: 'numeric', 
                       minute: '2-digit'
@@ -1268,19 +1268,19 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                  status?.detailedState === 'Manager challenge' ||
                  status?.codedGameState === 'M' ? (
               <>
-                <Text style={[styles.gameStatus, { color: colors.primary }]}>
+                <Text allowFontScaling={false} style={[styles.gameStatus, { color: colors.primary }]}>
                   {formatInning(linescore?.currentInning, linescore?.inningState)}
                 </Text>
-                <Text style={[styles.gameClock, { color: theme.textSecondary }]}>
+                <Text allowFontScaling={false} style={[styles.gameClock, { color: theme.textSecondary }]}>
                   {linescore?.balls || 0}-{linescore?.strikes || 0}, {linescore?.outs || 0} out{(linescore?.outs || 0) !== 1 ? 's' : ''}
                 </Text>
                 {renderBases()}
               </>
             ) : (
               <>
-                <Text style={[styles.gameStatus, { color: colors.primary }]}>{status?.detailedState || 'Scheduled'}</Text>
+                <Text allowFontScaling={false} style={[styles.gameStatus, { color: colors.primary }]}>{status?.detailedState || 'Scheduled'}</Text>
                 {gameData.gameData?.datetime?.dateTime && (
-                  <Text style={[styles.gameTime, { color: theme.textSecondary }]}>
+                  <Text allowFontScaling={false} style={[styles.gameTime, { color: theme.textSecondary }]}>
                     {new Date(gameData.gameData.datetime.dateTime).toLocaleTimeString('en-US', { 
                       hour: 'numeric', 
                       minute: '2-digit'
@@ -1293,15 +1293,15 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
           {/* Home Team */}
           <View style={styles.team}>
-            <Text style={[styles.teamScore, { color: getScoreColor(homeIsLosing) }]}>{homeScore}</Text>
+            <Text allowFontScaling={false} style={[styles.teamScore, { color: getScoreColor(homeIsLosing) }]}>{homeScore}</Text>
             <Image 
               source={{ uri: getTeamLogoUrl('mlb', homeTeam?.abbreviation) }} 
               style={styles.teamLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/50x50?text=MLB' }}
             />
             <View style={styles.teamNameContainer}>
-              <Text style={[styles.teamName, { color: isFavorite(homeTeam?.id?.toString()) ? colors.primary : getNameColor(homeIsLosing) }]}>
-                {isFavorite(homeTeam?.id?.toString()) && <Text style={{ color: colors.primary }}>★ </Text>}
+              <Text allowFontScaling={false} style={[styles.teamName, { color: isFavorite(homeTeam?.id?.toString()) ? colors.primary : getNameColor(homeIsLosing) }]}>
+                {isFavorite(homeTeam?.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
                 {homeTeam?.abbreviation || 'HOME'}
               </Text>
             </View>
@@ -1309,9 +1309,9 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         </View>
         
         <View style={styles.gameInfo}>
-          <Text style={[styles.venue, { color: theme.text }]}>{gameData.gameData?.venue?.name || ''}</Text>
+          <Text allowFontScaling={false} style={[styles.venue, { color: theme.text }]}>{gameData.gameData?.venue?.name || ''}</Text>
           {gameData.gameData?.datetime?.originalDate && (
-            <Text style={[styles.date, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.date, { color: theme.textSecondary }]}>
               {(() => {
                 // Parse date in a timezone-neutral way to avoid day shifting
                 const dateStr = gameData.gameData.datetime.originalDate;
@@ -1327,7 +1327,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             </Text>
           )}
           {isGameLive && (
-            <Text style={[styles.streamHint, { color: colors.primary }]}>Tap to view streams</Text>
+            <Text allowFontScaling={false} style={[styles.streamHint, { color: colors.primary }]}>Tap to view streams</Text>
           )}
         </View>
       </TouchableOpacity>
@@ -1393,27 +1393,27 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         backgroundColor: theme.surface,
         shadowColor: isDarkMode ? '#ffffff' : '#000000'
       }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Line Score</Text>
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Line Score</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.lineScoreTable}>
             {/* Header Row */}
             <View style={[styles.lineScoreRow, { borderBottomColor: theme.border }]}>
               <View style={[styles.lineScoreCell, styles.teamCell]}>
-                <Text style={[styles.lineScoreHeaderText, { color: theme.text }]}>Team</Text>
+                <Text allowFontScaling={false} style={[styles.lineScoreHeaderText, { color: theme.text }]}>Team</Text>
               </View>
               {innings.map((inning, index) => (
                 <View key={index} style={styles.lineScoreCell}>
-                  <Text style={[styles.lineScoreHeaderText, { color: theme.text }]}>{index + 1}</Text>
+                  <Text allowFontScaling={false} style={[styles.lineScoreHeaderText, { color: theme.text }]}>{index + 1}</Text>
                 </View>
               ))}
               <View style={styles.lineScoreCell}>
-                <Text style={[styles.lineScoreHeaderText, { color: theme.text }]}>R</Text>
+                <Text allowFontScaling={false} style={[styles.lineScoreHeaderText, { color: theme.text }]}>R</Text>
               </View>
               <View style={styles.lineScoreCell}>
-                <Text style={[styles.lineScoreHeaderText, { color: theme.text }]}>H</Text>
+                <Text allowFontScaling={false} style={[styles.lineScoreHeaderText, { color: theme.text }]}>H</Text>
               </View>
               <View style={styles.lineScoreCell}>
-                <Text style={[styles.lineScoreHeaderText, { color: theme.text }]}>E</Text>
+                <Text allowFontScaling={false} style={[styles.lineScoreHeaderText, { color: theme.text }]}>E</Text>
               </View>
             </View>
 
@@ -1425,24 +1425,24 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                     source={{ uri: getTeamLogoUrl('mlb', awayTeam?.abbreviation) }}
                     style={styles.lineScoreTeamLogo}
                   />
-                  <Text style={[styles.lineScoreTeamText, { color: colors.primary }]}>{awayTeam?.abbreviation || 'AWAY'}</Text>
+                  <Text allowFontScaling={false} style={[styles.lineScoreTeamText, { color: colors.primary }]}>{awayTeam?.abbreviation || 'AWAY'}</Text>
                 </View>
               </View>
               {innings.map((inning, index) => (
                 <View key={index} style={styles.lineScoreCell}>
-                  <Text style={[styles.lineScoreText, { color: theme.textSecondary }]}>{inning.away?.runs || '0'}</Text>
+                  <Text allowFontScaling={false} style={[styles.lineScoreText, { color: theme.textSecondary }]}>{inning.away?.runs || '0'}</Text>
                 </View>
               ))}
               <View style={styles.lineScoreCell}>
-                <Text style={[styles.lineScoreText, { color: colors.primary }, styles.lineScoreTotalText]}>
+                <Text allowFontScaling={false} style={[styles.lineScoreText, { color: colors.primary }, styles.lineScoreTotalText]}>
                   {linescore.teams?.away?.runs || 0}
                 </Text>
               </View>
               <View style={styles.lineScoreCell}>
-                <Text style={[styles.lineScoreText, { color: theme.textSecondary }]}>{linescore.teams?.away?.hits || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.lineScoreText, { color: theme.textSecondary }]}>{linescore.teams?.away?.hits || 0}</Text>
               </View>
               <View style={styles.lineScoreCell}>
-                <Text style={[styles.lineScoreText, { color: theme.textSecondary }]}>{linescore.teams?.away?.errors || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.lineScoreText, { color: theme.textSecondary }]}>{linescore.teams?.away?.errors || 0}</Text>
               </View>
             </View>
 
@@ -1454,7 +1454,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                     source={{ uri: getTeamLogoUrl('mlb', homeTeam?.abbreviation) }}
                     style={styles.lineScoreTeamLogo}
                   />
-                  <Text style={[styles.lineScoreTeamText, { color: colors.primary }]}>{homeTeam?.abbreviation || 'HOME'}</Text>
+                  <Text allowFontScaling={false} style={[styles.lineScoreTeamText, { color: colors.primary }]}>{homeTeam?.abbreviation || 'HOME'}</Text>
                 </View>
               </View>
               {innings.map((inning, index) => {
@@ -1473,22 +1473,22 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 
                 return (
                   <View key={index} style={styles.lineScoreCell}>
-                    <Text style={[styles.lineScoreText, { color: theme.textSecondary }]}>
+                    <Text allowFontScaling={false} style={[styles.lineScoreText, { color: theme.textSecondary }]}>
                       {shouldShowX ? 'X' : (inning.home?.runs || '0')}
                     </Text>
                   </View>
                 );
               })}
               <View style={styles.lineScoreCell}>
-                <Text style={[styles.lineScoreText, { color: colors.primary }, styles.lineScoreTotalText]}>
+                <Text allowFontScaling={false} style={[styles.lineScoreText, { color: colors.primary }, styles.lineScoreTotalText]}>
                   {linescore.teams?.home?.runs || 0}
                 </Text>
               </View>
               <View style={styles.lineScoreCell}>
-                <Text style={[styles.lineScoreText, { color: theme.textSecondary }]}>{linescore.teams?.home?.hits || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.lineScoreText, { color: theme.textSecondary }]}>{linescore.teams?.home?.hits || 0}</Text>
               </View>
               <View style={styles.lineScoreCell}>
-                <Text style={[styles.lineScoreText, { color: theme.textSecondary }]}>{linescore.teams?.home?.errors || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.lineScoreText, { color: theme.textSecondary }]}>{linescore.teams?.home?.errors || 0}</Text>
               </View>
             </View>
           </View>
@@ -1507,13 +1507,13 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
     return (
       <View style={[styles.currentPlayContainer, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Current Situation</Text>
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Current Situation</Text>
         <View style={styles.currentPlayContent}>
           {currentPlay.result?.description && (
-            <Text style={[styles.currentPlayText, { color: theme.text }]}>{currentPlay.result.description}</Text>
+            <Text allowFontScaling={false} style={[styles.currentPlayText, { color: theme.text }]}>{currentPlay.result.description}</Text>
           )}
           {currentPlay.about?.inning && (
-            <Text style={[styles.currentPlayDetails, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.currentPlayDetails, { color: theme.textSecondary }]}>
               {formatInning(currentPlay.about.inning, currentPlay.about.halfInning)}
             </Text>
           )}
@@ -1569,7 +1569,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               style={styles.teamRosterLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
             />
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>{team?.name || `${teamType} Team`} Roster</Text>
+            <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>{team?.name || `${teamType} Team`} Roster</Text>
           </View>
           {renderTeamRoster(team)}
         </View>
@@ -1578,7 +1578,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
     return (
       <View style={[styles.section, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>{team?.name || `${teamType} Team`} Box Score</Text>
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>{team?.name || `${teamType} Team`} Box Score</Text>
         {renderTeamBoxScore(teamStats, team)}
       </View>
     );
@@ -1598,19 +1598,19 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             style={styles.teamBoxScoreLogo}
             defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=MLB' }}
           />
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>{team?.name || 'Team'}</Text>
+          <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>{team?.name || 'Team'}</Text>
         </View>
 
         {/* Batting Stats */}
         <View style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
-          <Text style={[styles.statCategoryTitle, { color: colors.primary }]}>Batting</Text>
+          <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: colors.primary }]}>Batting</Text>
           <View style={[styles.statTableHeader, { backgroundColor: theme.cardBackground || theme.surfaceSecondary }]}>
-            <Text style={[styles.statTableHeaderPlayer, { color: theme.text }]}>Player</Text>
-            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>AB</Text>
-            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>R</Text>
-            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>H</Text>
-            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>RBI</Text>
-            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>AVG</Text>
+            <Text allowFontScaling={false} style={[styles.statTableHeaderPlayer, { color: theme.text }]}>Player</Text>
+            <Text allowFontScaling={false} style={[styles.statTableHeaderStat, { color: theme.text }]}>AB</Text>
+            <Text allowFontScaling={false} style={[styles.statTableHeaderStat, { color: theme.text }]}>R</Text>
+            <Text allowFontScaling={false} style={[styles.statTableHeaderStat, { color: theme.text }]}>H</Text>
+            <Text allowFontScaling={false} style={[styles.statTableHeaderStat, { color: theme.text }]}>RBI</Text>
+            <Text allowFontScaling={false} style={[styles.statTableHeaderStat, { color: theme.text }]}>AVG</Text>
           </View>
           {batters.slice(0, 9).map((batterId, index) => {
             const player = teamStats.players?.[`ID${batterId}`];
@@ -1624,18 +1624,18 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 onPress={() => handlePlayerPress(player, team)}
               >
                 <View style={styles.statTablePlayerCell}>
-                  <Text style={[styles.statTablePlayerName, { color: theme.text }]}>
+                  <Text allowFontScaling={false} style={[styles.statTablePlayerName, { color: theme.text }]}>
                     {player.person?.fullName || 'Unknown Player'}
                   </Text>
-                  <Text style={[styles.statTablePlayerNumber, { color: theme.textSecondary }]}>
+                  <Text allowFontScaling={false} style={[styles.statTablePlayerNumber, { color: theme.textSecondary }]}>
                     #{player.jerseyNumber || '--'} {player.position?.abbreviation || ''}
                   </Text>
                 </View>
-                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{stats.atBats || 0}</Text>
-                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{stats.runs || 0}</Text>
-                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{stats.hits || 0}</Text>
-                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{stats.rbi || 0}</Text>
-                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{player.seasonStats?.batting?.avg || '.000'}</Text>
+                <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: theme.text }]}>{stats.atBats || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: theme.text }]}>{stats.runs || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: theme.text }]}>{stats.hits || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: theme.text }]}>{stats.rbi || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: theme.text }]}>{player.seasonStats?.batting?.avg || '.000'}</Text>
               </TouchableOpacity>
             );
           })}
@@ -1643,14 +1643,14 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
         {/* Pitching Stats */}
         <View style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
-          <Text style={[styles.statCategoryTitle, { color: colors.primary }]}>Pitching</Text>
+          <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: colors.primary }]}>Pitching</Text>
           <View style={[styles.statTableHeader, { backgroundColor: theme.cardBackground || theme.surface }]}>
-            <Text style={[styles.statTableHeaderPlayer, { color: theme.text }]}>Player</Text>
-            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>IP</Text>
-            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>H</Text>
-            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>R</Text>
-            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>ER</Text>
-            <Text style={[styles.statTableHeaderStat, { color: theme.text }]}>ERA</Text>
+            <Text allowFontScaling={false} style={[styles.statTableHeaderPlayer, { color: theme.text }]}>Player</Text>
+            <Text allowFontScaling={false} style={[styles.statTableHeaderStat, { color: theme.text }]}>IP</Text>
+            <Text allowFontScaling={false} style={[styles.statTableHeaderStat, { color: theme.text }]}>H</Text>
+            <Text allowFontScaling={false} style={[styles.statTableHeaderStat, { color: theme.text }]}>R</Text>
+            <Text allowFontScaling={false} style={[styles.statTableHeaderStat, { color: theme.text }]}>ER</Text>
+            <Text allowFontScaling={false} style={[styles.statTableHeaderStat, { color: theme.text }]}>ERA</Text>
           </View>
           {pitchers.map((pitcherId, index) => {
             const player = teamStats.players?.[`ID${pitcherId}`];
@@ -1664,18 +1664,18 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 onPress={() => handlePlayerPress(player, team)}
               >
                 <View style={styles.statTablePlayerCell}>
-                  <Text style={[styles.statTablePlayerName, { color: theme.text }]}>
+                  <Text allowFontScaling={false} style={[styles.statTablePlayerName, { color: theme.text }]}>
                     {player.person?.fullName || 'Unknown Player'}
                   </Text>
-                  <Text style={[styles.statTablePlayerNumber, { color: theme.textSecondary }]}>
+                  <Text allowFontScaling={false} style={[styles.statTablePlayerNumber, { color: theme.textSecondary }]}>
                     #{player.jerseyNumber || '--'} {player.position?.abbreviation || ''}
                   </Text>
                 </View>
-                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{stats.inningsPitched || '0.0'}</Text>
-                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{stats.hits || 0}</Text>
-                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{stats.runs || 0}</Text>
-                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{stats.earnedRuns || 0}</Text>
-                <Text style={[styles.statTableStatCell, { color: theme.text }]}>{player.seasonStats?.pitching?.era || '0.00'}</Text>
+                <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: theme.text }]}>{stats.inningsPitched || '0.0'}</Text>
+                <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: theme.text }]}>{stats.hits || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: theme.text }]}>{stats.runs || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: theme.text }]}>{stats.earnedRuns || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: theme.text }]}>{player.seasonStats?.pitching?.era || '0.00'}</Text>
               </TouchableOpacity>
             );
           })}
@@ -1706,7 +1706,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       return (
         <View key={label} style={{ marginBottom: 28 }}>
           <View style={styles.statsRow}>
-            <Text style={[styles.statsValue, { color: theme.text }]}>{awayValue}</Text>
+            <Text allowFontScaling={false} style={[styles.statsValue, { color: theme.text }]}>{awayValue}</Text>
             <View style={styles.statsBarContainer}>
               <View style={[styles.statsBar, { 
                 flexDirection: 'row', 
@@ -1744,10 +1744,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 />
               </View>
             </View>
-            <Text style={[styles.statsValue, { color: theme.text }]}>{homeValue}</Text>
+            <Text allowFontScaling={false} style={[styles.statsValue, { color: theme.text }]}>{homeValue}</Text>
           </View>
           <View style={{ alignItems: 'center', marginTop: -25 }}>
-            <Text style={[styles.statsLabel, { color: theme.textSecondary }]}>{label}</Text>
+            <Text allowFontScaling={false} style={[styles.statsLabel, { color: theme.textSecondary }]}>{label}</Text>
           </View>
         </View>
       );
@@ -1758,7 +1758,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         backgroundColor: theme.surface,
         shadowColor: isDarkMode ? '#ffffff' : '#000000'
       }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Team Statistics</Text>
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Team Statistics</Text>
 
         {/* Team Headers */}
         <View style={styles.statsTeams}>
@@ -1768,7 +1768,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               style={styles.statsTeamLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=MLB' }}
             />
-            <Text style={[styles.statsTeamName, { color: theme.text }]}>{awayTeam?.name || 'Away Team'}</Text>
+            <Text allowFontScaling={false} style={[styles.statsTeamName, { color: theme.text }]}>{awayTeam?.name || 'Away Team'}</Text>
           </View>
           <View style={styles.statsTeam}>
             <Image
@@ -1776,7 +1776,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               style={styles.statsTeamLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=MLB' }}
             />
-            <Text style={[styles.statsTeamName, { color: theme.text }]}>{homeTeam?.name || 'Home Team'}</Text>
+            <Text allowFontScaling={false} style={[styles.statsTeamName, { color: theme.text }]}>{homeTeam?.name || 'Home Team'}</Text>
           </View>
         </View>
 
@@ -1805,7 +1805,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       return (
         <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading Plays...</Text>
+          <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>Loading Plays...</Text>
         </View>
       );
     }
@@ -1813,7 +1813,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     if (!playsData) {
       return (
         <View style={styles.placeholderContainer}>
-          <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>No plays data available</Text>
+          <Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.textSecondary }]}>No plays data available</Text>
         </View>
       );
     }
@@ -1932,19 +1932,19 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           backgroundColor: theme.surface,
           shadowColor: isDarkMode ? '#ffffff' : '#000000'
         }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Momentum</Text>
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Momentum</Text>
           <View style={styles.teamLabels}>
             <View style={[styles.teamLabelContainer, styles.awayTeamLabel]}>
               <Image
                 source={{ uri: getTeamLogoUrl('mlb', awayTeam?.abbreviation) }}
                 style={styles.momentumTeamLogoAway}
               />
-              <Text style={[styles.teamLabel, { color: theme.text }]}>
+              <Text allowFontScaling={false} style={[styles.teamLabel, { color: theme.text }]}>
                 {awayTeam?.abbreviation || 'AWAY'}
               </Text>
             </View>
             <View style={[styles.teamLabelContainer, styles.homeTeamLabel]}>
-              <Text style={[styles.teamLabel, { color: theme.text }]}>
+              <Text allowFontScaling={false} style={[styles.teamLabel, { color: theme.text }]}>
                 {homeTeam?.abbreviation || 'HOME'}
               </Text>
               <Image
@@ -1963,7 +1963,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   <View key={index} style={styles.inningBar}>
                     {/* Inning label at center */}
                     <View style={styles.inningLabelContainer}>
-                      <Text style={[styles.inningLabel, { color: theme.textSecondary }]}>
+                      <Text allowFontScaling={false} style={[styles.inningLabel, { color: theme.textSecondary }]}>
                         {data.inning}{data.inning === 1 ? 'st' : data.inning === 2 ? 'nd' : data.inning === 3 ? 'rd' : 'th'}
                       </Text>
                     </View>
@@ -1982,7 +1982,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                           ]}
                         />
                         {(data.awayRuns > 0 || data.awayHits > 0) && (
-                          <Text style={[styles.barText, { position: 'absolute', top: -25, color: theme.text }]}>
+                          <Text allowFontScaling={false} style={[styles.barText, { position: 'absolute', top: -25, color: theme.text }]}>
                             {data.awayRuns}R {data.awayHits}H
                           </Text>
                         )}
@@ -2003,7 +2003,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                           ]}
                         />
                         {(data.homeRuns > 0 || data.homeHits > 0) && (
-                          <Text style={[styles.barText, { position: 'absolute', bottom: -20, color: theme.text }]}>
+                          <Text allowFontScaling={false} style={[styles.barText, { position: 'absolute', bottom: -20, color: theme.text }]}>
                             {data.homeRuns}R {data.homeHits}H
                           </Text>
                         )}
@@ -2029,7 +2029,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     
     return (
       <View style={styles.playsContainer}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Play-by-Play</Text>
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Play-by-Play</Text>
         <ScrollView 
           ref={playsScrollViewRef}
           style={styles.playsScrollView}
@@ -2080,12 +2080,12 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 style={[styles.pitchPlayerHeadshot, { borderColor: colors.primary }]}
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=B' }}
               />
-              <Text style={[styles.pitchPlayerName, { color: colors.primary }]}>
+              <Text allowFontScaling={false} style={[styles.pitchPlayerName, { color: colors.primary }]}>
                 {batter.fullName ? 
                   `${batter.fullName.split(' ')[0][0]}. ${batter.fullName.split(' ').pop()}` : 
                   'Batter'}
               </Text>
-              <Text style={[styles.pitchPlayerRole, { color: theme.textSecondary }]}>Batter</Text>
+              <Text allowFontScaling={false} style={[styles.pitchPlayerRole, { color: theme.textSecondary }]}>Batter</Text>
             </View>
           )}
         </View>
@@ -2151,7 +2151,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   }
                 ]}
               >
-                <Text style={styles.pitchNumberOnBall}>{index + 1}</Text>
+                <Text allowFontScaling={false} style={styles.pitchNumberOnBall}>{index + 1}</Text>
               </View>
             );
           })}
@@ -2166,12 +2166,12 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 style={[styles.pitchPlayerHeadshot, { borderColor: colors.primary }]}
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=P' }}
               />
-              <Text style={[styles.pitchPlayerName, { color: colors.primary }]}>
+              <Text allowFontScaling={false} style={[styles.pitchPlayerName, { color: colors.primary }]}>
                 {pitcher.fullName ? 
                   `${pitcher.fullName.split(' ')[0][0]}. ${pitcher.fullName.split(' ').pop()}` : 
                   'Pitcher'}
               </Text>
-              <Text style={[styles.pitchPlayerRole, { color: theme.textSecondary }]}>Pitcher</Text>
+              <Text allowFontScaling={false} style={[styles.pitchPlayerRole, { color: theme.textSecondary }]}>Pitcher</Text>
             </View>
           )}
         </View>
@@ -2185,15 +2185,15 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     if (pitches.length === 0) {
       return (
         <View style={[styles.pitchSequenceBox, { backgroundColor: theme.surface }]}>
-          <Text style={[styles.pitchSequenceTitle, { color: colors.primary }]}>At-Bat Result</Text>
-          <Text style={[styles.pitchDescription, { color: theme.textSecondary }]}>{play.result?.description}</Text>
+          <Text allowFontScaling={false} style={[styles.pitchSequenceTitle, { color: colors.primary }]}>At-Bat Result</Text>
+          <Text allowFontScaling={false} style={[styles.pitchDescription, { color: theme.textSecondary }]}>{play.result?.description}</Text>
         </View>
       );
     }
 
     return (
       <View style={[styles.pitchSequenceBox, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.pitchSequenceTitle, { color: colors.primary }]}>At-Bat Pitches ({pitches.length} pitches)</Text>
+        <Text allowFontScaling={false} style={[styles.pitchSequenceTitle, { color: colors.primary }]}>At-Bat Pitches ({pitches.length} pitches)</Text>
         {pitches.map((pitch, index) => {
           // Determine pitch color based on call
           let pitchColor = '#4CAF50'; // Green for balls
@@ -2206,23 +2206,23 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           return (
             <View key={index} style={[styles.pitchRow, { borderBottomColor: theme.border }]}>
               <View style={[styles.pitchNumber, { backgroundColor: pitchColor }]}>
-                <Text style={[styles.pitchNumberText, { color: '#ffffff' }]}>{index + 1}</Text>
+                <Text allowFontScaling={false} style={[styles.pitchNumberText, { color: '#ffffff' }]}>{index + 1}</Text>
               </View>
               <View style={styles.pitchInfo}>
                 <View style={styles.pitchMainInfo}>
-                  <Text style={[styles.pitchTypeText, { color: pitchColor }]}>
+                  <Text allowFontScaling={false} style={[styles.pitchTypeText, { color: pitchColor }]}>
                     {pitch.details?.type?.description || pitch.pitchData?.type?.description || 'Unknown'}
                   </Text>
                   {pitch.pitchData?.startSpeed && (
-                    <Text style={[styles.pitchSpeedText, { color: theme.textSecondary }]}>
+                    <Text allowFontScaling={false} style={[styles.pitchSpeedText, { color: theme.textSecondary }]}>
                       {Math.round(pitch.pitchData.startSpeed)} mph
                     </Text>
                   )}
-                  <Text style={[styles.pitchCountText, { color: theme.textSecondary }]}>
+                  <Text allowFontScaling={false} style={[styles.pitchCountText, { color: theme.textSecondary }]}>
                     ({pitch.count?.balls || 0}-{pitch.count?.strikes || 0})
                   </Text>
                 </View>
-                <Text style={[styles.pitchActionText, { color: theme.textSecondary }]}>
+                <Text allowFontScaling={false} style={[styles.pitchActionText, { color: theme.textSecondary }]}>
                   {pitch.details?.description || 'Pitch thrown'}
                 </Text>
               </View>
@@ -2327,20 +2327,20 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
             />
             <View style={styles.playSummary}>
-              <Text style={[styles.playTeamName, { color: textColor }]}>{team?.abbreviation || 'TEAM'}</Text>
-              <Text style={[styles.playResult, { color: textColor }]}>{play.result?.description || `${play.matchup?.batter.fullName} vs ${play.matchup?.pitcher.fullName}`}</Text>
+              <Text allowFontScaling={false} style={[styles.playTeamName, { color: textColor }]}>{team?.abbreviation || 'TEAM'}</Text>
+              <Text allowFontScaling={false} style={[styles.playResult, { color: textColor }]}>{play.result?.description || `${play.matchup?.batter.fullName} vs ${play.matchup?.pitcher.fullName}`}</Text>
             </View>
           </View>
           <View style={styles.playScoreSection}>
-            <Text style={[styles.playInning, { color: textColor }]}>
+            <Text allowFontScaling={false} style={[styles.playInning, { color: textColor }]}>
               {isTopInning ? 'Top' : 'Bot'} {MLBService.getOrdinalSuffix(inning)}
             </Text>
-            <Text style={[styles.playScore, { color: textColor }]}>
+            <Text allowFontScaling={false} style={[styles.playScore, { color: textColor }]}>
               {play.result?.awayScore || 0}-{play.result?.homeScore || 0}
             </Text>
             {renderPlayBasesSmall(play)}
           </View>
-          <Text style={[styles.toggleIcon, isOpen && styles.toggleIconOpen, { color: textColor }]}>
+          <Text allowFontScaling={false} style={[styles.toggleIcon, isOpen && styles.toggleIconOpen, { color: textColor }]}>
             {isOpen ? '▼' : '▶'}
           </Text>
         </TouchableOpacity>
@@ -2365,7 +2365,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
     return (
       <View style={styles.playBasesContainer}>
-        <Text style={styles.basesTitle}>Bases After Play</Text>
+        <Text allowFontScaling={false} style={styles.basesTitle}>Bases After Play</Text>
         <View style={styles.playBasesDisplay}>
           <View style={styles.playBasesRow}>
             <View style={[styles.playBase, styles.thirdBase, hasThird && [styles.occupiedBase, { backgroundColor: colors.primary }]]} />
@@ -2393,7 +2393,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
     return (
       <View style={[styles.section, { backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Probable Pitchers</Text>
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Probable Pitchers</Text>
         <View style={styles.probablePitchersContainer}>
           {/* Away Pitcher */}
           <View style={[styles.pitcherCard, { backgroundColor: theme.surfaceSecondary }]}>
@@ -2403,7 +2403,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 style={styles.pitcherTeamLogo}
                 defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
               />
-              <Text style={[styles.pitcherTeamName, { color: theme.text }]}>{awayTeam?.teamName || awayTeam?.name}</Text>
+              <Text allowFontScaling={false} style={[styles.pitcherTeamName, { color: theme.text }]}>{awayTeam?.teamName || awayTeam?.name}</Text>
             </View>
             {awayPitcher ? (
               <View style={styles.pitcherInfo}>
@@ -2412,28 +2412,28 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   style={styles.pitcherHeadshot}
                   defaultSource={{ uri: 'https://via.placeholder.com/60x60?text=P' }}
                 />
-                <Text style={[styles.pitcherName, { color: theme.text }]}>{awayPitcher.fullName}</Text>
+                <Text allowFontScaling={false} style={[styles.pitcherName, { color: theme.text }]}>{awayPitcher.fullName}</Text>
                 {probablePitcherStats.away?.pitching ? (
                   <View style={styles.pitcherStatsContainer}>
-                    <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>
+                    <Text allowFontScaling={false} style={[styles.pitcherStats, { color: theme.textTertiary }]}>
                       {probablePitcherStats.away.pitching.wins || 0}-{probablePitcherStats.away.pitching.losses || 0}
                     </Text>
-                    <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>
+                    <Text allowFontScaling={false} style={[styles.pitcherStats, { color: theme.textTertiary }]}>
                       {probablePitcherStats.away.pitching.era || '0.00'} ERA
                     </Text>
-                    <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>
+                    <Text allowFontScaling={false} style={[styles.pitcherStats, { color: theme.textTertiary }]}>
                       {probablePitcherStats.away.pitching.whip || '0.00'} WHIP
                     </Text>
-                    <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>
+                    <Text allowFontScaling={false} style={[styles.pitcherStats, { color: theme.textTertiary }]}>
                       {probablePitcherStats.away.pitching.strikeOuts || 0} K
                     </Text>
                   </View>
                 ) : (
-                  <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>Loading stats...</Text>
+                  <Text allowFontScaling={false} style={[styles.pitcherStats, { color: theme.textTertiary }]}>Loading stats...</Text>
                 )}
               </View>
             ) : (
-              <Text style={styles.noPitcher}>TBD</Text>
+              <Text allowFontScaling={false} style={styles.noPitcher}>TBD</Text>
             )}
           </View>
 
@@ -2445,7 +2445,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 style={styles.pitcherTeamLogo}
                 defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
               />
-              <Text style={[styles.pitcherTeamName, { color: theme.text }]}>{homeTeam?.teamName || homeTeam?.name}</Text>
+              <Text allowFontScaling={false} style={[styles.pitcherTeamName, { color: theme.text }]}>{homeTeam?.teamName || homeTeam?.name}</Text>
             </View>
             {homePitcher ? (
               <View style={styles.pitcherInfo}>
@@ -2454,28 +2454,28 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   style={styles.pitcherHeadshot}
                   defaultSource={{ uri: 'https://via.placeholder.com/60x60?text=P' }}
                 />
-                <Text style={[styles.pitcherName, { color: theme.text }]}>{homePitcher.fullName}</Text>
+                <Text allowFontScaling={false} style={[styles.pitcherName, { color: theme.text }]}>{homePitcher.fullName}</Text>
                 {probablePitcherStats.home?.pitching ? (
                   <View style={styles.pitcherStatsContainer}>
-                    <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>
+                    <Text allowFontScaling={false} style={[styles.pitcherStats, { color: theme.textTertiary }]}>
                       {probablePitcherStats.home.pitching.wins || 0}-{probablePitcherStats.home.pitching.losses || 0}
                     </Text>
-                    <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>
+                    <Text allowFontScaling={false} style={[styles.pitcherStats, { color: theme.textTertiary }]}>
                       {probablePitcherStats.home.pitching.era || '0.00'} ERA
                     </Text>
-                    <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>
+                    <Text allowFontScaling={false} style={[styles.pitcherStats, { color: theme.textTertiary }]}>
                       {probablePitcherStats.home.pitching.whip || '0.00'} WHIP
                     </Text>
-                    <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>
+                    <Text allowFontScaling={false} style={[styles.pitcherStats, { color: theme.textTertiary }]}>
                       {probablePitcherStats.home.pitching.strikeOuts || 0} K
                     </Text>
                   </View>
                 ) : (
-                  <Text style={[styles.pitcherStats, { color: theme.textTertiary }]}>Loading stats...</Text>
+                  <Text allowFontScaling={false} style={[styles.pitcherStats, { color: theme.textTertiary }]}>Loading stats...</Text>
                 )}
               </View>
             ) : (
-              <Text style={styles.noPitcher}>TBD</Text>
+              <Text allowFontScaling={false} style={styles.noPitcher}>TBD</Text>
             )}
           </View>
         </View>
@@ -2491,7 +2491,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
     return (
       <View style={[styles.section, { backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Top Hitters</Text>
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Top Hitters</Text>
         <View style={styles.topHittersContainer}>
           {/* Away Team */}
           <View style={styles.topHittersTeam}>
@@ -2501,44 +2501,44 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 style={styles.topHittersTeamLogo}
                 defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
               />
-              <Text style={[styles.topHittersTeamName, { color: theme.text }]}>{awayTeam?.teamName || awayTeam?.name}</Text>
+              <Text allowFontScaling={false} style={[styles.topHittersTeamName, { color: theme.text }]}>{awayTeam?.teamName || awayTeam?.name}</Text>
             </View>
             {topHitters.away && topHitters.away.length > 0 ? (
               topHitters.away.slice(0, 3).map((hitter, index) => (
                 <View key={hitter.player?.id || index} style={[styles.topHitterRow, { backgroundColor: theme.surfaceSecondary }]}>
                   <View style={styles.topHitterLeft}>
-                    <Text style={[styles.topHitterPosition, { color: theme.textTertiary }]}>{hitter.position?.abbreviation || 'N/A'}</Text>
+                    <Text allowFontScaling={false} style={[styles.topHitterPosition, { color: theme.textTertiary }]}>{hitter.position?.abbreviation || 'N/A'}</Text>
                     <Image
                       source={{ uri: MLBService.getHeadshotUrl(hitter.player?.id) }}
                       style={styles.topHitterHeadshot}
                       defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=P' }}
                     />
                     <View style={styles.topHitterInfo}>
-                      <Text style={[styles.topHitterName, { color: theme.text }]}>{hitter.player?.fullName}</Text>
+                      <Text allowFontScaling={false} style={[styles.topHitterName, { color: theme.text }]}>{hitter.player?.fullName}</Text>
                       <View style={styles.topHitterStatsRow}>
                         <View style={styles.topHitterStatItem}>
-                          <Text style={[styles.topHitterStatValue, { color: colors.primary }]}>
+                          <Text allowFontScaling={false} style={[styles.topHitterStatValue, { color: colors.primary }]}>
                             {hitter.stat?.avg || '.000'}
                           </Text>
-                          <Text style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>AVG</Text>
+                          <Text allowFontScaling={false} style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>AVG</Text>
                         </View>
                         <View style={styles.topHitterStatItem}>
-                          <Text style={[styles.topHitterStatValue, { color: colors.primary }]}>
+                          <Text allowFontScaling={false} style={[styles.topHitterStatValue, { color: colors.primary }]}>
                             {hitter.stat?.ops || '.000'}
                           </Text>
-                          <Text style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>OPS</Text>
+                          <Text allowFontScaling={false} style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>OPS</Text>
                         </View>
                         <View style={styles.topHitterStatItem}>
-                          <Text style={[styles.topHitterStatValue, { color: colors.primary }]}>
+                          <Text allowFontScaling={false} style={[styles.topHitterStatValue, { color: colors.primary }]}>
                             {hitter.stat?.homeRuns || 0}
                           </Text>
-                          <Text style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>HR</Text>
+                          <Text allowFontScaling={false} style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>HR</Text>
                         </View>
                         <View style={styles.topHitterStatItem}>
-                          <Text style={[styles.topHitterStatValue, { color: colors.primary }]}>
+                          <Text allowFontScaling={false} style={[styles.topHitterStatValue, { color: colors.primary }]}>
                             {hitter.stat?.rbi || 0}
                           </Text>
-                          <Text style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>RBI</Text>
+                          <Text allowFontScaling={false} style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>RBI</Text>
                         </View>
                       </View>
                     </View>
@@ -2546,7 +2546,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 </View>
               ))
             ) : (
-              <Text style={[styles.loadingHitters, { color: theme.textTertiary }]}>Loading...</Text>
+              <Text allowFontScaling={false} style={[styles.loadingHitters, { color: theme.textTertiary }]}>Loading...</Text>
             )}
           </View>
 
@@ -2558,44 +2558,44 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 style={styles.topHittersTeamLogo}
                 defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
               />
-              <Text style={[styles.topHittersTeamName, { color: theme.text }]}>{homeTeam?.teamName || homeTeam?.name}</Text>
+              <Text allowFontScaling={false} style={[styles.topHittersTeamName, { color: theme.text }]}>{homeTeam?.teamName || homeTeam?.name}</Text>
             </View>
             {topHitters.home && topHitters.home.length > 0 ? (
               topHitters.home.slice(0, 3).map((hitter, index) => (
                 <View key={hitter.player?.id || index} style={[styles.topHitterRow, { backgroundColor: theme.surfaceSecondary  }]}>
                   <View style={styles.topHitterLeft}>
-                    <Text style={[styles.topHitterPosition, { color: theme.textTertiary }]}>{hitter.position?.abbreviation || 'N/A'}</Text>
+                    <Text allowFontScaling={false} style={[styles.topHitterPosition, { color: theme.textTertiary }]}>{hitter.position?.abbreviation || 'N/A'}</Text>
                     <Image
                       source={{ uri: MLBService.getHeadshotUrl(hitter.player?.id) }}
                       style={styles.topHitterHeadshot}
                       defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=P' }}
                     />
                     <View style={styles.topHitterInfo}>
-                      <Text style={[styles.topHitterName, { color: theme.text }]}>{hitter.player?.fullName}</Text>
+                      <Text allowFontScaling={false} style={[styles.topHitterName, { color: theme.text }]}>{hitter.player?.fullName}</Text>
                       <View style={styles.topHitterStatsRow}>
                         <View style={styles.topHitterStatItem}>
-                          <Text style={[styles.topHitterStatValue, { color: colors.primary }]}>
+                          <Text allowFontScaling={false} style={[styles.topHitterStatValue, { color: colors.primary }]}>
                             {hitter.stat?.avg || '.000'}
                           </Text>
-                          <Text style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>AVG</Text>
+                          <Text allowFontScaling={false} style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>AVG</Text>
                         </View>
                         <View style={styles.topHitterStatItem}>
-                          <Text style={[styles.topHitterStatValue, { color: colors.primary }]}>
+                          <Text allowFontScaling={false} style={[styles.topHitterStatValue, { color: colors.primary }]}>
                             {hitter.stat?.ops || '.000'}
                           </Text>
-                          <Text style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>OPS</Text>
+                          <Text allowFontScaling={false} style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>OPS</Text>
                         </View>
                         <View style={styles.topHitterStatItem}>
-                          <Text style={[styles.topHitterStatValue, { color: colors.primary }]}>
+                          <Text allowFontScaling={false} style={[styles.topHitterStatValue, { color: colors.primary }]}>
                             {hitter.stat?.homeRuns || 0}
                           </Text>
-                          <Text style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>HR</Text>
+                          <Text allowFontScaling={false} style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>HR</Text>
                         </View>
                         <View style={styles.topHitterStatItem}>
-                          <Text style={[styles.topHitterStatValue, { color: colors.primary }]}>
+                          <Text allowFontScaling={false} style={[styles.topHitterStatValue, { color: colors.primary }]}>
                             {hitter.stat?.rbi || 0}
                           </Text>
-                          <Text style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>RBI</Text>
+                          <Text allowFontScaling={false} style={[styles.topHitterStatLabel, { color: theme.textTertiary }]}>RBI</Text>
                         </View>
                       </View>
                     </View>
@@ -2603,7 +2603,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 </View>
               ))
             ) : (
-              <Text style={styles.loadingHitters}>Loading...</Text>
+              <Text allowFontScaling={false} style={styles.loadingHitters}>Loading...</Text>
             )}
           </View>
         </View>
@@ -2622,9 +2622,9 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     if (!awayStats || !homeStats) {
       return (
         <View style={styles.teamStatsContainer}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Season Statistics</Text>
+          <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Season Statistics</Text>
           <View style={styles.seasonStatsContainer}>
-            <Text style={[styles.placeholderText, { color: theme.textTertiary }]}>Loading season statistics...</Text>
+            <Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.textTertiary }]}>Loading season statistics...</Text>
           </View>
         </View>
       );
@@ -2644,7 +2644,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       return (
         <View key={label} style={{ marginBottom: 28 }}>
           <View style={styles.statsRow}>
-            <Text style={[styles.statsValue, { color: theme.text }]}>{awayValue}</Text>
+            <Text allowFontScaling={false} style={[styles.statsValue, { color: theme.text }]}>{awayValue}</Text>
             <View style={styles.statsBarContainer}>
               <View style={[styles.statsBar, { 
                 flexDirection: 'row', 
@@ -2682,10 +2682,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 />
               </View>
             </View>
-            <Text style={[styles.statsValue, { color: theme.text }]}>{homeValue}</Text>
+            <Text allowFontScaling={false} style={[styles.statsValue, { color: theme.text }]}>{homeValue}</Text>
           </View>
           <View style={{ alignItems: 'center', marginTop: -25 }}>
-            <Text style={[styles.statsLabel, { color: theme.textSecondary }]}>{label}</Text>
+            <Text allowFontScaling={false} style={[styles.statsLabel, { color: theme.textSecondary }]}>{label}</Text>
           </View>
         </View>
       );
@@ -2693,7 +2693,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
     return (
       <View style={[styles.teamStatsContainer, { backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Season Statistics</Text>
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Season Statistics</Text>
 
         {/* Team Headers */}
         <View style={styles.statsTeams}>
@@ -2703,7 +2703,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               style={styles.statsTeamLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=MLB' }}
             />
-            <Text style={[styles.statsTeamName, { color: theme.text }]}>{awayTeam?.name || 'Away Team'}</Text>
+            <Text allowFontScaling={false} style={[styles.statsTeamName, { color: theme.text }]}>{awayTeam?.name || 'Away Team'}</Text>
           </View>
           <View style={styles.statsTeam}>
             <Image
@@ -2711,7 +2711,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               style={styles.statsTeamLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=MLB' }}
             />
-            <Text style={[styles.statsTeamName, { color: theme.text }]}>{homeTeam?.name || 'Home Team'}</Text>
+            <Text allowFontScaling={false} style={[styles.statsTeamName, { color: theme.text }]}>{homeTeam?.name || 'Home Team'}</Text>
           </View>
         </View>
 
@@ -2741,7 +2741,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       return (
         <View style={[styles.rosterContainer, { backgroundColor: theme.surface }]}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.placeholderText, { color: theme.textTertiary }]}>Loading roster...</Text>
+          <Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.textTertiary }]}>Loading roster...</Text>
         </View>
       );
     }
@@ -2772,33 +2772,33 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             onPress={toggleSection}
             activeOpacity={0.7}
           >
-            <Text style={[styles.rosterSectionTitle, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.rosterSectionTitle, { color: theme.text }]}>
               {title} ({players.length})
             </Text>
-            <Text style={[styles.rosterSectionArrow, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.rosterSectionArrow, { color: theme.text }]}>
               {isCollapsed ? '▶' : '▼'}
             </Text>
           </TouchableOpacity>
           {!isCollapsed && (
             <View style={styles.rosterTableContainer}>
               <View style={[styles.rosterTableHeader, { backgroundColor: theme.surface }]}>
-                <Text style={[styles.rosterTableHeaderPlayer, { color: theme.text }]}>Player</Text>
-                <Text style={[styles.rosterTableHeaderStatus, { color: theme.text }]}>Status</Text>
+                <Text allowFontScaling={false} style={[styles.rosterTableHeaderPlayer, { color: theme.text }]}>Player</Text>
+                <Text allowFontScaling={false} style={[styles.rosterTableHeaderStatus, { color: theme.text }]}>Status</Text>
               </View>
               {players.map((player) => (
                 <View key={player.person.id} style={[styles.rosterTableRow , { borderBottomColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
                   <View style={styles.rosterTablePlayerCell}>
-                    <Text style={[styles.rosterTablePlayerName, { color: theme.text }]}>
+                    <Text allowFontScaling={false} style={[styles.rosterTablePlayerName, { color: theme.text }]}>
                       {player.person.fullName}
                     </Text>
-                    <Text style={[styles.rosterTablePlayerDetails, { color: theme.textTertiary }]}>
-                      <Text style={[styles.rosterTablePlayerNumber, { color: theme.textTertiary }]}>#{player.jerseyNumber || '--'}</Text>
+                    <Text allowFontScaling={false} style={[styles.rosterTablePlayerDetails, { color: theme.textTertiary }]}>
+                      <Text allowFontScaling={false} style={[styles.rosterTablePlayerNumber, { color: theme.textTertiary }]}>#{player.jerseyNumber || '--'}</Text>
                       {' • '}
                       {player.position?.abbreviation || 'N/A'}
                     </Text>
                   </View>
                   <View style={styles.rosterTableStatusCell}>
-                    <Text style={[
+                    <Text allowFontScaling={false} style={[
                       styles.rosterTableStatusText,
                       player.status?.code === 'A' ? styles.activeStatus : styles.inactiveStatus
                     ]}>
@@ -2865,60 +2865,60 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       <View>
         {/* Game Info */}
         <View style={styles.gameStatsHeader}>
-          <Text style={[styles.gameStatsTitle, { color: colors.primary }]}>Game Statistics</Text>
-          <Text style={[styles.gameStatsDate, { color: theme.textSecondary }]}>{gameDate}</Text>
+          <Text allowFontScaling={false} style={[styles.gameStatsTitle, { color: colors.primary }]}>Game Statistics</Text>
+          <Text allowFontScaling={false} style={[styles.gameStatsDate, { color: theme.textSecondary }]}>{gameDate}</Text>
         </View>
 
         {/* Batting Stats */}
         {Object.keys(battingStats).length > 0 && (
           <View style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.statCategoryTitle, { color: colors.primary }]}>⚾ Batting</Text>
+            <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: colors.primary }]}>⚾ Batting</Text>
             
             {/* First row: 3 stats */}
             <View style={styles.statGridRow}>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.hits || 0}/{battingStats.atBats || 0}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>H/AB</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.hits || 0}/{battingStats.atBats || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>H/AB</Text>
               </View>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.runs || 0}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>R</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.runs || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>R</Text>
               </View>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.rbi || 0}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>RBI</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.rbi || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>RBI</Text>
               </View>
             </View>
             
             {/* Second row: 3 stats */}
             <View style={styles.statGridRow}>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.homeRuns || 0}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>HR</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.homeRuns || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>HR</Text>
               </View>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.baseOnBalls || 0}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>BB</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.baseOnBalls || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>BB</Text>
               </View>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.strikeOuts || 0}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>SO</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.strikeOuts || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>SO</Text>
               </View>
             </View>
             
             {/* Third row: 3 stats */}
             <View style={styles.statGridRow}>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{(battingStats.totalBases || 0)}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>TB</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{(battingStats.totalBases || 0)}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>TB</Text>
               </View>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.stolenBases || 0}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>SB</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.stolenBases || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>SB</Text>
               </View>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.leftOnBase || 0}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>LOB</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{battingStats.leftOnBase || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>LOB</Text>
               </View>
             </View>
           </View>
@@ -2927,53 +2927,53 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         {/* Pitching Stats */}
         {Object.keys(pitchingStats).length > 0 && (
           <View style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.statCategoryTitle, { color: colors.primary }]}>🥎 Pitching</Text>
+            <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: colors.primary }]}>🥎 Pitching</Text>
             
             {/* First row: 3 stats */}
             <View style={styles.statGridRow}>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.inningsPitched || '0.0'}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>IP</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.inningsPitched || '0.0'}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>IP</Text>
               </View>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.hits || 0}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>H</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.hits || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>H</Text>
               </View>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.runs || 0}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>R</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.runs || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>R</Text>
               </View>
             </View>
             
             {/* Second row: 3 stats */}
             <View style={styles.statGridRow}>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.earnedRuns || 0}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>ER</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.earnedRuns || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>ER</Text>
               </View>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.baseOnBalls || 0}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>BB</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.baseOnBalls || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>BB</Text>
               </View>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.strikeOuts || 0}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>K</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.strikeOuts || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>K</Text>
               </View>
             </View>
             
             {/* Third row: 3 stats (P and ST separated) */}
             <View style={styles.statGridRow}>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.numberOfPitches || 0}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>P</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.numberOfPitches || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>P</Text>
               </View>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.strikes || 0}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>ST</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.strikes || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>ST</Text>
               </View>
               <View style={[styles.statBox, {backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-                <Text style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.strikePercentage || '0.00'}</Text>
-                <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>K%</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>{pitchingStats.strikePercentage || '0.00'}</Text>
+                <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>K%</Text>
               </View>
             </View>
           </View>
@@ -2982,7 +2982,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         {/* No Stats Message */}
         {Object.keys(battingStats).length === 0 && Object.keys(pitchingStats).length === 0 && (
           <View style={styles.noStatsContainer}>
-            <Text style={[styles.noStatsText, { color: theme.textSecondary }]}>No statistics available for this game</Text>
+            <Text allowFontScaling={false} style={[styles.noStatsText, { color: theme.textSecondary }]}>No statistics available for this game</Text>
           </View>
         )}
       </View>
@@ -2993,7 +2993,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading Game Details...</Text>
+        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>Loading Game Details...</Text>
       </View>
     );
   }
@@ -3001,9 +3001,9 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   if (!gameData) {
     return (
       <View style={[styles.errorContainer, { backgroundColor: theme.background }]}>
-        <Text style={[styles.errorText, { color: theme.textSecondary }]}>Game data not available</Text>
+        <Text allowFontScaling={false} style={[styles.errorText, { color: theme.textSecondary }]}>Game data not available</Text>
         <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => loadGameDetails()}>
-          <Text style={styles.retryButtonText}>Retry</Text>
+          <Text allowFontScaling={false} style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
     );
@@ -3064,7 +3064,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
             {/* Close Button */}
             <TouchableOpacity style={styles.modalCloseButton} onPress={closePlayerModal}>
-              <Text style={styles.modalCloseText}>×</Text>
+              <Text allowFontScaling={false} style={styles.modalCloseText}>×</Text>
             </TouchableOpacity>
 
             {selectedPlayer && (
@@ -3079,10 +3079,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                     defaultSource={{ uri: 'https://via.placeholder.com/80x80?text=Player' }}
                   />
                   <View style={styles.playerInfo}>
-                    <Text style={[styles.playerName, { color: theme.text }]}>
+                    <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>
                       {selectedPlayer.person?.fullName || 'Unknown Player'}
                     </Text>
-                    <Text style={[styles.playerDetails, { color: theme.textSecondary }]}>
+                    <Text allowFontScaling={false} style={[styles.playerDetails, { color: theme.textSecondary }]}>
                       #{selectedPlayer.jerseyNumber || 'N/A'} • {selectedPlayer.position?.abbreviation || 'N/A'}
                     </Text>
                     <View style={styles.playerTeamInfo}>
@@ -3091,7 +3091,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                         style={styles.playerTeamLogo}
                         defaultSource={{ uri: 'https://via.placeholder.com/20x20?text=MLB' }}
                       />
-                      <Text style={[styles.playerTeamName, { color: colors.primary }]}>
+                      <Text allowFontScaling={false} style={[styles.playerTeamName, { color: colors.primary }]}>
                         {selectedPlayer.team?.name || 'Unknown Team'}
                       </Text>
                     </View>
@@ -3103,14 +3103,14 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   {loadingPlayerStats ? (
                     <View style={styles.playerStatsLoading}>
                       <ActivityIndicator size="large" color="#002D72" />
-                      <Text style={styles.loadingText}>Loading player stats...</Text>
+                      <Text allowFontScaling={false} style={styles.loadingText}>Loading player stats...</Text>
                     </View>
                   ) : playerStats ? (
                     <ScrollView style={styles.playerStatsContent}>
                       {renderPlayerGameStats(playerStats, selectedPlayer)}
                     </ScrollView>
                   ) : (
-                    <Text style={styles.noStatsText}>Unable to load player statistics</Text>
+                    <Text allowFontScaling={false} style={styles.noStatsText}>Unable to load player statistics</Text>
                   )}
                 </View>
               </>
@@ -3130,9 +3130,9 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           <View style={[styles.streamModalContainer, { backgroundColor: theme.surface }]}>
             {/* Modal Header */}
             <View style={[styles.streamModalHeader, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]}>
-              <Text style={[styles.streamModalTitle, { color: colors.primary }]}>Live Stream</Text>
+              <Text allowFontScaling={false} style={[styles.streamModalTitle, { color: colors.primary }]}>Live Stream</Text>
               <TouchableOpacity style={[styles.streamCloseButton, { backgroundColor: theme.surfaceSecondary }]} onPress={closeStreamModal}>
-                <Text style={[styles.streamCloseText, { color: colors.primary }]}>×</Text>
+                <Text allowFontScaling={false} style={[styles.streamCloseText, { color: colors.primary }]}>×</Text>
               </TouchableOpacity>
             </View>
 
@@ -3158,7 +3158,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                     ]}
                     onPress={() => switchStream(streamKey)}
                   >
-                    <Text style={[
+                    <Text allowFontScaling={false} style={[
                       styles.streamButtonText,
                       { color: currentStreamType === streamKey ? '#fff' : colors.primary }
                     ]}>
@@ -3174,7 +3174,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               {isStreamLoading && (
                 <View style={styles.streamLoadingOverlay}>
                   <ActivityIndicator size="large" color={colors.primary} />
-                  <Text style={[styles.streamLoadingText, { color: '#fff' }]}>Loading stream...</Text>
+                  <Text allowFontScaling={false} style={[styles.streamLoadingText, { color: '#fff' }]}>Loading stream...</Text>
                 </View>
               )}
               {streamUrl ? (
@@ -3528,7 +3528,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 />
               ) : (
                 <View style={styles.noStreamContainer}>
-                  <Text style={[styles.noStreamText, { color: '#fff' }]}>No stream URL available</Text>
+                  <Text allowFontScaling={false} style={[styles.noStreamText, { color: '#fff' }]}>No stream URL available</Text>
                 </View>
               )}
             </View>

@@ -1317,12 +1317,12 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
     return (
       <View style={[styles.playerHeader, { backgroundColor: theme.surface }]}>
         <View style={[styles.jerseyCircle, { backgroundColor: teamColor }]}>
-          <Text style={[styles.jerseyNumber, { color: 'white' }]}>
+          <Text allowFontScaling={false} style={[styles.jerseyNumber, { color: 'white' }]}>
             {playerData.jersey || '10'}
           </Text>
         </View>
         <View style={styles.playerInfo}>
-          <Text style={[styles.playerName, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>
             {playerData.displayName || playerName}
           </Text>
           <View style={styles.playerDetailsRow}>
@@ -1336,12 +1336,12 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
                   defaultSource={getTeamLogoFallbackUrl(playerData.team.id, isDarkMode)}
                   onError={() => handleLogoError(playerData.team.id, isDarkMode)}
                 />
-                <Text style={[styles.teamName, { color: theme.textSecondary, fontWeight: 'bold' }]}>
+                <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary, fontWeight: 'bold' }]}>
                   {playerData.team.displayName || playerData.team.name || ''}
                 </Text>
               </View>
             )}
-            <Text style={[styles.playerDetails, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.playerDetails, { color: theme.textSecondary }]}>
             • {playerData.position?.displayName || 'N/A'}
             </Text>
             
@@ -1366,7 +1366,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
             ]}
             onPress={() => setActiveTab(tab)}
           >
-            <Text style={[
+            <Text allowFontScaling={false} style={[
               styles.tabText,
               activeTab === tab && styles.activeTabText,
               { color: activeTab === tab ? colors.primary : theme.textSecondary }
@@ -1397,7 +1397,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
       return (
         <View style={[styles.statsLoadingContainer, { backgroundColor: theme.background }]}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.text }]}>Loading stats...</Text>
+          <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>Loading stats...</Text>
         </View>
       );
     }
@@ -1405,7 +1405,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
     if (!playerStats || Object.keys(playerStats).length === 0) {
       return (
         <View style={[styles.statsContainer, { backgroundColor: theme.background }]}>
-          <Text style={[styles.contentText, { color: theme.textSecondary }]}>
+          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>
             No stats available
           </Text>
         </View>
@@ -1414,10 +1414,10 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
 
     const renderStatBox = (label, value, key) => (
       <View key={key} style={[styles.statBox, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.statBoxValue, { color: theme.text }]}>
+        <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>
           {value || '0'}
         </Text>
-        <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>
+        <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>
           {label}
         </Text>
       </View>
@@ -1441,7 +1441,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
 
       return (
         <View key={competitionName} style={styles.statsSection}>
-          <Text style={[styles.statsSectionTitle, { color: colors.primary }]}>
+          <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: colors.primary }]}>
             {competitionName} Stats
           </Text>
           {renderStatsGrid(
@@ -1484,7 +1484,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
       return (
         <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading game log...</Text>
+          <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>Loading game log...</Text>
         </View>
       );
     }
@@ -1493,7 +1493,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
       <ScrollView style={[styles.statsContainer, { backgroundColor: theme.background }]} showsVerticalScrollIndicator={false}>
         <View style={styles.statsContent}>
           {gameLog.length === 0 ? (
-            <Text style={[styles.contentText, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>
               No recent games available
             </Text>
           ) : (
@@ -1508,7 +1508,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
               >
                 {/* Date Header */}
                 <View style={[styles.mlbGameHeader, {backgroundColor: theme.surfaceSecondary}]}>
-                  <Text style={[styles.mlbGameDate, { color: theme.text }]}>
+                  <Text allowFontScaling={false} style={[styles.mlbGameDate, { color: theme.text }]}>
                     {new Date(game.date).toLocaleDateString('en-US', { 
                       weekday: 'short', 
                       month: 'short', 
@@ -1521,17 +1521,17 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
                 <View style={styles.mlbPlayerRow}>
                   {/* Jersey Number Circle */}
                   <View style={[styles.jerseyCircle, { backgroundColor: getTeamColor(playerData?.team) }]}>
-                    <Text style={[styles.jerseyNumber, { color: 'white' }]}>
+                    <Text allowFontScaling={false} style={[styles.jerseyNumber, { color: 'white' }]}>
                       {playerData?.jersey || '10'}
                     </Text>
                   </View>
 
                   {/* Player Name and Stats */}
                   <View style={styles.mlbPlayerInfo}>
-                    <Text style={[styles.mlbPlayerName, { color: theme.text }]}>
+                    <Text allowFontScaling={false} style={[styles.mlbPlayerName, { color: theme.text }]}>
                       {playerData?.displayName || playerData?.fullName || 'Player'}
                     </Text>
-                    <Text style={[styles.mlbPlayerStats, { color: theme.textSecondary }]}>
+                    <Text allowFontScaling={false} style={[styles.mlbPlayerStats, { color: theme.textSecondary }]}>
                       G: {game.stats?.totalGoals || 0} | A: {game.stats?.goalAssists || 0} | MP: {game.stats?.minutesPlayed || game.stats?.minutes || 0}
                     </Text>
                   </View>
@@ -1542,7 +1542,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
                                     game.result?.color === 'error' ? theme.error :
                                     game.result?.color === 'warning' ? theme.warning : colors.primary
                   }]}>
-                    <Text style={[styles.mlbWinText, { color: 'white' }]}>
+                    <Text allowFontScaling={false} style={[styles.mlbWinText, { color: 'white' }]}>
                       {game.result?.result || 'W'}
                     </Text>
                   </View>
@@ -1559,7 +1559,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
                       defaultSource={getTeamLogoFallbackUrl(playerData?.team?.id || teamId, isDarkMode)}
                       onError={() => handleLogoError(playerData?.team?.id || teamId, isDarkMode)}
                     />
-                    <Text style={[styles.mlbVersus, { color: theme.textSecondary }]}>
+                    <Text allowFontScaling={false} style={[styles.mlbVersus, { color: theme.textSecondary }]}>
                       {game.isHome ? 'vs' : '@'}
                     </Text>
                     <Image 
@@ -1571,7 +1571,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
                       onError={() => handleLogoError(game.opponent?.id || '86', isDarkMode)}
                     />
                   </View>
-                  <Text style={[styles.mlbOpponentName, { color: theme.text }]}>
+                  <Text allowFontScaling={false} style={[styles.mlbOpponentName, { color: theme.text }]}>
                     {getCompetitionName(game.leagueCode)}
                   </Text>
                 </View>
@@ -1588,7 +1588,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
       return (
         <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading career statistics...</Text>
+          <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>Loading career statistics...</Text>
         </View>
       );
     }
@@ -1596,7 +1596,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
     if (!careerData || !careerData.seasons || careerData.seasons.length === 0) {
       return (
         <View style={[styles.contentContainer, { backgroundColor: theme.background }]}>
-          <Text style={[styles.contentText, { color: theme.textSecondary }]}>No career data available</Text>
+          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>No career data available</Text>
         </View>
       );
     }
@@ -1604,7 +1604,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
     return (
       <ScrollView style={[styles.statsContainer, { backgroundColor: theme.background }]} showsVerticalScrollIndicator={false}>
         <View style={styles.careerContainer}>
-          <Text style={[styles.careerSectionTitle, { color: colors.primary }]}>UEFA Career</Text>
+          <Text allowFontScaling={false} style={[styles.careerSectionTitle, { color: colors.primary }]}>UEFA Career</Text>
           {careerData.seasons.map((season, index) => renderCareerSeasonItem(season, index))}
         </View>
       </ScrollView>
@@ -1664,30 +1664,30 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
               style={styles.careerTeamLogo}
               useDarkMode={isDarkMode}
             />
-            <Text style={[styles.careerTeamName, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.careerTeamName, { color: theme.text }]}>
               {season.leagueName}
             </Text>
           </View>
-          <Text style={[styles.careerSeasonYear, { color: theme.text }]}>{season.season}</Text>
+          <Text allowFontScaling={false} style={[styles.careerSeasonYear, { color: theme.text }]}>{season.season}</Text>
         </View>
         
         {/* Main League Stats */}
         <View style={styles.careerStatsRow}>
           <View style={styles.careerStatItem}>
-            <Text style={[styles.careerStatValue, { color: theme.text }]}>{appearances}</Text>
-            <Text style={[styles.careerStatLabel, { color: theme.textSecondary }]}>Apps</Text>
+            <Text allowFontScaling={false} style={[styles.careerStatValue, { color: theme.text }]}>{appearances}</Text>
+            <Text allowFontScaling={false} style={[styles.careerStatLabel, { color: theme.textSecondary }]}>Apps</Text>
           </View>
           <View style={styles.careerStatItem}>
-            <Text style={[styles.careerStatValue, { color: theme.text }]}>{minutes}</Text>
-            <Text style={[styles.careerStatLabel, { color: theme.textSecondary }]}>Minutes</Text>
+            <Text allowFontScaling={false} style={[styles.careerStatValue, { color: theme.text }]}>{minutes}</Text>
+            <Text allowFontScaling={false} style={[styles.careerStatLabel, { color: theme.textSecondary }]}>Minutes</Text>
           </View>
           <View style={styles.careerStatItem}>
-            <Text style={[styles.careerStatValue, { color: theme.text }]}>{primaryStat1}</Text>
-            <Text style={[styles.careerStatLabel, { color: theme.textSecondary }]}>{stat1Label}</Text>
+            <Text allowFontScaling={false} style={[styles.careerStatValue, { color: theme.text }]}>{primaryStat1}</Text>
+            <Text allowFontScaling={false} style={[styles.careerStatLabel, { color: theme.textSecondary }]}>{stat1Label}</Text>
           </View>
           <View style={styles.careerStatItem}>
-            <Text style={[styles.careerStatValue, { color: theme.text }]}>{primaryStat2}</Text>
-            <Text style={[styles.careerStatLabel, { color: theme.textSecondary }]}>{stat2Label}</Text>
+            <Text allowFontScaling={false} style={[styles.careerStatValue, { color: theme.text }]}>{primaryStat2}</Text>
+            <Text allowFontScaling={false} style={[styles.careerStatLabel, { color: theme.textSecondary }]}>{stat2Label}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -1712,9 +1712,9 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
               onPress={() => setShowSeasonModal(false)}
               style={styles.modalCloseButton}
             >
-              <Text style={[styles.modalCloseText, { color: colors.primary }]}>Close</Text>
+              <Text allowFontScaling={false} style={[styles.modalCloseText, { color: colors.primary }]}>Close</Text>
             </TouchableOpacity>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.modalTitle, { color: theme.text }]}>
               {season.season} Season Statistics
             </Text>
             <View style={styles.modalPlaceholder} />
@@ -1724,8 +1724,8 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
             <View style={[styles.modalSeasonHeader, { backgroundColor: theme.surface }]}>
               <View style={styles.modalSeasonTopRow}>
                 <View style={styles.modalSeasonInfo}>
-                  <Text style={[styles.modalSeasonYear, { color: theme.text }]}>{season.season}</Text>
-                  <Text style={[styles.modalLeagueName, { color: theme.textSecondary }]}>
+                  <Text allowFontScaling={false} style={[styles.modalSeasonYear, { color: theme.text }]}>{season.season}</Text>
+                  <Text allowFontScaling={false} style={[styles.modalLeagueName, { color: theme.textSecondary }]}>
                     {season.leagueName}
                   </Text>
                 </View>
@@ -1762,10 +1762,10 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
           <View key={i} style={styles.modalStatsGrid}>
             {rowStats.map((stat, index) => (
               <View key={index} style={[styles.modalStatCard, { backgroundColor: theme.surface }]}>
-                <Text style={[styles.modalStatCardValue, { color: theme.text }]}>
+                <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
                   {stat.displayValue || stat.value || '0'}
                 </Text>
-                <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>
+                <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>
                   {stat.displayName || stat.name}
                 </Text>
               </View>
@@ -1786,12 +1786,12 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
               useDarkMode={isDarkMode}
             />
           )}
-          <Text style={[styles.modalSectionTitle, { color: colors.primary }]}>{title}</Text>
+          <Text allowFontScaling={false} style={[styles.modalSectionTitle, { color: colors.primary }]}>{title}</Text>
         </View>
         
         {statistics.splits.categories.map((category, categoryIndex) => (
           <View key={categoryIndex}>
-            <Text style={[styles.modalCategoryTitle, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.modalCategoryTitle, { color: theme.text }]}>
               {category.displayName || category.name.charAt(0).toUpperCase() + category.name.slice(1)}
             </Text>
             {renderStatsGrid(category.stats || [], category.name)}
@@ -1805,7 +1805,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.text }]}>Loading player...</Text>
+        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>Loading player...</Text>
       </View>
     );
   }
@@ -1817,8 +1817,8 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
       <View style={styles.statsGrid}>
         {Object.entries(gameStats.stats).map(([key, value]) => (
           <View key={key} style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.text }]}>{value}</Text>
-            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{key.toUpperCase()}</Text>
+            <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>{value}</Text>
+            <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>{key.toUpperCase()}</Text>
           </View>
         ))}
       </View>
@@ -1829,8 +1829,8 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
     if (!gameData || !gameData.stats) {
       return (
         <View style={styles.modalStatsSection}>
-          <Text style={[styles.modalSectionTitle, { color: colors.primary }]}>Game Statistics</Text>
-          <Text style={[styles.contentText, { color: theme.textSecondary, textAlign: 'center', marginTop: 20 }]}>
+          <Text allowFontScaling={false} style={[styles.modalSectionTitle, { color: colors.primary }]}>Game Statistics</Text>
+          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary, textAlign: 'center', marginTop: 20 }]}>
             No statistics available for this game
           </Text>
         </View>
@@ -1864,10 +1864,10 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
 
     const renderStatBox = (label, value, key) => (
       <View key={key} style={[styles.statBox, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.statBoxValue, { color: theme.text }]}>
+        <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>
           {value || '0'}
         </Text>
-        <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>
+        <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>
           {label}
         </Text>
       </View>
@@ -1895,7 +1895,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
 
     return (
       <View style={styles.modalStatsSection}>
-        <Text style={[styles.modalSectionTitle, { color: colors.primary, marginBottom: 20 }]}>Game Statistics</Text>
+        <Text allowFontScaling={false} style={[styles.modalSectionTitle, { color: colors.primary, marginBottom: 20 }]}>Game Statistics</Text>
         {renderStatsGrid(gameData.stats, availableStats)}
       </View>
     );
@@ -1910,14 +1910,14 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
       <View>
         {categories.map((category, index) => (
           <View key={index} style={styles.categorySection}>
-            <Text style={[styles.categoryTitle, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.categoryTitle, { color: theme.text }]}>
               {category.displayName || category.name.charAt(0).toUpperCase() + category.name.slice(1)}
             </Text>
             <View style={styles.statsGrid}>
               {category.stats.map((stat, statIndex) => (
                 <View key={statIndex} style={styles.statItem}>
-                  <Text style={[styles.statValue, { color: theme.text }]}>{stat.displayValue}</Text>
-                  <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{stat.displayName}</Text>
+                  <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>{stat.displayValue}</Text>
+                  <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>{stat.displayName}</Text>
                 </View>
               ))}
             </View>
@@ -1955,9 +1955,9 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
               onPress={() => setShowStatsModal(false)}
               style={styles.modalCloseButton}
             >
-              <Text style={[styles.modalCloseText, { color: colors.primary }]}>Close</Text>
+              <Text allowFontScaling={false} style={[styles.modalCloseText, { color: colors.primary }]}>Close</Text>
             </TouchableOpacity>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.modalTitle, { color: theme.text }]}>
               Game Statistics
             </Text>
             <View style={styles.modalPlaceholder} />
@@ -1969,12 +1969,12 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
                 {/* Player Header */}
                 <View style={[styles.playerHeaderLog, { backgroundColor: theme.surface, marginBottom: 15 }]}>
                   <View style={[styles.jerseyCircle, { backgroundColor: getTeamColor(playerData?.team) }]}>
-                    <Text style={[styles.jerseyNumber, { color: 'white' }]}>
+                    <Text allowFontScaling={false} style={[styles.jerseyNumber, { color: 'white' }]}>
                       {playerData?.jersey || ''}
                     </Text>
                   </View>
                   <View style={styles.playerInfo}>
-                    <Text style={[styles.playerName, { color: theme.text }]}>
+                    <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>
                       {playerData?.displayName || playerName}
                     </Text>
                     <View style={styles.playerDetailsRow}>
@@ -1988,12 +1988,12 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
                             defaultSource={getTeamLogoFallbackUrl(playerData.team.id, isDarkMode)}
                             onError={() => handleLogoError(playerData.team.id, isDarkMode)}
                           />
-                          <Text style={[styles.teamName, { color: theme.textSecondary, fontWeight: 'bold' }]}>
+                          <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary, fontWeight: 'bold' }]}>
                             {playerData.team.displayName || playerData.team.name || ''}
                           </Text>
                         </View>
                       )}
-                      <Text style={[styles.playerDetails, { color: theme.textSecondary }]}>
+                      <Text allowFontScaling={false} style={[styles.playerDetails, { color: theme.textSecondary }]}>
                       • {playerData?.position?.displayName || 'N/A'}
                       </Text>
                     </View>
@@ -2004,7 +2004,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
                 <View style={[styles.modalSeasonHeader, { backgroundColor: theme.surface }]}>
                   <View style={styles.modalSeasonTopRow}>
                     <View style={[styles.modalSeasonInfo, { alignItems: 'center', flex: 1 }]}>
-                      <Text style={[styles.modalSeasonYear, { color: theme.text }]}>
+                      <Text allowFontScaling={false} style={[styles.modalSeasonYear, { color: theme.text }]}>
                         {new Date(selectedGameStats.date).toLocaleDateString('en-US', { 
                           weekday: 'long', 
                           month: 'long', 
@@ -2012,7 +2012,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
                           year: 'numeric'
                         })}
                       </Text>
-                      <Text style={[styles.modalLeagueName, { color: theme.textSecondary }]}>
+                      <Text allowFontScaling={false} style={[styles.modalLeagueName, { color: theme.textSecondary }]}>
                         {getCompetitionName(selectedGameStats.leagueCode)}
                       </Text>
                     </View>
@@ -2052,7 +2052,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
                           defaultSource={getTeamLogoFallbackUrl(playerData?.team?.id || teamId, isDarkMode)}
                           onError={() => handleLogoError(playerData?.team?.id || teamId, isDarkMode)}
                         />
-                        <Text style={[styles.mlbVersus, { color: theme.textSecondary, fontSize: 16, marginHorizontal: 12 }]}>
+                        <Text allowFontScaling={false} style={[styles.mlbVersus, { color: theme.textSecondary, fontSize: 16, marginHorizontal: 12 }]}>
                           {selectedGameStats.isHome ? 'vs' : '@'}
                         </Text>
                         <Image 
@@ -2064,7 +2064,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
                           onError={() => handleLogoError(selectedGameStats.opponent?.id || '86', isDarkMode)}
                         />
                       </View>
-                      <Text style={[styles.modalTeamName, { color: theme.text, marginTop: 8 }]}>
+                      <Text allowFontScaling={false} style={[styles.modalTeamName, { color: theme.text, marginTop: 8 }]}>
                         {playerData?.team?.displayName || 'Team'} {selectedGameStats.isHome ? 'vs' : '@'} {selectedGameStats.opponent?.displayName || 'Opponent'}
                       </Text>
                     </View>

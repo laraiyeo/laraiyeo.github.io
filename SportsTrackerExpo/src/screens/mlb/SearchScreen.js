@@ -210,10 +210,10 @@ const SearchScreen = ({ route, navigation }) => {
           defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
         />
         <View style={styles.teamInfo}>
-          <Text style={[styles.teamName, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.teamName, { color: theme.text }]}>
             {item.name}
           </Text>
-          <Text style={[styles.teamDetails, { color: theme.textSecondary }]}>
+          <Text allowFontScaling={false} style={[styles.teamDetails, { color: theme.textSecondary }]}>
             {teamAbbr} • Team
           </Text>
         </View>
@@ -238,10 +238,10 @@ const SearchScreen = ({ route, navigation }) => {
           defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
         />
         <View style={styles.playerInfo}>
-          <Text style={[styles.playerName, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>
             {item.fullName}
           </Text>
-          <Text style={[styles.playerDetails, { color: theme.textSecondary }]}>
+          <Text allowFontScaling={false} style={[styles.playerDetails, { color: theme.textSecondary }]}>
             #{item.primaryNumber || '--'} • {item.primaryPosition?.name || 'N/A'} • {teamAbbr || 'Free Agent'}
           </Text>
         </View>
@@ -262,8 +262,8 @@ const SearchScreen = ({ route, navigation }) => {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Search Header */}
       <View style={[styles.searchHeader, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.title, { color: colors.primary }]}>Search</Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+        <Text allowFontScaling={false} style={[styles.title, { color: colors.primary }]}>Search</Text>
+        <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textSecondary }]}>
           Search for {sport.toUpperCase()} teams and players
         </Text>
       </View>
@@ -290,7 +290,7 @@ const SearchScreen = ({ route, navigation }) => {
         {loading && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>
               Searching...
             </Text>
           </View>
@@ -298,10 +298,10 @@ const SearchScreen = ({ route, navigation }) => {
 
         {!loading && hasSearched && searchResults.length === 0 && (
           <View style={styles.noResultsContainer}>
-            <Text style={[styles.noResultsText, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.noResultsText, { color: theme.textSecondary }]}>
               No results found for "{searchQuery}"
             </Text>
-            <Text style={[styles.noResultsSubtext, { color: theme.textTertiary }]}>
+            <Text allowFontScaling={false} style={[styles.noResultsSubtext, { color: theme.textTertiary }]}>
               Try searching for team names or player names
             </Text>
           </View>
@@ -319,7 +319,7 @@ const SearchScreen = ({ route, navigation }) => {
 
         {!hasSearched && searchQuery.length === 0 && (
           <View style={styles.instructionsContainer}>
-            <Text style={[styles.instructionsText, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.instructionsText, { color: theme.textSecondary }]}>
               Enter at least 3 characters to search for teams and players
             </Text>
           </View>

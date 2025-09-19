@@ -6,8 +6,8 @@ const StatsScreen = ({ route }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Stats</Text>
-      <Text style={styles.subtitle}>{sport.toUpperCase()} statistics and analytics</Text>
+      <Text allowFontScaling={false} style={styles.title}>Stats</Text>
+      <Text allowFontScaling={false} style={styles.subtitle}>{sport.toUpperCase()} statistics and analytics</Text>
     </View>
   );
 };

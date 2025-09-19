@@ -13,9 +13,11 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { NFLService } from '../../services/NFLService';
 import { useTheme } from '../../context/ThemeContext';
+import { useFavorites } from '../../context/FavoritesContext';
 
 const NFLScoreboardScreen = ({ navigation }) => {
   const { theme, colors, getTeamLogoUrl } = useTheme();
+  const { isFavorite } = useFavorites();
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -67,6 +69,33 @@ const NFLScoreboardScreen = ({ navigation }) => {
     
     console.warn('No NFL abbreviation mapping found for team:', espnTeam?.id);
     return null;
+  };
+  
+  // Helper function to get NFL team ID for favorites
+  const getNFLTeamId = (espnTeam) => {
+    // ESPN team abbreviations to NFL team IDs mapping
+    const teamMapping = {
+      'BUF': '2', 'MIA': '15', 'NE': '17', 'NYJ': '20',
+      'BAL': '33', 'CIN': '4', 'CLE': '5', 'PIT': '23',
+      'HOU': '34', 'IND': '11', 'JAX': '30', 'TEN': '10',
+      'DEN': '7', 'KC': '12', 'LV': '13', 'LAC': '24',
+      'DAL': '6', 'NYG': '19', 'PHI': '21', 'WAS': '28',
+      'CHI': '3', 'DET': '8', 'GB': '9', 'MIN': '16',
+      'ATL': '1', 'CAR': '29', 'NO': '18', 'TB': '27',
+      'ARI': '22', 'LAR': '14', 'SF': '25', 'SEA': '26'
+    };
+
+    console.log('Team abbreviation:', espnTeam.abbreviation, 'ESPN ID:', espnTeam.id);
+    
+    let nflId = teamMapping[espnTeam.abbreviation];
+    
+    if (!nflId) {
+      console.warn('No NFL ID mapping found for team:', espnTeam.abbreviation, 'ESPN ID:', espnTeam.id, 'Using ESPN ID as fallback');
+      return espnTeam.id;
+    }
+    
+    console.log('Final NFL ID:', nflId);
+    return nflId;
   };
   
   // TeamLogoImage component with fallback support  
@@ -482,7 +511,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
 
   const renderDateHeader = (date) => (
     <View style={[styles.dateHeader, { backgroundColor: colors.primary }]}>
-      <Text style={[styles.dateHeaderText, { color: 'white' }]}>{date}</Text>
+      <Text allowFontScaling={false} style={[styles.dateHeaderText, { color: 'white' }]}>{date}</Text>
     </View>
   );
 
@@ -559,7 +588,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
     if (item.type === 'no-games') {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>{item.message}</Text>
+          <Text allowFontScaling={false} style={[styles.emptyText, { color: theme.textSecondary }]}>{item.message}</Text>
         </View>
       );
     }
@@ -571,9 +600,9 @@ const NFLScoreboardScreen = ({ navigation }) => {
       >
         {/* Game Status */}
         <View style={styles.gameHeader}>
-          <Text style={[styles.gameStatus, { color: colors.primary }]}>{getGameStatusText(item)}</Text>
+          <Text allowFontScaling={false} style={[styles.gameStatus, { color: colors.primary }]}>{getGameStatusText(item)}</Text>
           {getGameTimeText(item) && (
-            <Text style={[styles.gameClock, { color: theme.textSecondary }]}>{getGameTimeText(item)}</Text>
+            <Text allowFontScaling={false} style={[styles.gameClock, { color: theme.textSecondary }]}>{getGameTimeText(item)}</Text>
           )}
         </View>
 
@@ -586,7 +615,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
               {item.situation?.possession && item.awayTeam?.id && 
                item.situation.possession === item.awayTeam.id && 
                item.status && item.status.toLowerCase() !== 'halftime' && (
-                <Text style={[styles.possessionIndicator, styles.awayPossession]}>🏈</Text>
+                <Text allowFontScaling={false} style={[styles.possessionIndicator, styles.awayPossession]}>🏈</Text>
               )}
               <TeamLogoImage 
                 team={item.awayTeam}
@@ -595,10 +624,18 @@ const NFLScoreboardScreen = ({ navigation }) => {
               />
             </View>
             <View style={styles.teamInfo}>
-              <Text style={[getTeamNameStyle(item, true), { color: getTeamNameColor(item, true) }]}>{item.awayTeam?.displayName || 'TBD'}</Text>
-              <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.awayTeam?.record || ''}</Text>
+              <Text allowFontScaling={false} style={[
+                getTeamNameStyle(item, true), 
+                { 
+                  color: isFavorite(getNFLTeamId(item.awayTeam)) ? colors.primary : getTeamNameColor(item, true) 
+                }
+              ]}>
+                {isFavorite(getNFLTeamId(item.awayTeam)) && '★ '}
+                {item.awayTeam?.displayName || 'TBD'}
+              </Text>
+              <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.awayTeam?.record || ''}</Text>
             </View>
-            <Text style={[getTeamScoreStyle(item, true), { color: getTeamScoreColor(item, true) }]}>{item.awayTeam?.score || '0'}</Text>
+            <Text allowFontScaling={false} style={[getTeamScoreStyle(item, true), { color: getTeamScoreColor(item, true) }]}>{item.awayTeam?.score || '0'}</Text>
           </View>
 
           {/* Home Team */}
@@ -608,7 +645,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
               {item.situation?.possession && item.homeTeam?.id && 
                item.situation.possession === item.homeTeam.id && 
                item.status && item.status.toLowerCase() !== 'halftime' && (
-                <Text style={[styles.possessionIndicator, styles.homePossession]}>🏈</Text>
+                <Text allowFontScaling={false} style={[styles.possessionIndicator, styles.homePossession]}>🏈</Text>
               )}
               <TeamLogoImage 
                 team={item.homeTeam}
@@ -617,24 +654,32 @@ const NFLScoreboardScreen = ({ navigation }) => {
               />
             </View>
             <View style={styles.teamInfo}>
-              <Text style={[getTeamNameStyle(item, false), { color: getTeamNameColor(item, false) }]}>{item.homeTeam?.displayName || 'TBD'}</Text>
-              <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.homeTeam?.record || ''}</Text>
+              <Text allowFontScaling={false} style={[
+                getTeamNameStyle(item, false), 
+                { 
+                  color: isFavorite(getNFLTeamId(item.homeTeam)) ? colors.primary : getTeamNameColor(item, false) 
+                }
+              ]}>
+                {isFavorite(getNFLTeamId(item.homeTeam)) && '★ '}
+                {item.homeTeam?.displayName || 'TBD'}
+              </Text>
+              <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.homeTeam?.record || ''}</Text>
             </View>
-            <Text style={[getTeamScoreStyle(item, false), { color: getTeamScoreColor(item, false) }]}>{item.homeTeam?.score || '0'}</Text>
+            <Text allowFontScaling={false} style={[getTeamScoreStyle(item, false), { color: getTeamScoreColor(item, false) }]}>{item.homeTeam?.score || '0'}</Text>
           </View>
         </View>
 
         {/* Game Info */}
         <View style={[styles.gameFooter, { borderTopColor: theme.border }]}>
-          <Text style={[styles.venue, { color: theme.textSecondary }]}>{item.venue || ''}</Text>
+          <Text allowFontScaling={false} style={[styles.venue, { color: theme.textSecondary }]}>{item.venue || ''}</Text>
           {item.broadcasts && item.broadcasts.length > 0 && (
-            <Text style={[styles.broadcast, { color: theme.textSecondary }]}>{item.broadcasts.join(', ')}</Text>
+            <Text allowFontScaling={false} style={[styles.broadcast, { color: theme.textSecondary }]}>{item.broadcasts.join(', ')}</Text>
           )}
           {/* Show down and distance for in-progress games (but not halftime) */}
           {item.situation?.shortDownDistanceText && 
            !item.isCompleted && 
            item.status && item.status.toLowerCase() !== 'halftime' && (
-            <Text style={[styles.downDistance, { color: colors.primary }]}>{item.situation.shortDownDistanceText}</Text>
+            <Text allowFontScaling={false} style={[styles.downDistance, { color: colors.primary }]}>{item.situation.shortDownDistanceText}</Text>
           )}
         </View>
       </TouchableOpacity>
@@ -645,7 +690,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading NFL Scoreboard...</Text>
+        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>Loading NFL Scoreboard...</Text>
       </View>
     );
   }
@@ -661,7 +706,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
           ]}
           onPress={() => handleDateFilterChange('yesterday')}
         >
-          <Text style={[
+          <Text allowFontScaling={false} style={[
             styles.dateFilterText, 
             { color: selectedDateFilter === 'yesterday' ? '#fff' : theme.text }
           ]}>
@@ -676,7 +721,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
           ]}
           onPress={() => handleDateFilterChange('today')}
         >
-          <Text style={[
+          <Text allowFontScaling={false} style={[
             styles.dateFilterText, 
             { color: selectedDateFilter === 'today' ? '#fff' : theme.text }
           ]}>
@@ -691,7 +736,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
           ]}
           onPress={() => handleDateFilterChange('upcoming')}
         >
-          <Text style={[
+          <Text allowFontScaling={false} style={[
             styles.dateFilterText, 
             { color: selectedDateFilter === 'upcoming' ? '#fff' : theme.text }
           ]}>
@@ -720,7 +765,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
         ListEmptyComponent={() => (
           !loading && (
             <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No games scheduled</Text>
+              <Text allowFontScaling={false} style={[styles.emptyText, { color: theme.textSecondary }]}>No games scheduled</Text>
             </View>
           )
         )}

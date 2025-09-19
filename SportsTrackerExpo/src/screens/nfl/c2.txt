@@ -1,0 +1,177 @@
+https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/types/2/leaders?limit=10
+
+{
+  "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/types/2/leaders?lang=en&region=us",
+  "id": "0",
+  "name": "TOTAL",
+  "abbreviation": "Any",
+  "type": "total",
+  "categories": [
+    {
+      "name": "passingYards",
+      "displayName": "Passing Yards",
+      "shortDisplayName": "PYDS",
+      "abbreviation": "YDS",
+      "leaders": [
+        {
+          "displayValue": "755",
+          "value": 755,
+          "rel": [
+            "athlete"
+          ],
+          "athlete": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/athletes/3918298?lang=en&region=us"
+          },
+          "team": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/teams/2?lang=en&region=us"
+          },
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/types/2/athletes/3918298/statistics/0?lang=en&region=us"
+          }
+        },
+        {
+          "displayValue": "618",
+          "value": 618,
+          "rel": [
+            "athlete"
+          ],
+          "athlete": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/athletes/14881?lang=en&region=us"
+          },
+          "team": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/teams/19?lang=en&region=us"
+          },
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/types/2/athletes/14881/statistics/0?lang=en&region=us"
+          }
+        },
+        {
+          "displayValue": "588",
+          "value": 588,
+          "rel": [
+            "athlete"
+          ],
+          "athlete": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/athletes/3917792?lang=en&region=us"
+          },
+          "team": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/teams/11?lang=en&region=us"
+          },
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/types/2/athletes/3917792/statistics/0?lang=en&region=us"
+          }
+        },
+        {
+          "displayValue": "575",
+          "value": 575,
+          "rel": [
+            "athlete"
+          ],
+          "athlete": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/athletes/4241479?lang=en&region=us"
+          },
+          "team": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/teams/15?lang=en&region=us"
+          },
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/types/2/athletes/4241479/statistics/0?lang=en&region=us"
+          }
+        },
+        {
+          "displayValue": "560",
+          "value": 560,
+          "rel": [
+            "athlete"
+          ],
+          "athlete": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/athletes/4038941?lang=en&region=us"
+          },
+          "team": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/teams/24?lang=en&region=us"
+          },
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/types/2/athletes/4038941/statistics/0?lang=en&region=us"
+          }
+        },
+        {
+          "displayValue": "559",
+          "value": 559,
+          "rel": [
+            "athlete"
+          ],
+          "athlete": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/athletes/3046779?lang=en&region=us"
+          },
+          "team": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/teams/8?lang=en&region=us"
+          },
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/types/2/athletes/3046779/statistics/0?lang=en&region=us"
+          }
+        },
+        {
+          "displayValue": "549",
+          "value": 549,
+          "rel": [
+            "athlete"
+          ],
+          "athlete": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/athletes/2577417?lang=en&region=us"
+          },
+          "team": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/teams/6?lang=en&region=us"
+          },
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/types/2/athletes/2577417/statistics/0?lang=en&region=us"
+          }
+        },
+        {
+          "displayValue": "543",
+          "value": 543,
+          "rel": [
+            "athlete"
+          ],
+          "athlete": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/athletes/12483?lang=en&region=us"
+          },
+          "team": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/teams/14?lang=en&region=us"
+          },
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/types/2/athletes/12483/statistics/0?lang=en&region=us"
+          }
+        },
+        {
+          "displayValue": "542",
+          "value": 542,
+          "rel": [
+            "athlete"
+          ],
+          "athlete": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/athletes/15864?lang=en&region=us"
+          },
+          "team": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/teams/13?lang=en&region=us"
+          },
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/types/2/athletes/15864/statistics/0?lang=en&region=us"
+          }
+        },
+        {
+          "displayValue": "517",
+          "value": 517,
+          "rel": [
+            "athlete"
+          ],
+          "athlete": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/athletes/4431452?lang=en&region=us"
+          },
+          "team": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/teams/17?lang=en&region=us"
+          },
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/types/2/athletes/4431452/statistics/0?lang=en&region=us"
+          }
+        }
+      ]
+    },

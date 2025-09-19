@@ -25,7 +25,7 @@ const LogoWithFallback = ({ logoId, name, style, isDarkMode, isMainLogo = false,
     // Show text fallback
     return (
       <View style={[style, { alignItems: 'center', justifyContent: 'center' }]}>
-        <Text style={{
+        <Text allowFontScaling={false} style={{
           fontSize: isMainLogo ? 10 : 7,
           textAlign: 'center',
           fontWeight: isMainLogo ? '600' : '400',
@@ -33,7 +33,7 @@ const LogoWithFallback = ({ logoId, name, style, isDarkMode, isMainLogo = false,
           lineHeight: isMainLogo ? 12 : 9
         }}>
           {name.split(' ').map((word, index) => (
-            <Text key={index}>{word}{'\n'}</Text>
+            <Text allowFontScaling={false} key={index}>{word}{'\n'}</Text>
           ))}
         </Text>
       </View>
@@ -165,7 +165,7 @@ const SoccerHomeScreen = () => {
               resizeMode="contain"
             />
           )}
-          <Text style={[styles.leagueName, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.leagueName, { color: theme.text }]}>
             {league.name}
           </Text>
         </View>
@@ -195,7 +195,7 @@ const SoccerHomeScreen = () => {
               isMainLogo={true}
               theme={theme}
             />
-            <Text style={[styles.mainLeagueName, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.mainLeagueName, { color: theme.text }]}>
               {league.mainLeague.name}
             </Text>
           </View>
@@ -220,8 +220,8 @@ const SoccerHomeScreen = () => {
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text }]}>Soccer</Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+        <Text allowFontScaling={false} style={[styles.title, { color: theme.text }]}>Soccer</Text>
+        <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textSecondary }]}>
           Select a Country or Competition
         </Text>
       </View>

@@ -176,14 +176,14 @@ const SpainStandingsScreen = ({ navigation, route }) => {
 
   const renderStandingsHeader = () => (
     <View style={[styles.headerRow, { backgroundColor: theme.surface }]}>
-      <Text style={[styles.positionHeader, { color: theme.textSecondary }]}>#</Text>
-      <Text style={[styles.teamHeader, { color: theme.textSecondary }]}>Team</Text>
-      <Text style={[styles.statHeader, { color: theme.textSecondary }]}>MP</Text>
-      <Text style={[styles.statHeader, { color: theme.textSecondary }]}>W</Text>
-      <Text style={[styles.statHeader, { color: theme.textSecondary }]}>D</Text>
-      <Text style={[styles.statHeader, { color: theme.textSecondary }]}>L</Text>
-      <Text style={[styles.statHeader, { color: theme.textSecondary }]}>GD</Text>
-      <Text style={[styles.pointsHeader, { color: theme.textSecondary }]}>Pts</Text>
+      <Text allowFontScaling={false} style={[styles.positionHeader, { color: theme.textSecondary }]}>#</Text>
+      <Text allowFontScaling={false} style={[styles.teamHeader, { color: theme.textSecondary }]}>Team</Text>
+      <Text allowFontScaling={false} style={[styles.statHeader, { color: theme.textSecondary }]}>MP</Text>
+      <Text allowFontScaling={false} style={[styles.statHeader, { color: theme.textSecondary }]}>W</Text>
+      <Text allowFontScaling={false} style={[styles.statHeader, { color: theme.textSecondary }]}>D</Text>
+      <Text allowFontScaling={false} style={[styles.statHeader, { color: theme.textSecondary }]}>L</Text>
+      <Text allowFontScaling={false} style={[styles.statHeader, { color: theme.textSecondary }]}>GD</Text>
+      <Text allowFontScaling={false} style={[styles.pointsHeader, { color: theme.textSecondary }]}>Pts</Text>
     </View>
   );
 
@@ -225,7 +225,7 @@ const SpainStandingsScreen = ({ navigation, route }) => {
         activeOpacity={0.7}
       >
         <View style={[styles.positionContainer, { backgroundColor: getPositionColor(position, item.note) }]}>
-          <Text style={[styles.positionText, { color: '#fff' }]}>{position}</Text>
+          <Text allowFontScaling={false} style={[styles.positionText, { color: '#fff' }]}>{position}</Text>
         </View>
         
         <View style={styles.teamContainer}>
@@ -233,61 +233,61 @@ const SpainStandingsScreen = ({ navigation, route }) => {
             teamId={item.team.id}
             style={styles.teamLogo}
           />
-          <Text style={[styles.teamName, { color: isFavorite(item.team.id) ? colors.primary : theme.text }]} numberOfLines={1}>
+          <Text allowFontScaling={false} style={[styles.teamName, { color: isFavorite(item.team.id) ? colors.primary : theme.text }]} numberOfLines={1}>
             {isFavorite(item.team.id) ? '★ ' : ''}{item.team.displayName}
           </Text>
         </View>
 
-        <Text style={[styles.statText, { color: theme.text }]}>{gamesPlayed}</Text>
-        <Text style={[styles.statText, { color: theme.text }]}>{wins}</Text>
-        <Text style={[styles.statText, { color: theme.text }]}>{draws}</Text>
-        <Text style={[styles.statText, { color: theme.text }]}>{losses}</Text>
-        <Text style={[styles.statText, { color: getGoalDifferenceColor(goalDifference) }]}>
+        <Text allowFontScaling={false} style={[styles.statText, { color: theme.text }]}>{gamesPlayed}</Text>
+        <Text allowFontScaling={false} style={[styles.statText, { color: theme.text }]}>{wins}</Text>
+        <Text allowFontScaling={false} style={[styles.statText, { color: theme.text }]}>{draws}</Text>
+        <Text allowFontScaling={false} style={[styles.statText, { color: theme.text }]}>{losses}</Text>
+        <Text allowFontScaling={false} style={[styles.statText, { color: getGoalDifferenceColor(goalDifference) }]}>
           {goalDifference}
         </Text>
-        <Text style={[styles.pointsText, { color: theme.text }]}>{points}</Text>
+        <Text allowFontScaling={false} style={[styles.pointsText, { color: theme.text }]}>{points}</Text>
       </TouchableOpacity>
     );
   };
 
   const renderLegend = () => (
     <View style={[styles.legendContainer, { backgroundColor: theme.surface }]}>
-      <Text style={[styles.legendTitle, { color: theme.text }]}>Qualification</Text>
+      <Text allowFontScaling={false} style={[styles.legendTitle, { color: theme.text }]}>Qualification</Text>
       
       {/* Champions League */}
       <View style={styles.legendRow}>
         <View style={[styles.legendColor, { backgroundColor: NOTE_COLORS["Champions League"] }]} />
-        <Text style={[styles.legendText, { color: theme.textSecondary }]}>Champions League</Text>
+        <Text allowFontScaling={false} style={[styles.legendText, { color: theme.textSecondary }]}>Champions League</Text>
       </View>
       
       {/* Champions League qualifying */}
       <View style={styles.legendRow}>
         <View style={[styles.legendColor, { backgroundColor: NOTE_COLORS["Champions League qualifying"] }]} />
-        <Text style={[styles.legendText, { color: theme.textSecondary }]}>Champions League qualifying</Text>
+        <Text allowFontScaling={false} style={[styles.legendText, { color: theme.textSecondary }]}>Champions League qualifying</Text>
       </View>
       
       {/* Europa League */}
       <View style={styles.legendRow}>
         <View style={[styles.legendColor, { backgroundColor: NOTE_COLORS["Europa League"] }]} />
-        <Text style={[styles.legendText, { color: theme.textSecondary }]}>Europa League</Text>
+        <Text allowFontScaling={false} style={[styles.legendText, { color: theme.textSecondary }]}>Europa League</Text>
       </View>
       
       {/* Conference League qualifying */}
       <View style={styles.legendRow}>
         <View style={[styles.legendColor, { backgroundColor: NOTE_COLORS["Conference League qualifying"] }]} />
-        <Text style={[styles.legendText, { color: theme.textSecondary }]}>Conference League qualifying</Text>
+        <Text allowFontScaling={false} style={[styles.legendText, { color: theme.textSecondary }]}>Conference League qualifying</Text>
       </View>
       
       {/* Relegation playoff */}
       <View style={styles.legendRow}>
         <View style={[styles.legendColor, { backgroundColor: NOTE_COLORS["Relegation playoff"] }]} />
-        <Text style={[styles.legendText, { color: theme.textSecondary }]}>Relegation playoff</Text>
+        <Text allowFontScaling={false} style={[styles.legendText, { color: theme.textSecondary }]}>Relegation playoff</Text>
       </View>
       
       {/* Relegation */}
       <View style={styles.legendRow}>
         <View style={[styles.legendColor, { backgroundColor: NOTE_COLORS["Relegation"] }]} />
-        <Text style={[styles.legendText, { color: theme.textSecondary }]}>Relegation</Text>
+        <Text allowFontScaling={false} style={[styles.legendText, { color: theme.textSecondary }]}>Relegation</Text>
       </View>
     </View>
   );
@@ -296,7 +296,7 @@ const SpainStandingsScreen = ({ navigation, route }) => {
     return (
       <View style={[styles.container, styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.text }]}>
+        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>
           Loading standings...
         </Text>
       </View>
@@ -306,14 +306,14 @@ const SpainStandingsScreen = ({ navigation, route }) => {
   if (standings.length === 0) {
     return (
       <View style={[styles.container, styles.emptyContainer, { backgroundColor: theme.background }]}>
-        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+        <Text allowFontScaling={false} style={[styles.emptyText, { color: theme.textSecondary }]}>
           No standings data available
         </Text>
         <TouchableOpacity
           style={[styles.retryButton, { backgroundColor: colors.primary }]}
           onPress={loadStandings}
         >
-          <Text style={styles.retryText}>Retry</Text>
+          <Text allowFontScaling={false} style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
       </View>
     );

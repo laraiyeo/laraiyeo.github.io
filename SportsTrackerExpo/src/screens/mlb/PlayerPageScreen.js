@@ -668,10 +668,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
           defaultSource={{ uri: 'https://via.placeholder.com/80x80?text=MLB' }}
         />
         <View style={styles.playerInfo}>
-          <Text style={[styles.playerName, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>
             {playerData.fullName}
           </Text>
-          <Text style={[styles.playerDetails, { color: theme.textSecondary }]}>
+          <Text allowFontScaling={false} style={[styles.playerDetails, { color: theme.textSecondary }]}>
             #{playerData.primaryNumber || '--'} • {playerData.primaryPosition?.name || 'N/A'} • {playerData.batSide?.code || 'N/A'}/{playerData.pitchHand?.code || 'N/A'}
           </Text>
           {playerData.currentTeam && (
@@ -681,7 +681,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 style={styles.teamLogo}
                 defaultSource={{ uri: 'https://via.placeholder.com/24x24?text=MLB' }}
               />
-              <Text style={[styles.teamName, { color: theme.textSecondary }]}>
+              <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>
                 {playerData.currentTeam.name}
               </Text>
             </View>
@@ -706,7 +706,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
             ]}
             onPress={() => setActiveTab(tab)}
           >
-            <Text style={[
+            <Text allowFontScaling={false} style={[
               styles.tabText,
               activeTab === tab && styles.activeTabText,
               { color: activeTab === tab ? colors.primary : theme.textSecondary }
@@ -732,7 +732,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       case 'Splits':
         return (
           <View style={[styles.contentContainer, { backgroundColor: theme.background }]}>
-            <Text style={[styles.contentText, { color: theme.textSecondary }]}>Split statistics will be implemented here</Text>
+            <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Split statistics will be implemented here</Text>
           </View>
         );
       default:
@@ -745,7 +745,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       return (
         <View style={[styles.statsLoadingContainer, { backgroundColor: theme.background }]}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.contentText, { color: theme.textSecondary }]}>Loading player statistics...</Text>
+          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Loading player statistics...</Text>
         </View>
       );
     }
@@ -753,7 +753,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     if (!playerStats || (!playerStats.hitting && !playerStats.pitching)) {
       return (
         <View style={[styles.contentContainer, { backgroundColor: theme.background }]}>
-          <Text style={[styles.contentText, { color: theme.textSecondary }]}>No statistics available</Text>
+          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>No statistics available</Text>
         </View>
       );
     }
@@ -770,10 +770,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
       return (
         <View key={key} style={[styles.statBox, { backgroundColor: theme.surface }]}>
-          <Text style={[styles.statBoxValue, { color: colors.primary }]}>{displayValue}</Text>
-          <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>{label}</Text>
+          <Text allowFontScaling={false} style={[styles.statBoxValue, { color: colors.primary }]}>{displayValue}</Text>
+          <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>{label}</Text>
           {ranking && ranking.total > 0 && (
-            <Text style={[styles.statBoxRanking, { color: theme.textTertiary }]}>
+            <Text allowFontScaling={false} style={[styles.statBoxRanking, { color: theme.textTertiary }]}>
               #{ranking.rank} in MLB
             </Text>
           )}
@@ -803,7 +803,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
         <View style={styles.statsContent}>
           {/* Month Selection */}
           <View style={[styles.monthSelector, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.monthSelectorLabel, { color: theme.text }]}>Filter by month:</Text>
+            <Text allowFontScaling={false} style={[styles.monthSelectorLabel, { color: theme.text }]}>Filter by month:</Text>
             <View style={styles.monthOptions}>
               <TouchableOpacity
                 style={[
@@ -816,7 +816,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 ]}
                 onPress={() => handleMonthChange('')}
               >
-                <Text style={[
+                <Text allowFontScaling={false} style={[
                   styles.monthOptionText,
                   { color: selectedMonth === '' ? '#fff' : theme.text }
                 ]}>
@@ -836,7 +836,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   ]}
                   onPress={() => handleMonthChange(month.toString())}
                 >
-                  <Text style={[
+                  <Text allowFontScaling={false} style={[
                     styles.monthOptionText,
                     { color: selectedMonth === month.toString() ? '#fff' : theme.text }
                   ]}>
@@ -850,7 +850,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
           {/* Hitting Stats */}
           {playerStats.hitting && (
             <View style={styles.statsSection}>
-              <Text style={[styles.statsSectionTitle, { color: colors.primary }]}>
+              <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: colors.primary }]}>
                 {selectedMonth ? `${getMonthName(selectedMonth)} ` : ''}Hitting Statistics
               </Text>
               {renderStatsGrid(
@@ -881,7 +881,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
           {/* Pitching Stats */}
           {playerStats.pitching && (
             <View style={styles.statsSection}>
-              <Text style={[styles.statsSectionTitle, { color: colors.primary }]}>
+              <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: colors.primary }]}>
                 {selectedMonth ? `${getMonthName(selectedMonth)} ` : ''}Pitching Statistics
               </Text>
               {renderStatsGrid(
@@ -918,7 +918,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       return (
         <View style={[styles.statsLoadingContainer, { backgroundColor: theme.background }]}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.contentText, { color: theme.textSecondary }]}>Loading game log...</Text>
+          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Loading game log...</Text>
         </View>
       );
     }
@@ -926,7 +926,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     if (!gameLogData || (!gameLogData.hitting && !gameLogData.pitching)) {
       return (
         <View style={[styles.contentContainer, { backgroundColor: theme.background }]}>
-          <Text style={[styles.contentText, { color: theme.textSecondary }]}>No game log data available</Text>
+          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>No game log data available</Text>
         </View>
       );
     }
@@ -1014,7 +1014,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
     return (
       <View key={index} style={[styles.gameLogCard, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.gameLogDate, { color: theme.textSecondary }]}>{formattedDate}</Text>
+        <Text allowFontScaling={false} style={[styles.gameLogDate, { color: theme.textSecondary }]}>{formattedDate}</Text>
         
         {games.map((game, gameIndex) => (
           <View key={gameIndex}>
@@ -1133,17 +1133,17 @@ const PlayerPageScreen = ({ route, navigation }) => {
             defaultSource={{ uri: 'https://via.placeholder.com/50x50?text=MLB' }}
           />
           <View style={styles.gameLogInfo}>
-            <Text style={[styles.gameLogPlayerName, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.gameLogPlayerName, { color: theme.text }]}>
               {playerData.fullName} • {positionPlayed}
             </Text>
-            <Text style={[styles.gameLogStatSummary, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.gameLogStatSummary, { color: theme.textSecondary }]}>
               {game.stat?.summary || 'No stats available'}
             </Text>
           </View>
           <View style={[styles.gameLogResult, { 
             backgroundColor: isWin ? '#4CAF50' : '#f44336' 
           }]}>
-            <Text style={styles.gameLogResultText}>{isWin ? 'W' : 'L'}</Text>
+            <Text allowFontScaling={false} style={styles.gameLogResultText}>{isWin ? 'W' : 'L'}</Text>
           </View>
         </TouchableOpacity>
         
@@ -1158,11 +1158,11 @@ const PlayerPageScreen = ({ route, navigation }) => {
             style={styles.gameLogTeamLogo}
             defaultSource={{ uri: 'https://via.placeholder.com/20x20?text=MLB' }}
           />
-          <Text style={[styles.gameLogTeamName, { color: theme.text }]}>{teamAbbr}</Text>
-          <Text style={[styles.gameLogVs, { color: theme.textSecondary }]}>
+          <Text allowFontScaling={false} style={[styles.gameLogTeamName, { color: theme.text }]}>{teamAbbr}</Text>
+          <Text allowFontScaling={false} style={[styles.gameLogVs, { color: theme.textSecondary }]}>
             {isHome ? 'vs' : '@'}
           </Text>
-          <Text style={[styles.gameLogTeamName, { color: theme.text }]}>{oppAbbr}</Text>
+          <Text allowFontScaling={false} style={[styles.gameLogTeamName, { color: theme.text }]}>{oppAbbr}</Text>
           <Image 
             source={{ uri: getTeamLogoUrl(oppAbbr) }}
             style={styles.gameLogTeamLogo}
@@ -1210,84 +1210,84 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
     const renderStatRow = (label, value) => (
       <View style={styles.modalStatRow}>
-        <Text style={[styles.modalStatLabel, { color: theme.textSecondary }]}>{label}</Text>
-        <Text style={[styles.modalStatValue, { color: theme.text }]}>{value || '--'}</Text>
+        <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary }]}>{label}</Text>
+        <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text }]}>{value || '--'}</Text>
       </View>
     );
 
     const renderHittingStats = () => (
       <View style={styles.modalStatsSection}>
-        <Text style={[styles.modalSectionTitle, { color: colors.primary }]}>Hitting Statistics</Text>
+        <Text allowFontScaling={false} style={[styles.modalSectionTitle, { color: colors.primary }]}>Hitting Statistics</Text>
         
         {/* Main stats grid - top row */}
         <View style={styles.modalStatsGrid}>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
               {stats.hits || 0}/{stats.atBats || 0}
             </Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>H/AB</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>H/AB</Text>
           </View>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.runs || 0}</Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>R</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.runs || 0}</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>R</Text>
           </View>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.rbi || 0}</Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>RBI</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.rbi || 0}</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>RBI</Text>
           </View>
         </View>
 
         {/* Second row */}
         <View style={styles.modalStatsGrid}>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.homeRuns || 0}</Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>HR</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.homeRuns || 0}</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>HR</Text>
           </View>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.baseOnBalls || 0}</Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>BB</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.baseOnBalls || 0}</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>BB</Text>
           </View>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.strikeOuts || 0}</Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>SO</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.strikeOuts || 0}</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>SO</Text>
           </View>
         </View>
 
         {/* Third row */}
         <View style={styles.modalStatsGrid}>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.totalBases || 0}</Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>TB</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.totalBases || 0}</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>TB</Text>
           </View>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.stolenBases || 0}</Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>SB</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.stolenBases || 0}</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>SB</Text>
           </View>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.leftOnBase || 0}</Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>LOB</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.leftOnBase || 0}</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>LOB</Text>
           </View>
         </View>
 
         {/* Averages row */}
         <View style={styles.modalStatsGrid}>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
               {stats.avg ? parseFloat(stats.avg).toFixed(3) : '.000'}
             </Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>AVG</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>AVG</Text>
           </View>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
               {stats.obp ? parseFloat(stats.obp).toFixed(3) : '.000'}
             </Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>OBP</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>OBP</Text>
           </View>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
               {stats.slg ? parseFloat(stats.slg).toFixed(3) : '.000'}
             </Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>SLG</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>SLG</Text>
           </View>
         </View>
       </View>
@@ -1295,75 +1295,75 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
     const renderPitchingStats = () => (
       <View style={styles.modalStatsSection}>
-        <Text style={[styles.modalSectionTitle, { color: colors.primary }]}>Pitching Statistics</Text>
+        <Text allowFontScaling={false} style={[styles.modalSectionTitle, { color: colors.primary }]}>Pitching Statistics</Text>
         
         {/* Main stats grid - top row */}
         <View style={styles.modalStatsGrid}>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
               {stats.inningsPitched || '0.0'}
             </Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>IP</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>IP</Text>
           </View>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.hits || 0}</Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>H</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.hits || 0}</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>H</Text>
           </View>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.runs || 0}</Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>R</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.runs || 0}</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>R</Text>
           </View>
         </View>
 
         {/* Second row */}
         <View style={styles.modalStatsGrid}>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.earnedRuns || 0}</Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>ER</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.earnedRuns || 0}</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>ER</Text>
           </View>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.baseOnBalls || 0}</Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>BB</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.baseOnBalls || 0}</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>BB</Text>
           </View>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.strikeOuts || 0}</Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>SO</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.strikeOuts || 0}</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>SO</Text>
           </View>
         </View>
 
         {/* Third row */}
         <View style={styles.modalStatsGrid}>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.homeRuns || 0}</Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>HR</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.homeRuns || 0}</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>HR</Text>
           </View>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.numberOfPitches || 0}</Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>P</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.numberOfPitches || 0}</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>P</Text>
           </View>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.strikes || 0}</Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>S</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.strikes || 0}</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>S</Text>
           </View>
         </View>
 
         {/* Performance stats row */}
         <View style={styles.modalStatsGrid}>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
               {stats.era ? parseFloat(stats.era).toFixed(2) : '0.00'}
             </Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>ERA</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>ERA</Text>
           </View>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
               {stats.whip ? parseFloat(stats.whip).toFixed(2) : '0.00'}
             </Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>WHIP</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>WHIP</Text>
           </View>
           <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-            <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.decisions || '--'}</Text>
-            <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>DEC</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.decisions || '--'}</Text>
+            <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>DEC</Text>
           </View>
         </View>
       </View>
@@ -1382,9 +1382,9 @@ const PlayerPageScreen = ({ route, navigation }) => {
               onPress={() => setShowStatsModal(false)}
               style={styles.modalCloseButton}
             >
-              <Text style={[styles.modalCloseText, { color: colors.primary }]}>Close</Text>
+              <Text allowFontScaling={false} style={[styles.modalCloseText, { color: colors.primary }]}>Close</Text>
             </TouchableOpacity>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Game Stats</Text>
+            <Text allowFontScaling={false} style={[styles.modalTitle, { color: theme.text }]}>Game Stats</Text>
             <TouchableOpacity
               onPress={() => {
                 if (gameId) {
@@ -1400,13 +1400,13 @@ const PlayerPageScreen = ({ route, navigation }) => {
               }}
               style={styles.modalGameButton}
             >
-              <Text style={[styles.modalGameText, { color: colors.primary }]}>View Game</Text>
+              <Text allowFontScaling={false} style={[styles.modalGameText, { color: colors.primary }]}>View Game</Text>
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
             <View style={[styles.modalGameHeader, { backgroundColor: theme.surface }]}>
-              <Text style={[styles.modalDate, { color: theme.textSecondary }]}>{formattedDate}</Text>
+              <Text allowFontScaling={false} style={[styles.modalDate, { color: theme.textSecondary }]}>{formattedDate}</Text>
               <View style={styles.modalTeamMatchup}>
                 <View style={styles.modalTeamContainer}>
                   <Image 
@@ -1414,9 +1414,9 @@ const PlayerPageScreen = ({ route, navigation }) => {
                     style={styles.modalTeamLogo}
                     defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
                   />
-                  <Text style={[styles.modalTeamName, { color: theme.text }]}>{teamAbbr}</Text>
+                  <Text allowFontScaling={false} style={[styles.modalTeamName, { color: theme.text }]}>{teamAbbr}</Text>
                 </View>
-                <Text style={[styles.modalVs, { color: theme.textSecondary }]}>
+                <Text allowFontScaling={false} style={[styles.modalVs, { color: theme.textSecondary }]}>
                   {isHome ? 'vs' : '@'}
                 </Text>
                 <View style={styles.modalTeamContainer}>
@@ -1425,13 +1425,13 @@ const PlayerPageScreen = ({ route, navigation }) => {
                     style={styles.modalTeamLogo}
                     defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
                   />
-                  <Text style={[styles.modalTeamName, { color: theme.text }]}>{oppAbbr}</Text>
+                  <Text allowFontScaling={false} style={[styles.modalTeamName, { color: theme.text }]}>{oppAbbr}</Text>
                 </View>
               </View>
               <View style={[styles.modalResultContainer, { 
                 backgroundColor: isWin ? '#4CAF50' : '#f44336' 
               }]}>
-                <Text style={styles.modalResultText}>{isWin ? 'WIN' : 'LOSS'}</Text>
+                <Text allowFontScaling={false} style={styles.modalResultText}>{isWin ? 'WIN' : 'LOSS'}</Text>
               </View>
             </View>
 
@@ -1444,8 +1444,8 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 defaultSource={{ uri: 'https://via.placeholder.com/60x60?text=MLB' }}
               />
               <View style={styles.modalPlayerInfo}>
-                <Text style={[styles.modalPlayerName, { color: theme.text }]}>{playerName}</Text>
-                <Text style={[styles.modalPlayerPosition, { color: theme.textSecondary }]}>
+                <Text allowFontScaling={false} style={[styles.modalPlayerName, { color: theme.text }]}>{playerName}</Text>
+                <Text allowFontScaling={false} style={[styles.modalPlayerPosition, { color: theme.textSecondary }]}>
                   {type === 'pitching' ? 'Pitcher' : 'Batter'}
                 </Text>
               </View>
@@ -1474,7 +1474,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       return (
         <View style={[styles.statsLoadingContainer, { backgroundColor: theme.background }]}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.contentText, { color: theme.textSecondary }]}>Loading career statistics...</Text>
+          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Loading career statistics...</Text>
         </View>
       );
     }
@@ -1482,7 +1482,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     if (!careerData || (!careerData.hitting && !careerData.pitching)) {
       return (
         <View style={[styles.contentContainer, { backgroundColor: theme.background }]}>
-          <Text style={[styles.contentText, { color: theme.textSecondary }]}>No career data available</Text>
+          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>No career data available</Text>
         </View>
       );
     }
@@ -1509,7 +1509,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     
     return (
       <View style={styles.careerSection}>
-        <Text style={[styles.careerSectionTitle, { color: colors.primary }]}>{sectionTitle}</Text>
+        <Text allowFontScaling={false} style={[styles.careerSectionTitle, { color: colors.primary }]}>{sectionTitle}</Text>
         {sortedSeasons.map((season, index) => renderCareerSeasonItem(season, type, index))}
       </View>
     );
@@ -1564,44 +1564,44 @@ const PlayerPageScreen = ({ route, navigation }) => {
               style={styles.careerTeamLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=MLB' }}
             />
-            <Text style={[styles.careerTeamName, { color: theme.textSecondary }]}>{team.name || 'MLB'}</Text>
+            <Text allowFontScaling={false} style={[styles.careerTeamName, { color: theme.textSecondary }]}>{team.name || 'MLB'}</Text>
           </View>
-          <Text style={[styles.careerSeasonYear, { color: theme.text }]}>{season.season}</Text>
+          <Text allowFontScaling={false} style={[styles.careerSeasonYear, { color: theme.text }]}>{season.season}</Text>
         </View>
         
         <View style={styles.careerStatsRow}>
           {type === 'hitting' ? (
             <>
               <View style={styles.careerStatItem}>
-                <Text style={[styles.careerStatValue, { color: theme.text }]}>{stats.gamesPlayed || 0}</Text>
-                <Text style={[styles.careerStatLabel, { color: theme.textSecondary }]}>GP</Text>
+                <Text allowFontScaling={false} style={[styles.careerStatValue, { color: theme.text }]}>{stats.gamesPlayed || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.careerStatLabel, { color: theme.textSecondary }]}>GP</Text>
               </View>
               <View style={styles.careerStatItem}>
-                <Text style={[styles.careerStatValue, { color: theme.text }]}>
+                <Text allowFontScaling={false} style={[styles.careerStatValue, { color: theme.text }]}>
                   {stats.avg ? parseFloat(stats.avg).toFixed(3) : '.000'}
                 </Text>
-                <Text style={[styles.careerStatLabel, { color: theme.textSecondary }]}>AVG</Text>
+                <Text allowFontScaling={false} style={[styles.careerStatLabel, { color: theme.textSecondary }]}>AVG</Text>
               </View>
               <View style={styles.careerStatItem}>
-                <Text style={[styles.careerStatValue, { color: theme.text }]}>{stats.homeRuns || 0}</Text>
-                <Text style={[styles.careerStatLabel, { color: theme.textSecondary }]}>HR</Text>
+                <Text allowFontScaling={false} style={[styles.careerStatValue, { color: theme.text }]}>{stats.homeRuns || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.careerStatLabel, { color: theme.textSecondary }]}>HR</Text>
               </View>
             </>
           ) : (
             <>
               <View style={styles.careerStatItem}>
-                <Text style={[styles.careerStatValue, { color: theme.text }]}>{stats.gamesPlayed || 0}</Text>
-                <Text style={[styles.careerStatLabel, { color: theme.textSecondary }]}>GP</Text>
+                <Text allowFontScaling={false} style={[styles.careerStatValue, { color: theme.text }]}>{stats.gamesPlayed || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.careerStatLabel, { color: theme.textSecondary }]}>GP</Text>
               </View>
               <View style={styles.careerStatItem}>
-                <Text style={[styles.careerStatValue, { color: theme.text }]}>
+                <Text allowFontScaling={false} style={[styles.careerStatValue, { color: theme.text }]}>
                   {stats.era ? parseFloat(stats.era).toFixed(2) : '0.00'}
                 </Text>
-                <Text style={[styles.careerStatLabel, { color: theme.textSecondary }]}>ERA</Text>
+                <Text allowFontScaling={false} style={[styles.careerStatLabel, { color: theme.textSecondary }]}>ERA</Text>
               </View>
               <View style={styles.careerStatItem}>
-                <Text style={[styles.careerStatValue, { color: theme.text }]}>{stats.wins || 0}</Text>
-                <Text style={[styles.careerStatLabel, { color: theme.textSecondary }]}>W</Text>
+                <Text allowFontScaling={false} style={[styles.careerStatValue, { color: theme.text }]}>{stats.wins || 0}</Text>
+                <Text allowFontScaling={false} style={[styles.careerStatLabel, { color: theme.textSecondary }]}>W</Text>
               </View>
             </>
           )}
@@ -1649,9 +1649,9 @@ const PlayerPageScreen = ({ route, navigation }) => {
               onPress={() => setShowSeasonModal(false)}
               style={styles.modalCloseButton}
             >
-              <Text style={[styles.modalCloseText, { color: colors.primary }]}>Close</Text>
+              <Text allowFontScaling={false} style={[styles.modalCloseText, { color: colors.primary }]}>Close</Text>
             </TouchableOpacity>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.modalTitle, { color: theme.text }]}>
               {season.season} {type === 'hitting' ? 'Hitting' : 'Pitching'} Stats
             </Text>
             <View style={styles.modalPlaceholder} />
@@ -1661,8 +1661,8 @@ const PlayerPageScreen = ({ route, navigation }) => {
             <View style={[styles.modalSeasonHeader, { backgroundColor: theme.surface }]}>
               <View style={styles.modalSeasonTopRow}>
                 <View style={styles.modalSeasonInfo}>
-                  <Text style={[styles.modalSeasonYear, { color: theme.text }]}>{season.season}</Text>
-                  <Text style={[styles.modalLeagueName, { color: theme.textSecondary }]}>{league.name || 'MLB'}</Text>
+                  <Text allowFontScaling={false} style={[styles.modalSeasonYear, { color: theme.text }]}>{season.season}</Text>
+                  <Text allowFontScaling={false} style={[styles.modalLeagueName, { color: theme.textSecondary }]}>{league.name || 'MLB'}</Text>
                 </View>
                 <View style={styles.modalTeamContainer}>
                   <Image 
@@ -1670,7 +1670,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                     style={styles.modalSeasonTeamLogo}
                     defaultSource={{ uri: 'https://via.placeholder.com/50x50?text=MLB' }}
                   />
-                  <Text style={[styles.modalTeamName, { color: theme.text }]}>{team.name || 'MLB'}</Text>
+                  <Text allowFontScaling={false} style={[styles.modalTeamName, { color: theme.text }]}>{team.name || 'MLB'}</Text>
                 </View>
               </View>
             </View>
@@ -1684,77 +1684,77 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
   const renderSeasonHittingStats = (stats) => (
     <View style={styles.modalStatsSection}>
-      <Text style={[styles.modalSectionTitle, { color: colors.primary }]}>Season Hitting Statistics</Text>
+      <Text allowFontScaling={false} style={[styles.modalSectionTitle, { color: colors.primary }]}>Season Hitting Statistics</Text>
       
       {/* Main stats grid - top row */}
       <View style={styles.modalStatsGrid}>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface, shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
             {stats.hits || 0}/{stats.atBats || 0}
           </Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>H/AB</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>H/AB</Text>
         </View>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.runs || 0}</Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>R</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.runs || 0}</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>R</Text>
         </View>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.rbi || 0}</Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>RBI</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.rbi || 0}</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>RBI</Text>
         </View>
       </View>
 
       {/* Second row */}
       <View style={styles.modalStatsGrid}>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.homeRuns || 0}</Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>HR</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.homeRuns || 0}</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>HR</Text>
         </View>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.baseOnBalls || 0}</Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>BB</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.baseOnBalls || 0}</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>BB</Text>
         </View>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.strikeOuts || 0}</Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>SO</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.strikeOuts || 0}</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>SO</Text>
         </View>
       </View>
 
       {/* Third row */}
       <View style={styles.modalStatsGrid}>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.totalBases || 0}</Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>TB</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.totalBases || 0}</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>TB</Text>
         </View>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.stolenBases || 0}</Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>SB</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.stolenBases || 0}</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>SB</Text>
         </View>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.gamesPlayed || 0}</Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>GP</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.gamesPlayed || 0}</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>GP</Text>
         </View>
       </View>
 
       {/* Averages row */}
       <View style={styles.modalStatsGrid}>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
             {stats.avg ? parseFloat(stats.avg).toFixed(3) : '.000'}
           </Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>AVG</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>AVG</Text>
         </View>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
             {stats.obp ? parseFloat(stats.obp).toFixed(3) : '.000'}
           </Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>OBP</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>OBP</Text>
         </View>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
             {stats.slg ? parseFloat(stats.slg).toFixed(3) : '.000'}
           </Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>SLG</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>SLG</Text>
         </View>
       </View>
     </View>
@@ -1762,77 +1762,77 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
   const renderSeasonPitchingStats = (stats) => (
     <View style={styles.modalStatsSection}>
-      <Text style={[styles.modalSectionTitle, { color: colors.primary }]}>Season Pitching Statistics</Text>
+      <Text allowFontScaling={false} style={[styles.modalSectionTitle, { color: colors.primary }]}>Season Pitching Statistics</Text>
       
       {/* Main stats grid - top row */}
       <View style={styles.modalStatsGrid}>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
             {stats.inningsPitched || '0.0'}
           </Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>IP</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>IP</Text>
         </View>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.hits || 0}</Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>H</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.hits || 0}</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>H</Text>
         </View>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.runs || 0}</Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>R</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.runs || 0}</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>R</Text>
         </View>
       </View>
 
       {/* Second row */}
       <View style={styles.modalStatsGrid}>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.earnedRuns || 0}</Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>ER</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.earnedRuns || 0}</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>ER</Text>
         </View>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.baseOnBalls || 0}</Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>BB</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.baseOnBalls || 0}</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>BB</Text>
         </View>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.strikeOuts || 0}</Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>SO</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.strikeOuts || 0}</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>SO</Text>
         </View>
       </View>
 
       {/* Third row */}
       <View style={styles.modalStatsGrid}>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.homeRuns || 0}</Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>HR</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.homeRuns || 0}</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>HR</Text>
         </View>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.hitBatsmen || 0}</Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>HBP</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.hitBatsmen || 0}</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>HBP</Text>
         </View>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.gamesPlayed || 0}</Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>GP</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{stats.gamesPlayed || 0}</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>GP</Text>
         </View>
       </View>
 
       {/* Record and averages row */}
       <View style={styles.modalStatsGrid}>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
             {stats.wins || 0}-{stats.losses || 0}
           </Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>W-L</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>W-L</Text>
         </View>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
             {stats.era ? parseFloat(stats.era).toFixed(2) : '0.00'}
           </Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>ERA</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>ERA</Text>
         </View>
         <View style={[styles.modalStatCard, { backgroundColor: theme.surface , shadowColor: isDarkMode ? '#fff' : '#000' }]}>
-          <Text style={[styles.modalStatCardValue, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
             {stats.whip ? parseFloat(stats.whip).toFixed(2) : '0.00'}
           </Text>
-          <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>WHIP</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>WHIP</Text>
         </View>
       </View>
     </View>
@@ -1876,7 +1876,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     if (!selectedTeam) {
       return (
         <View style={[styles.contentContainer, { backgroundColor: theme.background }]}>
-          <Text style={[styles.vsTeamTitle, { color: theme.text }]}>Select Team to View Stats Against</Text>
+          <Text allowFontScaling={false} style={[styles.vsTeamTitle, { color: theme.text }]}>Select Team to View Stats Against</Text>
           <ScrollView style={styles.teamSelector} showsVerticalScrollIndicator={false}>
             <View style={styles.teamGrid}>
               {mlbTeams.map((team) => (
@@ -1894,7 +1894,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                     style={styles.teamCardLogo}
                     defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
                   />
-                  <Text style={[styles.teamCardName, { color: theme.text }]}>{team.name}</Text>
+                  <Text allowFontScaling={false} style={[styles.teamCardName, { color: theme.text }]}>{team.name}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -1907,7 +1907,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       return (
         <View style={[styles.statsLoadingContainer, { backgroundColor: theme.background }]}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.contentText, { color: theme.textSecondary }]}>Loading VS Team statistics...</Text>
+          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Loading VS Team statistics...</Text>
         </View>
       );
     }
@@ -1934,7 +1934,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
               onPress={() => setSelectedTeam(null)}
               style={[styles.changeTeamButton, { backgroundColor: colors.primary }]}
             >
-              <Text style={[styles.changeTeamText, { color: 'white' }]}>Change Team</Text>
+              <Text allowFontScaling={false} style={[styles.changeTeamText, { color: 'white' }]}>Change Team</Text>
             </TouchableOpacity>
             <View style={styles.selectedTeamInfo}>
               <Image 
@@ -1942,10 +1942,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 style={styles.selectedTeamLogo}
                 defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=MLB' }}
               />
-              <Text style={[styles.selectedTeamName, { color: theme.text }]}>{selectedTeam.name}</Text>
+              <Text allowFontScaling={false} style={[styles.selectedTeamName, { color: theme.text }]}>{selectedTeam.name}</Text>
             </View>
           </View>
-          <Text style={[styles.contentText, { color: theme.textSecondary }]}>No data available against this team</Text>
+          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>No data available against this team</Text>
         </View>
       );
     }
@@ -1963,8 +1963,8 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
       return (
         <View key={key} style={[styles.statBox, { backgroundColor: theme.surface }]}>
-          <Text style={[styles.statBoxValue, { color: colors.primary }]}>{displayValue}</Text>
-          <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>{label}</Text>
+          <Text allowFontScaling={false} style={[styles.statBoxValue, { color: colors.primary }]}>{displayValue}</Text>
+          <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>{label}</Text>
         </View>
       );
     };
@@ -2003,7 +2003,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
               onPress={() => setSelectedTeam(null)}
               style={[styles.changeTeamButton, { backgroundColor: colors.primary }]}
             >
-              <Text style={[styles.changeTeamText, { color: 'white' }]}>Change Team</Text>
+              <Text allowFontScaling={false} style={[styles.changeTeamText, { color: 'white' }]}>Change Team</Text>
             </TouchableOpacity>
             <View style={styles.selectedTeamInfo}>
               <Image 
@@ -2011,7 +2011,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 style={styles.selectedTeamLogo}
                 defaultSource={{ uri: 'https://via.placeholder.com/30x30?text=MLB' }}
               />
-              <Text style={[styles.selectedTeamName, { color: theme.text }]}>{selectedTeam.name}</Text>
+              <Text allowFontScaling={false} style={[styles.selectedTeamName, { color: theme.text }]}>{selectedTeam.name}</Text>
             </View>
           </View>
 
@@ -2019,7 +2019,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
           {vsTeamStats.hitting && hasStatsData(vsTeamStats.hitting) && (
             <View style={styles.statsSection}>
               <View style={styles.vsTeamStatsHeader}>
-                <Text style={[styles.statsSectionTitle, { color: colors.primary }]}>
+                <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: colors.primary }]}>
                   Hitting Statistics vs{' '}
                 </Text>
                 <Image 
@@ -2056,7 +2056,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
           {vsTeamStats.pitching && hasStatsData(vsTeamStats.pitching) && (
             <View style={styles.statsSection}>
               <View style={styles.vsTeamStatsHeader}>
-                <Text style={[styles.statsSectionTitle, { color: colors.primary }]}>
+                <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: colors.primary }]}>
                   Pitching Statistics vs{' '}
                 </Text>
                 <Image 
@@ -2097,7 +2097,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.text }]}>Loading player information...</Text>
+        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>Loading player information...</Text>
       </View>
     );
   }

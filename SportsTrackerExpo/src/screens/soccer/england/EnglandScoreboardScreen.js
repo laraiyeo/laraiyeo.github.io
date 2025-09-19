@@ -465,7 +465,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
             ]}
             onPress={() => handleDateFilterChange(filter.key)}
           >
-            <Text
+            <Text allowFontScaling={false}
               style={[
                 styles.filterText,
                 { color: selectedDateFilter === filter.key ? '#fff' : theme.text }
@@ -493,7 +493,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
       >
         {/* League Header */}
         <View style={[styles.leagueHeader, { backgroundColor: theme.border }]}>
-          <Text style={[styles.leagueText, { color: colors.primary }]}>
+          <Text allowFontScaling={false} style={[styles.leagueText, { color: colors.primary }]}>
             {game.competitionName || 'La Liga'}
           </Text>
         </View>
@@ -511,7 +511,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
                 ]}
               />
               {(matchStatus.isLive || matchStatus.isPost) && (
-                <Text style={[
+                <Text allowFontScaling={false} style={[
                   styles.teamScore, 
                   { color: theme.text },
                   matchStatus.isPost && homeTeam?.score < awayTeam?.score && styles.losingScore
@@ -520,7 +520,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
                 </Text>
               )}
             </View>
-            <Text style={[
+            <Text allowFontScaling={false} style={[
               styles.teamAbbreviation, 
               { color: isFavorite(homeTeam?.team?.id) ? colors.primary : theme.text },
               matchStatus.isPost && homeTeam?.score < awayTeam?.score && styles.losingTeamName
@@ -531,7 +531,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
 
           {/* Status Section */}
           <View style={styles.statusSection}>
-            <Text style={[
+            <Text allowFontScaling={false} style={[
               styles.gameStatus,
               { color: matchStatus.isLive ? theme.error : theme.text }
             ]}>
@@ -539,13 +539,13 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
             </Text>
             
             {matchStatus.time && (
-              <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+              <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
                 {matchStatus.time}
               </Text>
             )}
             
             {matchStatus.detail && (
-              <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+              <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
                 {matchStatus.detail}
               </Text>
             )}
@@ -555,7 +555,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
           <View style={styles.teamSection}>
             <View style={styles.teamLogoRow}>
               {(matchStatus.isLive || matchStatus.isPost) && (
-                <Text style={[
+                <Text allowFontScaling={false} style={[
                   styles.teamScore, 
                   { color: theme.text },
                   matchStatus.isPost && awayTeam?.score < homeTeam?.score && styles.losingScore
@@ -571,7 +571,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
                 ]}
               />
             </View>
-            <Text style={[
+            <Text allowFontScaling={false} style={[
               styles.teamAbbreviation, 
               { color: isFavorite(awayTeam?.team?.id) ? colors.primary : theme.text },
               matchStatus.isPost && awayTeam?.score < homeTeam?.score && styles.losingTeamName
@@ -584,7 +584,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
         {/* Venue Section */}
         {competition?.venue?.fullName && (
           <View style={[styles.venueSection, { borderTopColor: theme.border }]}>
-            <Text style={[styles.venueText, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>
               {competition.venue.fullName}
             </Text>
           </View>
@@ -599,7 +599,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
         {renderDateFilter()}
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>
             Loading matches...
           </Text>
         </View>
@@ -613,7 +613,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
       
       {games.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+          <Text allowFontScaling={false} style={[styles.emptyText, { color: theme.textSecondary }]}>
             {getNoGamesMessage(selectedDateFilter)}
           </Text>
         </View>

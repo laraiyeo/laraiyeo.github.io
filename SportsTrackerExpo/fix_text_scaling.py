@@ -22,48 +22,19 @@ def find_js_files(screens_dir: str) -> List[str]:
 
 def process_text_components(content: str) -> Tuple[str, int]:
     """
-    Process the file content to add allowFontScaling={false} to Text components.
+    Simple find and replace: <Text -> <Text allowFontScaling={false}
     Returns the modified content and the number of changes made.
     """
-    changes_made = 0
+    # Count occurrences before replacement
+    original_count = content.count('<Text')
     
-    # First, find all <Text tags that don't already have allowFontScaling
-    lines = content.split('\n')
-    modified_lines = []
+    # Simple string replacement
+    modified_content = content.replace('<Text', '<Text allowFontScaling={false}')
     
-    for line in lines:
-        original_line = line
-        
-        # Skip lines that already have allowFontScaling
-        if 'allowFontScaling' in line:
-            modified_lines.append(line)
-            continue
-        
-        # Look for <Text patterns
-        import re
-        text_matches = re.finditer(r'<Text(\s+[^>]*?)?(>|$)', line)
-        
-        for match in text_matches:
-            start_pos = match.start()
-            attrs = match.group(1) if match.group(1) else ''
-            ending = match.group(2)
-            
-            # Build the replacement
-            if attrs and attrs.strip():
-                # Add allowFontScaling to existing attributes
-                replacement = f'<Text{attrs} allowFontScaling={{false}}{ending}'
-            else:
-                # No existing attributes
-                replacement = f'<Text allowFontScaling={{false}}{ending}'
-            
-            # Replace in the line
-            line = line[:start_pos] + replacement + line[match.end():]
-            changes_made += 1
-            break  # Only process first match per line to avoid issues
-        
-        modified_lines.append(line)
+    # Count changes made
+    changes_made = original_count
     
-    return '\n'.join(modified_lines), changes_made
+    return modified_content, changes_made
 
 def update_file(file_path: str) -> int:
     """Update a single file and return the number of changes made."""

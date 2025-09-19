@@ -946,10 +946,10 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
           resizeMode="cover"
         />
         <View style={styles.playerInfo}>
-          <Text style={[styles.playerName, { color: theme.text }]}>{playerData.displayName || playerName}</Text>
+          <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>{playerData.displayName || playerName}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-            <Text style={[styles.playerDetails, { color: theme.textSecondary, marginRight: 8 }]}>#{playerData.jersey || ''}</Text>
-            <Text style={[styles.playerDetails, { color: theme.textSecondary }]}>• {playerData.position?.displayName || 'N/A'}</Text>
+            <Text allowFontScaling={false} style={[styles.playerDetails, { color: theme.textSecondary, marginRight: 8 }]}>#{playerData.jersey || ''}</Text>
+            <Text allowFontScaling={false} style={[styles.playerDetails, { color: theme.textSecondary }]}>• {playerData.position?.displayName || 'N/A'}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {playerData.team && (playerData.team.abbreviation || playerData.team.id) && (
@@ -963,9 +963,9 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
               </View>
             )}
             {teamLabel ? (
-              <Text style={[styles.teamName, { color: theme.textSecondary, fontWeight: 'bold' }]}>{teamLabel}</Text>
+              <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary, fontWeight: 'bold' }]}>{teamLabel}</Text>
             ) : (
-              <Text style={[styles.teamName, { color: theme.textSecondary, fontWeight: 'bold' }]}></Text>
+              <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary, fontWeight: 'bold' }]}></Text>
             )}
           </View>
         </View>
@@ -979,7 +979,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
       <>
         {tabs.map((tab) => (
           <TouchableOpacity key={tab} style={[styles.tabButton, activeTab === tab && styles.activeTabButton, { borderBottomColor: activeTab === tab ? colors.primary : 'transparent' }]} onPress={() => setActiveTab(tab)}>
-            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText, { color: activeTab === tab ? colors.primary : theme.textSecondary }]}>{tab}</Text>
+            <Text allowFontScaling={false} style={[styles.tabText, activeTab === tab && styles.activeTabText, { color: activeTab === tab ? colors.primary : theme.textSecondary }]}>{tab}</Text>
           </TouchableOpacity>
         ))}
       </>
@@ -997,16 +997,16 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
   };
 
   const renderStatsContent = () => {
-  if (loadingStats) return (<View style={[styles.statsLoadingContainer, { backgroundColor: theme.background }]}><ActivityIndicator size="large" color={colors.primary} /><Text style={[styles.loadingText, { color: theme.text }]}>Loading stats...</Text></View>);
+  if (loadingStats) return (<View style={[styles.statsLoadingContainer, { backgroundColor: theme.background }]}><ActivityIndicator size="large" color={colors.primary} /><Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>Loading stats...</Text></View>);
 
     // New approach: playerStats.categories -> each category shows up to 6 stats
-    if (!playerStats || !playerStats.categories) return (<View style={[styles.statsContainer, { backgroundColor: theme.background }]}><Text style={[styles.contentText, { color: theme.textSecondary }]}>No stats available</Text></View>);
+    if (!playerStats || !playerStats.categories) return (<View style={[styles.statsContainer, { backgroundColor: theme.background }]}><Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>No stats available</Text></View>);
 
     const renderStatBox = (stat, idx) => (
       <View key={`${stat.label}-${idx}`} style={[styles.statBoxSmall, { backgroundColor: theme.surface }]}> 
-        <Text style={[styles.statBoxValueSmall, { color: theme.text }]}>{stat.value}</Text>
-        <Text style={[styles.statBoxLabelSmall, { color: theme.textSecondary }]}>{stat.label}</Text>
-        {stat.rank ? <Text style={[styles.statRank, { color: colors.secondary }]}>{stat.rank}</Text> : null}
+        <Text allowFontScaling={false} style={[styles.statBoxValueSmall, { color: theme.text }]}>{stat.value}</Text>
+        <Text allowFontScaling={false} style={[styles.statBoxLabelSmall, { color: theme.textSecondary }]}>{stat.label}</Text>
+        {stat.rank ? <Text allowFontScaling={false} style={[styles.statRank, { color: colors.secondary }]}>{stat.rank}</Text> : null}
       </View>
     );
 
@@ -1015,7 +1015,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
         <View style={styles.statsContent}>
           {playerStats.categories.map((cat, cidx) => (
             <View key={`cat-${cidx}`} style={styles.statsCategory}>
-              <Text style={[styles.statsCategoryTitle, { color: colors.primary }]}>{cat.displayName}</Text>
+              <Text allowFontScaling={false} style={[styles.statsCategoryTitle, { color: colors.primary }]}>{cat.displayName}</Text>
               <View style={styles.statsGridRows}>
                 {cat.stats.map((s, idx) => renderStatBox(s, idx))}
               </View>
@@ -1040,7 +1040,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
     if (!playerSplits || !Array.isArray(playerSplits.splitCategories)) {
       return (
         <View style={[styles.statsContainer, { backgroundColor: theme.background }]}>
-          <Text style={[styles.contentText, { color: theme.textSecondary }]}>No splits available</Text>
+          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>No splits available</Text>
         </View>
       );
     }
@@ -1059,10 +1059,10 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                 return (
                   <TouchableOpacity key={`split-${idx}`} style={[styles.careerTile, { backgroundColor: theme.surface }]} onPress={() => openSplitCategory(cat)}>
                     <View style={styles.careerTileHeader}>
-                      <Text style={[styles.careerSeasonLabel, { color: theme.text }]}>{capitalizedName}</Text>
-                      <Text style={[styles.careerTeamsText, { color: theme.textSecondary }]}>{cat.splits.length} items</Text>
+                      <Text allowFontScaling={false} style={[styles.careerSeasonLabel, { color: theme.text }]}>{capitalizedName}</Text>
+                      <Text allowFontScaling={false} style={[styles.careerTeamsText, { color: theme.textSecondary }]}>{cat.splits.length} items</Text>
                     </View>
-                    {cat.description ? <Text style={[styles.careerTeamsText, { color: theme.textSecondary }]}>{cat.description}</Text> : null}
+                    {cat.description ? <Text allowFontScaling={false} style={[styles.careerTeamsText, { color: theme.textSecondary }]}>{cat.description}</Text> : null}
                   </TouchableOpacity>
                 );
               })}
@@ -1083,9 +1083,9 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
             <View style={[styles.careerTile, { backgroundColor: theme.surface, marginBottom: 15 }]}>
               <View style={styles.careerTileHeader}>
                 <TouchableOpacity onPress={() => setSelectedSplitCategory(null)} style={[styles.changeTeamButton, { backgroundColor: colors.primary }]}>
-                  <Text style={[styles.changeTeamText, { color: 'white' }]}>← Back</Text>
+                  <Text allowFontScaling={false} style={[styles.changeTeamText, { color: 'white' }]}>← Back</Text>
                 </TouchableOpacity>
-                <Text style={[styles.careerSeasonLabel, { color: theme.text }]}>{formatDisplayName(cat.displayName || cat.name)}</Text>
+                <Text allowFontScaling={false} style={[styles.careerSeasonLabel, { color: theme.text }]}>{formatDisplayName(cat.displayName || cat.name)}</Text>
               </View>
             </View>
 
@@ -1102,7 +1102,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                         style={styles.teamCardLogo} 
                         defaultSource={getTeamLogoFallbackUrl({ abbreviation: teamAbbr }, isDarkMode)} 
                       />
-                      <Text style={[styles.teamCardName, { color: theme.text }]}>{teamAbbr}</Text>
+                      <Text allowFontScaling={false} style={[styles.teamCardName, { color: theme.text }]}>{teamAbbr}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -1112,8 +1112,8 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
               items.map((it, idx) => (
                 <TouchableOpacity key={`splititem-${idx}`} style={[styles.careerTile, { backgroundColor: theme.surface }]} onPress={() => openSplitDetail(it)}>
                   <View style={styles.careerTileHeader}>
-                    <Text style={[styles.careerSeasonLabel, { color: theme.text }]}>{it.displayName || it.abbreviation || `Split ${idx+1}`}</Text>
-                    <Text style={[styles.careerTeamsText, { color: theme.textSecondary }]}>{Array.isArray(it.stats) ? `${it.stats.length} stats` : ''}</Text>
+                    <Text allowFontScaling={false} style={[styles.careerSeasonLabel, { color: theme.text }]}>{it.displayName || it.abbreviation || `Split ${idx+1}`}</Text>
+                    <Text allowFontScaling={false} style={[styles.careerTeamsText, { color: theme.textSecondary }]}>{Array.isArray(it.stats) ? `${it.stats.length} stats` : ''}</Text>
                   </View>
                 </TouchableOpacity>
               ))
@@ -1136,20 +1136,20 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
             <View style={[styles.careerTile, { backgroundColor: theme.surface, marginBottom: 15 }]}>
               <View style={styles.careerTileHeader}>
                 <TouchableOpacity onPress={() => setSelectedSplitDetail(null)} style={[styles.changeTeamButton, { backgroundColor: colors.primary }]}>
-                  <Text style={[styles.changeTeamText, { color: 'white' }]}>← Back</Text>
+                  <Text allowFontScaling={false} style={[styles.changeTeamText, { color: 'white' }]}>← Back</Text>
                 </TouchableOpacity>
-                <Text style={[styles.careerSeasonLabel, { color: theme.text }]}>{detail.displayName || detail.abbreviation || 'Split Detail'}</Text>
+                <Text allowFontScaling={false} style={[styles.careerSeasonLabel, { color: theme.text }]}>{detail.displayName || detail.abbreviation || 'Split Detail'}</Text>
               </View>
             </View>
 
             {stats.length === 0 ? (
-              <Text style={[styles.contentText, { color: theme.textSecondary }]}>No stats available for this split.</Text>
+              <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>No stats available for this split.</Text>
             ) : (
               <View style={styles.statsGridRows}>
                 {stats.map((statValue, idx) => (
                   <View key={`dstat-${idx}`} style={[styles.statBoxSmall, { backgroundColor: theme.surface }]}>
-                    <Text style={[styles.statBoxValueSmall, { color: theme.text }]}>{statValue}</Text>
-                    <Text style={[styles.statBoxLabelSmall, { color: theme.textSecondary }]}>{labels[idx] || `Stat ${idx + 1}`}</Text>
+                    <Text allowFontScaling={false} style={[styles.statBoxValueSmall, { color: theme.text }]}>{statValue}</Text>
+                    <Text allowFontScaling={false} style={[styles.statBoxLabelSmall, { color: theme.textSecondary }]}>{labels[idx] || `Stat ${idx + 1}`}</Text>
                   </View>
                 ))}
               </View>
@@ -1167,7 +1167,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
       return (
         <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading game log...</Text>
+          <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>Loading game log...</Text>
         </View>
       );
     }
@@ -1176,7 +1176,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
       <ScrollView style={[styles.statsContainer, { backgroundColor: theme.background }]} showsVerticalScrollIndicator={false}>
         <View style={styles.statsContent}>
           {gameLog.length === 0 ? (
-            <Text style={[styles.contentText, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>
               No recent games available
             </Text>
           ) : (
@@ -1188,7 +1188,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
               >
                 {/* Date Header */}
                 <View style={[styles.mlbGameHeader, {backgroundColor: theme.surfaceSecondary}]}>
-                  <Text style={[styles.mlbGameDate, { color: theme.text }]}>
+                  <Text allowFontScaling={false} style={[styles.mlbGameDate, { color: theme.text }]}>
                     {new Date(game.gameDate).toLocaleDateString('en-US', { 
                       weekday: 'short', 
                       month: 'short', 
@@ -1209,10 +1209,10 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
 
                   {/* Player Name and Stats */}
                   <View style={styles.mlbPlayerInfo}>
-                    <Text style={[styles.mlbPlayerName, { color: theme.text }]}>
+                    <Text allowFontScaling={false} style={[styles.mlbPlayerName, { color: theme.text }]}>
                       {playerData?.displayName || playerData?.fullName || 'Player'}
                     </Text>
-                    <Text style={[styles.mlbPlayerStats, { color: theme.textSecondary }]}>
+                    <Text allowFontScaling={false} style={[styles.mlbPlayerStats, { color: theme.textSecondary }]}>
                       {getGameCardStatsString(game)}
                     </Text>
                   </View>
@@ -1223,7 +1223,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                                     game.gameResult === 'L' ? colors.error || '#dc3545' :
                                     colors.primary
                   }]}>
-                    <Text style={[styles.mlbWinText, { color: 'white' }]}>
+                    <Text allowFontScaling={false} style={[styles.mlbWinText, { color: 'white' }]}>
                       {game.gameResult || 'N/A'}
                     </Text>
                   </View>
@@ -1240,7 +1240,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                       defaultSource={getTeamLogoFallbackUrl(playerData?.team || game.team, isDarkMode)}
                       onError={() => handleLogoError(playerData?.team || game.team, isDarkMode)}
                     />
-                    <Text style={[styles.mlbVersus, { color: theme.textSecondary }]}>
+                    <Text allowFontScaling={false} style={[styles.mlbVersus, { color: theme.textSecondary }]}>
                       {game.atVs === '@' ? '@' : 'vs'}
                     </Text>
                     <Image 
@@ -1252,7 +1252,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                       onError={() => handleLogoError(game.opponent, isDarkMode)}
                     />
                   </View>
-                  <Text style={[styles.mlbOpponentName, { color: theme.text }]}>
+                  <Text allowFontScaling={false} style={[styles.mlbOpponentName, { color: theme.text }]}>
                     {game.leagueName || game.leagueShortName || 'NFL'}
                   </Text>
                 </View>
@@ -1304,9 +1304,9 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
               onPress={() => setShowStatsModal(false)}
               style={styles.modalCloseButton}
             >
-              <Text style={[styles.modalCloseText, { color: colors.primary }]}>Close</Text>
+              <Text allowFontScaling={false} style={[styles.modalCloseText, { color: colors.primary }]}>Close</Text>
             </TouchableOpacity>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.modalTitle, { color: theme.text }]}>
               Game Statistics
             </Text>
             <View style={styles.modalPlaceholder} />
@@ -1322,7 +1322,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                 resizeMode="cover"
               />
               <View style={styles.playerInfo}>
-                <Text style={[styles.playerName, { color: theme.text }]}>
+                <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>
                   {playerData?.displayName || playerName}
                 </Text>
                 <View style={styles.playerDetailsRow}>
@@ -1336,12 +1336,12 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                         defaultSource={getTeamLogoFallbackUrl(playerData.team.id, isDarkMode)}
                         onError={() => handleLogoError(playerData.team.id, isDarkMode)}
                       />
-                      <Text style={[styles.teamName, { color: theme.textSecondary, fontWeight: 'bold' }]}>
+                      <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary, fontWeight: 'bold' }]}>
                         {playerData.team.displayName || playerData.team.name || ''}
                       </Text>
                     </View>
                   )}
-                  <Text style={[styles.playerDetails, { color: theme.textSecondary }]}>
+                  <Text allowFontScaling={false} style={[styles.playerDetails, { color: theme.textSecondary }]}>
                   • {playerData?.position?.displayName || 'N/A'}
                   </Text>
                 </View>
@@ -1352,7 +1352,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
             <View style={[styles.modalSeasonHeader, { backgroundColor: theme.surface }]}>
               <View style={styles.modalSeasonTopRow}>
                 <View style={[styles.modalSeasonInfo, { alignItems: 'center', flex: 1 }]}>
-                  <Text style={[styles.modalSeasonYear, { color: theme.text }]}>
+                  <Text allowFontScaling={false} style={[styles.modalSeasonYear, { color: theme.text }]}>
                     {new Date(g.gameDate).toLocaleDateString('en-US', { 
                       weekday: 'long', 
                       month: 'long', 
@@ -1360,7 +1360,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                       year: 'numeric'
                     })}
                   </Text>
-                  <Text style={[styles.modalLeagueName, { color: theme.textSecondary }]}>
+                  <Text allowFontScaling={false} style={[styles.modalLeagueName, { color: theme.textSecondary }]}>
                     {g.leagueName || g.leagueShortName || 'NFL'}
                   </Text>
                 </View>
@@ -1369,18 +1369,18 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
 
             {/* Game Statistics */}
             <View style={styles.modalStatsSection}>
-              <Text style={[styles.modalSectionTitle, { color: colors.primary, marginBottom: 20 }]}>Game Statistics</Text>
+              <Text allowFontScaling={false} style={[styles.modalSectionTitle, { color: colors.primary, marginBottom: 20 }]}>Game Statistics</Text>
               
               {loadingSelectedGameStats ? (
                 <View style={{ padding: 20, alignItems: 'center' }}>
                   <ActivityIndicator size="large" color={colors.primary} />
-                  <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading game stats...</Text>
+                  <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>Loading game stats...</Text>
                 </View>
               ) : (
                 details && details.splits && Array.isArray(details.splits.categories) ? (
                   details.splits.categories.map((cat, idx) => (
                     <View key={`catmodal-${idx}`}>
-                      <Text style={[styles.modalCategoryTitle, { color: theme.text }]}>
+                      <Text allowFontScaling={false} style={[styles.modalCategoryTitle, { color: theme.text }]}>
                         {formatDisplayName(cat.displayName || cat.name)}
                       </Text>
                       <View style={styles.modalStatsGrid}>
@@ -1388,22 +1388,22 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                           const isSingle = cat.stats.length === 1;
                           return cat.stats.map((s, i) => (
                             <View key={`${s.displayName || s.name}-${i}`} style={[styles.modalStatCard, isSingle && styles.modalStatCardFull, { backgroundColor: theme.surface }]}> 
-                              <Text style={[styles.modalStatCardValue, { color: theme.text }]}>
+                              <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
                                 {typeof s.displayValue !== 'undefined' && s.displayValue !== null ? s.displayValue : (typeof s.display !== 'undefined' && s.display !== null ? s.display : (typeof s.value !== 'undefined' && s.value !== null ? s.value : '0'))}
                               </Text>
-                              <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>
+                              <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>
                                 {formatDisplayName(s.displayName || s.name)}
                               </Text>
                             </View>
                           ));
                         })() : (
-                          <Text style={[styles.contentText, { color: theme.textSecondary }]}>No stats available for this category</Text>
+                          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>No stats available for this category</Text>
                         )}
                       </View>
                     </View>
                   ))
                 ) : (
-                  <Text style={[styles.contentText, { color: theme.textSecondary, marginTop: 12 }]}>No player game statistics available</Text>
+                  <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary, marginTop: 12 }]}>No player game statistics available</Text>
                 )
               )}
             </View>
@@ -1427,7 +1427,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                         defaultSource={getTeamLogoFallbackUrl(playerData?.team || g.team, isDarkMode)}
                         onError={() => handleLogoError(playerData?.team || g.team, isDarkMode)}
                       />
-                      <Text style={[styles.mlbVersus, { color: theme.textSecondary, fontSize: 16, marginHorizontal: 12 }]}>
+                      <Text allowFontScaling={false} style={[styles.mlbVersus, { color: theme.textSecondary, fontSize: 16, marginHorizontal: 12 }]}>
                         {g.atVs === '@' ? '@' : 'vs'}
                       </Text>
                       <Image 
@@ -1439,7 +1439,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                         onError={() => handleLogoError(g.opponent, isDarkMode)}
                       />
                     </View>
-                    <Text style={[styles.modalTeamName, { color: theme.text, marginTop: 8 }]}>
+                    <Text allowFontScaling={false} style={[styles.modalTeamName, { color: theme.text, marginTop: 8 }]}>
                       {playerData?.team?.displayName || 'Team'} {g.atVs === '@' ? '@' : 'vs'} {g.opponent?.displayName || g.opponent?.abbreviation || 'Opponent'}
                     </Text>
                   </View>
@@ -1453,12 +1453,12 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
   };
 
   const renderCareerContent = () => {
-    if (loadingCareer) return (<View style={[styles.loadingContainer, { backgroundColor: theme.background }]}><ActivityIndicator size="large" color={colors.primary} /><Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading career statistics...</Text></View>);
-    if (!careerData) return (<View style={[styles.contentContainer, { backgroundColor: theme.background }]}><Text style={[styles.contentText, { color: theme.textSecondary }]}>No career data available</Text></View>);
+    if (loadingCareer) return (<View style={[styles.loadingContainer, { backgroundColor: theme.background }]}><ActivityIndicator size="large" color={colors.primary} /><Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>Loading career statistics...</Text></View>);
+    if (!careerData) return (<View style={[styles.contentContainer, { backgroundColor: theme.background }]}><Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>No career data available</Text></View>);
     return (
       <ScrollView style={[styles.statsContainer, { backgroundColor: theme.background }]} showsVerticalScrollIndicator={false}>
         <View style={styles.careerContainer}>
-          <Text style={[styles.careerSectionTitle, { color: colors.primary }]}>NFL Career</Text>
+          <Text allowFontScaling={false} style={[styles.careerSectionTitle, { color: colors.primary }]}>NFL Career</Text>
 
           {/* removed debug Year|Teams listing */}
 
@@ -1488,8 +1488,8 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                       <Image key={`logo-${li}`} source={getTeamLogoUrl(l, isDarkMode) ? { uri: getTeamLogoUrl(l, isDarkMode) } : require('../../../assets/nfl.png')} style={styles.careerLogo} defaultSource={getTeamLogoFallbackUrl(l, isDarkMode)} onError={() => handleLogoError(l, isDarkMode)} />
                     ))}
                   </View>
-                  <Text style={[styles.careerTeamsText, { color: theme.textSecondary }]}>{displayLabel}</Text>
-                  <Text style={[styles.careerSeasonLabel, { color: theme.text }]}>{item.season}</Text>
+                  <Text allowFontScaling={false} style={[styles.careerTeamsText, { color: theme.textSecondary }]}>{displayLabel}</Text>
+                  <Text allowFontScaling={false} style={[styles.careerSeasonLabel, { color: theme.text }]}>{item.season}</Text>
                 </View>
                 <View style={styles.careerTileBody}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
@@ -1501,9 +1501,9 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                         const s = sourceStats && sourceStats[i] ? sourceStats[i] : null;
                       return (
                         <View key={`statcol-${i}`} style={{ flex: 1, alignItems: 'center' }}>
-                          <Text style={[styles.careerStatValue, { color: theme.text }]}>{s ? s.value : '-'}</Text>
-                          <Text style={[styles.careerStatLabel, { color: theme.textSecondary }]}>{s ? s.label : ''}</Text>
-                          {s && s.rank ? <Text style={[styles.statRank, { color: colors.secondary }]}>{s.rank}</Text> : null}
+                          <Text allowFontScaling={false} style={[styles.careerStatValue, { color: theme.text }]}>{s ? s.value : '-'}</Text>
+                          <Text allowFontScaling={false} style={[styles.careerStatLabel, { color: theme.textSecondary }]}>{s ? s.label : ''}</Text>
+                          {s && s.rank ? <Text allowFontScaling={false} style={[styles.statRank, { color: colors.secondary }]}>{s.rank}</Text> : null}
                         </View>
                       );
                       });
@@ -1526,8 +1526,8 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
       <Modal animationType="slide" presentationStyle="pageSheet" visible={showSeasonModal} onRequestClose={() => setShowSeasonModal(false)}>
         <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
           <View style={[styles.modalHeader, { backgroundColor: theme.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-            <TouchableOpacity onPress={() => setShowSeasonModal(false)} style={styles.modalCloseButton}><Text style={[styles.modalCloseText, { color: colors.primary }]}>Close</Text></TouchableOpacity>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>{item.season} Season</Text>
+            <TouchableOpacity onPress={() => setShowSeasonModal(false)} style={styles.modalCloseButton}><Text allowFontScaling={false} style={[styles.modalCloseText, { color: colors.primary }]}>Close</Text></TouchableOpacity>
+            <Text allowFontScaling={false} style={[styles.modalTitle, { color: theme.text }]}>{item.season} Season</Text>
             <View style={styles.modalPlaceholder} />
           </View>
 
@@ -1542,8 +1542,8 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
             return (
               <View style={[styles.modalSeasonHeader, { backgroundColor: theme.surface, marginHorizontal: 15, marginTop: 10 }]}>
                 <View style={styles.modalSeasonInfo}>
-                  <Text style={[styles.modalSeasonYear, { color: theme.text }]}>{item.season}</Text>
-                  <Text style={[styles.modalLeagueName, { color: theme.textSecondary }]}>NFL</Text>
+                  <Text allowFontScaling={false} style={[styles.modalSeasonYear, { color: theme.text }]}>{item.season}</Text>
+                  <Text allowFontScaling={false} style={[styles.modalLeagueName, { color: theme.textSecondary }]}>NFL</Text>
                 </View>
                 <View style={styles.modalTeamContainer}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
@@ -1560,7 +1560,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                       );
                     })}
                   </View>
-                  <Text style={[styles.modalTeamName, { color: theme.text, textAlign: 'center' }]}>
+                  <Text allowFontScaling={false} style={[styles.modalTeamName, { color: theme.text, textAlign: 'center' }]}>
                     {teams.length === 1 
                       ? (teams[0].displayName || convertTeamIdToFullName(teams[0].id) || (teams[0].abbreviation || teams[0].id))
                       : teams.map(t => t.abbreviation || convertTeamIdToAbbr(t.id) || t.id).join(' / ')
@@ -1573,21 +1573,21 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
 
           <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
             <View style={{ padding: 8 }}>
-              <Text style={[styles.modalSectionTitle, { color: colors.primary }]}>{item.season} Statistics</Text>
+              <Text allowFontScaling={false} style={[styles.modalSectionTitle, { color: colors.primary }]}>{item.season} Statistics</Text>
               {details && details.splits && Array.isArray(details.splits.categories) ? details.splits.categories.map((cat, cidx) => (
                 <View key={`season-cat-${cidx}`} style={{ marginBottom: 14 }}>
-                  <Text style={[styles.modalCategoryTitle, { color: theme.text }]}>{formatDisplayName(cat.displayName || cat.name)}</Text>
+                  <Text allowFontScaling={false} style={[styles.modalCategoryTitle, { color: theme.text }]}>{formatDisplayName(cat.displayName || cat.name)}</Text>
                   <View style={styles.modalStatsGrid}>
                     {Array.isArray(cat.stats) && cat.stats.length > 0 ? cat.stats.map((s, si) => (
                       <View key={`${s.displayName || s.name}-${si}`} style={[styles.modalStatCard, { backgroundColor: theme.surface }]}>
-                        <Text style={[styles.modalStatCardValue, { color: theme.text }]}>{s.displayValue != null ? s.displayValue : (s.value != null ? s.value : '0')}</Text>
-                        <Text style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>{formatDisplayName(s.displayName || s.name)}</Text>
-                        {s.rankDisplayValue ? <Text style={[styles.statRank, { color: colors.secondary }]}>{s.rankDisplayValue}</Text> : null}
+                        <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>{s.displayValue != null ? s.displayValue : (s.value != null ? s.value : '0')}</Text>
+                        <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>{formatDisplayName(s.displayName || s.name)}</Text>
+                        {s.rankDisplayValue ? <Text allowFontScaling={false} style={[styles.statRank, { color: colors.secondary }]}>{s.rankDisplayValue}</Text> : null}
                       </View>
-                    )) : <Text style={[styles.contentText, { color: theme.textSecondary }]}>No stats</Text>}
+                    )) : <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>No stats</Text>}
                   </View>
                 </View>
-              )) : <Text style={[styles.contentText, { color: theme.textSecondary }]}>No season statistics available</Text>}
+              )) : <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>No season statistics available</Text>}
             </View>
           </ScrollView>
         </View>
@@ -1595,7 +1595,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
     );
   };
 
-  if (loading) return (<View style={[styles.loadingContainer, { backgroundColor: theme.background }]}><ActivityIndicator size="large" color={colors.primary} /><Text style={[styles.loadingText, { color: theme.text }]}>Loading player...</Text></View>);
+  if (loading) return (<View style={[styles.loadingContainer, { backgroundColor: theme.background }]}><ActivityIndicator size="large" color={colors.primary} /><Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>Loading player...</Text></View>);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}> 

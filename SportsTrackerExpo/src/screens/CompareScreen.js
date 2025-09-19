@@ -6,8 +6,8 @@ const CompareScreen = ({ route }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Compare</Text>
-      <Text style={styles.subtitle}>Compare {sport.toUpperCase()} teams and players</Text>
+      <Text allowFontScaling={false} style={styles.title}>Compare</Text>
+      <Text allowFontScaling={false} style={styles.subtitle}>Compare {sport.toUpperCase()} teams and players</Text>
     </View>
   );
 };

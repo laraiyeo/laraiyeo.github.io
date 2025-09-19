@@ -127,15 +127,15 @@ const StatsScreen = ({ route }) => {
                 source={{ uri: getTeamLogoUrl('mlb', teamAbbr) }}
                 style={styles.teamLogoSmall}
               />
-              <Text style={[styles.playerName, { color: theme.text }]}>
+              <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>
                 {leader.person.fullName}
               </Text>
             </View>
-            <Text style={[styles.teamName, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>
               {leader.team.name}
             </Text>
           </View>
-          <Text style={[styles.statValue, { color: colors.primary }]}>
+          <Text allowFontScaling={false} style={[styles.statValue, { color: colors.primary }]}>
             {leader.value}
           </Text>
         </View>
@@ -143,17 +143,17 @@ const StatsScreen = ({ route }) => {
     } else {
       return (
         <View key={leader.person.id} style={styles.leaderRow}>
-          <Text style={[styles.rank, { color: theme.textSecondary }]}>
+          <Text allowFontScaling={false} style={[styles.rank, { color: theme.textSecondary }]}>
             {leader.rank}
           </Text>
           <Image
             source={{ uri: getTeamLogoUrl('mlb', teamAbbr) }}
             style={styles.teamLogoSmall}
           />
-          <Text style={[styles.playerNameCompact, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.playerNameCompact, { color: theme.text }]}>
             {leader.person.fullName}
           </Text>
-          <Text style={[styles.statValueCompact, { color: colors.primary }]}>
+          <Text allowFontScaling={false} style={[styles.statValueCompact, { color: colors.primary }]}>
             {leader.value}
           </Text>
         </View>
@@ -171,14 +171,14 @@ const StatsScreen = ({ route }) => {
         style={[styles.categoryContainer, { backgroundColor: theme.surface }]}
         onPress={() => openModal(leaders, categoryInfo.name)}
       >
-        <Text style={[styles.categoryTitle, { color: colors.primary }]}>
+        <Text allowFontScaling={false} style={[styles.categoryTitle, { color: colors.primary }]}>
           {categoryInfo.name}
         </Text>
         {displayLeaders.map((leader, index) => 
           renderLeaderRow(leader, index, index === 0)
         )}
         {leaders.length > 5 && (
-          <Text style={[styles.viewMore, { color: colors.secondary }]}>
+          <Text allowFontScaling={false} style={[styles.viewMore, { color: colors.secondary }]}>
             Tap to view all {leaders.length} leaders
           </Text>
         )}
@@ -197,7 +197,7 @@ const StatsScreen = ({ route }) => {
         });
       }}
     >
-      <Text style={[styles.modalRank, { color: theme.textSecondary }]}>
+      <Text allowFontScaling={false} style={[styles.modalRank, { color: theme.textSecondary }]}>
         {item.rank}
       </Text>
       <Image
@@ -213,15 +213,15 @@ const StatsScreen = ({ route }) => {
             source={{ uri: getTeamLogoUrl('mlb', getTeamAbbreviation(item.team.id)) }}
             style={styles.modalTeamLogo}
           />
-          <Text style={[styles.modalPlayerName, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.modalPlayerName, { color: theme.text }]}>
             {item.person.fullName}
           </Text>
         </View>
-        <Text style={[styles.modalTeamName, { color: theme.textSecondary }]}>
+        <Text allowFontScaling={false} style={[styles.modalTeamName, { color: theme.textSecondary }]}>
           {item.team.name}
         </Text>
       </View>
-      <Text style={[styles.modalStatValue, { color: colors.primary }]}>
+      <Text allowFontScaling={false} style={[styles.modalStatValue, { color: colors.primary }]}>
         {item.value}
       </Text>
     </TouchableOpacity>
@@ -231,7 +231,7 @@ const StatsScreen = ({ route }) => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>
           Loading stats...
         </Text>
       </View>
@@ -254,7 +254,7 @@ const StatsScreen = ({ route }) => {
             ]}
             onPress={() => setSelectedLeague(league.key)}
           >
-            <Text style={[
+            <Text allowFontScaling={false} style={[
               styles.leagueButtonText,
               { color: selectedLeague === league.key ? '#fff' : colors.primary }
             ]}>
@@ -266,7 +266,7 @@ const StatsScreen = ({ route }) => {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Hitting Stats */}
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>
           Hitting Leaders
         </Text>
         {hittingCategories.map(category => 
@@ -274,7 +274,7 @@ const StatsScreen = ({ route }) => {
         )}
 
         {/* Pitching Stats */}
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>
           Pitching Leaders
         </Text>
         {pitchingCategories.map(category => 
@@ -291,14 +291,14 @@ const StatsScreen = ({ route }) => {
       >
         <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
           <View style={[styles.modalHeader, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.modalHeaderTitle, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.modalHeaderTitle, { color: theme.text }]}>
               {modalTitle} Leaders
             </Text>
             <TouchableOpacity
               onPress={() => setModalVisible(false)}
               style={styles.modalCloseButton}
             >
-              <Text style={[styles.modalCloseText, { color: colors.primary }]}>
+              <Text allowFontScaling={false} style={[styles.modalCloseText, { color: colors.primary }]}>
                 Close
               </Text>
             </TouchableOpacity>

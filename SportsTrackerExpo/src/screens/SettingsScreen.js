@@ -25,7 +25,7 @@ const SettingsScreen = () => {
       >
         <View style={[styles.colorPreview, { backgroundColor: palette.primary }]} />
         <View style={styles.colorInfo}>
-          <Text style={[styles.colorName, { color: theme.text }]}>{palette.name}</Text>
+          <Text allowFontScaling={false} style={[styles.colorName, { color: theme.text }]}>{palette.name}</Text>
           <View style={styles.colorSwatch}>
             <View style={[styles.colorDot, { backgroundColor: palette.primary }]} />
             <View style={[styles.colorDot, { backgroundColor: palette.secondary }]} />
@@ -34,7 +34,7 @@ const SettingsScreen = () => {
         </View>
         {isSelected && (
           <View style={[styles.selectedIndicator, { backgroundColor: colors.primary }]}>
-            <Text style={styles.checkmark}>✓</Text>
+            <Text allowFontScaling={false} style={styles.checkmark}>✓</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -44,8 +44,8 @@ const SettingsScreen = () => {
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-        <Text style={[styles.title, { color: theme.text }]}>Settings</Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+        <Text allowFontScaling={false} style={[styles.title, { color: theme.text }]}>Settings</Text>
+        <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textSecondary }]}>
           Customize your app experience
         </Text>
       </View>
@@ -54,13 +54,13 @@ const SettingsScreen = () => {
         {/* Theme Toggle Section */}
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Appearance</Text>
+            <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Appearance</Text>
           </View>
           
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
-              <Text style={[styles.settingLabel, { color: theme.text }]}>Dark Mode</Text>
-              <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>
+              <Text allowFontScaling={false} style={[styles.settingLabel, { color: theme.text }]}>Dark Mode</Text>
+              <Text allowFontScaling={false} style={[styles.settingDescription, { color: theme.textSecondary }]}>
                 {isDarkMode ? 'Switch to light theme' : 'Switch to dark theme'}
               </Text>
             </View>
@@ -80,8 +80,8 @@ const SettingsScreen = () => {
         {/* Color Palette Section */}
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Color Theme</Text>
-            <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Color Theme</Text>
+            <Text allowFontScaling={false} style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
               Choose your preferred color scheme
             </Text>
           </View>
@@ -96,23 +96,23 @@ const SettingsScreen = () => {
         {/* Preview Section */}
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Preview</Text>
-            <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Preview</Text>
+            <Text allowFontScaling={false} style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
               See how your theme looks
             </Text>
           </View>
           
           <View style={[styles.previewCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
             <View style={[styles.previewHeader, { backgroundColor: colors.primary }]}>
-              <Text style={styles.previewHeaderText}>Sample Header</Text>
+              <Text allowFontScaling={false} style={styles.previewHeaderText}>Sample Header</Text>
             </View>
             <View style={styles.previewContent}>
-              <Text style={[styles.previewTitle, { color: theme.text }]}>Sample Title</Text>
-              <Text style={[styles.previewText, { color: theme.textSecondary }]}>
+              <Text allowFontScaling={false} style={[styles.previewTitle, { color: theme.text }]}>Sample Title</Text>
+              <Text allowFontScaling={false} style={[styles.previewText, { color: theme.textSecondary }]}>
                 This is how text will appear in your chosen theme.
               </Text>
               <TouchableOpacity style={[styles.previewButton, { backgroundColor: colors.accent }]}>
-                <Text style={styles.previewButtonText}>Sample Button</Text>
+                <Text allowFontScaling={false} style={styles.previewButtonText}>Sample Button</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -121,8 +121,8 @@ const SettingsScreen = () => {
         {/* Favorites Section */}
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Favorites</Text>
-            <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>Your Favorite Teams</Text>
+            <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Favorites</Text>
+            <Text allowFontScaling={false} style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>Your Favorite Teams</Text>
           </View>
           <View style={{ padding: 12 }}>
             <FlatList
@@ -132,7 +132,7 @@ const SettingsScreen = () => {
               columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 6 }}
               renderItem={({ item }) => (
                 <View style={[styles.favoriteTile, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                  <Text style={[styles.favoriteText, { color: theme.text }]} numberOfLines={1}>
+                  <Text allowFontScaling={false} style={[styles.favoriteText, { color: theme.text }]} numberOfLines={1}>
                     {item.displayName || item.teamName || 'Unnamed Team'}
                   </Text>
                   <TouchableOpacity
@@ -141,12 +141,12 @@ const SettingsScreen = () => {
                       if (item.teamId) await removeFavorite(item.teamId);
                     }}
                   >
-                    <Text style={styles.deleteButtonText}>×</Text>
+                    <Text allowFontScaling={false} style={styles.deleteButtonText}>×</Text>
                   </TouchableOpacity>
                 </View>
               )}
               ListEmptyComponent={() => (
-                <Text style={[styles.previewText, { color: theme.textSecondary }]}>No favorite teams yet.</Text>
+                <Text allowFontScaling={false} style={[styles.previewText, { color: theme.textSecondary }]}>No favorite teams yet.</Text>
               )}
             />
 
@@ -157,7 +157,7 @@ const SettingsScreen = () => {
                 await clearAllFavorites();
               }}
             >
-              <Text style={styles.resetButtonText}>Reset Favorites</Text>
+              <Text allowFontScaling={false} style={styles.resetButtonText}>Reset Favorites</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -1,0 +1,318 @@
+https://site.web.api.espn.com/apis/site/v3/sports/football/nfl/teamleaders
+
+{
+  "currentSeason": {
+    "year": 2025,
+    "displayName": "2025",
+    "startDate": "2025-07-31T07:00:00.000+00:00",
+    "endDate": "2026-02-12T07:59:00.000+00:00",
+    "type": {
+      "id": "2",
+      "type": 2,
+      "name": "Regular Season",
+      "startDate": "2025-09-04T07:00:00.000+00:00",
+      "endDate": "2026-01-08T07:59:00.000+00:00",
+      "week": {
+        "number": 3,
+        "startDate": "2025-09-17T07:00:00.000+00:00",
+        "endDate": "2025-09-24T06:59:00.000+00:00",
+        "text": "Week 3"
+      }
+    }
+  },
+  "requestedSeason": {
+    "year": 2025,
+    "displayName": "2025",
+    "startDate": "2025-07-31T07:00:00.000+00:00",
+    "endDate": "2026-02-12T07:59:00.000+00:00",
+    "type": {
+      "id": "2",
+      "type": 2,
+      "name": "Regular Season",
+      "startDate": "2025-09-04T07:00:00.000+00:00",
+      "endDate": "2026-01-08T07:59:00.000+00:00",
+      "week": {
+        "number": 3,
+        "startDate": "2025-09-17T07:00:00.000+00:00",
+        "endDate": "2025-09-24T06:59:00.000+00:00",
+        "text": "Week 3"
+      }
+    }
+  },
+  "teamLeaders": {
+    "id": "0",
+    "name": "Total",
+    "abbreviation": "Total",
+    "categories": [
+      {
+        "name": "netYardsPerGame",
+        "displayName": "Net Yards Per Game",
+        "abbreviation": "NTYDS/G",
+        "description": "The amount of net total yards per game.",
+        "split": "0",
+        "leaders": [
+          {
+            "displayValue": "445.5",
+            "value": 445.5,
+            "ranks": "1",
+            "team": {
+              "id": "11",
+              "uid": "s:20~l:28~t:11",
+              "guid": "582d14eb-da61-e505-cc40-d972a1b60ed1",
+              "name": "Colts",
+              "nickname": "Colts",
+              "abbreviation": "IND",
+              "displayName": "Indianapolis Colts",
+              "shortDisplayName": "Colts",
+              "logos": [
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/nfl/500/ind.png",
+                  "width": 500,
+                  "height": 500,
+                  "rel": [
+                    "full",
+                    "default"
+                  ]
+                },
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/nfl/500-dark/ind.png",
+                  "width": 500,
+                  "height": 500,
+                  "rel": [
+                    "full",
+                    "dark"
+                  ]
+                },
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/ind.png",
+                  "width": 500,
+                  "height": 500,
+                  "rel": [
+                    "full",
+                    "scoreboard"
+                  ]
+                },
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/nfl/500-dark/scoreboard/ind.png",
+                  "width": 500,
+                  "height": 500,
+                  "rel": [
+                    "full",
+                    "scoreboard",
+                    "dark"
+                  ]
+                },
+                {
+                  "href": "https://a.espncdn.com/guid/582d14eb-da61-e505-cc40-d972a1b60ed1/logos/primary_logo_on_white_color.png",
+                  "width": 4096,
+                  "height": 4096,
+                  "rel": [
+                    "full",
+                    "primary_logo_on_white_color"
+                  ]
+                },
+                {
+                  "href": "https://a.espncdn.com/guid/582d14eb-da61-e505-cc40-d972a1b60ed1/logos/primary_logo_on_black_color.png",
+                  "width": 4096,
+                  "height": 4096,
+                  "rel": [
+                    "full",
+                    "primary_logo_on_black_color"
+                  ]
+                },
+                {
+                  "href": "https://a.espncdn.com/guid/582d14eb-da61-e505-cc40-d972a1b60ed1/logos/primary_logo_on_primary_color.png",
+                  "width": 4096,
+                  "height": 4096,
+                  "rel": [
+                    "full",
+                    "primary_logo_on_primary_color"
+                  ]
+                },
+                {
+                  "href": "https://a.espncdn.com/guid/582d14eb-da61-e505-cc40-d972a1b60ed1/logos/primary_logo_on_secondary_color.png",
+                  "width": 4096,
+                  "height": 4096,
+                  "rel": [
+                    "full",
+                    "primary_logo_on_secondary_color"
+                  ]
+                },
+                {
+                  "href": "https://a.espncdn.com/guid/582d14eb-da61-e505-cc40-d972a1b60ed1/logos/secondary_logo_on_white_color.png",
+                  "width": 4096,
+                  "height": 4096,
+                  "rel": [
+                    "full",
+                    "secondary_logo_on_white_color"
+                  ]
+                },
+                {
+                  "href": "https://a.espncdn.com/guid/582d14eb-da61-e505-cc40-d972a1b60ed1/logos/secondary_logo_on_black_color.png",
+                  "width": 4096,
+                  "height": 4096,
+                  "rel": [
+                    "full",
+                    "secondary_logo_on_black_color"
+                  ]
+                },
+                {
+                  "href": "https://a.espncdn.com/guid/582d14eb-da61-e505-cc40-d972a1b60ed1/logos/secondary_logo_on_primary_color.png",
+                  "width": 4096,
+                  "height": 4096,
+                  "rel": [
+                    "full",
+                    "secondary_logo_on_primary_color"
+                  ]
+                },
+                {
+                  "href": "https://a.espncdn.com/guid/582d14eb-da61-e505-cc40-d972a1b60ed1/logos/secondary_logo_on_secondary_color.png",
+                  "width": 4096,
+                  "height": 4096,
+                  "rel": [
+                    "full",
+                    "secondary_logo_on_secondary_color"
+                  ]
+                }
+              ],
+              "links": [
+                {
+                  "language": "en",
+                  "rel": [
+                    "clubhouse",
+                    "desktop",
+                    "team"
+                  ],
+                  "href": "https://www.espn.com/nfl/team/_/name/ind/indianapolis-colts",
+                  "text": "Clubhouse",
+                  "shortText": "Clubhouse",
+                  "isExternal": false,
+                  "isPremium": false
+                },
+                {
+                  "language": "en",
+                  "rel": [
+                    "roster",
+                    "desktop",
+                    "team"
+                  ],
+                  "href": "https://www.espn.com/nfl/team/roster/_/name/ind/indianapolis-colts",
+                  "text": "Roster",
+                  "shortText": "Roster",
+                  "isExternal": false,
+                  "isPremium": false
+                },
+                {
+                  "language": "en",
+                  "rel": [
+                    "stats",
+                    "desktop",
+                    "team"
+                  ],
+                  "href": "https://www.espn.com/nfl/team/stats/_/name/ind/indianapolis-colts",
+                  "text": "Statistics",
+                  "shortText": "Statistics",
+                  "isExternal": false,
+                  "isPremium": false
+                },
+                {
+                  "language": "en",
+                  "rel": [
+                    "schedule",
+                    "desktop",
+                    "team"
+                  ],
+                  "href": "https://www.espn.com/nfl/team/schedule/_/name/ind",
+                  "text": "Schedule",
+                  "shortText": "Schedule",
+                  "isExternal": false,
+                  "isPremium": false
+                },
+                {
+                  "language": "en",
+                  "rel": [
+                    "photos",
+                    "desktop",
+                    "team"
+                  ],
+                  "href": "https://www.espn.com/nfl/team/photos/_/name/ind",
+                  "text": "photos",
+                  "shortText": "photos",
+                  "isExternal": false,
+                  "isPremium": false
+                },
+                {
+                  "language": "en",
+                  "rel": [
+                    "tickets",
+                    "desktop",
+                    "team"
+                  ],
+                  "href": "https://www.vividseats.com/indianapolis-colts-tickets--sports-nfl-football/performer/370?wsUser=717",
+                  "text": "Tickets",
+                  "shortText": "Tickets",
+                  "isExternal": true,
+                  "isPremium": false
+                },
+                {
+                  "language": "en",
+                  "rel": [
+                    "draftpicks",
+                    "desktop",
+                    "team"
+                  ],
+                  "href": "https://www.espn.com/nfl/draft/teams/_/name/ind/indianapolis-colts",
+                  "text": "Draft Picks",
+                  "shortText": "Draft Picks",
+                  "isExternal": false,
+                  "isPremium": true
+                },
+                {
+                  "language": "en",
+                  "rel": [
+                    "transactions",
+                    "desktop",
+                    "team"
+                  ],
+                  "href": "https://www.espn.com/nfl/team/transactions/_/name/ind",
+                  "text": "Transactions",
+                  "shortText": "Transactions",
+                  "isExternal": false,
+                  "isPremium": false
+                },
+                {
+                  "language": "en",
+                  "rel": [
+                    "injuries",
+                    "desktop",
+                    "team"
+                  ],
+                  "href": "https://www.espn.com/nfl/team/injuries/_/name/ind",
+                  "text": "Injuries",
+                  "shortText": "Injuries",
+                  "isExternal": false,
+                  "isPremium": false
+                },
+                {
+                  "language": "en",
+                  "rel": [
+                    "depthchart",
+                    "desktop",
+                    "team"
+                  ],
+                  "href": "https://www.espn.com/nfl/team/depth/_/name/ind",
+                  "text": "Depth Chart",
+                  "shortText": "Depth Chart",
+                  "isExternal": false,
+                  "isPremium": false
+                }
+              ],
+              "slug": "indianapolis-colts",
+              "group": {
+
+              },
+              "ranks": {
+
+              }
+            }
+          },

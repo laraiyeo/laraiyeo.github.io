@@ -499,7 +499,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
 
   const renderDateHeader = (date) => (
     <View style={[styles.dateHeader, { backgroundColor: colors.primary, borderBottomColor: theme.border }]}>
-      <Text style={[styles.dateHeaderText, { color: 'white' }]}>{date}</Text>
+      <Text allowFontScaling={false} style={[styles.dateHeaderText, { color: 'white' }]}>{date}</Text>
     </View>
   );
 
@@ -564,7 +564,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
     if (item.type === 'no-games') {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>{item.message}</Text>
+          <Text allowFontScaling={false} style={[styles.emptyText, { color: theme.textSecondary }]}>{item.message}</Text>
         </View>
       );
     }
@@ -576,9 +576,9 @@ const MLBScoreboardScreen = ({ navigation }) => {
       >
         {/* Game Status */}
         <View style={styles.gameHeader}>
-          <Text style={[styles.gameStatus, { color: theme.text }]}>{getGameStatusText(item)}</Text>
+          <Text allowFontScaling={false} style={[styles.gameStatus, { color: theme.text }]}>{getGameStatusText(item)}</Text>
           {getGameTimeText(item) && (
-            <Text style={[styles.gameClock, { color: theme.textSecondary }]}>{getGameTimeText(item)}</Text>
+            <Text allowFontScaling={false} style={[styles.gameClock, { color: theme.textSecondary }]}>{getGameTimeText(item)}</Text>
           )}
         </View>
 
@@ -594,7 +594,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
               />
             </View>
             <View style={styles.teamInfo}>
-              <Text style={[
+              <Text allowFontScaling={false} style={[
                 getTeamNameStyle(item, true), 
                 { 
                   color: isFavorite(getMLBTeamId(item.awayTeam)) ? colors.primary : getTeamNameColor(item, true) 
@@ -603,9 +603,9 @@ const MLBScoreboardScreen = ({ navigation }) => {
                 {isFavorite(getMLBTeamId(item.awayTeam)) && '★ '}
                 {item.awayTeam?.displayName || 'TBD'}
               </Text>
-              <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.awayTeam?.record || ''}</Text>
+              <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.awayTeam?.record || ''}</Text>
             </View>
-            <Text style={[getTeamScoreStyle(item, true), { color: getScoreColor(item, true) }]}>{item.awayTeam?.score || '0'}</Text>
+            <Text allowFontScaling={false} style={[getTeamScoreStyle(item, true), { color: getScoreColor(item, true) }]}>{item.awayTeam?.score || '0'}</Text>
           </View>
 
           {/* Home Team */}
@@ -618,7 +618,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
               />
             </View>
             <View style={styles.teamInfo}>
-              <Text style={[
+              <Text allowFontScaling={false} style={[
                 getTeamNameStyle(item, false), 
                 { 
                   color: isFavorite(getMLBTeamId(item.homeTeam)) ? colors.primary : getTeamNameColor(item, false) 
@@ -627,22 +627,22 @@ const MLBScoreboardScreen = ({ navigation }) => {
                 {isFavorite(getMLBTeamId(item.homeTeam)) && '★ '}
                 {item.homeTeam?.displayName || 'TBD'}
               </Text>
-              <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.homeTeam?.record || ''}</Text>
+              <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.homeTeam?.record || ''}</Text>
             </View>
-            <Text style={[getTeamScoreStyle(item, false), { color: getScoreColor(item, false) }]}>{item.homeTeam?.score || '0'}</Text>
+            <Text allowFontScaling={false} style={[getTeamScoreStyle(item, false), { color: getScoreColor(item, false) }]}>{item.homeTeam?.score || '0'}</Text>
           </View>
         </View>
 
         {/* Game Info */}
         <View style={styles.gameFooter}>
-          <Text style={[styles.venue, { color: theme.textSecondary }]}>{item.venue || ''}</Text>
+          <Text allowFontScaling={false} style={[styles.venue, { color: theme.textSecondary }]}>{item.venue || ''}</Text>
           {item.broadcasts && item.broadcasts.length > 0 && (
-            <Text style={[styles.broadcast, { color: theme.textSecondary }]}>{item.broadcasts.join(', ')}</Text>
+            <Text allowFontScaling={false} style={[styles.broadcast, { color: theme.textSecondary }]}>{item.broadcasts.join(', ')}</Text>
           )}
           {/* Show bases for live games */}
           {item.isLive && item.situation?.bases && (
             <View style={styles.basesContainer}>
-              <Text style={[styles.basesLabel, { color: theme.textSecondary }]}>
+              <Text allowFontScaling={false} style={[styles.basesLabel, { color: theme.textSecondary }]}>
                 Bases: {(() => {
                   const bases = [];
                   if (item.situation.bases.first) bases.push('1st');
@@ -662,7 +662,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading MLB Scoreboard...</Text>
+        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>Loading MLB Scoreboard...</Text>
       </View>
     );
   }
@@ -678,7 +678,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
           ]}
           onPress={() => handleDateFilterChange('yesterday')}
         >
-          <Text style={[
+          <Text allowFontScaling={false} style={[
             styles.dateFilterText, 
             { color: selectedDateFilter === 'yesterday' ? '#fff' : theme.text }
           ]}>
@@ -693,7 +693,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
           ]}
           onPress={() => handleDateFilterChange('today')}
         >
-          <Text style={[
+          <Text allowFontScaling={false} style={[
             styles.dateFilterText, 
             { color: selectedDateFilter === 'today' ? '#fff' : theme.text }
           ]}>
@@ -708,7 +708,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
           ]}
           onPress={() => handleDateFilterChange('upcoming')}
         >
-          <Text style={[
+          <Text allowFontScaling={false} style={[
             styles.dateFilterText, 
             { color: selectedDateFilter === 'upcoming' ? '#fff' : theme.text }
           ]}>
@@ -737,7 +737,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
         ListEmptyComponent={() => (
           !loading && (
             <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No games scheduled</Text>
+              <Text allowFontScaling={false} style={[styles.emptyText, { color: theme.textSecondary }]}>No games scheduled</Text>
             </View>
           )
         )}

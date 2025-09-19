@@ -1421,7 +1421,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                   }
                 ]}
               />
-              <Text style={[
+              <Text allowFontScaling={false} style={[
                 styles.stickyTeamAbbr, 
                 { color: theme.text },
                 // Apply loser styling if home team is losing (only for finished games)
@@ -1434,7 +1434,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
             </View>
             {(matchStatus.isLive || matchStatus.isPost) && (
               <View style={styles.scoreContainer}>
-                <Text style={[
+                <Text allowFontScaling={false} style={[
                   styles.stickyScore, 
                   { color: theme.text },
                   // Apply loser styling if home team is losing (only for finished games)
@@ -1445,7 +1445,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                   {getTeamScore('home')}
                 </Text>
                 {getTeamShootoutScore('home') && (
-                  <Text style={[
+                  <Text allowFontScaling={false} style={[
                     styles.shootoutScore, 
                     { color: theme.textSecondary },
                     // Apply loser styling if home team is losing
@@ -1462,7 +1462,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
           {/* Status (Center) */}
           <View style={styles.stickyStatusContainer}>
-            <Text style={[styles.stickyStatusText, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.stickyStatusText, { color: theme.text }]}>
               {matchStatus.isPre ? (
                 competition?.date ? new Date(competition.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Scheduled'
               ) : matchStatus.isPost ? (
@@ -1471,7 +1471,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                 matchStatus.text
               )}
             </Text>
-            <Text style={[styles.stickyStatusDetail, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.stickyStatusDetail, { color: theme.textSecondary }]}>
               {matchStatus.isPre ? (
                 formatDate()
               ) : matchStatus.isPost ? (
@@ -1487,7 +1487,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
             {(matchStatus.isLive || matchStatus.isPost) && (
               <View style={[styles.scoreContainer, styles.awayScoreContainer]}>
                 {getTeamShootoutScore('away') && (
-                  <Text style={[
+                  <Text allowFontScaling={false} style={[
                     styles.shootoutScore, 
                     { color: theme.textSecondary },
                     // Apply loser styling if away team is losing
@@ -1498,7 +1498,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                     ({getTeamShootoutScore('away')})
                   </Text>
                 )}
-                <Text style={[
+                <Text allowFontScaling={false} style={[
                   styles.stickyScoreAway, 
                   { color: theme.text },
                   // Apply loser styling if away team is losing (only for finished games)
@@ -1511,7 +1511,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
               </View>
             )}
             <View style={styles.stickyTeamInfo}>
-              <Text style={[
+              <Text allowFontScaling={false} style={[
                 styles.stickyTeamAbbr, 
                 { color: theme.text },
                 // Apply loser styling if away team is losing (only for finished games)
@@ -1552,12 +1552,12 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         <View style={styles.headerScorersColumn}>
           {homeScorers.length > 0 ? (
             homeScorers.map((scorer, index) => (
-              <Text key={index} style={[styles.headerScorerText, { color: theme.text }]}>
+              <Text allowFontScaling={false} key={index} style={[styles.headerScorerText, { color: theme.text }]}>
                 {scorer.displayText}
               </Text>
             ))
           ) : (
-            <Text style={[styles.headerScorerText, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.headerScorerText, { color: theme.textSecondary }]}>
               No scorers
             </Text>
           )}
@@ -1565,19 +1565,19 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
         {/* Soccer Ball Separator */}
         <View style={styles.headerSoccerBallContainer}>
-          <Text style={styles.headerSoccerBallEmoji}>⚽</Text>
+          <Text allowFontScaling={false} style={styles.headerSoccerBallEmoji}>⚽</Text>
         </View>
 
         {/* Away Scorers (Right) */}
         <View style={styles.headerScorersColumn}>
           {awayScorers.length > 0 ? (
             awayScorers.map((scorer, index) => (
-              <Text key={index} style={[styles.headerScorerText, { color: theme.text }]}>
+              <Text allowFontScaling={false} key={index} style={[styles.headerScorerText, { color: theme.text }]}>
                 {scorer.displayText}
               </Text>
             ))
           ) : (
-            <Text style={[styles.headerScorerText, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.headerScorerText, { color: theme.textSecondary }]}>
               No scorers
             </Text>
           )}
@@ -1812,39 +1812,39 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
     return (
       <View style={[styles.scorersContainer, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.scorersTitle, { color: theme.text }]}>Goal Scorers</Text>
+        <Text allowFontScaling={false} style={[styles.scorersTitle, { color: theme.text }]}>Goal Scorers</Text>
         <View style={styles.scorersBox}>
           <View style={styles.scorersColumn}>
-            <Text style={[styles.scorersHeader, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.scorersHeader, { color: theme.textSecondary }]}>
               {gameData.header?.competitions?.[0]?.competitors?.[1]?.team?.displayName}
             </Text>
             {awayScorers.length > 0 ? (
               awayScorers.map((scorer, index) => (
-                <Text key={index} style={[styles.scorerText, { color: theme.text }]}>
+                <Text allowFontScaling={false} key={index} style={[styles.scorerText, { color: theme.text }]}>
                   {scorer.displayText}
                 </Text>
               ))
             ) : (
-              <Text style={[styles.noScorers, { color: theme.text }]}>No scorers</Text>
+              <Text allowFontScaling={false} style={[styles.noScorers, { color: theme.text }]}>No scorers</Text>
             )}
           </View>
 
           <View style={styles.soccerBallContainer}>
-            <Text style={styles.soccerBallEmoji}>⚽</Text>
+            <Text allowFontScaling={false} style={styles.soccerBallEmoji}>⚽</Text>
           </View>
 
           <View style={styles.scorersColumn}>
-            <Text style={[styles.scorersHeader, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.scorersHeader, { color: theme.textSecondary }]}>
               {gameData.header?.competitions?.[0]?.competitors?.[0]?.team?.displayName}
             </Text>
             {homeScorers.length > 0 ? (
               homeScorers.map((scorer, index) => (
-                <Text key={index} style={[styles.scorerText, { color: theme.text }]}>
+                <Text allowFontScaling={false} key={index} style={[styles.scorerText, { color: theme.text }]}>
                   {scorer.displayText}
                 </Text>
               ))
             ) : (
-              <Text style={[styles.noScorers, { color: theme.text }]}>No scorers</Text>
+              <Text allowFontScaling={false} style={[styles.noScorers, { color: theme.text }]}>No scorers</Text>
             )}
           </View>
         </View>
@@ -1874,7 +1874,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
       <View style={[styles.headerContainer, { backgroundColor: theme.surface }]}>
         {/* Competition Info */}
         <View style={styles.competitionContainer}>
-          <Text style={[styles.competitionText, { color: theme.textSecondary }]}>
+          <Text allowFontScaling={false} style={[styles.competitionText, { color: theme.textSecondary }]}>
             {gameData.competitionName || 'UEL'}
           </Text>
         </View>
@@ -1896,7 +1896,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
               />
               <View style={styles.scoreBox}>
                 <View style={styles.scoreWithShootout}>
-                  <Text style={[
+                  <Text allowFontScaling={false} style={[
                     styles.scoreText, 
                     { color: theme.text },
                     // Apply loser styling if home team is losing (only for finished games)
@@ -1908,7 +1908,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                     {getTeamScore('home')}
                   </Text>
                   {getTeamShootoutScore('home') && (
-                    <Text style={[
+                    <Text allowFontScaling={false} style={[
                       styles.shootoutScore, 
                       { color: theme.textSecondary },
                       // Apply loser styling if home team is losing
@@ -1922,7 +1922,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                 </View>
               </View>
             </View>
-            <Text style={[
+            <Text allowFontScaling={false} style={[
               styles.teamName, 
               { color: theme.text },
               // Apply loser styling if home team is losing (only for finished games)
@@ -1942,14 +1942,14 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
               matchStatus.isPre && { backgroundColor: theme.success },
               !matchStatus.isLive && !matchStatus.isPre && { backgroundColor: theme.textTertiary }
             ]}>
-              <Text style={[
+              <Text allowFontScaling={false} style={[
                 styles.statusText,
                 { color: matchStatus.isLive || matchStatus.isPre ? '#fff' : theme.text }
               ]}>
                 {matchStatus.text}
               </Text>
               {matchStatus.detail && (
-                <Text style={[
+                <Text allowFontScaling={false} style={[
                   styles.statusDetail,
                   { color: matchStatus.isLive || matchStatus.isPre ? '#fff' : theme.textSecondary }
                 ]}>
@@ -1967,7 +1967,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                   setShowStreamModal(true);
                 }}
               >
-                <Text style={styles.streamButtonText}>Watch Live</Text>
+                <Text allowFontScaling={false} style={styles.streamButtonText}>Watch Live</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -1978,7 +1978,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
               <View style={styles.scoreBox}>
                 <View style={[styles.scoreWithShootout, styles.awayScoreWithShootout]}>
                   {getTeamShootoutScore('away') && (
-                    <Text style={[
+                    <Text allowFontScaling={false} style={[
                       styles.shootoutScore, 
                       { color: theme.textSecondary },
                       // Apply loser styling if away team is losing
@@ -1989,7 +1989,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                       ({getTeamShootoutScore('away')})
                     </Text>
                   )}
-                  <Text style={[
+                  <Text allowFontScaling={false} style={[
                     styles.scoreText, 
                     { color: theme.text },
                     // Apply loser styling if away team is losing (only for finished games)
@@ -2013,7 +2013,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                 ]}
               />
             </View>
-            <Text style={[
+            <Text allowFontScaling={false} style={[
               styles.teamName, 
               { color: theme.text },
               // Apply loser styling if away team is losing (only for finished games)
@@ -2032,7 +2032,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         {/* Date Info */}
         <View style={styles.timeAndHalfContainer}>
           {competition?.date && (
-            <Text style={[styles.dateText, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.dateText, { color: theme.textSecondary }]}>
               {new Date(competition.date).toLocaleDateString('en-US', {
                 weekday: 'long',
                 year: 'numeric',
@@ -2048,7 +2048,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         {/* Match Details */}
         {competition?.venue && (
           <View style={styles.venueContainer}>
-            <Text style={[styles.venueText, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>
               📍 {competition.venue.fullName}
             </Text>
           </View>
@@ -2078,7 +2078,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
               ]}
               onPress={() => setActiveTab(tab.key)}
             >
-              <Text
+              <Text allowFontScaling={false}
                 style={[
                   styles.tabText,
                   { color: activeTab === tab.key ? '#fff' : theme.text }
@@ -2114,7 +2114,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         <View style={styles.tabContent}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.primary} />
-            <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>
               Loading match statistics...
             </Text>
           </View>
@@ -2125,7 +2125,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
     if (!statsData || !statsData.homeTeam || !statsData.awayTeam) {
       return (
         <View style={styles.tabContent}>
-          <Text style={[styles.comingSoonText, { color: theme.textSecondary }]}>
+          <Text allowFontScaling={false} style={[styles.comingSoonText, { color: theme.textSecondary }]}>
             Match statistics not available
           </Text>
         </View>
@@ -2221,7 +2221,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         <View style={[styles.statsSection, { backgroundColor: theme.card }]}>
           {/* Main Match Stats Container */}
           <View style={[styles.matchStatsContainer, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.statsHeader, { color: colors.primary }]}>Match Stats</Text>
+            <Text allowFontScaling={false} style={[styles.statsHeader, { color: colors.primary }]}>Match Stats</Text>
           
           {/* Teams Header */}
           <View style={styles.statsTeams}>
@@ -2230,12 +2230,12 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                 teamId={homeTeam?.team?.id}
                 style={styles.statsTeamLogo}
               />
-              <Text style={[styles.statsTeamName, { color: theme.text }]}>
+              <Text allowFontScaling={false} style={[styles.statsTeamName, { color: theme.text }]}>
                 {homeTeam.team.shortDisplayName}
               </Text>
             </View>
             <View style={styles.statsTeamAway}>
-              <Text style={[styles.statsTeamName, { color: theme.text }]}>
+              <Text allowFontScaling={false} style={[styles.statsTeamName, { color: theme.text }]}>
                 {awayTeam.team.shortDisplayName}
               </Text>
               <TeamLogoImage 
@@ -2247,7 +2247,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
           {/* Possession Section */}
           <View style={styles.statsSectionInner}>
-            <Text style={[styles.statsSectionTitle, { color: theme.text }]}>Possession</Text>
+            <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: theme.text }]}>Possession</Text>
             <View style={styles.possessionSection}>
               <View style={styles.possessionCircleContainer}>
                 <View style={styles.possessionCircle}>
@@ -2299,7 +2299,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                   </Svg>
                   
                   <View style={[styles.possessionCenter, { backgroundColor: theme.surface }]}>
-                    <Text style={[styles.possessionCenterText, { color: theme.text }]}>
+                    <Text allowFontScaling={false} style={[styles.possessionCenterText, { color: theme.text }]}>
                       Possession
                     </Text>
                   </View>
@@ -2308,12 +2308,12 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
               <View style={styles.possessionValues}>
                 <View style={styles.possessionTeam}>
                   <View style={[styles.possessionColor, { backgroundColor: homeColor }]} />
-                  <Text style={[styles.possessionTeamText, { color: theme.text }]}>
+                  <Text allowFontScaling={false} style={[styles.possessionTeamText, { color: theme.text }]}>
                     {homeTeam.team.abbreviation} {homePossession}%
                   </Text>
                 </View>
                 <View style={styles.possessionTeam}>
-                  <Text style={[styles.possessionTeamText, { color: theme.text }]}>
+                  <Text allowFontScaling={false} style={[styles.possessionTeamText, { color: theme.text }]}>
                     {awayPossession}% {awayTeam.team.abbreviation}
                   </Text>
                   <View style={[styles.possessionColor, { backgroundColor: awayColor }]} />
@@ -2324,7 +2324,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
           {/* Shots Section */}
           <View style={styles.statsSectionInner}>
-            <Text style={[styles.statsSectionTitle, { color: theme.text }]}>Shots</Text>
+            <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: theme.text }]}>Shots</Text>
             {/* Prefer normalizedStats where available, fall back to getStat */}
             {(() => {
               const homeShotsOnGoal = homeTeam?.normalizedStats?.shots?.onGoal != null ? homeTeam.normalizedStats.shots.onGoal : getStat(homeTeam, 'shotsOnTarget');
@@ -2342,7 +2342,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
           {/* Discipline Section */}
           <View style={styles.statsSectionInner}>
-            <Text style={[styles.statsSectionTitle, { color: theme.text }]}>Discipline</Text>
+            <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: theme.text }]}>Discipline</Text>
             {(() => {
               const homeFouls = homeTeam?.normalizedStats?.discipline?.fouls != null ? homeTeam.normalizedStats.discipline.fouls : getStat(homeTeam, 'foulsCommitted');
               const awayFouls = awayTeam?.normalizedStats?.discipline?.fouls != null ? awayTeam.normalizedStats.discipline.fouls : getStat(awayTeam, 'foulsCommitted');
@@ -2362,7 +2362,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
           {/* Set Pieces Section */}
           <View style={styles.statsSectionInner}>
-            <Text style={[styles.statsSectionTitle, { color: theme.text }]}>Set Pieces</Text>
+            <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: theme.text }]}>Set Pieces</Text>
             {(() => {
               const homeCorners = homeTeam?.normalizedStats?.setPieces?.corners != null ? homeTeam.normalizedStats.setPieces.corners : getStat(homeTeam, 'wonCorners');
               const awayCorners = awayTeam?.normalizedStats?.setPieces?.corners != null ? awayTeam.normalizedStats.setPieces.corners : getStat(awayTeam, 'wonCorners');
@@ -2381,7 +2381,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         {/* Head to Head Container */}
         <View style={[styles.h2hContainer, { backgroundColor: theme.surface }]}>
           <View style={styles.h2hHeader}>
-            <Text style={[styles.h2hTitle, { color: colors.primary }]}>Head To Head Record</Text>
+            <Text allowFontScaling={false} style={[styles.h2hTitle, { color: colors.primary }]}>Head To Head Record</Text>
           </View>
           <View style={styles.h2hMatches}>
             {renderHeadToHeadMatches(headToHeadData, homeTeam, awayTeam, homeLogo, awayLogo)}
@@ -2402,7 +2402,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
     return (
       <View key={label} style={styles.statsRow}>
-        <Text style={[styles.statsValue, styles.statsValueAway, { color: theme.text }]}>
+        <Text allowFontScaling={false} style={[styles.statsValue, styles.statsValueAway, { color: theme.text }]}>
           {homeValue}
         </Text>
         <View style={styles.statsBarContainer}>
@@ -2422,9 +2422,9 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
               ]} 
             />
           </View>
-          <Text style={[styles.statsLabel, { color: theme.textSecondary }]}>{label}</Text>
+          <Text allowFontScaling={false} style={[styles.statsLabel, { color: theme.textSecondary }]}>{label}</Text>
         </View>
-        <Text style={[styles.statsValue, styles.statsValueHome, { color: theme.text }]}>
+        <Text allowFontScaling={false} style={[styles.statsValue, styles.statsValueHome, { color: theme.text }]}>
           {awayValue}
         </Text>
       </View>
@@ -2435,7 +2435,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
   const renderHeadToHeadMatches = (h2hData, homeTeamData, awayTeamData, homeLogoUrl, awayLogoUrl) => {
     if (!h2hData || h2hData.length === 0) {
       return (
-        <Text style={[styles.h2hNoData, { color: theme.textSecondary }]}>
+        <Text allowFontScaling={false} style={[styles.h2hNoData, { color: theme.textSecondary }]}>
           No recent head-to-head matches
         </Text>
       );
@@ -2477,8 +2477,8 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
           }}
         >
           <View style={styles.h2hMatchHeader}>
-            <Text style={[styles.h2hDate, { color: theme.textSecondary }]}>{date}</Text>
-            <Text style={[styles.h2hCompetition, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.h2hDate, { color: theme.textSecondary }]}>{date}</Text>
+            <Text allowFontScaling={false} style={[styles.h2hCompetition, { color: theme.textSecondary }]}>
               {event.leagueName || event.leagueAbbreviation || ''}
             </Text>
           </View>
@@ -2488,17 +2488,17 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                 teamId={homeTeamIdInMatch}
                 style={styles.h2hTeamLogo}
               />
-              <Text style={[styles.h2hTeamName, { color: theme.text }]}>
+              <Text allowFontScaling={false} style={[styles.h2hTeamName, { color: theme.text }]}>
                 {homeTeamInMatch}
               </Text>
             </View>
-            <Text style={[styles.h2hScore, { color: theme.text }]}>{score}</Text>
+            <Text allowFontScaling={false} style={[styles.h2hScore, { color: theme.text }]}>{score}</Text>
             <View style={[styles.h2hTeam, styles.h2hTeamReverse]}>
               <TeamLogoImage 
                 teamId={awayTeamIdInMatch}
                 style={styles.h2hTeamLogo}
               />
-              <Text style={[styles.h2hTeamName, { color: theme.text }]}>
+              <Text allowFontScaling={false} style={[styles.h2hTeamName, { color: theme.text }]}>
                 {awayTeamInMatch}
               </Text>
             </View>
@@ -2568,10 +2568,10 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
             style={styles.teamTabLogo}
           />
           <View style={styles.teamTabInfo}>
-            <Text style={[styles.teamTabName, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.teamTabName, { color: theme.text }]}>
               {homeTeam?.team?.displayName || 'Home Team'}
             </Text>
-            <Text style={[styles.teamTabDescription, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.teamTabDescription, { color: theme.textSecondary }]}>
               {homeTeam?.team?.location || ''} • Home
             </Text>
           </View>
@@ -2638,10 +2638,10 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
             style={styles.teamTabLogo}
           />
           <View style={styles.teamTabInfo}>
-            <Text style={[styles.teamTabName, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.teamTabName, { color: theme.text }]}>
               {awayTeam?.team?.displayName || 'Away Team'}
             </Text>
-            <Text style={[styles.teamTabDescription, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.teamTabDescription, { color: theme.textSecondary }]}>
               {awayTeam?.team?.location || ''} • Away
             </Text>
           </View>
@@ -2793,10 +2793,10 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         activeOpacity={0.7}
       >
         <View style={styles.playerCircle}>
-          <Text style={styles.playerNumber}>{jersey}</Text>
+          <Text allowFontScaling={false} style={styles.playerNumber}>{jersey}</Text>
         </View>
-        <Text style={styles.playerName} numberOfLines={1}>
-          {wasSubbedOut && <Text style={styles.subArrow}>← </Text>}
+        <Text allowFontScaling={false} style={styles.playerName} numberOfLines={1}>
+          {wasSubbedOut && <Text allowFontScaling={false} style={styles.subArrow}>← </Text>}
           {name}
         </Text>
       </TouchableOpacity>
@@ -2829,7 +2829,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
       <View style={[styles.subsBox, { backgroundColor: theme.surface, borderColor: colors.primary }]}>
         <View style={styles.subsHeader}>
           <TeamLogoImage teamId={teamType === 'home' ? gameData?.homeCompetitor?.team?.id : gameData?.awayCompetitor?.team?.id} style={styles.subsTeamLogo} />
-          <Text style={[styles.subsTitle, { color: theme.text }]}>Subs</Text>
+          <Text allowFontScaling={false} style={[styles.subsTitle, { color: theme.text }]}>Subs</Text>
         </View>
         <View style={styles.subsList}>
           {subs.slice(0, 30).map((sub, index) => {
@@ -2871,14 +2871,14 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                 onPress={handleSubPress}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.subsListItem, { color: theme.textSecondary }]}>
-                  <Text style={styles.jerseyNumber}>{jersey}</Text> {name}
-                  {subbedInFor && <Text style={styles.subArrowIn}> →</Text>}
+                <Text allowFontScaling={false} style={[styles.subsListItem, { color: theme.textSecondary }]}>
+                  <Text allowFontScaling={false} style={styles.jerseyNumber}>{jersey}</Text> {name}
+                  {subbedInFor && <Text allowFontScaling={false} style={styles.subArrowIn}> →</Text>}
                 </Text>
                 {subbedInFor && (
-                  <Text style={[styles.subDetails, { color: theme.textSecondary }]}>
-                    {subTime && <Text style={styles.subTime}>{subTime} </Text>}
-                    <Text style={styles.subOut}>{subOutPlayer}</Text>
+                  <Text allowFontScaling={false} style={[styles.subDetails, { color: theme.textSecondary }]}>
+                    {subTime && <Text allowFontScaling={false} style={styles.subTime}>{subTime} </Text>}
+                    <Text allowFontScaling={false} style={styles.subOut}>{subOutPlayer}</Text>
                   </Text>
                 )}
               </TouchableOpacity>
@@ -2898,7 +2898,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         <View style={styles.pitchContainer}>
           <View style={styles.teamInfo}>
             <TeamLogoImage teamId={gameData?.awayCompetitor?.team?.id} style={styles.formTeamLogo} />
-            <Text style={[styles.teamFormation, { color: theme.text }]}>{awayFormation}</Text>
+            <Text allowFontScaling={false} style={[styles.teamFormation, { color: theme.text }]}>{awayFormation}</Text>
           </View>
           <View style={styles.footballPitch}>
             <View style={styles.centerCircle} />
@@ -2912,7 +2912,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         
         <View style={styles.pitchContainer}>
           <View style={styles.teamInfo}>
-            <Text style={[styles.teamFormation, { color: theme.text }]}>{homeFormation}</Text>
+            <Text allowFontScaling={false} style={[styles.teamFormation, { color: theme.text }]}>{homeFormation}</Text>
             <TeamLogoImage teamId={gameData?.homeCompetitor?.team?.id} style={styles.formTeamLogo} />
           </View>
           <View style={styles.footballPitch}>
@@ -2935,7 +2935,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
       <View style={styles.pitchContainer}>
         <View style={styles.teamInfo}>
           <TeamLogoImage teamId={teamType === 'home' ? gameData?.homeCompetitor?.team?.id : gameData?.awayCompetitor?.team?.id} style={styles.formTeamLogo} />
-          <Text style={[styles.teamFormation, { color: theme.text }]}>{formation}</Text>
+          <Text allowFontScaling={false} style={[styles.teamFormation, { color: theme.text }]}>{formation}</Text>
         </View>
         <View style={styles.footballPitch}>
           <View style={styles.centerCircle} />
@@ -3333,7 +3333,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
     if (!gameData) {
       return (
         <View style={styles.tabContent}>
-          <Text style={[styles.comingSoonText, { color: theme.textSecondary }]}>
+          <Text allowFontScaling={false} style={[styles.comingSoonText, { color: theme.textSecondary }]}>
             Loading plays...
           </Text>
         </View>
@@ -3498,7 +3498,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
       return (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>
             Loading plays...
           </Text>
         </View>
@@ -3508,7 +3508,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
     if (!playsData || playsData.length === 0) {
       return (
         <View style={styles.tabContent}>
-          <Text style={[styles.comingSoonText, { color: theme.textSecondary }]}>
+          <Text allowFontScaling={false} style={[styles.comingSoonText, { color: theme.textSecondary }]}>
             Play-by-play data is currently unavailable
           </Text>
         </View>
@@ -3642,13 +3642,13 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                         style={styles.teamLogoSmall}
                         isScoring={isScoring}
                       />
-                      <Text style={[styles.scoreSmall, { color: isScoring ? scoringTextColor : theme.text }]}> 
+                      <Text allowFontScaling={false} style={[styles.scoreSmall, { color: isScoring ? scoringTextColor : theme.text }]}> 
                         {currentHomeScore}
                       </Text>
                     </View>
-                    <Text style={[styles.scoreSeparator, { color: theme.text }]}>-</Text>
+                    <Text allowFontScaling={false} style={[styles.scoreSeparator, { color: theme.text }]}>-</Text>
                     <View style={styles.teamScoreDisplay}>
-                      <Text style={[styles.scoreSmall, { color: isScoring ? scoringTextColor : theme.text }]}> 
+                      <Text allowFontScaling={false} style={[styles.scoreSmall, { color: isScoring ? scoringTextColor : theme.text }]}> 
                         {currentAwayScore}
                       </Text>
                       <TeamLogoImage 
@@ -3662,21 +3662,21 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                   <View style={styles.playSummary}>
                     <View style={styles.playTimePeriod}>
                       {period && (
-                        <Text style={[styles.playPeriod, { color: isScoring ? scoringTextColor : theme.textSecondary }]}> 
+                        <Text allowFontScaling={false} style={[styles.playPeriod, { color: isScoring ? scoringTextColor : theme.textSecondary }]}> 
                           {period === 1 ? '1st Half' : '2nd Half'}
                         </Text>
                       )}
                       {clock && (
-                        <Text style={[styles.playClock, { color: isScoring ? scoringTextColor : theme.textSecondary }]}> 
+                        <Text allowFontScaling={false} style={[styles.playClock, { color: isScoring ? scoringTextColor : theme.textSecondary }]}> 
                           {clock}
                         </Text>
                       )}
                     </View>
-                    <Text style={[styles.playDescription, { color: isScoring ? scoringTextColor : theme.text }]} numberOfLines={2}>
+                    <Text allowFontScaling={false} style={[styles.playDescription, { color: isScoring ? scoringTextColor : theme.text }]} numberOfLines={2}>
                       {text}
                     </Text>
                     {isScoring && (
-                      <Text style={[styles.scoreIndicator, { color: scoringTextColor, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4, paddingHorizontal: 6 }]}>
+                      <Text allowFontScaling={false} style={[styles.scoreIndicator, { color: scoringTextColor, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4, paddingHorizontal: 6 }]}>
                         GOAL
                       </Text>
                     )}
@@ -3684,7 +3684,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                 </View>
                 
                 <View style={styles.playToggle}>
-                  <Text style={[styles.toggleIcon, { color: isScoring ? scoringTextColor : theme.text }]}> 
+                  <Text allowFontScaling={false} style={[styles.toggleIcon, { color: isScoring ? scoringTextColor : theme.text }]}> 
                     {isOpen ? '▲' : '▼'}
                   </Text>
                 </View>
@@ -3702,11 +3702,11 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                       )}
                       
                       <View style={[styles.playEventInfo, { backgroundColor: isScoring ? 'rgba(255,255,255,0.2)' : theme.background, flex: 1 }]}> 
-                        <Text style={[styles.playDescription, { color: isScoring ? scoringTextColor : theme.text }]}> 
+                        <Text allowFontScaling={false} style={[styles.playDescription, { color: isScoring ? scoringTextColor : theme.text }]}> 
                           {text}
                         </Text>
                         {clock && (
-                          <Text style={[styles.playClock, { color: theme.textSecondary }]}>
+                          <Text allowFontScaling={false} style={[styles.playClock, { color: theme.textSecondary }]}>
                             {period ? `${period === 1 ? '1st' : '2nd'} Half - ${clock}` : clock}
                           </Text>
                         )}
@@ -3975,26 +3975,26 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
               style={styles.hoverTeamLogo}
             />
             <View style={styles.hoverPlayerName}>
-              <Text style={[styles.hoverJersey, { color: theme.textSecondary }]}>
+              <Text allowFontScaling={false} style={[styles.hoverJersey, { color: theme.textSecondary }]}>
                 {jersey}
               </Text>
-              <Text style={[styles.hoverName, { color: playerNameColor }]}>
+              <Text allowFontScaling={false} style={[styles.hoverName, { color: playerNameColor }]}>
                 {name}
               </Text>
             </View>
             
             {isGoalkeeper ? (
               <View style={styles.playerStatsContainer}>
-                <Text style={[styles.playerStat, { color: theme.text }]}>
+                <Text allowFontScaling={false} style={[styles.playerStat, { color: theme.text }]}>
                   SV: {stats["SV"] || "0"} | GA: {stats["GA"] || "0"}
                 </Text>
               </View>
             ) : (
               <View style={styles.playerStatsContainer}>
-                <Text style={[styles.playerStat, { color: theme.text }]}>
+                <Text allowFontScaling={false} style={[styles.playerStat, { color: theme.text }]}>
                   Goals: {stats["G"] || "0"} | Assists: {stats["A"] || "0"}
                 </Text>
-                <Text style={[styles.playerStat, { color: theme.text }]}>
+                <Text allowFontScaling={false} style={[styles.playerStat, { color: theme.text }]}>
                   Shots: {stats["SH"] || "0"} | SOG: {stats["ST"] || "0"}
                 </Text>
               </View>
@@ -4009,7 +4009,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
     return (
       <View style={[styles.container, styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.text }]}>
+        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>
           Loading match details...
         </Text>
       </View>
@@ -4019,14 +4019,14 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
   if (!gameData) {
     return (
       <View style={[styles.container, styles.errorContainer, { backgroundColor: theme.background }]}>
-        <Text style={[styles.errorText, { color: theme.text }]}>
+        <Text allowFontScaling={false} style={[styles.errorText, { color: theme.text }]}>
           Failed to load match details
         </Text>
         <TouchableOpacity
           style={[styles.retryButton, { backgroundColor: colors.primary }]}
           onPress={() => loadGameDetails()}
         >
-          <Text style={styles.retryText}>Retry</Text>
+          <Text allowFontScaling={false} style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
       </View>
     );
@@ -4068,12 +4068,12 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
           <View style={[styles.streamModalContainer, { backgroundColor: theme.surface }]}>
             {/* Modal Header */}
             <View style={[styles.streamModalHeader, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]}>
-              <Text style={[styles.streamModalTitle, { color: colors.primary }]}>Live Stream</Text>
+              <Text allowFontScaling={false} style={[styles.streamModalTitle, { color: colors.primary }]}>Live Stream</Text>
               <TouchableOpacity 
                 style={[styles.streamCloseButton, { backgroundColor: theme.surfaceSecondary }]} 
                 onPress={() => setShowStreamModal(false)}
               >
-                <Text style={[styles.streamCloseText, { color: colors.primary }]}>×</Text>
+                <Text allowFontScaling={false} style={[styles.streamCloseText, { color: colors.primary }]}>×</Text>
               </TouchableOpacity>
             </View>
 
@@ -4094,7 +4094,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                   ]}
                   onPress={() => setCurrentStreamType(source)}
                 >
-                  <Text style={[
+                  <Text allowFontScaling={false} style={[
                     styles.streamSourceButtonText,
                     { color: currentStreamType === source ? '#fff' : colors.primary }
                   ]}>
@@ -4109,7 +4109,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
               {streamLoading && (
                 <View style={styles.streamLoadingOverlay}>
                   <ActivityIndicator size="large" color={colors.primary} />
-                  <Text style={[styles.streamLoadingText, { color: '#fff' }]}>Loading stream...</Text>
+                  <Text allowFontScaling={false} style={[styles.streamLoadingText, { color: '#fff' }]}>Loading stream...</Text>
                 </View>
               )}
               {currentStreamType && availableStreams[currentStreamType] && (

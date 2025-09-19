@@ -799,24 +799,24 @@ const TeamPageScreen = ({ route, navigation }) => {
           defaultSource={{ uri: 'https://via.placeholder.com/80x80?text=MLB' }}
         />
         <View style={styles.teamInfo}>
-          <Text style={[styles.teamName, { color: getTeamColor(teamData.abbreviation) }]}>
+          <Text allowFontScaling={false} style={[styles.teamName, { color: getTeamColor(teamData.abbreviation) }]}>
             {teamData.name}
           </Text>
-          <Text style={[styles.teamDivision, { color: theme.textSecondary }]}>{teamData.division?.name || 'N/A'}</Text>
+          <Text allowFontScaling={false} style={[styles.teamDivision, { color: theme.textSecondary }]}>{teamData.division?.name || 'N/A'}</Text>
           
           {teamRecord && (
             <View style={styles.recordContainer}>
               <View style={styles.recordRow}>
-                <Text style={[styles.recordValue, { color: theme.text }]}>{teamRecord.wins}-{teamRecord.losses}</Text>
-                <Text style={[styles.recordValue, { color: theme.text }]}>{teamRecord.lastTen}</Text>
-                <Text style={[styles.recordValue, { color: getStreakColor(teamRecord.streak) }]}>
+                <Text allowFontScaling={false} style={[styles.recordValue, { color: theme.text }]}>{teamRecord.wins}-{teamRecord.losses}</Text>
+                <Text allowFontScaling={false} style={[styles.recordValue, { color: theme.text }]}>{teamRecord.lastTen}</Text>
+                <Text allowFontScaling={false} style={[styles.recordValue, { color: getStreakColor(teamRecord.streak) }]}>
                   {teamRecord.streak}
                 </Text>
               </View>
               <View style={styles.recordRow}>
-                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>RECORD</Text>
-                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>L10</Text>
-                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>STRK</Text>
+                <Text allowFontScaling={false} style={[styles.recordLabel, { color: theme.textSecondary }]}>RECORD</Text>
+                <Text allowFontScaling={false} style={[styles.recordLabel, { color: theme.textSecondary }]}>L10</Text>
+                <Text allowFontScaling={false} style={[styles.recordLabel, { color: theme.textSecondary }]}>STRK</Text>
               </View>
             </View>
           )}
@@ -826,7 +826,7 @@ const TeamPageScreen = ({ route, navigation }) => {
           onPress={handleToggleFavorite}
           activeOpacity={0.7}
         >
-          <Text style={[styles.favoriteIcon, { color: isTeamFavorite ? colors.primary : theme.textSecondary }]}>
+          <Text allowFontScaling={false} style={[styles.favoriteIcon, { color: isTeamFavorite ? colors.primary : theme.textSecondary }]}>
             {isTeamFavorite ? '★' : '☆'}
           </Text>
         </TouchableOpacity>
@@ -838,9 +838,9 @@ const TeamPageScreen = ({ route, navigation }) => {
     if (!currentGame) {
       return (
         <View style={styles.matchesSection}>
-          <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>Current Game</Text>
+          <Text allowFontScaling={false} style={[styles.gameSectionTitle, { color: colors.primary }]}>Current Game</Text>
           <View style={styles.noGameContainer}>
-            <Text style={[styles.noGameText, { color: theme.textSecondary }]}>No current or upcoming games found</Text>
+            <Text allowFontScaling={false} style={[styles.noGameText, { color: theme.textSecondary }]}>No current or upcoming games found</Text>
           </View>
         </View>
       );
@@ -880,7 +880,7 @@ const TeamPageScreen = ({ route, navigation }) => {
 
     return (
       <View style={styles.matchesSection}>
-        <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>
+        <Text allowFontScaling={false} style={[styles.gameSectionTitle, { color: colors.primary }]}>
           {isToday ? 'Current Game' : 'Upcoming Game'}
         </Text>
         <TouchableOpacity 
@@ -897,28 +897,28 @@ const TeamPageScreen = ({ route, navigation }) => {
                   defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
                 />
                 {(isGameLive(currentGame) || currentGame.status.abstractGameState === 'Final') && away.score !== undefined && (
-                  <Text style={[getTeamScoreStyle(currentGame, true), { color: getScoreColor(currentGame, true) }]}>{away.score}</Text>
+                  <Text allowFontScaling={false} style={[getTeamScoreStyle(currentGame, true), { color: getScoreColor(currentGame, true) }]}>{away.score}</Text>
                 )}
               </View>
-              <Text style={[getTeamNameStyle(currentGame, true), { color: getTeamNameColor(currentGame, true) }]}>
-                {isFavorite(away.team.id?.toString()) && <Text style={{ color: colors.primary }}>★ </Text>}
+              <Text allowFontScaling={false} style={[getTeamNameStyle(currentGame, true), { color: getTeamNameColor(currentGame, true) }]}>
+                {isFavorite(away.team.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
                 {away.team.abbreviation}
               </Text>
-              <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>
+              <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>
                 {away.leagueRecord ? `(${away.leagueRecord.wins}-${away.leagueRecord.losses})` : ''}
               </Text>
             </View>
             
             <View style={styles.gameInfo}>
-              <Text style={[styles.gameStatus, { color: colors.primary }]}>{getGameStatus()}</Text>
-              <Text style={[styles.gameTime, { color: theme.textSecondary }]}>{formatGameTime(gameDate)}</Text>
-              <Text style={[styles.versus, { color: theme.textSecondary }]}>vs</Text>
+              <Text allowFontScaling={false} style={[styles.gameStatus, { color: colors.primary }]}>{getGameStatus()}</Text>
+              <Text allowFontScaling={false} style={[styles.gameTime, { color: theme.textSecondary }]}>{formatGameTime(gameDate)}</Text>
+              <Text allowFontScaling={false} style={[styles.versus, { color: theme.textSecondary }]}>vs</Text>
             </View>
             
             <View style={styles.teamContainer}>
               <View style={styles.teamLogoContainer}>
                 {(isGameLive(currentGame) || currentGame.status.abstractGameState === 'Final') && home.score !== undefined && (
-                  <Text style={[getTeamScoreStyle(currentGame, false), { color: getScoreColor(currentGame, false) }]}>{home.score}</Text>
+                  <Text allowFontScaling={false} style={[getTeamScoreStyle(currentGame, false), { color: getScoreColor(currentGame, false) }]}>{home.score}</Text>
                 )}
                 <Image 
                   source={{ uri: getTeamLogoUrl(home.team.abbreviation) }}
@@ -926,11 +926,11 @@ const TeamPageScreen = ({ route, navigation }) => {
                   defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
                 />
               </View>
-              <Text style={[getTeamNameStyle(currentGame, false), { color: getTeamNameColor(currentGame, false) }]}>
-                {isFavorite(home.team.id?.toString()) && <Text style={{ color: colors.primary }}>★ </Text>}
+              <Text allowFontScaling={false} style={[getTeamNameStyle(currentGame, false), { color: getTeamNameColor(currentGame, false) }]}>
+                {isFavorite(home.team.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
                 {home.team.abbreviation}
               </Text>
-              <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>
+              <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>
                 {home.leagueRecord ? `(${home.leagueRecord.wins}-${home.leagueRecord.losses})` : ''}
               </Text>
             </View>
@@ -955,7 +955,7 @@ const TeamPageScreen = ({ route, navigation }) => {
             ]}
             onPress={() => setActiveTab(tab)}
           >
-            <Text style={[
+            <Text allowFontScaling={false} style={[
               styles.tabText,
               activeTab === tab && styles.activeTabText,
               { color: activeTab === tab ? colors.primary : theme.textSecondary }
@@ -1018,7 +1018,7 @@ const TeamPageScreen = ({ route, navigation }) => {
         {/* Game Description Banner - Full width at top */}
         {game.description && (
           <View style={[styles.gameDescriptionBanner, { backgroundColor: colors.primary }]}>
-            <Text style={styles.gameDescriptionText}>{game.description}</Text>
+            <Text allowFontScaling={false} style={styles.gameDescriptionText}>{game.description}</Text>
           </View>
         )}
         
@@ -1031,28 +1031,28 @@ const TeamPageScreen = ({ route, navigation }) => {
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
               />
               {isCompleted && away.score !== undefined && (
-                <Text style={[getTeamScoreStyle(game, true), { color: getScoreColor(game, true) }]}>{away.score}</Text>
+                <Text allowFontScaling={false} style={[getTeamScoreStyle(game, true), { color: getScoreColor(game, true) }]}>{away.score}</Text>
               )}
             </View>
-            <Text style={[getTeamNameStyle(game, true), { color: getTeamNameColor(game, true) }]}>
-              {isFavorite(away.team.id?.toString()) && <Text style={{ color: colors.primary }}>★ </Text>}
+            <Text allowFontScaling={false} style={[getTeamNameStyle(game, true), { color: getTeamNameColor(game, true) }]}>
+              {isFavorite(away.team.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
               {away.team.abbreviation}
             </Text>
-            <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>
               {away.leagueRecord ? `(${away.leagueRecord.wins}-${away.leagueRecord.losses})` : ''}
             </Text>
           </View>
           
           <View style={styles.gameInfo}>
-            <Text style={[styles.gameStatus, { color: colors.primary }]}>{getGameStatus()}</Text>
-            <Text style={[styles.gameTime, { color: theme.textSecondary }]}>{getGameTime()}</Text>
-            <Text style={[styles.versus, { color: theme.textSecondary }]}>vs</Text>
+            <Text allowFontScaling={false} style={[styles.gameStatus, { color: colors.primary }]}>{getGameStatus()}</Text>
+            <Text allowFontScaling={false} style={[styles.gameTime, { color: theme.textSecondary }]}>{getGameTime()}</Text>
+            <Text allowFontScaling={false} style={[styles.versus, { color: theme.textSecondary }]}>vs</Text>
           </View>
           
           <View style={styles.teamContainer}>
             <View style={styles.teamLogoContainer}>
               {isCompleted && home.score !== undefined && (
-                <Text style={[getTeamScoreStyle(game, false), { color: getScoreColor(game, false) }]}>{home.score}</Text>
+                <Text allowFontScaling={false} style={[getTeamScoreStyle(game, false), { color: getScoreColor(game, false) }]}>{home.score}</Text>
               )}
               <Image 
                 source={{ uri: getTeamLogoUrl(home.team.abbreviation) }}
@@ -1060,11 +1060,11 @@ const TeamPageScreen = ({ route, navigation }) => {
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
               />
             </View>
-            <Text style={[getTeamNameStyle(game, false), { color: getTeamNameColor(game, false) }]}>
-              {isFavorite(home.team.id?.toString()) && <Text style={{ color: colors.primary }}>★ </Text>}
+            <Text allowFontScaling={false} style={[getTeamNameStyle(game, false), { color: getTeamNameColor(game, false) }]}>
+              {isFavorite(home.team.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
               {home.team.abbreviation}
             </Text>
-            <Text style={[styles.teamRecord, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>
               {home.leagueRecord ? `(${home.leagueRecord.wins}-${home.leagueRecord.losses})` : ''}
             </Text>
           </View>
@@ -1078,7 +1078,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       return (
         <View style={styles.statsLoadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.contentText, { color: theme.textSecondary }]}>Loading team statistics...</Text>
+          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Loading team statistics...</Text>
         </View>
       );
     }
@@ -1086,15 +1086,15 @@ const TeamPageScreen = ({ route, navigation }) => {
     if (!teamStats || (!teamStats.hitting && !teamStats.pitching)) {
       return (
         <View style={styles.statsLoadingContainer}>
-          <Text style={[styles.contentText, { color: theme.textSecondary }]}>Team statistics not available</Text>
+          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Team statistics not available</Text>
         </View>
       );
     }
 
     const renderStatBox = (label, value, key) => (
       <View key={key} style={[styles.statBox, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.statBoxValue, { color: colors.primary }]}>{value}</Text>
-        <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>{label}</Text>
+        <Text allowFontScaling={false} style={[styles.statBoxValue, { color: colors.primary }]}>{value}</Text>
+        <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>{label}</Text>
       </View>
     );
 
@@ -1117,7 +1117,7 @@ const TeamPageScreen = ({ route, navigation }) => {
 
       return (
         <View style={styles.statsSection}>
-          <Text style={[styles.statsSectionTitle, { color: theme.text }]}>{title}</Text>
+          <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: theme.text }]}>{title}</Text>
           {rows.map((row, rowIndex) => (
             <View key={`${title}-row-${rowIndex}`} style={styles.statsRow}>
               {row}
@@ -1207,7 +1207,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       return (
         <View style={styles.matchesSection}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.contentText, { color: theme.textSecondary }]}>Loading roster...</Text>
+          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Loading roster...</Text>
         </View>
       );
     }
@@ -1215,7 +1215,7 @@ const TeamPageScreen = ({ route, navigation }) => {
     if (!roster || roster.length === 0) {
       return (
         <View style={styles.matchesSection}>
-          <Text style={[styles.contentText, { color: theme.textSecondary }]}>Roster data not available</Text>
+          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Roster data not available</Text>
         </View>
       );
     }
@@ -1246,18 +1246,18 @@ const TeamPageScreen = ({ route, navigation }) => {
             onPress={toggleSection}
             activeOpacity={0.7}
           >
-            <Text style={[styles.rosterSectionTitle, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.rosterSectionTitle, { color: theme.text }]}>
               {title} ({players.length})
             </Text>
-            <Text style={[styles.rosterSectionArrow, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.rosterSectionArrow, { color: theme.text }]}>
               {isCollapsed ? '▶' : '▼'}
             </Text>
           </TouchableOpacity>
           {!isCollapsed && (
             <View style={styles.rosterTableContainer}>
               <View style={[styles.rosterTableHeader, { backgroundColor: theme.surface }]}>
-                <Text style={[styles.rosterTableHeaderPlayer, { color: theme.text }]}>Player</Text>
-                <Text style={[styles.rosterTableHeaderStatus, { color: theme.text }]}>Status</Text>
+                <Text allowFontScaling={false} style={[styles.rosterTableHeaderPlayer, { color: theme.text }]}>Player</Text>
+                <Text allowFontScaling={false} style={[styles.rosterTableHeaderStatus, { color: theme.text }]}>Status</Text>
               </View>
               {players.map((player) => (
                 <TouchableOpacity 
@@ -1284,11 +1284,11 @@ const TeamPageScreen = ({ route, navigation }) => {
                         defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
                       />
                       <View style={styles.rosterPlayerInfo}>
-                        <Text style={[styles.rosterTablePlayerName, { color: theme.text }]}>
+                        <Text allowFontScaling={false} style={[styles.rosterTablePlayerName, { color: theme.text }]}>
                           {player.person.fullName}
                         </Text>
-                        <Text style={[styles.rosterTablePlayerDetails, { color: theme.textTertiary }]}>
-                          <Text style={[styles.rosterTablePlayerNumber, { color: theme.textTertiary }]}>#{player.jerseyNumber || '--'}</Text>
+                        <Text allowFontScaling={false} style={[styles.rosterTablePlayerDetails, { color: theme.textTertiary }]}>
+                          <Text allowFontScaling={false} style={[styles.rosterTablePlayerNumber, { color: theme.textTertiary }]}>#{player.jerseyNumber || '--'}</Text>
                           {' • '}
                           {player.position?.abbreviation || 'N/A'}
                         </Text>
@@ -1296,7 +1296,7 @@ const TeamPageScreen = ({ route, navigation }) => {
                     </View>
                   </View>
                   <View style={styles.rosterTableStatusCell}>
-                    <Text style={[
+                    <Text allowFontScaling={false} style={[
                       styles.rosterTableStatusText,
                       player.status?.code === 'A' ? styles.activeStatus : styles.inactiveStatus
                     ]}>
@@ -1334,8 +1334,8 @@ const TeamPageScreen = ({ route, navigation }) => {
                 style={styles.sectionHeader}
                 onPress={() => setLastMatchesCollapsed(!lastMatchesCollapsed)}
               >
-                <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>Last Matches</Text>
-                <Text style={[styles.collapseArrow, { color: colors.primary }]}>
+                <Text allowFontScaling={false} style={[styles.gameSectionTitle, { color: colors.primary }]}>Last Matches</Text>
+                <Text allowFontScaling={false} style={[styles.collapseArrow, { color: colors.primary }]}>
                   {lastMatchesCollapsed ? '▶' : '▼'}
                 </Text>
               </TouchableOpacity>
@@ -1348,7 +1348,7 @@ const TeamPageScreen = ({ route, navigation }) => {
                 </View>
               ) : (
                 <View style={[styles.gameSectionCard, { backgroundColor: theme.surface }]}>
-                  <Text style={[styles.noGameText, { color: theme.textSecondary }]}>No previous games found</Text>
+                  <Text allowFontScaling={false} style={[styles.noGameText, { color: theme.textSecondary }]}>No previous games found</Text>
                 </View>
               )}
             </View>
@@ -1358,8 +1358,8 @@ const TeamPageScreen = ({ route, navigation }) => {
                 style={styles.sectionHeader}
                 onPress={() => setNextMatchesCollapsed(!nextMatchesCollapsed)}
               >
-                <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>Next Matches</Text>
-                <Text style={[styles.collapseArrow, { color: colors.primary }]}>
+                <Text allowFontScaling={false} style={[styles.gameSectionTitle, { color: colors.primary }]}>Next Matches</Text>
+                <Text allowFontScaling={false} style={[styles.collapseArrow, { color: colors.primary }]}>
                   {nextMatchesCollapsed ? '▶' : '▼'}
                 </Text>
               </TouchableOpacity>
@@ -1372,7 +1372,7 @@ const TeamPageScreen = ({ route, navigation }) => {
                 </View>
               ) : (
                 <View style={[styles.gameSectionCard, { backgroundColor: theme.surface }]}>
-                  <Text style={[styles.noGameText, { color: theme.textSecondary }]}>No upcoming games found</Text>
+                  <Text allowFontScaling={false} style={[styles.noGameText, { color: theme.textSecondary }]}>No upcoming games found</Text>
                 </View>
               )}
             </View>
@@ -1391,7 +1391,7 @@ const TeamPageScreen = ({ route, navigation }) => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.text }]}>Loading team information...</Text>
+        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>Loading team information...</Text>
       </View>
     );
   }

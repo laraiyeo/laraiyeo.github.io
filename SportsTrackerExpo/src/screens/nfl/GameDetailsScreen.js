@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { NFLService } from '../../services/NFLService';
 import { useTheme } from '../../context/ThemeContext';
+import { useFavorites } from '../../context/FavoritesContext';
 
 // Component to display play probability like scoreboard copy card
 const PlayProbability = ({ probabilityRef, driveTeam, homeTeam, awayTeam }) => {
@@ -68,7 +69,7 @@ const PlayProbability = ({ probabilityRef, driveTeam, homeTeam, awayTeam }) => {
 
   return (
     <View style={styles.playProbability}>
-      <Text style={[styles.playProbabilityText, { color: theme.textSecondary }]}>
+      <Text allowFontScaling={false} style={[styles.playProbabilityText, { color: theme.textSecondary }]}>
         W {probabilityData.displayProbability}
       </Text>
       {probabilityData.teamLogo && (
@@ -84,6 +85,7 @@ const PlayProbability = ({ probabilityRef, driveTeam, homeTeam, awayTeam }) => {
 const GameDetailsScreen = ({ route }) => {
   const { gameId, sport } = route.params;
   const { theme, colors, getTeamLogoUrl } = useTheme();
+  const { isFavorite } = useFavorites();
   const [gameDetails, setGameDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('stats'); // Default to stats tab
@@ -132,6 +134,33 @@ const GameDetailsScreen = ({ route }) => {
     
     console.warn('No NFL abbreviation mapping found for team:', espnTeam?.id);
     return null;
+  };
+  
+  // Helper function to get NFL team ID for favorites
+  const getNFLTeamId = (espnTeam) => {
+    // ESPN team abbreviations to NFL team IDs mapping
+    const teamMapping = {
+      'BUF': '2', 'MIA': '15', 'NE': '17', 'NYJ': '20',
+      'BAL': '33', 'CIN': '4', 'CLE': '5', 'PIT': '23',
+      'HOU': '34', 'IND': '11', 'JAX': '30', 'TEN': '10',
+      'DEN': '7', 'KC': '12', 'LV': '13', 'LAC': '24',
+      'DAL': '6', 'NYG': '19', 'PHI': '21', 'WAS': '28',
+      'CHI': '3', 'DET': '8', 'GB': '9', 'MIN': '16',
+      'ATL': '1', 'CAR': '29', 'NO': '18', 'TB': '27',
+      'ARI': '22', 'LAR': '14', 'SF': '25', 'SEA': '26'
+    };
+
+    console.log('Team abbreviation:', espnTeam.abbreviation, 'ESPN ID:', espnTeam.id);
+    
+    let nflId = teamMapping[espnTeam.abbreviation];
+    
+    if (!nflId) {
+      console.warn('No NFL ID mapping found for team:', espnTeam.abbreviation, 'ESPN ID:', espnTeam.id, 'Using ESPN ID as fallback');
+      return espnTeam.id;
+    }
+    
+    console.log('Final NFL ID:', nflId);
+    return nflId;
   };
   
   // TeamLogoImage component with fallback support  
@@ -607,7 +636,7 @@ const GameDetailsScreen = ({ route }) => {
               }
             ]}
           >
-            <Text style={[styles.driveMarkerText, { color: teamColor }]}>S</Text>
+            <Text allowFontScaling={false} style={[styles.driveMarkerText, { color: teamColor }]}>S</Text>
           </View>
           
           {/* Current/End marker - centered */}
@@ -623,15 +652,15 @@ const GameDetailsScreen = ({ route }) => {
               }
             ]}
           >
-            <Text style={styles.driveMarkerText}>{driveIsInProgress ? 'C' : 'E'}</Text>
+            <Text allowFontScaling={false} style={styles.driveMarkerText}>{driveIsInProgress ? 'C' : 'E'}</Text>
           </View>
         </View>
         
         {/* Yard line labels */}
         <View style={styles.driveYardLabels}>
-          <Text style={[styles.driveYardLabel, { color: theme.textTertiary }]}>0</Text>
-          <Text style={[styles.driveYardLabel, { color: theme.textTertiary }]}>50</Text>
-          <Text style={[styles.driveYardLabel, { color: theme.textTertiary }]}>0</Text>
+          <Text allowFontScaling={false} style={[styles.driveYardLabel, { color: theme.textTertiary }]}>0</Text>
+          <Text allowFontScaling={false} style={[styles.driveYardLabel, { color: theme.textTertiary }]}>50</Text>
+          <Text allowFontScaling={false} style={[styles.driveYardLabel, { color: theme.textTertiary }]}>0</Text>
         </View>
       </View>
     );
@@ -640,7 +669,7 @@ const GameDetailsScreen = ({ route }) => {
   // Render position-specific stats like team-page.js
   const renderPositionSpecificStats = (playerStats, position) => {
     if (!playerStats?.splits?.categories) {
-      return <Text style={styles.noStatsText}>No detailed statistics available</Text>;
+      return <Text allowFontScaling={false} style={styles.noStatsText}>No detailed statistics available</Text>;
     }
 
     // Get team info for header
@@ -690,8 +719,8 @@ const GameDetailsScreen = ({ route }) => {
             
             return (
               <View key={`${rowIndex}-${index}`} style={styles.statItem}>
-                <Text style={[styles.statValue, { color: theme.text }]}>{displayValue}</Text>
-                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{label}</Text>
+                <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>{displayValue}</Text>
+                <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>{label}</Text>
               </View>
             );
           })}
@@ -707,7 +736,12 @@ const GameDetailsScreen = ({ route }) => {
             style={styles.teamHeaderLogo}
           />
         )}
-        <Text style={[styles.teamHeaderName, { color: theme.text }]}>{teamName}</Text>
+        <Text allowFontScaling={false} style={[
+          styles.teamHeaderName, 
+          { color: theme.text }
+        ]}>
+          {teamName}
+        </Text>
       </View>
     );
 
@@ -751,8 +785,8 @@ const GameDetailsScreen = ({ route }) => {
           {qbStats.length > 0 && (
             <View style={[styles.statCategory, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
               <View style={styles.statSubcategoryHeader}>
-                <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={[styles.statCategoryTitle, { color: theme.text }]}>Passing</Text>
+                <Text allowFontScaling={false} style={styles.footballEmoji}>🏈</Text>
+                <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: theme.text }]}>Passing</Text>
               </View>
               {renderStatRow(qbStats, qbLabels)}
             </View>
@@ -760,8 +794,8 @@ const GameDetailsScreen = ({ route }) => {
           {rushingStats.length > 0 && (
             <View style={[styles.statCategory, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
               <View style={styles.statSubcategoryHeader}>
-                <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={[styles.statCategoryTitle, { color: theme.text }]}>Rushing</Text>
+                <Text allowFontScaling={false} style={styles.footballEmoji}>🏈</Text>
+                <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: theme.text }]}>Rushing</Text>
               </View>
               {renderStatRow(rushingStats, ['CAR', 'RUSH YDS', 'YDS/CAR', 'RUSH TD', 'LNG'])}
             </View>
@@ -774,8 +808,8 @@ const GameDetailsScreen = ({ route }) => {
           {rushingStats.length > 0 && (
             <View style={[styles.statCategory, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
               <View style={styles.statSubcategoryHeader}>
-                <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={[styles.statCategoryTitle, { color: theme.text }]}>Rushing</Text>
+                <Text allowFontScaling={false} style={styles.footballEmoji}>🏈</Text>
+                <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: theme.text }]}>Rushing</Text>
               </View>
               {renderStatRow(rushingStats, ['CAR', 'RUSH YDS', 'YDS/CAR', 'RUSH TD', 'LNG'])}
             </View>
@@ -783,8 +817,8 @@ const GameDetailsScreen = ({ route }) => {
           {receivingStats.length > 0 && (
             <View style={[styles.statCategory, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
               <View style={styles.statSubcategoryHeader}>
-                <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={[styles.statCategoryTitle, { color: theme.text }]}>Receiving</Text>
+                <Text allowFontScaling={false} style={styles.footballEmoji}>🏈</Text>
+                <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: theme.text }]}>Receiving</Text>
               </View>
               {renderStatRow(receivingStats, ['REC', 'REC YDS', 'YDS/REC', 'REC TD', 'LNG', 'TGT'])}
             </View>
@@ -797,8 +831,8 @@ const GameDetailsScreen = ({ route }) => {
           {receivingStats.length > 0 && (
             <View style={[styles.statCategory, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
               <View style={styles.statSubcategoryHeader}>
-                <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={[styles.statCategoryTitle, { color: theme.text }]}>Receiving</Text>
+                <Text allowFontScaling={false} style={styles.footballEmoji}>🏈</Text>
+                <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: theme.text }]}>Receiving</Text>
               </View>
               {renderStatRow(receivingStats, ['REC', 'REC YDS', 'YDS/REC', 'REC TD', 'LNG', 'TGT'])}
             </View>
@@ -806,8 +840,8 @@ const GameDetailsScreen = ({ route }) => {
           {rushingStats.length > 0 && (
             <View style={[styles.statCategory, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
               <View style={styles.statSubcategoryHeader}>
-                <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={[styles.statCategoryTitle, { color: theme.text }]}>Rushing</Text>
+                <Text allowFontScaling={false} style={styles.footballEmoji}>🏈</Text>
+                <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: theme.text }]}>Rushing</Text>
               </View>
               {renderStatRow(rushingStats, ['CAR', 'RUSH YDS', 'YDS/CAR', 'RUSH TD', 'LNG'])}
             </View>
@@ -820,8 +854,8 @@ const GameDetailsScreen = ({ route }) => {
           {defensiveStats.length > 0 && (
             <View style={[styles.statCategory, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
               <View style={styles.statSubcategoryHeader}>
-                <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={[styles.statCategoryTitle, { color: theme.text }]}>Defensive</Text>
+                <Text allowFontScaling={false} style={styles.footballEmoji}>🏈</Text>
+                <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: theme.text }]}>Defensive</Text>
               </View>
               {renderStatRow(defensiveStats, ['TOT TCKL', 'SOLO', 'SACKS', 'TFL', 'PD', 'QB HIT'])}
             </View>
@@ -834,8 +868,8 @@ const GameDetailsScreen = ({ route }) => {
           {defensiveStats.length > 0 && (
             <View style={styles.statCategory}>
               <View style={styles.statSubcategoryHeader}>
-                <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={styles.statCategoryTitle}>Defensive</Text>
+                <Text allowFontScaling={false} style={styles.footballEmoji}>🏈</Text>
+                <Text allowFontScaling={false} style={styles.statCategoryTitle}>Defensive</Text>
               </View>
               {renderStatRow(defensiveStats, ['TOT TCKL', 'SOLO', 'PD', 'QB HIT'])}
             </View>
@@ -843,8 +877,8 @@ const GameDetailsScreen = ({ route }) => {
           {interceptionStats.length > 0 && (
             <View style={styles.statCategory}>
               <View style={styles.statSubcategoryHeader}>
-                <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={styles.statCategoryTitle}>Interceptions</Text>
+                <Text allowFontScaling={false} style={styles.footballEmoji}>🏈</Text>
+                <Text allowFontScaling={false} style={styles.statCategoryTitle}>Interceptions</Text>
               </View>
               {renderStatRow(interceptionStats, ['INT', 'INT YDS', 'LNG', 'TD'])}
             </View>
@@ -857,8 +891,8 @@ const GameDetailsScreen = ({ route }) => {
           {kickingStats.length > 0 && (
             <View style={styles.statCategory}>
               <View style={styles.statSubcategoryHeader}>
-                <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={styles.statCategoryTitle}>Kicking</Text>
+                <Text allowFontScaling={false} style={styles.footballEmoji}>🏈</Text>
+                <Text allowFontScaling={false} style={styles.statCategoryTitle}>Kicking</Text>
               </View>
               {renderStatRow(kickingStats, ['FG MADE/ATT', 'FG PCT', 'LNG', 'XP MADE/ATT', 'KICK PTS'])}
             </View>
@@ -866,8 +900,8 @@ const GameDetailsScreen = ({ route }) => {
           {puntingStats.length > 0 && (
             <View style={styles.statCategory}>
               <View style={styles.statSubcategoryHeader}>
-                <Text style={styles.footballEmoji}>🏈</Text>
-                <Text style={styles.statCategoryTitle}>Punting</Text>
+                <Text allowFontScaling={false} style={styles.footballEmoji}>🏈</Text>
+                <Text allowFontScaling={false} style={styles.statCategoryTitle}>Punting</Text>
               </View>
               {renderStatRow(puntingStats, ['PUNTS', 'PUNT YDS', 'AVG', 'LNG', 'IN 20'])}
             </View>
@@ -947,13 +981,13 @@ const GameDetailsScreen = ({ route }) => {
             return (
               <View key={categoryIndex} style={styles.statCategory}>
                 <View style={styles.statSubcategoryHeader}>
-                  <Text style={styles.footballEmoji}>🏈</Text>
-                  <Text style={styles.statCategoryTitle}>{formatCategoryName(category.displayName || category.name)}</Text>
+                  <Text allowFontScaling={false} style={styles.footballEmoji}>🏈</Text>
+                  <Text allowFontScaling={false} style={styles.statCategoryTitle}>{formatCategoryName(category.displayName || category.name)}</Text>
                 </View>
                 {category.stats && category.stats.length > 0 ? (
                   renderStatRow(category.stats, statLabels)
                 ) : (
-                  <Text style={styles.noStatsText}>No stats available</Text>
+                  <Text allowFontScaling={false} style={styles.noStatsText}>No stats available</Text>
                 )}
               </View>
             );
@@ -967,7 +1001,7 @@ const GameDetailsScreen = ({ route }) => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.text }]}>Loading Game Details...</Text>
+        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>Loading Game Details...</Text>
       </View>
     );
   }
@@ -975,7 +1009,7 @@ const GameDetailsScreen = ({ route }) => {
   if (!gameDetails) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Game details not available</Text>
+        <Text allowFontScaling={false} style={styles.errorText}>Game details not available</Text>
       </View>
     );
   }
@@ -1042,9 +1076,9 @@ const GameDetailsScreen = ({ route }) => {
           
           return (
             <View key={index} style={[styles.statRow, { borderBottomColor: theme.border }]}>
-              <Text style={[styles.statAwayValue, { color: theme.textSecondary }]}>{awayValue}</Text>
-              <Text style={[styles.statLabel, { color: theme.text }]}>{statConfig.label}</Text>
-              <Text style={[styles.statHomeValue, { color: theme.textSecondary }]}>{homeValue}</Text>
+              <Text allowFontScaling={false} style={[styles.statAwayValue, { color: theme.textSecondary }]}>{awayValue}</Text>
+              <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.text }]}>{statConfig.label}</Text>
+              <Text allowFontScaling={false} style={[styles.statHomeValue, { color: theme.textSecondary }]}>{homeValue}</Text>
             </View>
           );
         })}
@@ -1093,7 +1127,7 @@ const GameDetailsScreen = ({ route }) => {
 
           return (
             <View key={categoryIndex} style={[styles.leaderCategory, { backgroundColor: theme.surface }]}>
-              <Text style={[styles.leaderCategoryTitle, { color: theme.text }]}>{awayCategoryData.displayName || category}</Text>
+              <Text allowFontScaling={false} style={[styles.leaderCategoryTitle, { color: theme.text }]}>{awayCategoryData.displayName || category}</Text>
 
               {/* Away Team Leader Row */}
               <View style={[styles.leaderPlayerRow, { borderBottomColor: theme.border }]}>
@@ -1102,7 +1136,7 @@ const GameDetailsScreen = ({ route }) => {
                     team={awayTeam?.team}
                     style={styles.leaderTeamLogo}
                   />
-                  <Text style={[styles.leaderJerseyNumber, { color: theme.textSecondary }]}>{awayLeader.athlete?.jersey || '#'}</Text>
+                  <Text allowFontScaling={false} style={[styles.leaderJerseyNumber, { color: theme.textSecondary }]}>{awayLeader.athlete?.jersey || '#'}</Text>
                 </View>
                 <Image 
                   source={{ uri: awayLeader.athlete?.headshot?.href || 'https://via.placeholder.com/40x40?text=P' }}
@@ -1111,10 +1145,10 @@ const GameDetailsScreen = ({ route }) => {
                 />
                 <View style={styles.leaderPlayerInfo}>
                   <View style={styles.leaderNameRow}>
-                    <Text style={[styles.leaderPlayerName, { color: theme.text }]}>{awayLeader.athlete?.shortName || awayLeader.athlete?.displayName}</Text>
-                    <Text style={[styles.leaderPlayerPosition, { color: theme.textSecondary }]}> {awayLeader.athlete?.position?.abbreviation}</Text>
+                    <Text allowFontScaling={false} style={[styles.leaderPlayerName, { color: theme.text }]}>{awayLeader.athlete?.shortName || awayLeader.athlete?.displayName}</Text>
+                    <Text allowFontScaling={false} style={[styles.leaderPlayerPosition, { color: theme.textSecondary }]}> {awayLeader.athlete?.position?.abbreviation}</Text>
                   </View>
-                  <Text style={[styles.leaderStatsValue, { color: colors.primary }]}>{awayLeader.displayValue}</Text>
+                  <Text allowFontScaling={false} style={[styles.leaderStatsValue, { color: colors.primary }]}>{awayLeader.displayValue}</Text>
                 </View>
               </View>
 
@@ -1125,7 +1159,7 @@ const GameDetailsScreen = ({ route }) => {
                     team={homeTeam?.team}
                     style={styles.leaderTeamLogo}
                   />
-                  <Text style={[styles.leaderJerseyNumber, { color: theme.textSecondary }]}>{homeLeader.athlete?.jersey || '#'}</Text>
+                  <Text allowFontScaling={false} style={[styles.leaderJerseyNumber, { color: theme.textSecondary }]}>{homeLeader.athlete?.jersey || '#'}</Text>
                 </View>
                 <Image 
                   source={{ uri: homeLeader.athlete?.headshot?.href || 'https://via.placeholder.com/40x40?text=P' }}
@@ -1134,10 +1168,10 @@ const GameDetailsScreen = ({ route }) => {
                 />
                 <View style={styles.leaderPlayerInfo}>
                   <View style={styles.leaderNameRow}>
-                    <Text style={[styles.leaderPlayerName, { color: theme.text }]}>{homeLeader.athlete?.shortName || homeLeader.athlete?.displayName}</Text>
-                    <Text style={[styles.leaderPlayerPosition, { color: theme.textSecondary }]}> {homeLeader.athlete?.position?.abbreviation}</Text>
+                    <Text allowFontScaling={false} style={[styles.leaderPlayerName, { color: theme.text }]}>{homeLeader.athlete?.shortName || homeLeader.athlete?.displayName}</Text>
+                    <Text allowFontScaling={false} style={[styles.leaderPlayerPosition, { color: theme.textSecondary }]}> {homeLeader.athlete?.position?.abbreviation}</Text>
                   </View>
-                  <Text style={[styles.leaderStatsValue, { color: colors.primary }]}>{homeLeader.displayValue}</Text>
+                  <Text allowFontScaling={false} style={[styles.leaderStatsValue, { color: colors.primary }]}>{homeLeader.displayValue}</Text>
                 </View>
               </View>
             </View>
@@ -1178,8 +1212,8 @@ const GameDetailsScreen = ({ route }) => {
           
           return (
             <View key={index} style={[styles.individualStatRow, { borderBottomColor: theme.border }]}>
-              <Text style={styles.individualStatLabel}>{statConfig.label}</Text>
-              <Text style={styles.individualStatValue}>{value}</Text>
+              <Text allowFontScaling={false} style={styles.individualStatLabel}>{statConfig.label}</Text>
+              <Text allowFontScaling={false} style={styles.individualStatValue}>{value}</Text>
             </View>
           );
         })}
@@ -1213,7 +1247,7 @@ const GameDetailsScreen = ({ route }) => {
 
           return (
             <View key={categoryIndex} style={styles.individualLeaderCategory}>
-              <Text style={styles.individualLeaderCategoryTitle}>{categoryData.displayName || category}</Text>
+              <Text allowFontScaling={false} style={styles.individualLeaderCategoryTitle}>{categoryData.displayName || category}</Text>
               
               <View style={styles.individualLeaderPlayerRow}>
                 <Image 
@@ -1223,14 +1257,14 @@ const GameDetailsScreen = ({ route }) => {
                 />
                 <View style={styles.individualLeaderPlayerInfo}>
                   <View style={styles.individualLeaderNameRow}>
-                    <Text style={styles.individualLeaderPlayerName}>
+                    <Text allowFontScaling={false} style={styles.individualLeaderPlayerName}>
                       {leader.athlete?.shortName || leader.athlete?.displayName}
                     </Text>
-                    <Text style={styles.individualLeaderPlayerPosition}>
+                    <Text allowFontScaling={false} style={styles.individualLeaderPlayerPosition}>
                       {leader.athlete?.position?.abbreviation}
                     </Text>
                   </View>
-                  <Text style={styles.individualLeaderStatsValue}>{leader.displayValue}</Text>
+                  <Text allowFontScaling={false} style={styles.individualLeaderStatsValue}>{leader.displayValue}</Text>
                 </View>
               </View>
             </View>
@@ -1245,16 +1279,16 @@ const GameDetailsScreen = ({ route }) => {
     <View>
       {/* Linescore */}
       <View style={[styles.section, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.sectionTitle, { color: colors.primary }]}>Line Score</Text>
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.primary }]}>Line Score</Text>
         <View style={[styles.linescoreContainer, {backgroundColor: theme.surfaceSecondary}]}>
           <View style={[styles.linescoreTable, { backgroundColor: theme.surfaceSecondary }]}>
             <View style={[styles.linescoreHeader, { backgroundColor: theme.surface }]}>
-              <Text style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}></Text>
-              <Text style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}>1</Text>
-              <Text style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}>2</Text>
-              <Text style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}>3</Text>
-              <Text style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}>4</Text>
-              <Text style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}>T</Text>
+              <Text allowFontScaling={false} style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}></Text>
+              <Text allowFontScaling={false} style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}>1</Text>
+              <Text allowFontScaling={false} style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}>2</Text>
+              <Text allowFontScaling={false} style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}>3</Text>
+              <Text allowFontScaling={false} style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}>4</Text>
+              <Text allowFontScaling={false} style={[styles.linescoreHeaderCell, { color: theme.textSecondary }]}>T</Text>
             </View>
             <View style={[styles.linescoreRow, { borderBottomColor: theme.border }]}>
               <View style={styles.linescoreTeamContainer}>
@@ -1263,13 +1297,13 @@ const GameDetailsScreen = ({ route }) => {
                   style={styles.linescoreTeamLogo}
                   isLosingTeam={isAwayTeamLosing}
                 />
-                <Text style={[styles.linescoreTeamCell, { color: theme.text }]}>{awayTeam?.team?.abbreviation}</Text>
+                <Text allowFontScaling={false} style={[styles.linescoreTeamCell, { color: theme.text }]}>{awayTeam?.team?.abbreviation}</Text>
               </View>
               {[0, 1, 2, 3].map(quarterIndex => {
                 const score = awayTeam?.linescores?.[quarterIndex]?.displayValue || "-";
-                return <Text key={quarterIndex} style={[styles.linescoreCell, { color: theme.text }]}>{score}</Text>;
+                return <Text allowFontScaling={false} key={quarterIndex} style={[styles.linescoreCell, { color: theme.text }]}>{score}</Text>;
               })}
-              <Text style={[styles.linescoreTotalCell, { color: colors.primary }]}>{awayTeam?.score || '0'}</Text>
+              <Text allowFontScaling={false} style={[styles.linescoreTotalCell, { color: colors.primary }]}>{awayTeam?.score || '0'}</Text>
             </View>
             <View style={[styles.linescoreRow, { borderBottomColor: theme.border }]}>
               <View style={styles.linescoreTeamContainer}>
@@ -1278,13 +1312,13 @@ const GameDetailsScreen = ({ route }) => {
                   style={styles.linescoreTeamLogo}
                   isLosingTeam={isHomeTeamLosing}
                 />
-                <Text style={[styles.linescoreTeamCell, { color: theme.text }]}>{homeTeam?.team?.abbreviation}</Text>
+                <Text allowFontScaling={false} style={[styles.linescoreTeamCell, { color: theme.text }]}>{homeTeam?.team?.abbreviation}</Text>
               </View>
               {[0, 1, 2, 3].map(quarterIndex => {
                 const score = homeTeam?.linescores?.[quarterIndex]?.displayValue || "-";
-                return <Text key={quarterIndex} style={[styles.linescoreCell, { color: theme.text }]}>{score}</Text>;
+                return <Text allowFontScaling={false} key={quarterIndex} style={[styles.linescoreCell, { color: theme.text }]}>{score}</Text>;
               })}
-              <Text style={[styles.linescoreTotalCell, { color: colors.primary }]}>{homeTeam?.score || '0'}</Text>
+              <Text allowFontScaling={false} style={[styles.linescoreTotalCell, { color: colors.primary }]}>{homeTeam?.score || '0'}</Text>
             </View>
           </View>
         </View>
@@ -1292,7 +1326,7 @@ const GameDetailsScreen = ({ route }) => {
 
       {/* Team Stats */}
       <View style={[styles.section, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.sectionTitle, { color: colors.primary }]}>Team Statistics</Text>
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.primary }]}>Team Statistics</Text>
         <View style={[styles.statsContainer, { backgroundColor: theme.surfaceSecondary }]}>
           <View style={[styles.statsHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
             <View style={styles.statsTeamHeader}>
@@ -1301,11 +1335,21 @@ const GameDetailsScreen = ({ route }) => {
                 style={styles.statsTeamLogo}
                 isLosingTeam={isAwayTeamLosing}
               />
-              <Text style={[styles.statsTeamName, { color: theme.text }]}>{awayTeam?.team?.abbreviation}</Text>
+              <Text allowFontScaling={false} style={[
+                styles.statsTeamName, 
+                { color: theme.text }
+              ]}>
+                {awayTeam?.team?.abbreviation}
+              </Text>
             </View>
-            <Text style={[styles.statsLabel, { color: theme.textSecondary }]}>Stat</Text>
+            <Text allowFontScaling={false} style={[styles.statsLabel, { color: theme.textSecondary }]}>Stat</Text>
             <View style={styles.statsTeamHeader}>
-              <Text style={[styles.statsTeamName, { color: theme.text }]}>{homeTeam?.team?.abbreviation}</Text>
+              <Text allowFontScaling={false} style={[
+                styles.statsTeamName, 
+                { color: theme.text }
+              ]}>
+                {homeTeam?.team?.abbreviation}
+              </Text>
               <TeamLogoImage 
                 team={homeTeam?.team}
                 style={styles.statsTeamLogo}
@@ -1319,7 +1363,7 @@ const GameDetailsScreen = ({ route }) => {
 
       {/* Game/Team Leaders */}
       <View style={[styles.section, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.sectionTitle, { color: colors.primary }]}>
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.primary }]}>
           {(() => {
             const statusDesc = status?.type?.description?.toLowerCase();
             return statusDesc?.includes('scheduled') ? 'Team Leaders' : 'Game Leaders';
@@ -1355,7 +1399,7 @@ const GameDetailsScreen = ({ route }) => {
       return (
         <View style={[styles.rosterContainer, { backgroundColor: theme.surface }]}>
           <ActivityIndicator size="small" color={colors.primary} />
-          <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>Loading roster...</Text>
+          <Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.textSecondary }]}>Loading roster...</Text>
         </View>
       );
     }
@@ -1363,7 +1407,7 @@ const GameDetailsScreen = ({ route }) => {
     if (!rosterData?.athletes) {
       return (
         <View style={[styles.rosterContainer, { backgroundColor: theme.surface }]}>
-          <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>Roster data not available</Text>
+          <Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.textSecondary }]}>Roster data not available</Text>
         </View>
       );
     }
@@ -1378,7 +1422,7 @@ const GameDetailsScreen = ({ route }) => {
           )
           .map((positionGroup, groupIndex) => (
           <View key={groupIndex} style={styles.rosterSection}>
-            <Text style={[styles.rosterSectionTitle, { color: colors.primary }]}>
+            <Text allowFontScaling={false} style={[styles.rosterSectionTitle, { color: colors.primary }]}>
               {formatPositionGroupName(positionGroup.position) || `Position Group ${groupIndex + 1}`}
             </Text>
             <View style={styles.rosterPlayersList}>
@@ -1406,18 +1450,18 @@ const GameDetailsScreen = ({ route }) => {
                     {/* Player Name Row */}
                     <View style={[styles.rosterTableRow, { borderBottomColor: theme.border }]}>
                       <View style={styles.rosterTablePlayerCell}>
-                        <Text style={[styles.rosterTablePlayerName, { color: theme.text }]}>
+                        <Text allowFontScaling={false} style={[styles.rosterTablePlayerName, { color: theme.text }]}>
                           {player.displayName || `${player.firstName || ''} ${player.lastName || ''}`.trim()}
                         </Text>
-                        <Text style={[styles.rosterTablePlayerDetails, { color: theme.textSecondary }]}>
-                          <Text style={[styles.rosterTablePlayerNumber, { color: theme.textTertiary }]}>#{player.jersey || 'N/A'}</Text> • {player.position?.abbreviation || positionGroup.position || 'N/A'}
+                        <Text allowFontScaling={false} style={[styles.rosterTablePlayerDetails, { color: theme.textSecondary }]}>
+                          <Text allowFontScaling={false} style={[styles.rosterTablePlayerNumber, { color: theme.textTertiary }]}>#{player.jersey || 'N/A'}</Text> • {player.position?.abbreviation || positionGroup.position || 'N/A'}
                         </Text>
                       </View>
                     </View>
                     
                     {/* Status Row */}
                     <View style={[styles.rosterTableStatusRow, { backgroundColor: theme.surfaceSecondary }]}>
-                      <Text style={[styles.rosterTableStatusText, { color: statusColor }]}>
+                      <Text allowFontScaling={false} style={[styles.rosterTableStatusText, { color: statusColor }]}>
                         {statusText || 'Active'}
                       </Text>
                     </View>
@@ -1445,9 +1489,14 @@ const GameDetailsScreen = ({ route }) => {
               team={team?.team}
               style={styles.teamBoxScoreLogo}
             />
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>{team?.team?.displayName || team?.team?.name} {sectionTitle}</Text>
+            <Text allowFontScaling={false} style={[
+              styles.sectionTitle, 
+              { color: theme.text }
+            ]}>
+              {team?.team?.displayName || team?.team?.name} {sectionTitle}
+            </Text>
           </View>
-          <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>Box score data not available</Text>
+          <Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.textSecondary }]}>Box score data not available</Text>
         </View>
       );
     }
@@ -1461,7 +1510,12 @@ const GameDetailsScreen = ({ route }) => {
               team={team?.team}
               style={styles.teamBoxScoreLogo}
             />
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>{team?.team?.displayName || team?.team?.name} {sectionTitle}</Text>
+            <Text allowFontScaling={false} style={[
+              styles.sectionTitle, 
+              { color: theme.text }
+            ]}>
+              {team?.team?.displayName || team?.team?.name} {sectionTitle}
+            </Text>
           </View>
           <View style={[styles.teamBoxScoreContainer, { backgroundColor: theme.surfaceSecondary }]}>
             {renderTeamRoster(team)}
@@ -1484,9 +1538,14 @@ const GameDetailsScreen = ({ route }) => {
               team={team?.team}
               style={styles.teamBoxScoreLogo}
             />
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>{team?.team?.displayName || team?.team?.name} {sectionTitle}</Text>
+            <Text allowFontScaling={false} style={[
+              styles.sectionTitle, 
+              { color: theme.text }
+            ]}>
+              {team?.team?.displayName || team?.team?.name} {sectionTitle}
+            </Text>
           </View>
-          <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>No statistics available for this team</Text>
+          <Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.textSecondary }]}>No statistics available for this team</Text>
         </View>
       );
     }
@@ -1498,7 +1557,12 @@ const GameDetailsScreen = ({ route }) => {
             team={team?.team}
             style={styles.teamBoxScoreLogo}
           />
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>{team?.team?.displayName || team?.team?.name} {sectionTitle}</Text>
+          <Text allowFontScaling={false} style={[
+            styles.sectionTitle, 
+            { color: theme.text }
+          ]}>
+            {team?.team?.displayName || team?.team?.name} {sectionTitle}
+          </Text>
         </View>
         <View style={[styles.teamBoxScoreContainer, { backgroundColor: theme.surfaceSecondary }]}>
           {teamBoxScore.statistics.map((statCategory, categoryIndex) => {
@@ -1506,15 +1570,15 @@ const GameDetailsScreen = ({ route }) => {
 
             return (
               <View key={categoryIndex} style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
-                <Text style={[styles.statCategoryTitle, { color: theme.text }]}>
+                <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: theme.text }]}>
                   {statCategory.text || statCategory.name.charAt(0).toUpperCase() + statCategory.name.slice(1)}
                 </Text>
                 
                 {/* Header */}
                 <View style={[styles.statTableHeader, { backgroundColor: theme.surfaceSecondary }]}>
-                  <Text style={[styles.statTableHeaderPlayer, { color: theme.text }]}>Player</Text>
+                  <Text allowFontScaling={false} style={[styles.statTableHeaderPlayer, { color: theme.text }]}>Player</Text>
                   {(statCategory.labels || []).slice(0, 4).map((label, labelIndex) => (
-                    <Text key={labelIndex} style={[styles.statTableHeaderStat, { color: theme.text }]}>
+                    <Text allowFontScaling={false} key={labelIndex} style={[styles.statTableHeaderStat, { color: theme.text }]}>
                       {label}
                     </Text>
                   ))}
@@ -1533,13 +1597,13 @@ const GameDetailsScreen = ({ route }) => {
                       activeOpacity={0.7}
                     >
                       <View style={styles.statTablePlayerCell}>
-                        <Text style={[styles.statTablePlayerName, { color: theme.text }]} numberOfLines={1}>
+                        <Text allowFontScaling={false} style={[styles.statTablePlayerName, { color: theme.text }]} numberOfLines={1}>
                           {player.firstName ? `${player.firstName.charAt(0)}. ` : ''}{player.lastName || player.displayName || 'Unknown'}
                         </Text>
-                        <Text style={[styles.statTablePlayerNumber, { color: theme.textTertiary }]} >#{player.jersey || 'N/A'}</Text>
+                        <Text allowFontScaling={false} style={[styles.statTablePlayerNumber, { color: theme.textTertiary }]} >#{player.jersey || 'N/A'}</Text>
                       </View>
                       {stats.slice(0, 4).map((stat, statIndex) => (
-                        <Text key={statIndex} style={[styles.statTableStatCell, { color: theme.text }]}>{stat || '0'}</Text>
+                        <Text allowFontScaling={false} key={statIndex} style={[styles.statTableStatCell, { color: theme.text }]}>{stat || '0'}</Text>
                       ))}
                     </TouchableOpacity>
                   );
@@ -1558,10 +1622,10 @@ const GameDetailsScreen = ({ route }) => {
     if (loadingDrives && !drivesData) {
       return (
         <View style={[styles.section, { backgroundColor: theme.background }]}>
-          <Text style={[styles.sectionTitle, { color: colors.primary }]}>Drive Information</Text>
+          <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.primary }]}>Drive Information</Text>
           <View style={[styles.drivesContainer, { backgroundColor: theme.surface }]}>
             <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>Loading drives...</Text>
+            <Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.textSecondary }]}>Loading drives...</Text>
           </View>
         </View>
       );
@@ -1570,9 +1634,9 @@ const GameDetailsScreen = ({ route }) => {
     if (!drivesData || !drivesData.length) {
       return (
         <View style={[styles.section, { backgroundColor: theme.background }]}>
-          <Text style={[styles.sectionTitle, { color: colors.primary }]}>Drive Information</Text>
+          <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.primary }]}>Drive Information</Text>
           <View style={styles.drivesContainer}>
-            <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.textSecondary }]}>
               No drive information available for this game
             </Text>
           </View>
@@ -1582,7 +1646,7 @@ const GameDetailsScreen = ({ route }) => {
 
     return (
       <View style={[styles.section, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.sectionTitle, { color: colors.primary }]}>Drive Information</Text>
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.primary }]}>Drive Information</Text>
         <ScrollView style={styles.drivesScrollView}>
           {[...drivesData].reverse().map((drive, index) => {
             const driveNumber = drivesData.length - index;
@@ -1602,15 +1666,15 @@ const GameDetailsScreen = ({ route }) => {
                         style={styles.driveTeamLogo}
                       />
                     )}
-                    <Text style={[styles.driveTeamName, { color: theme.text }]}>{drive.team?.displayName || 'Unknown Team'}</Text>
+                    <Text allowFontScaling={false} style={[styles.driveTeamName, { color: theme.text }]}>{drive.team?.displayName || 'Unknown Team'}</Text>
                   </View>
-                  <Text style={[styles.driveNumber, { color: colors.primary }]}>{`Drive ${driveNumber}`}</Text>
+                  <Text allowFontScaling={false} style={[styles.driveNumber, { color: colors.primary }]}>{`Drive ${driveNumber}`}</Text>
                 </View>
 
                 <View style={styles.driveDetails}>
-                  <Text style={[styles.driveResult, { color: colors.primary }]}>{drive.displayResult || drive.result || 'In Progress'}</Text>
+                  <Text allowFontScaling={false} style={[styles.driveResult, { color: colors.primary }]}>{drive.displayResult || drive.result || 'In Progress'}</Text>
                   {drive.description && (
-                    <Text style={[styles.driveDescription, { color: theme.textTertiary }]}>{drive.description}</Text>
+                    <Text allowFontScaling={false} style={[styles.driveDescription, { color: theme.textTertiary }]}>{drive.description}</Text>
                   )}
                 </View>
 
@@ -1619,8 +1683,8 @@ const GameDetailsScreen = ({ route }) => {
 
                 <View style={[styles.driveStats, { backgroundColor: theme.surface }]}>
                   <View style={styles.driveStatItem}>
-                    <Text style={[styles.driveStatLabel, { color: theme.textSecondary }]}>Start</Text>
-                    <Text style={[styles.driveStatValue, { color: theme.text }]}>{drive.start?.text || 'N/A'}</Text>
+                    <Text allowFontScaling={false} style={[styles.driveStatLabel, { color: theme.textSecondary }]}>Start</Text>
+                    <Text allowFontScaling={false} style={[styles.driveStatValue, { color: theme.text }]}>{drive.start?.text || 'N/A'}</Text>
                   </View>
                   
                   {/* Show End for completed drives or Current for drives in progress */}
@@ -1630,8 +1694,8 @@ const GameDetailsScreen = ({ route }) => {
                     if (driveEnded) {
                       return (
                         <View style={styles.driveStatItem}>
-                          <Text style={[styles.driveStatLabel, { color: theme.textSecondary }]}>End</Text>
-                          <Text style={[styles.driveStatValue, { color: theme.text }]}>{drive.end.text}</Text>
+                          <Text allowFontScaling={false} style={[styles.driveStatLabel, { color: theme.textSecondary }]}>End</Text>
+                          <Text allowFontScaling={false} style={[styles.driveStatValue, { color: theme.text }]}>{drive.end.text}</Text>
                         </View>
                       );
                     } else {
@@ -1670,8 +1734,8 @@ const GameDetailsScreen = ({ route }) => {
                       
                       return (
                         <View style={styles.driveStatItem}>
-                          <Text style={[styles.driveStatLabel, { color: theme.textSecondary }]}>Current</Text>
-                          <Text style={[styles.driveStatValue, { color: theme.text }]}>{currentPosition}</Text>
+                          <Text allowFontScaling={false} style={[styles.driveStatLabel, { color: theme.textSecondary }]}>Current</Text>
+                          <Text allowFontScaling={false} style={[styles.driveStatValue, { color: theme.text }]}>{currentPosition}</Text>
                         </View>
                       );
                     }
@@ -1679,21 +1743,21 @@ const GameDetailsScreen = ({ route }) => {
                   
                   {drive.timeElapsed?.displayValue && (
                     <View style={styles.driveStatItem}>
-                      <Text style={[styles.driveStatLabel, { color: theme.textSecondary }]}>Time</Text>
-                      <Text style={[styles.driveStatValue, { color: theme.text }]}>{drive.timeElapsed.displayValue}</Text>
+                      <Text allowFontScaling={false} style={[styles.driveStatLabel, { color: theme.textSecondary }]}>Time</Text>
+                      <Text allowFontScaling={false} style={[styles.driveStatValue, { color: theme.text }]}>{drive.timeElapsed.displayValue}</Text>
                     </View>
                   )}
                   {drive.plays && drive.plays.length > 0 && (
                     <View style={styles.driveStatItem}>
-                      <Text style={[styles.driveStatLabel, { color: theme.textSecondary }]}>Plays</Text>
-                      <Text style={[styles.driveStatValue, { color: theme.text }]}>{drive.plays.length}</Text>
+                      <Text allowFontScaling={false} style={[styles.driveStatLabel, { color: theme.textSecondary }]}>Plays</Text>
+                      <Text allowFontScaling={false} style={[styles.driveStatValue, { color: theme.text }]}>{drive.plays.length}</Text>
                     </View>
                   )}
                 </View>
 
                 {/* Tap indicator */}
                 <View style={[styles.tapIndicator, { borderTopColor: theme.border }]}>
-                  <Text style={[styles.tapIndicatorText, { color: theme.textSecondary }]}>Tap to view plays</Text>
+                  <Text allowFontScaling={false} style={[styles.tapIndicatorText, { color: theme.textSecondary }]}>Tap to view plays</Text>
                 </View>
               </TouchableOpacity>
             );
@@ -1708,10 +1772,10 @@ const GameDetailsScreen = ({ route }) => {
     if (loadingSummary) {
       return (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Game Summary</Text>
+          <Text allowFontScaling={false} style={styles.sectionTitle}>Game Summary</Text>
           <View style={styles.summaryContainer}>
             <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={styles.placeholderText}>Loading summary...</Text>
+            <Text allowFontScaling={false} style={styles.placeholderText}>Loading summary...</Text>
           </View>
         </View>
       );
@@ -1720,9 +1784,9 @@ const GameDetailsScreen = ({ route }) => {
     if (!summaryData) {
       return (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Game Summary</Text>
+          <Text allowFontScaling={false} style={styles.sectionTitle}>Game Summary</Text>
           <View style={styles.summaryContainer}>
-            <Text style={styles.placeholderText}>
+            <Text allowFontScaling={false} style={styles.placeholderText}>
               No summary information available for this game
             </Text>
           </View>
@@ -1732,13 +1796,13 @@ const GameDetailsScreen = ({ route }) => {
 
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Game Summary</Text>
+        <Text allowFontScaling={false} style={styles.sectionTitle}>Game Summary</Text>
         <ScrollView style={styles.summaryScrollView}>
           {/* Game Recap */}
           {summaryData.recap && (
             <View style={styles.summaryCard}>
-              <Text style={styles.summarySectionTitle}>Recap</Text>
-              <Text style={styles.summaryText}>
+              <Text allowFontScaling={false} style={styles.summarySectionTitle}>Recap</Text>
+              <Text allowFontScaling={false} style={styles.summaryText}>
                 {summaryData.recap.headline || summaryData.recap.description || 'No recap available'}
               </Text>
             </View>
@@ -1747,11 +1811,11 @@ const GameDetailsScreen = ({ route }) => {
           {/* Highlights */}
           {summaryData.highlights && summaryData.highlights.length > 0 && (
             <View style={styles.summaryCard}>
-              <Text style={styles.summarySectionTitle}>Highlights</Text>
+              <Text allowFontScaling={false} style={styles.summarySectionTitle}>Highlights</Text>
               {summaryData.highlights.map((highlight, index) => (
                 <View key={index} style={[styles.highlightItem, { borderBottomColor: theme.border }]}>
-                  <Text style={styles.highlightTitle}>{highlight.headline || highlight.title}</Text>
-                  <Text style={styles.highlightDescription}>
+                  <Text allowFontScaling={false} style={styles.highlightTitle}>{highlight.headline || highlight.title}</Text>
+                  <Text allowFontScaling={false} style={styles.highlightDescription}>
                     {highlight.description || 'No description available'}
                   </Text>
                 </View>
@@ -1762,11 +1826,11 @@ const GameDetailsScreen = ({ route }) => {
           {/* News */}
           {summaryData.news && summaryData.news.length > 0 && (
             <View style={styles.summaryCard}>
-              <Text style={styles.summarySectionTitle}>News</Text>
+              <Text allowFontScaling={false} style={styles.summarySectionTitle}>News</Text>
               {summaryData.news.slice(0, 3).map((article, index) => (
                 <View key={index} style={styles.newsItem}>
-                  <Text style={styles.newsTitle}>{article.headline}</Text>
-                  <Text style={styles.newsDescription}>
+                  <Text allowFontScaling={false} style={styles.newsTitle}>{article.headline}</Text>
+                  <Text allowFontScaling={false} style={styles.newsDescription}>
                     {article.description || 'No description available'}
                   </Text>
                 </View>
@@ -1777,8 +1841,8 @@ const GameDetailsScreen = ({ route }) => {
           {/* Win Probability */}
           {summaryData.winprobability && (
             <View style={styles.summaryCard}>
-              <Text style={styles.summarySectionTitle}>Win Probability</Text>
-              <Text style={styles.summaryText}>
+              <Text allowFontScaling={false} style={styles.summarySectionTitle}>Win Probability</Text>
+              <Text allowFontScaling={false} style={styles.summaryText}>
                 Win probability data available (chart display would require additional implementation)
               </Text>
             </View>
@@ -1793,10 +1857,10 @@ const GameDetailsScreen = ({ route }) => {
     if (loadingPlays) {
       return (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Play-by-Play</Text>
+          <Text allowFontScaling={false} style={styles.sectionTitle}>Play-by-Play</Text>
           <View style={styles.playsContainer}>
             <ActivityIndicator size="small" color="#013369" />
-            <Text style={styles.placeholderText}>Loading plays...</Text>
+            <Text allowFontScaling={false} style={styles.placeholderText}>Loading plays...</Text>
           </View>
         </View>
       );
@@ -1805,9 +1869,9 @@ const GameDetailsScreen = ({ route }) => {
     if (!playsData || playsData.length === 0) {
       return (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Play-by-Play</Text>
+          <Text allowFontScaling={false} style={styles.sectionTitle}>Play-by-Play</Text>
           <View style={styles.playsContainer}>
-            <Text style={styles.placeholderText}>
+            <Text allowFontScaling={false} style={styles.placeholderText}>
               No play-by-play information available for this game
             </Text>
           </View>
@@ -1817,27 +1881,27 @@ const GameDetailsScreen = ({ route }) => {
 
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Play-by-Play</Text>
+        <Text allowFontScaling={false} style={styles.sectionTitle}>Play-by-Play</Text>
         <ScrollView style={styles.playsScrollView}>
           {playsData.reverse().map((play, index) => (
             <View key={`play-${play.id || index}`} style={styles.playCard}>
               <View style={styles.playHeader}>
-                <Text style={styles.playSequence}>Play {playsData.length - index}</Text>
+                <Text allowFontScaling={false} style={styles.playSequence}>Play {playsData.length - index}</Text>
                 {play.clock?.displayValue && play.period?.number && (
-                  <Text style={styles.playTime}>
+                  <Text allowFontScaling={false} style={styles.playTime}>
                     Q{play.period.number} {play.clock.displayValue}
                   </Text>
                 )}
               </View>
               
-              <Text style={styles.playText}>
+              <Text allowFontScaling={false} style={styles.playText}>
                 {play.text || 'No play description available'}
               </Text>
               
               {/* Down and Distance Info */}
               {(play.down?.number || play.distance?.yards || play.type?.text) && (
                 <View style={styles.playDetails}>
-                  <Text style={styles.playDetailsText}>
+                  <Text allowFontScaling={false} style={styles.playDetailsText}>
                     {[
                       play.down?.number && play.distance?.yards && 
                         `${play.down.number}${play.down.number === 1 ? 'st' : play.down.number === 2 ? 'nd' : play.down.number === 3 ? 'rd' : 'th'} & ${play.distance.yards}`,
@@ -1851,7 +1915,7 @@ const GameDetailsScreen = ({ route }) => {
               {/* Field Position */}
               {(play.start?.yardLine !== undefined || play.end?.yardLine !== undefined) && (
                 <View style={styles.playFieldPosition}>
-                  <Text style={styles.playFieldText}>
+                  <Text allowFontScaling={false} style={styles.playFieldText}>
                     {play.start?.text && play.end?.text && 
                       `${play.start.text} → ${play.end.text}`}
                   </Text>
@@ -1906,7 +1970,14 @@ const GameDetailsScreen = ({ route }) => {
             style={styles.stickyTeamLogo}
             isLosingTeam={isAwayTeamLosing}
           />
-          <Text style={getStickyTeamScoreStyle(isAwayTeamLosing)}>{awayTeam?.score || '0'}</Text>
+          <Text allowFontScaling={false} style={getStickyTeamScoreStyle(isAwayTeamLosing)}>{awayTeam?.score || '0'}</Text>
+          <Text allowFontScaling={false} style={[
+            styles.stickyTeamName, 
+            { color: isFavorite(getNFLTeamId(awayTeam?.team)) ? colors.primary : (isAwayTeamLosing ? theme.textSecondary : theme.text) }
+          ]}>
+            {isFavorite(getNFLTeamId(awayTeam?.team)) && '★ '}
+            {getNFLTeamAbbreviation(awayTeam?.team) || 'AWAY'}
+          </Text>
           {/* Possession indicator for away team */}
           {(() => {
             // Find possession from drives data
@@ -1920,14 +1991,14 @@ const GameDetailsScreen = ({ route }) => {
             const showPossession = possessionTeamId === awayTeam?.team?.id;
             
             return showPossession ? (
-              <Text style={styles.stickyPossessionIndicator}>🏈</Text>
+              <Text allowFontScaling={false} style={styles.stickyPossessionIndicator}>🏈</Text>
             ) : null;
           })()}
         </View>
 
         {/* Status and Time */}
         <View style={styles.stickyStatus}>
-          <Text style={[styles.stickyStatusText, { color: colors.primary }]}>
+          <Text allowFontScaling={false} style={[styles.stickyStatusText, { color: colors.primary }]}>
             {status?.type?.completed ? 'Final' :
              status?.type?.description === 'Halftime' ? 'Halftime' :
              status?.period && status?.period > 0 && !status?.type?.completed ? 
@@ -1936,11 +2007,11 @@ const GameDetailsScreen = ({ route }) => {
           </Text>
           {/* Show clock for in-progress games or start time for scheduled games */}
           {status?.displayClock && !status?.type?.completed && status?.type?.description !== 'Halftime' ? (
-            <Text style={[styles.stickyClock, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.stickyClock, { color: theme.textSecondary }]}>
               {status.displayClock}
             </Text>
           ) : (!status?.type?.completed && !status?.period && gameDate) ? (
-            <Text style={[styles.stickyClock, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.stickyClock, { color: theme.textSecondary }]}>
               {new Date(gameDate).toLocaleTimeString("en-US", {
                 hour: "numeric",
                 minute: "2-digit",
@@ -1965,10 +2036,17 @@ const GameDetailsScreen = ({ route }) => {
             const showPossession = possessionTeamId === homeTeam?.team?.id;
             
             return showPossession ? (
-              <Text style={styles.stickyPossessionIndicator}>🏈</Text>
+              <Text allowFontScaling={false} style={styles.stickyPossessionIndicator}>🏈</Text>
             ) : null;
           })()}
-          <Text style={getStickyTeamScoreStyle(isHomeTeamLosing)}>{homeTeam?.score || '0'}</Text>
+          <Text allowFontScaling={false} style={[
+            styles.stickyTeamName, 
+            { color: isFavorite(getNFLTeamId(homeTeam?.team)) ? colors.primary : (isHomeTeamLosing ? theme.textSecondary : theme.text) }
+          ]}>
+            {isFavorite(getNFLTeamId(homeTeam?.team)) && '★ '}
+            {getNFLTeamAbbreviation(homeTeam?.team) || 'HOME'}
+          </Text>
+          <Text allowFontScaling={false} style={getStickyTeamScoreStyle(isHomeTeamLosing)}>{homeTeam?.score || '0'}</Text>
           <TeamLogoImage 
             team={homeTeam?.team}
             style={styles.stickyTeamLogo}
@@ -2052,7 +2130,7 @@ const GameDetailsScreen = ({ route }) => {
           })()}
           {/* Away Team */}
           <View style={styles.team}>
-            <Text style={getTeamScoreStyle(isAwayTeamLosing)}>{awayTeam?.score || '0'}</Text>
+            <Text allowFontScaling={false} style={getTeamScoreStyle(isAwayTeamLosing)}>{awayTeam?.score || '0'}</Text>
             <View style={styles.teamLogoContainer}>
               {/* Possession indicator for away team (not during halftime) */}
               {(() => {
@@ -2067,7 +2145,7 @@ const GameDetailsScreen = ({ route }) => {
                 const showPossession = possessionTeamId === awayTeam?.team?.id;
                 
                 return showPossession ? (
-                  <Text style={[styles.possessionIndicator, styles.awayPossession]}>🏈</Text>
+                  <Text allowFontScaling={false} style={[styles.possessionIndicator, styles.awayPossession]}>🏈</Text>
                 ) : null;
               })()}
               <TeamLogoImage 
@@ -2077,14 +2155,20 @@ const GameDetailsScreen = ({ route }) => {
               />
             </View>
             <View style={styles.teamNameContainer}>
-              <Text style={getTeamNameStyle(isAwayTeamLosing)}>{awayTeam?.team?.abbreviation || awayTeam?.team?.shortDisplayName || awayTeam?.team?.name}</Text>
+              <Text allowFontScaling={false} style={[
+                getTeamNameStyle(isAwayTeamLosing), 
+                { color: isFavorite(getNFLTeamId(awayTeam?.team)) ? colors.primary : (isAwayTeamLosing ? theme.textSecondary : theme.text) }
+              ]}>
+                {isFavorite(getNFLTeamId(awayTeam?.team)) && '★ '}
+                {awayTeam?.team?.abbreviation || awayTeam?.team?.shortDisplayName || awayTeam?.team?.name}
+              </Text>
             </View>
           </View>
 
           {/* VS/Quarter Info */}
           <View style={styles.vsContainer}>
-            <Text style={[styles.vsText, { color: theme.textSecondary }]}>VS</Text>
-            <Text style={[styles.gameStatus, { color: colors.primary }]}>
+            <Text allowFontScaling={false} style={[styles.vsText, { color: theme.textSecondary }]}>VS</Text>
+            <Text allowFontScaling={false} style={[styles.gameStatus, { color: colors.primary }]}>
               {status?.type?.completed ? 'Final' :
                status?.type?.description === 'Halftime' ? 'Halftime' :
                status?.period && status?.period > 0 && !status?.type?.completed ? 
@@ -2093,11 +2177,11 @@ const GameDetailsScreen = ({ route }) => {
             </Text>
             {/* Show clock for in-progress games or start time for scheduled games */}
             {status?.displayClock && !status?.type?.completed && status?.type?.description !== 'Halftime' ? (
-              <Text style={[styles.gameClock, { color: theme.textSecondary }]}>
+              <Text allowFontScaling={false} style={[styles.gameClock, { color: theme.textSecondary }]}>
                 {status.displayClock}
               </Text>
             ) : (!status?.type?.completed && !status?.period && gameDate) ? (
-              <Text style={[styles.gameClock, { color: theme.textSecondary }]}>
+              <Text allowFontScaling={false} style={[styles.gameClock, { color: theme.textSecondary }]}>
                 {new Date(gameDate).toLocaleTimeString("en-US", {
                   hour: "numeric",
                   minute: "2-digit",
@@ -2109,7 +2193,7 @@ const GameDetailsScreen = ({ route }) => {
 
           {/* Home Team */}
           <View style={styles.team}>
-            <Text style={getTeamScoreStyle(isHomeTeamLosing)}>{homeTeam?.score || '0'}</Text>
+            <Text allowFontScaling={false} style={getTeamScoreStyle(isHomeTeamLosing)}>{homeTeam?.score || '0'}</Text>
             <View style={styles.teamLogoContainer}>
               <TeamLogoImage 
                 team={homeTeam?.team}
@@ -2129,12 +2213,18 @@ const GameDetailsScreen = ({ route }) => {
                 const showPossession = possessionTeamId === homeTeam?.team?.id;
                 
                 return showPossession ? (
-                  <Text style={[styles.possessionIndicator, styles.homePossession]}>🏈</Text>
+                  <Text allowFontScaling={false} style={[styles.possessionIndicator, styles.homePossession]}>🏈</Text>
                 ) : null;
               })()}
             </View>
             <View style={styles.teamNameContainer}>
-              <Text style={getTeamNameStyle(isHomeTeamLosing)}>{homeTeam?.team?.abbreviation || homeTeam?.team?.shortDisplayName || homeTeam?.team?.name}</Text>
+              <Text allowFontScaling={false} style={[
+                getTeamNameStyle(isHomeTeamLosing), 
+                { color: isFavorite(getNFLTeamId(homeTeam?.team)) ? colors.primary : (isHomeTeamLosing ? theme.textSecondary : theme.text) }
+              ]}>
+                {isFavorite(getNFLTeamId(homeTeam?.team)) && '★ '}
+                {homeTeam?.team?.abbreviation || homeTeam?.team?.shortDisplayName || homeTeam?.team?.name}
+              </Text>
             </View>
           </View>
         </View>
@@ -2171,7 +2261,7 @@ const GameDetailsScreen = ({ route }) => {
                         style={styles.endZoneLogo}
                       />
                     ) : (
-                      <Text style={styles.yardLineNumber}>
+                      <Text allowFontScaling={false} style={styles.yardLineNumber}>
                         {yard}
                       </Text>
                     )}
@@ -2251,7 +2341,7 @@ const GameDetailsScreen = ({ route }) => {
                       { left: `${Math.max(2, Math.min(98, ballPosition))}%` }
                     ]}
                   >
-                    <Text style={styles.ballIcon}>🏈</Text>
+                    <Text allowFontScaling={false} style={styles.ballIcon}>🏈</Text>
                   </View>
                 );
               })()}
@@ -2286,11 +2376,11 @@ const GameDetailsScreen = ({ route }) => {
               
               return (
                 <View style={styles.headerDownAndDistance}>
-                  <Text style={[styles.headerDownText, { color: colors.primary }]}>
+                  <Text allowFontScaling={false} style={[styles.headerDownText, { color: colors.primary }]}>
                     {shortDownDistanceText || `${['1st', '2nd', '3rd', '4th'][down - 1]} & ${distance}`}
                   </Text>
                   {possessionText && (
-                    <Text style={[styles.headerPossessionText, { color: theme.textSecondary }]}>
+                    <Text allowFontScaling={false} style={[styles.headerPossessionText, { color: theme.textSecondary }]}>
                       {possessionText}
                     </Text>
                   )}
@@ -2300,10 +2390,10 @@ const GameDetailsScreen = ({ route }) => {
           </View>
         ) : (
           <View style={styles.gameInfo}>
-            <Text style={[styles.venue, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.venue, { color: theme.textSecondary }]}>
               {venue || competition?.venue || 'TBD'}
             </Text>
-            <Text style={[styles.date, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.date, { color: theme.textSecondary }]}>
               {gameDate ? new Date(gameDate).toLocaleDateString('en-US', {
                 weekday: 'long',
                 year: 'numeric',
@@ -2326,7 +2416,7 @@ const GameDetailsScreen = ({ route }) => {
           ]}
           onPress={() => setActiveTab('stats')}
         >
-          <Text style={[
+          <Text allowFontScaling={false} style={[
             styles.tabText, 
             { color: activeTab === 'stats' ? '#fff' : theme.text }
           ]}>Stats</Text>
@@ -2338,7 +2428,7 @@ const GameDetailsScreen = ({ route }) => {
           ]}
           onPress={() => setActiveTab('away')}
         >
-          <Text style={[
+          <Text allowFontScaling={false} style={[
             styles.tabText, 
             { color: activeTab === 'away' ? '#fff' : theme.text }
           ]}>Away</Text>
@@ -2350,7 +2440,7 @@ const GameDetailsScreen = ({ route }) => {
           ]}
           onPress={() => setActiveTab('home')}
         >
-          <Text style={[
+          <Text allowFontScaling={false} style={[
             styles.tabText, 
             { color: activeTab === 'home' ? '#fff' : theme.text }
           ]}>Home</Text>
@@ -2368,7 +2458,7 @@ const GameDetailsScreen = ({ route }) => {
             ]}
             onPress={() => setActiveTab('drives')}
           >
-            <Text style={[
+            <Text allowFontScaling={false} style={[
               styles.tabText, 
               { color: activeTab === 'drives' ? '#fff' : theme.text }
             ]}>Drives</Text>
@@ -2390,7 +2480,7 @@ const GameDetailsScreen = ({ route }) => {
           <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
             {/* Close Button */}
             <TouchableOpacity style={[styles.modalCloseButton, { backgroundColor: theme.error }]} onPress={closePlayerModal}>
-              <Text style={[styles.modalCloseText, { color: '#fff' }]}>×</Text>
+              <Text allowFontScaling={false} style={[styles.modalCloseText, { color: '#fff' }]}>×</Text>
             </TouchableOpacity>
 
             {selectedPlayer && (
@@ -2405,8 +2495,8 @@ const GameDetailsScreen = ({ route }) => {
                     defaultSource={{ uri: 'https://via.placeholder.com/80x80?text=Player' }}
                   />
                   <View style={styles.playerInfo}>
-                    <Text style={[styles.playerName, { color: theme.text }]}>
-                      {selectedPlayer.displayName || `${selectedPlayer.firstName || ''} ${selectedPlayer.lastName || ''}`.trim()} <Text style={[styles.playerDetails, { color: theme.textSecondary }]}>#{selectedPlayer.jersey || 'N/A'}</Text>
+                    <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>
+                      {selectedPlayer.displayName || `${selectedPlayer.firstName || ''} ${selectedPlayer.lastName || ''}`.trim()} <Text allowFontScaling={false} style={[styles.playerDetails, { color: theme.textSecondary }]}>#{selectedPlayer.jersey || 'N/A'}</Text>
                     </Text>
                     <View style={styles.playerTeamInfo}>
                       {selectedPlayer.team?.team && (
@@ -2415,7 +2505,7 @@ const GameDetailsScreen = ({ route }) => {
                           style={styles.playerTeamLogo}
                         />
                       )}
-                      <Text style={[styles.playerTeamName, { color: theme.textSecondary }]}>
+                      <Text allowFontScaling={false} style={[styles.playerTeamName, { color: theme.textSecondary }]}>
                         {selectedPlayer.team?.team?.displayName || selectedPlayer.team?.team?.name || selectedPlayer.team?.team?.abbreviation || 'No team info'}
                       </Text>
                     </View>
@@ -2427,14 +2517,14 @@ const GameDetailsScreen = ({ route }) => {
                   {loadingPlayerStats ? (
                     <View style={styles.playerStatsLoading}>
                       <ActivityIndicator size="large" color={colors.primary} />
-                      <Text style={styles.loadingText}>Loading player stats...</Text>
+                      <Text allowFontScaling={false} style={styles.loadingText}>Loading player stats...</Text>
                     </View>
                   ) : playerStats ? (
                     <View style={styles.playerStatsContent}>
                       {renderPositionSpecificStats(playerStats, selectedPlayer?.position?.abbreviation || selectedPlayer?.position)}
                     </View>
                   ) : (
-                    <Text style={styles.noStatsText}>Unable to load player statistics</Text>
+                    <Text allowFontScaling={false} style={styles.noStatsText}>Unable to load player statistics</Text>
                   )}
                 </View>
               </>
@@ -2454,7 +2544,7 @@ const GameDetailsScreen = ({ route }) => {
           <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
             {/* Close Button */}
             <TouchableOpacity style={[styles.modalCloseButton, { backgroundColor: theme.error }]} onPress={closeDriveModal}>
-              <Text style={[styles.modalCloseText, { color: '#fff' }]}>×</Text>
+              <Text allowFontScaling={false} style={[styles.modalCloseText, { color: '#fff' }]}>×</Text>
             </TouchableOpacity>
 
             {selectedDrive && (
@@ -2469,12 +2559,12 @@ const GameDetailsScreen = ({ route }) => {
                       />
                     )}
                     <View>
-                      <Text style={[styles.driveModalTeamName, {color: theme.text}]}>{selectedDrive.team?.displayName || 'Unknown Team'}</Text>
-                      <Text style={[styles.driveModalResult, {color: colors.primary}]}>{selectedDrive.displayResult || selectedDrive.result || 'In Progress'}</Text>
+                      <Text allowFontScaling={false} style={[styles.driveModalTeamName, {color: theme.text}]}>{selectedDrive.team?.displayName || 'Unknown Team'}</Text>
+                      <Text allowFontScaling={false} style={[styles.driveModalResult, {color: colors.primary}]}>{selectedDrive.displayResult || selectedDrive.result || 'In Progress'}</Text>
                     </View>
                   </View>
                   <View style={styles.driveModalDescriptionContainer}>
-                    <Text style={[styles.driveModalDescription, {color: theme.textSecondary}]}>
+                    <Text allowFontScaling={false} style={[styles.driveModalDescription, {color: theme.textSecondary}]}>
                       {getDriveSummary(selectedDrive)}
                     </Text>
                   </View>
@@ -2486,8 +2576,8 @@ const GameDetailsScreen = ({ route }) => {
                 {/* Drive Stats */}
                 <View style={[styles.driveModalStats, { backgroundColor: theme.surfaceSecondary }]}>
                   <View style={styles.driveModalStatItem}>
-                    <Text style={[styles.driveModalStatLabel, { color: theme.textSecondary }]}>Start</Text>
-                    <Text style={[styles.driveModalStatValue, { color: theme.text }]}>{selectedDrive.start?.text || 'N/A'}</Text>
+                    <Text allowFontScaling={false} style={[styles.driveModalStatLabel, { color: theme.textSecondary }]}>Start</Text>
+                    <Text allowFontScaling={false} style={[styles.driveModalStatValue, { color: theme.text }]}>{selectedDrive.start?.text || 'N/A'}</Text>
                   </View>
                   
                   {/* Show End for completed drives or Current for drives in progress */}
@@ -2498,8 +2588,8 @@ const GameDetailsScreen = ({ route }) => {
                     if (driveEnded) {
                       return (
                         <View style={styles.driveModalStatItem}>
-                          <Text style={[styles.driveModalStatLabel, { color: theme.textSecondary }]}>End</Text>
-                          <Text style={[styles.driveModalStatValue, { color: theme.text }]}>{selectedDrive.end.text}</Text>
+                          <Text allowFontScaling={false} style={[styles.driveModalStatLabel, { color: theme.textSecondary }]}>End</Text>
+                          <Text allowFontScaling={false} style={[styles.driveModalStatValue, { color: theme.text }]}>{selectedDrive.end.text}</Text>
                         </View>
                       );
                     } else if (driveInProgress) {
@@ -2543,8 +2633,8 @@ const GameDetailsScreen = ({ route }) => {
                       
                       return (
                         <View style={styles.driveModalStatItem}>
-                          <Text style={[styles.driveModalStatLabel, { color: theme.textSecondary }]}>Current</Text>
-                          <Text style={[styles.driveModalStatValue, { color: theme.text }]}>{currentPosition}</Text>
+                          <Text allowFontScaling={false} style={[styles.driveModalStatLabel, { color: theme.textSecondary }]}>Current</Text>
+                          <Text allowFontScaling={false} style={[styles.driveModalStatValue, { color: theme.text }]}>{currentPosition}</Text>
                         </View>
                       );
                     }
@@ -2553,15 +2643,15 @@ const GameDetailsScreen = ({ route }) => {
                   
                   {selectedDrive.timeElapsed?.displayValue && (
                     <View style={styles.driveModalStatItem}>
-                      <Text style={[styles.driveModalStatLabel, { color: theme.textSecondary }]}>Time</Text>
-                      <Text style={[styles.driveModalStatValue, { color: theme.text }]}>{selectedDrive.timeElapsed.displayValue}</Text>
+                      <Text allowFontScaling={false} style={[styles.driveModalStatLabel, { color: theme.textSecondary }]}>Time</Text>
+                      <Text allowFontScaling={false} style={[styles.driveModalStatValue, { color: theme.text }]}>{selectedDrive.timeElapsed.displayValue}</Text>
                     </View>
                   )}
                 </View>
 
                 {/* Plays List */}
                 <View style={[styles.driveModalPlaysContainer, { backgroundColor: theme.surfaceSecondary }]}>
-                  <Text style={[styles.driveModalPlaysTitle, { color: colors.primary }]}>
+                  <Text allowFontScaling={false} style={[styles.driveModalPlaysTitle, { color: colors.primary }]}>
                     Plays ({selectedDrive.plays?.length || 0})
                   </Text>
                   <ScrollView style={styles.driveModalPlaysList}>
@@ -2569,21 +2659,21 @@ const GameDetailsScreen = ({ route }) => {
                       [...selectedDrive.plays].reverse().map((play, index) => (
                         <View key={index} style={[styles.driveModalPlayItem, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                           <View style={styles.driveModalPlayHeader}>
-                            <Text style={[styles.driveModalPlayNumber, { color: colors.primary }]}>Play {selectedDrive.plays.length - index}</Text>
+                            <Text allowFontScaling={false} style={[styles.driveModalPlayNumber, { color: colors.primary }]}>Play {selectedDrive.plays.length - index}</Text>
                             {play.clock?.displayValue && play.period?.number && (
-                              <Text style={[styles.driveModalPlayTime, { color: theme.textSecondary }]}>
+                              <Text allowFontScaling={false} style={[styles.driveModalPlayTime, { color: theme.textSecondary }]}>
                                 Q{play.period.number} {play.clock.displayValue}
                               </Text>
                             )}
                           </View>
-                          <Text style={[styles.driveModalPlayText, { color: theme.text }]}>
+                          <Text allowFontScaling={false} style={[styles.driveModalPlayText, { color: theme.text }]}>
                             {play.text || 'No description available'}
                           </Text>
                           {/* Down and Yard information similar to scoreboard copycard */}
                           {(() => {
                             const downDistanceText = play.start?.downDistanceText || play.end?.downDistanceText || '';
                             return (downDistanceText || play.scoringPlay || play.type?.text) && (
-                              <Text style={[styles.driveModalPlayYards, { color: theme.textSecondary }]}>
+                              <Text allowFontScaling={false} style={[styles.driveModalPlayYards, { color: theme.textSecondary }]}>
                                 {[
                                   downDistanceText,
                                   play.type?.text
@@ -2604,7 +2694,7 @@ const GameDetailsScreen = ({ route }) => {
                         </View>
                       ))
                     ) : (
-                      <Text style={[styles.driveModalNoPlays, { color: theme.textSecondary }]}>No plays available for this drive</Text>
+                      <Text allowFontScaling={false} style={[styles.driveModalNoPlays, { color: theme.textSecondary }]}>No plays available for this drive</Text>
                     )}
                   </ScrollView>
                 </View>
@@ -2672,6 +2762,11 @@ const styles = StyleSheet.create({
     color: '#013369',
     minWidth: 35,
     textAlign: 'center',
+  },
+  stickyTeamName: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginHorizontal: 8,
   },
   stickyStatus: {
     flex: 1,

@@ -548,25 +548,25 @@ const TeamPageScreen = ({ route, navigation }) => {
       <View style={[styles.teamHeader, { backgroundColor: theme.surface }]}>
           <TeamLogoImage team={teamData} style={styles.teamLogoHead} />
         <View style={styles.teamInfo}>
-          <Text style={[styles.teamName, { color: `#${teamData.color}` }]}>{teamData.displayName || teamData.name || teamData.abbreviation}</Text>
-          <Text style={[styles.teamDivision, { color: theme.textSecondary }]}>{teamData.standingSummary || teamData.conference?.name || ''}</Text>
+          <Text allowFontScaling={false} style={[styles.teamName, { color: `#${teamData.color}` }]}>{teamData.displayName || teamData.name || teamData.abbreviation}</Text>
+          <Text allowFontScaling={false} style={[styles.teamDivision, { color: theme.textSecondary }]}>{teamData.standingSummary || teamData.conference?.name || ''}</Text>
           {teamRecord && (
             <View style={styles.recordContainer}>
               <View style={styles.recordRow}>
-                <Text style={[styles.recordValue, { color: `#${teamData.color}` }]}>{teamRecord.wins}-{teamRecord.losses}</Text>
-                <Text style={[styles.recordValue, { color: teamRecord.streak.slice(0, 1) === 'L' ? 'red' : 'green' }]}>{teamRecord.streak}</Text>
-                <Text style={[styles.recordValue, { color: teamRecord.differential.slice(0, 1) === '-' ? 'red' : 'green' }]}>{teamRecord.differential}</Text>
+                <Text allowFontScaling={false} style={[styles.recordValue, { color: `#${teamData.color}` }]}>{teamRecord.wins}-{teamRecord.losses}</Text>
+                <Text allowFontScaling={false} style={[styles.recordValue, { color: teamRecord.streak.slice(0, 1) === 'L' ? 'red' : 'green' }]}>{teamRecord.streak}</Text>
+                <Text allowFontScaling={false} style={[styles.recordValue, { color: teamRecord.differential.slice(0, 1) === '-' ? 'red' : 'green' }]}>{teamRecord.differential}</Text>
               </View>
               <View style={styles.recordRow}>
-                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>RECORD</Text>
-                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>STRK</Text>
-                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>DIFF</Text>
+                <Text allowFontScaling={false} style={[styles.recordLabel, { color: theme.textSecondary }]}>RECORD</Text>
+                <Text allowFontScaling={false} style={[styles.recordLabel, { color: theme.textSecondary }]}>STRK</Text>
+                <Text allowFontScaling={false} style={[styles.recordLabel, { color: theme.textSecondary }]}>DIFF</Text>
               </View>
             </View>
           )}
         </View>
         <TouchableOpacity style={styles.favoriteButton} onPress={handleToggleFavorite} activeOpacity={0.7}>
-          <Text style={[styles.favoriteIcon, { color: isTeamFavorite ? colors.primary : theme.textSecondary }]}>{isTeamFavorite ? '★' : '☆'}</Text>
+          <Text allowFontScaling={false} style={[styles.favoriteIcon, { color: isTeamFavorite ? colors.primary : theme.textSecondary }]}>{isTeamFavorite ? '★' : '☆'}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -578,7 +578,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       <>
         {tabs.map(tab => (
           <TouchableOpacity key={tab} style={[styles.tabButton, activeTab === tab && styles.activeTabButton, { borderBottomColor: activeTab === tab ? colors.primary : 'transparent' }]} onPress={() => setActiveTab(tab)}>
-            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText, { color: activeTab === tab ? colors.primary : theme.textSecondary }]}>{tab}</Text>
+            <Text allowFontScaling={false} style={[styles.tabText, activeTab === tab && styles.activeTabText, { color: activeTab === tab ? colors.primary : theme.textSecondary }]}>{tab}</Text>
           </TouchableOpacity>
         ))}
       </>
@@ -588,8 +588,8 @@ const TeamPageScreen = ({ route, navigation }) => {
   const renderCurrentGame = () => {
     if (!currentGame) return (
       <View style={styles.matchesSection}>
-        <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>Current Game</Text>
-        <View style={[styles.noGameContainer, {backgroundColor: theme.surface}]}><Text style={[styles.noGameText, { color: theme.textSecondary }]}>No current or upcoming games found</Text></View>
+        <Text allowFontScaling={false} style={[styles.gameSectionTitle, { color: colors.primary }]}>Current Game</Text>
+        <View style={[styles.noGameContainer, {backgroundColor: theme.surface}]}><Text allowFontScaling={false} style={[styles.noGameText, { color: theme.textSecondary }]}>No current or upcoming games found</Text></View>
       </View>
     );
 
@@ -671,10 +671,10 @@ const TeamPageScreen = ({ route, navigation }) => {
 
     return (
       <View style={styles.matchesSection}>
-        <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>Current Game</Text>
+        <Text allowFontScaling={false} style={[styles.gameSectionTitle, { color: colors.primary }]}>Current Game</Text>
         <TouchableOpacity style={[styles.gameCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => handleGamePress(currentGame)} activeOpacity={0.8}>
           <View style={[styles.leagueHeader, { backgroundColor: theme.surfaceSecondary }]}>
-            <Text style={[styles.leagueText, { color: colors.primary }]}>
+            <Text allowFontScaling={false} style={[styles.leagueText, { color: colors.primary }]}>
               {competition.notes?.[0]?.headline ? '' : `${currentGame.seasonType?.name || ''}${currentGame.seasonType?.name ? ' - ' : ''}`}
               {getCompetitionName(currentGame.leagueCode) || competition?.name || competition?.league?.name || (competition.notes?.[0]?.headline) || (currentGame.week?.text) || 'NFL'}
             </Text>
@@ -686,35 +686,35 @@ const TeamPageScreen = ({ route, navigation }) => {
                 <TeamLogoImage team={homeTeam.team || homeTeam} style={[styles.teamLogo, homeIsLoser && styles.losingTeamLogo]} />
                 {gameStatus !== 'Scheduled' && (
                   <View style={styles.scoreContainer}>
-                    <Text style={[styles.teamScore, { color: (gameStatus === 'Final' && homeIsWinner) ? colors.primary : (homeIsLoser ? '#999' : theme.text) }]}>{homeScore}</Text>
-                    {homeShootout && <Text style={[styles.shootoutScore, { color: homeIsLoser ? '#999' : colors.primary }]}>{`(${homeShootout})`}</Text>}
+                    <Text allowFontScaling={false} style={[styles.teamScore, { color: (gameStatus === 'Final' && homeIsWinner) ? colors.primary : (homeIsLoser ? '#999' : theme.text) }]}>{homeScore}</Text>
+                    {homeShootout && <Text allowFontScaling={false} style={[styles.shootoutScore, { color: homeIsLoser ? '#999' : colors.primary }]}>{`(${homeShootout})`}</Text>}
                   </View>
                 )}
               </View>
-              <Text style={[styles.teamAbbreviation, { color: isFavorite(homeTeam.team?.id) ? colors.primary : (homeIsLoser ? '#999' : theme.text) }]}>{isFavorite(homeTeam.team?.id) ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}</Text>
+              <Text allowFontScaling={false} style={[styles.teamAbbreviation, { color: isFavorite(homeTeam.team?.id) ? colors.primary : (homeIsLoser ? '#999' : theme.text) }]}>{isFavorite(homeTeam.team?.id) ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}</Text>
             </View>
 
             <View style={styles.statusSection}>
-              <Text style={[styles.gameStatus, { color: gameStatus === 'Current' ? '#ff4444' : colors.primary }]}>{gameStatus}</Text>
-              <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>{formatGameDateEst(estDate)}</Text>
-              <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>{formatGameTimeEst(estDate)} EST</Text>
+              <Text allowFontScaling={false} style={[styles.gameStatus, { color: gameStatus === 'Current' ? '#ff4444' : colors.primary }]}>{gameStatus}</Text>
+              <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>{formatGameDateEst(estDate)}</Text>
+              <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>{formatGameTimeEst(estDate)} EST</Text>
             </View>
 
             <View style={styles.teamSection}>
               <View style={styles.teamLogoRow}>
                 {gameStatus !== 'Scheduled' && (
                   <View style={styles.scoreContainer}>
-                    {awayShootout && <Text style={[styles.shootoutScore, { color: awayIsLoser ? '#999' : colors.primary }]}>{`(${awayShootout})`}</Text>}
-                    <Text style={[styles.teamScore, { color: (gameStatus === 'Final' && awayIsWinner) ? colors.primary : (awayIsLoser ? '#999' : theme.text) }]}>{awayScore}</Text>
+                    {awayShootout && <Text allowFontScaling={false} style={[styles.shootoutScore, { color: awayIsLoser ? '#999' : colors.primary }]}>{`(${awayShootout})`}</Text>}
+                    <Text allowFontScaling={false} style={[styles.teamScore, { color: (gameStatus === 'Final' && awayIsWinner) ? colors.primary : (awayIsLoser ? '#999' : theme.text) }]}>{awayScore}</Text>
                   </View>
                 )}
                 <TeamLogoImage team={awayTeam.team || awayTeam} style={[styles.teamLogo, awayIsLoser && styles.losingTeamLogo]} />
               </View>
-              <Text style={[styles.teamAbbreviation, { color: isFavorite(awayTeam.team?.id) ? colors.primary : (awayIsLoser ? '#999' : theme.text) }]}>{isFavorite(awayTeam.team?.id) ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}</Text>
+              <Text allowFontScaling={false} style={[styles.teamAbbreviation, { color: isFavorite(awayTeam.team?.id) ? colors.primary : (awayIsLoser ? '#999' : theme.text) }]}>{isFavorite(awayTeam.team?.id) ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}</Text>
             </View>
           </View>
 
-          {venueName ? <View style={[styles.venueSection, { borderTopColor: theme.border }]}> <Text style={[styles.venueText, { color: theme.textSecondary }]}> {venueName}</Text></View> : null}
+          {venueName ? <View style={[styles.venueSection, { borderTopColor: theme.border }]}> <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}> {venueName}</Text></View> : null}
         </TouchableOpacity>
       </View>
     );
@@ -855,96 +855,96 @@ const TeamPageScreen = ({ route, navigation }) => {
       >
         {/* League Header */}
         <View style={[styles.leagueHeader, { backgroundColor: theme.surfaceSecondary }]}>
-          <Text style={[styles.leagueText, { color: colors.primary }]}>
+          <Text allowFontScaling={false} style={[styles.leagueText, { color: colors.primary }]}>
             {competition.notes?.[0]?.headline || game.seasonType.name === 'Preseason' ? '' : `${game.seasonType.name} - `} {getCompetitionName(game.leagueCode) || competition?.name || competition?.league?.name || (competition.notes?.[0]?.headline) || (game.week?.text) || 'NFL'}
           </Text>
         </View>
         
         {/* Main Match Content */}
         <View style={styles.matchContent}>
-          {/* Home Team */}
-          <View style={styles.teamSection}>
-            <View style={styles.teamLogoRow}>
-              <TeamLogoImage
-                teamId={homeTeam.team?.abbreviation}
-                style={[styles.teamLogo, homeIsLoser && styles.losingTeamLogo]}
-              />
-              {gameStatus !== 'Scheduled' && (
-                <View style={styles.scoreContainer}>
-                  <Text style={[styles.teamScore, { 
-                    color: gameStatus === 'Final' && homeIsWinner ? colors.primary : 
-                           homeIsLoser ? '#999' : theme.text 
-                  }]}>
-                    {homeScore}
-                  </Text>
-                  {homeShootoutScore && (
-                    <Text style={[
-                      styles.shootoutScore, 
-                      { color: homeIsLoser ? '#999' : colors.primary }
-                    ]}>
-                      ({homeShootoutScore})
-                    </Text>
-                  )}
-                </View>
-              )}
-            </View>
-            <Text style={[styles.teamAbbreviation, { 
-              color: isFavorite(homeTeam.team?.id) ? colors.primary : (homeIsLoser ? '#999' : theme.text)
-            }]}>
-              {isFavorite(homeTeam.team?.id) ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
-            </Text>
-          </View>
-          
-          {/* Status Section */}
-          <View style={styles.statusSection}>
-            <Text style={[styles.gameStatus, { color: gameStatus === 'Current' ? '#ff4444' : colors.primary }]}>
-              {gameStatus}
-            </Text>
-            <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
-              {formatGameDate(gameDate)}
-            </Text>
-            <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
-              {formatGameTime(gameDate)} EST
-            </Text>
-          </View>
-          
           {/* Away Team */}
           <View style={styles.teamSection}>
             <View style={styles.teamLogoRow}>
+              <TeamLogoImage
+                teamId={awayTeam.team?.abbreviation}
+                style={[styles.teamLogo, awayIsLoser && styles.losingTeamLogo]}
+              />
               {gameStatus !== 'Scheduled' && (
                 <View style={styles.scoreContainer}>
+                  <Text allowFontScaling={false} style={[styles.teamScore, { 
+                    color: gameStatus === 'Final' && awayIsWinner ? colors.primary : 
+                           awayIsLoser ? '#999' : theme.text 
+                  }]}>
+                    {awayScore}
+                  </Text>
                   {awayShootoutScore && (
-                    <Text style={[
+                    <Text allowFontScaling={false} style={[
                       styles.shootoutScore, 
                       { color: awayIsLoser ? '#999' : colors.primary }
                     ]}>
                       ({awayShootoutScore})
                     </Text>
                   )}
-                  <Text style={[styles.teamScore, { 
-                    color: gameStatus === 'Final' && awayIsWinner ? colors.primary : 
-                           awayIsLoser ? '#999' : theme.text 
+                </View>
+              )}
+            </View>
+            <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
+              color: isFavorite(awayTeam.team?.id) ? colors.primary : (awayIsLoser ? '#999' : theme.text)
+            }]}>
+              {isFavorite(awayTeam.team?.id) ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
+            </Text>
+          </View>
+          
+          {/* Status Section */}
+          <View style={styles.statusSection}>
+            <Text allowFontScaling={false} style={[styles.gameStatus, { color: gameStatus === 'Current' ? '#ff4444' : colors.primary }]}>
+              {gameStatus}
+            </Text>
+            <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+              {formatGameDate(gameDate)}
+            </Text>
+            <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+              {formatGameTime(gameDate)} EST
+            </Text>
+          </View>
+          
+          {/* Home Team */}
+          <View style={styles.teamSection}>
+            <View style={styles.teamLogoRow}>
+              {gameStatus !== 'Scheduled' && (
+                <View style={styles.scoreContainer}>
+                  {homeShootoutScore && (
+                    <Text allowFontScaling={false} style={[
+                      styles.shootoutScore, 
+                      { color: homeIsLoser ? '#999' : colors.primary }
+                    ]}>
+                      ({homeShootoutScore})
+                    </Text>
+                  )}
+                  <Text allowFontScaling={false} style={[styles.teamScore, { 
+                    color: gameStatus === 'Final' && homeIsWinner ? colors.primary : 
+                           homeIsLoser ? '#999' : theme.text 
                   }]}>
-                    {awayScore}
+                    {homeScore}
                   </Text>
                 </View>
               )}
               <TeamLogoImage
-                teamId={awayTeam.team?.abbreviation}
-                style={[styles.teamLogo, awayIsLoser && styles.losingTeamLogo]}
+                teamId={homeTeam.team?.abbreviation}
+                style={[styles.teamLogo, homeIsLoser && styles.losingTeamLogo]}
               />
             </View>
-            <Text style={[styles.teamAbbreviation, { 
-              color: isFavorite(awayTeam.team?.id) ? colors.primary : (awayIsLoser ? '#999' : theme.text)
+            <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
+              color: isFavorite(homeTeam.team?.id) ? colors.primary : (homeIsLoser ? '#999' : theme.text)
             }]}>
-              {isFavorite(awayTeam.team?.id) ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
+              {isFavorite(homeTeam.team?.id) ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
             </Text>
           </View>
         </View>
         
         {/* Venue */}
         <View style={[styles.venueSection, { borderTopColor: theme.border }]}>
-          <Text style={[styles.venueText, { color: theme.textSecondary }]}>{venue}</Text>
+          <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>{venue}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -952,11 +952,11 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   const renderStatsContent = () => {
     if (loadingStats) return (
-      <View style={styles.statsLoadingContainer}><ActivityIndicator size="large" color={colors.primary} /><Text style={[styles.contentText, { color: theme.textSecondary }]}>Loading team statistics...</Text></View>
+      <View style={styles.statsLoadingContainer}><ActivityIndicator size="large" color={colors.primary} /><Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Loading team statistics...</Text></View>
     );
 
     if (!teamStats) return (
-      <View style={styles.statsLoadingContainer}><Text style={[styles.contentText, { color: theme.textSecondary }]}>Team statistics not available</Text></View>
+      <View style={styles.statsLoadingContainer}><Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Team statistics not available</Text></View>
     );
 
     // teamStats is expected to follow ESPN site API structure with categories and stats
@@ -977,9 +977,9 @@ const TeamPageScreen = ({ route, navigation }) => {
       const rank = stat.rankDisplayValue || stat.rank?.displayValue || null;
       return (
         <View style={[styles.statBox, { backgroundColor: theme.surface }]}> 
-          <Text style={[styles.statBoxValue, { color: colors.primary }]} numberOfLines={1}>{value}</Text>
-          <Text style={[styles.statBoxLabel, { color: theme.textSecondary }]} numberOfLines={2}>{label}</Text>
-          {rank ? <Text style={[styles.statBoxLabel, { color: theme.textTertiary, marginTop: 6 }]} numberOfLines={1}>{rank}</Text> : null}
+          <Text allowFontScaling={false} style={[styles.statBoxValue, { color: colors.primary }]} numberOfLines={1}>{value}</Text>
+          <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]} numberOfLines={2}>{label}</Text>
+          {rank ? <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textTertiary, marginTop: 6 }]} numberOfLines={1}>{rank}</Text> : null}
         </View>
       );
     };
@@ -998,7 +998,7 @@ const TeamPageScreen = ({ route, navigation }) => {
 
     return (
       <ScrollView style={[styles.statsContainer, { backgroundColor: theme.background }]} contentContainerStyle={styles.statsContent} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.statsSectionTitle, { color: theme.text }]}>Team Statistics</Text>
+        <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: theme.text }]}>Team Statistics</Text>
         {/* Render each category */}
         {categories.map((cat, idx) => {
           const statsArr = cat.stats || cat.items || cat.values || [];
@@ -1006,9 +1006,9 @@ const TeamPageScreen = ({ route, navigation }) => {
           const statCards = top.map((s, si) => <StatCard key={`${s.name || s.displayName || si}`} stat={s} />);
           return (
             <View key={`${cat.name || cat.displayName || idx}`} style={styles.statsSection}>
-              <Text style={[styles.statsSectionTitle, { color: theme.text }]}>{cat.displayName || cat.name || `Category ${idx + 1}`}</Text>
+              <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: theme.text }]}>{cat.displayName || cat.name || `Category ${idx + 1}`}</Text>
               {statCards.length === 0 ? (
-                <View style={[styles.statBox, { backgroundColor: theme.surface }]}><Text style={[styles.statBoxLabel, { color: theme.textSecondary }]}>No stats</Text></View>
+                <View style={[styles.statBox, { backgroundColor: theme.surface }]}><Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>No stats</Text></View>
               ) : (
                 renderStatRows(statCards)
               )}
@@ -1037,11 +1037,11 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   const renderRosterContent = () => {
     if (loadingRoster) return (
-      <View style={styles.matchesSection}><ActivityIndicator size="large" color={colors.primary} /><Text style={[styles.contentText, { color: theme.textSecondary }]}>Loading roster...</Text></View>
+      <View style={styles.matchesSection}><ActivityIndicator size="large" color={colors.primary} /><Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Loading roster...</Text></View>
     );
 
     if (!roster || (Array.isArray(roster) && roster.length === 0)) return (
-      <View style={styles.matchesSection}><Text style={[styles.contentText, { color: theme.textSecondary }]}>Roster data not available</Text></View>
+      <View style={styles.matchesSection}><Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Roster data not available</Text></View>
     );
 
     // `roster` may be an object with position buckets (as in c1.txt) or a flat array
@@ -1064,15 +1064,15 @@ const TeamPageScreen = ({ route, navigation }) => {
       return (
         <View style={styles.rosterSection} key={sectionKey}>
           <TouchableOpacity style={styles.rosterSectionHeader} onPress={toggleSection} activeOpacity={0.7}>
-            <Text style={[styles.rosterSectionTitle, { color: theme.text }]}>{formatSectionTitle(title)} ({players.length})</Text>
-            <Text style={[styles.rosterSectionArrow, { color: theme.text }]}>{isCollapsed ? '▶' : '▼'}</Text>
+            <Text allowFontScaling={false} style={[styles.rosterSectionTitle, { color: theme.text }]}>{formatSectionTitle(title)} ({players.length})</Text>
+            <Text allowFontScaling={false} style={[styles.rosterSectionArrow, { color: theme.text }]}>{isCollapsed ? '▶' : '▼'}</Text>
           </TouchableOpacity>
 
           {!isCollapsed && (
             <View style={styles.rosterTableContainer}>
               <View style={[styles.rosterTableHeader, { backgroundColor: theme.surface }]}>
-                <Text style={[styles.rosterTableHeaderPlayer, { color: theme.text }]}>Player</Text>
-                <Text style={[styles.rosterTableHeaderStatus, { color: theme.text }]}>Status</Text>
+                <Text allowFontScaling={false} style={[styles.rosterTableHeaderPlayer, { color: theme.text }]}>Player</Text>
+                <Text allowFontScaling={false} style={[styles.rosterTableHeaderStatus, { color: theme.text }]}>Status</Text>
               </View>
 
               {players.map((player, idx) => {
@@ -1110,9 +1110,9 @@ const TeamPageScreen = ({ route, navigation }) => {
                           style={styles.playerHeadshot}
                         />
                         <View style={styles.rosterPlayerInfo}>
-                          <Text style={[styles.rosterTablePlayerName, { color: theme.text }]}>{displayName}</Text>
-                          <Text style={[styles.rosterTablePlayerDetails, { color: theme.textTertiary }]}>
-                            <Text style={[styles.rosterTablePlayerNumber, { color: theme.textTertiary }]}>{`#${jersey}`}</Text>
+                          <Text allowFontScaling={false} style={[styles.rosterTablePlayerName, { color: theme.text }]}>{displayName}</Text>
+                          <Text allowFontScaling={false} style={[styles.rosterTablePlayerDetails, { color: theme.textTertiary }]}>
+                            <Text allowFontScaling={false} style={[styles.rosterTablePlayerNumber, { color: theme.textTertiary }]}>{`#${jersey}`}</Text>
                             {' • '}
                             {pos}
                           </Text>
@@ -1121,7 +1121,7 @@ const TeamPageScreen = ({ route, navigation }) => {
                     </View>
                     <View style={styles.rosterTableStatusCell}>
                       <View style={[styles.statusPill, isActive ? styles.activeStatus : styles.inactiveStatus]}>
-                        <Text style={[styles.rosterTableStatusText, isActive ? styles.statusTextActive : styles.statusTextInactive]}>{isActive ? 'Active' : (statusText || 'Inactive')}</Text>
+                        <Text allowFontScaling={false} style={[styles.rosterTableStatusText, isActive ? styles.statusTextActive : styles.statusTextInactive]}>{isActive ? 'Active' : (statusText || 'Inactive')}</Text>
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -1152,18 +1152,18 @@ const TeamPageScreen = ({ route, navigation }) => {
             {renderCurrentGame()}
             <View style={styles.matchesSection}>
               <TouchableOpacity style={styles.sectionHeader} onPress={() => setLastMatchesCollapsed(!lastMatchesCollapsed)}>
-                <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>Last Matches</Text>
-                <Text style={[styles.collapseArrow, { color: colors.primary }]}>{lastMatchesCollapsed ? '▶' : '▼'}</Text>
+                <Text allowFontScaling={false} style={[styles.gameSectionTitle, { color: colors.primary }]}>Last Matches</Text>
+                <Text allowFontScaling={false} style={[styles.collapseArrow, { color: colors.primary }]}>{lastMatchesCollapsed ? '▶' : '▼'}</Text>
               </TouchableOpacity>
-              {lastMatches.length > 0 ? (lastMatchesCollapsed ? lastMatches.slice(0,1).map(m => <View key={m.id}>{renderMatchCard(m)}</View>) : lastMatches.map(m => <View key={m.id}>{renderMatchCard(m)}</View>)) : (<View style={[styles.gameSectionCard, { backgroundColor: theme.surface }]}><Text style={[styles.noGameText, { color: theme.textSecondary }]}>No previous games found</Text></View>)}
+              {lastMatches.length > 0 ? (lastMatchesCollapsed ? lastMatches.slice(0,1).map(m => <View key={m.id}>{renderMatchCard(m)}</View>) : lastMatches.map(m => <View key={m.id}>{renderMatchCard(m)}</View>)) : (<View style={[styles.gameSectionCard, { backgroundColor: theme.surface }]}><Text allowFontScaling={false} style={[styles.noGameText, { color: theme.textSecondary }]}>No previous games found</Text></View>)}
             </View>
 
             <View style={styles.matchesSection}>
               <TouchableOpacity style={styles.sectionHeader} onPress={() => setNextMatchesCollapsed(!nextMatchesCollapsed)}>
-                <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>Next Matches</Text>
-                <Text style={[styles.collapseArrow, { color: colors.primary }]}>{nextMatchesCollapsed ? '▶' : '▼'}</Text>
+                <Text allowFontScaling={false} style={[styles.gameSectionTitle, { color: colors.primary }]}>Next Matches</Text>
+                <Text allowFontScaling={false} style={[styles.collapseArrow, { color: colors.primary }]}>{nextMatchesCollapsed ? '▶' : '▼'}</Text>
               </TouchableOpacity>
-              {nextMatches.length > 0 ? (nextMatchesCollapsed ? nextMatches.slice(0,1).map(m => <View key={m.id}>{renderMatchCard(m)}</View>) : nextMatches.map(m => <View key={m.id}>{renderMatchCard(m)}</View>)) : (<View style={[styles.gameSectionCard, { backgroundColor: theme.surface }]}><Text style={[styles.noGameText, { color: theme.textSecondary }]}>No upcoming games found</Text></View>)}
+              {nextMatches.length > 0 ? (nextMatchesCollapsed ? nextMatches.slice(0,1).map(m => <View key={m.id}>{renderMatchCard(m)}</View>) : nextMatches.map(m => <View key={m.id}>{renderMatchCard(m)}</View>)) : (<View style={[styles.gameSectionCard, { backgroundColor: theme.surface }]}><Text allowFontScaling={false} style={[styles.noGameText, { color: theme.textSecondary }]}>No upcoming games found</Text></View>)}
             </View>
           </ScrollView>
         );
@@ -1176,7 +1176,7 @@ const TeamPageScreen = ({ route, navigation }) => {
     }
   };
 
-  if (loading) return (<View style={[styles.loadingContainer, { backgroundColor: theme.background }]}><ActivityIndicator size="large" color={colors.primary} /><Text style={[styles.loadingText, { color: theme.text }]}>Loading team information...</Text></View>);
+  if (loading) return (<View style={[styles.loadingContainer, { backgroundColor: theme.background }]}><ActivityIndicator size="large" color={colors.primary} /><Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>Loading team information...</Text></View>);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}> 

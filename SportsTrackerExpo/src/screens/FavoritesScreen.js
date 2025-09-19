@@ -3646,23 +3646,23 @@ const FavoritesScreen = ({ navigation }) => {
         
         return (
           <View style={styles.liveGameMiddleSection}>
-            <Text style={[styles.liveInningText, { color: colors.text }]}>{inningText}</Text>
-            <Text style={[styles.liveCountText, { color: colors.text }]}>{ballsStrikesText}</Text>
+            <Text allowFontScaling={false} style={[styles.liveInningText, { color: colors.text }]}>{inningText}</Text>
+            <Text allowFontScaling={false} style={[styles.liveCountText, { color: colors.text }]}>{ballsStrikesText}</Text>
             {basesDisplay()}
-            <Text style={[styles.liveOutsText, { color: colors.text }]}>{outsText}</Text>
+            <Text allowFontScaling={false} style={[styles.liveOutsText, { color: colors.text }]}>{outsText}</Text>
           </View>
         );
       } else if (gameStatus.isPre) {
         // Scheduled game - show date and time
         return (
           <View style={styles.gameMiddleSection}>
-            <Text style={[styles.gameStatusText, { color: colors.text }]}>
+            <Text allowFontScaling={false} style={[styles.gameStatusText, { color: colors.text }]}>
               {gameStatus.text}
             </Text>
-            <Text style={[styles.gameTimeText, { color: colors.text }]}>
+            <Text allowFontScaling={false} style={[styles.gameTimeText, { color: colors.text }]}>
               {gameStatus.time}
             </Text>
-            <Text style={[styles.gameDateText, { color: colors.text }]}>
+            <Text allowFontScaling={false} style={[styles.gameDateText, { color: colors.text }]}>
               {gameStatus.detail}
             </Text>
           </View>
@@ -3671,11 +3671,11 @@ const FavoritesScreen = ({ navigation }) => {
         // Finished game - show final score and status
         return (
           <View style={styles.gameMiddleSection}>
-            <Text style={[styles.gameStatusText, { color: colors.text }]}>
+            <Text allowFontScaling={false} style={[styles.gameStatusText, { color: colors.text }]}>
               {gameStatus.text}
             </Text>
             {gameStatus.detail && (
-              <Text style={[styles.gameDetailText, { color: colors.text }]}>
+              <Text allowFontScaling={false} style={[styles.gameDetailText, { color: colors.text }]}>
                 {gameStatus.detail}
               </Text>
             )}
@@ -3796,7 +3796,7 @@ const FavoritesScreen = ({ navigation }) => {
       >
         {/* League Header */}
         <View style={[styles.leagueHeader, { backgroundColor: theme.surfaceSecondary }]}>
-          <Text style={[styles.leagueText, { color: colors.primary }]}>
+          <Text allowFontScaling={false} style={[styles.leagueText, { color: colors.primary }]}>
             MLB
           </Text>
         </View>
@@ -3817,14 +3817,14 @@ const FavoritesScreen = ({ navigation }) => {
                   {!gameStatus.isPre && (
                     <View style={styles.scoreContainer}>
                       <View style={styles.scoreRow}>
-                        <Text style={[styles.teamScore, { color: gameStatus.isPost ? (awayIsWinner ? colors.primary : (awayIsLoser ? '#999' : theme.text)) : theme.text }]}>
+                        <Text allowFontScaling={false} style={[styles.teamScore, { color: gameStatus.isPost ? (awayIsWinner ? colors.primary : (awayIsLoser ? '#999' : theme.text)) : theme.text }]}>
                           {awayScoreDisplay}
                         </Text>
                       </View>
                     </View>
                   )}
                 </View>
-            <Text style={[styles.teamAbbreviation, { 
+            <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
               color: awayIsLoser ? '#999' : (isFavorite(getMLBTeamId(awayTeam)) ? colors.primary : theme.text) 
             }]}>
               {isFavorite(getMLBTeamId(awayTeam)) ? '★ ' : ''}{getMLBTeamAbbreviation(awayTeam)}
@@ -3833,13 +3833,13 @@ const FavoritesScreen = ({ navigation }) => {
           
           {/* Status Section (Center) */}
           <View style={styles.statusSection}>
-            <Text style={[styles.gameStatus, { color: gameStatus.isLive ? '#ff4444' : colors.primary , marginBottom: gameStatus.isLive ? -7.5 : 4}]}>
+            <Text allowFontScaling={false} style={[styles.gameStatus, { color: gameStatus.isLive ? '#ff4444' : colors.primary , marginBottom: gameStatus.isLive ? -7.5 : 4}]}>
               {gameStatus.isLive ? '' : gameStatus.text}
             </Text>
             {gameStatus.isLive && liveData.situation ? (
               // Live MLB game - show inning, balls/strikes, bases, outs
               <>
-                <Text style={[styles.gameDateTime, { color: theme.text }]}>
+                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.text }]}>
                   {`${liveData.situation.isTopInning ? 'Top' : 'Bot'} ${liveData.situation.inning || 1}`} • {`${liveData.situation.balls || 0}-${liveData.situation.strikes || 0}`}
                 </Text>
                 {/* Mini bases display */}
@@ -3859,28 +3859,28 @@ const FavoritesScreen = ({ navigation }) => {
                     ]} />
                   </View>
                 </View>
-                <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
                   {`Outs: ${liveData.situation.outs || 0}`}
                 </Text>
               </>
             ) : gameStatus.isLive ? (
               // Live game but no detailed situation data
               <>
-                <Text style={[styles.gameDateTime, { color: theme.text }]}>
+                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.text }]}>
                   {gameStatus.time || 'Live'}
                 </Text>
-                <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
                   {gameStatus.detail || 'In Progress'}
                 </Text>
               </>
             ) : (
               // Scheduled or finished games
               <>
-                <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
                   {gameStatus.detail}
                 </Text>
                 {gameStatus.time && (
-                  <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                  <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
                     {gameStatus.time} EST
                   </Text>
                 )}
@@ -3894,7 +3894,7 @@ const FavoritesScreen = ({ navigation }) => {
               {!gameStatus.isPre && (
                 <View style={styles.scoreContainer}>
                   <View style={styles.scoreRow}>
-                    <Text style={[styles.teamScore, { color: gameStatus.isPost ? (homeIsWinner ? colors.primary : (homeIsLoser ? '#999' : theme.text)) : theme.text }]}>
+                    <Text allowFontScaling={false} style={[styles.teamScore, { color: gameStatus.isPost ? (homeIsWinner ? colors.primary : (homeIsLoser ? '#999' : theme.text)) : theme.text }]}>
                       {homeScoreDisplay}
                     </Text>
                   </View>
@@ -3909,7 +3909,7 @@ const FavoritesScreen = ({ navigation }) => {
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
               />
             </View>
-            <Text style={[styles.teamAbbreviation, { 
+            <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
               color: homeIsLoser ? '#999' : (isFavorite(getMLBTeamId(homeTeam)) ? colors.primary : theme.text) 
             }]}>
               {isFavorite(getMLBTeamId(homeTeam)) ? '★ ' : ''}{getMLBTeamAbbreviation(homeTeam)}
@@ -3928,14 +3928,14 @@ const FavoritesScreen = ({ navigation }) => {
                 ((playText && String(playText).trim()) ? playText : (currentPlay?.raw?.about?.playText || currentPlay?.shortText || null));
               if (candidate) {
                 return (
-                  <Text style={[styles.livePlayText, { color: theme.text }]} numberOfLines={2}>{candidate}</Text>
+                  <Text allowFontScaling={false} style={[styles.livePlayText, { color: theme.text }]} numberOfLines={2}>{candidate}</Text>
                 );
               }
 
-              return <Text style={[styles.venueText, { color: theme.textSecondary }]}></Text>;
+              return <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}></Text>;
             })()
           ) : (
-            <Text style={[styles.venueText, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>
               {(() => {
                 const venues = {
                   mlb: game.mlbGameData?.venue?.name,
@@ -4121,13 +4121,13 @@ const FavoritesScreen = ({ navigation }) => {
         const playText = extracted.text || extracted.shortText || 'Live';
         console.log(`LivePlayDisplay for game ${game.id}:`, { displayText: playText });
         return (
-          <Text style={[styles.livePlayText, { color: theme.textSecondary }]} numberOfLines={2}>
+          <Text allowFontScaling={false} style={[styles.livePlayText, { color: theme.textSecondary }]} numberOfLines={2}>
             {playText}
           </Text>
         );
       }
       console.log(`No current play for game ${game.id}, showing fallback`);
-      return <Text style={[styles.venueText, { color: theme.textSecondary }]}>Live</Text>;
+      return <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>Live</Text>;
     };
 
     // Determine game status using actual game status data (like scoreboard screens)
@@ -4561,7 +4561,7 @@ const FavoritesScreen = ({ navigation }) => {
           {console.log('FavoritesScreen render - game object:', game)}
           {console.log('FavoritesScreen render - actualLeagueCode:', game.actualLeagueCode, 'competition:', competition)}
           {console.log('FavoritesScreen render - resolvedCompetitionName:', getCompetitionName(game.actualLeagueCode) || competition?.name || competition?.league?.name || game.sport)}
-          <Text style={[styles.leagueText, { color: colors.primary }]}>
+          <Text allowFontScaling={false} style={[styles.leagueText, { color: colors.primary }]}>
             {getCompetitionName(game.actualLeagueCode) || competition?.name || competition?.league?.name || game.sport}
           </Text>
         </View>
@@ -4580,14 +4580,14 @@ const FavoritesScreen = ({ navigation }) => {
               {!matchStatus.isPre && (
                 <View style={styles.scoreContainer}>
                   <View style={styles.scoreRow}>
-                    <Text style={[styles.teamScore, { 
+                    <Text allowFontScaling={false} style={[styles.teamScore, { 
                       color: matchStatus.isPost && homeIsWinner ? colors.primary : 
                              homeIsLoser ? '#999' : theme.text 
                     }]}>
                       {homeScore}
                     </Text>
                     {homeShootoutScore && (
-                      <Text style={[
+                      <Text allowFontScaling={false} style={[
                         styles.shootoutSuperscript, 
                         { color: homeIsLoser ? '#999' : colors.primary }
                       ]}>
@@ -4598,7 +4598,7 @@ const FavoritesScreen = ({ navigation }) => {
                 </View>
               )}
             </View>
-            <Text style={[styles.teamAbbreviation, { 
+            <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
               color: homeIsLoser ? '#999' : 
                      isFavorite(homeTeam.team?.id) ? colors.primary : theme.text 
             }]}>
@@ -4608,27 +4608,27 @@ const FavoritesScreen = ({ navigation }) => {
           
           {/* Status Section */}
           <View style={styles.statusSection}>
-            <Text style={[styles.gameStatus, { color: matchStatus.isLive ? '#ff4444' : colors.primary }]}>
+            <Text allowFontScaling={false} style={[styles.gameStatus, { color: matchStatus.isLive ? '#ff4444' : colors.primary }]}>
               {matchStatus.text}
             </Text>
             {matchStatus.isLive ? (
               // For live games, show current time and half
               <>
-                <Text style={[styles.gameDateTime, { color: matchStatus.isLive ? theme.text : theme.textSecondary }]}>
+                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: matchStatus.isLive ? theme.text : theme.textSecondary }]}>
                   {matchStatus.time || 'Current'}
                 </Text>
-                <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
                   {matchStatus.detail || 'Live'}
                 </Text>
               </>
             ) : (
               // For scheduled and finished games, show date and time
               <>
-                <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
                   {matchStatus.detail || formatGameDate(gameDate)}
                 </Text>
                 {matchStatus.time && (
-                  <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                  <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
                     {matchStatus.time} EST
                   </Text>
                 )}
@@ -4643,14 +4643,14 @@ const FavoritesScreen = ({ navigation }) => {
                 <View style={styles.scoreContainer}>
                   <View style={styles.scoreRow}>
                     {awayShootoutScore && (
-                      <Text style={[
+                      <Text allowFontScaling={false} style={[
                         styles.shootoutSuperscript, 
                         { color: awayIsLoser ? '#999' : colors.primary }
                       ]}>
                         ({awayShootoutScore})
                       </Text>
                     )}
-                    <Text style={[styles.teamScore, { 
+                    <Text allowFontScaling={false} style={[styles.teamScore, { 
                       color: matchStatus.isPost && awayIsWinner ? colors.primary : 
                              awayIsLoser ? '#999' : theme.text 
                     }]}>
@@ -4666,7 +4666,7 @@ const FavoritesScreen = ({ navigation }) => {
                 isDarkMode={isDarkMode}
               />
             </View>
-            <Text style={[styles.teamAbbreviation, { 
+            <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
               color: awayIsLoser ? '#999' : 
                      isFavorite(awayTeam.team?.id) ? colors.primary : theme.text 
             }]}>
@@ -4680,7 +4680,7 @@ const FavoritesScreen = ({ navigation }) => {
           {matchStatus.isLive ? (
             <LivePlayDisplay game={game} theme={theme} />
           ) : (
-            <Text style={[styles.venueText, { color: theme.textSecondary }]}>{venue}</Text>
+            <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>{venue}</Text>
           )}
         </View>
       </TouchableOpacity>
@@ -4807,10 +4807,10 @@ const FavoritesScreen = ({ navigation }) => {
             }))}
             activeOpacity={0.7}
           >
-            <Text style={[styles.leagueGroupTitle, { color: colors.primary }]}>
+            <Text allowFontScaling={false} style={[styles.leagueGroupTitle, { color: colors.primary }]}>
               {sport}
             </Text>
-            <Text style={[styles.collapseArrow, { color: colors.primary }]}>
+            <Text allowFontScaling={false} style={[styles.collapseArrow, { color: colors.primary }]}>
               {isCollapsed ? '▶' : '▼'}
             </Text>
           </TouchableOpacity>
@@ -4836,19 +4836,19 @@ const FavoritesScreen = ({ navigation }) => {
       >
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
           <View style={{ width: '90%', maxHeight: '70%', backgroundColor: theme.surface, borderRadius: 10, padding: 12 }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: colors.primary, marginBottom: 8 }}>Reorder Sections</Text>
+            <Text allowFontScaling={false} style={{ fontSize: 18, fontWeight: '700', color: colors.primary, marginBottom: 8 }}>Reorder Sections</Text>
             <FlatList
               data={data}
               keyExtractor={(item) => item}
               renderItem={({ item, index }) => (
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
-                  <Text style={{ color: theme.text }}>{item}</Text>
+                  <Text allowFontScaling={false} style={{ color: theme.text }}>{item}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <TouchableOpacity onPress={() => moveItem(index, -1)} style={{ padding: 8 }}>
-                      <Text style={{ color: colors.primary }}>▲</Text>
+                      <Text allowFontScaling={false} style={{ color: colors.primary }}>▲</Text>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => moveItem(index, 1)} style={{ padding: 8 }}>
-                      <Text style={{ color: colors.primary }}>▼</Text>
+                      <Text allowFontScaling={false} style={{ color: colors.primary }}>▼</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -4856,7 +4856,7 @@ const FavoritesScreen = ({ navigation }) => {
             />
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
               <TouchableOpacity onPress={closeReorderModal} style={{ padding: 8 }}>
-                <Text style={{ color: colors.primary }}>Done</Text>
+                <Text allowFontScaling={false} style={{ color: colors.primary }}>Done</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -4869,7 +4869,7 @@ const FavoritesScreen = ({ navigation }) => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.text }]}>
+        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>
           Loading favorite games...
         </Text>
       </View>
@@ -4880,14 +4880,14 @@ const FavoritesScreen = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: colors.primary }]}>Favorites</Text>
+      <Text allowFontScaling={false} style={[styles.title, { color: colors.primary }]}>Favorites</Text>
       
       {favoriteTeams.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.subtitle, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.text }]}>
             Your favorite teams and games will appear here
           </Text>
-          <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+          <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textSecondary }]}>
             Add teams to favorites by clicking the star on team pages
           </Text>
         </View>
@@ -4907,7 +4907,7 @@ const FavoritesScreen = ({ navigation }) => {
           {favoriteGames.length > 0 ? (
             <>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>
                   Today's Games
                 </Text>
                 <TouchableOpacity onPress={openReorderModal} style={{ padding: 8 }} accessibilityLabel="Reorder Sections">
@@ -4923,7 +4923,7 @@ const FavoritesScreen = ({ navigation }) => {
               {renderReorderModal()}
             </>
           ) : (
-            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textSecondary }]}>
               No games today for your favorite teams
             </Text>
           )}

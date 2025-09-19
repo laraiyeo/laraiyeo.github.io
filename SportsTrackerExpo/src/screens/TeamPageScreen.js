@@ -6,8 +6,8 @@ const TeamPageScreen = ({ route }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Team Page</Text>
-      <Text style={styles.subtitle}>Team ID: {teamId} | Sport: {sport.toUpperCase()}</Text>
+      <Text allowFontScaling={false} style={styles.title}>Team Page</Text>
+      <Text allowFontScaling={false} style={styles.subtitle}>Team ID: {teamId} | Sport: {sport.toUpperCase()}</Text>
     </View>
   );
 };

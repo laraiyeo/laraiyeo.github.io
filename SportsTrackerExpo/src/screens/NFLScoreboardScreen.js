@@ -404,7 +404,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
 
   const renderDateHeader = (date) => (
     <View style={styles.dateHeader}>
-      <Text style={styles.dateHeaderText}>{date}</Text>
+      <Text allowFontScaling={false} style={styles.dateHeaderText}>{date}</Text>
     </View>
   );
 
@@ -443,7 +443,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
     if (item.type === 'no-games') {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>{item.message}</Text>
+          <Text allowFontScaling={false} style={styles.emptyText}>{item.message}</Text>
         </View>
       );
     }
@@ -455,9 +455,9 @@ const NFLScoreboardScreen = ({ navigation }) => {
       >
         {/* Game Status */}
         <View style={styles.gameHeader}>
-          <Text style={styles.gameStatus}>{getGameStatusText(item)}</Text>
+          <Text allowFontScaling={false} style={styles.gameStatus}>{getGameStatusText(item)}</Text>
           {getGameTimeText(item) && (
-            <Text style={styles.gameClock}>{getGameTimeText(item)}</Text>
+            <Text allowFontScaling={false} style={styles.gameClock}>{getGameTimeText(item)}</Text>
           )}
         </View>
 
@@ -470,7 +470,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
               {item.situation?.possession && item.awayTeam?.id && 
                item.situation.possession === item.awayTeam.id && 
                item.status && item.status.toLowerCase() !== 'halftime' && (
-                <Text style={[styles.possessionIndicator, styles.awayPossession]}>🏈</Text>
+                <Text allowFontScaling={false} style={[styles.possessionIndicator, styles.awayPossession]}>🏈</Text>
               )}
               <Image 
                 source={{ uri: item.awayTeam?.logo }} 
@@ -479,10 +479,10 @@ const NFLScoreboardScreen = ({ navigation }) => {
               />
             </View>
             <View style={styles.teamInfo}>
-              <Text style={getTeamNameStyle(item, true)}>{item.awayTeam?.displayName || 'TBD'}</Text>
-              <Text style={styles.teamRecord}>{item.awayTeam?.record || ''}</Text>
+              <Text allowFontScaling={false} style={getTeamNameStyle(item, true)}>{item.awayTeam?.displayName || 'TBD'}</Text>
+              <Text allowFontScaling={false} style={styles.teamRecord}>{item.awayTeam?.record || ''}</Text>
             </View>
-            <Text style={getTeamScoreStyle(item, true)}>{item.awayTeam?.score || '0'}</Text>
+            <Text allowFontScaling={false} style={getTeamScoreStyle(item, true)}>{item.awayTeam?.score || '0'}</Text>
           </View>
 
           {/* Home Team */}
@@ -497,28 +497,28 @@ const NFLScoreboardScreen = ({ navigation }) => {
               {item.situation?.possession && item.homeTeam?.id && 
                item.situation.possession === item.homeTeam.id && 
                item.status && item.status.toLowerCase() !== 'halftime' && (
-                <Text style={[styles.possessionIndicator, styles.homePossession]}>🏈</Text>
+                <Text allowFontScaling={false} style={[styles.possessionIndicator, styles.homePossession]}>🏈</Text>
               )}
             </View>
             <View style={styles.teamInfo}>
-              <Text style={getTeamNameStyle(item, false)}>{item.homeTeam?.displayName || 'TBD'}</Text>
-              <Text style={styles.teamRecord}>{item.homeTeam?.record || ''}</Text>
+              <Text allowFontScaling={false} style={getTeamNameStyle(item, false)}>{item.homeTeam?.displayName || 'TBD'}</Text>
+              <Text allowFontScaling={false} style={styles.teamRecord}>{item.homeTeam?.record || ''}</Text>
             </View>
-            <Text style={getTeamScoreStyle(item, false)}>{item.homeTeam?.score || '0'}</Text>
+            <Text allowFontScaling={false} style={getTeamScoreStyle(item, false)}>{item.homeTeam?.score || '0'}</Text>
           </View>
         </View>
 
         {/* Game Info */}
         <View style={styles.gameFooter}>
-          <Text style={styles.venue}>{item.venue || ''}</Text>
+          <Text allowFontScaling={false} style={styles.venue}>{item.venue || ''}</Text>
           {item.broadcasts && item.broadcasts.length > 0 && (
-            <Text style={styles.broadcast}>{item.broadcasts.join(', ')}</Text>
+            <Text allowFontScaling={false} style={styles.broadcast}>{item.broadcasts.join(', ')}</Text>
           )}
           {/* Show down and distance for in-progress games (but not halftime) */}
           {item.situation?.shortDownDistanceText && 
            !item.isCompleted && 
            item.status && item.status.toLowerCase() !== 'halftime' && (
-            <Text style={styles.downDistance}>{item.situation.shortDownDistanceText}</Text>
+            <Text allowFontScaling={false} style={styles.downDistance}>{item.situation.shortDownDistanceText}</Text>
           )}
         </View>
       </TouchableOpacity>
@@ -529,7 +529,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#013369" />
-        <Text style={styles.loadingText}>Loading NFL Scoreboard...</Text>
+        <Text allowFontScaling={false} style={styles.loadingText}>Loading NFL Scoreboard...</Text>
       </View>
     );
   }
@@ -542,7 +542,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
           style={[styles.dateFilterButton, selectedDateFilter === 'yesterday' && styles.activeFilterButton]}
           onPress={() => handleDateFilterChange('yesterday')}
         >
-          <Text style={[styles.dateFilterText, selectedDateFilter === 'yesterday' && styles.activeFilterText]}>
+          <Text allowFontScaling={false} style={[styles.dateFilterText, selectedDateFilter === 'yesterday' && styles.activeFilterText]}>
             Yesterday
           </Text>
         </TouchableOpacity>
@@ -551,7 +551,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
           style={[styles.dateFilterButton, selectedDateFilter === 'today' && styles.activeFilterButton]}
           onPress={() => handleDateFilterChange('today')}
         >
-          <Text style={[styles.dateFilterText, selectedDateFilter === 'today' && styles.activeFilterText]}>
+          <Text allowFontScaling={false} style={[styles.dateFilterText, selectedDateFilter === 'today' && styles.activeFilterText]}>
             Today
           </Text>
         </TouchableOpacity>
@@ -560,7 +560,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
           style={[styles.dateFilterButton, selectedDateFilter === 'upcoming' && styles.activeFilterButton]}
           onPress={() => handleDateFilterChange('upcoming')}
         >
-          <Text style={[styles.dateFilterText, selectedDateFilter === 'upcoming' && styles.activeFilterText]}>
+          <Text allowFontScaling={false} style={[styles.dateFilterText, selectedDateFilter === 'upcoming' && styles.activeFilterText]}>
             Upcoming
           </Text>
         </TouchableOpacity>
@@ -586,7 +586,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
         ListEmptyComponent={() => (
           !loading && (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No games scheduled</Text>
+              <Text allowFontScaling={false} style={styles.emptyText}>No games scheduled</Text>
             </View>
           )
         )}

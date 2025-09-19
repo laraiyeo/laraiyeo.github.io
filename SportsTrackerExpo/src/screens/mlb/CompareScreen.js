@@ -353,7 +353,7 @@ const CompareScreen = ({ route }) => {
               style={styles.clearButton}
               onPress={() => clearPlayer(playerNumber)}
             >
-              <Text style={styles.clearButtonText}>×</Text>
+              <Text allowFontScaling={false} style={styles.clearButtonText}>×</Text>
             </TouchableOpacity>
             
             {/* Team Logo and Name */}
@@ -364,7 +364,7 @@ const CompareScreen = ({ route }) => {
                   style={styles.teamLogo}
                   resizeMode="contain"
                 />
-                <Text style={[styles.teamName, { color: theme.text }]}>
+                <Text allowFontScaling={false} style={[styles.teamName, { color: theme.text }]}>
                   {player.teamAbbr}
                 </Text>
               </View>
@@ -381,16 +381,16 @@ const CompareScreen = ({ route }) => {
             
             {/* Player Name Container with fixed height for equal sizing */}
             <View style={styles.playerNameContainer}>
-              <Text style={[styles.playerName, { color: theme.text }]} numberOfLines={2}>
+              <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]} numberOfLines={2}>
                 {player.fullName}
               </Text>
-              <Text style={[styles.playerDetails, { color: theme.textSecondary }]}>
+              <Text allowFontScaling={false} style={[styles.playerDetails, { color: theme.textSecondary }]}>
                 #{player.jersey} | {player.position} {player.isTwoWayPlayer && '(TWP)'}
               </Text>
             </View>
             
             <View style={styles.yearSelector}>
-              <Text style={[styles.yearLabel, { color: theme.text }]}>Year:</Text>
+              <Text allowFontScaling={false} style={[styles.yearLabel, { color: theme.text }]}>Year:</Text>
               <TouchableOpacity 
                 style={[styles.yearButton, { 
                   backgroundColor: theme.surface,
@@ -404,10 +404,10 @@ const CompareScreen = ({ route }) => {
                   }
                 }}
               >
-                <Text style={[styles.yearButtonText, { color: theme.text }]}>
+                <Text allowFontScaling={false} style={[styles.yearButtonText, { color: theme.text }]}>
                   {isPlayer1 ? player1Year : player2Year}
                 </Text>
-                <Text style={[styles.yearButtonArrow, { color: theme.textSecondary }]}>▼</Text>
+                <Text allowFontScaling={false} style={[styles.yearButtonArrow, { color: theme.textSecondary }]}>▼</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -416,10 +416,10 @@ const CompareScreen = ({ route }) => {
             style={styles.addPlayerButton}
             onPress={() => openPlayerSearch(playerNumber)}
           >
-            <Text style={[styles.addPlayerIcon, { color: colors.primary }]}>
+            <Text allowFontScaling={false} style={[styles.addPlayerIcon, { color: colors.primary }]}>
               +
             </Text>
-            <Text style={[styles.addPlayerText, { color: colors.primary }]}>
+            <Text allowFontScaling={false} style={[styles.addPlayerText, { color: colors.primary }]}>
               Add Player {playerNumber}
             </Text>
           </TouchableOpacity>
@@ -434,7 +434,7 @@ const CompareScreen = ({ route }) => {
     if (comparisonStats.error) {
       return (
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: theme.textSecondary }]}>
+          <Text allowFontScaling={false} style={[styles.errorText, { color: theme.textSecondary }]}>
             {comparisonStats.error}
           </Text>
         </View>
@@ -446,7 +446,7 @@ const CompareScreen = ({ route }) => {
         {/* Comparison Type Header */}
         {comparisonStats.comparisonType && (
           <View style={styles.comparisonHeader}>
-            <Text style={[styles.comparisonType, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.comparisonType, { color: theme.text }]}>
               {comparisonStats.comparisonType} Statistics
             </Text>
           </View>
@@ -463,7 +463,7 @@ const CompareScreen = ({ route }) => {
                 borderWidth: stat.player1Better ? 2 : 1
               }
             ]}>
-              <Text style={[
+              <Text allowFontScaling={false} style={[
                 styles.statValue,
                 { color: stat.player1Better ? colors.secondary : theme.text }
               ]}>
@@ -473,7 +473,7 @@ const CompareScreen = ({ route }) => {
             
             {/* Stat Label */}
             <View style={styles.statLabelContainer}>
-              <Text style={[styles.statLabel, { color: theme.text }]}>
+              <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.text }]}>
                 {stat.label}
               </Text>
             </View>
@@ -487,7 +487,7 @@ const CompareScreen = ({ route }) => {
                 borderWidth: stat.player2Better ? 2 : 1
               }
             ]}>
-              <Text style={[
+              <Text allowFontScaling={false} style={[
                 styles.statValue,
                 { color: stat.player2Better ? colors.secondary : theme.text }
               ]}>
@@ -509,14 +509,14 @@ const CompareScreen = ({ route }) => {
     >
       <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
         <View style={[styles.modalHeader, { backgroundColor: theme.surface }]}>
-          <Text style={[styles.modalTitle, { color: theme.text }]}>
+          <Text allowFontScaling={false} style={[styles.modalTitle, { color: theme.text }]}>
             Select Player {searchingForPlayer}
           </Text>
           <TouchableOpacity
             onPress={() => setShowSearchModal(false)}
             style={styles.modalCloseButton}
           >
-            <Text style={[styles.modalCloseText, { color: colors.primary }]}>Close</Text>
+            <Text allowFontScaling={false} style={[styles.modalCloseText, { color: colors.primary }]}>Close</Text>
           </TouchableOpacity>
         </View>
         
@@ -551,14 +551,14 @@ const CompareScreen = ({ route }) => {
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
               />
               <View style={styles.searchResultInfo}>
-                <Text style={[styles.searchResultName, { color: theme.text }]}>
+                <Text allowFontScaling={false} style={[styles.searchResultName, { color: theme.text }]}>
                   {player.fullName}
                 </Text>
-                <Text style={[styles.searchResultDetails, { color: theme.textSecondary }]}>
+                <Text allowFontScaling={false} style={[styles.searchResultDetails, { color: theme.textSecondary }]}>
                   #{player.jersey} | {player.position} {player.isTwoWayPlayer && '(TWP)'}
                 </Text>
                 {player.teamName && (
-                  <Text style={[styles.searchResultTeam, { color: theme.textSecondary }]}>
+                  <Text allowFontScaling={false} style={[styles.searchResultTeam, { color: theme.textSecondary }]}>
                     {player.teamName}
                   </Text>
                 )}
@@ -586,8 +586,8 @@ const CompareScreen = ({ route }) => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.primary }]}>Player Comparison</Text>
-          <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+          <Text allowFontScaling={false} style={[styles.title, { color: colors.primary }]}>Player Comparison</Text>
+          <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textSecondary }]}>
             Compare MLB players side by side
           </Text>
         </View>
@@ -597,7 +597,7 @@ const CompareScreen = ({ route }) => {
           {renderPlayerCard(player1, 1)}
           
           <View style={styles.vsContainer}>
-            <Text style={[styles.vsText, { color: theme.text }]}>VS</Text>
+            <Text allowFontScaling={false} style={[styles.vsText, { color: theme.text }]}>VS</Text>
           </View>
           
           {renderPlayerCard(player2, 2)}
@@ -607,7 +607,7 @@ const CompareScreen = ({ route }) => {
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>
               Loading comparison...
             </Text>
           </View>
@@ -627,7 +627,7 @@ const CompareScreen = ({ route }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.yearPickerModal, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.yearPickerTitle, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.yearPickerTitle, { color: theme.text }]}>
               Select Year for {player1?.fullName}
             </Text>
             <ScrollView style={styles.yearOptions}>
@@ -643,7 +643,7 @@ const CompareScreen = ({ route }) => {
                     setShowYear1Picker(false);
                   }}
                 >
-                  <Text style={[
+                  <Text allowFontScaling={false} style={[
                     styles.yearOptionText,
                     { color: year === player1Year ? 'white' : theme.text }
                   ]}>
@@ -656,7 +656,7 @@ const CompareScreen = ({ route }) => {
               style={[styles.yearPickerCancel, { borderTopColor: theme.border }]}
               onPress={() => setShowYear1Picker(false)}
             >
-              <Text style={[styles.yearPickerCancelText, { color: colors.primary }]}>
+              <Text allowFontScaling={false} style={[styles.yearPickerCancelText, { color: colors.primary }]}>
                 Cancel
               </Text>
             </TouchableOpacity>
@@ -672,7 +672,7 @@ const CompareScreen = ({ route }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.yearPickerModal, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.yearPickerTitle, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.yearPickerTitle, { color: theme.text }]}>
               Select Year for {player2?.fullName}
             </Text>
             <ScrollView style={styles.yearOptions}>
@@ -688,7 +688,7 @@ const CompareScreen = ({ route }) => {
                     setShowYear2Picker(false);
                   }}
                 >
-                  <Text style={[
+                  <Text allowFontScaling={false} style={[
                     styles.yearOptionText,
                     { color: year === player2Year ? 'white' : theme.text }
                   ]}>
@@ -701,7 +701,7 @@ const CompareScreen = ({ route }) => {
               style={[styles.yearPickerCancel, { borderTopColor: theme.border }]}
               onPress={() => setShowYear2Picker(false)}
             >
-              <Text style={[styles.yearPickerCancelText, { color: colors.primary }]}>
+              <Text allowFontScaling={false} style={[styles.yearPickerCancelText, { color: colors.primary }]}>
                 Cancel
               </Text>
             </TouchableOpacity>

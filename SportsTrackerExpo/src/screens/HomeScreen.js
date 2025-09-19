@@ -73,8 +73,8 @@ const HomeScreen = () => {
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-        <Text style={[styles.title, { color: theme.text }]}>Live Sports Tracker</Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Choose your sport to get started</Text>
+        <Text allowFontScaling={false} style={[styles.title, { color: theme.text }]}>Live Sports Tracker</Text>
+        <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textSecondary }]}>Choose your sport to get started</Text>
       </View>
       
       <View style={styles.sportsGrid}>
@@ -87,8 +87,8 @@ const HomeScreen = () => {
           >
             <View style={styles.sportContent}>
               <Image source={sport.icon} style={styles.sportIcon} />
-              <Text style={[styles.sportTitle, { color: sport.color }]}>{sport.title}</Text>
-              <Text style={[styles.sportDescription, { color: theme.textSecondary }]}>{sport.description}</Text>
+              <Text allowFontScaling={false} style={[styles.sportTitle, { color: sport.color }]}>{sport.title}</Text>
+              <Text allowFontScaling={false} style={[styles.sportDescription, { color: theme.textSecondary }]}>{sport.description}</Text>
             </View>
           </TouchableOpacity>
         ))}

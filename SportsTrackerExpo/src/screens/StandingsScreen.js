@@ -64,22 +64,22 @@ const StandingsScreen = ({ route }) => {
       <ScrollView style={styles.container}>
         {[afc, nfc].filter(Boolean).map((conference, confIndex) => (
           <View key={confIndex} style={styles.conferenceContainer}>
-            <Text style={styles.conferenceTitle}>{conference.name}</Text>
+            <Text allowFontScaling={false} style={styles.conferenceTitle}>{conference.name}</Text>
             
             {conference.groups.map((division, divIndex) => (
               <View key={divIndex} style={styles.divisionContainer}>
-                <Text style={styles.divisionTitle}>{division.name}</Text>
+                <Text allowFontScaling={false} style={styles.divisionTitle}>{division.name}</Text>
                 
                 <View style={styles.tableContainer}>
                   <View style={styles.tableHeader}>
-                    <Text style={[styles.headerCell, styles.teamColumn]}>Team</Text>
-                    <Text style={styles.headerCell}>W</Text>
-                    <Text style={styles.headerCell}>L</Text>
-                    <Text style={styles.headerCell}>T</Text>
-                    <Text style={styles.headerCell}>PCT</Text>
-                    <Text style={styles.headerCell}>PF</Text>
-                    <Text style={styles.headerCell}>PA</Text>
-                    <Text style={styles.headerCell}>DIFF</Text>
+                    <Text allowFontScaling={false} style={[styles.headerCell, styles.teamColumn]}>Team</Text>
+                    <Text allowFontScaling={false} style={styles.headerCell}>W</Text>
+                    <Text allowFontScaling={false} style={styles.headerCell}>L</Text>
+                    <Text allowFontScaling={false} style={styles.headerCell}>T</Text>
+                    <Text allowFontScaling={false} style={styles.headerCell}>PCT</Text>
+                    <Text allowFontScaling={false} style={styles.headerCell}>PF</Text>
+                    <Text allowFontScaling={false} style={styles.headerCell}>PA</Text>
+                    <Text allowFontScaling={false} style={styles.headerCell}>DIFF</Text>
                   </View>
                   
                   {division.standings.entries
@@ -116,17 +116,17 @@ const StandingsScreen = ({ route }) => {
                               style={styles.teamLogo}
                               defaultSource={{ uri: `https://via.placeholder.com/20x20?text=${sport.toUpperCase()}` }}
                             />
-                            <Text style={styles.teamName} numberOfLines={1}>
+                            <Text allowFontScaling={false} style={styles.teamName} numberOfLines={1}>
                               {entry.team.displayName}
                             </Text>
                           </View>
-                          <Text style={styles.tableCell}>{wins}</Text>
-                          <Text style={styles.tableCell}>{losses}</Text>
-                          <Text style={styles.tableCell}>{ties}</Text>
-                          <Text style={styles.tableCell}>{winPercent}</Text>
-                          <Text style={styles.tableCell}>{pointsFor}</Text>
-                          <Text style={styles.tableCell}>{pointsAgainst}</Text>
-                          <Text style={[styles.tableCell, { color: diffColor }]}>{differential}</Text>
+                          <Text allowFontScaling={false} style={styles.tableCell}>{wins}</Text>
+                          <Text allowFontScaling={false} style={styles.tableCell}>{losses}</Text>
+                          <Text allowFontScaling={false} style={styles.tableCell}>{ties}</Text>
+                          <Text allowFontScaling={false} style={styles.tableCell}>{winPercent}</Text>
+                          <Text allowFontScaling={false} style={styles.tableCell}>{pointsFor}</Text>
+                          <Text allowFontScaling={false} style={styles.tableCell}>{pointsAgainst}</Text>
+                          <Text allowFontScaling={false} style={[styles.tableCell, { color: diffColor }]}>{differential}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -146,14 +146,14 @@ const StandingsScreen = ({ route }) => {
       <ScrollView style={styles.container}>
         {standings.content.standings.groups.map((group, groupIndex) => (
           <View key={groupIndex} style={styles.conferenceContainer}>
-            <Text style={styles.conferenceTitle}>{group.name}</Text>
+            <Text allowFontScaling={false} style={styles.conferenceTitle}>{group.name}</Text>
             
             <View style={styles.tableContainer}>
               <View style={styles.tableHeader}>
-                <Text style={[styles.headerCell, styles.teamColumn]}>Team</Text>
-                <Text style={styles.headerCell}>W</Text>
-                <Text style={styles.headerCell}>L</Text>
-                <Text style={styles.headerCell}>PCT</Text>
+                <Text allowFontScaling={false} style={[styles.headerCell, styles.teamColumn]}>Team</Text>
+                <Text allowFontScaling={false} style={styles.headerCell}>W</Text>
+                <Text allowFontScaling={false} style={styles.headerCell}>L</Text>
+                <Text allowFontScaling={false} style={styles.headerCell}>PCT</Text>
               </View>
               
               {group.standings.entries.map((entry, teamIndex) => {
@@ -173,13 +173,13 @@ const StandingsScreen = ({ route }) => {
                         style={styles.teamLogo}
                         defaultSource={{ uri: `https://via.placeholder.com/20x20?text=${sport.toUpperCase()}` }}
                       />
-                      <Text style={styles.teamName} numberOfLines={1}>
+                      <Text allowFontScaling={false} style={styles.teamName} numberOfLines={1}>
                         {entry.team.displayName}
                       </Text>
                     </View>
-                    <Text style={styles.tableCell}>{wins}</Text>
-                    <Text style={styles.tableCell}>{losses}</Text>
-                    <Text style={styles.tableCell}>{winPercent}</Text>
+                    <Text allowFontScaling={false} style={styles.tableCell}>{wins}</Text>
+                    <Text allowFontScaling={false} style={styles.tableCell}>{losses}</Text>
+                    <Text allowFontScaling={false} style={styles.tableCell}>{winPercent}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -194,7 +194,7 @@ const StandingsScreen = ({ route }) => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#013369" />
-        <Text style={styles.loadingText}>Loading standings...</Text>
+        <Text allowFontScaling={false} style={styles.loadingText}>Loading standings...</Text>
       </View>
     );
   }
@@ -202,7 +202,7 @@ const StandingsScreen = ({ route }) => {
   if (!standings) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Standings not available for {sport.toUpperCase()}</Text>
+        <Text allowFontScaling={false} style={styles.errorText}>Standings not available for {sport.toUpperCase()}</Text>
       </View>
     );
   }
