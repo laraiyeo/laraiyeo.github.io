@@ -38,9 +38,7 @@ const promiseWithTimeout = (p, ms = 3000) => {
 // Module-level caching system
 const DEBUG = false;
 // Save original console.log and silence other console.log calls so the file doesn't spam output.
-// We'll explicitly call __orig_console_log where a log should remain visible.
-const __orig_console_log = (typeof console !== 'undefined' && console.log) ? console.log.bind(console) : () => {};
-if (typeof console !== 'undefined') console.log = () => {};
+// We'll explicitly call console.log where a log should remain visible.
 const eventFetchCache = new Map(); // URL -> { etag, lastModified, lastHash, parsed, timestamp }
 const inFlightFetches = new Map(); // URL -> Promise
 const urlLastFetchedPass = new Map(); // URL -> pass ID
@@ -551,6 +549,8 @@ const FavoritesScreen = ({ navigation }) => {
   const [isScreenFocused, setIsScreenFocused] = useState(true);
   const [updateInterval, setUpdateInterval] = useState(null);
   const [liveGamesInterval, setLiveGamesInterval] = useState(null);
+  const [currentGameDay, setCurrentGameDay] = useState(null);
+  const [dailyCleanupInterval, setDailyCleanupInterval] = useState(null);
 
   // Using module-level helper promiseWithTimeout defined above.
 
@@ -627,26 +627,65 @@ const FavoritesScreen = ({ navigation }) => {
 
   // Helper function to get "today's" date range with 2 AM cutoff
   // Games are considered "today's" until 2 AM of the next day
-  // Extended range to include recent games from previous day to handle timezone issues
   const getTodayDateRange = () => {
     const now = new Date();
     const currentHour = now.getHours();
     
     // If it's before 2 AM, use yesterday's date as "today"
-    let today;
+    let gameDay;
     if (currentHour < 2) {
-      today = new Date(now.getTime() - 24 * 60 * 60 * 1000); // Yesterday
+      gameDay = new Date(now.getTime() - 24 * 60 * 60 * 1000); // Yesterday
     } else {
-      today = new Date(); // Today
+      gameDay = new Date(); // Today
     }
     
-    // Extend the range backwards by 12 hours to catch games from the previous evening
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 12, 0, 0); // Start from noon yesterday
-    const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1, 12, 0, 0); // End at noon tomorrow
+    // Create range for the game day: from 2 AM of the game day to 2 AM of the next day
+    const todayStart = new Date(gameDay.getFullYear(), gameDay.getMonth(), gameDay.getDate(), 2, 0, 0); // 2 AM of game day
+    const todayEnd = new Date(gameDay.getFullYear(), gameDay.getMonth(), gameDay.getDate() + 1, 2, 0, 0); // 2 AM next day
     
-    __orig_console_log(`Date range calculation: Current time: ${now.toISOString()}, Hour: ${currentHour}, Using date: ${today.toDateString()}, Range: ${todayStart.toISOString()} to ${todayEnd.toISOString()}`);
+    console.log(`Date range calculation: Current time: ${now.toISOString()}, Hour: ${currentHour}, Game day: ${gameDay.toDateString()}, Range: ${todayStart.toISOString()} to ${todayEnd.toISOString()}`);
     
     return { todayStart, todayEnd };
+  };
+
+  // Helper function to get current "game day" based on 2 AM EST cutoff
+  const getCurrentGameDay = () => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    
+    // If it's before 2 AM, use yesterday's date as the game day
+    let gameDay;
+    if (currentHour < 2) {
+      gameDay = new Date(now.getTime() - 24 * 60 * 60 * 1000); // Yesterday
+    } else {
+      gameDay = new Date(); // Today
+    }
+    
+    // Return as YYYY-MM-DD format for easy comparison
+    return gameDay.getFullYear() + '-' + 
+           String(gameDay.getMonth() + 1).padStart(2, '0') + '-' + 
+           String(gameDay.getDate()).padStart(2, '0');
+  };
+
+  // Helper function to clear all team current games and force refresh
+  const clearAllCurrentGamesAndRefresh = async () => {
+    console.log('FavoritesScreen: Daily cleanup - clearing all stored current games and refreshing');
+    
+    // Clear all cached data since it's from a previous game day
+    eventFetchCache.clear();
+    teamMetadataCache.clear();
+    mlbScheduleCache.clear();
+    urlLastFetchedPass.clear();
+    console.log('FavoritesScreen: Cleared all cached data due to game day change');
+    
+    // Clear current games for all favorite teams
+    const favoriteTeams = getFavoriteTeams();
+    for (const team of favoriteTeams) {
+      await clearTeamCurrentGame(team.teamId);
+    }
+    
+    // Force a complete refresh to fetch new games
+    await fetchFavoriteGames(true);
   };
 
   // Do not fetch here on mount; useFocusEffect will trigger a fetch when the screen is focused.
@@ -692,6 +731,39 @@ const FavoritesScreen = ({ navigation }) => {
     setFavoritesHash(newHash);
   }, [favorites]); // React to any change in favorites (including currentGame updates)
 
+  // Daily cleanup effect - monitor for 2 AM EST rollover and clear old games
+  useEffect(() => {
+    // Initialize current game day
+    const initialGameDay = getCurrentGameDay();
+    setCurrentGameDay(initialGameDay);
+    console.log('FavoritesScreen: Initial game day set to:', initialGameDay);
+
+    // Set up interval to check for day changes every minute
+    const checkInterval = setInterval(() => {
+      const newGameDay = getCurrentGameDay();
+      
+      if (currentGameDay && newGameDay !== currentGameDay) {
+        console.log('FavoritesScreen: Game day changed from', currentGameDay, 'to', newGameDay);
+        setCurrentGameDay(newGameDay);
+        
+        // Clear all stored current games and refresh
+        clearAllCurrentGamesAndRefresh();
+      } else if (!currentGameDay) {
+        // Set initial game day if not set
+        setCurrentGameDay(newGameDay);
+      }
+    }, 60000); // Check every minute
+
+    setDailyCleanupInterval(checkInterval);
+
+    return () => {
+      if (checkInterval) {
+        clearInterval(checkInterval);
+        setDailyCleanupInterval(null);
+      }
+    };
+  }, [currentGameDay]); // Include currentGameDay to properly track changes
+
   // Default section order if none present
   const DEFAULT_SECTION_ORDER = ['MLB', 'Champions League', 'England Soccer', 'Spain Soccer', 'Italy Soccer', 'Germany Soccer', 'France Soccer'];
 
@@ -727,8 +799,18 @@ const FavoritesScreen = ({ navigation }) => {
       // Listen for app coming back to foreground while this screen is focused
       const onAppStateChange = (nextAppState) => {
         if (nextAppState === 'active') {
-          console.log('FavoritesScreen: App returned to foreground - refreshing favorites');
-          fetchFavoriteGames(true);
+          console.log('FavoritesScreen: App returned to foreground - checking for game day changes');
+          
+          // Check if game day changed while app was in background
+          const newGameDay = getCurrentGameDay();
+          if (currentGameDay && newGameDay !== currentGameDay) {
+            console.log('FavoritesScreen: Game day changed while app was in background');
+            setCurrentGameDay(newGameDay);
+            clearAllCurrentGamesAndRefresh();
+          } else {
+            console.log('FavoritesScreen: Game day unchanged - normal refresh');
+            fetchFavoriteGames(true);
+          }
         }
       };
       const sub = AppState.addEventListener ? AppState.addEventListener('change', onAppStateChange) : null;
@@ -744,6 +826,8 @@ const FavoritesScreen = ({ navigation }) => {
           clearInterval(liveGamesInterval);
           setLiveGamesInterval(null);
         }
+        // Note: dailyCleanupInterval is NOT cleared here as it should run continuously
+        // to detect the 2 AM rollover even when screen is not focused
         if (sub && sub.remove) sub.remove();
       };
     }, [getFavoriteTeams, favorites])
@@ -1058,7 +1142,7 @@ const FavoritesScreen = ({ navigation }) => {
           const mlbTeamId = team.teamId || team.id || (team.team && (team.team.teamId || team.team.id));
           if (mlbTeamId && !mlbTeamsToValidate.find(t => t.mlbTeamId === mlbTeamId)) {
             mlbTeamsToValidate.push({ team, currentGameData, mlbTeamId, teamName: (team && (team.displayName || team.teamName)) || 'Unknown Team' });
-            __orig_console_log(`[MLB VALIDATE QUEUE] Queued team ${team.displayName || team.teamName || mlbTeamId} for MLB schedule validation (teamId=${mlbTeamId})`);
+            console.log(`[MLB VALIDATE QUEUE] Queued team ${team.displayName || team.teamName || mlbTeamId} for MLB schedule validation (teamId=${mlbTeamId})`);
           }
         }
       }
@@ -1133,11 +1217,11 @@ const FavoritesScreen = ({ navigation }) => {
                       }
                     }
 
-                    __orig_console_log(`[MLB SCHEDULE] team ${teamName} - teamGames count=${teamGames.length}`);
+                    console.log(`[MLB SCHEDULE] team ${teamName} - teamGames count=${teamGames.length}`);
                     for (const g of teamGames) {
-                      __orig_console_log(`  candidate gamePk=${g.gamePk}, gameDate=${g.gameDate}, status=${g.status?.abstractGameState || g.status?.detailedState || 'unknown'}`);
+                      console.log(`  candidate gamePk=${g.gamePk}, gameDate=${g.gameDate}, status=${g.status?.abstractGameState || g.status?.detailedState || 'unknown'}`);
                     }
-                    __orig_console_log(`[MLB SCHEDULE] chosen for ${teamName}: ${chosen ? `${chosen.gamePk} (${chosen.gameDate})` : 'none'} - live=${Boolean(liveGame)}`);
+                    console.log(`[MLB SCHEDULE] chosen for ${teamName}: ${chosen ? `${chosen.gamePk} (${chosen.gameDate})` : 'none'} - live=${Boolean(liveGame)}`);
 
                     if (chosen && String(chosen.gamePk) !== String(currentGameData.eventId)) {
                       const updatedCurrentGame = {
@@ -1201,11 +1285,11 @@ const FavoritesScreen = ({ navigation }) => {
       // If we have a stored currentGame, use direct fetch. Otherwise, skip this team.
       if (currentGameData) {
         console.log(`Found current game data for ${teamName}, using direct fetch -> eventId=${currentGameData.eventId || 'none'}, competition=${currentGameData.competition || 'none'}, eventLink=${currentGameData.eventLink || 'none'}`);
-        __orig_console_log(`[DEBUG] Full currentGameData for ${teamName}:`, JSON.stringify(currentGameData, null, 2));
+        console.log(`[DEBUG] Full currentGameData for ${teamName}:`, JSON.stringify(currentGameData, null, 2));
         
         // Ensure MLB games have eventLink set (fallback if missing)
         if ((currentGameData.competition === 'mlb' || team.sport === 'MLB') && !currentGameData.eventLink && currentGameData.eventId) {
-          __orig_console_log(`[DEBUG] Setting missing eventLink for MLB game ${currentGameData.eventId}`);
+          console.log(`[DEBUG] Setting missing eventLink for MLB game ${currentGameData.eventId}`);
           currentGameData.eventLink = `/api/v1.1/game/${currentGameData.eventId}/feed/live`;
         }
         
@@ -1351,7 +1435,7 @@ const FavoritesScreen = ({ navigation }) => {
       } catch (e) {
         console.log('Error merging incremental games with final results, falling back to uniqueGames:', e);
         const finalGames = sortGamesByStatusAndTime(uniqueGames.map(g => ({ ...(g || {}), ...computeMatchFlags(g || {}) })));
-        __orig_console_log(`[FAVORITES STATE] Setting ${finalGames.length} games to favoriteGames state:`, finalGames.map(g => `${g.id} (${g.sport})`));
+        console.log(`[FAVORITES STATE] Setting ${finalGames.length} games to favoriteGames state:`, finalGames.map(g => `${g.id} (${g.sport})`));
         setFavoriteGames(finalGames);
       }
     } catch (error) {
@@ -1422,137 +1506,137 @@ const FavoritesScreen = ({ navigation }) => {
             let playsData = null;
             
             // Determine the correct API endpoint based on sport
-            __orig_console_log(`[BRANCH DEBUG] Game ${game.id} - sport: "${game.sport}", actualLeagueCode: "${game.actualLeagueCode}"`);
+            console.log(`[BRANCH DEBUG] Game ${game.id} - sport: "${game.sport}", actualLeagueCode: "${game.actualLeagueCode}"`);
             if (game.sport === 'Champions League' || game.actualLeagueCode === 'uefa.champions') {
-              __orig_console_log(`[BRANCH DEBUG] Using Champions League branch for game ${game.id}`);
+              console.log(`[BRANCH DEBUG] Using Champions League branch for game ${game.id}`);
               const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.champions/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`);
               if (playsResponseData.items && playsResponseData.items.length > 0) {
                 playsData = [...playsResponseData.items].reverse();
-                __orig_console_log(`Updated plays for UCL game ${game.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
+                console.log(`Updated plays for UCL game ${game.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
               }
               
               // Also fetch Site API status for Champions League
               try {
                 const siteApiUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/summary?event=${game.id}`;
-                __orig_console_log(`[SITE API UCL] Fetching status from: ${siteApiUrl}`);
+                console.log(`[SITE API UCL] Fetching status from: ${siteApiUrl}`);
                 const statusJson = await fetchJsonWithCache(siteApiUrl);
                 if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
                   extraStatusForMerge = statusJson.header.competitions[0];
-                  __orig_console_log(`[SITE API UCL] Fetched Site API status for UCL game ${game.id}`);
+                  console.log(`[SITE API UCL] Fetched Site API status for UCL game ${game.id}`);
                 } else {
-                  __orig_console_log(`[SITE API UCL] No valid status data in response for game ${game.id}`);
+                  console.log(`[SITE API UCL] No valid status data in response for game ${game.id}`);
                 }
               } catch (statusErr) {
-                __orig_console_log(`[SITE API UCL] Could not fetch Site API status for UCL game ${game.id}:`, statusErr?.message || statusErr);
+                console.log(`[SITE API UCL] Could not fetch Site API status for UCL game ${game.id}:`, statusErr?.message || statusErr);
               }
 
               // Also fetch individual competitor score data like initial load does
               if (game.competitions?.[0]?.competitors) {
                 try {
-                  __orig_console_log(`[SCORE FETCH UCL] Fetching individual competitor scores for game ${game.id}`);
+                  console.log(`[SCORE FETCH UCL] Fetching individual competitor scores for game ${game.id}`);
                   const scorePromises = game.competitions[0].competitors.map(async (competitor, index) => {
                     if (competitor.score?.$ref) {
-                      __orig_console_log(`[SCORE FETCH UCL] Fetching score data from: ${competitor.score.$ref}`);
+                      console.log(`[SCORE FETCH UCL] Fetching score data from: ${competitor.score.$ref}`);
                       const scoreData = await getEventData(competitor.score.$ref, true).catch(() => null);
                       return { index, scoreData };
                     }
                     return { index, scoreData: null };
                   });
                   const scoreResults = await Promise.all(scorePromises);
-                  __orig_console_log(`[SCORE FETCH UCL] Retrieved ${scoreResults.filter(s => s.scoreData !== null).length} score updates for game ${game.id}`);
+                  console.log(`[SCORE FETCH UCL] Retrieved ${scoreResults.filter(s => s.scoreData !== null).length} score updates for game ${game.id}`);
                   
                   // Store score data for later merging
                   extraScoreDataForMerge = scoreResults.filter(r => r.scoreData !== null);
                 } catch (scoreErr) {
-                  __orig_console_log(`[SCORE FETCH UCL] Error fetching competitor scores for game ${game.id}:`, scoreErr?.message || scoreErr);
+                  console.log(`[SCORE FETCH UCL] Error fetching competitor scores for game ${game.id}:`, scoreErr?.message || scoreErr);
                 }
               }
             } else if (game.sport === 'Europa League' || game.actualLeagueCode === 'uefa.europa') {
-              __orig_console_log(`[BRANCH DEBUG] Using Europa League branch for game ${game.id}`);
+              console.log(`[BRANCH DEBUG] Using Europa League branch for game ${game.id}`);
               const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`);
               if (playsResponseData.items && playsResponseData.items.length > 0) {
                 playsData = [...playsResponseData.items].reverse();
-                __orig_console_log(`Updated plays for UEL game ${game.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
+                console.log(`Updated plays for UEL game ${game.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
               }
               
               // Also fetch Site API status for Europa League
               try {
                 const siteApiUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/summary?event=${game.id}`;
-                __orig_console_log(`[SITE API UEL] Fetching status from: ${siteApiUrl}`);
+                console.log(`[SITE API UEL] Fetching status from: ${siteApiUrl}`);
                 const statusJson = await fetchJsonWithCache(siteApiUrl);
                 if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
                   extraStatusForMerge = statusJson.header.competitions[0];
-                  __orig_console_log(`[SITE API UEL] Fetched Site API status for UEL game ${game.id}`);
+                  console.log(`[SITE API UEL] Fetched Site API status for UEL game ${game.id}`);
                 } else {
-                  __orig_console_log(`[SITE API UEL] No valid status data in response for game ${game.id}`);
+                  console.log(`[SITE API UEL] No valid status data in response for game ${game.id}`);
                 }
               } catch (statusErr) {
-                __orig_console_log(`[SITE API UEL] Could not fetch Site API status for UEL game ${game.id}:`, statusErr?.message || statusErr);
+                console.log(`[SITE API UEL] Could not fetch Site API status for UEL game ${game.id}:`, statusErr?.message || statusErr);
               }
 
               // Also fetch individual competitor score data like initial load does
               if (game.competitions?.[0]?.competitors) {
                 try {
-                  __orig_console_log(`[SCORE FETCH UEL] Fetching individual competitor scores for game ${game.id}`);
+                  console.log(`[SCORE FETCH UEL] Fetching individual competitor scores for game ${game.id}`);
                   const scorePromises = game.competitions[0].competitors.map(async (competitor, index) => {
                     if (competitor.score?.$ref) {
-                      __orig_console_log(`[SCORE FETCH UEL] Fetching score data from: ${competitor.score.$ref}`);
+                      console.log(`[SCORE FETCH UEL] Fetching score data from: ${competitor.score.$ref}`);
                       const scoreData = await getEventData(competitor.score.$ref, true).catch(() => null);
                       return { index, scoreData };
                     }
                     return { index, scoreData: null };
                   });
                   const scoreResults = await Promise.all(scorePromises);
-                  __orig_console_log(`[SCORE FETCH UEL] Retrieved ${scoreResults.filter(s => s.scoreData !== null).length} score updates for game ${game.id}`);
+                  console.log(`[SCORE FETCH UEL] Retrieved ${scoreResults.filter(s => s.scoreData !== null).length} score updates for game ${game.id}`);
                   
                   // Store score data for later merging
                   extraScoreDataForMerge = scoreResults.filter(r => r.scoreData !== null);
                 } catch (scoreErr) {
-                  __orig_console_log(`[SCORE FETCH UEL] Error fetching competitor scores for game ${game.id}:`, scoreErr?.message || scoreErr);
+                  console.log(`[SCORE FETCH UEL] Error fetching competitor scores for game ${game.id}:`, scoreErr?.message || scoreErr);
                 }
               }
             } else if (game.sport === 'Europa Conference League' || game.actualLeagueCode === 'uefa.europa.conf') {
-              __orig_console_log(`[BRANCH DEBUG] Using Europa Conference League branch for game ${game.id}`);
+              console.log(`[BRANCH DEBUG] Using Europa Conference League branch for game ${game.id}`);
               const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`);
               if (playsResponseData.items && playsResponseData.items.length > 0) {
                 playsData = [...playsResponseData.items].reverse();
-                __orig_console_log(`Updated plays for UECL game ${game.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
+                console.log(`Updated plays for UECL game ${game.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
               }
               
               // Also fetch Site API status for Europa Conference League
               try {
                 const siteApiUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/summary?event=${game.id}`;
-                __orig_console_log(`[SITE API UECL] Fetching status from: ${siteApiUrl}`);
+                console.log(`[SITE API UECL] Fetching status from: ${siteApiUrl}`);
                 const statusJson = await fetchJsonWithCache(siteApiUrl);
                 if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
                   extraStatusForMerge = statusJson.header.competitions[0];
-                  __orig_console_log(`[SITE API UECL] Fetched Site API status for UECL game ${game.id}`);
+                  console.log(`[SITE API UECL] Fetched Site API status for UECL game ${game.id}`);
                 } else {
-                  __orig_console_log(`[SITE API UECL] No valid status data in response for game ${game.id}`);
+                  console.log(`[SITE API UECL] No valid status data in response for game ${game.id}`);
                 }
               } catch (statusErr) {
-                __orig_console_log(`[SITE API UECL] Could not fetch Site API status for UECL game ${game.id}:`, statusErr?.message || statusErr);
+                console.log(`[SITE API UECL] Could not fetch Site API status for UECL game ${game.id}:`, statusErr?.message || statusErr);
               }
 
               // Also fetch individual competitor score data like initial load does
               if (game.competitions?.[0]?.competitors) {
                 try {
-                  __orig_console_log(`[SCORE FETCH UECL] Fetching individual competitor scores for game ${game.id}`);
+                  console.log(`[SCORE FETCH UECL] Fetching individual competitor scores for game ${game.id}`);
                   const scorePromises = game.competitions[0].competitors.map(async (competitor, index) => {
                     if (competitor.score?.$ref) {
-                      __orig_console_log(`[SCORE FETCH UECL] Fetching score data from: ${competitor.score.$ref}`);
+                      console.log(`[SCORE FETCH UECL] Fetching score data from: ${competitor.score.$ref}`);
                       const scoreData = await getEventData(competitor.score.$ref, true).catch(() => null);
                       return { index, scoreData };
                     }
                     return { index, scoreData: null };
                   });
                   const scoreResults = await Promise.all(scorePromises);
-                  __orig_console_log(`[SCORE FETCH UECL] Retrieved ${scoreResults.filter(s => s.scoreData !== null).length} score updates for game ${game.id}`);
+                  console.log(`[SCORE FETCH UECL] Retrieved ${scoreResults.filter(s => s.scoreData !== null).length} score updates for game ${game.id}`);
                   
                   // Store score data for later merging
                   extraScoreDataForMerge = scoreResults.filter(r => r.scoreData !== null);
                 } catch (scoreErr) {
-                  __orig_console_log(`[SCORE FETCH UECL] Error fetching competitor scores for game ${game.id}:`, scoreErr?.message || scoreErr);
+                  console.log(`[SCORE FETCH UECL] Error fetching competitor scores for game ${game.id}:`, scoreErr?.message || scoreErr);
                 }
               }
             } else if (game.sport === 'MLB' || game.actualLeagueCode === 'mlb') {
@@ -1575,14 +1659,14 @@ const FavoritesScreen = ({ navigation }) => {
                     // Preserve the raw statsapi allPlays array (reversed) so the extractor
                     // that understands MLB shapes can use full play objects and descriptions.
                     playsData = [...allPlays].reverse();
-                    __orig_console_log(`Updated plays for MLB game ${game.id} from statsapi, total plays: ${playsData.length}`);
+                    console.log(`Updated plays for MLB game ${game.id} from statsapi, total plays: ${playsData.length}`);
                     // Log a sample of the most recent play keys to help debugging shape issues
                     const sample = playsData[0];
                     if (sample) {
-                      __orig_console_log(`Sample MLB play keys for game ${game.id}:`, Object.keys(sample).slice(0,10));
+                      console.log(`Sample MLB play keys for game ${game.id}:`, Object.keys(sample).slice(0,10));
                     }
                   } else {
-                    __orig.console_log(`No plays data found in statsapi response for MLB game ${game.id}`);
+                    console.log(`No plays data found in statsapi response for MLB game ${game.id}`);
                   }
 
                   // Build a normalized situation object from statsapi, preferring currentPlay.count
@@ -1607,7 +1691,7 @@ const FavoritesScreen = ({ navigation }) => {
                     };
                     
                     // Debug log the extracted situation values
-                    __orig_console_log(`[SITUATION DEBUG] Game ${game.id}:`, {
+                    console.log(`[SITUATION DEBUG] Game ${game.id}:`, {
                       fromCurrentPlay: currentCount ? `${currentCount.balls}-${currentCount.strikes}, ${currentCount.outs} outs` : 'null',
                       fromLinescore: ls ? `${ls.balls || 0}-${ls.strikes || 0}, ${ls.outs || 0} outs` : 'null',
                       finalSituation: `${newSituation.balls}-${newSituation.strikes}, ${newSituation.outs} outs, inning ${newSituation.inning}, top: ${newSituation.isTopInning}`,
@@ -1617,7 +1701,7 @@ const FavoritesScreen = ({ navigation }) => {
                   } catch (e) {
                     // ignore building situation
                     var newSituation = null;
-                    __orig_console_log(`[SITUATION DEBUG] Error building situation for game ${game.id}:`, e?.message || e);
+                    console.log(`[SITUATION DEBUG] Error building situation for game ${game.id}:`, e?.message || e);
                   }
                 }
                 // If we fetched plays but they lack usable description fields, don't overwrite
@@ -1631,7 +1715,7 @@ const FavoritesScreen = ({ navigation }) => {
                     (Array.isArray(latest.playEvents) && latest.playEvents.some(ev => ev?.details?.description))
                   ));
                   if (!hasDescription && game.playsData && Array.isArray(game.playsData) && game.playsData.length > 0) {
-                    __orig_console_log(`Fetched MLB plays for game ${game.id} lack descriptions; preserving existing playsData (${game.playsData.length} items)`);
+                    console.log(`Fetched MLB plays for game ${game.id} lack descriptions; preserving existing playsData (${game.playsData.length} items)`);
                     playsData = game.playsData; // preserve previous rich plays
                   }
                 }
@@ -1666,7 +1750,7 @@ const FavoritesScreen = ({ navigation }) => {
                       updatedCompetitions[0] = { ...updatedCompetitions[0], competitors: updatedCompetitors };
                       updatedGame = { ...updatedGame, competitions: updatedCompetitions };
                       
-                      __orig_console_log(`[SCORE UPDATE] Game ${game.id} scores updated - Away: ${currentPlay.result.awayScore}, Home: ${currentPlay.result.homeScore}`);
+                      console.log(`[SCORE UPDATE] Game ${game.id} scores updated - Away: ${currentPlay.result.awayScore}, Home: ${currentPlay.result.homeScore}`);
                     }
                   }
                 }
@@ -1681,68 +1765,68 @@ const FavoritesScreen = ({ navigation }) => {
                       // Prefer the liveData.status from statsapi if available
                       if (gameData && gameData.liveData && gameData.liveData.status) mergedLive.status = gameData.liveData.status;
                       updatedGame = { ...updatedGame, liveData: mergedLive };
-                      __orig_console_log(`[SITUATION UPDATE] Game ${game.id} situation changed - updating state`);
+                      console.log(`[SITUATION UPDATE] Game ${game.id} situation changed - updating state`);
                     } else {
-                      __orig_console_log(`[SITUATION UPDATE] Game ${game.id} situation unchanged - no state update needed`);
+                      console.log(`[SITUATION UPDATE] Game ${game.id} situation unchanged - no state update needed`);
                     }
                   } catch (e) {
-                    __orig_console_log(`[SITUATION UPDATE] Error comparing situation for game ${game.id}:`, e?.message || e);
+                    console.log(`[SITUATION UPDATE] Error comparing situation for game ${game.id}:`, e?.message || e);
                   }
                 }
 
                 return updatedGame;
               } else {
-                __orig_console_log(`No eventLink available for MLB game ${game.id}, skipping plays update`);
+                console.log(`No eventLink available for MLB game ${game.id}, skipping plays update`);
               }
             } else if (game.actualLeagueCode) {
               // Handle domestic leagues using the actualLeagueCode
-              __orig_console_log(`[BRANCH DEBUG] Using generic actualLeagueCode branch for game ${game.id}`);
-              __orig_console_log(`[LIVE UPDATE] Starting update for ${game.actualLeagueCode} game ${game.id}`);
+              console.log(`[BRANCH DEBUG] Using generic actualLeagueCode branch for game ${game.id}`);
+              console.log(`[LIVE UPDATE] Starting update for ${game.actualLeagueCode} game ${game.id}`);
               const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${game.actualLeagueCode}/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`);
                 if (playsResponseData?.items && playsResponseData.items.length > 0) {
                 playsData = [...playsResponseData.items].reverse();
-                __orig_console_log(`Updated plays for ${game.actualLeagueCode} game ${game.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
+                console.log(`Updated plays for ${game.actualLeagueCode} game ${game.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
               } else {
-                __orig_console_log(`Failed to fetch plays for ${game.actualLeagueCode} game ${game.id}`);
+                console.log(`Failed to fetch plays for ${game.actualLeagueCode} game ${game.id}`);
               }
 
               // Also attempt to fetch the Site API summary to get authoritative status/score/displayClock
               try {
                 const leagueCode = game.actualLeagueCode;
                 const siteApiUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${game.id}`;
-                __orig_console_log(`[SITE API] Attempting to fetch status for ${leagueCode} game ${game.id} from: ${siteApiUrl}`);
+                console.log(`[SITE API] Attempting to fetch status for ${leagueCode} game ${game.id} from: ${siteApiUrl}`);
                 const statusJson = await fetchJsonWithCache(siteApiUrl);
-                __orig_console_log(`[SITE API] Response for ${game.id}:`, { hasData: !!statusJson, hasHeader: !!statusJson?.header, hasCompetitions: !!statusJson?.header?.competitions, hasComp0: !!statusJson?.header?.competitions?.[0] });
+                console.log(`[SITE API] Response for ${game.id}:`, { hasData: !!statusJson, hasHeader: !!statusJson?.header, hasCompetitions: !!statusJson?.header?.competitions, hasComp0: !!statusJson?.header?.competitions?.[0] });
                 if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
                   // Attach to a temporary variable so we can merge after plays/updatedGame is constructed
                   extraStatusForMerge = statusJson.header.competitions[0];
-                  __orig_console_log(`Fetched Site API status for ${leagueCode} game ${game.id}`);
+                  console.log(`Fetched Site API status for ${leagueCode} game ${game.id}`);
                 } else {
-                  __orig_console_log(`[SITE API] No valid status data in response for ${game.id}`);
+                  console.log(`[SITE API] No valid status data in response for ${game.id}`);
                 }
               } catch (statusErr) {
-                __orig_console_log(`Could not fetch Site API status for ${game.id} (${game.actualLeagueCode}):`, statusErr?.message || statusErr);
+                console.log(`Could not fetch Site API status for ${game.id} (${game.actualLeagueCode}):`, statusErr?.message || statusErr);
               }
 
               // Also fetch individual competitor score data like initial load does
               if (game.competitions?.[0]?.competitors) {
                 try {
-                  __orig_console_log(`[SCORE FETCH] Fetching individual competitor scores for ${game.actualLeagueCode} game ${game.id}`);
+                  console.log(`[SCORE FETCH] Fetching individual competitor scores for ${game.actualLeagueCode} game ${game.id}`);
                   const scorePromises = game.competitions[0].competitors.map(async (competitor, index) => {
                     if (competitor.score?.$ref) {
-                      __orig_console_log(`[SCORE FETCH] Fetching score data from: ${competitor.score.$ref}`);
+                      console.log(`[SCORE FETCH] Fetching score data from: ${competitor.score.$ref}`);
                       const scoreData = await getEventData(competitor.score.$ref, true).catch(() => null);
                       return { index, scoreData };
                     }
                     return { index, scoreData: null };
                   });
                   const scoreResults = await Promise.all(scorePromises);
-                  __orig_console_log(`[SCORE FETCH] Retrieved ${scoreResults.filter(s => s.scoreData !== null).length} score updates for game ${game.id}`);
+                  console.log(`[SCORE FETCH] Retrieved ${scoreResults.filter(s => s.scoreData !== null).length} score updates for game ${game.id}`);
                   
                   // Store score data for later merging
                   extraScoreDataForMerge = scoreResults.filter(r => r.scoreData !== null);
                 } catch (scoreErr) {
-                  __orig_console_log(`[SCORE FETCH] Error fetching competitor scores for game ${game.id}:`, scoreErr?.message || scoreErr);
+                  console.log(`[SCORE FETCH] Error fetching competitor scores for game ${game.id}:`, scoreErr?.message || scoreErr);
                 }
               }
             }
@@ -1763,7 +1847,7 @@ const FavoritesScreen = ({ navigation }) => {
                 // If we fetched site API status for this league, merge status and scores
                 if (extraStatusForMerge && updatedGame.competitions && updatedGame.competitions[0]) {
                   try {
-                    __orig_console_log(`[STATUS MERGE] Starting merge for game ${game.id}, extraStatusForMerge has status:`, !!extraStatusForMerge.status);
+                    console.log(`[STATUS MERGE] Starting merge for game ${game.id}, extraStatusForMerge has status:`, !!extraStatusForMerge.status);
                     const updatedCompetitions = (updatedGame.competitions || []).map(c => ({ ...c }));
                     // Merge status object
                     updatedCompetitions[0].status = extraStatusForMerge.status || updatedCompetitions[0].status;
@@ -1784,35 +1868,35 @@ const FavoritesScreen = ({ navigation }) => {
                       });
                     }
                     updatedGame = { ...updatedGame, competitions: updatedCompetitions, gameDataWithStatus: { header: { competitions: [ extraStatusForMerge ] } } };
-                    __orig_console_log(`[STATUS MERGE] Merged Site API status for game ${game.id}, displayClock: ${extraStatusForMerge.status?.displayClock}`);
+                    console.log(`[STATUS MERGE] Merged Site API status for game ${game.id}, displayClock: ${extraStatusForMerge.status?.displayClock}`);
                   } catch (e) {
-                    __orig_console_log('Error merging Site API status into game object:', e);
+                    console.log('Error merging Site API status into game object:', e);
                   }
                 } else {
-                  __orig_console_log(`[STATUS MERGE] Skipping merge for game ${game.id} - extraStatusForMerge: ${!!extraStatusForMerge}, competitions: ${!!updatedGame.competitions}, comp[0]: ${!!updatedGame.competitions?.[0]}`);
+                  console.log(`[STATUS MERGE] Skipping merge for game ${game.id} - extraStatusForMerge: ${!!extraStatusForMerge}, competitions: ${!!updatedGame.competitions}, comp[0]: ${!!updatedGame.competitions?.[0]}`);
                 }
 
                 // Merge individual competitor score data if available
                 if (extraScoreDataForMerge && extraScoreDataForMerge.length > 0 && updatedGame.competitions && updatedGame.competitions[0]) {
                   try {
-                    __orig_console_log(`[SCORE MERGE] Merging ${extraScoreDataForMerge.length} individual score updates for game ${game.id}`);
+                    console.log(`[SCORE MERGE] Merging ${extraScoreDataForMerge.length} individual score updates for game ${game.id}`);
                     const updatedCompetitions = [...(updatedGame.competitions || [])];
                     if (updatedCompetitions[0]) {
                       const updatedCompetitors = [...(updatedCompetitions[0].competitors || [])];
                       extraScoreDataForMerge.forEach(({ index, scoreData }) => {
                         if (scoreData && updatedCompetitors[index]) {
                           updatedCompetitors[index] = { ...updatedCompetitors[index], score: scoreData };
-                          __orig_console_log(`[SCORE MERGE] Updated competitor ${index} score for game ${game.id}:`, scoreData);
+                          console.log(`[SCORE MERGE] Updated competitor ${index} score for game ${game.id}:`, scoreData);
                         }
                       });
                       updatedCompetitions[0] = { ...updatedCompetitions[0], competitors: updatedCompetitors };
                       updatedGame = { ...updatedGame, competitions: updatedCompetitions };
                     }
                   } catch (e) {
-                    __orig_console_log('Error merging individual score data into game object:', e);
+                    console.log('Error merging individual score data into game object:', e);
                   }
                 } else {
-                  __orig_console_log(`[SCORE MERGE] Skipping score merge for game ${game.id} - extraScoreDataForMerge: ${extraScoreDataForMerge ? extraScoreDataForMerge.length : 'null'} items`);
+                  console.log(`[SCORE MERGE] Skipping score merge for game ${game.id} - extraScoreDataForMerge: ${extraScoreDataForMerge ? extraScoreDataForMerge.length : 'null'} items`);
                 }
 
             return updatedGame;
@@ -1855,10 +1939,10 @@ const FavoritesScreen = ({ navigation }) => {
       });
       
       if (hasChanges) {
-        __orig_console_log('Plays data changed, updating state');
+        console.log('Plays data changed, updating state');
         setFavoriteGames(updatedGames);
       } else {
-        __orig_console_log('No changes in plays data, skipping state update');
+        console.log('No changes in plays data, skipping state update');
       }
     } catch (error) {
       console.error('Error updating live games plays:', error);
@@ -1901,7 +1985,7 @@ const FavoritesScreen = ({ navigation }) => {
         return null;
       }
       if (gameDate < todayStart || gameDate >= todayEnd) {
-        __orig_console_log(`[DATE FILTER] Game for ${teamName} excluded - gameDate: ${gameDate.toISOString()}, todayStart: ${todayStart.toISOString()}, todayEnd: ${todayEnd.toISOString()}`);
+        console.log(`[DATE FILTER] Game for ${teamName} excluded - gameDate: ${gameDate.toISOString()}, todayStart: ${todayStart.toISOString()}, todayEnd: ${todayEnd.toISOString()}`);
         return null;
       }
       
@@ -2017,7 +2101,7 @@ const FavoritesScreen = ({ navigation }) => {
       } catch (e) {
         // ignore
       }
-      __orig_console_log(`[DEBUG] Resolved eventLink for ${teamName}: ${resolvedEventLink}`);
+      console.log(`[DEBUG] Resolved eventLink for ${teamName}: ${resolvedEventLink}`);
       
       const eventData = await getEventData(currentGameData.eventLink, true); // Bypass gating for direct game links
       if (!eventData) {
@@ -2125,7 +2209,7 @@ const FavoritesScreen = ({ navigation }) => {
         fromDirectLink: true // Flag to indicate this came from direct link
       };
       
-      __orig_console_log(`[DEBUG] Returning game object for ${teamName}, eventLink: ${returnObject.eventLink}`);
+      console.log(`[DEBUG] Returning game object for ${teamName}, eventLink: ${returnObject.eventLink}`);
       return returnObject;
       
     } catch (error) {
@@ -2924,91 +3008,59 @@ const FavoritesScreen = ({ navigation }) => {
       
       const { todayStart, todayEnd } = getTodayDateRange();
       
-      // Fetch today's MLB games for this team
-      const eventsUrl = `https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/seasons/2025/teams/${team.teamId}/events?lang=en&region=us&limit=20`;
-      const eventsData = await fetchJsonWithCache(eventsUrl);
-
-      if (eventsData.items && eventsData.items.length > 0) {
-        for (const eventRef of eventsData.items) {
-          const eventData = await getEventData(eventRef.$ref);
-          const eventDate = new Date(eventData.date);
-
-          if (eventDate >= todayStart && eventDate < todayEnd) {
-            console.log(`Found today's MLB game for ${team.displayName}:`, eventData.id);
-            
-            // Fetch detailed game data using the game ID
-            const gameDetailUrl = `https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/events/${eventData.id}?lang=en&region=us`;
-            const gameDetailData = await fetchJsonWithCache(gameDetailUrl);
-            
-            // Fetch live data from ESPN's live API (similar to GameDetailsScreen)
-            let liveData = null;
-            try {
-              const liveUrl = `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=${eventData.id}`;
-              liveData = await fetchJsonWithCache(liveUrl);
-              console.log(`Successfully fetched live MLB data for game ${eventData.id}`);
-            } catch (liveError) {
-              console.warn(`Could not fetch live MLB data for game ${eventData.id}:`, liveError);
-            }
-
-            // Fetch plays data for live games
-            let playsData = null;
-            try {
-              const gameStatus = liveData?.header?.competitions?.[0]?.status?.type?.state || gameDetailData.status?.type?.state;
-              if (gameStatus === 'in') {
-                const playsUrl = `https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=50`;
-                const playsResponseData = await fetchJsonWithCache(playsUrl);
-                if (playsResponseData.items && playsResponseData.items.length > 0) {
-                  playsData = [...playsResponseData.items].reverse(); // Most recent first
-                  console.log(`Fetched plays data for MLB game ${eventData.id}, most recent: ${playsData[0]?.text || 'N/A'}`);
-                }
-              }
-            } catch (playsError) {
-              console.warn(`Could not fetch plays data for MLB game ${eventData.id}:`, playsError);
-            }
-
-            // Try to fetch venue from MLB API if available
-            let mlbGameData = null;
-            console.log(`Starting MLB API fetch for game ${eventData.id}`);
-            try {
-              // The eventData.id from ESPN should correspond to the MLB gamePk
-              const mlbUrl = `https://statsapi.mlb.com/api/v1.1/game/${eventData.id}/feed/live`;
-              console.log(`Attempting to fetch MLB data from: ${mlbUrl}`);
-              const mlbData = await fetchJsonWithCache(mlbUrl);
-              console.log('MLB API JSON parsed successfully');
-              mlbGameData = mlbData.gameData; // Store gameData part like MLBService does
-              // If statsapi provides play-by-play, map it to playsData for our UI (reverse to most-recent-first)
-              try {
-                const allPlays = mlbData.liveData?.plays?.allPlays;
-                if (Array.isArray(allPlays) && allPlays.length > 0) {
-                  playsData = [...allPlays].reverse();
-                  console.log(`Mapped ${playsData.length} plays from statsapi to playsData for game ${eventData.id}`);
-                }
-              } catch (e) {
-                // ignore
-              }
-              console.log(`Successfully fetched MLB game data for game ${eventData.id}. Venue:`, mlbGameData?.venue?.name);
-              console.log('Full venue object:', mlbGameData?.venue);
-              console.log('Complete mlbGameData:', JSON.stringify(mlbGameData, null, 2));
-            } catch (mlbError) {
-              console.error(`Error fetching MLB game data for game ${eventData.id}:`, mlbError);
-            }
-            console.log(`Finished MLB API fetch for game ${eventData.id}, mlbGameData:`, !!mlbGameData);
-
-            return {
-              ...gameDetailData,
-              favoriteTeam: team,
-              sport: 'MLB',
-              actualLeagueCode: 'mlb',
-              eventLink: `https://statsapi.mlb.com/api/v1.1/game/${eventData.id}/feed/live`, // Add the direct statsapi link
-              liveData,
-              playsData,
-              mlbGameData
-            };
-          }
+      // Use the same date format as team page - YYYY-MM-DD for today
+      const today = new Date();
+      const currentHour = today.getHours();
+      let gameDay;
+      if (currentHour < 2) {
+        gameDay = new Date(today.getTime() - 24 * 60 * 60 * 1000); // Yesterday
+      } else {
+        gameDay = new Date(); // Today
+      }
+      
+      const todayDateStr = gameDay.getFullYear() + '-' + 
+                          String(gameDay.getMonth() + 1).padStart(2, '0') + '-' + 
+                          String(gameDay.getDate()).padStart(2, '0');
+      
+      console.log(`MLB API: Using date ${todayDateStr} for team ${teamName} (${team.teamId})`);
+      
+      // Try to get today's MLB games for this team using the same format as team page
+      const mlbScheduleUrl = `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&startDate=${todayDateStr}&endDate=${todayDateStr}&teamId=${team.teamId}&hydrate=team,linescore,decisions`;
+      console.log(`MLB API URL: ${mlbScheduleUrl}`);
+      
+      const mlbSchedule = await fetchJsonWithCache(mlbScheduleUrl);
+      console.log(`MLB schedule response:`, mlbSchedule);
+      
+      if (mlbSchedule?.dates?.[0]?.games?.length > 0) {
+        const game = mlbSchedule.dates[0].games[0];
+        console.log(`Found today's MLB game:`, game.gamePk, game.teams.home.team.name, 'vs', game.teams.away.team.name);
+        
+        // Fetch detailed game data using the game ID
+        const gameDetailUrl = `https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/events/${game.gamePk}?lang=en&region=us`;
+        const gameDetailData = await fetchJsonWithCache(gameDetailUrl);
+        
+        // Fetch live data from ESPN's live API (similar to GameDetailsScreen)
+        let liveData = null;
+        try {
+          const liveUrl = `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=${game.gamePk}`;
+          liveData = await fetchJsonWithCache(liveUrl);
+          console.log(`Successfully fetched live MLB data for game ${game.gamePk}`);
+        } catch (liveError) {
+          console.warn(`Could not fetch live MLB data for game ${game.gamePk}:`, liveError);
         }
+
+        return {
+          ...gameDetailData,
+          favoriteTeam: team,
+          sport: 'MLB',
+          actualLeagueCode: 'mlb',
+          eventLink: `https://statsapi.mlb.com/api/v1.1/game/${game.gamePk}/feed/live`,
+          liveData,
+          mlbGameData: game // Use the MLB API game data directly
+        };
       }
 
-      console.log(`No today's game found for ${team.displayName}`);
+      console.log(`No today's game found for ${teamName}`);
       return null;
     } catch (error) {
       console.error('Error fetching MLB team games:', error);
@@ -3578,7 +3630,7 @@ const FavoritesScreen = ({ navigation }) => {
 
     // Debug: log what the UI is actually reading from liveData.situation
     if (gameStatus.isLive && liveData.situation) {
-      __orig_console_log(`[UI RENDER DEBUG] Game ${gameId} rendering with liveData.situation:`, {
+      console.log(`[UI RENDER DEBUG] Game ${gameId} rendering with liveData.situation:`, {
         balls: liveData.situation.balls,
         strikes: liveData.situation.strikes,
         outs: liveData.situation.outs,
@@ -4134,12 +4186,12 @@ const FavoritesScreen = ({ navigation }) => {
     const getMatchStatus = () => {
       // Try to get status from Site API data first (like Game Details screen)
       const statusFromSiteAPI = game.gameDataWithStatus?.header?.competitions?.[0]?.status;
-      __orig_console_log(`[STATUS READ] Game ${game.id} - statusFromSiteAPI found: ${!!statusFromSiteAPI}, displayClock: ${statusFromSiteAPI?.displayClock}`);
+      console.log(`[STATUS READ] Game ${game.id} - statusFromSiteAPI found: ${!!statusFromSiteAPI}, displayClock: ${statusFromSiteAPI?.displayClock}`);
       
       if (statusFromSiteAPI) {
         const state = statusFromSiteAPI.type?.state;
         
-        __orig_console_log(`Using Site API status for game ${game.id}:`, {
+        console.log(`Using Site API status for game ${game.id}:`, {
           state,
           displayClock: statusFromSiteAPI.displayClock,
           period: statusFromSiteAPI.period,
@@ -4369,7 +4421,7 @@ const FavoritesScreen = ({ navigation }) => {
     if (!loggedGames.has(logKey)) {
       const gameStartTime = formatGameTime(gameDate);
       const directLink = game.eventLink ? `, Direct Link: ${game.eventLink}` : ', Direct Link: None';
-      __orig_console_log(`Game ${game.id} (${game.sport || 'Unknown'}) Status - Live: ${isLive}, Scheduled: ${isScheduled}, Finished: ${isFinished}, Start Time: ${gameStartTime} EST${directLink}`);
+      console.log(`Game ${game.id} (${game.sport || 'Unknown'}) Status - Live: ${isLive}, Scheduled: ${isScheduled}, Finished: ${isFinished}, Start Time: ${gameStartTime} EST${directLink}`);
       loggedGames.add(logKey);
       
       // Determine if this game should receive updates and track it
@@ -4770,7 +4822,7 @@ const FavoritesScreen = ({ navigation }) => {
     // Group games by actual competition using actualLeagueCode
     const grouped = favoriteGames.reduce((acc, game) => {
       const sport = getLeagueGroupName(game.actualLeagueCode, game.sport);
-      __orig_console_log(`[GROUPING] Game ${game.id} (${game.actualLeagueCode}) -> sport group: "${sport}"`);
+      console.log(`[GROUPING] Game ${game.id} (${game.actualLeagueCode}) -> sport group: "${sport}"`);
       if (!acc[sport]) {
         acc[sport] = [];
       }

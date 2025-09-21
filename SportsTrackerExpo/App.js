@@ -54,6 +54,13 @@ import MLBGameDetailsScreen from './src/screens/mlb/GameDetailsScreen';
 import MLBTeamPageScreen from './src/screens/mlb/TeamPageScreen';
 import MLBPlayerPageScreen from './src/screens/mlb/PlayerPageScreen';
 
+// F1 specific screens
+import F1ResultsScreen from './src/screens/f1/ResultsScreen';
+import F1StandingsScreen from './src/screens/f1/StandingsScreen';
+import F1RaceDetailsScreen from './src/screens/f1/RaceDetailsScreen';
+import F1ConstructorDetailsScreen from './src/screens/f1/ConstructorDetailsScreen';
+import F1RacerDetailsScreen from './src/screens/f1/RacerDetailsScreen';
+
 // Soccer specific screens
 import SoccerHomeScreen from './src/screens/soccer/SoccerHomeScreen';
 
@@ -213,7 +220,7 @@ const HomeTabNavigator = () => {
   );
 };
 
-// Sport Tab Navigator (for specific sport navigation - NFL and MLB only)
+// Sport Tab Navigator (for specific sport navigation - NFL, MLB, and F1)
 const SportTabNavigator = ({ route }) => {
   const { sport } = route.params;
   const { theme, colors } = useTheme();
@@ -236,6 +243,14 @@ const SportTabNavigator = ({ route }) => {
           SearchScreen: MLBSearchScreen,
           CompareScreen: MLBCompareScreen,
           StatsScreen: MLBStatsScreen,
+        };
+      case 'f1':
+        return {
+          ScoreboardScreen: F1ResultsScreen, // Using Results screen for Scores tab
+          StandingsScreen: F1StandingsScreen,
+          SearchScreen: () => <View style={styles.placeholderContainer}><Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
+          CompareScreen: () => <View style={styles.placeholderContainer}><Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
+          StatsScreen: () => <View style={styles.placeholderContainer}><Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
         };
       case 'soccer':
         return {
@@ -567,6 +582,8 @@ const MainStackNavigator = () => {
               return <NFLGameDetailsScreen {...props} />;
             case 'mlb':
               return <MLBGameDetailsScreen {...props} />;
+            case 'f1':
+              return <F1RaceDetailsScreen {...props} />;
             case 'soccer':
               return <SpainGameDetailsScreen {...props} />;
             default:
@@ -671,6 +688,42 @@ const MainStackNavigator = () => {
         component={UECLGameDetailsScreen}
         options={{ 
           title: 'Game Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="F1RaceDetails" 
+        component={F1RaceDetailsScreen}
+        options={{ 
+          title: 'Race Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="F1ConstructorDetails" 
+        component={F1ConstructorDetailsScreen}
+        options={{ 
+          title: 'Constructor Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="F1RacerDetails" 
+        component={F1RacerDetailsScreen}
+        options={{ 
+          title: 'Racer Details',
           headerStyle: {
             backgroundColor: colors.primary,
           },

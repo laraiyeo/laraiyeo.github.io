@@ -988,44 +988,6 @@ window.switchToStream = function(streamType) {
   }
 };
 
-// Helper function to update button texts based on current stream type
-function updateStreamButtons(currentType) {
-  const button1 = document.getElementById('streamButton1');
-  const button2 = document.getElementById('streamButton2');
-
-  if (currentType === 'alpha1') {
-    if (button1) {
-      button1.textContent = availableStreams.alpha ? 'Stream Alpha 2' : 'Try Alpha 2';
-      // Event listener is already attached in renderStreamEmbed
-    }
-    if (button2) {
-      button2.textContent = availableStreams.bravo ? 'Stream Bravo' : 'Try Bravo';
-      // Event listener is already attached in renderStreamEmbed
-    }
-  } else if (currentType === 'alpha2') {
-    if (button1) {
-      button1.textContent = availableStreams.alpha ? 'Stream Alpha 1' : 'Try Alpha 1';
-      // Event listener is already attached in renderStreamEmbed
-    }
-    if (button2) {
-      button2.textContent = availableStreams.bravo ? 'Stream Bravo' : 'Try Bravo';
-      // Event listener is already attached in renderStreamEmbed
-    }
-  } else if (currentType === 'bravo') {
-    if (button1) {
-      button1.textContent = availableStreams.alpha ? 'Stream Alpha 1' : 'Try Alpha 1';
-      // Event listener is already attached in renderStreamEmbed
-    }
-    if (button2) {
-      button2.textContent = availableStreams.alpha ? 'Stream Alpha 2' : 'Try Alpha 2';
-      // Event listener is already attached in renderStreamEmbed
-    }
-  }
-}
-
-// Make helper function available globally
-window.updateStreamButtons = updateStreamButtons;
-
 // Stream functionality using embedsports.top embed service
 
 // Debug function to test streaming embed URLs
@@ -1084,21 +1046,27 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
   console.log('Attempting to fetch streams from API...');
   availableStreams = await findMatchStreams(homeTeamName, awayTeamName);
 
+  // If we have streams and the current stream type isn't available, switch to the first available
+  const availableStreamSources = Object.keys(availableStreams);
+  if (availableStreamSources.length > 0 && !availableStreams[currentStreamType] && currentStreamType !== 'alpha2') {
+    currentStreamType = availableStreamSources[0];
+    console.log('Switched to first available stream type:', currentStreamType);
+  }
+
   // Generate embed URL based on stream type and available streams
   let embedUrl = '';
 
-  if (availableStreams.alpha && currentStreamType === 'alpha1') {
-    embedUrl = availableStreams.alpha.embedUrl;
-  } else if (availableStreams.alpha && currentStreamType === 'alpha2') {
-    // For alpha2, modify the API URL to use /2 instead of /1
+  // Check if we have the stream from API
+  if (availableStreams[currentStreamType]) {
+    embedUrl = availableStreams[currentStreamType].embedUrl;
+  } else if (currentStreamType === 'alpha2' && availableStreams.alpha) {
+    // Special case for alpha2 - modify alpha URL to use /2 instead of /1
     embedUrl = availableStreams.alpha.embedUrl.replace(/\/1$/, '/2');
-  } else if (availableStreams.bravo && currentStreamType === 'bravo') {
-    embedUrl = availableStreams.bravo.embedUrl;
   }
 
   // Fallback to manual URL construction if API doesn't have the stream
   if (!embedUrl) {
-    console.log('API streams not available, falling back to manual URL construction');
+    console.log('API stream not available for', currentStreamType, ', falling back to manual URL construction');
     const homeNormalized = normalizeTeamName(homeTeamName);
     const awayNormalized = normalizeTeamName(awayTeamName);
 
@@ -1109,32 +1077,44 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
     } else if (currentStreamType === 'bravo') {
       const timestamp = Date.now();
       embedUrl = `https://embedsports.top/embed/bravo/${timestamp}-${homeNormalized}-${awayNormalized}-english-/1`;
+    } else {
+      // For other sources, use a generic pattern
+      embedUrl = `https://embedsports.top/embed/${currentStreamType}/${homeNormalized}-vs-${awayNormalized}/1`;
     }
   }
 
   console.log('Generated embed URL:', embedUrl);
 
-  // Determine which buttons to show based on current stream type and available streams
-  let button1Text = '';
-  let button2Text = '';
-  let button1Action = '';
-  let button2Action = '';
-
-  if (currentStreamType === 'alpha1') {
-    button1Text = availableStreams.alpha ? 'Stream Alpha 2' : 'Try Alpha 2';
-    button2Text = availableStreams.bravo ? 'Stream Bravo' : 'Try Bravo';
-    button1Action = 'switchToStream(\'alpha2\')';
-    button2Action = 'switchToStream(\'bravo\')';
-  } else if (currentStreamType === 'alpha2') {
-    button1Text = availableStreams.alpha ? 'Stream Alpha 1' : 'Try Alpha 1';
-    button2Text = availableStreams.bravo ? 'Stream Bravo' : 'Try Bravo';
-    button1Action = 'switchToStream(\'alpha1\')';
-    button2Action = 'switchToStream(\'bravo\')';
-  } else if (currentStreamType === 'bravo') {
-    button1Text = availableStreams.alpha ? 'Stream Alpha 1' : 'Try Alpha 1';
-    button2Text = availableStreams.alpha ? 'Stream Alpha 2' : 'Try Alpha 2';
-    button1Action = 'switchToStream(\'alpha1\')';
-    button2Action = 'switchToStream(\'alpha2\')';
+  // Create dynamic buttons for all available stream sources
+  const streamSources = Object.keys(availableStreams);
+  let streamButtons = '';
+  
+  // Create buttons for each available stream source
+  streamSources.forEach((source, index) => {
+    if (source !== currentStreamType) {  // Don't show button for current stream
+      const buttonText = `Stream ${source.charAt(0).toUpperCase() + source.slice(1)}`;
+      streamButtons += `<button onclick="switchToStream('${source}')" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">${buttonText}</button>`;
+    }
+  });
+  
+  // If no streams from API, show fallback options
+  if (streamSources.length === 0) {
+    if (currentStreamType === 'alpha1') {
+      streamButtons = `
+        <button onclick="switchToStream('alpha2')" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Try Alpha 2</button>
+        <button onclick="switchToStream('bravo')" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Try Bravo</button>
+      `;
+    } else if (currentStreamType === 'alpha2') {
+      streamButtons = `
+        <button onclick="switchToStream('alpha1')" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Try Alpha 1</button>
+        <button onclick="switchToStream('bravo')" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Try Bravo</button>
+      `;
+    } else if (currentStreamType === 'bravo') {
+      streamButtons = `
+        <button onclick="switchToStream('alpha1')" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Try Alpha 1</button>
+        <button onclick="switchToStream('alpha2')" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Try Alpha 2</button>
+      `;
+    }
   }
 
   const streamHTML = `
@@ -1143,8 +1123,7 @@ async function renderStreamEmbed(awayTeamName, homeTeamName) {
         <h3 style="color: white; margin: 0;">Live Stream (${currentStreamType.toUpperCase()})</h3>
         <div class="stream-controls" style="margin-top: 10px;">
           <button id="fullscreenButton" onclick="toggleFullscreen()" style="padding: 8px 16px; margin: 0 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">⛶ Fullscreen</button>
-          <button id="streamButton1" onclick="${button1Action}" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">${button1Text}</button>
-          <button id="streamButton2" onclick="${button2Action}" style="padding: 8px 16px; margin: 0 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">${button2Text}</button>
+          ${streamButtons}
         </div>
       </div>
       <div id="streamConnecting" style="display: block; color: white; padding: 20px; background: #333; margin-bottom: 10px; border-radius: 8px; text-align: center;">

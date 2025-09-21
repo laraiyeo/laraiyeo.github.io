@@ -157,42 +157,62 @@ const TeamPageScreen = ({ route, navigation }) => {
     return 'https://via.placeholder.com/88x88?text=Player';
   };
 
-  // TeamLogoImage component with dark mode and fallback support (from England)
+  // TeamLogoImage component with dark mode and fallback support (improved to avoid flicker)
   const TeamLogoImage = ({ team, teamId, style }) => {
     // Accept either a team object (with logos) or a simple id/abbr via teamId
-    const [logoSource, setLogoSource] = useState(null);
-    const [retryCount, setRetryCount] = useState(0);
-
     const resolveCandidate = () => {
       if (team) return team;
       if (teamId) return teamId;
       return null;
     };
 
-    useEffect(() => {
+    // Compute initial logo synchronously so re-mounts/re-renders don't show the placeholder briefly
+    const computeInitialLogo = () => {
       const cand = resolveCandidate();
-      if (!cand) return;
-      
-      // Direct logos array handling: prefer logos[1] for dark mode, logos[0] for light mode
+      if (!cand) return null;
+
       if (team && Array.isArray(team.logos) && team.logos.length > 0) {
         const preferredIndex = isDarkMode ? 1 : 0;
         const fallbackIndex = isDarkMode ? 0 : 1;
         const logoUrl = team.logos[preferredIndex]?.href || team.logos[fallbackIndex]?.href || team.logos[0]?.href;
-        if (logoUrl) {
-          setLogoSource({ uri: logoUrl });
-          return;
-        }
+        if (logoUrl) return { uri: logoUrl };
       }
-      
-      // Fallback to getTeamLogoUrls for cases without direct logos array
+
       const { primaryUrl } = getTeamLogoUrls(cand, isDarkMode);
-      if (primaryUrl) setLogoSource({ uri: primaryUrl });
+      if (primaryUrl) return { uri: primaryUrl };
+      return null;
+    };
+
+    const [logoSource, setLogoSource] = useState(() => computeInitialLogo());
+    const [retryCount, setRetryCount] = useState(0);
+
+    useEffect(() => {
+      const cand = resolveCandidate();
+      if (!cand) return;
+
+      // Recompute and update only if different to avoid unnecessary state churn
+      let newUrl = null;
+      if (team && Array.isArray(team.logos) && team.logos.length > 0) {
+        const preferredIndex = isDarkMode ? 1 : 0;
+        const fallbackIndex = isDarkMode ? 0 : 1;
+        newUrl = team.logos[preferredIndex]?.href || team.logos[fallbackIndex]?.href || team.logos[0]?.href;
+      }
+      if (!newUrl) {
+        newUrl = getTeamLogoUrls(cand, isDarkMode).primaryUrl;
+      }
+
+      if (newUrl) {
+        const candidateSource = { uri: newUrl };
+        // Only update state if the URL actually changed
+        if (!logoSource || logoSource.uri !== candidateSource.uri) setLogoSource(candidateSource);
+      }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [team, teamId, isDarkMode]);
 
     const handleError = () => {
       if (retryCount === 0) {
         setRetryCount(1);
-        
+
         // Try fallback logo from logos array first
         if (team && Array.isArray(team.logos) && team.logos.length > 0) {
           const fallbackIndex = isDarkMode ? 0 : 1;
@@ -202,13 +222,14 @@ const TeamPageScreen = ({ route, navigation }) => {
             return;
           }
         }
-        
+
         // Then try getTeamLogoUrls fallback
         const cand = resolveCandidate();
         if (cand) {
           const { fallbackUrl } = getTeamLogoUrls(cand, isDarkMode);
           if (fallbackUrl) {
             setLogoSource({ uri: fallbackUrl });
+            return;
           }
         }
       }
