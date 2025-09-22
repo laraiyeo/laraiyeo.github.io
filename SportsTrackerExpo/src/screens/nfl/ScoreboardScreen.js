@@ -353,7 +353,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
           console.log('All games are final, stopping updates');
         }
         
-        // Group games by date with latest first
+        // Group games by date and sort within each date by status then time
         const gamesByDate = formattedGames.reduce((acc, game) => {
           const gameDate = game.date.toLocaleDateString("en-US", {
             weekday: "long",
@@ -366,20 +366,50 @@ const NFLScoreboardScreen = ({ navigation }) => {
           return acc;
         }, {});
 
-        // Sort dates in reverse chronological order (latest first)
-        const sortedDates = Object.keys(gamesByDate).sort(
-          (a, b) => new Date(b) - new Date(a)
-        );
+        // Determine ordering for statuses: Live -> Scheduled -> Finished
+        const statusOrder = (item) => {
+          // Map common status shapes to order index
+          if (!item || item.isCompleted === false && (item.displayClock || (item.status && (item.status.toLowerCase().includes('quarter') || item.status.toLowerCase().includes('half') || item.status.toLowerCase().includes('overtime'))))) return 0; // Live
+          if (!item.isCompleted && item.status && (item.status.toLowerCase().includes('pre') || item.status.toLowerCase().includes('scheduled') || item.status.toLowerCase() === 'scheduled')) return 1; // Scheduled
+          // Default: Finished
+          return 2;
+        };
 
-        // Flatten back to array with date headers
+  // Sort dates in chronological order (earliest date first) so grouping is Day -> Status -> Time
+  const sortedDates = Object.keys(gamesByDate).sort((a, b) => new Date(a) - new Date(b));
+
+        // Flatten back to array with date headers and sort games within each date
         const groupedGames = [];
         for (const date of sortedDates) {
           groupedGames.push({ type: 'header', date });
-          gamesByDate[date].forEach(game => {
-            groupedGames.push({ type: 'game', ...game });
+
+          // Sort the games for this date by status order, then by time/clock
+          const sortedForDate = gamesByDate[date].sort((g1, g2) => {
+            const s1 = statusOrder(g1);
+            const s2 = statusOrder(g2);
+            if (s1 !== s2) return s1 - s2;
+
+            // Same status group - sort by appropriate time field
+            // For Scheduled: sort by start time ascending
+            if (s1 === 1) {
+              return g1.date - g2.date;
+            }
+
+            // For Live: sort by displayClock (descending so games with more time remaining show first), then by start time
+            if (s1 === 0) {
+              const c1 = parseClockValue(g1.displayClock || '0');
+              const c2 = parseClockValue(g2.displayClock || '0');
+              if (c1 !== c2) return c2 - c1; // more time remaining first
+              return g1.date - g2.date;
+            }
+
+            // For Finished: sort by end/start time descending (most recently finished first)
+            return g2.date - g1.date;
           });
+
+          sortedForDate.forEach(game => groupedGames.push({ type: 'game', ...game }));
         }
-        
+
         processedGames = groupedGames;
       }
       
@@ -507,6 +537,21 @@ const NFLScoreboardScreen = ({ navigation }) => {
     
     // For in-progress games, show clock if available
     return item.displayClock || '';
+  };
+
+  // Convert a displayClock string like "1:46" or "12:34" into total seconds
+  const parseClockValue = (clockStr) => {
+    if (!clockStr || typeof clockStr !== 'string') return 0;
+    // Remove non-digit/colon chars
+    const clean = clockStr.replace(/[^0-9:]/g, '');
+    const parts = clean.split(':').map(p => parseInt(p, 10) || 0);
+    if (parts.length === 2) {
+      return parts[0] * 60 + parts[1];
+    }
+    if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    }
+    return parts[0] || 0;
   };
 
   const renderDateHeader = (date) => (
@@ -676,10 +721,10 @@ const NFLScoreboardScreen = ({ navigation }) => {
             <Text allowFontScaling={false} style={[styles.broadcast, { color: theme.textSecondary }]}>{item.broadcasts.join(', ')}</Text>
           )}
           {/* Show down and distance for in-progress games (but not halftime) */}
-          {item.situation?.shortDownDistanceText && 
+          {item.situation?.downDistanceText && 
            !item.isCompleted && 
            item.status && item.status.toLowerCase() !== 'halftime' && (
-            <Text allowFontScaling={false} style={[styles.downDistance, { color: colors.primary }]}>{item.situation.shortDownDistanceText}</Text>
+            <Text allowFontScaling={false} style={[styles.downDistance, { color: colors.primary }]}>{item.situation.downDistanceText}</Text>
           )}
         </View>
       </TouchableOpacity>

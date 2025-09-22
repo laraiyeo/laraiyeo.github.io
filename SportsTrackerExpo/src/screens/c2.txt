@@ -1,0 +1,166 @@
+FavoritesScreen: Initial game day set to: 2025-09-22
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:863 FavoritesScreen: Screen focused - starting data fetch
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1102 FavoritesScreen: Using context data instead of fetching...
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1109 Using context favorites: (14) ['New York Yankees (MLB)', 'Toronto Blue Jays (MLB)', 'Philadelphia Phillies (MLB)', 'Los Angeles Dodgers (MLB)', 'San Francisco 49ers (NFL)', 'Philadelphia Eagles (NFL)', 'Detroit Lions (NFL)', 'Atlanta Falcons (NFL)', 'Tottenham Hotspur (Premier League)', 'Real Madrid (La Liga)', …]
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1119 [USING CONTEXT GAME] New York Yankees has currentGame: {eventId: 776216, eventLink: '/api/v1.1/game/776216/feed/live', gameDate: '2025-09-23T23:05:00Z', competition: 'mlb', updatedAt: '2025-09-22T18:27:54.208Z'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1138 [NO CONTEXT GAME] Toronto Blue Jays has no currentGame in context
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1119 [USING CONTEXT GAME] Philadelphia Phillies has currentGame: {eventId: 776215, eventLink: '/api/v1.1/game/776215/feed/live', gameDate: '2025-09-23T22:45:00Z', competition: 'mlb', updatedAt: '2025-09-22T18:28:35.781Z'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1119 [USING CONTEXT GAME] Los Angeles Dodgers has currentGame: {eventId: 776213, eventLink: '/api/v1.1/game/776213/feed/live', gameDate: '2025-09-24T01:40:00Z', competition: 'mlb', updatedAt: '2025-09-22T18:27:54.233Z'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1138 [NO CONTEXT GAME] San Francisco 49ers has no currentGame in context
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1138 [NO CONTEXT GAME] Philadelphia Eagles has no currentGame in context
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1119 [USING CONTEXT GAME] Detroit Lions has currentGame: {eventId: '401772812', eventLink: 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=401772812', gameDate: '2025-09-23T00:15Z', competition: 'nfl', updatedAt: '2025-09-22T03:37:41.141Z'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1138 [NO CONTEXT GAME] Atlanta Falcons has no currentGame in context
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1138 [NO CONTEXT GAME] Tottenham Hotspur has no currentGame in context
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1138 [NO CONTEXT GAME] Real Madrid has no currentGame in context
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1138 [NO CONTEXT GAME] Juventus has no currentGame in context
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1138 [NO CONTEXT GAME] Bayern Munich has no currentGame in context
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1119 [USING CONTEXT GAME] Paris Saint-Germain has currentGame: {eventId: '746453', eventLink: 'http://sports.core.api.espn.com/v2/sports/soccer/leagues/fra.1/events/746453?lang=en&region=us', gameDate: '2025-09-22T18:00Z', competition: 'fra.1', updatedAt: '2025-09-22T15:20:04.217Z'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1138 [NO CONTEXT GAME] McLaren has no currentGame in context
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1142 FavoritesScreen: Using 5 games from context data
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776215
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776215 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776215 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776215 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776216
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776216 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776216 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776216 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:649 [SORT DEBUG] Game 776215 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:650 [SORT DEBUG] Game 776216 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776213
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776213 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776213 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776213 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776216
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776216 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776216 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776216 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:649 [SORT DEBUG] Game 776213 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:650 [SORT DEBUG] Game 776216 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 401772812
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 401772812 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:612 [STATUS DEBUG] Game 401772812 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:614 [STATUS DEBUG] Game 401772812 - NFL flags: isLive=false, isFinished=false, isScheduled=true
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:623 [STATUS DEBUG] Game 401772812 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776213
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776213 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776213 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776213 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:649 [SORT DEBUG] Game 401772812 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:650 [SORT DEBUG] Game 776213 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 401772812
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 401772812 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:612 [STATUS DEBUG] Game 401772812 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:614 [STATUS DEBUG] Game 401772812 - NFL flags: isLive=false, isFinished=false, isScheduled=true
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:623 [STATUS DEBUG] Game 401772812 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776216
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776216 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776216 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776216 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:649 [SORT DEBUG] Game 401772812 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:650 [SORT DEBUG] Game 776216 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 401772812
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 401772812 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:612 [STATUS DEBUG] Game 401772812 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:614 [STATUS DEBUG] Game 401772812 - NFL flags: isLive=false, isFinished=false, isScheduled=true
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:623 [STATUS DEBUG] Game 401772812 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776215
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776215 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776215 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776215 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:649 [SORT DEBUG] Game 401772812 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:650 [SORT DEBUG] Game 776215 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 746453
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 746453 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 746453 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:637 [STATUS DEBUG] Game 746453 -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776213
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776213 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776213 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776213 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:649 [SORT DEBUG] Game 746453 (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:650 [SORT DEBUG] Game 776213 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 746453
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 746453 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 746453 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:637 [STATUS DEBUG] Game 746453 -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776216
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776216 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776216 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776216 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:649 [SORT DEBUG] Game 746453 (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:650 [SORT DEBUG] Game 776216 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 746453
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 746453 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 746453 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:637 [STATUS DEBUG] Game 746453 -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776215
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776215 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776215 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776215 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:649 [SORT DEBUG] Game 746453 (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:650 [SORT DEBUG] Game 776215 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 746453
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 746453 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 746453 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:637 [STATUS DEBUG] Game 746453 -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 401772812
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 401772812 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:612 [STATUS DEBUG] Game 401772812 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:614 [STATUS DEBUG] Game 401772812 - NFL flags: isLive=false, isFinished=false, isScheduled=true
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:623 [STATUS DEBUG] Game 401772812 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:649 [SORT DEBUG] Game 746453 (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:650 [SORT DEBUG] Game 401772812 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5631 [GROUPING] Game 746453 (Ligue 1) -> sport group: "Soccer"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5631 [GROUPING] Game 401772812 (NFL) -> sport group: "NFL"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5631 [GROUPING] Game 776215 (MLB) -> sport group: "MLB"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5631 [GROUPING] Game 776216 (MLB) -> sport group: "MLB"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5631 [GROUPING] Game 776213 (MLB) -> sport group: "MLB"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776216
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776216 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776216 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776216 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776215
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776215 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776215 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776215 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:649 [SORT DEBUG] Game 776216 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:650 [SORT DEBUG] Game 776215 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776213
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776213 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776213 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776213 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776216
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776216 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776216 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776216 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:649 [SORT DEBUG] Game 776213 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:650 [SORT DEBUG] Game 776216 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:807 FavoritesScreen: Initial game day set to: 2025-09-22
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:534 Game 746453 (Ligue 1): UPDATE - Unclear status, allowing updates as fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:938 FavoritesScreen: Games needing updates detected - setting up continuous refresh
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5631 [GROUPING] Game 746453 (Ligue 1) -> sport group: "Soccer"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5631 [GROUPING] Game 401772812 (NFL) -> sport group: "NFL"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5631 [GROUPING] Game 776215 (MLB) -> sport group: "MLB"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5631 [GROUPING] Game 776216 (MLB) -> sport group: "MLB"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5631 [GROUPING] Game 776213 (MLB) -> sport group: "MLB"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776216
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776216 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776216 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776216 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776215
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776215 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776215 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776215 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:649 [SORT DEBUG] Game 776216 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:650 [SORT DEBUG] Game 776215 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776213
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776213 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776213 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776213 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:572 [STATUS DEBUG] Checking status for game 776216
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:585 [STATUS DEBUG] Game 776216 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:628 [STATUS DEBUG] Game 776216 - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:640 [STATUS DEBUG] Game 776216 -> Scheduled (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:649 [SORT DEBUG] Game 776213 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:650 [SORT DEBUG] Game 776216 (UNK vs UNK): status="Scheduled"

@@ -775,13 +775,14 @@ const RaceDetailsScreen = ({ route }) => {
 
       // Determine current/next competition label, but only when the event is in-progress
       try {
-        const nowMs = Date.now();
-        const startMs = Date.parse(eventData.date || '');
-        const endMs = Date.parse(eventData.endDate || eventData.end || eventData.date || '') || 0;
-        const endPlusOneMs = endMs ? (endMs + 24 * 60 * 60 * 1000) : 0;
-        const isCompleted = endPlusOneMs ? nowMs > endPlusOneMs : false;
-        const isUpcoming = startMs ? nowMs < startMs : false;
-        const isInProgress = !isCompleted && !isUpcoming;
+  const nowMs = Date.now();
+  const startMs = Date.parse(eventData.date || '');
+  const endMs = Date.parse(eventData.endDate || eventData.end || eventData.date || '') || 0;
+  // Base completion by end time (don't add an arbitrary +24h here)
+  const isCompletedByTime = endMs ? nowMs > endMs : false;
+  const isUpcoming = startMs ? nowMs < startMs : false;
+  // We'll also inspect competition status objects for an authoritative 'final'/'post' state
+  let anyCompetitionFinal = false;
 
         if (isInProgress) {
           const comps = eventData.competitions || [];
@@ -805,9 +806,11 @@ const RaceDetailsScreen = ({ route }) => {
                 statusData = statusRef;
               }
 
-              // Prefer active/in-progress competitions
-              const isActive = statusData && (statusData.type?.state === 'in' || statusData.type?.state === 'active' || (statusData.type?.name && statusData.type?.name.toString().toLowerCase().includes('in')));
-              const isScheduled = statusData && (statusData.type?.name === 'STATUS_SCHEDULED' || statusData.type?.state === 'pre' || (statusData.type?.name && statusData.type?.name.toString().toLowerCase().includes('scheduled')));
+                // Prefer active/in-progress competitions
+                const isActive = statusData && (statusData.type?.state === 'in' || statusData.type?.state === 'active' || (statusData.type?.name && statusData.type?.name.toString().toLowerCase().includes('in')));
+                const isScheduled = statusData && (statusData.type?.name === 'STATUS_SCHEDULED' || statusData.type?.state === 'pre' || (statusData.type?.name && statusData.type?.name.toString().toLowerCase().includes('scheduled')));
+                const isFinal = statusData && (statusData.type?.state === 'post' || (statusData.type?.name && statusData.type?.name.toString().toLowerCase().includes('final')) || (statusData.type?.name && statusData.type?.name.toString().toLowerCase().includes('status_final')));
+                if (isFinal) anyCompetitionFinal = true;
 
               const compStartMs = Date.parse(compData?.date || comp.date || '');
 
@@ -827,7 +830,15 @@ const RaceDetailsScreen = ({ route }) => {
             }
           }
 
-    if (chosen) setNextCompetitionLabel(passedNextCompetitionType || chosen);
+            // Determine in-progress: either by time window (between start and end) or by active competition status
+            const isInProgress = (!isUpcoming && !isCompletedByTime) || !!chosen;
+
+            // Don't show a nextCompetitionLabel for events that are clearly completed
+            if (isInProgress && chosen) {
+              setNextCompetitionLabel(passedNextCompetitionType || chosen);
+            } else {
+              setNextCompetitionLabel(null);
+            }
         } else {
           // ensure label is cleared for non in-progress events
           setNextCompetitionLabel(null);
@@ -1963,7 +1974,7 @@ const RaceDetailsScreen = ({ route }) => {
                     const behindTime = selectedDriverDetails.competitor?.behindTime ?? extractStat(['behind','behindtime']);
                     const behindLaps = selectedDriverDetails.competitor?.behindLaps ?? extractStat(['behindlaps','lh']);
                     const championshipPts = extractStat(['championshipPts','cp']);
-                    const pitsTaken = extractStat(['pitsTaken','pt']);
+                    const pitsTaken = extractStat(['pitsTaken']);
 
                     return (
                       <>

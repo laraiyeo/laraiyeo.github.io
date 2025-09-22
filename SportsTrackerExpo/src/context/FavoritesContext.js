@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fetchAllFavoriteTeamCurrentGames } from '../utils/TeamPageUtils';
 
 const FavoritesContext = createContext();
 
@@ -14,6 +15,7 @@ export const useFavorites = () => {
 export const FavoritesProvider = ({ children }) => {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [autoPopulating, setAutoPopulating] = useState(false);
 
   // Load favorites from AsyncStorage on app start
   useEffect(() => {
@@ -41,12 +43,43 @@ export const FavoritesProvider = ({ children }) => {
         await AsyncStorage.setItem('favorites', JSON.stringify(normalized));
         console.log('FavoritesContext: normalized and loaded favorites', normalized.map(f => f.teamId));
         setFavorites(normalized);
+        
+        // AUTOMATICALLY POPULATE MISSING CURRENT GAMES ON APP LOAD
+        // Use the global team page utility functions
+        populateMissingCurrentGames(normalized).catch(err => 
+          console.error('FavoritesContext: Auto-population failed:', err)
+        );
       }
     } catch (error) {
       console.error('Error loading favorites:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // AUTOMATIC CURRENT GAME POPULATION ON APP LOAD
+  const populateMissingCurrentGames = async (favoriteTeams) => {
+    setAutoPopulating(true);
+    console.log('FavoritesContext: Auto-populating missing currentGame data using team page utils...');
+    
+    try {
+      // Use the global utility function that extracts team page logic
+      const results = await fetchAllFavoriteTeamCurrentGames(favoriteTeams, updateTeamCurrentGame);
+      
+      console.log('FavoritesContext: Auto-population completed with results:', results);
+      
+      // Refresh the favorites state to trigger FavoritesScreen update
+      const updatedFavorites = await AsyncStorage.getItem('favorites');
+      if (updatedFavorites) {
+        const parsed = JSON.parse(updatedFavorites);
+        setFavorites(parsed);
+        console.log('FavoritesContext: Refreshed favorites state after auto-population');
+      }
+    } catch (error) {
+      console.error('FavoritesContext: Auto-population error:', error);
+    }
+    
+    setAutoPopulating(false);
   };
 
   // Helper to resolve an id from either an object or primitive; accepts team objects with different shapes
@@ -338,9 +371,16 @@ export const FavoritesProvider = ({ children }) => {
     return favorites;
   };
 
+  // Manual function to refresh current games for all favorites (can be called from UI)
+  const refreshAllCurrentGames = async () => {
+    console.log('FavoritesContext: Manual refresh of all current games requested');
+    return await populateMissingCurrentGames(favorites);
+  };
+
   const value = {
     favorites,
     loading,
+    autoPopulating,
     addFavorite,
     removeFavorite,
     toggleFavorite,
@@ -350,6 +390,7 @@ export const FavoritesProvider = ({ children }) => {
     getTeamCurrentGame,
     clearTeamCurrentGame,
     clearAllFavorites,
+    refreshAllCurrentGames,
   };
 
   return (

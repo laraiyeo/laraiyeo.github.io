@@ -1,0 +1,82 @@
+FavoritesContext: normalized and loaded favorites (14) ['147', '141', '143', '119', '25', '21', '8', '1', '367', '86', …]
+C:\live-sports-tracker\SportsTrackerExpo\src\context\FavoritesContext.js:63 FavoritesContext: Auto-populating missing currentGame data using team page utils...
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:331 [TEAM PAGE UTILS] Fetching current games for 14 favorite teams in parallel
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:345 [TEAM PAGE UTILS] Skipping New York Yankees: already has currentGame
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:345 [TEAM PAGE UTILS] Skipping Los Angeles Dodgers: already has currentGame
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:345 [TEAM PAGE UTILS] Skipping Detroit Lions: already has currentGame
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:345 [TEAM PAGE UTILS] Skipping Paris Saint-Germain: already has currentGame
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:352 [TEAM PAGE UTILS] Processing 10 teams that need currentGame data
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:366 [TEAM PAGE UTILS] Processing Toronto Blue Jays (141, MLB)
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:9 [TEAM PAGE UTILS] Fetching MLB current game for team 141
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:41 [TEAM PAGE UTILS] MLB date range: 2025-09-22 to 2025-09-23
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:366 [TEAM PAGE UTILS] Processing Philadelphia Phillies (143, MLB)
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:9 [TEAM PAGE UTILS] Fetching MLB current game for team 143
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:41 [TEAM PAGE UTILS] MLB date range: 2025-09-22 to 2025-09-23
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:366 [TEAM PAGE UTILS] Processing San Francisco 49ers (25, NFL)
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:148 [TEAM PAGE UTILS] Fetching NFL current game for team 25
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:366 [TEAM PAGE UTILS] Processing Philadelphia Eagles (21, NFL)
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:148 [TEAM PAGE UTILS] Fetching NFL current game for team 21
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:366 [TEAM PAGE UTILS] Processing Atlanta Falcons (1, NFL)
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:148 [TEAM PAGE UTILS] Fetching NFL current game for team 1
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:366 [TEAM PAGE UTILS] Processing Tottenham Hotspur (367, Premier League)
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:222 [TEAM PAGE UTILS] Fetching soccer current game for team 367
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:229 [TEAM PAGE UTILS] Checking uefa.champions for team 367
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:366 [TEAM PAGE UTILS] Processing Real Madrid (86, La Liga)
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:222 [TEAM PAGE UTILS] Fetching soccer current game for team 86
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:229 [TEAM PAGE UTILS] Checking uefa.champions for team 86
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:366 [TEAM PAGE UTILS] Processing Juventus (111, Serie A)
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:222 [TEAM PAGE UTILS] Fetching soccer current game for team 111
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:229 [TEAM PAGE UTILS] Checking uefa.champions for team 111
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:366 [TEAM PAGE UTILS] Processing Bayern Munich (132, Bundesliga)
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:222 [TEAM PAGE UTILS] Fetching soccer current game for team 132
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:229 [TEAM PAGE UTILS] Checking uefa.champions for team 132
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:366 [TEAM PAGE UTILS] Processing McLaren (f1_mclaren, f1)
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:323 [TEAM PAGE UTILS] Unsupported sport: f1
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:235 [TEAM PAGE UTILS] Found 1 uefa.champions events for team 132
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:244 [TEAM PAGE UTILS] uefa.champions event 757677: undefined on 2025-09-30T19:00Z
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:229 [TEAM PAGE UTILS] Checking uefa.europa for team 132
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:86 [TEAM PAGE UTILS] Found scheduled MLB game: 776217
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:86 [TEAM PAGE UTILS] Found scheduled MLB game: 776215
+C:\live-sports-tracker\SportsTrackerExpo\src\context\FavoritesContext.js:296 FavoritesContext: updateTeamCurrentGame for teamId=141, eventId=776217
+C:\live-sports-tracker\SportsTrackerExpo\src\context\FavoritesContext.js:301 FavoritesContext: updateTeamCurrentGame merging (prevCount=14)
+C:\live-sports-tracker\SportsTrackerExpo\src\context\FavoritesContext.js:296 FavoritesContext: updateTeamCurrentGame for teamId=143, eventId=776215
+C:\live-sports-tracker\SportsTrackerExpo\src\context\FavoritesContext.js:301 FavoritesContext: updateTeamCurrentGame merging (prevCount=14)
+C:\live-sports-tracker\SportsTrackerExpo\src\context\FavoritesContext.js:306 FavoritesContext: favorite after updateTeamCurrentGame -> {teamId: '141', teamName: 'Toronto Blue Jays', sport: 'MLB', abbreviation: 'TOR', currentGame: {…}}
+C:\live-sports-tracker\SportsTrackerExpo\src\context\FavoritesContext.js:306 FavoritesContext: favorite after updateTeamCurrentGame -> {teamId: '143', teamName: 'Philadelphia Phillies', sport: 'MLB', abbreviation: 'PHI', currentGame: {…}}
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:155 [TEAM PAGE UTILS] Found 1 NFL events for team 25
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:235 [TEAM PAGE UTILS] Found 1 uefa.champions events for team 367
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:235 [TEAM PAGE UTILS] Found 1 uefa.champions events for team 111
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:282 [TEAM PAGE UTILS] No uefa.europa events found for team 132
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:229 [TEAM PAGE UTILS] Checking uefa.europa.conf for team 132
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:155 [TEAM PAGE UTILS] Found 1 NFL events for team 1
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:235 [TEAM PAGE UTILS] Found 1 uefa.champions events for team 86
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:167 [TEAM PAGE UTILS] NFL event 401772843: undefined on 2025-09-21T20:25Z
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:209 [TEAM PAGE UTILS] No NFL games found for team 25
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:244 [TEAM PAGE UTILS] uefa.champions event 757674: undefined on 2025-09-30T19:00Z
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:229 [TEAM PAGE UTILS] Checking uefa.europa for team 367
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:244 [TEAM PAGE UTILS] uefa.champions event 757682: undefined on 2025-10-01T19:00Z
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:229 [TEAM PAGE UTILS] Checking uefa.europa for team 111
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:167 [TEAM PAGE UTILS] NFL event 401772838: undefined on 2025-09-21T17:00Z
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:209 [TEAM PAGE UTILS] No NFL games found for team 1
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:244 [TEAM PAGE UTILS] uefa.champions event 757671: undefined on 2025-09-30T16:45Z
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:229 [TEAM PAGE UTILS] Checking uefa.europa for team 86
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:155 [TEAM PAGE UTILS] Found 1 NFL events for team 21
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:167 [TEAM PAGE UTILS] NFL event 401772839: undefined on 2025-09-21T17:00Z
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:209 [TEAM PAGE UTILS] No NFL games found for team 21
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:282 [TEAM PAGE UTILS] No uefa.europa.conf events found for team 132
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:289 [TEAM PAGE UTILS] No soccer games found for team 132 in any competition
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:282 [TEAM PAGE UTILS] No uefa.europa events found for team 367
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:229 [TEAM PAGE UTILS] Checking uefa.europa.conf for team 367
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:282 [TEAM PAGE UTILS] No uefa.europa events found for team 111
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:229 [TEAM PAGE UTILS] Checking uefa.europa.conf for team 111
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:282 [TEAM PAGE UTILS] No uefa.europa events found for team 86
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:229 [TEAM PAGE UTILS] Checking uefa.europa.conf for team 86
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:282 [TEAM PAGE UTILS] No uefa.europa.conf events found for team 367
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:289 [TEAM PAGE UTILS] No soccer games found for team 367 in any competition
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:282 [TEAM PAGE UTILS] No uefa.europa.conf events found for team 111
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:289 [TEAM PAGE UTILS] No soccer games found for team 111 in any competition
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:282 [TEAM PAGE UTILS] No uefa.europa.conf events found for team 86
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:289 [TEAM PAGE UTILS] No soccer games found for team 86 in any competition
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\TeamPageUtils.js:378 [TEAM PAGE UTILS] Completed processing all favorite teams in parallel: (10) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+C:\live-sports-tracker\SportsTrackerExpo\src\context\FavoritesContext.js:69 FavoritesContext: Auto-population completed with results: (10) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+C:\live-sports-tracker\SportsTrackerExpo\src\context\FavoritesContext.js:76 FavoritesContext: Refreshed favorites state after auto-population

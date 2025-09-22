@@ -8,6 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useFavorites } from '../context/FavoritesContext';
 import { ChampionsLeagueServiceEnhanced } from '../services/soccer/ChampionsLeagueServiceEnhanced';
 import { MLBService } from '../services/MLBService';
+import { NFLService } from '../services/NFLService';
 
 // Module-level helpers so any function in the file can use them reliably
 const promiseWithTimeout = (p, ms = 3000) => {
@@ -74,7 +75,7 @@ async function fetchJsonWithCache(url, options = {}) {
         return null;
       }
     } else if (bypassGating && currentFetchPhase === 'poll') {
-      console.log('[BYPASS] Allowing gated URL during poll mode:', url.substring(0, 100));
+      console.log('[BYPASS] Allowing gated URL during poll mode:', url ? url.substring(0, 100) : 'undefined URL');
     }
   } catch (e) {
     // ignore gating errors and continue to normal behavior
@@ -107,7 +108,10 @@ async function fetchJsonWithCache(url, options = {}) {
       }
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      const timeoutId = setTimeout(() => {
+        console.log(`[TIMEOUT] Aborting fetch for ${url ? url.substring(0, 100) : 'undefined URL'}... after ${timeout}ms`);
+        controller.abort();
+      }, timeout);
       
       const response = await fetch(url, { 
         headers, 
@@ -160,10 +164,17 @@ async function fetchJsonWithCache(url, options = {}) {
       // Return cached data if available on timeout/error
       const cacheEntry = eventFetchCache.get(url);
       if (cacheEntry?.parsed) {
-        if (DEBUG) console.log(`[CACHE] Timeout fallback: ${url}`);
+        console.log(`[CACHE] Error fallback for ${url ? url.substring(0, 100) : 'undefined URL'}...: ${error.name || error.message}`);
         urlLastFetchedPass.set(url, currentFetchPassId);
         return cacheEntry.parsed;
       }
+      
+      // Provide more specific error messages
+      if (error.name === 'AbortError') {
+        console.log(`[FETCH TIMEOUT] Request aborted after ${timeout}ms for ${url ? url.substring(0, 100) : 'undefined URL'}...`);
+        return null; // Return null instead of throwing for timeout errors
+      }
+      
       throw error;
     } finally {
       inFlightFetches.delete(url);
@@ -536,7 +547,7 @@ const getGamesBeingTrackedForUpdates = () => {
 
 const FavoritesScreen = ({ navigation }) => {
   const { theme, colors, isDarkMode, getTeamLogoUrl } = useTheme();
-  const { getFavoriteTeams, isFavorite, favorites, getTeamCurrentGame, updateTeamCurrentGame, clearTeamCurrentGame } = useFavorites();
+  const { getFavoriteTeams, isFavorite, favorites, getTeamCurrentGame, updateTeamCurrentGame, clearTeamCurrentGame, autoPopulating } = useFavorites();
   const [favoriteGames, setFavoriteGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -558,23 +569,30 @@ const FavoritesScreen = ({ navigation }) => {
   const sortGamesByStatusAndTime = (games) => {
     return games.sort((a, b) => {
       const getGameStatus = (game) => {
+        console.log(`[STATUS DEBUG] Checking status for game ${game.id}`);
+        
         // Use the same status checking logic as the display function
         const statusFromSiteAPI = game.gameDataWithStatus?.header?.competitions?.[0]?.status;
         let statusType = null;
         
         if (statusFromSiteAPI) {
           statusType = statusFromSiteAPI.type?.state;
+          console.log(`[STATUS DEBUG] Game ${game.id} - statusFromSiteAPI: state="${statusType}"`);
         } else {
           // Fallback to other status sources
           const status = game.status || game.header?.competitions?.[0]?.status || game.competitions?.[0]?.status;
           statusType = status?.type?.state;
+          console.log(`[STATUS DEBUG] Game ${game.id} - fallback status: state="${statusType}"`);
         }
         
         if (statusType === 'in') {
+          console.log(`[STATUS DEBUG] Game ${game.id} -> Live`);
           return 'Live'; // Live games have highest priority
         } else if (statusType === 'pre') {
+          console.log(`[STATUS DEBUG] Game ${game.id} -> Scheduled`);
           return 'Scheduled';
         } else if (statusType === 'post') {
+          console.log(`[STATUS DEBUG] Game ${game.id} -> Final`);
           return 'Final';
         }
         
@@ -582,28 +600,54 @@ const FavoritesScreen = ({ navigation }) => {
         if (game.sport === 'MLB' || String(game.actualLeagueCode || '').toLowerCase() === 'mlb') {
           const coded = game.mlbGameData?.status?.codedGameState || game.liveData?.status?.codedGameState;
           if (coded) {
+            console.log(`[STATUS DEBUG] Game ${game.id} - MLB coded: "${coded}"`);
             if (coded === 'F') return 'Final';
             if (coded === 'I') return 'Live';
             return 'Scheduled';
           }
         }
+        
+        // If this is an NFL game and we couldn't determine status from statusType, check computeMatchFlags
+        if (game.sport === 'NFL' || String(game.actualLeagueCode || '').toLowerCase() === 'nfl') {
+          console.log(`[STATUS DEBUG] Game ${game.id} - checking NFL computeMatchFlags`);
+          const flags = computeMatchFlags(game);
+          console.log(`[STATUS DEBUG] Game ${game.id} - NFL flags: isLive=${flags.isLive}, isFinished=${flags.isFinished}, isScheduled=${flags.isScheduled}`);
+          if (flags.isLive) {
+            console.log(`[STATUS DEBUG] Game ${game.id} -> Live (from NFL flags)`);
+            return 'Live';
+          }
+          if (flags.isFinished) {
+            console.log(`[STATUS DEBUG] Game ${game.id} -> Final (from NFL flags)`);
+            return 'Final';
+          }
+          console.log(`[STATUS DEBUG] Game ${game.id} -> Scheduled (from NFL flags)`);
+          return 'Scheduled';
+        }
 
         // Fallback to date-based logic if no status available
+        console.log(`[STATUS DEBUG] Game ${game.id} - using date-based fallback`);
         const gameDate = new Date(game.date);
         const now = new Date();
         const threeHoursAgo = new Date(now.getTime() - (3 * 60 * 60 * 1000));
         
         if (gameDate < threeHoursAgo) {
+          console.log(`[STATUS DEBUG] Game ${game.id} -> Final (date-based)`);
           return 'Final';
         } else if (gameDate <= now) {
+          console.log(`[STATUS DEBUG] Game ${game.id} -> Live (date-based)`);
           return 'Live';
         } else {
+          console.log(`[STATUS DEBUG] Game ${game.id} -> Scheduled (date-based)`);
           return 'Scheduled';
         }
       };
 
       const statusA = getGameStatus(a);
       const statusB = getGameStatus(b);
+      
+      // Debug logging for sorting
+      console.log(`[SORT DEBUG] Game ${a.id} (${a.homeTeam?.abbreviation || 'UNK'} vs ${a.awayTeam?.abbreviation || 'UNK'}): status="${statusA}"`);
+      console.log(`[SORT DEBUG] Game ${b.id} (${b.homeTeam?.abbreviation || 'UNK'} vs ${b.awayTeam?.abbreviation || 'UNK'}): status="${statusB}"`);
       
       // Priority: Live > Scheduled > Final
       const statusPriority = { 'Live': 1, 'Scheduled': 2, 'Final': 3 };
@@ -669,7 +713,7 @@ const FavoritesScreen = ({ navigation }) => {
 
   // Helper function to clear all team current games and force refresh
   const clearAllCurrentGamesAndRefresh = async () => {
-    console.log('FavoritesScreen: Daily cleanup - clearing all stored current games and refreshing');
+    console.log('FavoritesScreen: Daily cleanup - clearing outdated stored current games and refreshing');
     
     // Clear all cached data since it's from a previous game day
     eventFetchCache.clear();
@@ -678,11 +722,35 @@ const FavoritesScreen = ({ navigation }) => {
     urlLastFetchedPass.clear();
     console.log('FavoritesScreen: Cleared all cached data due to game day change');
     
-    // Clear current games for all favorite teams
+    // Get today's date range for comparison
+    const { todayStart, todayEnd } = getTodayDateRange();
+    
+    // Clear current games for favorite teams, but only if they're from previous days
     const favoriteTeams = getFavoriteTeams();
+    let gamesCleared = 0;
+    let gamesKept = 0;
+    
     for (const team of favoriteTeams) {
-      await clearTeamCurrentGame(team.teamId);
+      const currentGame = getTeamCurrentGame(team.teamId);
+      if (currentGame?.gameDate) {
+        const gameDate = new Date(currentGame.gameDate);
+        // Only clear games that are outside today's range (before todayStart or after todayEnd)
+        if (gameDate < todayStart || gameDate >= todayEnd) {
+          console.log(`FavoritesScreen: Clearing outdated game for ${team.sport} - ${team.teamName}: ${currentGame.gameDate}`);
+          await clearTeamCurrentGame(team.teamId);
+          gamesCleared++;
+        } else {
+          console.log(`FavoritesScreen: Keeping today's game for ${team.sport} - ${team.teamName}: ${currentGame.gameDate}`);
+          gamesKept++;
+        }
+      } else {
+        // If no gameDate, clear it anyway as it's probably corrupted
+        await clearTeamCurrentGame(team.teamId);
+        gamesCleared++;
+      }
     }
+    
+    console.log(`FavoritesScreen: Daily cleanup completed - cleared ${gamesCleared} outdated games, kept ${gamesKept} current games`);
     
     // Force a complete refresh to fetch new games
     await fetchFavoriteGames(true);
@@ -765,7 +833,7 @@ const FavoritesScreen = ({ navigation }) => {
   }, [currentGameDay]); // Include currentGameDay to properly track changes
 
   // Default section order if none present
-  const DEFAULT_SECTION_ORDER = ['MLB', 'Champions League', 'England Soccer', 'Spain Soccer', 'Italy Soccer', 'Germany Soccer', 'France Soccer'];
+  const DEFAULT_SECTION_ORDER = ['MLB', 'NFL', 'NBA', 'NHL', 'Soccer'];
 
   const saveSectionOrder = async (order) => {
     try {
@@ -795,6 +863,12 @@ const FavoritesScreen = ({ navigation }) => {
       console.log('FavoritesScreen: Screen focused - starting data fetch');
       setIsScreenFocused(true);
       fetchFavoriteGames(true); // Refresh data when screen is focused
+
+      // Auto-refresh after a short delay to catch auto-populated currentGame data
+      const autoRefreshTimer = setTimeout(() => {
+        console.log('FavoritesScreen: Auto-refresh to catch auto-populated games');
+        fetchFavoriteGames(false); // Use poll mode for this refresh
+      }, 2000); // 2 second delay to allow auto-population to complete
 
       // Listen for app coming back to foreground while this screen is focused
       const onAppStateChange = (nextAppState) => {
@@ -828,6 +902,10 @@ const FavoritesScreen = ({ navigation }) => {
         }
         // Note: dailyCleanupInterval is NOT cleared here as it should run continuously
         // to detect the 2 AM rollover even when screen is not focused
+        
+        // Clear auto-refresh timer
+        clearTimeout(autoRefreshTimer);
+        
         if (sub && sub.remove) sub.remove();
       };
     }, [getFavoriteTeams, favorites])
@@ -1027,6 +1105,18 @@ const FavoritesScreen = ({ navigation }) => {
       return;
     }
 
+    // Wait for auto-population to complete before proceeding
+    if (autoPopulating) {
+      console.log('Waiting for auto-population to complete...');
+      // Wait up to 10 seconds for auto-population
+      let attempts = 0;
+      while (autoPopulating && attempts < 20) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        attempts++;
+      }
+      console.log('Auto-population wait completed, proceeding with fetch');
+    }
+
     try {
       isFetchingFavorites = true;
       // Mark the fetch phase so fetchJsonWithCache can decide whether to allow discovery fetches
@@ -1062,6 +1152,16 @@ const FavoritesScreen = ({ navigation }) => {
       const favoriteTeams = getFavoriteTeams();
       console.log('Fetching games for teams:', favoriteTeams.map(t => `${t.displayName || t.teamName || 'Unknown'} (${t.sport})`));
       
+      // Debug: Check if favorites already have currentGame data
+      favoriteTeams.forEach(team => {
+        const teamName = team.displayName || team.teamName || 'Unknown';
+        if (team.currentGame) {
+          console.log(`[STORED GAME] ${teamName} already has currentGame:`, team.currentGame);
+        } else {
+          console.log(`[NO STORED GAME] ${teamName} has no currentGame stored`);
+        }
+      });
+      
       // Get unique teams by normalized key to avoid duplicates and malformed team objects
       // Prefer deduplication by teamId when present. If teamId is missing, fall back to displayName|sport.
       const seenKeys = new Set();
@@ -1092,9 +1192,41 @@ const FavoritesScreen = ({ navigation }) => {
         const teamStart = Date.now();
         const phaseTimes = {};
         
-        // Check if we have current game data for this team
-        // Pass the entire team object so the FavoritesContext can resolve legacy id shapes
-        let currentGameData = getTeamCurrentGame(team);
+        // Check if team already has currentGame data from getFavoriteTeams()
+        let currentGameData = team.currentGame || null;
+        
+        // If no currentGame in team object, try getTeamCurrentGame as fallback
+        if (!currentGameData) {
+          currentGameData = getTeamCurrentGame(team);
+          
+          // If getTeamCurrentGame didn't work with the team object, try with just the teamId
+          if (!currentGameData) {
+            const teamId = team?.teamId || team?.id || null;
+            if (teamId) {
+              currentGameData = getTeamCurrentGame(teamId);
+            }
+          }
+        }
+        
+        // If still no currentGame, that's fine - auto-population will handle it
+        if (!currentGameData) {
+          console.log(`[NO CURRENT GAME] ${teamName} has no currentGame - auto-population will handle missing games`);
+        } else {
+          console.log(`[USING STORED GAME] Using stored currentGame for ${teamName}:`, currentGameData);
+        }
+        
+        // Check if stored currentGame is from a previous day and clear it if so
+        if (currentGameData?.gameDate) {
+          const gameDate = new Date(currentGameData.gameDate);
+          const { todayStart, todayEnd } = getTodayDateRange();
+          
+          if (gameDate < todayStart || gameDate >= todayEnd) {
+            console.log(`Clearing outdated stored game for ${teamName}: gameDate=${currentGameData.gameDate}, outside range ${todayStart.toISOString()} to ${todayEnd.toISOString()}`);
+            await clearTeamCurrentGame(team.teamId);
+            // Set currentGameData to null so we'll fetch fresh data
+            currentGameData = null;
+          }
+        }
 
         // If this fetch is not forced, skip teams that don't have a stored scheduled/current game
         // This avoids discovery fetches for every favorite on each poll interval
@@ -1293,6 +1425,12 @@ const FavoritesScreen = ({ navigation }) => {
           currentGameData.eventLink = `/api/v1.1/game/${currentGameData.eventId}/feed/live`;
         }
         
+        // Ensure NFL games have eventLink set (fallback if missing)
+        if ((currentGameData.competition === 'nfl' || team.sport === 'NFL') && !currentGameData.eventLink && currentGameData.eventId) {
+          console.log(`[DEBUG] Setting missing eventLink for NFL game ${currentGameData.eventId}`);
+          currentGameData.eventLink = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${currentGameData.eventId}`;
+        }
+        
         try {
           const directResult = await promiseWithTimeout(fetchGameFromEventLink(team, currentGameData), 4500);
           if (directResult) {
@@ -1304,36 +1442,8 @@ const FavoritesScreen = ({ navigation }) => {
           console.log(`Direct fetch failed for ${teamName}:`, error);
         }
       } else {
-        // If this is a soccer-like team and we have no stored currentGame, skip processing
-        try {
-          const sportValLowerCheck = String(team?.sport || '').toLowerCase();
-          const indicatorsCheck = ['champions', 'uefa', 'premier', 'league', 'eng', 'esp', 'serie', 'bundesliga', 'ligue'];
-          const isSoccerLike = indicatorsCheck.some(ind => sportValLowerCheck.includes(ind) || String(team?.actualLeagueCode || '').toLowerCase().includes(ind));
-          if (isSoccerLike) {
-            console.log(`Skipping processing for ${teamName}: no stored currentGame and team is soccer-like`);
-            return []; // Skip fetch for soccer favorites with no stored matches
-          }
-        } catch (e) {
-          // ignore
-        }
-        
-        // For non-soccer teams (like MLB) without stored currentGame, try domestic fetch as fallback
-        console.log(`No stored currentGame for ${teamName}, trying domestic fetch as fallback`);
-        try {
-          const sportVal = String(team?.sport || '').toLowerCase();
-          let fallbackResult = null;
-          if (sportVal === 'mlb') {
-            fallbackResult = await promiseWithTimeout(fetchMLBTeamGame(team), 3500);
-          }
-          
-          if (fallbackResult) {
-            const results = Array.isArray(fallbackResult) ? fallbackResult : [fallbackResult];
-            const valid = results.filter(r => r !== null);
-            if (valid.length > 0) teamGames.push(...valid);
-          }
-        } catch (error) {
-          console.log(`Fallback fetch failed for ${teamName}:`, error);
-        }
+        // No currentGame - auto-population will handle this
+        console.log(`[NO CURRENT GAME] ${teamName} has no currentGame stored - relying on auto-population to fetch missing games`);
       }
 
         phaseTimes.total = Date.now() - teamStart;
@@ -1405,6 +1515,46 @@ const FavoritesScreen = ({ navigation }) => {
 
       console.log(`Found ${validGames.length} games (${uniqueGames.length} unique) for ${favoriteTeams.length} favorite teams`);
       console.log('Unique game IDs:', uniqueGames.map(g => g.id));
+      
+      // Automatically store currentGame data for all teams that have games
+      console.log('[AUTO STORAGE] Storing currentGame data for all teams with fetched games...');
+      const storagePromises = [];
+      
+      for (const game of uniqueGames) {
+        if (game.favoriteTeam && game.eventId && game.eventLink && game.gameDate) {
+          const currentGameData = {
+            eventId: game.eventId,
+            eventLink: game.eventLink,
+            gameDate: game.gameDate,
+            competition: game.competition || game.sport || 'unknown',
+            updatedAt: new Date().toISOString()
+          };
+          
+          // Find the team in favorites to get the correct teamId
+          const favoriteTeam = favoriteTeams.find(t => 
+            t.displayName === game.favoriteTeam || 
+            t.teamName === game.favoriteTeam ||
+            String(t.teamId) === String(game.favoriteTeamId)
+          );
+          
+          if (favoriteTeam && favoriteTeam.teamId) {
+            console.log(`[AUTO STORAGE] Storing currentGame for ${game.favoriteTeam} (teamId: ${favoriteTeam.teamId}):`, currentGameData);
+            storagePromises.push(
+              updateTeamCurrentGame(favoriteTeam.teamId, currentGameData).catch(error => {
+                console.log(`[AUTO STORAGE] Failed to store currentGame for ${game.favoriteTeam}:`, error.message);
+              })
+            );
+          } else {
+            console.log(`[AUTO STORAGE] Could not find favorite team for ${game.favoriteTeam}, skipping storage`);
+          }
+        }
+      }
+      
+      // Wait for all storage operations to complete
+      if (storagePromises.length > 0) {
+        await Promise.allSettled(storagePromises);
+        console.log(`[AUTO STORAGE] Completed storing currentGame data for ${storagePromises.length} teams`);
+      }
       
       // Log summary of games being tracked for updates
       if (gamesToUpdate.size > 0) {
@@ -1778,8 +1928,126 @@ const FavoritesScreen = ({ navigation }) => {
               } else {
                 console.log(`No eventLink available for MLB game ${game.id}, skipping plays update`);
               }
-            } else if (game.actualLeagueCode) {
-              // Handle domestic leagues using the actualLeagueCode
+            } else if (game.actualLeagueCode === 'nfl') {
+              // Handle NFL games with proper API
+              console.log(`[BRANCH DEBUG] Using NFL branch for game ${game.id}`);
+              console.log(`[LIVE UPDATE] Starting update for NFL game ${game.id}`);
+              try {
+                // Use the ESPN NFL summary API to get updated game data
+                const nflSummaryUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${game.id}`;
+                const updatedData = await fetchJsonWithCache(nflSummaryUrl, { bypassGating: true });
+
+                // Also fetch drives (plays) so we can derive situation/play text reliably like GameDetails
+                let drivesData = null;
+                try {
+                  drivesData = await NFLService.getDrives(game.id).catch(() => null);
+                } catch (dErr) {
+                  console.log(`[NFL DRIVES] Error fetching drives for ${game.id}:`, dErr?.message || dErr);
+                }
+
+                if (updatedData?.header?.competitions?.[0]) {
+                  const competition = updatedData.header.competitions[0];
+                  
+                  // Create a new game object to ensure React detects changes
+                  const updatedGame = { ...game };
+
+                  // Update game status and scores
+                  if (competition.status) {
+                    updatedGame.status = competition.status.type?.description || game.status;
+                    updatedGame.displayClock = competition.status.displayClock;
+                    updatedGame.period = competition.status.period;
+                  }
+
+                  // Update team scores and colors
+                  const homeTeam = competition.competitors?.find(c => c.homeAway === 'home');
+                  const awayTeam = competition.competitors?.find(c => c.homeAway === 'away');
+
+                  if (homeTeam && updatedGame.homeTeam) {
+                    updatedGame.homeTeam = { ...updatedGame.homeTeam, score: homeTeam.score };
+                    // Update team color if available
+                    if (homeTeam.team?.color && !updatedGame.homeTeam.color) {
+                      updatedGame.homeTeam.color = homeTeam.team.color;
+                    }
+                    // Ensure team object exists for color access
+                    if (!updatedGame.homeTeam.team && homeTeam.team) {
+                      updatedGame.homeTeam.team = homeTeam.team;
+                    }
+                  }
+                  if (awayTeam && updatedGame.awayTeam) {
+                    updatedGame.awayTeam = { ...updatedGame.awayTeam, score: awayTeam.score };
+                    // Update team color if available
+                    if (awayTeam.team?.color && !updatedGame.awayTeam.color) {
+                      updatedGame.awayTeam.color = awayTeam.team.color;
+                    }
+                    // Ensure team object exists for color access
+                    if (!updatedGame.awayTeam.team && awayTeam.team) {
+                      updatedGame.awayTeam.team = awayTeam.team;
+                    }
+                  }
+
+                  // Update situation data
+                  if (competition.situation) {
+                    updatedGame.situation = {
+                      possession: competition.situation.possession,
+                      down: competition.situation.down,
+                      distance: competition.situation.distance,
+                      yardLine: competition.situation.yardLine,
+                      possessionText: competition.situation.possessionText,
+                      shortDownDistanceText: competition.situation.shortDownDistanceText
+                    };
+                    console.log(`[NFL LIVE UPDATE] Updated situation for game ${updatedGame.id}:`, updatedGame.situation);
+                  }
+
+                  // Merge drives/plays into game so downstream rendering can use them directly
+                  if (drivesData && Array.isArray(drivesData) && drivesData.length) {
+                    // attach raw drives and also set playsData similar to other branches
+                    updatedGame.drives = drivesData;
+                    // find most recent drive with plays
+                    const driveWithPlays = [...drivesData].reverse().find(d => Array.isArray(d.plays) && d.plays.length) || drivesData[drivesData.length - 1];
+                    updatedGame.playsData = driveWithPlays && Array.isArray(driveWithPlays.plays) ? [...driveWithPlays.plays].reverse() : null;
+                    console.log(`[NFL DRIVES] Attached ${drivesData.length} drives for game ${updatedGame.id}, plays in most recent drive: ${updatedGame.playsData ? updatedGame.playsData.length : 0}`);
+                    
+                    // Always try to update situation with latest data from drives
+                    const currentDrive = drivesData.find(drive => !drive.end?.text && drive.result !== 'End of Game');
+                    if (currentDrive && currentDrive.plays && currentDrive.plays.length) {
+                      const lastPlay = currentDrive.plays[currentDrive.plays.length - 1];
+                      if (lastPlay && lastPlay.end) {
+                        updatedGame.situation = updatedGame.situation || {};
+                        // Always update with latest data from drives
+                        if (lastPlay.end.shortDownDistanceText) {
+                          console.log(`[NFL SITUATION UPDATE] Updating shortDownDistanceText from '${updatedGame.situation.shortDownDistanceText}' to '${lastPlay.end.shortDownDistanceText}'`);
+                          updatedGame.situation.shortDownDistanceText = lastPlay.end.shortDownDistanceText;
+                        }
+                        if (lastPlay.end.possessionText) {
+                          console.log(`[NFL SITUATION UPDATE] Updating possessionText from '${updatedGame.situation.possessionText}' to '${lastPlay.end.possessionText}'`);
+                          updatedGame.situation.possessionText = lastPlay.end.possessionText;
+                        }
+                        // Also update other situation fields if available
+                        if (lastPlay.end.down) {
+                          updatedGame.situation.down = lastPlay.end.down;
+                        }
+                        if (lastPlay.end.distance) {
+                          updatedGame.situation.distance = lastPlay.end.distance;
+                        }
+                        if (lastPlay.end.yardLine) {
+                          updatedGame.situation.yardLine = lastPlay.end.yardLine;
+                        }
+                        console.log(`[NFL SITUATION] Updated situation from drives for game ${updatedGame.id}:`, updatedGame.situation);
+                      }
+                    }
+                  }
+
+                  console.log(`Updated NFL game ${updatedGame.id} with fresh data`);
+                  return updatedGame; // Return the updated game object
+                } else {
+                  console.log(`Failed to fetch updated NFL data for game ${game.id}`);
+                }
+              } catch (nflUpdateError) {
+                console.log(`Error updating NFL game ${game.id}:`, nflUpdateError.message);
+              }
+              return game; // Return game object even if update failed
+            } else if (game.actualLeagueCode && game.actualLeagueCode !== 'nfl') {
+              // Handle domestic leagues using the actualLeagueCode (skip NFL as it's not soccer)
               console.log(`[BRANCH DEBUG] Using generic actualLeagueCode branch for game ${game.id}`);
               console.log(`[LIVE UPDATE] Starting update for ${game.actualLeagueCode} game ${game.id}`);
               const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${game.actualLeagueCode}/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`);
@@ -1926,9 +2194,15 @@ const FavoritesScreen = ({ navigation }) => {
         const currentPlays = JSON.stringify(prev?.playsData || null);
         const newPlays = JSON.stringify(game.playsData || null);
         if (currentPlays !== newPlays) return true;
-        const currentSituation = JSON.stringify(prev?.liveData?.situation || null);
-        const newSituation = JSON.stringify(updatedGames[index]?.liveData?.situation || null);
-        if (currentSituation !== newSituation) return true;
+        
+        // Check both game.situation (NFL) and game.liveData.situation (MLB)
+        const currentSituationNFL = JSON.stringify(prev?.situation || null);
+        const newSituationNFL = JSON.stringify(game?.situation || null);
+        if (currentSituationNFL !== newSituationNFL) return true;
+        
+        const currentSituationMLB = JSON.stringify(prev?.liveData?.situation || null);
+        const newSituationMLB = JSON.stringify(game?.liveData?.situation || null);
+        if (currentSituationMLB !== newSituationMLB) return true;
 
         // Compare competition scores/status
         const prevCompSnap = JSON.stringify(extractCompetitionsScoreSnapshot(prev));
@@ -1940,6 +2214,7 @@ const FavoritesScreen = ({ navigation }) => {
       
       if (hasChanges) {
         console.log('Plays data changed, updating state');
+        console.log(`[STATE UPDATE] Before setFavoriteGames - game ${updatedGames[0]?.id} situation:`, updatedGames[0]?.situation);
         setFavoriteGames(updatedGames);
       } else {
         console.log('No changes in plays data, skipping state update');
@@ -2089,6 +2364,301 @@ const FavoritesScreen = ({ navigation }) => {
         }
 
         return convertedGame;
+      }
+      
+      // Handle NFL games differently - use ESPN API format for proper situation data
+      const isNFL = teamSport === 'nfl' || currentGameData.competition === 'nfl';
+      if (isNFL && currentGameData.eventId) {
+        console.log(`Fetching NFL game using ESPN API for ${teamName} with eventId: ${currentGameData.eventId}`);
+        const nflUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${currentGameData.eventId}`;
+        
+        try {
+          // Use longer timeout for NFL API calls and bypass poll gating
+          const eventData = await fetchJsonWithCache(nflUrl, { timeout: 8000, bypassGating: true });
+          
+          if (!eventData) {
+            console.log(`Failed to fetch NFL game data for ${teamName} - no data returned`);
+            return null;
+          }
+          
+          console.log(`[DEBUG] NFL API response structure for ${teamName}:`, {
+            hasHeader: !!eventData.header,
+            hasCompetitions: !!eventData.header?.competitions,
+            competitionsLength: eventData.header?.competitions?.length,
+            hasDirectCompetitions: !!eventData.competitions,
+            directCompetitionsLength: eventData.competitions?.length,
+            topLevelKeys: Object.keys(eventData).slice(0, 10)
+          });
+          
+          // The ESPN summary API has a different structure than the scoreboard API
+          // Extract the competition data from the header
+          const competition = eventData.header?.competitions?.[0];
+          if (!competition) {
+            console.log(`No competition data found in NFL API response for ${teamName}`);
+            return null;
+          }
+          
+          // Build the game object manually from the summary API structure
+          const homeTeam = competition.competitors?.find(c => c.homeAway === 'home');
+          const awayTeam = competition.competitors?.find(c => c.homeAway === 'away');
+          
+          if (!homeTeam || !awayTeam) {
+            console.log(`Missing team data in NFL API response for ${teamName}`);
+            return null;
+          }
+          
+          // Extract situation data for live games
+          console.log(`[NFL SITUATION EXTRACT] Checking situation data for ${teamName}:`, {
+            competitionKeys: competition ? Object.keys(competition) : [],
+            hasSituation: !!competition.situation,
+            situationData: competition.situation,
+            status: competition.status
+          });
+          
+          // Try to extract situation using NFLService like GameDetails does
+          let situation = null;
+          try {
+            // Use NFLService.extractGameSituation with the event data we have
+            const gameForExtraction = {
+              competitions: [competition]
+            };
+            situation = NFLService.extractGameSituation(gameForExtraction);
+            console.log(`[NFL SITUATION EXTRACT] NFLService.extractGameSituation result:`, situation);
+          } catch (error) {
+            console.log(`[NFL SITUATION EXTRACT] Error using NFLService.extractGameSituation:`, error);
+          }
+
+          // Fallback to direct extraction if NFLService didn't work
+          if (!situation && competition.situation) {
+            situation = {
+              possession: competition.situation.possession,
+              down: competition.situation.down,
+              distance: competition.situation.distance,
+              yardLine: competition.situation.yardLine,
+              possessionText: competition.situation.possessionText,
+              shortDownDistanceText: competition.situation.shortDownDistanceText
+            };
+          }
+
+          // If we still don't have down/distance (common with the summary endpoint), try to derive it from drives/plays
+          const needsPlayExtraction = !situation || (!situation.down && !situation.shortDownDistanceText && !situation.possessionText);
+          let initialDrivesData = null; // Store drives data for immediate attachment
+          if (needsPlayExtraction) {
+            try {
+              const eventIdForPlays = competition.id || currentGameData.eventId;
+              if (eventIdForPlays) {
+                // Prefer the drives endpoint (same as GameDetails) which includes drives and plays refs
+                const drives = await NFLService.getDrives(eventIdForPlays);
+                initialDrivesData = drives; // Store for later attachment to game object
+                if (drives && drives.length) {
+                  // Find the current drive in progress, otherwise fall back to the last drive
+                  let currentDrive = drives.find(d => !d.end?.text && d.result !== 'End of Game');
+                  if (!currentDrive) currentDrive = drives[drives.length - 1] || drives[0];
+
+                  // Gather plays from the current drive or from the most recent drive that has plays
+                  let plays = Array.isArray(currentDrive?.plays) ? currentDrive.plays : [];
+                  if (!plays.length) {
+                    const driveWithPlays = [...drives].reverse().find(d => Array.isArray(d.plays) && d.plays.length);
+                    if (driveWithPlays) plays = driveWithPlays.plays;
+                  }
+
+                  if (plays && plays.length) {
+                    // Find the most recent play that has an end object
+                    const playsWithEnd = plays.filter(p => p && p.end);
+                    const sorted = playsWithEnd.sort((a, b) => {
+                      const seqA = parseInt(a.sequenceNumber) || 0;
+                      const seqB = parseInt(b.sequenceNumber) || 0;
+                      return seqA - seqB;
+                    });
+                    const mostRecentPlay = sorted.length ? sorted[sorted.length - 1] : playsWithEnd[0] || null;
+                    if (mostRecentPlay && mostRecentPlay.end) {
+                      const end = mostRecentPlay.end;
+
+                      // Helper: format ordinal (1 -> 1st etc.)
+                      const getOrdinal = (num) => {
+                        if (num === null || num === undefined) return String(num);
+                        const n = parseInt(num, 10);
+                        const s = ['th','st','nd','rd'];
+                        const v = n % 100;
+                        return n + (s[(v-20)%10] || s[v] || s[0]);
+                      };
+
+                      const down = end.down || (end.down?.number) || null;
+                      let distance = null;
+                      if (end.distance && typeof end.distance === 'object') {
+                        distance = end.distance.yards !== undefined ? end.distance.yards : null;
+                      } else if (typeof end.distance === 'number') {
+                        distance = end.distance;
+                      }
+
+                      const shortDownDistanceText = end.shortDownDistanceText || (down ? `${getOrdinal(down)} & ${distance !== null ? distance : ''}`.trim() : null);
+                      const possessionText = end.possessionText || null;
+
+                      // yardLine sometimes appears on end.possessionYardLine or end.yardLine or in possessionText
+                      let yardLine = null;
+                      if (end.possessionYardLine !== undefined && end.possessionYardLine !== null) yardLine = end.possessionYardLine;
+                      else if (end.yardLine !== undefined && end.yardLine !== null) yardLine = end.yardLine;
+                      else if (possessionText) {
+                        // possessionText often already contains team + number (e.g., "ARI 12")
+                        yardLine = possessionText;
+                      }
+
+                      situation = situation || {};
+                      // set extracted values if missing
+                      if (!situation.shortDownDistanceText && shortDownDistanceText) situation.shortDownDistanceText = shortDownDistanceText;
+                      if (!situation.down && down) situation.down = down;
+                      if ((situation.distance === undefined || situation.distance === null) && distance !== null) situation.distance = distance;
+                      if (!situation.possessionText && possessionText) situation.possessionText = possessionText;
+                      if ((situation.yardLine === undefined || situation.yardLine === null) && yardLine !== null) situation.yardLine = yardLine;
+                      console.log(`[NFL SITUATION EXTRACT] Derived from plays for ${teamName}:`, { shortDownDistanceText: situation.shortDownDistanceText, possessionText: situation.possessionText, down: situation.down, distance: situation.distance, yardLine: situation.yardLine });
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              console.log(`[NFL SITUATION EXTRACT] Error extracting from plays:`, e);
+            }
+          }
+          
+          // Extract venue information (try multiple sources like GameDetailsScreen)
+          const venue = eventData.gameInfo?.venue?.fullName || 
+                       eventData.header?.competitions?.[0]?.venue?.fullName || 
+                       competition.venue?.fullName || 
+                       eventData.header?.venue?.fullName;
+          
+          // Create the formatted game object
+          const formattedGame = {
+            id: competition.id || currentGameData.eventId,
+            date: competition.date,
+            status: competition.status?.type?.description || 'Scheduled',
+            period: competition.status?.period,
+            displayClock: competition.status?.displayClock,
+            venue: venue,
+            competitions: [{
+              id: competition.id,
+              date: competition.date,
+              venue: { fullName: venue },
+              competitors: [
+                {
+                  id: awayTeam.id,
+                  homeAway: 'away',
+                  team: {
+                    id: awayTeam.team?.id || awayTeam.id,
+                    abbreviation: awayTeam.team?.abbreviation,
+                    displayName: awayTeam.team?.displayName,
+                    name: awayTeam.team?.name,
+                    logos: awayTeam.team?.logos || [{
+                      href: `https://a.espncdn.com/i/teamlogos/nfl/500/${awayTeam.team?.abbreviation?.toLowerCase()}.png`
+                    }]
+                  },
+                  score: awayTeam.score
+                },
+                {
+                  id: homeTeam.id,
+                  homeAway: 'home',
+                  team: {
+                    id: homeTeam.team?.id || homeTeam.id,
+                    abbreviation: homeTeam.team?.abbreviation,
+                    displayName: homeTeam.team?.displayName,
+                    name: homeTeam.team?.name,
+                    logos: homeTeam.team?.logos || [{
+                      href: `https://a.espncdn.com/i/teamlogos/nfl/500/${homeTeam.team?.abbreviation?.toLowerCase()}.png`
+                    }]
+                  },
+                  score: homeTeam.score
+                }
+              ],
+              status: competition.status,
+              situation: situation
+            }],
+            homeTeam: {
+              id: homeTeam.team?.id || homeTeam.id,
+              abbreviation: homeTeam.team?.abbreviation,
+              displayName: homeTeam.team?.displayName,
+              score: homeTeam.score,
+              logos: homeTeam.team?.logos || [{
+                href: `https://a.espncdn.com/i/teamlogos/nfl/500/${homeTeam.team?.abbreviation?.toLowerCase()}.png`
+              }]
+            },
+            awayTeam: {
+              id: awayTeam.team?.id || awayTeam.id,
+              abbreviation: awayTeam.team?.abbreviation,
+              displayName: awayTeam.team?.displayName,
+              score: awayTeam.score,
+              logos: awayTeam.team?.logos || [{
+                href: `https://a.espncdn.com/i/teamlogos/nfl/500/${awayTeam.team?.abbreviation?.toLowerCase()}.png`
+              }]
+            },
+            situation: situation
+          };
+          
+          // Attach drives data if we fetched it during initial creation
+          if (initialDrivesData && Array.isArray(initialDrivesData)) {
+            formattedGame.drives = initialDrivesData;
+            // Also set playsData similar to updateLiveGamesPlays
+            const driveWithPlays = [...initialDrivesData].reverse().find(d => Array.isArray(d.plays) && d.plays.length) || initialDrivesData[initialDrivesData.length - 1];
+            formattedGame.playsData = driveWithPlays && Array.isArray(driveWithPlays.plays) ? [...driveWithPlays.plays].reverse() : null;
+            
+            // Extract team colors from drives data and update homeTeam/awayTeam objects
+            const homeTeamId = String(formattedGame.homeTeam?.id || '');
+            const awayTeamId = String(formattedGame.awayTeam?.id || '');
+            
+            initialDrivesData.forEach(drive => {
+              if (drive.team && drive.team.id) {
+                const driveTeamId = String(drive.team.id);
+                if (driveTeamId === homeTeamId && drive.team.color && !formattedGame.homeTeam.team?.color) {
+                  // Update home team with color information
+                  formattedGame.homeTeam = {
+                    ...formattedGame.homeTeam,
+                    team: {
+                      ...formattedGame.homeTeam.team,
+                      color: drive.team.color
+                    }
+                  };
+                  console.log(`[NFL INITIAL] Added home team color: ${drive.team.color}`);
+                } else if (driveTeamId === awayTeamId && drive.team.color && !formattedGame.awayTeam.team?.color) {
+                  // Update away team with color information
+                  formattedGame.awayTeam = {
+                    ...formattedGame.awayTeam,
+                    team: {
+                      ...formattedGame.awayTeam.team,
+                      color: drive.team.color
+                    }
+                  };
+                  console.log(`[NFL INITIAL] Added away team color: ${drive.team.color}`);
+                }
+              }
+            });
+            
+            console.log(`[NFL INITIAL] Attached ${initialDrivesData.length} drives during initial creation, plays in most recent drive: ${formattedGame.playsData ? formattedGame.playsData.length : 0}`);
+          }
+          
+          // Add additional metadata
+          const convertedGame = {
+            ...formattedGame,
+            favoriteTeam: team,
+            sport: 'NFL',
+            actualLeagueCode: 'nfl',
+            fromDirectLink: true,
+            eventLink: nflUrl
+          };
+          
+          console.log(`Successfully converted NFL game ${convertedGame.id} for ${teamName}`, {
+            hasHomeTeam: !!convertedGame.homeTeam,
+            hasAwayTeam: !!convertedGame.awayTeam,
+            hasSituation: !!convertedGame.situation,
+            situationKeys: convertedGame.situation ? Object.keys(convertedGame.situation) : [],
+            venue: venue,
+            homeScore: convertedGame.homeTeam?.score,
+            awayScore: convertedGame.awayTeam?.score,
+            status: convertedGame.status
+          });
+          return convertedGame;
+        } catch (nflError) {
+          console.log(`Error fetching NFL game data for ${teamName}:`, nflError.message || nflError);
+          console.log(`Error stack:`, nflError.stack);
+          return null;
+        }
       }
       
   // For non-MLB games (or if MLB branch didn't run), use the existing helper which caches and is null-safe
@@ -3119,6 +3689,12 @@ const FavoritesScreen = ({ navigation }) => {
         gameId: game.id,
         sport: 'mlb',
       });
+    } else if (actualCompetition === 'nfl' || game.sport === 'NFL' || game.sport === 'nfl') {
+      // NFL uses the same generic GameDetails screen in the app stack - pass sport 'nfl'
+      navigation.navigate('GameDetails', {
+        gameId: game.id,
+        sport: 'nfl',
+      });
     }
   };
 
@@ -4016,6 +4592,642 @@ const FavoritesScreen = ({ navigation }) => {
     );
   };
 
+  const renderNFLGameCard = (game) => {
+    const homeTeam = game.homeTeam;
+    const awayTeam = game.awayTeam;
+    const homeScore = homeTeam?.score || '0';
+    const awayScore = awayTeam?.score || '0';
+    // Debugging: inspect runtime game object shape to troubleshoot live detection
+    const DEBUG_FAV_NFL = true;
+    if (DEBUG_FAV_NFL) {
+      try {
+        const keys = Object.keys(game || {});
+        const compKeys = game?.competitions && game.competitions.length > 0 ? Object.keys(game.competitions[0]) : null;
+        console.log(`FAV_NFL DEBUG - id=${game?.id} keys=${JSON.stringify(keys)} competitionsKeys=${JSON.stringify(compKeys)} status_comp=${JSON.stringify(game?.competitions?.[0]?.status)} gameDataWithStatus=${Boolean(game?.gameDataWithStatus)} liveData=${Boolean(game?.liveData)} plays=${Boolean(game?.plays)}`);
+      } catch (e) {
+        console.log('FAV_NFL DEBUG - error serializing game', e);
+      }
+    }
+    
+    // Robust NFL status & situation detection (read from multiple shapes)
+    const getMatchStatusForNFL = (g) => {
+      const competition = g.competitions?.[0];
+      const statusFromCompetition = competition?.status;
+      const statusFromSiteAPI = g.gameDataWithStatus?.header?.competitions?.[0]?.status || statusFromCompetition;
+
+      let state = statusFromSiteAPI?.type?.state || statusFromCompetition?.type?.state;
+      // Normalize some common strings
+      if (!state && typeof g.status === 'string') {
+        const s = String(g.status).toLowerCase();
+        if (s.includes('final') || s.includes('post')) state = 'post';
+        else if (s.includes('in') || s.includes('progress')) state = 'in';
+        else state = 'pre';
+      }
+
+      // Fallback to computeMatchFlags if the site API doesn't indicate live
+      const fallback = computeMatchFlags(g);
+      const isLive = (state === 'in') || fallback.isLive;
+      const isPost = (state === 'post') || fallback.isPost || fallback.isFinished;
+      const isPre = !isLive && !isPost;
+
+      // displayClock/period extraction
+      const displayClock = statusFromSiteAPI?.displayClock || statusFromCompetition?.displayClock || g.displayClock || competition?.displayClock || '';
+      const period = statusFromSiteAPI?.period || statusFromCompetition?.period || g.period || competition?.period || null;
+
+      // Build readable detail (quarter/OT)
+      let detail = '';
+      if (isLive && period != null) {
+        if (period <= 4) {
+          const quarters = ['1st', '2nd', '3rd', '4th'];
+          detail = quarters[period - 1] || `Q${period}`;
+        } else {
+          detail = 'OT';
+        }
+      } else if (isPre) {
+        detail = '';
+      }
+
+      return {
+        isLive,
+        isPre,
+        isPost,
+        text: isLive ? 'Live' : (isPost ? 'Final' : 'Scheduled'),
+        time: displayClock || '',
+        detail
+      };
+    };
+
+  const matchStatus = getMatchStatusForNFL(game);
+  // Local aliases for legacy variable names used elsewhere in this function
+  const isLive = Boolean(matchStatus?.isLive);
+  const isScheduled = Boolean(matchStatus?.isPre);
+  const isFinished = Boolean(matchStatus?.isPost);
+  const gameStatus = matchStatus; // keep a reference named gameStatus for existing usages
+
+    // Helper function to get ordinal numbers
+    const getOrdinal = (num) => {
+      const suffixes = ['th', 'st', 'nd', 'rd'];
+      const v = num % 100;
+      return num + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
+    };
+
+    // Extract live situation from multiple possible fields - recalculate on every render
+    let possessionInfo = null;
+    if (matchStatus.isLive) {
+      const situation = game.situation ||
+                        game.gameDataWithStatus?.header?.competitions?.[0]?.situation ||
+                        game.competitions?.[0]?.situation ||
+                        game.liveData?.gamepackageJSON?.situation || null;
+
+      console.log(`[NFL POSSESSION CALC] Game ${game.id} situation calc - timestamp: ${Date.now()}`, {
+        gameHasSituation: !!game.situation,
+        situationData: game.situation,
+        gameDataHasSituation: !!game.gameDataWithStatus?.header?.competitions?.[0]?.situation,
+        competitionHasSituation: !!game.competitions?.[0]?.situation,
+        liveDataHasSituation: !!game.liveData?.gamepackageJSON?.situation,
+        situationFound: !!situation
+      });
+
+      if (situation) {
+        let possessionTeam = '';
+        
+        // First, try to determine possession from the most recent play in drives data
+        if (game.drives && Array.isArray(game.drives)) {
+          // Find the most recent drive with plays (may or may not be ended)
+          const mostRecentDriveWithPlays = [...game.drives].reverse().find(d => d.plays && Array.isArray(d.plays) && d.plays.length > 0);
+          
+          if (mostRecentDriveWithPlays && mostRecentDriveWithPlays.plays.length > 0) {
+            // Get the most recent play from that drive
+            const mostRecentPlay = mostRecentDriveWithPlays.plays[mostRecentDriveWithPlays.plays.length - 1];
+            
+            if (mostRecentPlay && mostRecentPlay.end) {
+              // Use the play's end state for the most current possession info
+              if (mostRecentPlay.end.team && mostRecentPlay.end.team.id) {
+                const playTeamId = String(mostRecentPlay.end.team.id);
+                const homeId = String(homeTeam?.id || homeTeam?.team?.id || '');
+                const awayId = String(awayTeam?.id || awayTeam?.team?.id || '');
+                
+                if (playTeamId === homeId) {
+                  possessionTeam = homeTeam?.abbreviation || homeTeam?.team?.abbreviation || '';
+                } else if (playTeamId === awayId) {
+                  possessionTeam = awayTeam?.abbreviation || awayTeam?.team?.abbreviation || '';
+                }
+                
+                console.log(`[NFL POSSESSION DEBUG] From most recent play: playTeamId="${playTeamId}", homeId="${homeId}", awayId="${awayId}", possessionTeam="${possessionTeam}"`);
+              }
+              
+              // Also update the situation object with fresh data from the most recent play
+              if (mostRecentPlay.end.shortDownDistanceText && mostRecentPlay.end.shortDownDistanceText !== situation.shortDownDistanceText) {
+                console.log(`[NFL POSSESSION DEBUG] Updating shortDownDistanceText from "${situation.shortDownDistanceText}" to "${mostRecentPlay.end.shortDownDistanceText}"`);
+                situation.shortDownDistanceText = mostRecentPlay.end.shortDownDistanceText;
+              }
+              if (mostRecentPlay.end.possessionText && mostRecentPlay.end.possessionText !== situation.possessionText) {
+                console.log(`[NFL POSSESSION DEBUG] Updating possessionText from "${situation.possessionText}" to "${mostRecentPlay.end.possessionText}"`);
+                situation.possessionText = mostRecentPlay.end.possessionText;
+              }
+              if (mostRecentPlay.end.down && mostRecentPlay.end.down !== situation.down) {
+                console.log(`[NFL POSSESSION DEBUG] Updating down from ${situation.down} to ${mostRecentPlay.end.down}`);
+                situation.down = mostRecentPlay.end.down;
+              }
+              if (mostRecentPlay.end.distance !== undefined && mostRecentPlay.end.distance !== situation.distance) {
+                console.log(`[NFL POSSESSION DEBUG] Updating distance from ${situation.distance} to ${mostRecentPlay.end.distance}`);
+                situation.distance = mostRecentPlay.end.distance;
+              }
+            }
+          }
+          
+          // Fallback: Find the current drive (no end text and not ended) if the above didn't work
+          if (!possessionTeam) {
+            const currentDrive = game.drives.find(drive => !drive.end?.text && drive.result !== 'End of Game');
+            if (currentDrive && currentDrive.team && currentDrive.team.id) {
+              const driveTeamId = String(currentDrive.team.id);
+              const homeId = String(homeTeam?.id || homeTeam?.team?.id || '');
+              const awayId = String(awayTeam?.id || awayTeam?.team?.id || '');
+              
+              if (driveTeamId === homeId) {
+                possessionTeam = homeTeam?.abbreviation || homeTeam?.team?.abbreviation || '';
+              } else if (driveTeamId === awayId) {
+                possessionTeam = awayTeam?.abbreviation || awayTeam?.team?.abbreviation || '';
+              }
+              
+              console.log(`[NFL POSSESSION DEBUG] From current drive fallback: driveTeamId="${driveTeamId}", homeId="${homeId}", awayId="${awayId}", possessionTeam="${possessionTeam}"`);
+            }
+          }
+        }
+        
+        // Fallback to situation.possession if drives didn't work
+        if (!possessionTeam && situation.possession) {
+          // Match possession ID against team IDs (more robust matching)
+          const possessionId = String(situation.possession);
+          const homeId = String(homeTeam?.id || homeTeam?.team?.id || '');
+          const awayId = String(awayTeam?.id || awayTeam?.team?.id || '');
+          
+          console.log(`[NFL POSSESSION DEBUG] Checking possession: possessionId="${possessionId}", homeId="${homeId}" (${homeTeam?.abbreviation}), awayId="${awayId}" (${awayTeam?.abbreviation})`);
+          
+          if (possessionId === homeId) {
+            possessionTeam = homeTeam?.abbreviation || homeTeam?.team?.abbreviation || '';
+          } else if (possessionId === awayId) {
+            possessionTeam = awayTeam?.abbreviation || awayTeam?.team?.abbreviation || '';
+          } else {
+            // Try partial matching in case IDs are formatted differently
+            if (homeId.includes(possessionId) || possessionId.includes(homeId)) {
+              possessionTeam = homeTeam?.abbreviation || homeTeam?.team?.abbreviation || '';
+            } else if (awayId.includes(possessionId) || possessionId.includes(awayId)) {
+              possessionTeam = awayTeam?.abbreviation || awayTeam?.team?.abbreviation || '';
+            }
+          }
+        }
+        
+        // If possession team still not found, try to extract from possessionText
+        if (!possessionTeam && situation.possessionText) {
+          // Try to extract team abbreviation from possessionText like "KC 28"
+          const textMatch = situation.possessionText.match(/^([A-Z]{2,3})\s+\d+$/);
+          if (textMatch) {
+            possessionTeam = textMatch[1];
+          }
+        }
+        
+        // If still no possession team but we have down/distance info, 
+        // assume the team with better field position or default to home team
+        if (!possessionTeam && (situation.down || situation.shortDownDistanceText)) {
+          // For now, we need a smarter way to determine possession
+          // Looking at the console log: KC is the team that should have possession
+          // but situation.possession might not be set correctly
+          
+          // Try to infer from context - if we have down/distance, someone has possession
+          // This is a fallback and should be improved with better data
+          if (situation.yardLine !== undefined) {
+            // If yard line is closer to opponent's endzone, likely that team has possession
+            if (situation.yardLine > 50) {
+              possessionTeam = awayTeam?.abbreviation || awayTeam?.team?.abbreviation || '';
+            } else if (situation.yardLine < 50) {
+              possessionTeam = homeTeam?.abbreviation || homeTeam?.team?.abbreviation || '';
+            } else {
+              // At midfield - harder to determine, use other context
+              // For KC vs NYG game where KC should have possession, default to away team for now
+              possessionTeam = awayTeam?.abbreviation || awayTeam?.team?.abbreviation || '';
+            }
+          }
+          
+          console.log(`[NFL POSSESSION DEBUG] Fallback possession determination: possessionTeam="${possessionTeam}"`);
+        }
+
+        let downAndDistance = '';
+        if (situation.shortDownDistanceText) {
+          // Use the pre-formatted text from ESPN (e.g., "1st & 10")
+          downAndDistance = situation.shortDownDistanceText;
+        } else if (situation.down && situation.distance !== undefined) {
+          // Fallback to manual formatting
+          downAndDistance = situation.distance === 0 ? `${getOrdinal(situation.down)} & Goal` : `${getOrdinal(situation.down)} & ${situation.distance}`;
+        }
+
+        let yardLine = '';
+        if (situation.possessionText) {
+          // Use the pre-formatted possession text from ESPN (e.g., "KC 28")
+          yardLine = situation.possessionText;
+        } else if (situation.yardLine !== undefined && situation.yardLine !== null && possessionTeam) {
+          // Construct possession text from components
+          yardLine = `${possessionTeam} ${situation.yardLine}`;
+        } else if (possessionTeam && situation.yardLine !== undefined) {
+          // Even if yardLine is 50, show it if we have possession team
+          yardLine = `${possessionTeam} ${situation.yardLine}`;
+        }
+
+        console.log(`[NFL POSSESSION DEBUG] Final possession info: possessionTeam="${possessionTeam}", downAndDistance="${downAndDistance}", yardLine="${yardLine}"`);
+        console.log(`[NFL POSSESSION DEBUG] Raw situation data:`, situation);
+
+        // Validate the data before storing - filter out invalid cases
+        const hasValidDown = situation.down && situation.down > 0 && !downAndDistance.includes('-1th');
+        const hasValidYardLine = yardLine && yardLine.trim() !== '50' && !yardLine.includes(' 50');
+        
+        possessionInfo = {
+          team: possessionTeam,
+          downAndDistance: hasValidDown ? downAndDistance : 'Kickoff',
+          yardLine: hasValidYardLine ? yardLine : '',
+          raw: situation
+        };
+        
+        console.log(`[NFL POSSESSION DEBUG] Final possessionInfo for game ${game.id}:`, possessionInfo);
+      } else {
+        console.log(`[NFL SITUATION DEBUG] No situation found in game object, situation data not available in summary API`);
+        // The ESPN summary API doesn't include situation data for this game
+        // TODO: Consider fetching from drives/plays API like GameDetails does
+        possessionInfo = null;
+      }
+    }
+    
+  // Get team logo URLs
+    const getNFLTeamLogoUrl = (team) => {
+      const teamAbbr = team.abbreviation?.toLowerCase();
+      if (teamAbbr) {
+        return isDarkMode
+          ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${teamAbbr}.png`
+          : `https://a.espncdn.com/i/teamlogos/nfl/500/${teamAbbr}.png`;
+      }
+      return null;
+    };
+    
+    // Extract most recent play for live games using NFL-specific extraction
+    let recentPlay = '';
+    let playTeamId = null;
+    let playText = '';
+    
+    if (isLive) {
+      try {
+        // Try to get plays from game object first (similar to extractMostRecentPlay)
+        let plays = [];
+        
+        // Check various possible locations for plays data
+        if (game.plays && Array.isArray(game.plays)) {
+          plays = game.plays;
+        } else if (game.liveData?.plays) {
+          plays = game.liveData.plays;
+        } else if (game.gameDataWithStatus?.plays) {
+          plays = game.gameDataWithStatus.plays;
+        } else if (game.gamepackageJSON?.drives) {
+          // Extract plays from drives like NFLService.getPlays()
+          game.gamepackageJSON.drives.forEach(drive => {
+            if (drive.plays) {
+              plays.push(...drive.plays);
+            }
+          });
+        } else if (game.drives) {
+          // Try alternate drives structure
+          game.drives.forEach(drive => {
+            if (drive.plays && Array.isArray(drive.plays)) {
+              plays.push(...drive.plays);
+            }
+          });
+        }
+        
+        if (plays.length > 0) {
+          // Sort plays by sequence if available
+          plays.sort((a, b) => {
+            const seqA = parseInt(a.sequenceNumber) || 0;
+            const seqB = parseInt(b.sequenceNumber) || 0;
+            return seqA - seqB;
+          });
+          
+          const lastPlay = plays[plays.length - 1];
+          playText = lastPlay.text || lastPlay.description || '';
+          
+          // Ensure playText is always a string
+          if (typeof playText !== 'string') {
+            playText = '';
+          }
+          
+          // Try to determine which team made the play
+          if (lastPlay.team && lastPlay.team.id) {
+            playTeamId = String(lastPlay.team.id);
+          } else if (lastPlay.teamId) {
+            playTeamId = String(lastPlay.teamId);
+          }
+          
+          // Truncate if too long
+          if (playText && playText.length > 100) {
+            playText = playText.substring(0, 97) + '...';
+          }
+          
+          recentPlay = playText;
+        } else {
+          // Fallback: try to fetch recent plays using NFLService.getPlays if needed in the future
+        }
+      } catch (error) {
+        // Error extracting play data, silently continue
+      }
+    }
+    
+    // Determine winner/loser for finished games (use MLB pattern)
+    const homeScoreNum = parseInt(String(homeScore)) || 0;
+    const awayScoreNum = parseInt(String(awayScore)) || 0;
+    
+    const isPost = gameStatus.isPost;
+    let homeIsWinner = false;
+    let awayIsWinner = false;
+    let isDraw = false;
+
+    if (isPost) {
+      if (homeScoreNum > awayScoreNum) homeIsWinner = true;
+      else if (awayScoreNum > homeScoreNum) awayIsWinner = true;
+      else isDraw = true;
+    }
+
+    const homeIsLoser = isPost && !isDraw && !homeIsWinner;
+    const awayIsLoser = isPost && !isDraw && !awayIsWinner;
+    
+    // Format game status
+    let gameStatusText = game.status || 'Scheduled';
+    if (isLive) {
+      gameStatusText = 'Live';
+      if (game.displayClock) {
+        gameStatusText = `${game.displayClock}`;
+        if (game.period) {
+          const quarters = ['1st', '2nd', '3rd', '4th'];
+          if (game.period <= 4) {
+            gameStatusText += ` - ${quarters[game.period - 1]}`;
+          } else {
+            gameStatusText += ` OT`;
+          }
+        }
+      }
+    } else if (isFinished) {
+      gameStatusText = 'Final';
+    }
+    
+    // Format date/time
+    const gameDate = new Date(game.date || game.gameDate);
+    const formatGameDate = (date) => date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric' 
+    });
+    const formatGameTime = (date) => date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+    
+    // Determine play/team in possession and apply card border like MLB cards
+    // Prefer drives-derived possession (current drive team), then possessionInfo.team (abbreviation),
+    // then fall back to last-play teamId when present.
+    let cardBorderStyle = {};
+    // Compute whether the possession belongs to the home team (true/false/null)
+    let possessionIsHome = null;
+    if (matchStatus.isLive) {
+      // Drives (preferred): look for current drive team id
+      if (game.drives && Array.isArray(game.drives)) {
+        const currentDrive = game.drives.find(drive => !drive.end?.text && drive.result !== 'End of Game');
+        if (currentDrive && currentDrive.team && currentDrive.team.id) {
+          const driveTeamId = String(currentDrive.team.id);
+          const homeId = String(homeTeam?.id || homeTeam?.team?.id || '');
+          const awayId = String(awayTeam?.id || awayTeam?.team?.id || '');
+          if (driveTeamId === homeId) possessionIsHome = true;
+          else if (driveTeamId === awayId) possessionIsHome = false;
+        }
+      }
+
+      // Next preference: possessionInfo.team (abbreviation)
+      if (possessionIsHome === null && possessionInfo && possessionInfo.team) {
+        const poss = String(possessionInfo.team).toUpperCase();
+        const homeAbbr = (homeTeam?.abbreviation || homeTeam?.team?.abbreviation || '').toUpperCase();
+        const awayAbbr = (awayTeam?.abbreviation || awayTeam?.team?.abbreviation || '').toUpperCase();
+        if (poss && homeAbbr && poss === homeAbbr) possessionIsHome = true;
+        else if (poss && awayAbbr && poss === awayAbbr) possessionIsHome = false;
+      }
+
+      // Fallback: use last-play team id if we still don't know possession
+      let isHomeTeamPlay = null;
+      if (playTeamId) {
+        isHomeTeamPlay = String(playTeamId) === String(homeTeam?.id) || String(playTeamId) === String(homeTeam?.team?.id);
+      }
+
+      // Get team colors for border styling
+      let homeColor = theme.surface;
+      let awayColor = theme.surface;
+      try {
+        // Try multiple possible paths for team colors
+        const homeColorValue = homeTeam?.team?.color || homeTeam?.color || game.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home')?.team?.color;
+        const awayColorValue = awayTeam?.team?.color || awayTeam?.color || game.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away')?.team?.color;
+        
+        if (homeColorValue) {
+          homeColor = homeColorValue.startsWith('#') ? homeColorValue : `#${homeColorValue}`;
+        }
+        if (awayColorValue) {
+          awayColor = awayColorValue.startsWith('#') ? awayColorValue : `#${awayColorValue}`;
+        }
+        
+        console.log(`[NFL COLOR DEBUG] Game ${game.id} colors: home=${homeColor}, away=${awayColor}, homeColorValue=${homeColorValue}, awayColorValue=${awayColorValue}`);
+      } catch (e) {
+        console.log(`[NFL COLOR DEBUG] Error extracting colors:`, e);
+      }
+
+      // Decide which side to color: possessionIsHome (preferred), otherwise isHomeTeamPlay
+      const useHome = possessionIsHome !== null ? possessionIsHome : (isHomeTeamPlay === true);
+      if (useHome === true) {
+        cardBorderStyle = {
+          borderRightColor: homeColor,
+          borderRightWidth: 8,
+          borderLeftColor: theme.border,
+          borderLeftWidth: 1,
+        };
+      } else if (useHome === false) {
+        cardBorderStyle = {
+          borderLeftColor: awayColor,
+          borderLeftWidth: 8,
+          borderRightColor: theme.border,
+          borderRightWidth: 1,
+        };
+      } else if (isHomeTeamPlay === true) {
+        // Last-resort: if we had a play team but couldn't map possession, use play team
+        cardBorderStyle = {
+          borderRightColor: homeColor,
+          borderRightWidth: 8,
+          borderLeftColor: theme.border,
+          borderLeftWidth: 1,
+        };
+      } else if (isHomeTeamPlay === false) {
+        cardBorderStyle = {
+          borderLeftColor: awayColor,
+          borderLeftWidth: 8,
+          borderRightColor: theme.border,
+          borderRightWidth: 1,
+        };
+      }
+    }
+    
+    return (
+      <TouchableOpacity 
+        key={`${game.id}-${possessionInfo?.team || 'no-team'}-${possessionInfo?.downAndDistance || 'no-down'}-${possessionInfo?.yardLine || 'no-yard'}-${game.situation?.shortDownDistanceText || 'no-short'}-${game.situation?.possessionText || 'no-poss'}`}
+        style={[styles.gameCard, { 
+          backgroundColor: theme.surface, 
+          borderColor: theme.border,
+          borderTopColor: theme.border,
+          borderBottomColor: theme.border,
+        }, cardBorderStyle]}
+        onPress={() => handleGamePress(game)}
+        activeOpacity={0.7}
+      >
+        {/* League Header */}
+        <View style={[styles.leagueHeader, { 
+          backgroundColor: theme.surfaceSecondary 
+        }]}>
+          <Text allowFontScaling={false} style={[styles.leagueText, { 
+            color: colors.primary 
+          }]}>
+            NFL
+          </Text>
+        </View>
+        
+        {/* Main Game Content */}
+        <View style={styles.matchContent}>
+          {/* Away Team */}
+          <View style={styles.teamSection}>
+            <View style={styles.teamLogoRow}>
+              <Image
+                style={[styles.teamLogo, awayIsLoser && styles.losingTeamLogo]}
+                source={{
+                  uri: isDarkMode
+                    ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam.abbreviation?.toLowerCase()}.png`
+                    : `https://a.espncdn.com/i/teamlogos/nfl/500/${awayTeam.abbreviation?.toLowerCase()}.png`
+                }}
+                onError={() => {
+                  // Fallback to the other mode on error
+                  console.log(`Logo error for ${awayTeam.abbreviation}, trying fallback`);
+                }}
+              />
+              {!isScheduled && (
+                <View style={styles.scoreContainer}>
+                  <Text allowFontScaling={false} style={[styles.teamScore, {
+                    color: gameStatus.isPost ? (awayIsWinner ? colors.primary : (awayIsLoser ? '#999' : theme.text)) : theme.text
+                  }]}>
+                    {awayScore}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text allowFontScaling={false} style={[styles.teamAbbreviation, {
+              color: isFavorite(awayTeam.id) ? colors.primary : (awayIsLoser ? '#999' : theme.text)
+            }]}>
+              {isFavorite(awayTeam.id) ? '★ ' : ''}{awayTeam.abbreviation}
+            </Text>
+          </View>
+          
+          {/* Status/Live Info Section */}
+          <View style={styles.statusSection}>
+            <Text allowFontScaling={false} style={[styles.gameStatus, {
+              color: isLive ? colors.primary : theme.text
+            }]}>
+              {gameStatusText}
+            </Text>
+            
+            {/* Live game situation info: show down/distance and yard line like GameDetails screen */}
+            {isLive ? (
+              <View style={{ alignItems: 'center', marginTop: 4 }}>
+                {/* Primary line: down & distance (like "1st & 10") - only show if valid */}
+                {possessionInfo?.downAndDistance ? (
+                  <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary, fontWeight: '600' }]}>
+                    {possessionInfo.downAndDistance}
+                  </Text>
+                ) : (
+                  <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary, fontWeight: '600' }]}>
+                    {matchStatus.time && matchStatus.detail ? `${matchStatus.time} - ${matchStatus.detail}` : 
+                     matchStatus.time ? matchStatus.time : 
+                     matchStatus.detail ? matchStatus.detail : 
+                     'Live'}
+                  </Text>
+                )}
+
+                {/* Secondary line: yard line with possession arrow (like "◀ ARI 24") - only show if valid */}
+                {possessionInfo?.yardLine && possessionInfo?.team ? (
+                  <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                    {possessionInfo.team === awayTeam?.abbreviation ? `◀ ${possessionInfo.yardLine}` : `${possessionInfo.yardLine} ▶`}
+                  </Text>
+                ) : possessionInfo?.yardLine ? (
+                  <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                    {possessionInfo.yardLine}
+                  </Text>
+                ) : null}
+              </View>
+            ) : (
+              <View style={{ alignItems: 'center', marginTop: 4 }}>
+                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                  {formatGameDate(gameDate)}
+                </Text>
+                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                  {formatGameTime(gameDate)} EST
+                </Text>
+              </View>
+            )}
+          </View>
+          
+          {/* Home Team */}
+          <View style={styles.teamSection}>
+            <View style={styles.teamLogoRow}>
+              {!isScheduled && (
+                <View style={styles.scoreContainer}>
+                  <Text allowFontScaling={false} style={[styles.teamScore, {
+                    color: gameStatus.isPost ? (homeIsWinner ? colors.primary : (homeIsLoser ? '#999' : theme.text)) : theme.text
+                  }]}>
+                    {homeScore}
+                  </Text>
+                </View>
+              )}
+              <Image
+                style={[styles.teamLogo, homeIsLoser && styles.losingTeamLogo]}
+                source={{
+                  uri: isDarkMode
+                    ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam.abbreviation?.toLowerCase()}.png`
+                    : `https://a.espncdn.com/i/teamlogos/nfl/500/${homeTeam.abbreviation?.toLowerCase()}.png`
+                }}
+                onError={() => {
+                  // Fallback to the other mode on error
+                  console.log(`Logo error for ${homeTeam.abbreviation}, trying fallback`);
+                }}
+              />
+            </View>
+            <Text allowFontScaling={false} style={[styles.teamAbbreviation, {
+              color: isFavorite(homeTeam.id) ? colors.primary : (homeIsLoser ? '#999' : theme.text)
+            }]}>
+              {isFavorite(homeTeam.id) ? '★ ' : ''}{homeTeam.abbreviation}
+            </Text>
+          </View>
+        </View>
+        
+        {/* Venue Section - Replace with play description for live games like MLB */}
+        <View style={styles.venueSection}>
+          {isLive && playText ? (
+            <Text allowFontScaling={false} style={[styles.livePlayText, { color: theme.text }]} numberOfLines={2}>
+              {playText}
+            </Text>
+          ) : (
+            <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>
+              {game.venue || 'TBD Stadium'}
+            </Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   const renderGameCard = (game) => {
     if (!game?.competitions?.[0]) return null;
 
@@ -4597,6 +5809,11 @@ const FavoritesScreen = ({ navigation }) => {
       return renderMLBGameCard(game);
     }
 
+    // Check if this is an NFL game and render it with special styling
+    if (game.sport === 'NFL' || game.actualLeagueCode === 'nfl') {
+      return renderNFLGameCard(game);
+    }
+
     return (
       <TouchableOpacity 
         style={[
@@ -4782,27 +5999,37 @@ const FavoritesScreen = ({ navigation }) => {
       const competitionName = getCompetitionName(actualLeagueCode);
       
       const groupNames = {
-        'Premier League': 'England Soccer',
-        'FA Cup': 'England Soccer',
-        'EFL Cup': 'England Soccer',
-        'La Liga': 'Spain Soccer',
-        'Copa del Rey': 'Spain Soccer',
-        'Spanish Supercopa': 'Spain Soccer',
-        'Serie A': 'Italy Soccer',
-        'Coppa Italia': 'Italy Soccer',
-        'Italian Supercoppa': 'Italy Soccer',
-        'Bundesliga': 'Germany Soccer',
-        'DFB Pokal': 'Germany Soccer',
-        'German Super Cup': 'Germany Soccer',
-        'Ligue 1': 'France Soccer',
-        'Coupe de France': 'France Soccer',
-        'Trophee des Champions': 'France Soccer',
-        'Champions League': 'Champions League',
-        'Europa League': 'Europa League',
-        'Europa Conference League': 'Europa Conference League',
+        // All soccer competitions go to single Soccer section
+        'Premier League': 'Soccer',
+        'FA Cup': 'Soccer',
+        'EFL Cup': 'Soccer',
+        'La Liga': 'Soccer',
+        'Copa del Rey': 'Soccer',
+        'Spanish Supercopa': 'Soccer',
+        'Serie A': 'Soccer',
+        'Coppa Italia': 'Soccer',
+        'Italian Supercoppa': 'Soccer',
+        'Bundesliga': 'Soccer',
+        'DFB Pokal': 'Soccer',
+        'German Super Cup': 'Soccer',
+        'Ligue 1': 'Soccer',
+        'Coupe de France': 'Soccer',
+        'Trophee des Champions': 'Soccer',
+        'Champions League': 'Soccer',
+        'Europa League': 'Soccer',
+        'Europa Conference League': 'Soccer',
         // Baseball/MLB mappings
         'Baseball': 'MLB',
-        'mlb': 'MLB'
+        'mlb': 'MLB',
+        // Football/NFL mappings
+        'Football': 'NFL',
+        'nfl': 'NFL',
+        // Basketball/NBA mappings
+        'Basketball': 'NBA',
+        'nba': 'NBA',
+        // Hockey/NHL mappings
+        'Hockey': 'NHL',
+        'nhl': 'NHL'
       };
       
       const groupName = groupNames[competitionName];
@@ -4814,6 +6041,27 @@ const FavoritesScreen = ({ navigation }) => {
       if (fallbackSport === 'Baseball' || fallbackSport === 'baseball' || 
           actualLeagueCode === 'mlb' || actualLeagueCode === 'MLB') {
         return 'MLB';
+      }
+      
+      if (fallbackSport === 'Football' || fallbackSport === 'football' || 
+          actualLeagueCode === 'nfl' || actualLeagueCode === 'NFL') {
+        return 'NFL';
+      }
+      
+      if (fallbackSport === 'Basketball' || fallbackSport === 'basketball' || 
+          actualLeagueCode === 'nba' || actualLeagueCode === 'NBA') {
+        return 'NBA';
+      }
+      
+      if (fallbackSport === 'Hockey' || fallbackSport === 'hockey' || 
+          actualLeagueCode === 'nhl' || actualLeagueCode === 'NHL') {
+        return 'NHL';
+      }
+      
+      // Check if it's any soccer-related sport
+      if (fallbackSport === 'Soccer' || fallbackSport === 'soccer' || 
+          actualLeagueCode?.includes('soccer') || actualLeagueCode?.includes('uefa')) {
+        return 'Soccer';
       }
       
       return fallbackSport || 'Unknown';

@@ -666,7 +666,20 @@ const TeamPageScreen = ({ route, navigation }) => {
 
     const now = new Date();
     const threeHoursAgo = new Date(now.getTime() - (3 * 60 * 60 * 1000));
-    const gameStatus = (gameDateObj < threeHoursAgo) ? 'Final' : (gameDateObj <= now ? 'Current' : 'Scheduled');
+    
+    // Determine game status - only show Final if we have actual score data
+    let gameStatus;
+    if (currentGame.status?.type?.completed || currentGame.status?.type?.name === 'STATUS_FINAL') {
+      gameStatus = 'Final';
+    } else if (currentGame.status?.type?.name === 'STATUS_IN_PROGRESS' || (gameDateObj <= now && gameDateObj > threeHoursAgo)) {
+      gameStatus = 'Current';
+    } else if (gameDateObj > now) {
+      gameStatus = 'Scheduled';
+    } else {
+      // If it's past the time but no status info, check if we have scores
+      const hasScores = (homeScore && homeScore !== '0') || (awayScore && awayScore !== '0');
+      gameStatus = hasScores ? 'Final' : 'Scheduled';
+    }
 
     const determineWinner = () => {
       if (gameStatus !== 'Final') return { homeIsWinner: false, awayIsWinner: false, isDraw: false };
@@ -704,15 +717,15 @@ const TeamPageScreen = ({ route, navigation }) => {
           <View style={styles.matchContent}>
             <View style={styles.teamSection}>
               <View style={styles.teamLogoRow}>
-                <TeamLogoImage team={homeTeam.team || homeTeam} style={[styles.teamLogo, homeIsLoser && styles.losingTeamLogo]} />
+                <TeamLogoImage team={awayTeam.team || awayTeam} style={[styles.teamLogo, awayIsLoser && styles.losingTeamLogo]} />
                 {gameStatus !== 'Scheduled' && (
                   <View style={styles.scoreContainer}>
-                    <Text allowFontScaling={false} style={[styles.teamScore, { color: (gameStatus === 'Final' && homeIsWinner) ? colors.primary : (homeIsLoser ? '#999' : theme.text) }]}>{homeScore}</Text>
-                    {homeShootout && <Text allowFontScaling={false} style={[styles.shootoutScore, { color: homeIsLoser ? '#999' : colors.primary }]}>{`(${homeShootout})`}</Text>}
+                    <Text allowFontScaling={false} style={[styles.teamScore, { color: (gameStatus === 'Final' && awayIsWinner) ? colors.primary : (awayIsLoser ? '#999' : theme.text) }]}>{awayScore}</Text>
+                    {awayShootout && <Text allowFontScaling={false} style={[styles.shootoutScore, { color: awayIsLoser ? '#999' : colors.primary }]}>{`(${awayShootout})`}</Text>}
                   </View>
                 )}
               </View>
-              <Text allowFontScaling={false} style={[styles.teamAbbreviation, { color: isFavorite(homeTeam.team?.id) ? colors.primary : (homeIsLoser ? '#999' : theme.text) }]}>{isFavorite(homeTeam.team?.id) ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}</Text>
+              <Text allowFontScaling={false} style={[styles.teamAbbreviation, { color: isFavorite(awayTeam.team?.id) ? colors.primary : (awayIsLoser ? '#999' : theme.text) }]}>{isFavorite(awayTeam.team?.id) ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}</Text>
             </View>
 
             <View style={styles.statusSection}>
@@ -725,17 +738,17 @@ const TeamPageScreen = ({ route, navigation }) => {
               <View style={styles.teamLogoRow}>
                 {gameStatus !== 'Scheduled' && (
                   <View style={styles.scoreContainer}>
-                    {awayShootout && <Text allowFontScaling={false} style={[styles.shootoutScore, { color: awayIsLoser ? '#999' : colors.primary }]}>{`(${awayShootout})`}</Text>}
-                    <Text allowFontScaling={false} style={[styles.teamScore, { color: (gameStatus === 'Final' && awayIsWinner) ? colors.primary : (awayIsLoser ? '#999' : theme.text) }]}>{awayScore}</Text>
+                    {homeShootout && <Text allowFontScaling={false} style={[styles.shootoutScore, { color: homeIsLoser ? '#999' : colors.primary }]}>{`(${homeShootout})`}</Text>}
+                    <Text allowFontScaling={false} style={[styles.teamScore, { color: (gameStatus === 'Final' && homeIsWinner) ? colors.primary : (homeIsLoser ? '#999' : theme.text) }]}>{homeScore}</Text>
                   </View>
                 )}
-                <TeamLogoImage team={awayTeam.team || awayTeam} style={[styles.teamLogo, awayIsLoser && styles.losingTeamLogo]} />
+                <TeamLogoImage team={homeTeam.team || homeTeam} style={[styles.teamLogo, homeIsLoser && styles.losingTeamLogo]} />
               </View>
-              <Text allowFontScaling={false} style={[styles.teamAbbreviation, { color: isFavorite(awayTeam.team?.id) ? colors.primary : (awayIsLoser ? '#999' : theme.text) }]}>{isFavorite(awayTeam.team?.id) ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}</Text>
+              <Text allowFontScaling={false} style={[styles.teamAbbreviation, { color: isFavorite(homeTeam.team?.id) ? colors.primary : (homeIsLoser ? '#999' : theme.text) }]}>{isFavorite(homeTeam.team?.id) ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}</Text>
             </View>
           </View>
 
-          {venueName ? <View style={[styles.venueSection, { borderTopColor: theme.border }]}> <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}> {venueName}</Text></View> : null}
+          {venueName ? <View style={[styles.venueSection, { borderTopColor: theme.border }]}><Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>{venueName}</Text></View> : null}
         </TouchableOpacity>
       </View>
     );

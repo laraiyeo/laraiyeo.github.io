@@ -267,22 +267,35 @@ export class NFLService {
       
       const drives = drivesData.items || [];
       
+      // For live updates, only fetch the most recent 2-3 drives to avoid fetching hundreds of plays
+      const isLiveUpdate = drives.length > 5; // Assume if many drives, it's a live update
+      const drivesToProcess = isLiveUpdate ? drives.slice(-3) : drives; // Only last 3 drives for live updates
+      
       // Fetch detailed information for each drive with limited concurrent requests
       const batchSize = 5; // Process 5 drives at a time
       const detailedDrives = [];
       
-      for (let i = 0; i < drives.length; i += batchSize) {
-        const batch = drives.slice(i, i + batchSize);
+      // Cache for team data to avoid redundant fetches within the same request
+      const teamCache = new Map();
+      
+      for (let i = 0; i < drivesToProcess.length; i += batchSize) {
+        const batch = drivesToProcess.slice(i, i + batchSize);
         const batchResults = await Promise.all(batch.map(async (drive) => {
           try {
-            // Get team information (only if needed)
+            // Get team information (with caching to avoid redundant fetches)
             let teamInfo = null;
             if (drive.team && drive.team.$ref) {
-              try {
-                const teamResponse = await fetch(this.convertToHttps(drive.team.$ref));
-                teamInfo = await teamResponse.json();
-              } catch (error) {
-                console.warn('Error fetching team info:', error);
+              const teamUrl = drive.team.$ref;
+              if (teamCache.has(teamUrl)) {
+                teamInfo = teamCache.get(teamUrl);
+              } else {
+                try {
+                  const teamResponse = await fetch(this.convertToHttps(teamUrl));
+                  teamInfo = await teamResponse.json();
+                  teamCache.set(teamUrl, teamInfo);
+                } catch (error) {
+                  console.warn('Error fetching team info:', error);
+                }
               }
             }
 
@@ -316,6 +329,16 @@ export class NFLService {
         }));
         
         detailedDrives.push(...batchResults);
+      }
+
+      // For live updates, prepend any existing drives that weren't processed to maintain full data
+      if (isLiveUpdate && drives.length > drivesToProcess.length) {
+        const unprocessedDrives = drives.slice(0, -3).map(drive => ({
+          ...drive,
+          team: null, // Don't fetch team info for old drives
+          plays: [] // Don't fetch plays for old drives
+        }));
+        return [...unprocessedDrives, ...detailedDrives];
       }
 
       return detailedDrives;
