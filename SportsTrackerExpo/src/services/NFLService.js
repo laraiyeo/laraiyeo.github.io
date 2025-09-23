@@ -267,22 +267,23 @@ export class NFLService {
       
       const drives = drivesData.items || [];
       
-      // For live updates, only fetch the most recent 2-3 drives to avoid fetching hundreds of plays
-      const isLiveUpdate = drives.length > 5; // Assume if many drives, it's a live update
-      const drivesToProcess = isLiveUpdate ? drives.slice(-3) : drives; // Only last 3 drives for live updates
-      
-      // Fetch detailed information for each drive with limited concurrent requests
-      const batchSize = 5; // Process 5 drives at a time
-      const detailedDrives = [];
-      
       // Cache for team data to avoid redundant fetches within the same request
       const teamCache = new Map();
       
-      for (let i = 0; i < drivesToProcess.length; i += batchSize) {
-        const batch = drivesToProcess.slice(i, i + batchSize);
-        const batchResults = await Promise.all(batch.map(async (drive) => {
+      // For performance optimization, distinguish between recent drives that need plays data
+      // and older drives that only need team info (for FavoritesScreen and general use)
+      const isLiveUpdate = drives.length > 5;
+      const recentDriveCount = 2; // Only fetch plays for the most recent 2 drives
+      
+      // Process all drives in batches to get team information for all drives
+      const batchSize = 10; // Process 10 drives at a time
+      const detailedDrives = [];
+      
+      for (let i = 0; i < drives.length; i += batchSize) {
+        const batch = drives.slice(i, i + batchSize);
+        const batchResults = await Promise.all(batch.map(async (drive, driveIndex) => {
           try {
-            // Get team information (with caching to avoid redundant fetches)
+            // Get team information (always fetch for all drives to show proper team names)
             let teamInfo = null;
             if (drive.team && drive.team.$ref) {
               const teamUrl = drive.team.$ref;
@@ -299,19 +300,27 @@ export class NFLService {
               }
             }
 
-            // Get plays information if available (but don't fetch individual play details)
+            // Only fetch plays data for recent drives or if not a live update (optimized for performance)
             let playsData = [];
-            if (drive.plays && drive.plays.$ref) {
+            const actualDriveIndex = i + driveIndex; // Actual position in the full drives array
+            const driveIndexFromEnd = drives.length - actualDriveIndex - 1; // Distance from the end
+            const shouldFetchPlays = !isLiveUpdate || driveIndexFromEnd < recentDriveCount;
+            
+            console.log(`Drive ${actualDriveIndex + 1}/${drives.length}: indexFromEnd=${driveIndexFromEnd}, shouldFetch=${shouldFetchPlays}, isLiveUpdate=${isLiveUpdate}`);
+            
+            const playsRef = drive.plays?.$ref || drive.plays?.href;
+            if (shouldFetchPlays && playsRef) {
               try {
-                const playsResponse = await fetch(this.convertToHttps(drive.plays.$ref));
+                console.log(`Fetching plays for drive ${actualDriveIndex + 1} during initial load`);
+                const playsResponse = await fetch(this.convertToHttps(playsRef));
                 const playsResult = await playsResponse.json();
                 playsData = playsResult.items || [];
-                
-                // Don't fetch detailed play information upfront - fetch on demand
-                // This saves hundreds of API calls
+                console.log(`Loaded ${playsData.length} plays for drive ${actualDriveIndex + 1}`);
               } catch (error) {
                 console.warn('Error fetching plays for drive:', error);
               }
+            } else {
+              console.log(`Skipping plays for drive ${actualDriveIndex + 1} (will load on demand). PlaysRef: ${playsRef}, shouldFetch: ${shouldFetchPlays}`);
             }
 
             return {
@@ -320,29 +329,142 @@ export class NFLService {
                 ...teamInfo,
                 logo: teamInfo.logos?.[1]?.href || teamInfo.logos?.[0]?.href
               } : null,
-              plays: playsData
+              plays: playsData,
+              hasPlaysData: shouldFetchPlays // Flag to indicate if plays were fetched
             };
           } catch (error) {
             console.error('Error processing drive:', error);
-            return drive;
+            return {
+              ...drive,
+              team: null,
+              plays: [],
+              hasPlaysData: false
+            };
           }
         }));
         
         detailedDrives.push(...batchResults);
       }
 
-      // For live updates, prepend any existing drives that weren't processed to maintain full data
-      if (isLiveUpdate && drives.length > drivesToProcess.length) {
-        const unprocessedDrives = drives.slice(0, -3).map(drive => ({
-          ...drive,
-          team: null, // Don't fetch team info for old drives
-          plays: [] // Don't fetch plays for old drives
+      return detailedDrives;
+    });
+  }
+
+  // Get drives for game details screen with complete data (all drives, all plays)
+  static async getDrivesComplete(gameId) {
+    const cacheKey = `drives_complete_${gameId}`;
+    
+    return this.getCachedData(cacheKey, async () => {
+      const drivesUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/${gameId}/competitions/${gameId}/drives?lang=en&region=us`;
+      
+      const response = await fetch(this.convertToHttps(drivesUrl));
+      const drivesData = await response.json();
+      
+      const drives = drivesData.items || [];
+      
+      // Cache for team data to avoid redundant fetches within the same request
+      const teamCache = new Map();
+      
+      // Process all drives in batches to get team information and plays data for ALL drives
+      const batchSize = 10; // Process 10 drives at a time
+      const detailedDrives = [];
+      
+      for (let i = 0; i < drives.length; i += batchSize) {
+        const batch = drives.slice(i, i + batchSize);
+        const batchResults = await Promise.all(batch.map(async (drive, driveIndex) => {
+          try {
+            // Get team information (always fetch for all drives to show proper team names)
+            let teamInfo = null;
+            if (drive.team && drive.team.$ref) {
+              const teamUrl = drive.team.$ref;
+              if (teamCache.has(teamUrl)) {
+                teamInfo = teamCache.get(teamUrl);
+              } else {
+                try {
+                  const teamResponse = await fetch(this.convertToHttps(teamUrl));
+                  teamInfo = await teamResponse.json();
+                  teamCache.set(teamUrl, teamInfo);
+                } catch (error) {
+                  console.warn('Error fetching team info:', error);
+                }
+              }
+            }
+
+            // Fetch plays data for ALL drives (complete data for game details)
+            let playsData = [];
+            const actualDriveIndex = i + driveIndex; // Actual position in the full drives array
+            
+            console.log(`[Complete] Drive ${actualDriveIndex + 1}/${drives.length}: Fetching all plays data`);
+            
+            const playsRef = drive.plays?.$ref || drive.plays?.href;
+            if (playsRef) {
+              try {
+                console.log(`[Complete] Fetching plays for drive ${actualDriveIndex + 1}`);
+                const playsResponse = await fetch(this.convertToHttps(playsRef));
+                const playsResult = await playsResponse.json();
+                playsData = playsResult.items || [];
+                console.log(`[Complete] Loaded ${playsData.length} plays for drive ${actualDriveIndex + 1}`);
+              } catch (error) {
+                console.warn('Error fetching plays for drive:', error);
+              }
+            } else {
+              console.log(`[Complete] No plays reference for drive ${actualDriveIndex + 1}`);
+            }
+
+            return {
+              ...drive,
+              team: teamInfo ? {
+                ...teamInfo,
+                logo: teamInfo.logos?.[1]?.href || teamInfo.logos?.[0]?.href
+              } : null,
+              plays: playsData,
+              hasPlaysData: true // Always true since we fetch plays for all drives
+            };
+          } catch (error) {
+            console.error('Error processing drive:', error);
+            return {
+              ...drive,
+              team: null,
+              plays: [],
+              hasPlaysData: false
+            };
+          }
         }));
-        return [...unprocessedDrives, ...detailedDrives];
+        
+        detailedDrives.push(...batchResults);
       }
 
       return detailedDrives;
     });
+  }
+
+  // Get plays for a specific drive (fetch on demand)
+  static async getDrivePlays(drive) {
+    try {
+      // Check if drive has plays reference
+      const playsRef = drive.plays?.$ref || drive.plays?.href;
+      if (!playsRef) {
+        console.warn('No plays reference found for drive:', drive.id);
+        console.log('Drive object structure:', JSON.stringify(drive, null, 2));
+        return [];
+      }
+
+      console.log('Fetching plays for drive:', drive.id, 'from URL:', playsRef);
+      const playsResponse = await fetch(this.convertToHttps(playsRef));
+      
+      if (!playsResponse.ok) {
+        console.error('Failed to fetch plays, status:', playsResponse.status);
+        return [];
+      }
+      
+      const playsResult = await playsResponse.json();
+      const plays = playsResult.items || [];
+      console.log('Successfully fetched', plays.length, 'plays for drive:', drive.id);
+      return plays;
+    } catch (error) {
+      console.error('Error fetching drive plays:', error);
+      return [];
+    }
   }
 
   // Get detailed player statistics

@@ -38,12 +38,6 @@ const promiseWithTimeout = (p, ms = 3000) => {
 
 // Module-level caching system
 const DEBUG = false;
-// When DEBUG is false, silence noisy console.log calls to avoid overwhelming logs/runtime.
-// Keep console.warn and console.error intact so important issues still surface.
-const _originalConsoleLog = console.log.bind(console);
-if (!DEBUG) {
-  console.log = () => {};
-}
 const eventFetchCache = new Map(); // URL -> { etag, lastModified, lastHash, parsed, timestamp }
 const inFlightFetches = new Map(); // URL -> Promise
 const urlLastFetchedPass = new Map(); // URL -> pass ID
@@ -444,6 +438,9 @@ const shouldGameReceiveUpdates = (game, statusInfo, teamName = 'Unknown') => {
   const { isLive, isPre, isPost } = statusInfo;
   const gameId = game.id || game.eventId;
   
+  // Debug logging to understand status detection
+  console.log(`shouldGameReceiveUpdates for ${gameId}: isLive=${isLive}, isPre=${isPre}, isPost=${isPost}, teamName=${teamName}`);
+  
   // Always update live games
   if (isLive) {
     console.log(`Game ${gameId} (${teamName}): UPDATE - Live game, needs continuous updates`);
@@ -501,30 +498,30 @@ const shouldGameReceiveUpdates = (game, statusInfo, teamName = 'Unknown') => {
         game.actualLeagueCode?.includes('soccer');
       
       if (isMLB) {
-        const mlbWindow = 10 * 60 * 1000; // 10 minutes for MLB
+        const mlbWindow = 5 * 60 * 1000; // 5 minutes for MLB
         if (timeDiff < mlbWindow) {
-          console.log(`Game ${gameId} (${teamName}): UPDATE - MLB finished game within 10-minute window (${Math.round(timeDiff / 60000)} minutes ago)`);
+          console.log(`Game ${gameId} (${teamName}): UPDATE - MLB finished game within 5-minute window (${Math.round(timeDiff / 60000)} minutes ago)`);
           return true;
         } else {
-          console.log(`Game ${gameId} (${teamName}): NO UPDATE - MLB finished game beyond 10-minute window (${Math.round(timeDiff / 60000)} minutes ago)`);
+          console.log(`Game ${gameId} (${teamName}): NO UPDATE - MLB finished game beyond 5-minute window (${Math.round(timeDiff / 60000)} minutes ago)`);
           return false;
         }
       } else if (isSoccer) {
-        const soccerWindow = 30 * 60 * 1000; // 30 minutes for soccer
+        const soccerWindow = 5 * 60 * 1000; // 5 minutes for soccer
         if (timeDiff < soccerWindow) {
-          console.log(`Game ${gameId} (${teamName}): UPDATE - Soccer finished game within 30-minute window (${Math.round(timeDiff / 60000)} minutes ago)`);
+          console.log(`Game ${gameId} (${teamName}): UPDATE - Soccer finished game within 5-minute window (${Math.round(timeDiff / 60000)} minutes ago)`);
           return true;
         } else {
-          console.log(`Game ${gameId} (${teamName}): NO UPDATE - Soccer finished game beyond 30-minute window (${Math.round(timeDiff / 60000)} minutes ago)`);
+          console.log(`Game ${gameId} (${teamName}): NO UPDATE - Soccer finished game beyond 5-minute window (${Math.round(timeDiff / 60000)} minutes ago)`);
           return false;
         }
       } else {
-        const defaultWindow = 15 * 60 * 1000; // 15 minutes for other sports
+        const defaultWindow = 5 * 60 * 1000; // 5 minutes for other sports
         if (timeDiff < defaultWindow) {
-          console.log(`Game ${gameId} (${teamName}): UPDATE - Other sport finished game within 15-minute window (${Math.round(timeDiff / 60000)} minutes ago)`);
+          console.log(`Game ${gameId} (${teamName}): UPDATE - Other sport finished game within 5-minute window (${Math.round(timeDiff / 60000)} minutes ago)`);
           return true;
         } else {
-          console.log(`Game ${gameId} (${teamName}): NO UPDATE - Other sport finished game beyond 15-minute window (${Math.round(timeDiff / 60000)} minutes ago)`);
+          console.log(`Game ${gameId} (${teamName}): NO UPDATE - Other sport finished game beyond 5-minute window (${Math.round(timeDiff / 60000)} minutes ago)`);
           return false;
         }
       }
@@ -673,41 +670,55 @@ const FavoritesScreen = ({ navigation }) => {
     });
   };
 
-  // Helper function to get "today's" date range with 2 AM cutoff
-  // Games are considered "today's" until 2 AM of the next day
+  // Helper function to get "today's" date range with 2 AM EST cutoff
+  // Games are considered "today's" until 2 AM EST of the next day
   const getTodayDateRange = () => {
     const now = new Date();
-    const currentHourUTC = now.getUTCHours(); // Use UTC hours since game times are in UTC
     
-    // If it's before 2 AM UTC, use yesterday's date as "today"
+    // Convert current time to EST (UTC-4 during EDT, UTC-5 during EST)
+    // For simplicity, using UTC-4 (EDT) since most sports are during this period
+    const estOffset = -4 * 60; // EST is UTC-4 during daylight time
+    const nowEST = new Date(now.getTime() + estOffset * 60 * 1000);
+    const currentHourEST = nowEST.getUTCHours();
+    
+    // If it's before 2 AM EST, use yesterday's date as "today"
     let gameDay;
-    if (currentHourUTC < 2) {
-      gameDay = new Date(now.getTime() - 24 * 60 * 60 * 1000); // Yesterday
+    if (currentHourEST < 2) {
+      gameDay = new Date(nowEST.getTime() - 24 * 60 * 60 * 1000); // Yesterday
     } else {
-      gameDay = new Date(); // Today
+      gameDay = new Date(nowEST); // Today
     }
     
-    // Create range for the game day: from 2 AM of the game day to 2 AM of the next day
-    // Use UTC dates to match the game times from APIs
-    const todayStart = new Date(Date.UTC(gameDay.getUTCFullYear(), gameDay.getUTCMonth(), gameDay.getUTCDate(), 2, 0, 0)); // 2 AM UTC of game day
-    const todayEnd = new Date(Date.UTC(gameDay.getUTCFullYear(), gameDay.getUTCMonth(), gameDay.getUTCDate() + 1, 2, 0, 0)); // 2 AM UTC next day
+    // Create range for the game day: from 2 AM EST of the game day to 2 AM EST of the next day
+    // Convert back to UTC for API compatibility
+    const todayStartEST = new Date(Date.UTC(gameDay.getUTCFullYear(), gameDay.getUTCMonth(), gameDay.getUTCDate(), 2, 0, 0));
+    const todayEndEST = new Date(Date.UTC(gameDay.getUTCFullYear(), gameDay.getUTCMonth(), gameDay.getUTCDate() + 1, 2, 0, 0));
     
-    console.log(`Date range calculation: Current time: ${now.toISOString()}, UTC Hour: ${currentHourUTC}, Game day: ${gameDay.toDateString()}, Range: ${todayStart.toISOString()} to ${todayEnd.toISOString()}`);
+    // Convert EST times to UTC for API queries (add 4 hours)
+    const todayStart = new Date(todayStartEST.getTime() + 4 * 60 * 60 * 1000);
+    const todayEnd = new Date(todayEndEST.getTime() + 4 * 60 * 60 * 1000);
+    
+    console.log(`Date range calculation: Current time: ${now.toISOString()}, EST Hour: ${currentHourEST}, Game day: ${gameDay.toDateString()}, Range: ${todayStart.toISOString()} to ${todayEnd.toISOString()}`);
     
     return { todayStart, todayEnd };
   };
 
-  // Helper function to get current "game day" based on 2 AM UTC cutoff
+  // Helper function to get current "game day" based on 2 AM EST cutoff
   const getCurrentGameDay = () => {
     const now = new Date();
-    const currentHourUTC = now.getUTCHours(); // Use UTC hours since game times are in UTC
     
-    // If it's before 2 AM UTC, use yesterday's date as the game day
+    // Convert current time to EST (UTC-4 during EDT, UTC-5 during EST)
+    // For simplicity, using UTC-4 (EDT) since most sports are during this period
+    const estOffset = -4 * 60; // EST is UTC-4 during daylight time
+    const nowEST = new Date(now.getTime() + estOffset * 60 * 1000);
+    const currentHourEST = nowEST.getUTCHours();
+    
+    // If it's before 2 AM EST, use yesterday's date as the game day
     let gameDay;
-    if (currentHourUTC < 2) {
-      gameDay = new Date(now.getTime() - 24 * 60 * 60 * 1000); // Yesterday
+    if (currentHourEST < 2) {
+      gameDay = new Date(nowEST.getTime() - 24 * 60 * 60 * 1000); // Yesterday
     } else {
-      gameDay = new Date(); // Today
+      gameDay = new Date(nowEST); // Today
     }
     
     // Return as YYYY-MM-DD format for easy comparison
@@ -718,7 +729,7 @@ const FavoritesScreen = ({ navigation }) => {
 
   // Helper function to clear all team current games and force refresh
   const clearAllCurrentGamesAndRefresh = async () => {
-    console.log('FavoritesScreen: Daily cleanup - clearing outdated stored current games and refreshing');
+    console.log('FavoritesScreen: Daily cleanup - clearing ALL stored current games due to game day change');
     
     // Clear all cached data since it's from a previous game day
     eventFetchCache.clear();
@@ -727,35 +738,20 @@ const FavoritesScreen = ({ navigation }) => {
     urlLastFetchedPass.clear();
     console.log('FavoritesScreen: Cleared all cached data due to game day change');
     
-    // Get today's date range for comparison
-    const { todayStart, todayEnd } = getTodayDateRange();
-    
-    // Clear current games for favorite teams, but only if they're from previous days
+    // Clear ALL current games for favorite teams to ensure a clean slate for the new day
     const favoriteTeams = getFavoriteTeams();
     let gamesCleared = 0;
-    let gamesKept = 0;
     
     for (const team of favoriteTeams) {
       const currentGame = getTeamCurrentGame(team.teamId);
-      if (currentGame?.gameDate) {
-        const gameDate = new Date(currentGame.gameDate);
-        // Only clear games that are outside today's range (before todayStart or after todayEnd)
-        if (gameDate < todayStart || gameDate >= todayEnd) {
-          console.log(`FavoritesScreen: Clearing outdated game for ${team.sport} - ${team.teamName}: ${currentGame.gameDate}`);
-          await clearTeamCurrentGame(team.teamId);
-          gamesCleared++;
-        } else {
-          console.log(`FavoritesScreen: Keeping today's game for ${team.sport} - ${team.teamName}: ${currentGame.gameDate}`);
-          gamesKept++;
-        }
-      } else {
-        // If no gameDate, clear it anyway as it's probably corrupted
+      if (currentGame) {
+        console.log(`FavoritesScreen: Clearing game for ${team.sport} - ${team.teamName}: ${currentGame.gameDate || 'no date'}`);
         await clearTeamCurrentGame(team.teamId);
         gamesCleared++;
       }
     }
     
-    console.log(`FavoritesScreen: Daily cleanup completed - cleared ${gamesCleared} outdated games, kept ${gamesKept} current games`);
+    console.log(`FavoritesScreen: Daily cleanup completed - cleared ALL ${gamesCleared} games for fresh start`);
     
     // Force a complete refresh to fetch new games
     await fetchFavoriteGames(true);
@@ -895,7 +891,7 @@ const FavoritesScreen = ({ navigation }) => {
       const sub = AppState.addEventListener ? AppState.addEventListener('change', onAppStateChange) : null;
 
       return () => {
-        if (DEBUG) _originalConsoleLog('FavoritesScreen: Screen unfocused - pausing updates');
+        if (DEBUG) console.log('FavoritesScreen: Screen unfocused - pausing updates');
         setIsScreenFocused(false);
         if (updateInterval) {
           clearInterval(updateInterval);
@@ -914,7 +910,7 @@ const FavoritesScreen = ({ navigation }) => {
         if (sub && sub.remove) sub.remove();
         // Restore original console.log in case it was silenced by this module
         try {
-          if (!DEBUG && _originalConsoleLog) console.log = _originalConsoleLog;
+          if (!DEBUG && console.log) console.log = console.log;
         } catch (e) {
           // ignore
         }
@@ -954,12 +950,22 @@ const FavoritesScreen = ({ navigation }) => {
         setFavoriteGames(currentGames => {
           const gamesToUpdate = currentGames.filter(game => {
             if (!game) return false;
-            // Create status info object for shouldGameReceiveUpdates
+            
+            // Create proper status info object with more robust detection
             const statusInfo = { 
-              isLive: game.isLive, 
-              isPre: game.isScheduled && !game.isLive, 
-              isPost: game.isFinished 
+              isLive: game.isLive || false, 
+              isPre: (game.isScheduled && !game.isLive) || false, 
+              isPost: game.isFinished || 
+                     (game.status?.type?.completed === true) ||
+                     (game.status?.type?.description?.toLowerCase().includes('final')) ||
+                     (game.header?.competitions?.[0]?.status?.type?.completed === true) ||
+                     (game.competitions?.[0]?.status?.type?.completed === true) ||
+                     false
             };
+            
+            // Debug log to see what's happening
+            console.log(`Auto-refresh check for game ${game.id || game.eventId}: isLive=${statusInfo.isLive}, isPre=${statusInfo.isPre}, isPost=${statusInfo.isPost}`);
+            
             return shouldGameReceiveUpdates(game, statusInfo, game.sport || 'Unknown');
           });
           
@@ -1006,11 +1012,22 @@ const FavoritesScreen = ({ navigation }) => {
         // Get games that should receive updates based on their status and timing
         const gamesToUpdatePlays = currentGames.filter(game => {
           if (!game) return false;
+          
+          // Create proper status info object with more robust detection (same as main auto-refresh)
           const statusInfo = { 
-            isLive: game.isLive, 
-            isPre: game.isScheduled && !game.isLive, 
-            isPost: game.isFinished 
+            isLive: game.isLive || false, 
+            isPre: (game.isScheduled && !game.isLive) || false, 
+            isPost: game.isFinished || 
+                   (game.status?.type?.completed === true) ||
+                   (game.status?.type?.description?.toLowerCase().includes('final')) ||
+                   (game.header?.competitions?.[0]?.status?.type?.completed === true) ||
+                   (game.competitions?.[0]?.status?.type?.completed === true) ||
+                   false
           };
+          
+          // Debug log to see what's happening
+          console.log(`Plays auto-refresh check for game ${game.id || game.eventId}: isLive=${statusInfo.isLive}, isPre=${statusInfo.isPre}, isPost=${statusInfo.isPost}`);
+          
           return shouldGameReceiveUpdates(game, statusInfo, game.sport || 'Unknown');
         });
 
@@ -1136,7 +1153,7 @@ const FavoritesScreen = ({ navigation }) => {
 
       // Reduce debounce frequency: don't refetch more often than every 20 seconds
       if (!forceRefresh && lastFetchTime && (now - lastFetchTime) < 20000) {
-        if (DEBUG) _originalConsoleLog('Skipping fetch - too soon since last fetch (20s cooldown)');
+        if (DEBUG) console.log('Skipping fetch - too soon since last fetch (20s cooldown)');
         setLoading(false);
         setRefreshing(false);
         return;
@@ -3393,13 +3410,17 @@ const FavoritesScreen = ({ navigation }) => {
       const { todayStart, todayEnd } = getTodayDateRange();
       
       // Use the same date format as team page - YYYY-MM-DD for today
+      // Use EST hours to match the getTodayDateRange function
       const today = new Date();
-      const currentHourUTC = today.getUTCHours(); // Use UTC hours
+      const estOffset = -4 * 60; // EST is UTC-4 during daylight time
+      const todayEST = new Date(today.getTime() + estOffset * 60 * 1000);
+      const currentHourEST = todayEST.getUTCHours();
+      
       let gameDay;
-      if (currentHourUTC < 2) {
-        gameDay = new Date(today.getTime() - 24 * 60 * 60 * 1000); // Yesterday
+      if (currentHourEST < 2) {
+        gameDay = new Date(todayEST.getTime() - 24 * 60 * 60 * 1000); // Yesterday
       } else {
-        gameDay = new Date(); // Today
+        gameDay = new Date(todayEST); // Today
       }
       
       const todayDateStr = gameDay.getFullYear() + '-' + 

@@ -452,7 +452,7 @@ const GameDetailsScreen = ({ route }) => {
       if (!silentUpdate) {
         setLoadingDrives(true);
       }
-      const drives = await NFLService.getDrives(gameId);
+      const drives = await NFLService.getDrivesComplete(gameId);
       
       // For silent updates, only update if there are actually new drives or changes
       if (silentUpdate && drivesData) {
@@ -520,9 +520,50 @@ const GameDetailsScreen = ({ route }) => {
     setPlayerStats(null);
   };
 
-  const handleDrivePress = (drive) => {
+  const handleDrivePress = async (drive) => {
+    console.log('Drive pressed:', drive.id, 'hasPlaysData:', drive.hasPlaysData, 'plays count:', drive.plays?.length || 0);
+    console.log('Drive plays reference:', drive.plays?.$ref || drive.plays?.href || 'None');
     setSelectedDrive(drive);
     setDriveModalVisible(true);
+    
+    // Check if we need to load plays on demand
+    // Load plays if: no hasPlaysData flag OR no plays array OR empty plays array
+    const needsPlaysData = !drive.hasPlaysData || !drive.plays || drive.plays.length === 0;
+    const hasPlaysRef = drive.plays?.$ref || drive.plays?.href;
+    
+    if (needsPlaysData && hasPlaysRef) {
+      try {
+        console.log('Loading plays for drive on demand:', drive.id);
+        const playsData = await NFLService.getDrivePlays(drive);
+        
+        // Update the drive with the loaded plays data
+        const updatedDrive = {
+          ...drive,
+          plays: playsData,
+          hasPlaysData: true
+        };
+        
+        console.log('Updated drive with', playsData.length, 'plays');
+        
+        // Update the selected drive with plays data
+        setSelectedDrive(updatedDrive);
+        
+        // Also update the drive in the drives list for future reference
+        if (drivesData) {
+          const updatedDrivesData = drivesData.map(d => 
+            d.id === drive.id ? updatedDrive : d
+          );
+          setDrivesData(updatedDrivesData);
+        }
+      } catch (error) {
+        console.error('Error loading plays for drive:', error);
+        // Continue showing the modal even if plays failed to load
+      }
+    } else if (!hasPlaysRef) {
+      console.log('Drive has no plays reference, no plays available');
+    } else {
+      console.log('Drive already has plays data');
+    }
   };
 
   const closeDriveModal = () => {
@@ -1060,6 +1101,7 @@ const GameDetailsScreen = ({ route }) => {
       { key: 'fourthDownEff', label: '4th Down Conv' },
       { key: 'turnovers', label: 'Turnovers' },
       { key: 'totalPenaltiesYards', label: 'Penalties' },
+      { key: 'sacksYardsLost', label: 'Sacks' },
       { key: 'possessionTime', label: 'Time of Poss' }
     ];
 
@@ -1197,6 +1239,7 @@ const GameDetailsScreen = ({ route }) => {
       { key: 'fourthDownEff', label: '4th Down Conv' },
       { key: 'turnovers', label: 'Turnovers' },
       { key: 'totalPenaltiesYards', label: 'Penalties' },
+      { key: 'sacksYardsLost', label: 'Sacks' },
       { key: 'possessionTime', label: 'Time of Poss' }
     ];
 
@@ -2655,7 +2698,13 @@ const GameDetailsScreen = ({ route }) => {
                     Plays ({selectedDrive.plays?.length || 0})
                   </Text>
                   <ScrollView style={styles.driveModalPlaysList}>
-                    {selectedDrive.plays && selectedDrive.plays.length > 0 ? (
+                    {/* Show loading if drive doesn't have plays data and plays array is empty */}
+                    {!selectedDrive.hasPlaysData && (!selectedDrive.plays || selectedDrive.plays.length === 0) ? (
+                      <View style={styles.playerStatsLoading}>
+                        <ActivityIndicator size="large" color={colors.primary} />
+                        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>Loading plays...</Text>
+                      </View>
+                    ) : selectedDrive.plays && selectedDrive.plays.length > 0 ? (
                       [...selectedDrive.plays].reverse().map((play, index) => (
                         <View key={index} style={[styles.driveModalPlayItem, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                           <View style={styles.driveModalPlayHeader}>
