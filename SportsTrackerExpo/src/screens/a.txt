@@ -1,0 +1,536 @@
+More often than not, you will need to make network requests to an API when building a web or mobile application. You can make these network requests to authenticate a user, update a resource, or retrieve a resource from your own server or third-party APIs.
+
+The Fetch API comes in handy if you want to make API requests in a browser environment. React Native also has an inbuilt Fetch API similar to the browser’s, specifically for networking with an API from your mobile application. However, there are alternative libraries, such as Axios, that you can use instead of relying on the native Fetch API.
+
+The built-in Fetch API might suffice if you only want to retrieve a resource from the server. Axios may be a better option for more complex networking requirements because it has additional features, such as the interception of network requests and responses.
+
+Additionally, many developers prefer Axios over the native Fetch API because of its isomorphic nature and out-of-the-box JSON transformation, among other reasons. In this article, you will learn how to manage API requests using Axios in a React Native application. You can find the repository for the demo app on GitHub.
+
+Introduction to Axios
+Axios is a popular, isomorphic HTTP client. That means it can run in the browser and the Node.js runtime environment. As a result, you can use the same codebase for making API requests in Node.js, in the browser, and in React Native.
+
+Axios has several features, such as support for the Promise API, automatic JSON transformation, and interception of network requests and responses, among others. Axios is also one of the easiest HTTP clients to learn and use.
+
+Making an API request is as simple as passing a configuration object to Axios or invoking the appropriate method with the necessary arguments.We will use a simple React Native application set up using Expo’s managed workflow for this tutorial.
+
+If you have a React Native application set up already, you can continue to the next section. Otherwise, there are setup instructions in the React Native documentation for Expo’s managed workflow that can get you up and running within minutes.
+
+Axios vs. Fetch API
+Axios’ built-in features make it ideal for large projects with more complex networking requirements. On the other hand, the Fetch API comes as a built-in feature, eliminating the necessity for maintenance, updates, and concerns about bundle size, security, and licensing, which are typical considerations when using third-party packages like Axios.
+
+Furthermore, most JavaScript runtime environments also implement the Fetch API. Therefore, you can reuse the code you write for React Native using the Fetch API without modification in the browser and other JavaScript runtime environments like Node and Deno.
+
+So, the built-in Fetch API will almost always be sufficient for small projects with basic networking requirements. However, you may have to opt for Axios for large projects with complex networking needs. Let’s take another look at the differences between the two:
+
+Fetch API	Axios
+Built-in vs. third-party	Built-in API	Third-party package
+Gzipped bundle size	Not applicable. It’s a built-in API	29.5kB (Minifed), 11.2kB (Minifed+Gzipped)
+License	Same as React Native(MIT)	MIT
+Maintenance	Not applicable. Built-in API	Active
+Request and response interception	No	Yes
+Request and response transformation	No	Yes
+Automatic JSON transformation	No	Yes
+Request cancellation	Yes	Yes
+Request timeout	Yes	Yes
+Promise-based	Yes	Yes
+Supported environments	Browser, Node.js, React Native, Deno	Browser, Node.js, React Native
+Installing Axios
+Depending on which package manager you use, type one of the commands below on a terminal window and hit return to install Axios:
+
+# axios
+npm install axios
+
+# yarn
+yarn add axios
+
+# pnpm
+pnpm add axios
+How to make requests to an API using Axios
+When making a call to an API using Axios, you can pass a configuration object to Axios or invoke a method for the corresponding CRUD operation you want to perform. For example, you can make a GET request to the /api/users endpoint in one of the following two ways:
+
+import axios from 'axios';
+const baseUrl = 'https://reqres.in';
+
+// Passing configuration object to axios
+axios({
+  method: 'get',
+  url: `${baseUrl}/api/users/1`,
+}).then((response) => {
+  console.log(response.data);
+});
+
+// Invoking the get method to perform a GET request
+axios.get(`${baseUrl}/api/users/1`).then((response) => {
+  console.log(response.data);
+});
+You can also use async/await instead of using Promise chaining like in the above example. There are several other fields, such as baseURL, transformRequest, transformResponse, and headers, among others, which you can include in the configuration object you pass to Axios:
+
+import axios from 'axios';
+const baseUrl = 'https://reqres.in';
+
+// Passing configuration object to axios
+const fetchUser = async () => {
+  const configurationObject = {
+    method: 'get',
+    url: `${baseUrl}/api/users/1`,
+  };
+  const response = await axios(configurationObject);
+  console.log(response.data);
+};
+
+// Invoking get method to perform a GET request
+const fetchUser = async () => {
+  const url = `${baseUrl}/api/users/1`;
+  const response = await axios.get(url);
+  console.log(response.data);
+};
+Unlike the built-in Fetch API, Axios will convert the response to JSON for you out of the box.
+
+How to make multiple concurrent API requests using Axios
+You can use the Promise.all or Promise.allSettled method of the Promise API with Axios to make multiple concurrent API requests from a React Native application. All the API requests will be successful in the code snippet below; change the URI passed to the axios.get method to non-existent ones to see what happens if some of the requests are not successful:
+
+const concurrentRequests = [
+  axios.get(`${baseUrl}/api/users/1`),
+  axios.get(`${baseUrl}/api/users/2`),
+  axios.get(`${baseUrl}/api/users/3`),
+];
+
+// Using Promise.all
+Promise.all(concurrentRequests)
+  .then((result) => {
+    console.log(result);
+  })
+  .catch((err) => {
+    console.log(err);
+  });
+
+// Using Promise.allSettled
+Promise.allSettled(concurrentRequests)
+  .then((result) => {
+    console.log(result);
+  })
+  .catch((err) => {
+    console.log(err);
+  });
+Take note that the Promise.all method immediately rejects if one of the input Promises rejects. So, use Promise.all if you want to see all or none of the API requests be successful. On the other hand, Promise.allSettled waits for all input Promises to either reject or fulfill. Then, you can check each response object’s fulfilled or rejected status.
+
+How to abort network requests in Axios
+Axios provides functionality for aborting network requests. A typical use case of this feature in React Native is the cancellation of network requests in the useEffect Hook when a component is unmounted while data is still in flight. You can read the code snippet below to understand how to use this functionality:
+
+useEffect(() => {
+    const abortController = new AbortController();
+    const url = `${baseUrl}/api/users/${userId}`;
+
+    const fetchUsers = async () => {
+      try {
+        const response = await axios.get(url, { signal: abortController.signal });
+        console.log(response.data);
+      } catch (error) {
+        if(abortController.signal.aborted){
+          console.log('Data fetching cancelled');
+        }else{
+         // Handle error
+        }
+      }
+    };
+
+    fetchUsers();
+
+    return () => abortController.abort("Data fetching cancelled");
+  }, [userId]);
+Creating an Axios instance
+You can also create an instance of Axios with a custom configuration. Then, use the methods exposed by the instance to make network requests. Axios will merge the configuration object passed while creating the instance with the configuration passed to the instance method:
+
+const axiosInstance = axios.create({ baseURL: 'https://reqres.in/' });
+
+axiosInstance.get('api/users/1').then((response) => {
+  console.log(response.data);
+});
+Using Axios with React Native to manage API requests
+In this section, you will learn to manage API requests using Axios in a React Native application. You will use Axios to perform a simple CRUD (Create, Read, Update, and Delete) operation.
+Working with API keys in React Native
+Most third-party APIs require secret credentials to access. Keeping your secret API keys in your source code on the client side is not a good idea. If you do, anybody who inspects the code for your bundled application will have access to your private key. One recommended way to manage your API key is to create an orchestration layer between the third-party API and your application.
+
+For example, a serverless function can securely access your API key. Your app will make a call to the endpoint exposed by the serverless function. The serverless function will securely access your API key, make a call to the third-party API, retrieve the resource you need, and relay it to your mobile application.
+
+Managing application state in the network request-response cycle
+When you initiate a network request to an API, the request will either succeed or fail. Therefore, it is important to keep track of the different states of your app from the time of requesting until you receive a response from the server. You can display a loading indicator while the data is still in flight. If the CRUD operation is successful, you show a success message to the user. If it fails, you display an appropriate error message.
+
+This is important because a client using your application might have slow or no internet access. The API server may sometimes experience downtime. Tracking the state of your application and displaying appropriate messages will provide a good UX.
+
+We will use the reqres REST API in this article. It is a placeholder API comprising of dummy data. You can play with the endpoints using API testing tools such as Postman or Insomnia.
+
+How to make requests using Axios in React Native
+GET request
+In this section, we shall make a GET request to the /api/users endpoint to retrieve a user. GET is the HTTP method you use if you want to request a resource from the server. We are storing the user ID in state, as shown in the code snippet below. You can change the user ID inside the onPress event handler attached to the Get New User button. Changing the user ID will trigger a GET request to the API inside the useEffectHook.
+
+After triggering a network request, we display a loading indicator on the screen. If we fetch the data successfully, we update state and remove the loading indicator. If we fail to retrieve the data for some reason, we stop the loading indicator and display an appropriate error message.
+
+We abort the network request in the cleanup function if the user decides to close the app before getting a response from the server. Check the return value of the effect function in the useEffect Hook. Here’s what the code for this looks like in the App.js component:
+
+import axios from "axios";
+import React, { useState, useEffect } from "react";
+import {
+  StyleSheet,
+  Text,
+  ScrollView,
+  View,
+  Image,
+  Platform,
+  TouchableHighlight,
+} from "react-native";
+
+import Constants from "expo-constants";
+
+const baseUrl = "https://reqres.in";
+
+function User({ userObject }) {
+  return (
+    <View>
+      <Image
+        source={{ uri: userObject.avatar }}
+        style={{ width: 200, height: 200, borderRadius: 100 }}
+      />
+      <Text style={{ textAlign: "center", fontSize: 20 }}>
+        {`${userObject.first_name} ${userObject.last_name}`}
+      </Text>
+    </View>
+  );
+}
+
+export default function App() {
+  const [userId, setUserId] = useState(1);
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setErrorFlag] = useState(false);
+
+  const changeUserIdHandler = () => {
+    setUserId((userId) => (userId === 3 ? 1 : userId + 1));
+  };
+
+  useEffect(() => {
+    const abortController = new AbortController();
+    const url = `${baseUrl}/api/users/${userId}`;
+
+    const fetchUsers = async () => {
+      try {
+        setIsLoading(true);
+
+        const response = await axios.get(url, {
+          signal: abortController.signal,
+        });
+
+        if (response.status === 200) {
+          setUser(response.data.data);
+          setIsLoading(false);
+
+          return;
+        } else {
+          throw new Error("Failed to fetch users");
+        }
+      } catch (error) {
+        if (abortController.signal.aborted) {
+          console.log("Data fetching cancelled");
+        } else {
+          setErrorFlag(true);
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchUsers();
+
+    return () => abortController.abort("Data fetching cancelled");
+  }, [userId]);
+
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <View style={styles.wrapperStyle}>
+        {!isLoading && !hasError && user && <User userObject={user} />}
+      </View>
+      <View style={styles.wrapperStyle}>
+        {isLoading && <Text> Loading </Text>}
+        {!isLoading && hasError && <Text> An error has occurred </Text>}
+      </View>
+      <View>
+        <TouchableHighlight
+          onPress={changeUserIdHandler}
+          disabled={isLoading}
+          style={styles.buttonStyles}
+        >
+          <Text style={styles.textStyles}>Get New User</Text>
+        </TouchableHighlight>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "white",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: Platform.OS === "ios" ? 0 : Constants.statusBarHeight,
+  },
+  wrapperStyle: {
+    minHeight: 128,
+  },
+  buttonStyles: {
+    backgroundColor: "dodgerblue",
+  },
+  textStyles: {
+    fontSize: 20,
+    color: "white",
+    padding: 10,
+  },
+});
+POST request
+In this section, you will learn how to make a POST request. POST is the HTTP method you use to send data to the server for updating or creating a resource. The placeholder API we are using exposes the /api/users endpoint for creating a resource. You will get a response with a 201 status code after successfully creating the resource.
+
+Making a POST request in Axios is similar to making a GET request. Most of the time, POST requests are made with user-generated data submitted using a form. The submitted data can be from log-in, sign-up, or feedback forms from your clients. Such data requires validation on the client side before it is submitted.
+
+You can use one of the form packages for data validation when building complex applications. Most of the packages are well-architected, optimized, and have a great community behind them. However, before integrating a library into your application, explore the tradeoffs. Especially the additional bundle size you are adding to your app and the potential security vulnerabilities it might introduce.
+
+There are two main React packages for managing forms. These packages are Formik and React Hook Form. You can find plenty of articles on form validation in React if you are interested. We have a React Native form for the user’s full name and email in the code snippet below.
+
+Both TextInput components are controlled components. Ideally, as the user fills out the form, you perform data validation in real time. However, that is not the case here because form data validation is outside the scope of this article.
+
+After clicking the submit button, the TextInput fields and the submit button are disabled before you display a message to show you are creating the resource. Disabling the submit button ensures the user doesn’t make multiple submissions. After successfully submitting a POST request, you display a success message to the user:
+
+import axios from "axios";
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  ScrollView,
+  View,
+  Button,
+  Platform,
+  TextInput,
+} from "react-native";
+import Constants from "expo-constants";
+
+const baseUrl = "https://reqres.in";
+
+export default function App() {
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const onChangeNameHandler = (fullName) => {
+    setFullName(fullName);
+  };
+
+  const onChangeEmailHandler = (email) => {
+    setEmail(email);
+  };
+
+  const onSubmitFormHandler = async (event) => {
+    if (!fullName.trim() || !email.trim()) {
+      alert("Name or Email is invalid");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await axios.post(`${baseUrl}/api/users`, {
+        fullName,
+        email,
+      });
+
+      if (response.status === 201) {
+        alert(` You have created: ${JSON.stringify(response.data)}`);
+        setIsLoading(false);
+        setFullName("");
+        setEmail("");
+      } else {
+        throw new Error("An error has occurred");
+      }
+    } catch (error) {
+      alert("An error has occurred");
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <View>
+        <View style={styles.wrapper}>
+          {isLoading ? (
+            <Text style={styles.formHeading}> Creating resource </Text>
+          ) : (
+            <Text style={styles.formHeading}>Create new user</Text>
+          )}
+        </View>
+        <View style={styles.wrapper}>
+          <TextInput
+            placeholder="Full Name"
+            placeholderTextColor="#ffffff"
+            style={styles.input}
+            value={fullName}
+            editable={!isLoading}
+            onChangeText={onChangeNameHandler}
+          />
+        </View>
+        <View style={styles.wrapper}>
+          <TextInput
+            placeholder="Your Email"
+            placeholderTextColor="#ffffff"
+            style={styles.input}
+            value={email}
+            editable={!isLoading}
+            onChangeText={onChangeEmailHandler}
+          />
+        </View>
+        <View>
+          <Button
+            title="Submit"
+            onPress={onSubmitFormHandler}
+            disabled={isLoading}
+          />
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#252526",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: Platform.OS === "ios" ? 0 : Constants.statusBarHeight,
+  },
+  formHeading: {
+    color: "#ffffff",
+    fontSize: 20,
+  },
+  wrapper: {
+    marginBottom: 10,
+  },
+  input: {
+    borderWidth: 2,
+    borderColor: "grey",
+    minWidth: 200,
+    textAlignVertical: "center",
+    paddingLeft: 10,
+    borderRadius: 20,
+    color: "#ffffff",
+  },
+});
+PUT request
+Updating a resource requires either the PUT or PATCH method, though I will focus on PUT. If a resource exists, using the PUT method completely overwrites it and creates a new resource if it doesn’t. On the other hand, PATCH makes partial updates to the resource if it exists and does nothing if it doesn’t.
+
+Making a PUT request to an API is similar to making a POST request. The only difference is in the configuration object you pass to Axios or the HTTP method you need to invoke to make a PUT request to the API.
+
+You can replace the onSubmitFormHandler of the POST request with the code below to make a PUT request. For completeness, I am using Promise chaining rather than async/await in the event handler below:
+
+ 
+const onSubmitFormHandler = (event) => {
+    if (!fullName.trim() || !email.trim()) {
+      alert("Name or Email is invalid");
+      return;
+    }
+    setIsLoading(true);
+
+    const configurationObject = {
+      url: `${baseUrl}/api/users/2`,
+      method: "PUT",
+      data: { fullName, email },
+    };
+
+    axios(configurationObject)
+      .then((response) => {
+        if (response.status === 200) {
+          alert(` You have updated: ${JSON.stringify(response.data)}`);
+          setIsLoading(false);
+          setFullName("");
+          setEmail("");
+        } else {
+          throw new Error("An error has occurred");
+        }
+      })
+      .catch((error) => {
+        alert("An error has occurred");
+        setIsLoading(false);
+      });
+  };
+DELETE request
+You can make DELETE requests using Axios like you make POST and PUT requests. Just like its name suggests, a DELETE request will delete a resource from the server side. You can replace the onSubmitFormHandler of the code for making a POST request with the event handler below to make a DELETE request. The rest of the code remains the same:
+
+const onSubmitFormHandler = async (event) => {
+    if (!fullName.trim() || !email.trim()) {
+      alert("Name or Email is invalid");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const response = await axios.delete(`${baseUrl}/api/users/2`, {
+        fullName,
+        email,
+      });
+      if (response.status === 204) {
+        alert(` You have deleted: ${JSON.stringify(response.data)}`);
+        setIsLoading(false);
+        setFullName('');
+        setEmail('');
+      } else {
+        throw new Error("Failed to delete resource");
+      }
+    } catch (error) {
+      alert("Failed to delete resource");
+      setIsLoading(false);
+    }
+  }; 
+How to handle errors with Axios
+As highlighted above, Axios is promise-based. When the promise rejects, Axios invokes the rejection handler and passes it an error object. The contents of the error object depend on the server response. If the error object contains the response field, the response from the server has an HTTP status code that falls outside the successful 2xx range. Therefore, you can update the UI with an appropriate error message.
+
+If the error object contains the request field, the client made the request but never received any response from the server. However, if the error object neither has the response nor the request field, it means an error occurred while setting up the request. You can check for the above conditions in your rejection handler and take appropriate action:
+
+axios
+  .get("https://reqres.in/api/users/1")
+  .then((response) => {
+    console.log(response.data);
+  })
+  .catch((error) => {
+    if (error.response) {
+      // Update UI accordingly
+      console.log(error.response.data);
+      console.log(error.response.status);
+      console.log(error.response.headers);
+    } else if (error.request) {
+      console.log(error.request);
+    } else {
+      console.log(`Error message: ${error.message}`);
+    }
+  });
+The code above uses promise chaining. You can re-write it using async/await like so:
+
+const fetchData = async (url) => {
+  try {
+    const response = await axios.get(url);
+    console.log(response.data);
+  } catch (error) {
+    if (error.response) {
+      // Update UI accordingly
+      console.log(error.response.data);
+      console.log(error.response.status);
+      console.log(error.response.headers);
+    } else if (error.request) {
+      console.log(error.request);
+    } else {
+      console.log(`Error message: ${error.message}`);
+    }
+  }
+};
+
+fetchData("https://reqres.in/api/users/1");
+Conclusion
+Making network requests to an API is inevitable when building a mobile application. Axios is one of the most popular HTTP clients out there and comes with added functionalities, making networking as simple as possible.
+
+The APIs your app interacts with can be self-hosted or third-party APIs. For improved UX, effective management of the network request-response cycle is paramount. On the flip side, you need to weigh the tradeoffs of adding third-party packages like Axios to your mobile application. Though Axios is a popular and well-maintained package, it will increase your bundle size by 29.5 kB(minified size), according to Bundlephobia.
+
+Although that bundle size might look like a small addition to your app when using powerful mobile devices, you need to think about the effect it will have on your users with less powerful mobile devices. In the same vein, you need to ensure third-party packages like Axios do not introduce security vulnerabilities to your application.

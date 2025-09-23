@@ -45,15 +45,15 @@ export const fetchMLBTeamCurrentGame = async (teamId, updateTeamCurrentGameFunc)
     // Use the same date range logic as FavoritesScreen (12am today -> 2am tomorrow)
     const getMLBDateRange = () => {
       const now = new Date();
-      const currentHour = now.getHours();
+      const currentHourUTC = now.getUTCHours(); // Use UTC hours since game times are in UTC
       
       let gameDay;
-      if (currentHour < 2) {
-        // Before 2 AM: use previous day (games from 12am today are "yesterday's" games)
+      if (currentHourUTC < 2) {
+        // Before 2 AM UTC: use previous day (games from 12am today are "yesterday's" games)
         gameDay = new Date(now);
         gameDay.setDate(gameDay.getDate() - 1);
       } else {
-        // After 2 AM: use current day 
+        // After 2 AM UTC: use current day 
         gameDay = new Date(now);
       }
       

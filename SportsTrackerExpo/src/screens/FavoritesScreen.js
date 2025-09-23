@@ -38,8 +38,12 @@ const promiseWithTimeout = (p, ms = 3000) => {
 
 // Module-level caching system
 const DEBUG = false;
-// Save original console.log and silence other console.log calls so the file doesn't spam output.
-// We'll explicitly call console.log where a log should remain visible.
+// When DEBUG is false, silence noisy console.log calls to avoid overwhelming logs/runtime.
+// Keep console.warn and console.error intact so important issues still surface.
+const _originalConsoleLog = console.log.bind(console);
+if (!DEBUG) {
+  console.log = () => {};
+}
 const eventFetchCache = new Map(); // URL -> { etag, lastModified, lastHash, parsed, timestamp }
 const inFlightFetches = new Map(); // URL -> Promise
 const urlLastFetchedPass = new Map(); // URL -> pass ID
@@ -673,11 +677,11 @@ const FavoritesScreen = ({ navigation }) => {
   // Games are considered "today's" until 2 AM of the next day
   const getTodayDateRange = () => {
     const now = new Date();
-    const currentHour = now.getHours();
+    const currentHourUTC = now.getUTCHours(); // Use UTC hours since game times are in UTC
     
-    // If it's before 2 AM, use yesterday's date as "today"
+    // If it's before 2 AM UTC, use yesterday's date as "today"
     let gameDay;
-    if (currentHour < 2) {
+    if (currentHourUTC < 2) {
       gameDay = new Date(now.getTime() - 24 * 60 * 60 * 1000); // Yesterday
     } else {
       gameDay = new Date(); // Today
@@ -688,19 +692,19 @@ const FavoritesScreen = ({ navigation }) => {
     const todayStart = new Date(Date.UTC(gameDay.getUTCFullYear(), gameDay.getUTCMonth(), gameDay.getUTCDate(), 2, 0, 0)); // 2 AM UTC of game day
     const todayEnd = new Date(Date.UTC(gameDay.getUTCFullYear(), gameDay.getUTCMonth(), gameDay.getUTCDate() + 1, 2, 0, 0)); // 2 AM UTC next day
     
-    console.log(`Date range calculation: Current time: ${now.toISOString()}, Hour: ${currentHour}, Game day: ${gameDay.toDateString()}, Range: ${todayStart.toISOString()} to ${todayEnd.toISOString()}`);
+    console.log(`Date range calculation: Current time: ${now.toISOString()}, UTC Hour: ${currentHourUTC}, Game day: ${gameDay.toDateString()}, Range: ${todayStart.toISOString()} to ${todayEnd.toISOString()}`);
     
     return { todayStart, todayEnd };
   };
 
-  // Helper function to get current "game day" based on 2 AM EST cutoff
+  // Helper function to get current "game day" based on 2 AM UTC cutoff
   const getCurrentGameDay = () => {
     const now = new Date();
-    const currentHour = now.getHours();
+    const currentHourUTC = now.getUTCHours(); // Use UTC hours since game times are in UTC
     
-    // If it's before 2 AM, use yesterday's date as the game day
+    // If it's before 2 AM UTC, use yesterday's date as the game day
     let gameDay;
-    if (currentHour < 2) {
+    if (currentHourUTC < 2) {
       gameDay = new Date(now.getTime() - 24 * 60 * 60 * 1000); // Yesterday
     } else {
       gameDay = new Date(); // Today
@@ -891,7 +895,7 @@ const FavoritesScreen = ({ navigation }) => {
       const sub = AppState.addEventListener ? AppState.addEventListener('change', onAppStateChange) : null;
 
       return () => {
-        console.log('FavoritesScreen: Screen unfocused - pausing updates');
+        if (DEBUG) _originalConsoleLog('FavoritesScreen: Screen unfocused - pausing updates');
         setIsScreenFocused(false);
         if (updateInterval) {
           clearInterval(updateInterval);
@@ -908,6 +912,12 @@ const FavoritesScreen = ({ navigation }) => {
         clearTimeout(autoRefreshTimer);
         
         if (sub && sub.remove) sub.remove();
+        // Restore original console.log in case it was silenced by this module
+        try {
+          if (!DEBUG && _originalConsoleLog) console.log = _originalConsoleLog;
+        } catch (e) {
+          // ignore
+        }
       };
     }, [getFavoriteTeams, favorites])
   );
@@ -961,7 +971,7 @@ const FavoritesScreen = ({ navigation }) => {
           }
           return currentGames; // Return unchanged to prevent re-render
         });
-  }, 5000); // 5 seconds
+  }, 10000); // 10 seconds
 
       setUpdateInterval(interval);
 
@@ -1014,7 +1024,7 @@ const FavoritesScreen = ({ navigation }) => {
         
         return currentGames; // Return unchanged to prevent unnecessary re-render
       });
-  }, 5 * 1000); // 5 seconds
+  }, 10 * 1000); // 10 seconds
 
     setLiveGamesInterval(playsInterval);
     
@@ -1089,7 +1099,7 @@ const FavoritesScreen = ({ navigation }) => {
         } catch (err) {
           console.warn('MLB polling loop error', err?.message || err);
         }
-  }, 5000);
+  }, 25 * 1000); // 25 seconds
     };
 
     startPolling();
@@ -1124,9 +1134,9 @@ const FavoritesScreen = ({ navigation }) => {
       currentFetchPhase = forceRefresh ? 'initial' : 'poll';
       const now = Date.now();
 
-      // Reduce debounce time to 2 seconds for better responsiveness
-      if (!forceRefresh && lastFetchTime && (now - lastFetchTime) < 5000) {
-        console.log('Skipping fetch - too soon since last fetch (5s cooldown)');
+      // Reduce debounce frequency: don't refetch more often than every 20 seconds
+      if (!forceRefresh && lastFetchTime && (now - lastFetchTime) < 20000) {
+        if (DEBUG) _originalConsoleLog('Skipping fetch - too soon since last fetch (20s cooldown)');
         setLoading(false);
         setRefreshing(false);
         return;
@@ -1203,7 +1213,29 @@ const FavoritesScreen = ({ navigation }) => {
           return teamGames; // Return empty for teams without currentGame
         }
         
-        console.log(`[USING FAVORITE GAME] Using currentGame from favorites for ${teamName}:`, currentGameData);
+        // Fast display: create a lightweight instant game card from stored currentGame so UI is instantaneous
+        const instantGame = {
+          id: currentGameData.eventId ? String(currentGameData.eventId) : `fav-${team.teamId}-${currentGameData.gameDate}`,
+          eventId: currentGameData.eventId || null,
+          eventLink: currentGameData.eventLink || null,
+          gameDate: currentGameData.gameDate || null,
+          competition: currentGameData.competition || team.sport || null,
+          favoriteTeam: team.displayName || team.teamName || null,
+          favoriteTeamId: team.teamId || team.id || null
+        };
+
+        try {
+          // Merge instant card into UI immediately (fast display)
+          mergeAndSetGames([ instantGame ]);
+          // Hide initial loading spinner as soon as we show the first instant card
+          setLoading(false);
+          // Mark that we've rendered incrementally so the first slow background fetch doesn't hide the UI again
+          incrementalRendered = true;
+        } catch (e) {
+          // ignore merge errors for instant display
+        }
+
+        if (DEBUG) console.log(`[USING FAVORITE GAME] Using currentGame from favorites for ${teamName}:`, currentGameData);
         
         // Ensure eventLink is set for the stored game
         if ((currentGameData.competition === 'mlb' || team.sport === 'MLB') && !currentGameData.eventLink && currentGameData.eventId) {
@@ -1217,6 +1249,7 @@ const FavoritesScreen = ({ navigation }) => {
         }
         
         try {
+          // Still perform a background enhancement fetch to get full game details, but do not block the UI
           const directResult = await promiseWithTimeout(fetchGameFromEventLink(team, currentGameData), 4500);
           if (directResult) {
             const results = Array.isArray(directResult) ? directResult : [directResult];
@@ -3361,9 +3394,9 @@ const FavoritesScreen = ({ navigation }) => {
       
       // Use the same date format as team page - YYYY-MM-DD for today
       const today = new Date();
-      const currentHour = today.getHours();
+      const currentHourUTC = today.getUTCHours(); // Use UTC hours
       let gameDay;
-      if (currentHour < 2) {
+      if (currentHourUTC < 2) {
         gameDay = new Date(today.getTime() - 24 * 60 * 60 * 1000); // Yesterday
       } else {
         gameDay = new Date(); // Today
