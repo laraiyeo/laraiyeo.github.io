@@ -684,8 +684,9 @@ const FavoritesScreen = ({ navigation }) => {
     }
     
     // Create range for the game day: from 2 AM of the game day to 2 AM of the next day
-    const todayStart = new Date(gameDay.getFullYear(), gameDay.getMonth(), gameDay.getDate(), 2, 0, 0); // 2 AM of game day
-    const todayEnd = new Date(gameDay.getFullYear(), gameDay.getMonth(), gameDay.getDate() + 1, 2, 0, 0); // 2 AM next day
+    // Use UTC dates to match the game times from APIs
+    const todayStart = new Date(Date.UTC(gameDay.getUTCFullYear(), gameDay.getUTCMonth(), gameDay.getUTCDate(), 2, 0, 0)); // 2 AM UTC of game day
+    const todayEnd = new Date(Date.UTC(gameDay.getUTCFullYear(), gameDay.getUTCMonth(), gameDay.getUTCDate() + 1, 2, 0, 0)); // 2 AM UTC next day
     
     console.log(`Date range calculation: Current time: ${now.toISOString()}, Hour: ${currentHour}, Game day: ${gameDay.toDateString()}, Range: ${todayStart.toISOString()} to ${todayEnd.toISOString()}`);
     
@@ -1185,247 +1186,31 @@ const FavoritesScreen = ({ navigation }) => {
       
       // Use the module-level promiseWithTimeout helper
 
-      // For each unique team, check if we have current game data first, then fallback to fetching
-  const gamesPromises = uniqueTeams.flatMap(async (team) => {
+      // For each unique team, use the currentGame data from FavoritesContext
+      const gamesPromises = uniqueTeams.flatMap(async (team) => {
         const teamGames = [];
-  const teamName = (team && (team.displayName || team.teamName)) || 'Unknown Team';
+        const teamName = (team && (team.displayName || team.teamName)) || 'Unknown Team';
         const teamStart = Date.now();
         const phaseTimes = {};
         
-        // Check if team already has currentGame data from getFavoriteTeams()
-        let currentGameData = team.currentGame || null;
+        // Use currentGame data from the team object (populated by FavoritesContext auto-population)
+        const currentGameData = team.currentGame || null;
         
-        // If no currentGame in team object, try getTeamCurrentGame as fallback
         if (!currentGameData) {
-          currentGameData = getTeamCurrentGame(team);
-          
-          // If getTeamCurrentGame didn't work with the team object, try with just the teamId
-          if (!currentGameData) {
-            const teamId = team?.teamId || team?.id || null;
-            if (teamId) {
-              currentGameData = getTeamCurrentGame(teamId);
-            }
-          }
+          console.log(`[NO CURRENT GAME] ${teamName} has no currentGame - team page utils will handle this in the background`);
+          phaseTimes.total = Date.now() - teamStart;
+          console.log(`FavoritesScreen: team ${teamName} fetch phases (ms):`, phaseTimes);
+          return teamGames; // Return empty for teams without currentGame
         }
         
-        // If still no currentGame, that's fine - auto-population will handle it
-        if (!currentGameData) {
-          console.log(`[NO CURRENT GAME] ${teamName} has no currentGame - auto-population will handle missing games`);
-        } else {
-          console.log(`[USING STORED GAME] Using stored currentGame for ${teamName}:`, currentGameData);
-        }
+        console.log(`[USING FAVORITE GAME] Using currentGame from favorites for ${teamName}:`, currentGameData);
         
-        // Check if stored currentGame is from a previous day and clear it if so
-        if (currentGameData?.gameDate) {
-          const gameDate = new Date(currentGameData.gameDate);
-          const { todayStart, todayEnd } = getTodayDateRange();
-          
-          if (gameDate < todayStart || gameDate >= todayEnd) {
-            console.log(`Clearing outdated stored game for ${teamName}: gameDate=${currentGameData.gameDate}, outside range ${todayStart.toISOString()} to ${todayEnd.toISOString()}`);
-            await clearTeamCurrentGame(team.teamId);
-            // Set currentGameData to null so we'll fetch fresh data
-            currentGameData = null;
-          }
-        }
-
-        // If this fetch is not forced, skip teams that don't have a stored scheduled/current game
-        // This avoids discovery fetches for every favorite on each poll interval
-        if (!forceRefresh) {
-          const flags = computeMatchFlags(currentGameData || {});
-          if (!currentGameData || !flags.isScheduled) {
-            console.log(`Skipping per-team processing for ${teamName} (no scheduled currentGame and not forced)`);
-            return teamGames; // empty
-          }
-        }
-
-        // Diagnostic: log stored currentGame split by country vs UEFA competitions
-        try {
-          const stored = currentGameData;
-          const storedCompetition = stored?.competition || null;
-          const countryGame = stored && storedCompetition && !String(storedCompetition).toLowerCase().startsWith('uefa') ? stored : null;
-          const uefaGame = stored && storedCompetition && String(storedCompetition).toLowerCase().startsWith('uefa') ? stored : null;
-          const teamObjCurrent = team?.currentGame || null; // if team object itself carried a currentGame
-          console.log(`FavoritesScreen: team ${teamName} currentGame -> country: ${countryGame ? `${countryGame.eventId} (${countryGame.competition})` : 'none'}, uefa: ${uefaGame ? `${uefaGame.eventId} (${uefaGame.competition})` : 'none'}, teamObj: ${teamObjCurrent ? JSON.stringify(teamObjCurrent) : 'none'}, storedRaw: ${stored ? JSON.stringify(stored) : 'none'}`);
-        } catch (e) {
-          console.log('FavoritesScreen: error logging currentGame diagnostics for', teamName, e?.message || e);
-        }
-      
-      // Aggregate MLB schedule validation to avoid duplicate calls
-      const mlbTeamsToValidate = [];
-      for (const team of uniqueTeams) {
-        const currentGameData = getTeamCurrentGame(team);
-        const sportValLower = String(team?.sport || '').toLowerCase();
-        const actualLeagueLower = String(team?.actualLeagueCode || '').toLowerCase();
-        // Only consider MLB teams with stored currentGame. Broaden detection to include 'baseball',
-        // teams where currentGameData indicates MLB, or when actualLeagueCode includes 'mlb'.
-        // This avoids missing teams that use 'Baseball' or other variants for the sport field.
-        const currentComp = String(currentGameData?.competition || '').toLowerCase();
-        const eventLinkHint = String(currentGameData?.eventLink || '').toLowerCase();
-        const shouldConsider = Boolean(currentGameData) && (
-          sportValLower === 'mlb' ||
-          sportValLower === 'mlbteam' ||
-          sportValLower === 'baseball' ||
-          actualLeagueLower === 'mlb' ||
-          currentComp === 'mlb' ||
-          eventLinkHint.includes('/api/v1.1/game/')
-        );
-
-        if (shouldConsider) {
-          const mlbTeamId = team.teamId || team.id || (team.team && (team.team.teamId || team.team.id));
-          if (mlbTeamId && !mlbTeamsToValidate.find(t => t.mlbTeamId === mlbTeamId)) {
-            mlbTeamsToValidate.push({ team, currentGameData, mlbTeamId, teamName: (team && (team.displayName || team.teamName)) || 'Unknown Team' });
-            console.log(`[MLB VALIDATE QUEUE] Queued team ${team.displayName || team.teamName || mlbTeamId} for MLB schedule validation (teamId=${mlbTeamId})`);
-          }
-        }
-      }
-      
-      // Validate all MLB teams at once using aggregated schedule fetch
-      if (mlbTeamsToValidate.length > 0) {
-        (async () => {
-          try {
-            const getAdjustedDateForMLB = () => {
-              const now = new Date();
-              const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
-              const isDST = new Date().getTimezoneOffset() < new Date(new Date().getFullYear(), 0, 1).getTimezoneOffset();
-              const easternOffset = isDST ? -4 : -5;
-              const easternTime = new Date(utcTime + (easternOffset * 3600000));
-              if (easternTime.getHours() < 2) easternTime.setDate(easternTime.getDate() - 1);
-              return easternTime.getFullYear() + "-" + String(easternTime.getMonth() + 1).padStart(2, "0") + "-" + String(easternTime.getDate()).padStart(2, "0");
-            };
-
-            const adjusted = getAdjustedDateForMLB();
-            const schedule = await fetchMLBScheduleForDate(adjusted);
-            
-            if (schedule?.dates?.length > 0 && schedule.dates[0].games?.length > 0) {
-              const allGamesToday = schedule.dates[0].games;
-              
-              // Process each MLB team's validation
-              for (const { team, currentGameData, mlbTeamId, teamName } of mlbTeamsToValidate) {
-                try {
-                  const teamGames = allGamesToday.filter(g => 
-                    g.teams?.away?.team?.id === mlbTeamId || 
-                    g.teams?.home?.team?.id === mlbTeamId
-                  );
-                  
-                  if (teamGames.length > 0) {
-                    const liveGame = teamGames.find(g => {
-                      return g.status && (g.status.abstractGameState === 'Live' || g.status.detailedState === 'In Progress' || g.status.codedGameState === 'I' || g.status.detailedState === 'Manager Challenge');
-                    });
-
-                    // Prefer an upcoming/scheduled game but choose the one closest to now if multiple exist.
-                    const scheduledCandidates = teamGames.filter(g => g.gameDate && g.status && (g.status.abstractGameState === 'Preview' || (g.status.detailedState && (g.status.detailedState.includes('Scheduled') || g.status.detailedState.includes('Pre-Game'))) || (g.status.detailedGameState && g.status.detailedGameState.includes('Warmup'))));
-
-                    let chosen = null;
-                    if (liveGame) {
-                      chosen = liveGame;
-                    } else if (scheduledCandidates.length > 0) {
-                      const now = Date.now();
-                      // Sort by absolute time difference to now, but prefer future games if diff ties
-                      scheduledCandidates.sort((a, b) => {
-                        const ta = new Date(a.gameDate).getTime();
-                        const tb = new Date(b.gameDate).getTime();
-                        const da = Math.abs(ta - now);
-                        const db = Math.abs(tb - now);
-                        if (da === db) return ta - tb; // prefer later (future)
-                        return da - db;
-                      });
-                      chosen = scheduledCandidates[0];
-                    } else {
-                      // Fallback to any listed game closest to now
-                      const withDates = teamGames.filter(g => g.gameDate);
-                      if (withDates.length > 0) {
-                        const now = Date.now();
-                        withDates.sort((a, b) => {
-                          const ta = new Date(a.gameDate).getTime();
-                          const tb = new Date(b.gameDate).getTime();
-                          const da = Math.abs(ta - now);
-                          const db = Math.abs(tb - now);
-                          if (da === db) return ta - tb;
-                          return da - db;
-                        });
-                        chosen = withDates[0];
-                      } else {
-                        chosen = teamGames[0];
-                      }
-                    }
-
-                    console.log(`[MLB SCHEDULE] team ${teamName} - teamGames count=${teamGames.length}`);
-                    for (const g of teamGames) {
-                      console.log(`  candidate gamePk=${g.gamePk}, gameDate=${g.gameDate}, status=${g.status?.abstractGameState || g.status?.detailedState || 'unknown'}`);
-                    }
-                    console.log(`[MLB SCHEDULE] chosen for ${teamName}: ${chosen ? `${chosen.gamePk} (${chosen.gameDate})` : 'none'} - live=${Boolean(liveGame)}`);
-
-                    if (chosen && String(chosen.gamePk) !== String(currentGameData.eventId)) {
-                      const updatedCurrentGame = {
-                        eventId: chosen.gamePk,
-                        eventLink: chosen.link || `/api/v1.1/game/${chosen.gamePk}/feed/live`,
-                        gameDate: chosen.gameDate,
-                        competition: 'mlb',
-                        updatedAt: new Date().toISOString()
-                      };
-                      
-                      try {
-                        await updateTeamCurrentGame(team.teamId || String(mlbTeamId), updatedCurrentGame);
-                        console.log(`FavoritesScreen: updated stored currentGame for team ${teamName} to today's game ${updatedCurrentGame.eventId}`);
-                      } catch (e) {
-                        console.log('FavoritesScreen: failed to update stored currentGame:', e?.message || e);
-                      }
-                    }
-                  }
-                } catch (e) {
-                  console.log('FavoritesScreen: MLB schedule validation failed for', teamName, e?.message || e);
-                }
-              }
-            }
-          } catch (e) {
-            console.log('FavoritesScreen: error during aggregated MLB validation', e?.message || e);
-          }
-        })();
-      }
-
-  // Additional: if stored currentGameData exists for soccer/UEFA favorites, ensure it is for today's date
-  let clearedSoccerCurrentGame = false;
-  try {
-        const soccerIndicators = ['champions', 'uefa', 'premier', 'league', 'eng', 'esp', 'serie', 'bundesliga', 'ligue'];
-        const sportValLower = String(team?.sport || '').toLowerCase();
-        const hasSoccer = soccerIndicators.some(ind => sportValLower.includes(ind) || String(team?.actualLeagueCode || '').toLowerCase().includes(ind));
-        if (currentGameData && hasSoccer) {
-          // Use getTodayDateRange defined earlier in this file
-          try {
-            const { todayStart, todayEnd } = getTodayDateRange();
-            const gameDate = currentGameData.gameDate ? new Date(currentGameData.gameDate) : null;
-            if (!gameDate || gameDate < todayStart || gameDate >= todayEnd) {
-              // Stored currentGame not from today - clear it so normal fetch can find a fresh game
-              try {
-                await clearTeamCurrentGame(team.teamId || (team?.id ? String(team.id) : null));
-                console.log(`FavoritesScreen: cleared stale soccer currentGame for ${teamName} (was ${currentGameData.eventId})`);
-                clearedSoccerCurrentGame = true;
-              } catch (e) {
-                console.log('FavoritesScreen: failed to clear stale soccer currentGame', e?.message || e);
-              }
-              currentGameData = null;
-            }
-          } catch (e) {
-            // ignore date parse errors
-            console.log('FavoritesScreen: soccer date validation failed for', teamName, e?.message || e);
-          }
-        }
-      } catch (e) {
-        // ignore
-      }
-
-      // If we have a stored currentGame, use direct fetch. Otherwise, skip this team.
-      if (currentGameData) {
-        console.log(`Found current game data for ${teamName}, using direct fetch -> eventId=${currentGameData.eventId || 'none'}, competition=${currentGameData.competition || 'none'}, eventLink=${currentGameData.eventLink || 'none'}`);
-        console.log(`[DEBUG] Full currentGameData for ${teamName}:`, JSON.stringify(currentGameData, null, 2));
-        
-        // Ensure MLB games have eventLink set (fallback if missing)
+        // Ensure eventLink is set for the stored game
         if ((currentGameData.competition === 'mlb' || team.sport === 'MLB') && !currentGameData.eventLink && currentGameData.eventId) {
           console.log(`[DEBUG] Setting missing eventLink for MLB game ${currentGameData.eventId}`);
           currentGameData.eventLink = `/api/v1.1/game/${currentGameData.eventId}/feed/live`;
         }
         
-        // Ensure NFL games have eventLink set (fallback if missing)
         if ((currentGameData.competition === 'nfl' || team.sport === 'NFL') && !currentGameData.eventLink && currentGameData.eventId) {
           console.log(`[DEBUG] Setting missing eventLink for NFL game ${currentGameData.eventId}`);
           currentGameData.eventLink = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${currentGameData.eventId}`;
@@ -1441,10 +1226,6 @@ const FavoritesScreen = ({ navigation }) => {
         } catch (error) {
           console.log(`Direct fetch failed for ${teamName}:`, error);
         }
-      } else {
-        // No currentGame - auto-population will handle this
-        console.log(`[NO CURRENT GAME] ${teamName} has no currentGame stored - relying on auto-population to fetch missing games`);
-      }
 
         phaseTimes.total = Date.now() - teamStart;
         console.log(`FavoritesScreen: team ${teamName} fetch phases (ms):`, phaseTimes);

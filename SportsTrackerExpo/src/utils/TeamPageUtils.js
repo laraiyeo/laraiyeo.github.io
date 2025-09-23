@@ -1,6 +1,40 @@
 // Global utility functions extracted from team pages to fetch current games
 // These can be called directly without navigating to team pages
 
+// Helper function to determine if we should fetch a finished game based on timing restrictions
+const shouldFetchFinishedGame = (gameDate, sport) => {
+  const now = new Date();
+  const gameTime = new Date(gameDate);
+  const timeDiff = now - gameTime; // Positive if game was in the past
+  
+  // Sport-specific timing windows for finished games
+  if (sport === 'mlb') {
+    // MLB: Stop fetching finished games after 2 minutes
+    return timeDiff < (2 * 60 * 1000);
+  } else if (sport === 'soccer') {
+    // Soccer: Stop fetching finished games after 30 minutes
+    return timeDiff < (30 * 60 * 1000);
+  } else if (sport === 'nfl') {
+    // NFL: Stop fetching finished games after 5 minutes
+    return timeDiff < (5 * 60 * 1000);
+  }
+  
+  // Default: Stop fetching finished games after 5 minutes
+  return timeDiff < (5 * 60 * 1000);
+};
+
+// Helper function to resolve ESPN API references
+const resolveReference = async (ref) => {
+  if (!ref || !ref.$ref) return ref;
+  try {
+    const response = await fetch(ref.$ref);
+    return await response.json();
+  } catch (e) {
+    console.log('[TEAM PAGE UTILS] Failed to resolve reference:', e.message);
+    return ref;
+  }
+};
+
 /**
  * Fetch current game for MLB team using exact same logic as MLBTeamPageScreen
  */
@@ -164,11 +198,34 @@ export const fetchNFLTeamCurrentGame = async (teamId, updateTeamCurrentGameFunc)
           const eventData = await eventResponse.json();
           const gameDate = new Date(eventData.date);
           
-          console.log(`[TEAM PAGE UTILS] NFL event ${eventData.id}: ${eventData.status?.type?.name} on ${eventData.date}`);
+          // Status is likely in competitions array for ESPN API
+          const statusRef = eventData.competitions?.[0]?.status || eventData.status;
+          const status = await resolveReference(statusRef);
+          const statusName = status?.type?.name || status?.type?.id || status?.state;
           
-          // Check if game is live, scheduled for today, or upcoming
-          if (eventData.status?.type?.name === 'STATUS_IN_PROGRESS' || 
-              eventData.status?.type?.name === 'STATUS_HALFTIME') {
+          console.log(`[TEAM PAGE UTILS] NFL event ${eventData.id}: ${statusName} on ${eventData.date}`);
+          console.log(`[TEAM PAGE UTILS] NFL event ${eventData.id} status location:`, {
+            topLevel: !!eventData.status,
+            inCompetitions: !!eventData.competitions?.[0]?.status,
+            statusValue: status,
+            wasReference: !!statusRef?.$ref
+          });
+          
+          // Check if game is live, scheduled for today, or recently finished
+          const isLive = statusName === 'STATUS_IN_PROGRESS' || 
+                        statusName === 'STATUS_HALFTIME' ||
+                        statusName === 'in' ||
+                        status?.state === 'in';
+          
+          const isScheduled = statusName === 'STATUS_SCHEDULED' || 
+                             statusName === 'pre' ||
+                             status?.state === 'pre';
+          
+          const isFinished = statusName === 'STATUS_FINAL' || 
+                            statusName === 'post' ||
+                            status?.state === 'post';
+          
+          if (isLive) {
             console.log(`[TEAM PAGE UTILS] Found live NFL game: ${eventData.id}`);
             
             await updateTeamCurrentGameFunc(teamId, {
@@ -181,7 +238,25 @@ export const fetchNFLTeamCurrentGame = async (teamId, updateTeamCurrentGameFunc)
             return { success: true, game: eventData, type: 'live' };
           }
           
-          if (eventData.status?.type?.name === 'STATUS_SCHEDULED' && gameDate >= currentTime) {
+          // For finished games, check timing restrictions before storing
+          if (isFinished) {
+            if (shouldFetchFinishedGame(eventData.date, 'nfl')) {
+              console.log(`[TEAM PAGE UTILS] Found recent finished NFL game: ${eventData.id}`);
+              
+              await updateTeamCurrentGameFunc(teamId, {
+                eventId: eventData.id,
+                eventLink: eventRef.$ref,
+                gameDate: eventData.date,
+                competition: 'nfl',
+                updatedAt: new Date().toISOString()
+              });
+              return { success: true, game: eventData, type: 'finished' };
+            } else {
+              console.log(`[TEAM PAGE UTILS] Skipping finished NFL game ${eventData.id}: outside timing window`);
+            }
+          }
+          
+          if (isScheduled && gameDate >= currentTime) {
             if (!bestGame || gameDate < new Date(bestGame.date)) {
               bestGame = eventData;
               bestGame.eventLink = eventRef.$ref;
@@ -223,6 +298,8 @@ export const fetchSoccerTeamCurrentGame = async (teamId, updateTeamCurrentGameFu
     
     // Try multiple competitions (same as soccer team pages)
     const competitions = ['uefa.champions', 'uefa.europa', 'uefa.europa.conf'];
+    let bestGame = null;
+    const currentTime = new Date();
     
     for (const competition of competitions) {
       try {
@@ -241,11 +318,34 @@ export const fetchSoccerTeamCurrentGame = async (teamId, updateTeamCurrentGameFu
               const eventData = await eventResponse.json();
               const gameDate = new Date(eventData.date);
               
-              console.log(`[TEAM PAGE UTILS] ${competition} event ${eventData.id}: ${eventData.status?.type?.name} on ${eventData.date}`);
+              // Status is likely in competitions array for ESPN API
+              const statusRef = eventData.competitions?.[0]?.status || eventData.status;
+              const status = await resolveReference(statusRef);
+              const statusName = status?.type?.name || status?.type?.id || status?.state;
               
-              // Check if game is live
-              if (eventData.status?.type?.name === 'STATUS_IN_PROGRESS' || 
-                  eventData.status?.type?.name === 'STATUS_HALFTIME') {
+              console.log(`[TEAM PAGE UTILS] ${competition} event ${eventData.id}: ${statusName} on ${eventData.date}`);
+              console.log(`[TEAM PAGE UTILS] ${competition} event ${eventData.id} status location:`, {
+                topLevel: !!eventData.status,
+                inCompetitions: !!eventData.competitions?.[0]?.status,
+                statusValue: status,
+                wasReference: !!statusRef?.$ref
+              });
+              
+              // Check if game is live, scheduled, or finished
+              const isLive = statusName === 'STATUS_IN_PROGRESS' || 
+                            statusName === 'STATUS_HALFTIME' ||
+                            statusName === 'in' ||
+                            status?.state === 'in';
+              
+              const isScheduled = statusName === 'STATUS_SCHEDULED' || 
+                                 statusName === 'pre' ||
+                                 status?.state === 'pre';
+              
+              const isFinished = statusName === 'STATUS_FINAL' || 
+                                statusName === 'post' ||
+                                status?.state === 'post';
+              
+              if (isLive) {
                 console.log(`[TEAM PAGE UTILS] Found live ${competition} game: ${eventData.id}`);
                 
                 await updateTeamCurrentGameFunc(teamId, {
@@ -255,14 +355,13 @@ export const fetchSoccerTeamCurrentGame = async (teamId, updateTeamCurrentGameFu
                   competition: competition,
                   updatedAt: new Date().toISOString()
                 });
-                return { success: true, game: eventData, type: 'live', competition };
+                return { success: true, game: eventData, type: 'live' };
               }
               
-              // Check if game is scheduled for soon
-              if (eventData.status?.type?.name === 'STATUS_SCHEDULED') {
-                const timeDiff = gameDate.getTime() - new Date().getTime();
-                if (timeDiff > 0 && timeDiff < 7 * 24 * 60 * 60 * 1000) { // Within a week
-                  console.log(`[TEAM PAGE UTILS] Found scheduled ${competition} game: ${eventData.id} on ${eventData.date}`);
+              // For finished games, check timing restrictions before storing
+              if (isFinished) {
+                if (shouldFetchFinishedGame(eventData.date, 'soccer')) {
+                  console.log(`[TEAM PAGE UTILS] Found recent finished ${competition} game: ${eventData.id}`);
                   
                   await updateTeamCurrentGameFunc(teamId, {
                     eventId: eventData.id,
@@ -271,7 +370,17 @@ export const fetchSoccerTeamCurrentGame = async (teamId, updateTeamCurrentGameFu
                     competition: competition,
                     updatedAt: new Date().toISOString()
                   });
-                  return { success: true, game: eventData, type: 'scheduled', competition };
+                  return { success: true, game: eventData, type: 'finished' };
+                } else {
+                  console.log(`[TEAM PAGE UTILS] Skipping finished ${competition} game ${eventData.id}: outside timing window`);
+                }
+              }
+              
+              if (isScheduled && gameDate >= currentTime) {
+                if (!bestGame || gameDate < new Date(bestGame.date)) {
+                  bestGame = eventData;
+                  bestGame.eventLink = eventRef.$ref;
+                  bestGame.competition = competition;
                 }
               }
             } catch (e) {
@@ -284,6 +393,20 @@ export const fetchSoccerTeamCurrentGame = async (teamId, updateTeamCurrentGameFu
       } catch (e) {
         console.log(`[TEAM PAGE UTILS] Error fetching ${competition} for team ${teamId}: ${e.message}`);
       }
+    }
+    
+    // Check if we found a scheduled game
+    if (bestGame) {
+      console.log(`[TEAM PAGE UTILS] Found scheduled soccer game: ${bestGame.id} on ${bestGame.date}`);
+      
+      await updateTeamCurrentGameFunc(teamId, {
+        eventId: bestGame.id,
+        eventLink: bestGame.eventLink,
+        gameDate: bestGame.date,
+        competition: bestGame.competition,
+        updatedAt: new Date().toISOString()
+      });
+      return { success: true, game: bestGame, type: 'scheduled' };
     }
     
     console.log(`[TEAM PAGE UTILS] No soccer games found for team ${teamId} in any competition`);
@@ -330,7 +453,7 @@ export const fetchTeamCurrentGame = async (teamId, sport, updateTeamCurrentGameF
 export const fetchAllFavoriteTeamCurrentGames = async (favoriteTeams, updateTeamCurrentGameFunc) => {
   console.log(`[TEAM PAGE UTILS] Fetching current games for ${favoriteTeams.length} favorite teams in parallel`);
   
-  // Filter out teams that already have currentGame
+  // Filter out teams that already have currentGame or recent data
   const teamsToFetch = favoriteTeams.filter(team => {
     const teamName = team.teamName || team.displayName || 'Unknown Team';
     const teamId = team.teamId;
@@ -342,8 +465,16 @@ export const fetchAllFavoriteTeamCurrentGames = async (favoriteTeams, updateTeam
     }
     
     if (team.currentGame) {
-      console.log(`[TEAM PAGE UTILS] Skipping ${teamName}: already has currentGame`);
-      return false;
+      // Check if data is recent (within last 30 minutes for live sports)
+      const updatedAt = new Date(team.currentGame.updatedAt);
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+      
+      if (updatedAt > thirtyMinutesAgo) {
+        console.log(`[TEAM PAGE UTILS] Skipping ${teamName}: has recent currentGame data (${Math.round((Date.now() - updatedAt.getTime()) / (1000 * 60))} min old)`);
+        return false;
+      } else {
+        console.log(`[TEAM PAGE UTILS] Refreshing ${teamName}: currentGame data is stale (${Math.round((Date.now() - updatedAt.getTime()) / (1000 * 60))} min old)`);
+      }
     }
     
     return true;
