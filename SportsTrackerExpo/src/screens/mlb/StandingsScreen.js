@@ -114,7 +114,7 @@ const StandingsScreen = ({ route }) => {
       <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
         {[americanLeague, nationalLeague].filter(Boolean).map((league, leagueIndex) => (
           <View key={leagueIndex} style={[styles.conferenceContainer, { backgroundColor: theme.surface }]}>
-            <Text allowFontScaling={false} style={[styles.conferenceTitle, { color: colors.primary }]}>{league.name}</Text>
+            <Text allowFontScaling={false} style={[styles.conferenceTitle, { color: colors.primary, borderBottomColor: theme.border }]}>{league.name}</Text>
             
             {league.groups.map((division, divIndex) => (
               <View key={divIndex} style={styles.divisionContainer}>
@@ -142,11 +142,13 @@ const StandingsScreen = ({ route }) => {
                       const pointsAgainst = entry.stats.find(stat => stat.name === "pointsAgainst")?.displayValue || "0";
                       console.log('Team entry:', JSON.stringify(entry.team, null, 2)); // Debug log
                       const mlbTeamId = getMLBTeamId(entry.team);
+                      const clinchCode = entry.team.clincher;
+                      const clinchColor = clinchCode === 'x' ? theme.success : clinchCode === 'z' ? theme.warning : clinchCode === 'e' ? theme.error : theme.surface;
                       
                       return (
                         <TouchableOpacity 
                           key={teamIndex} 
-                          style={[styles.tableRow, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}
+                          style={[styles.tableRow, { backgroundColor: theme.surface, borderBottomColor: theme.border, borderLeftColor: clinchColor, borderLeftWidth: clinchCode ? 4 : 0 }]}
                           onPress={() => {
                             console.log('Navigating to team:', mlbTeamId, entry.team.abbreviation);
                             navigation.navigate('TeamPage', { teamId: mlbTeamId, sport: 'mlb' });
@@ -164,7 +166,7 @@ const StandingsScreen = ({ route }) => {
                                 color: isFavorite(mlbTeamId) ? colors.primary : theme.text 
                               }
                             ]} numberOfLines={1}>
-                              <Text allowFontScaling={false} style={[styles.teamSeed, { color: colors.primary }]}>({entry.team.seed})</Text> 
+                              <Text allowFontScaling={false} style={[styles.teamSeed, { color: colors.primary }]}>({entry.team.seed}) </Text> 
                               {isFavorite(mlbTeamId) && '★ '}
                               {entry.team.shortDisplayName}
                             </Text>
@@ -182,7 +184,26 @@ const StandingsScreen = ({ route }) => {
               </View>
             ))}
           </View>
-        ))}
+          ))}
+
+        {/* Legend for clinch colors */}
+        <View style={[styles.legendContainer, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
+          <Text allowFontScaling={false} style={[styles.legendTitle, { color: colors.primary }]}>Legend</Text>
+          <View style={styles.legendItems}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { backgroundColor: theme.success }]} />
+              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>x - Clinched Division</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { backgroundColor: theme.warning }]} />
+              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>z - Clinched Playoffs</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { backgroundColor: theme.error }]} />
+              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>e - Eliminated</Text>
+            </View>
+          </View>
+        </View>
       </ScrollView>
     );
   };
@@ -304,6 +325,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     flex: 1,
+  },
+  legendContainer: {
+    marginHorizontal: 10,
+    marginTop: 12,
+    padding: 12,
+    borderTopWidth: 1,
+    borderRadius: 6,
+    marginBottom: 25,
+  },
+  legendTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  legendItems: {
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  legendSwatch: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  legendLabel: {
+    fontSize: 12,
   },
 });
 

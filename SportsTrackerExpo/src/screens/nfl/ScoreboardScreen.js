@@ -626,6 +626,9 @@ const NFLScoreboardScreen = ({ navigation }) => {
   };
 
   const renderGameCard = ({ item }) => {
+
+    const isGameLive = !item.isCompleted && (item.status && (item.status.toLowerCase().includes('quarter') || item.status.toLowerCase().includes('half') || item.status.toLowerCase().includes('overtime')));
+
     if (item.type === 'header') {
       return renderDateHeader(item.date);
     }
@@ -680,7 +683,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
               </Text>
               <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.awayTeam?.record || ''}</Text>
             </View>
-            <Text allowFontScaling={false} style={[getTeamScoreStyle(item, true), { color: getTeamScoreColor(item, true) }]}>{item.awayTeam?.score || '0'}</Text>
+            {(isGameLive || item.isCompleted) ? <Text allowFontScaling={false} style={[getTeamScoreStyle(item, true), { color: getTeamScoreColor(item, true) }]}>{item.awayTeam?.score || '0'}</Text> : ''}
           </View>
 
           {/* Home Team */}
@@ -710,7 +713,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
               </Text>
               <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.homeTeam?.record || ''}</Text>
             </View>
-            <Text allowFontScaling={false} style={[getTeamScoreStyle(item, false), { color: getTeamScoreColor(item, false) }]}>{item.homeTeam?.score || '0'}</Text>
+            {(isGameLive || item.isCompleted) ? <Text allowFontScaling={false} style={[getTeamScoreStyle(item, false), { color: getTeamScoreColor(item, false) }]}>{item.homeTeam?.score || '0'}</Text> : ''}
           </View>
         </View>
 

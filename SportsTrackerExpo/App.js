@@ -2,7 +2,7 @@ import React from 'react';
 import { NavigationContainer, getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 // Import theme context
@@ -60,6 +60,7 @@ import F1StandingsScreen from './src/screens/f1/StandingsScreen';
 import F1RaceDetailsScreen from './src/screens/f1/RaceDetailsScreen';
 import F1ConstructorDetailsScreen from './src/screens/f1/ConstructorDetailsScreen';
 import F1RacerDetailsScreen from './src/screens/f1/RacerDetailsScreen';
+import F1VehiclesScreen from './src/screens/f1/VehiclesScreen';
 
 // Soccer specific screens
 import SoccerHomeScreen from './src/screens/soccer/SoccerHomeScreen';
@@ -348,6 +349,74 @@ const SportTabNavigator = ({ route }) => {
   );
 };
 
+// F1 Tab Navigator (custom for F1 with only Calendar, Standings, and Vehicles)
+const F1TabNavigator = ({ route }) => {
+  const { sport } = route.params;
+  const { theme, colors } = useTheme();
+  
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          // Use the local SVG asset for the Vehicles tab. If your bundler
+          // supports importing SVGs as images, this will render the SVG.
+          if (route.name === 'Vehicles') {
+            return (
+              <Image
+                source={require('./assets/f1-car-svgrepo-com.png')}
+                style={{ width: 50, height: 50, tintColor: color }}
+                resizeMode="contain"
+              />
+            );
+          }
+
+          let iconName;
+          if (route.name === 'Calendar') {
+            iconName = 'calendar';
+          } else if (route.name === 'Standings') {
+            iconName = 'trophy';
+          }
+
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: theme.textTertiary,
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: theme.surface,
+          borderTopWidth: 1,
+          borderTopColor: theme.border,
+        },
+      })}
+    >
+      <Tab.Screen 
+        name="Calendar" 
+        component={F1ResultsScreen}
+        initialParams={{ sport }}
+        options={{ 
+          title: 'Calendar',
+        }}
+      />
+      <Tab.Screen 
+        name="Standings" 
+        component={F1StandingsScreen}
+        initialParams={{ sport }}
+        options={{ 
+          title: 'Standings',
+        }}
+      />
+      <Tab.Screen 
+        name="Vehicles" 
+        component={F1VehiclesScreen}
+        initialParams={{ sport }}
+        options={{ 
+          title: 'Vehicles',
+        }}
+      />
+    </Tab.Navigator>
+  );
+};
+
 // Soccer Tab Navigator (for individual league navigation)
 const SoccerTabNavigator = ({ route }) => {
   const { leagueId, leagueName } = route.params;
@@ -555,6 +624,10 @@ const MainStackNavigator = () => {
           // For soccer, show the home screen directly without tabs
           if (sport?.toLowerCase() === 'soccer') {
             return <SoccerHomeScreen route={route} navigation={navigation} />;
+          }
+          // For F1, use the custom F1 tab navigator
+          if (sport?.toLowerCase() === 'f1') {
+            return <F1TabNavigator route={route} navigation={navigation} />;
           }
           // For other sports, use the tab navigator
           return <SportTabNavigator route={route} navigation={navigation} />;

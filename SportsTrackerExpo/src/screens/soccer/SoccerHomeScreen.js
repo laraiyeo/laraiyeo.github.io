@@ -19,7 +19,7 @@ const LogoWithFallback = ({ logoId, name, style, isDarkMode, isMainLogo = false,
   const [fallbackError, setFallbackError] = useState(false);
 
   const primaryUrl = `https://a.espncdn.com/i/leaguelogos/soccer/${isDarkMode ? '500-dark' : '500'}/${logoId}.png`;
-  const fallbackUrl = `https://a.espncdn.com/i/leaguelogos/soccer/500/${logoId}.png`;
+  const fallbackUrl = `https://a.espncdn.com/i/leaguelogos/soccer/${isDarkMode ? '500' : '500-dark'}/${logoId}.png`;
 
   if (imageError && fallbackError) {
     // Show text fallback

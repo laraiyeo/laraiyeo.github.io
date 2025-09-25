@@ -1503,7 +1503,7 @@ const GameDetailsScreen = ({ route }) => {
                     </View>
                     
                     {/* Status Row */}
-                    <View style={[styles.rosterTableStatusRow, { backgroundColor: theme.surfaceSecondary }]}>
+                    <View style={[styles.rosterTableStatusRow, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]}>
                       <Text allowFontScaling={false} style={[styles.rosterTableStatusText, { color: statusColor }]}>
                         {statusText || 'Active'}
                       </Text>
@@ -2013,7 +2013,7 @@ const GameDetailsScreen = ({ route }) => {
             style={styles.stickyTeamLogo}
             isLosingTeam={isAwayTeamLosing}
           />
-          <Text allowFontScaling={false} style={getStickyTeamScoreStyle(isAwayTeamLosing)}>{awayTeam?.score || '0'}</Text>
+          {status?.type?.description !== 'Scheduled' ? <Text allowFontScaling={false} style={getStickyTeamScoreStyle(isAwayTeamLosing)}>{awayTeam?.score || '0'}</Text> : ''}
           <Text allowFontScaling={false} style={[
             styles.stickyTeamName, 
             { color: isFavorite(getNFLTeamId(awayTeam?.team)) ? colors.primary : (isAwayTeamLosing ? theme.textSecondary : theme.text) }
@@ -2089,7 +2089,7 @@ const GameDetailsScreen = ({ route }) => {
             {isFavorite(getNFLTeamId(homeTeam?.team)) && '★ '}
             {getNFLTeamAbbreviation(homeTeam?.team) || 'HOME'}
           </Text>
-          <Text allowFontScaling={false} style={getStickyTeamScoreStyle(isHomeTeamLosing)}>{homeTeam?.score || '0'}</Text>
+          {status?.type?.description !== 'Scheduled' ? <Text allowFontScaling={false} style={getStickyTeamScoreStyle(isHomeTeamLosing)}>{homeTeam?.score || '0'}</Text> : ''}
           <TeamLogoImage 
             team={homeTeam?.team}
             style={styles.stickyTeamLogo}
@@ -2173,7 +2173,7 @@ const GameDetailsScreen = ({ route }) => {
           })()}
           {/* Away Team */}
           <View style={styles.team}>
-            <Text allowFontScaling={false} style={getTeamScoreStyle(isAwayTeamLosing)}>{awayTeam?.score || '0'}</Text>
+            {status?.type?.description !== 'Scheduled' ? <Text allowFontScaling={false} style={getTeamScoreStyle(isAwayTeamLosing)}>{awayTeam?.score || '0'}</Text> : ''}
             <View style={styles.teamLogoContainer}>
               {/* Possession indicator for away team (not during halftime) */}
               {(() => {
@@ -2236,7 +2236,7 @@ const GameDetailsScreen = ({ route }) => {
 
           {/* Home Team */}
           <View style={styles.team}>
-            <Text allowFontScaling={false} style={getTeamScoreStyle(isHomeTeamLosing)}>{homeTeam?.score || '0'}</Text>
+            {status?.type?.description !== 'Scheduled' ? <Text allowFontScaling={false} style={getTeamScoreStyle(isHomeTeamLosing)}>{homeTeam?.score || '0'}</Text> : ''}
             <View style={styles.teamLogoContainer}>
               <TeamLogoImage 
                 team={homeTeam?.team}
@@ -2432,7 +2432,7 @@ const GameDetailsScreen = ({ route }) => {
             })()}
           </View>
         ) : (
-          <View style={styles.gameInfo}>
+          <View style={[styles.gameInfo, { borderTopColor: theme.border }]}>
             <Text allowFontScaling={false} style={[styles.venue, { color: theme.textSecondary }]}>
               {venue || competition?.venue || 'TBD'}
             </Text>

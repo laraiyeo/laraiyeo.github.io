@@ -102,8 +102,9 @@ const TeamPageScreen = ({ route, navigation }) => {
               const losses = teamEntry.stats.find(stat => stat.name === "losses")?.displayValue || "0";
               const lastTen = teamEntry.stats.find(stat => stat.name === "Last Ten Games")?.displayValue || "0-0";
               const streak = teamEntry.stats.find(stat => stat.name === "streak")?.displayValue || "N/A";
-              
-              setTeamRecord({ wins, losses, lastTen, streak });
+              const clincher = teamEntry.team.clincher ? `${teamEntry.team.clincher} - ` : '';
+
+              setTeamRecord({ wins, losses, lastTen, streak, clincher });
               return;
             }
           }
@@ -802,7 +803,7 @@ const TeamPageScreen = ({ route, navigation }) => {
           <Text allowFontScaling={false} style={[styles.teamName, { color: getTeamColor(teamData.abbreviation) }]}>
             {teamData.name}
           </Text>
-          <Text allowFontScaling={false} style={[styles.teamDivision, { color: theme.textSecondary }]}>{teamData.division?.name || 'N/A'}</Text>
+          <Text allowFontScaling={false} style={[styles.teamDivision, { color: theme.textSecondary }]}>{teamRecord.clincher}{teamData.division?.name || 'N/A'}</Text>
           
           {teamRecord && (
             <View style={styles.recordContainer}>

@@ -941,7 +941,11 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
     const awayScore = linescore?.teams?.away?.runs || 0;
     const homeScore = linescore?.teams?.home?.runs || 0;
-    const isGameFinal = status?.statusCode === 'F';
+    const isGameFinal = status?.statusCode === 'F' || status?.statusCode === 'O';
+    const isGameLive = status?.statusCode === 'I' || 
+                       status?.detailedState === 'In Progress' ||
+                       status?.detailedState === 'Manager challenge' ||
+                       status?.codedGameState === 'M';
 
     const awayIsLosing = isGameFinal && awayScore < homeScore;
     const homeIsLosing = isGameFinal && homeScore < awayScore;
@@ -951,7 +955,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       <Animated.View
         style={[
           styles.stickyHeader,
-          { backgroundColor: theme.surface },
+          { backgroundColor: theme.surface, borderBottomColor: theme.border },
           {
             opacity: stickyHeaderOpacity,
             transform: [{
@@ -971,7 +975,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             style={styles.stickyTeamLogo}
             defaultSource={{ uri: 'https://via.placeholder.com/28x28?text=MLB' }}
           />
-          <Text allowFontScaling={false} style={[styles.stickyTeamScore, { color: getStickyScoreColor(awayIsLosing) }]}>{awayScore}</Text>
+          {(isGameLive || isGameFinal) ? <Text allowFontScaling={false} style={[styles.stickyTeamScore, { color: getStickyScoreColor(awayIsLosing) }]}>{awayScore}</Text> : ''}
           <Text allowFontScaling={false} style={[styles.stickyTeamName, { color: isFavorite(awayTeam?.id?.toString()) ? colors.primary : (awayIsLosing ? theme.textSecondary : theme.text) }]}>
             {isFavorite(awayTeam?.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
             {awayTeam?.abbreviation || 'AWAY'}
@@ -1025,7 +1029,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             {isFavorite(homeTeam?.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
             {homeTeam?.abbreviation || 'HOME'}
           </Text>
-          <Text allowFontScaling={false} style={[styles.stickyTeamScore, { color: getStickyScoreColor(homeIsLosing) }]}>{homeScore}</Text>
+          {(isGameLive || isGameFinal) ? <Text allowFontScaling={false} style={[styles.stickyTeamScore, { color: getStickyScoreColor(homeIsLosing) }]}>{homeScore}</Text> : ''}
           <Image
             source={{ uri: getTeamLogoUrl('mlb', homeTeam?.abbreviation) }}
             style={styles.stickyTeamLogo}
@@ -1160,7 +1164,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
     const awayScore = linescore?.teams?.away?.runs || 0;
     const homeScore = linescore?.teams?.home?.runs || 0;
-    const isGameFinal = status?.statusCode === 'F';
+    const isGameFinal = status?.statusCode === 'F' || status?.statusCode === 'O';
     
     // Theme-aware color functions similar to ScoreboardScreen
     // Enhanced color selection for scoring card with better team color handling
@@ -1234,7 +1238,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         <View style={styles.teamContainer}>
           {/* Away Team */}
           <View style={styles.team}>
-            <Text allowFontScaling={false} style={[styles.teamScore, { color: getScoreColor(awayIsLosing) }]}>{awayScore}</Text>
+            {(isGameLive || isGameFinal) ? <Text allowFontScaling={false} style={[styles.teamScore, { color: getScoreColor(awayIsLosing) }]}>{awayScore}</Text> : ''}
             <Image 
               source={{ uri: getTeamLogoUrl('mlb', awayTeam?.abbreviation) }} 
               style={styles.teamLogo}
@@ -1293,7 +1297,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
           {/* Home Team */}
           <View style={styles.team}>
-            <Text allowFontScaling={false} style={[styles.teamScore, { color: getScoreColor(homeIsLosing) }]}>{homeScore}</Text>
+            {isGameLive || isGameFinal ? <Text allowFontScaling={false} style={[styles.teamScore, { color: getScoreColor(homeIsLosing) }]}>{homeScore}</Text> : ''}
             <Image 
               source={{ uri: getTeamLogoUrl('mlb', homeTeam?.abbreviation) }} 
               style={styles.teamLogo}
@@ -1307,8 +1311,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             </View>
           </View>
         </View>
-        
-        <View style={styles.gameInfo}>
+
+        <View style={[styles.gameInfo, { borderTopColor: theme.border }]}>
           <Text allowFontScaling={false} style={[styles.venue, { color: theme.text }]}>{gameData.gameData?.venue?.name || ''}</Text>
           {gameData.gameData?.datetime?.originalDate && (
             <Text allowFontScaling={false} style={[styles.date, { color: theme.textSecondary }]}>
@@ -1462,7 +1466,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 const isBottomInning = inning.home !== undefined;
                 const awayScore = linescore?.teams?.away?.runs || 0;
                 const homeScore = linescore?.teams?.home?.runs || 0;
-                const isGameFinal = gameData?.gameData?.status?.statusCode === 'F';
+                const isGameFinal = gameData?.gameData?.status?.statusCode === 'F' || gameData?.gameData?.status?.statusCode === 'O';
                 
                 // Show "X" if home team is winning and didn't need to bat in bottom of inning
                 const shouldShowX = isBottomInning && 
@@ -1612,33 +1616,48 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             <Text allowFontScaling={false} style={[styles.statTableHeaderStat, { color: theme.text }]}>RBI</Text>
             <Text allowFontScaling={false} style={[styles.statTableHeaderStat, { color: theme.text }]}>AVG</Text>
           </View>
-          {batters.slice(0, 9).map((batterId, index) => {
-            const player = teamStats.players?.[`ID${batterId}`];
-            if (!player) return null;
+          {(() => {
+            // Filter out pitchers from batters list (same logic as scoreboard.js)
+            const actualBatters = (batters || [])
+              .map(id => teamStats.players?.[`ID${id}`])
+              .filter(player => player && player.position?.abbreviation !== "P");
             
-            const stats = player.stats?.batting || {};
-            return (
-              <TouchableOpacity 
-                key={batterId} 
-                style={[styles.statTableRow, { backgroundColor: theme.surface }]}
-                onPress={() => handlePlayerPress(player, team)}
-              >
-                <View style={styles.statTablePlayerCell}>
-                  <Text allowFontScaling={false} style={[styles.statTablePlayerName, { color: theme.text }]}>
-                    {player.person?.fullName || 'Unknown Player'}
-                  </Text>
-                  <Text allowFontScaling={false} style={[styles.statTablePlayerNumber, { color: theme.textSecondary }]}>
-                    #{player.jerseyNumber || '--'} {player.position?.abbreviation || ''}
-                  </Text>
-                </View>
-                <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: theme.text }]}>{stats.atBats || 0}</Text>
-                <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: theme.text }]}>{stats.runs || 0}</Text>
-                <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: theme.text }]}>{stats.hits || 0}</Text>
-                <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: theme.text }]}>{stats.rbi || 0}</Text>
-                <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: theme.text }]}>{player.seasonStats?.batting?.avg || '.000'}</Text>
-              </TouchableOpacity>
-            );
-          })}
+            // Get batting order for substitution detection (same logic as scoreboard.js)
+            const battingOrder = teamStats.battingOrder || [];
+
+            return actualBatters.map((player, index) => {
+              if (!player) return null;
+
+              const stats = player.stats?.batting || {};
+              const playerId = player.person?.id;
+
+              // Use same substitution logic as scoreboard: player is subbed out if not in batting order
+              const isSubbedOut = !battingOrder.includes(playerId);
+              const rowColor = isSubbedOut ? theme.textTertiary : theme.text;
+
+              return (
+                <TouchableOpacity 
+                  key={player.person?.id || index} 
+                  style={[styles.statTableRow, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}
+                  onPress={() => handlePlayerPress(player, team)}
+                >
+                  <View style={styles.statTablePlayerCell}>
+                    <Text allowFontScaling={false} style={[styles.statTablePlayerName, { color: rowColor }]}>
+                      {player.person?.fullName || 'Unknown Player'}
+                    </Text>
+                    <Text allowFontScaling={false} style={[styles.statTablePlayerNumber, { color: rowColor }]}> 
+                      #{player.jerseyNumber || '--'} {player.position?.abbreviation || ''}
+                    </Text>
+                  </View>
+                  <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: rowColor }]}>{stats.atBats || 0}</Text>
+                  <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: rowColor }]}>{stats.runs || 0}</Text>
+                  <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: rowColor }]}>{stats.hits || 0}</Text>
+                  <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: rowColor }]}>{stats.rbi || 0}</Text>
+                  <Text allowFontScaling={false} style={[styles.statTableStatCell, { color: rowColor }]}>{player.seasonStats?.batting?.avg || '.000'}</Text>
+                </TouchableOpacity>
+              );
+            });
+          })()}
         </View>
 
         {/* Pitching Stats */}
@@ -1660,7 +1679,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             return (
               <TouchableOpacity 
                 key={pitcherId} 
-                style={[styles.statTableRow, { backgroundColor: theme.surface }]}
+                style={[styles.statTableRow, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}
                 onPress={() => handlePlayerPress(player, team)}
               >
                 <View style={styles.statTablePlayerCell}>
@@ -2864,7 +2883,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     return (
       <View>
         {/* Game Info */}
-        <View style={styles.gameStatsHeader}>
+        <View style={[styles.gameStatsHeader, { borderBottomColor: theme.border }]}>
           <Text allowFontScaling={false} style={[styles.gameStatsTitle, { color: colors.primary }]}>Game Statistics</Text>
           <Text allowFontScaling={false} style={[styles.gameStatsDate, { color: theme.textSecondary }]}>{gameDate}</Text>
         </View>

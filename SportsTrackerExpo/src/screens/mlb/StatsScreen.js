@@ -113,7 +113,7 @@ const StatsScreen = ({ route }) => {
     
     if (isFirst) {
       return (
-        <View key={leader.person.id} style={styles.firstLeaderRow}>
+        <View key={leader.person.id} style={[styles.firstLeaderRow, { borderBottomColor: theme.border }]}>
           <Image
             source={{ 
               uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${leader.person.id}/headshot/67/current`
@@ -241,7 +241,7 @@ const StatsScreen = ({ route }) => {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* League Selector */}
-      <View style={[styles.leagueSelector, { backgroundColor: theme.surface }]}>
+      <View style={[styles.leagueSelector, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         {leagues.map(league => (
           <TouchableOpacity
             key={league.key}
@@ -290,7 +290,7 @@ const StatsScreen = ({ route }) => {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
-          <View style={[styles.modalHeader, { backgroundColor: theme.surface }]}>
+          <View style={[styles.modalHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
             <Text allowFontScaling={false} style={[styles.modalHeaderTitle, { color: theme.text }]}>
               {modalTitle} Leaders
             </Text>

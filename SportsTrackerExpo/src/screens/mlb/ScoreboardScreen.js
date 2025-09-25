@@ -324,7 +324,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
           }
           
           // Check for completed games
-          if (game.isCompleted || game.statusType === 'F') {
+          if (game.isCompleted || game.statusType === 'F' || game.statusType === 'O') {
             return 3; // Finished games last
           }
           
@@ -507,7 +507,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
   const getTeamScoreStyle = (item, isAwayTeam) => {
     if (!item.awayTeam || !item.homeTeam) return styles.teamScore;
     
-    const isGameFinal = item.isCompleted;
+    const isGameFinal = item.isCompleted || item.statusType === 'F' || item.statusType === 'O';
     const awayScore = parseInt(item.awayTeam.score || '0');
     const homeScore = parseInt(item.homeTeam.score || '0');
     const isLosing = isGameFinal && (
@@ -520,7 +520,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
   const getScoreColor = (item, isAwayTeam) => {
     if (!item.awayTeam || !item.homeTeam) return colors.primary;
     
-    const isGameFinal = item.isCompleted;
+    const isGameFinal = item.isCompleted || item.statusType === 'F' || item.statusType === 'O';
     const awayScore = parseInt(item.awayTeam.score || '0');
     const homeScore = parseInt(item.homeTeam.score || '0');
     const isLosing = isGameFinal && (
@@ -533,7 +533,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
   const getTeamNameColor = (item, isAwayTeam) => {
     if (!item.awayTeam || !item.homeTeam) return theme.text;
     
-    const isGameFinal = item.isCompleted;
+    const isGameFinal = item.isCompleted || item.statusType === 'F' || item.statusType === 'O';
     const awayScore = parseInt(item.awayTeam.score || '0');
     const homeScore = parseInt(item.homeTeam.score || '0');
     const isLosing = isGameFinal && (
@@ -546,7 +546,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
   const getTeamNameStyle = (item, isAwayTeam) => {
     if (!item.awayTeam || !item.homeTeam) return styles.teamName;
     
-    const isGameFinal = item.isCompleted;
+    const isGameFinal = item.isCompleted || item.statusType === 'F' || item.statusType === 'O';
     const awayScore = parseInt(item.awayTeam.score || '0');
     const homeScore = parseInt(item.homeTeam.score || '0');
     const isLosing = isGameFinal && (
@@ -605,7 +605,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
               </Text>
               <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.awayTeam?.record || ''}</Text>
             </View>
-            <Text allowFontScaling={false} style={[getTeamScoreStyle(item, true), { color: getScoreColor(item, true) }]}>{item.awayTeam?.score || '0'}</Text>
+            <Text allowFontScaling={false} style={[getTeamScoreStyle(item, true), { color: getScoreColor(item, true) }]}>{(item.isLive || item.isCompleted || item.statusType === 'O') ? item.awayTeam?.score || '0' : ''}</Text>
           </View>
 
           {/* Home Team */}
@@ -629,12 +629,12 @@ const MLBScoreboardScreen = ({ navigation }) => {
               </Text>
               <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.homeTeam?.record || ''}</Text>
             </View>
-            <Text allowFontScaling={false} style={[getTeamScoreStyle(item, false), { color: getScoreColor(item, false) }]}>{item.homeTeam?.score || '0'}</Text>
+            <Text allowFontScaling={false} style={[getTeamScoreStyle(item, false), { color: getScoreColor(item, false) }]}>{(item.isLive || item.isCompleted || item.statusType === 'O') ? item.homeTeam?.score || '0' : ''}</Text>
           </View>
         </View>
 
         {/* Game Info */}
-        <View style={styles.gameFooter}>
+        <View style={[styles.gameFooter, {borderTopColor : theme.border }]}>
           <Text allowFontScaling={false} style={[styles.venue, { color: theme.textSecondary }]}>{item.venue || ''}</Text>
           {item.broadcasts && item.broadcasts.length > 0 && (
             <Text allowFontScaling={false} style={[styles.broadcast, { color: theme.textSecondary }]}>{item.broadcasts.join(', ')}</Text>

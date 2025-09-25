@@ -234,47 +234,43 @@ const UECLScoreboardScreen = ({ navigation, route }) => {
         };
       }));
 
-      // Enhanced sorting function: date first, then status, then time
-      const sortedGames = processedGames.sort((a, b) => {
-        const dateA = new Date(a.date);
-        const dateB = new Date(b.date);
-        const statusA = a.status?.type?.state;
-        const statusB = b.status?.type?.state;
-        
-        // First, sort by date
-        const dateDiff = dateA - dateB;
-        if (Math.abs(dateDiff) > 24 * 60 * 60 * 1000) { // Different days
-          return dateDiff;
-        }
-        
-        // Same day or within 24 hours - sort by status priority
-        const getStatusPriority = (status) => {
-          switch (status) {
-            case 'in': return 1; // Live games first
-            case 'pre': return 2; // Upcoming games second
-            case 'post': return 3; // Finished games last
-            default: return 4; // Unknown status last
-          }
-        };
-        
-        const statusPriorityA = getStatusPriority(statusA);
-        const statusPriorityB = getStatusPriority(statusB);
-        
-        if (statusPriorityA !== statusPriorityB) {
-          return statusPriorityA - statusPriorityB;
-        }
-        
-        // Same status - sort by time
-        if (statusA === 'in') {
-          // For live games, sort by match minute (most recent activity first)
-          const clockA = parseInt(a.status?.displayClock?.replace(/[^\d]/g, '') || '0');
-          const clockB = parseInt(b.status?.displayClock?.replace(/[^\d]/g, '') || '0');
-          return clockB - clockA; // Higher minutes first (more advanced in game)
-        } else {
-          // For pre/post games, sort by actual time
-          return dateA - dateB;
-        }
-      });
+      // Stable enhanced sorting: group by day, then by status priority (live/pre/post),
+      // then by scheduled start time to keep order stable while live clocks update.
+      const sortedGames = processedGames
+        .map((g, idx) => ({ g, idx }))
+        .sort((x, y) => {
+          const a = x.g;
+          const b = y.g;
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+
+          // Group by calendar day (floor by UTC day)
+          const dayA = Math.floor(dateA / (24 * 60 * 60 * 1000));
+          const dayB = Math.floor(dateB / (24 * 60 * 60 * 1000));
+          if (dayA !== dayB) return dayA - dayB;
+
+          const statusA = a.status?.type?.state;
+          const statusB = b.status?.type?.state;
+          const getStatusPriority = (status) => {
+            switch (status) {
+              case 'in': return 1; // Live games first
+              case 'pre': return 2; // Upcoming games second
+              case 'post': return 3; // Finished games last
+              default: return 4; // Unknown status last
+            }
+          };
+
+          const pA = getStatusPriority(statusA);
+          const pB = getStatusPriority(statusB);
+          if (pA !== pB) return pA - pB;
+
+          // Same status and same day - order by scheduled start time
+          if (dateA !== dateB) return dateA - dateB;
+
+          // Fall back to original index to ensure stable ordering
+          return x.idx - y.idx;
+        })
+        .map(x => x.g);
 
       // Create hash for change detection
       const currentHash = JSON.stringify(sortedGames.map(g => ({

@@ -490,9 +490,11 @@ const ConstructorDetailsScreen = ({ route }) => {
                   // Try embedded result fields first
                   let totalTime = null;
                   let laps = null;
+                  let behindLaps = null;
                   if (driver.result) {
                     if (driver.result.time) totalTime = driver.result.time.displayValue || driver.result.time.text || (driver.result.time.value ? String(driver.result.time.value) : null);
                     if (driver.result.laps != null) laps = driver.result.laps;
+                    if (driver.result.behindLaps != null) behindLaps = driver.result.behindLaps;
                   }
 
                   // Try competitor statistics array
@@ -502,6 +504,7 @@ const ConstructorDetailsScreen = ({ route }) => {
                       const val = s.value ?? s.displayValue ?? s.text ?? s.rank ?? null;
                       if (!totalTime && key === 'totaltime') totalTime = val;
                       if (!laps && key === 'lapscompleted') laps = val;
+                      if (!behindLaps && key === 'behindlaps') behindLaps = val;
                     }
                   }
 
@@ -514,6 +517,7 @@ const ConstructorDetailsScreen = ({ route }) => {
                         const val = s.value ?? s.displayValue ?? s.text ?? s.rank ?? null;
                         if (!totalTime && key === 'totaltime') totalTime = val;
                         if (!laps && key === 'lapscompleted') laps = val;
+                        if (!behindLaps && key === 'behindlaps') behindLaps = val;
                       }
                     }
                   }
@@ -529,7 +533,7 @@ const ConstructorDetailsScreen = ({ route }) => {
                         const statsJson = await statsResp.json();
                         console.log(`Fetched competitor stats for ${driverName}:`, statsJson);
                         // parse statsJson categories if present
-                        const parsed = { totalTime: null, laps: null };
+                        const parsed = { totalTime: null, laps: null, behindLaps: null };
                         const splits = statsJson?.splits;
                         if (splits && Array.isArray(splits.categories)) {
                           for (const cat of splits.categories) {
@@ -539,19 +543,23 @@ const ConstructorDetailsScreen = ({ route }) => {
                               const val = s.displayValue ?? s.value ?? s.text ?? s.rank ?? null;
                               if (!parsed.laps && key === 'lapscompleted') parsed.laps = val;
                               if (!parsed.totalTime && key === 'totaltime') parsed.totalTime = val;
+                              if (!parsed.behindLaps && key === 'behindlaps') parsed.behindLaps = val;
                               // Check abbreviations too
                               const ab = (s.abbreviation || '').toString().toLowerCase();
                               if (!parsed.totalTime && ab === 'totaltime') parsed.totalTime = val;
                               if (!parsed.laps && ab === 'lapscompleted') parsed.laps = val;
+                              if (!parsed.behindLaps && ab === 'behindlaps') parsed.behindLaps = val;
                             }
                           }
                         }
                         if (!totalTime && parsed.totalTime) totalTime = parsed.totalTime;
                         if (!laps && parsed.laps) laps = parsed.laps;
+                        if (!behindLaps && parsed.behindLaps) behindLaps = parsed.behindLaps;
                         // fallback: direct fields
                         if (!totalTime && statsJson?.totalTime) totalTime = statsJson.totalTime.displayValue ?? statsJson.totalTime;
                         if (!laps && statsJson?.lapsCompleted) laps = statsJson.lapsCompleted.displayValue ?? statsJson.lapsCompleted;
-                        
+                        if (!behindLaps && statsJson?.behindLaps) behindLaps = statsJson.behindLaps.displayValue ?? statsJson.behindLaps;
+
                         console.log(`Parsed stats for ${driverName}: time=${totalTime}, laps=${laps}`);
                       }
                     } catch (e) {
@@ -564,7 +572,7 @@ const ConstructorDetailsScreen = ({ route }) => {
 
                   // If race has completed and no totalTime, mark as DNF
                   if (isCompleted && (!totalTime || totalTime === '--:--:---')) {
-                    totalTime = 'DNF';
+                    totalTime = `+${behindLaps} Laps`;
                   }
 
                   if (laps == null) laps = '0';
@@ -659,12 +667,21 @@ const ConstructorDetailsScreen = ({ route }) => {
                 const eventLogData = await eventLogResponse.json();
 
                 if (eventLogData.events?.items?.length > 0) {
-                  const firstEvent = eventLogData.events.items[0];
-                  if (firstEvent.team) {
-                    driverTeam = firstEvent.team.displayName || firstEvent.team.name || driverTeam;
-                  } else if (firstEvent.competitor && firstEvent.competitor.$ref) {
+                  const items = eventLogData.events.items;
+                    let lastEvent = null;
+
+                    for (let i = items.length - 1; i >= 0; i--) {
+                      if (items[i].played === true) {
+                        lastEvent = items[i];
+                        break;
+                      }
+                    }
+                    
+                  if (lastEvent.team) {
+                    driverTeam = lastEvent.team.displayName || lastEvent.team.name || driverTeam;
+                  } else if (lastEvent.competitor && lastEvent.competitor.$ref) {
                     // Try competitor ref to get vehicle/manufacturer
-                    const compUrl = normalizeUrl(firstEvent.competitor.$ref);
+                    const compUrl = normalizeUrl(lastEvent.competitor.$ref);
                     try {
                       const compResp = await fetch(compUrl);
                       const compData = await compResp.json();
@@ -871,7 +888,16 @@ const ConstructorDetailsScreen = ({ route }) => {
             const borderWidth = item.isInProgress ? 2 : 1;
             
             return (
-              <View style={[styles.raceLogItem, { backgroundColor: theme.surface, borderColor, borderWidth }]}>
+              <TouchableOpacity 
+                style={[styles.raceLogItem, { backgroundColor: theme.surface, borderColor, borderWidth }]}
+                onPress={() => navigation.navigate('F1RaceDetails', { 
+                  raceId: item.id,
+                  eventId: item.id,
+                  raceName: item.name,
+                  raceDate: item.date,
+                  sport: 'f1'
+                })}
+              >
                 {/* NFL-style header stripe with event name */}
                 <View style={[styles.cardHeader, { backgroundColor: theme.surfaceSecondary }]}>
                   <Text allowFontScaling={false} style={[styles.cardHeaderText, { color: theme.text }]} numberOfLines={1}>
@@ -982,7 +1008,7 @@ const ConstructorDetailsScreen = ({ route }) => {
                     {item.status} - {item.competitionType}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           }}
           showsVerticalScrollIndicator={false}

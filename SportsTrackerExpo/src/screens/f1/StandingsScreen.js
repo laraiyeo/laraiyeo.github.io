@@ -105,10 +105,18 @@ const StandingsScreen = ({ route }) => {
                   const eventLogData = await eventLogResponse.json();
                   
                   if (eventLogData.events?.items?.length > 0) {
-                    const firstEvent = eventLogData.events.items[0];
-                    
-                    if (firstEvent.competitor?.$ref) {
-                      const competitorResponse = await fetch(convertToHttps(firstEvent.competitor.$ref));
+                    const items = eventLogData.events.items;
+                    let lastEvent = null;
+
+                    for (let i = items.length - 1; i >= 0; i--) {
+                      if (items[i].played === true) {
+                        lastEvent = items[i];
+                        break;
+                      }
+                    }
+
+                    if (lastEvent.competitor?.$ref) {
+                      const competitorResponse = await fetch(convertToHttps(lastEvent.competitor.$ref));
                       const competitorData = await competitorResponse.json();
                       
                       if (competitorData.vehicle?.manufacturer) {
