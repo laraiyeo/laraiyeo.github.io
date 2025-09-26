@@ -10,8 +10,10 @@ import {
   Image,
   TouchableOpacity,
   Modal,
-  Animated
+  Animated,
+  Dimensions
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { NFLService } from '../../services/NFLService';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
@@ -106,7 +108,360 @@ const GameDetailsScreen = ({ route }) => {
   const [awayRosterData, setAwayRosterData] = useState(null);
   const [homeRosterData, setHomeRosterData] = useState(null);
   const [loadingRoster, setLoadingRoster] = useState(false);
+  
+  // Stream-related state variables
+  const [streamModalVisible, setStreamModalVisible] = useState(false);
+  const [currentStreamType, setCurrentStreamType] = useState('alpha');
+  const [availableStreams, setAvailableStreams] = useState({});
+  const [streamUrl, setStreamUrl] = useState('');
+  const [isStreamLoading, setIsStreamLoading] = useState(true);
   const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
+
+  // Stream API functions (adapted from MLB)
+  const STREAM_API_BASE = 'https://streamed.pk/api';
+  let liveMatchesCache = null;
+  let cacheTimestamp = 0;
+  const CACHE_DURATION = 30000; // 30 seconds cache
+
+  const fetchLiveMatches = async () => {
+    try {
+      const now = Date.now();
+      if (liveMatchesCache && (now - cacheTimestamp) < CACHE_DURATION) {
+        return liveMatchesCache;
+      }
+
+      const response = await fetch(`${STREAM_API_BASE}/matches/live`);
+      if (!response.ok) {
+        throw new Error(`API responded with status: ${response.status}`);
+      }
+      
+      const allMatches = await response.json();
+      console.log(`Found ${allMatches.length} total live matches`);
+
+      // Filter matches by american football / nfl
+      const matches = allMatches.filter(match => {
+        const matchSport = match.sport || match.category;
+        return matchSport === 'american-football' || matchSport === 'nfl' || 
+               (match.title && (match.title.toLowerCase().includes('nfl') || 
+                               match.title.toLowerCase().includes('football')));
+      });
+      console.log(`Filtered to ${matches.length} NFL matches`);
+      
+      liveMatchesCache = matches;
+      cacheTimestamp = now;
+      
+      return matches;
+    } catch (error) {
+      console.error('Error fetching live matches:', error);
+      return [];
+    }
+  };
+
+  const fetchStreamsForSource = async (source, sourceId) => {
+    try {
+      const response = await fetch(`${STREAM_API_BASE}/stream/${source}/${sourceId}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch streams: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error(`Error fetching streams for ${source}:`, error);
+      return [];
+    }
+  };
+
+  // Team name normalization for NFL
+  const normalizeNFLTeamName = (teamName) => {
+    if (!teamName) return '';
+    
+    // NFL-specific team name mappings and normalizations
+    const nflTeamMappings = {
+      'New York Giants': 'new-york-giants',
+      'New York Jets': 'new-york-jets',
+      'Los Angeles Rams': 'los-angeles-rams',
+      'Los Angeles Chargers': 'los-angeles-chargers',
+      'Las Vegas Raiders': 'las-vegas-raiders',
+      'San Francisco 49ers': 'san-francisco-49ers',
+      'Tampa Bay Buccaneers': 'tampa-bay-buccaneers',
+      'Green Bay Packers': 'green-bay-packers',
+      'New England Patriots': 'new-england-patriots',
+      'Kansas City Chiefs': 'kansas-city-chiefs'
+    };
+
+    // Check for direct mapping first
+    if (nflTeamMappings[teamName]) {
+      return nflTeamMappings[teamName];
+    }
+    
+    return teamName.toLowerCase()
+      .replace(/á/g, 'a').replace(/é/g, 'e').replace(/í/g, 'i').replace(/ó/g, 'o').replace(/ú/g, 'u')
+      .replace(/ü/g, 'u').replace(/ñ/g, 'n').replace(/ç/g, 'c').replace(/ß/g, 'ss')
+      .replace(/ë/g, 'e').replace(/ï/g, 'i').replace(/ö/g, 'o').replace(/ä/g, 'a')
+      .replace(/å/g, 'a').replace(/ø/g, 'o')
+      .replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+  };
+
+  const findNFLMatchStreams = async (homeTeamName, awayTeamName) => {
+    try {
+      console.log(`Finding NFL streams for: ${awayTeamName} vs ${homeTeamName}`);
+
+      const liveMatches = await fetchLiveMatches();
+      if (!liveMatches || !Array.isArray(liveMatches) || liveMatches.length === 0) {
+        console.log('No live NFL matches data available');
+        return {};
+      }
+
+      // Try to find our match
+      const homeNormalized = normalizeNFLTeamName(homeTeamName).toLowerCase();
+      const awayNormalized = normalizeNFLTeamName(awayTeamName).toLowerCase();
+
+      console.log(`Normalized NFL team names: {homeNormalized: '${homeNormalized}', awayNormalized: '${awayNormalized}'}`);
+
+      let bestMatch = null;
+      let bestScore = 0;
+
+      // Process matches to find the best NFL game match
+      for (let i = 0; i < Math.min(liveMatches.length, 100); i++) {
+        const match = liveMatches[i];
+
+        if (!match.sources || match.sources.length === 0) continue;
+
+        const matchTitle = match.title.toLowerCase();
+        let totalScore = 0;
+
+        // NFL-specific matching strategies
+        const strategies = [
+          // Strategy 1: Direct team name matching in title
+          () => {
+            let score = 0;
+            const titleWords = matchTitle.split(/[\s\-]+/);
+
+            // Check for full team name matches
+            if (matchTitle.includes(homeNormalized) && matchTitle.includes(awayNormalized)) {
+              score += 1.0;
+            } else {
+              // Check for partial matches with NFL team parts
+              const homeParts = homeNormalized.split('-').filter(word => word.length > 2);
+              const awayParts = awayNormalized.split('-').filter(word => word.length > 2);
+
+              let homeMatches = 0;
+              let awayMatches = 0;
+
+              homeParts.forEach(part => {
+                if (titleWords.some(word => word.includes(part) || part.includes(word))) homeMatches++;
+              });
+              awayParts.forEach(part => {
+                if (titleWords.some(word => word.includes(part) || part.includes(word))) awayMatches++;
+              });
+
+              if (homeMatches >= 1 && awayMatches >= 1) {
+                score += 0.8;
+              }
+            }
+
+            return score;
+          },
+          // Strategy 2: Check team objects if available
+          () => {
+            let score = 0;
+            if (match.teams) {
+              const homeTeamMatch = match.teams.home?.name?.toLowerCase();
+              const awayTeamMatch = match.teams.away?.name?.toLowerCase();
+
+              if (homeTeamMatch && awayTeamMatch) {
+                if (homeTeamMatch.includes(homeNormalized.split('-')[0]) && 
+                    awayTeamMatch.includes(awayNormalized.split('-')[0])) {
+                  score += 0.9;
+                }
+              }
+            }
+            return score;
+          }
+        ];
+
+        // Apply all strategies and sum scores
+        strategies.forEach(strategy => {
+          totalScore += strategy();
+        });
+
+        console.log(`NFL Match "${match.title.substring(0, 50)}..." score: ${totalScore.toFixed(2)}`);
+
+        if (totalScore > bestScore) {
+          bestScore = totalScore;
+          bestMatch = match;
+
+          // Early exit if we find a very good match
+          if (bestScore >= 1.0) {
+            console.log(`Found excellent NFL match with score ${bestScore}, stopping search early`);
+            break;
+          }
+        }
+      }
+
+      if (!bestMatch || bestScore < 0.3) {
+        console.log(`No good matching NFL live match found (best score: ${bestScore.toFixed(2)})`);
+        return {};
+      }
+
+      console.log(`Found matching NFL match: ${bestMatch.title} (score: ${bestScore.toFixed(2)})`);
+
+      // Collect only the first stream from each source (like soccer does)
+      const allStreams = {};
+      for (const source of bestMatch.sources) {
+        try {
+          const sourceStreams = await fetchStreamsForSource(source.source, source.id);
+          
+          if (sourceStreams && sourceStreams.length > 0) {
+            // Only use the first stream from each source type
+            const firstStream = sourceStreams[0];
+            const sourceKey = source.source; // Use clean source name as key (admin, alpha, bravo, etc.)
+            allStreams[sourceKey] = {
+              url: firstStream.embedUrl || firstStream.url,
+              embedUrl: firstStream.embedUrl || firstStream.url,
+              source: source.source,
+              title: `${source.source.charAt(0).toUpperCase() + source.source.slice(1)} Stream`
+            };
+            console.log(`Added NFL stream for ${source.source}:`, allStreams[sourceKey]);
+          }
+        } catch (error) {
+          console.error(`Error fetching NFL streams for ${source.source}:`, error);
+        }
+      }
+
+      console.log(`Final NFL streams found:`, allStreams);
+      return allStreams;
+    } catch (error) {
+      console.error('Error in findNFLMatchStreams:', error);
+      return {};
+    }
+  };
+
+  const generateNFLStreamUrl = (awayTeamName, homeTeamName, streamType = 'alpha') => {
+    const normalizedAway = normalizeNFLTeamName(awayTeamName);
+    const normalizedHome = normalizeNFLTeamName(homeTeamName);
+    
+    const streamUrls = {
+      alpha: `https://weakstreams.com/nfl-live-streams/${normalizedAway}-vs-${normalizedHome}-live-stream`,
+      bravo: `https://sportsurge.club/nfl/${normalizedAway}-vs-${normalizedHome}`,
+      charlie: `https://sportshd.me/nfl/${normalizedAway}-${normalizedHome}`
+    };
+    
+    return streamUrls[streamType] || streamUrls.alpha;
+  };
+
+  // Stream modal functions
+  const openStreamModal = async () => {
+    try {
+      console.log('openStreamModal: invoked');
+
+      // Try to locate the competition object in several common locations
+      const competition = gameDetails?.header?.competitions?.[0] || gameDetails?.competitions?.[0] || formattedGameData?.competitions?.[0];
+
+      if (!competition) {
+        console.warn('openStreamModal: competition not found on gameDetails');
+        Alert.alert('Error', 'Game information not available');
+        return;
+      }
+
+      // Competitor extraction with multiple fallbacks
+      const competitors = competition?.competitors || competition?.teams || [];
+
+      // Find home and away competitors by common keys
+      let homeComp = competitors.find(c => c.homeAway === 'home' || c.side === 'home' || c.isHome) || null;
+      let awayComp = competitors.find(c => c.homeAway === 'away' || c.side === 'away' || (!c.homeAway && !c.side && !c.isHome)) || null;
+
+      // If still missing, try alternate heuristics (by order)
+      if (!homeComp && competitors.length === 2) {
+        homeComp = competitors[0]?.homeAway === 'home' ? competitors[0] : competitors[1];
+      }
+      if (!awayComp && competitors.length === 2) {
+        awayComp = competitors[0] === homeComp ? competitors[1] : competitors[0];
+      }
+
+      const homeTeam = homeComp?.team || homeComp?.team?.team || homeComp?.home || homeComp?.teamData || null;
+      const awayTeam = awayComp?.team || awayComp?.team?.team || awayComp?.away || awayComp?.teamData || null;
+
+      console.log('openStreamModal: competition title =', competition?.title || competition?.name);
+      console.log('openStreamModal: homeComp =', homeComp);
+      console.log('openStreamModal: awayComp =', awayComp);
+      console.log('openStreamModal: resolved homeTeam =', homeTeam?.displayName || homeTeam?.name, 'resolved awayTeam =', awayTeam?.displayName || awayTeam?.name);
+
+      if (!awayTeam || !homeTeam) {
+        console.warn('openStreamModal: team info missing after fallbacks');
+        Alert.alert('Error', 'Team information not available');
+        return;
+      }
+
+      // Show modal immediately so user sees something while we fetch
+      setAvailableStreams({});
+      setStreamUrl('');
+      setCurrentStreamType('alpha');
+      setStreamModalVisible(true);
+      setIsStreamLoading(true);
+
+      // Fetch available streams
+      const homeName = homeTeam.displayName || homeTeam.name || homeTeam.fullName || homeTeam.abbreviation || '';
+      const awayName = awayTeam.displayName || awayTeam.name || awayTeam.fullName || awayTeam.abbreviation || '';
+
+      const streams = await findNFLMatchStreams(homeName, awayName);
+      console.log('openStreamModal: streams result =', streams);
+      setAvailableStreams(streams || {});
+
+      // Generate initial stream URL - use first available stream
+      let initialUrl = '';
+      let initialStreamType = '';
+
+      const streamKeys = Object.keys(streams || {});
+      if (streamKeys.length > 0) {
+        // Prioritize certain stream types if available
+        const preferredOrder = ['admin', 'alpha', 'bravo', 'charlie', 'delta'];
+        initialStreamType = preferredOrder.find(type => streamKeys.includes(type)) || streamKeys[0];
+
+        const streamData = streams[initialStreamType];
+        initialUrl = streamData?.embedUrl || streamData?.url || streamData;
+        setCurrentStreamType(initialStreamType);
+      } else {
+        // Fallback to manual URL construction
+        initialStreamType = 'alpha';
+        initialUrl = generateNFLStreamUrl(awayName, homeName, initialStreamType);
+        setCurrentStreamType(initialStreamType);
+      }
+
+      console.log('openStreamModal: initialStreamType =', initialStreamType, 'initialUrl =', initialUrl);
+      setStreamUrl(initialUrl);
+      setIsStreamLoading(false);
+    } catch (err) {
+      console.error('openStreamModal: caught error', err);
+      setIsStreamLoading(false);
+      Alert.alert('Error', err?.message || 'Failed to open stream');
+    }
+  };
+
+  const switchStream = (streamType) => {
+    setCurrentStreamType(streamType);
+    setIsStreamLoading(true);
+    
+    let newUrl = '';
+    if (availableStreams[streamType]) {
+      const streamData = availableStreams[streamType];
+      newUrl = streamData.embedUrl || streamData.url || streamData;
+    } else {
+      // Fallback to manual URL construction
+      const awayTeam = gameDetails?.competitions?.[0]?.competitors?.find(comp => !comp.homeAway || comp.homeAway === 'away')?.team;
+      const homeTeam = gameDetails?.competitions?.[0]?.competitors?.find(comp => comp.homeAway === 'home')?.team;
+      newUrl = generateNFLStreamUrl(awayTeam?.displayName || awayTeam?.name, homeTeam?.displayName || homeTeam?.name, streamType);
+    }
+    
+    setStreamUrl(newUrl);
+    setTimeout(() => setIsStreamLoading(false), 1000);
+  };
+
+  const closeStreamModal = () => {
+    setStreamModalVisible(false);
+    setStreamUrl('');
+    setCurrentStreamType('alpha');
+    setAvailableStreams({});
+  };
 
   // Helper function to get NFL team abbreviation from ESPN team data
   const getNFLTeamAbbreviation = (espnTeam) => {
@@ -2450,6 +2805,26 @@ const GameDetailsScreen = ({ route }) => {
         )}
       </View>
 
+      {/* Stream Button - Show for live games */}
+      {(() => {
+        const isGameLive = status?.type?.description === 'In Progress' || 
+                          status?.type?.state === 'in' ||
+                          (status?.period && status?.period > 0 && !status?.type?.completed);
+        
+        if (!isGameLive) return null;
+        
+        return (
+          <TouchableOpacity 
+            style={[styles.streamButton, { backgroundColor: colors.primary }]}
+            onPress={openStreamModal}
+          >
+            <Text allowFontScaling={false} style={[styles.streamButtonText, { color: '#fff' }]}>
+              📺 Watch Live Stream
+            </Text>
+          </TouchableOpacity>
+        );
+      })()}
+
       {/* Tab Navigation */}
       <View style={[styles.tabContainer, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         <TouchableOpacity 
@@ -2749,6 +3124,136 @@ const GameDetailsScreen = ({ route }) => {
                 </View>
               </>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Stream Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={streamModalVisible}
+        onRequestClose={closeStreamModal}
+      >
+        <View style={styles.streamModalOverlay}>
+          <View style={[styles.streamModalContainer, { backgroundColor: theme.surface }]}>
+            {/* Modal Header */}
+            <View style={[styles.streamModalHeader, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]}>
+              <Text allowFontScaling={false} style={[styles.streamModalTitle, { color: colors.primary }]}>Live Stream</Text>
+              <TouchableOpacity style={[styles.streamCloseButton, { backgroundColor: theme.surfaceSecondary }]} onPress={closeStreamModal}>
+                <Text allowFontScaling={false} style={[styles.streamCloseText, { color: colors.primary }]}>×</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Stream Buttons - Show all available stream types */}
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={[styles.streamButtonsContainer, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]}
+              contentContainerStyle={styles.streamButtonsContent}
+            >
+              {Object.keys(availableStreams).map((streamKey, index) => {
+                // Use the clean source name (admin, alpha, bravo, etc.)
+                const sourceName = streamKey;
+                const capitalizedName = sourceName.charAt(0).toUpperCase() + sourceName.slice(1);
+                
+                return (
+                  <TouchableOpacity
+                    key={streamKey}
+                    style={[
+                      styles.streamTypeButton,
+                      { backgroundColor: currentStreamType === streamKey ? colors.primary : theme.surfaceSecondary },
+                      { borderColor: theme.border }
+                    ]}
+                    onPress={() => switchStream(streamKey)}
+                  >
+                    <Text allowFontScaling={false} style={[
+                      styles.streamTypeButtonText,
+                      { color: currentStreamType === streamKey ? '#fff' : colors.primary }
+                    ]}>
+                      {capitalizedName}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+              
+              {/* Show message if no streams are available */}
+              {Object.keys(availableStreams).length === 0 && (
+                <View style={styles.noStreamsMessage}>
+                  <Text allowFontScaling={false} style={[styles.noStreamsText, { color: theme.textSecondary }]}>
+                    No live streams found for this game
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* WebView Container */}
+            <View style={styles.webViewContainer}>
+              {isStreamLoading && (
+                <View style={styles.streamLoadingOverlay}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text allowFontScaling={false} style={[styles.streamLoadingText, { color: '#fff' }]}>Loading stream...</Text>
+                </View>
+              )}
+              {streamUrl ? (
+                <WebView
+                  source={{ uri: streamUrl }}
+                  style={styles.webView}
+                  onLoadStart={() => setIsStreamLoading(true)}
+                  onLoadEnd={() => setIsStreamLoading(false)}
+                  onError={() => setIsStreamLoading(false)}
+                  javaScriptEnabled={true}
+                  domStorageEnabled={true}
+                  allowsInlineMediaPlaybook={true}
+                  mediaPlaybackRequiresUserAction={false}
+                  userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                  // Block popup navigation within the WebView
+                  onShouldStartLoadWithRequest={(request) => {
+                    console.log('WebView navigation request:', request.url);
+                    
+                    // Allow the initial stream URL to load
+                    if (request.url === streamUrl) {
+                      return true;
+                    }
+                    
+                    // Block navigation to obvious popup/ad URLs
+                    const popupKeywords = ['popup', 'ad', 'ads', 'click', 'redirect', 'promo'];
+                    const hasPopupKeywords = popupKeywords.some(keyword => 
+                      request.url.toLowerCase().includes(keyword)
+                    );
+                    
+                    // Block external navigation attempts (popups trying to navigate within WebView)
+                    const currentDomain = new URL(streamUrl).hostname;
+                    let requestDomain = '';
+                    try {
+                      requestDomain = new URL(request.url).hostname;
+                    } catch (e) {
+                      console.log('Invalid URL:', request.url);
+                      return false;
+                    }
+                    
+                    // Allow same-domain navigation but block cross-domain (likely popups)
+                    if (requestDomain !== currentDomain || hasPopupKeywords) {
+                      console.log('Blocked popup/cross-domain navigation:', request.url);
+                      return false;
+                    }
+                    
+                    return true;
+                  }}
+                  // Handle when WebView tries to open a new window (popup)
+                  onOpenWindow={(syntheticEvent) => {
+                    const { nativeEvent } = syntheticEvent;
+                    console.log('Blocked popup window:', nativeEvent.targetUrl);
+                    // Don't open the popup - just log it
+                    return false;
+                  }}
+                />
+              ) : (
+                <View style={styles.noStreamContainer}>
+                  <Text allowFontScaling={false} style={styles.noStreamText}>Select a stream to watch</Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
       </Modal>
@@ -4232,6 +4737,130 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     marginTop: 2,
+  },
+  // Stream styles
+  streamButton: {
+    marginHorizontal: 15,
+    marginVertical: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  streamButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  streamModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  streamModalContainer: {
+    width: '95%',
+    height: '85%',
+    borderRadius: 12,
+    maxHeight: 600,
+    maxWidth: 800,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  streamModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+  },
+  streamModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  streamCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  streamCloseText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    lineHeight: 24,
+  },
+  streamButtonsContainer: {
+    borderBottomWidth: 1,
+    paddingVertical: 10,
+    maxHeight: 60,
+  },
+  streamButtonsContent: {
+    paddingHorizontal: 15,
+    alignItems: 'center',
+  },
+  streamTypeButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginHorizontal: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  streamTypeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  webViewContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  webView: {
+    flex: 1,
+  },
+  streamLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  streamLoadingText: {
+    color: '#fff',
+    marginTop: 10,
+    fontSize: 16,
+  },
+  noStreamContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+  },
+  noStreamText: {
+    color: '#fff',
+    fontSize: 16,
+  },
+  noStreamsMessage: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  noStreamsText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
 });
 

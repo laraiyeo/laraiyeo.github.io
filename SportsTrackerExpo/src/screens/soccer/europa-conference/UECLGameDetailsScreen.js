@@ -4130,6 +4130,46 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                   onLoadEnd={() => setStreamLoading(false)}
                   onError={() => setStreamLoading(false)}
                   userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                  // Block popup navigation within the WebView
+                  onShouldStartLoadWithRequest={(request) => {
+                    console.log('UECL WebView navigation request:', request.url);
+                    
+                    // Allow the initial stream URL to load
+                    if (request.url === availableStreams[currentStreamType]) {
+                      return true;
+                    }
+                    
+                    // Block navigation to obvious popup/ad URLs
+                    const popupKeywords = ['popup', 'ad', 'ads', 'click', 'redirect', 'promo'];
+                    const hasPopupKeywords = popupKeywords.some(keyword => 
+                      request.url.toLowerCase().includes(keyword)
+                    );
+                    
+                    // Block external navigation attempts (popups trying to navigate within WebView)
+                    const currentDomain = new URL(availableStreams[currentStreamType]).hostname;
+                    let requestDomain = '';
+                    try {
+                      requestDomain = new URL(request.url).hostname;
+                    } catch (e) {
+                      console.log('Invalid URL:', request.url);
+                      return false;
+                    }
+                    
+                    // Allow same-domain navigation but block cross-domain (likely popups)
+                    if (requestDomain !== currentDomain || hasPopupKeywords) {
+                      console.log('Blocked UECL popup/cross-domain navigation:', request.url);
+                      return false;
+                    }
+                    
+                    return true;
+                  }}
+                  // Handle when WebView tries to open a new window (popup)
+                  onOpenWindow={(syntheticEvent) => {
+                    const { nativeEvent } = syntheticEvent;
+                    console.log('Blocked UECL popup window:', nativeEvent.targetUrl);
+                    // Don't open the popup - just log it
+                    return false;
+                  }}
                 />
               )}
             </View>

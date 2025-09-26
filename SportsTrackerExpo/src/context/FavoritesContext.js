@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchAllFavoriteTeamCurrentGames } from '../utils/TeamPageUtils';
+import { normalizeTeamIdForStorage, migrateFavoritesToESPNIds } from '../utils/TeamIdMapping';
 
 const FavoritesContext = createContext();
 
@@ -28,7 +29,7 @@ export const FavoritesProvider = ({ children }) => {
       if (storedFavorites) {
         // Normalize loaded favorites to ensure teamId is always a string and keep currentGame shape
         const parsed = JSON.parse(storedFavorites);
-        const normalized = parsed.map(fav => {
+        let normalized = parsed.map(fav => {
           try {
             // Support legacy shapes where the id was stored as `id` instead of `teamId`.
             const rawId = fav?.teamId ?? fav?.id ?? (fav?.team && (fav.team.teamId ?? fav.team.id));
@@ -39,9 +40,21 @@ export const FavoritesProvider = ({ children }) => {
             return fav;
           }
         });
+        
+        // Migrate MLB IDs to ESPN IDs for consistent storage
+        const migrated = migrateFavoritesToESPNIds(normalized);
+        const needsMigration = JSON.stringify(normalized) !== JSON.stringify(migrated);
+        
+        if (needsMigration) {
+          console.log('FavoritesContext: Migrating MLB team IDs to ESPN IDs for consistency');
+          console.log('FavoritesContext: Before migration:', normalized.filter(f => f.sport === 'mlb').map(f => `${f.teamName} (${f.teamId})`));
+          console.log('FavoritesContext: After migration:', migrated.filter(f => f.sport === 'mlb').map(f => `${f.teamName} (${f.teamId})`));
+          normalized = migrated;
+        }
+        
         // Persist normalization back to storage so future loads are consistent
         await AsyncStorage.setItem('favorites', JSON.stringify(normalized));
-        console.log('FavoritesContext: normalized and loaded favorites', normalized.map(f => f.teamId));
+        console.log('FavoritesContext: normalized and loaded favorites', normalized.map(f => `${f.teamId} (${f.sport})`));
         setFavorites(normalized);
         
         // AUTOMATICALLY POPULATE MISSING CURRENT GAMES ON APP LOAD
@@ -100,15 +113,17 @@ export const FavoritesProvider = ({ children }) => {
 
   const addFavorite = async (team) => {
     const id = resolveId(team) || null;
-    const normalizedTeam = { ...team, teamId: id };
+    // Normalize team ID for consistent storage (convert MLB IDs to ESPN IDs)
+    const normalizedId = normalizeTeamIdForStorage(id, team.sport);
+    const normalizedTeam = { ...team, teamId: normalizedId };
 
     // Prevent adding duplicates with the same teamId
     // Use functional updater to avoid races with concurrent updates
     let result = null;
     setFavorites(prev => {
-      const exists = id && prev.some(fav => String(fav.teamId) === id);
+      const exists = normalizedId && prev.some(fav => String(fav.teamId) === normalizedId);
       if (exists) {
-        console.log(`FavoritesContext: addFavorite skipped duplicate teamId=${id}`);
+        console.log(`FavoritesContext: addFavorite skipped duplicate teamId=${normalizedId} (original: ${id})`);
         result = prev;
         return prev;
       }
@@ -130,6 +145,9 @@ export const FavoritesProvider = ({ children }) => {
       console.log('FavoritesContext: removeFavorite called with empty id, skipping');
       return favorites;
     }
+    
+    // Note: We search by the provided ID since we don't know the sport context here
+    // The stored favorites should already be normalized to ESPN IDs
 
     // Use functional updater to avoid races; remove only the first matching occurrence
     let newFavorites = null;
@@ -156,15 +174,17 @@ export const FavoritesProvider = ({ children }) => {
 
   const toggleFavorite = async (team, currentGameData = null) => {
     const id = resolveId(team) || null;
-    const isAlreadyFavorite = favorites.some(fav => String(fav.teamId) === id);
+    // Normalize the ID for comparison with stored favorites
+    const normalizedId = normalizeTeamIdForStorage(id, team.sport);
+    const isAlreadyFavorite = favorites.some(fav => String(fav.teamId) === normalizedId);
 
     if (isAlreadyFavorite) {
-      return await removeFavorite(id);
+      return await removeFavorite(normalizedId);
     } else {
       // Add current game data if provided
       const teamWithGame = currentGameData ? {
         ...team,
-        teamId: id,
+        teamId: normalizedId,
         currentGame: {
           eventId: currentGameData.eventId,
           eventLink: currentGameData.eventLink,
@@ -172,13 +192,13 @@ export const FavoritesProvider = ({ children }) => {
           competition: currentGameData.competition,
           updatedAt: new Date().toISOString()
         }
-      } : { ...team, teamId: id };
+      } : { ...team, teamId: normalizedId };
 
       const added = await addFavorite(teamWithGame);
       // If we added a favorite but no currentGame was provided, try to resolve one in the background
       if (!teamWithGame.currentGame) {
         // Fire-and-forget: resolve and persist if a UEFA match exists today
-        resolveCurrentGameForTeam(id).catch(err => console.log('resolveCurrentGameForTeam failed:', err));
+        resolveCurrentGameForTeam(normalizedId).catch(err => console.log('resolveCurrentGameForTeam failed:', err));
       }
       return added;
     }
@@ -362,9 +382,22 @@ export const FavoritesProvider = ({ children }) => {
     }
   };
 
-  const isFavorite = (teamId) => {
+  const isFavorite = (teamId, sport = null) => {
     const id = resolveId(teamId) || null;
-    return favorites.some(fav => String(fav.teamId) === id);
+    if (!id) return false;
+    
+    // If sport is provided, normalize the ID for comparison
+    if (sport) {
+      const normalizedId = normalizeTeamIdForStorage(id, sport);
+      return favorites.some(fav => String(fav.teamId) === normalizedId);
+    }
+    
+    // If no sport provided, check both the original ID and potential normalization
+    // This handles cases where we don't have sport context but need to check favorites
+    return favorites.some(fav => {
+      return String(fav.teamId) === id || 
+             (fav.sport === 'mlb' && normalizeTeamIdForStorage(id, 'mlb') === fav.teamId);
+    });
   };
 
   const getFavoriteTeams = () => {

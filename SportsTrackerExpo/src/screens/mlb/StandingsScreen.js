@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, Touchable
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import { convertMLBIdToESPNId, ESPN_ABBREVIATION_TO_MLB_ID, ESPN_ABBREVIATION_TO_ESPN_ID } from '../../utils/TeamIdMapping';
 
 const StandingsScreen = ({ route }) => {
   const { sport } = route.params;
@@ -56,47 +57,25 @@ const StandingsScreen = ({ route }) => {
     }
   };
 
-  const getMLBTeamId = (espnTeam) => {
-    // ESPN team abbreviations to MLB team IDs mapping
-    const teamMapping = {
-      'LAA': '108', 'HOU': '117', 'ATH': '133', 'TOR': '141', 'ATL': '144',
-      'MIL': '158', 'STL': '138', 'CHC': '112', 'ARI': '109', 'LAD': '119',
-      'SF': '137', 'CLE': '114', 'SEA': '136', 'MIA': '146', 'NYM': '121',
-      'WSH': '120', 'BAL': '110', 'SD': '135', 'PHI': '143', 'PIT': '134',
-      'TEX': '140', 'TB': '139', 'BOS': '111', 'CIN': '113', 'COL': '115',
-      'KC': '118', 'DET': '116', 'MIN': '142', 'CWS': '145', 'NYY': '147',
-      // Alternative abbreviations that ESPN might use
-      'A': '133',   // Sometimes Athletics use just 'A'
-      'AS': '133'   // Alternative Athletics abbreviation
-    };
-
-    // ESPN team ID to MLB team ID mapping (as backup)
-    const espnIdMapping = {
-      '11': '133',  // Athletics ESPN ID 11 -> MLB ID 133
-      '12': '117',  // Astros
-      '13': '110',  // Orioles
-      '4' : '145',   // Angels
-      // Add more as needed
-    };
-    
+  const getESPNTeamId = (espnTeam) => {
     console.log('Team abbreviation:', espnTeam.abbreviation, 'ESPN ID:', espnTeam.id);
     
-    // First try abbreviation mapping
-    let mlbId = teamMapping[espnTeam.abbreviation];
+    // First try abbreviation mapping to get ESPN ID directly
+    let espnId = ESPN_ABBREVIATION_TO_ESPN_ID[espnTeam.abbreviation];
     
-    // If abbreviation mapping fails, try ESPN ID mapping
-    if (!mlbId) {
-      mlbId = espnIdMapping[espnTeam.id?.toString()];
-      console.log('Using ESPN ID mapping for team ID:', espnTeam.id, '-> MLB ID:', mlbId);
+    // If abbreviation mapping fails, use the ESPN ID from the API response
+    if (!espnId) {
+      espnId = espnTeam.id?.toString();
+      console.log('Using direct ESPN ID from API:', espnId);
     }
     
-    if (!mlbId) {
-      console.warn('No MLB ID mapping found for team:', espnTeam.abbreviation, 'ESPN ID:', espnTeam.id, 'Using ESPN ID as fallback');
+    if (!espnId) {
+      console.warn('No ESPN ID found for team:', espnTeam.abbreviation, 'ESPN API ID:', espnTeam.id);
       return espnTeam.id;
     }
     
-    console.log('Final MLB ID:', mlbId);
-    return mlbId;
+    console.log('Final ESPN ID for favorites:', espnId);
+    return espnId;
   };
 
   const getTeamLogo = (teamAbbreviation) => {
@@ -141,17 +120,17 @@ const StandingsScreen = ({ route }) => {
                       const pointsFor = entry.stats.find(stat => stat.name === "pointsFor")?.displayValue || "0";
                       const pointsAgainst = entry.stats.find(stat => stat.name === "pointsAgainst")?.displayValue || "0";
                       console.log('Team entry:', JSON.stringify(entry.team, null, 2)); // Debug log
-                      const mlbTeamId = getMLBTeamId(entry.team);
-                      const clinchCode = entry.team.clincher;
-                      const clinchColor = clinchCode === 'x' ? theme.success : clinchCode === 'z' ? theme.warning : clinchCode === 'e' ? theme.error : theme.surface;
-                      
+                      const espnTeamId = getESPNTeamId(entry.team);
+                      const clinchCode = entry.team?.clincher ? entry.team.clincher.toUpperCase() : null;
+                      const clinchColor = clinchCode === 'X' ? theme.success : clinchCode === 'Z' ? theme.warning : clinchCode === 'E' ? theme.error : theme.surface;
+
                       return (
                         <TouchableOpacity 
                           key={teamIndex} 
                           style={[styles.tableRow, { backgroundColor: theme.surface, borderBottomColor: theme.border, borderLeftColor: clinchColor, borderLeftWidth: clinchCode ? 4 : 0 }]}
                           onPress={() => {
-                            console.log('Navigating to team:', mlbTeamId, entry.team.abbreviation);
-                            navigation.navigate('TeamPage', { teamId: mlbTeamId, sport: 'mlb' });
+                            console.log('Navigating to team:', espnTeamId, entry.team.abbreviation);
+                            navigation.navigate('TeamPage', { teamId: espnTeamId, sport: 'mlb' });
                           }}
                         >
                           <View style={[styles.tableCell, styles.teamColumn]}>
@@ -163,11 +142,11 @@ const StandingsScreen = ({ route }) => {
                             <Text allowFontScaling={false} style={[
                               styles.teamName, 
                               { 
-                                color: isFavorite(mlbTeamId) ? colors.primary : theme.text 
+                                color: isFavorite(espnTeamId, 'mlb') ? colors.primary : theme.text 
                               }
                             ]} numberOfLines={1}>
                               <Text allowFontScaling={false} style={[styles.teamSeed, { color: colors.primary }]}>({entry.team.seed}) </Text> 
-                              {isFavorite(mlbTeamId) && '★ '}
+                              {isFavorite(espnTeamId, 'mlb') && '★ '}
                               {entry.team.shortDisplayName}
                             </Text>
                           </View>
@@ -192,15 +171,15 @@ const StandingsScreen = ({ route }) => {
           <View style={styles.legendItems}>
             <View style={styles.legendItem}>
               <View style={[styles.legendSwatch, { backgroundColor: theme.success }]} />
-              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>x - Clinched Division</Text>
+              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>X - Clinched Division</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendSwatch, { backgroundColor: theme.warning }]} />
-              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>z - Clinched Playoffs</Text>
+              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>Z - Clinched Playoffs</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendSwatch, { backgroundColor: theme.error }]} />
-              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>e - Eliminated</Text>
+              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>E - Eliminated</Text>
             </View>
           </View>
         </View>

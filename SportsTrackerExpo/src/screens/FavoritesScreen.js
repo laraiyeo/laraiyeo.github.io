@@ -8,6 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useFavorites } from '../context/FavoritesContext';
 import { ChampionsLeagueServiceEnhanced } from '../services/soccer/ChampionsLeagueServiceEnhanced';
 import { MLBService } from '../services/MLBService';
+import { getAPITeamId, convertMLBIdToESPNId, normalizeTeamIdForStorage } from '../utils/TeamIdMapping';
 import { NFLService } from '../services/NFLService';
 
 // Module-level helpers so any function in the file can use them reliably
@@ -2083,15 +2084,19 @@ const FavoritesScreen = ({ navigation }) => {
       console.log(`Fetching game directly from event link for ${teamName}:`, currentGameData.eventLink || currentGameData.eventId);
       console.log(`[DIRECT FETCH] Live game update for ${teamName} - bypassing poll gating`);
 
-      // Check if the current game is from today
+      // Check if the current game is from today (with wider range for favorited teams)
       const { todayStart, todayEnd } = getTodayDateRange();
       const gameDate = currentGameData.gameDate ? new Date(currentGameData.gameDate) : null;
       if (!gameDate) {
         console.log(`No valid gameDate for ${teamName} in currentGameData, skipping direct fetch`);
         return null;
       }
-      if (gameDate < todayStart || gameDate >= todayEnd) {
-        console.log(`[DATE FILTER] Game for ${teamName} excluded - gameDate: ${gameDate.toISOString()}, todayStart: ${todayStart.toISOString()}, todayEnd: ${todayEnd.toISOString()}`);
+      
+      // For favorited teams, expand the date range to include next day's games
+      const extendedTodayEnd = new Date(todayEnd.getTime() + 24 * 60 * 60 * 1000); // Add 24 hours
+      
+      if (gameDate < todayStart || gameDate >= extendedTodayEnd) {
+        console.log(`[DATE FILTER] Game for ${teamName} excluded - gameDate: ${gameDate.toISOString()}, todayStart: ${todayStart.toISOString()}, extendedTodayEnd: ${extendedTodayEnd.toISOString()}`);
         return null;
       }
       
@@ -3429,8 +3434,12 @@ const FavoritesScreen = ({ navigation }) => {
       
       console.log(`MLB API: Using date ${todayDateStr} for team ${teamName} (${team.teamId})`);
       
+      // Convert ESPN ID to MLB ID for API calls
+      const mlbApiTeamId = getAPITeamId(team.teamId, 'mlb');
+      console.log(`MLB API: Converting ESPN ID ${team.teamId} to MLB API ID ${mlbApiTeamId}`);
+      
       // Try to get today's MLB games for this team using the same format as team page
-      const mlbScheduleUrl = `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&startDate=${todayDateStr}&endDate=${todayDateStr}&teamId=${team.teamId}&hydrate=team,linescore,decisions`;
+      const mlbScheduleUrl = `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&startDate=${todayDateStr}&endDate=${todayDateStr}&teamId=${mlbApiTeamId}&hydrate=team,linescore,decisions`;
       console.log(`MLB API URL: ${mlbScheduleUrl}`);
       
       const mlbSchedule = await fetchJsonWithCache(mlbScheduleUrl);
@@ -4002,20 +4011,22 @@ const FavoritesScreen = ({ navigation }) => {
       return espnTeam?.team?.shortDisplayName || espnTeam?.shortDisplayName || 'MLB';
     };
 
-    // Helper function to get MLB team ID for favorites system (same as ScoreboardScreen)
+    // Helper function to get ESPN team ID for favorites system (using new mapping system)
     const getMLBTeamId = (espnTeam) => {
-      // ESPN team ID to MLB team ID mapping (same as in scoreboard)
-      const espnToMLBMapping = {
-        '108': '108', '117': '117', '133': '133', '141': '141', '144': '144',
-        '158': '158', '138': '138', '112': '112', '109': '109', '119': '119',
-        '137': '137', '114': '114', '136': '136', '146': '146', '121': '121',
-        '120': '120', '110': '110', '135': '135', '143': '143', '134': '134',
-        '140': '140', '139': '139', '111': '111', '113': '113', '115': '115',
-        '118': '118', '116': '116', '142': '142', '145': '145', '147': '147',
-        '11': '133',   // Sometimes Athletics use ESPN ID 11, map to 133
-      };
-
-      return espnToMLBMapping[espnTeam?.team?.id?.toString() || espnTeam?.id?.toString()] || espnTeam?.team?.id?.toString() || espnTeam?.id?.toString();
+      const rawTeamId = espnTeam?.team?.id || espnTeam?.id;
+      if (!rawTeamId) return null;
+      
+      const teamIdStr = String(rawTeamId);
+      
+      // First check if this is already an ESPN ID (most common case now)
+      // If it's an ESPN ID for MLB, return it as-is for favorites
+      if (convertMLBIdToESPNId(teamIdStr)) {
+        // This is an MLB ID, convert to ESPN ID for consistency
+        return convertMLBIdToESPNId(teamIdStr);
+      }
+      
+      // Otherwise, assume it's already an ESPN ID or unknown
+      return teamIdStr;
     };
 
     const gameStatus = getGameStatus(game);

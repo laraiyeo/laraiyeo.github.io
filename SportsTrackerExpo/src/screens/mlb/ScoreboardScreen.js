@@ -14,6 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { MLBService } from '../../services/MLBService';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import { convertMLBIdToESPNId } from '../../utils/TeamIdMapping';
 
 const MLBScoreboardScreen = ({ navigation }) => {
   const { theme, colors, getTeamLogoUrl } = useTheme();
@@ -424,20 +425,20 @@ const MLBScoreboardScreen = ({ navigation }) => {
     navigation.navigate('GameDetails', { gameId, sport: 'mlb' });
   };
 
-  const getMLBTeamId = (espnTeam) => {
-    // ESPN team ID to MLB team ID mapping (same as in standings)
-    const espnToMLBMapping = {
-      '108': '108', '117': '117', '133': '133', '141': '141', '144': '144',
-      '158': '158', '138': '138', '112': '112', '109': '109', '119': '119',
-      '137': '137', '114': '114', '136': '136', '146': '146', '121': '121',
-      '120': '120', '110': '110', '135': '135', '143': '143', '134': '134',
-      '140': '140', '139': '139', '111': '111', '113': '113', '115': '115',
-      '118': '118', '116': '116', '142': '142', '145': '145', '147': '147',
-      // Alternative mappings
-      '11': '133',   // Sometimes Athletics use ESPN ID 11
-    };
-
-    return espnToMLBMapping[espnTeam?.id?.toString()] || espnTeam?.id?.toString();
+  const getESPNTeamId = (espnTeam) => {
+    // Get the team ID from the API response
+    const rawTeamId = espnTeam?.id?.toString();
+    if (!rawTeamId) return null;
+    
+    // If this is a MLB ID (from MLB API), convert to ESPN ID for favorites consistency
+    const espnId = convertMLBIdToESPNId(rawTeamId);
+    if (espnId) {
+      console.log(`ScoreboardScreen: Converting MLB ID ${rawTeamId} -> ESPN ID ${espnId}`);
+      return espnId; // Successfully converted MLB ID to ESPN ID
+    }
+    
+    // Otherwise assume it's already an ESPN ID or unknown
+    return rawTeamId;
   };
 
   const getMLBTeamAbbreviation = (espnTeam) => {
@@ -597,10 +598,10 @@ const MLBScoreboardScreen = ({ navigation }) => {
               <Text allowFontScaling={false} style={[
                 getTeamNameStyle(item, true), 
                 { 
-                  color: isFavorite(getMLBTeamId(item.awayTeam)) ? colors.primary : getTeamNameColor(item, true) 
+                  color: isFavorite(getESPNTeamId(item.awayTeam), 'mlb') ? colors.primary : getTeamNameColor(item, true) 
                 }
               ]}>
-                {isFavorite(getMLBTeamId(item.awayTeam)) && '★ '}
+                {isFavorite(getESPNTeamId(item.awayTeam), 'mlb') && '★ '}
                 {item.awayTeam?.displayName || 'TBD'}
               </Text>
               <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.awayTeam?.record || ''}</Text>
@@ -621,10 +622,10 @@ const MLBScoreboardScreen = ({ navigation }) => {
               <Text allowFontScaling={false} style={[
                 getTeamNameStyle(item, false), 
                 { 
-                  color: isFavorite(getMLBTeamId(item.homeTeam)) ? colors.primary : getTeamNameColor(item, false) 
+                  color: isFavorite(getESPNTeamId(item.homeTeam), 'mlb') ? colors.primary : getTeamNameColor(item, false) 
                 }
               ]}>
-                {isFavorite(getMLBTeamId(item.homeTeam)) && '★ '}
+                {isFavorite(getESPNTeamId(item.homeTeam), 'mlb') && '★ '}
                 {item.homeTeam?.displayName || 'TBD'}
               </Text>
               <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.homeTeam?.record || ''}</Text>

@@ -1,6 +1,8 @@
 // Global utility functions extracted from team pages to fetch current games
 // These can be called directly without navigating to team pages
 
+import { getAPITeamId } from './TeamIdMapping';
+
 // Helper function to determine if we should fetch a finished game based on timing restrictions
 const shouldFetchFinishedGame = (gameDate, sport) => {
   const now = new Date();
@@ -40,7 +42,9 @@ const resolveReference = async (ref) => {
  */
 export const fetchMLBTeamCurrentGame = async (teamId, updateTeamCurrentGameFunc) => {
   try {
-    console.log(`[TEAM PAGE UTILS] Fetching MLB current game for team ${teamId}`);
+    // Convert ESPN ID to MLB ID for API calls
+    const mlbApiTeamId = getAPITeamId(teamId, 'mlb');
+    console.log(`[TEAM PAGE UTILS] Fetching MLB current game for team ${teamId} (API ID: ${mlbApiTeamId})`);
     
     // Use the same date range logic as FavoritesScreen (12am today -> 2am tomorrow)
     const getMLBDateRange = () => {
@@ -76,7 +80,7 @@ export const fetchMLBTeamCurrentGame = async (teamId, updateTeamCurrentGameFunc)
     
     // Fetch both today and tomorrow to cover the 12am->2am range
     const todayResponse = await fetch(
-      `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId=${teamId}&startDate=${today}&endDate=${tomorrow}&hydrate=team,linescore,decisions`
+      `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId=${mlbApiTeamId}&startDate=${today}&endDate=${tomorrow}&hydrate=team,linescore,decisions`
     );
     const todayData = await todayResponse.json();
 
@@ -142,9 +146,9 @@ export const fetchMLBTeamCurrentGame = async (teamId, updateTeamCurrentGameFunc)
       nextDay.setDate(nextDay.getDate() + 1);
       const nextDayStr = nextDay.toISOString().split('T')[0];
       
-      console.log(`[TEAM PAGE UTILS] Checking next few days for MLB team ${teamId}...`);
+      console.log(`[TEAM PAGE UTILS] Checking next few days for MLB team ${teamId} (API ID: ${mlbApiTeamId})...`);
       const futureResponse = await fetch(
-        `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId=${teamId}&startDate=${tomorrow}&endDate=${nextDayStr}&hydrate=team,linescore,decisions`
+        `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId=${mlbApiTeamId}&startDate=${tomorrow}&endDate=${nextDayStr}&hydrate=team,linescore,decisions`
       );
       const futureData = await futureResponse.json();
       

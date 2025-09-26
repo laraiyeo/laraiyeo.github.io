@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import { getAPITeamId, convertMLBIdToESPNId } from '../../utils/TeamIdMapping';
 
 // Keep a reference to the original console.log so important diagnostics remain visible
 const __orig_console_log = (typeof console !== 'undefined' && console.log) ? console.log.bind(console) : () => {};
@@ -36,6 +37,9 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   useEffect(() => {
     console.log('TeamPageScreen received - teamId:', teamId, 'sport:', sport);
+    // Convert ESPN ID to MLB ID for API calls
+    const mlbApiId = getAPITeamId(teamId, sport);
+    console.log('Using MLB API ID:', mlbApiId, 'for ESPN team ID:', teamId);
     fetchTeamData();
     
     // Cleanup interval on unmount
@@ -48,9 +52,11 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   const fetchTeamData = async () => {
     try {
+      // Convert ESPN ID to MLB ID for API calls
+      const mlbApiId = getAPITeamId(teamId, sport);
       // Fetch team basic info from MLB API
-      const url = `https://statsapi.mlb.com/api/v1/teams/${teamId}`;
-      console.log('Fetching team data from:', url);
+      const url = `https://statsapi.mlb.com/api/v1/teams/${mlbApiId}`;
+      console.log('Fetching team data from:', url, '(ESPN ID:', teamId, '-> MLB ID:', mlbApiId, ')');
       const response = await fetch(url);
       const data = await response.json();
       
@@ -102,7 +108,7 @@ const TeamPageScreen = ({ route, navigation }) => {
               const losses = teamEntry.stats.find(stat => stat.name === "losses")?.displayValue || "0";
               const lastTen = teamEntry.stats.find(stat => stat.name === "Last Ten Games")?.displayValue || "0-0";
               const streak = teamEntry.stats.find(stat => stat.name === "streak")?.displayValue || "N/A";
-              const clincher = teamEntry.team.clincher ? `${teamEntry.team.clincher} - ` : '';
+              const clincher = teamEntry.team.clincher ? `${(teamEntry.team.clincher).toUpperCase()} - ` : '';
 
               setTeamRecord({ wins, losses, lastTen, streak, clincher });
               return;
@@ -118,6 +124,13 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   const fetchCurrentGame = async () => {
     try {
+      // Convert ESPN team ID to MLB API ID for the API call
+      const mlbApiId = getAPITeamId(teamId, sport);
+      if (!mlbApiId) {
+        console.error('Could not convert team ID to MLB API ID:', teamId);
+        return;
+      }
+      
       // Get today's date adjusted for MLB timezone (matches live.js logic)
       const getAdjustedDateForMLB = () => {
         const now = new Date();
@@ -143,10 +156,12 @@ const TeamPageScreen = ({ route, navigation }) => {
 
       const today = getAdjustedDateForMLB();
       console.log('MLB adjusted date:', today);
+      console.log('TeamPage fetchCurrentGame: teamId =', teamId, 'mlbApiId =', mlbApiId);
       
-      const todayResponse = await fetch(
-        `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId=${teamId}&startDate=${today}&endDate=${today}&hydrate=team,linescore,decisions`
-      );
+      const todayUrl = `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId=${mlbApiId}&startDate=${today}&endDate=${today}&hydrate=team,linescore,decisions`;
+      console.log('TeamPage fetchCurrentGame: URL =', todayUrl);
+      
+      const todayResponse = await fetch(todayUrl);
       const todayData = await todayResponse.json();
 
       // Check if there's a game today - prioritize live games
@@ -159,7 +174,7 @@ const TeamPageScreen = ({ route, navigation }) => {
           __orig_console_log('Found live game:', liveGame.gamePk);
           // Persist to favorites if this team is favorited so the Favorites screen can use direct fetch
           try {
-            if (isFavorite(teamId)) {
+            if (isFavorite(teamId, sport)) {
               await updateTeamCurrentGame(teamId, {
                 eventId: liveGame.gamePk,
                 eventLink: liveGame.link || `/api/v1.1/game/${liveGame.gamePk}/feed/live`,
@@ -184,7 +199,7 @@ const TeamPageScreen = ({ route, navigation }) => {
         if (scheduledGame) {
           __orig_console_log('Found scheduled game for today:', scheduledGame.gamePk);
           try {
-            if (isFavorite(teamId)) {
+            if (isFavorite(teamId, sport)) {
               await updateTeamCurrentGame(teamId, {
                 eventId: scheduledGame.gamePk,
                 eventLink: scheduledGame.link || `/api/v1.1/game/${scheduledGame.gamePk}/feed/live`,
@@ -204,7 +219,7 @@ const TeamPageScreen = ({ route, navigation }) => {
         // Otherwise, take the first game (likely completed)
   __orig_console_log('Found completed game for today:', games[0].gamePk);
         try {
-          if (isFavorite(teamId)) {
+          if (isFavorite(teamId, sport)) {
             await updateTeamCurrentGame(teamId, {
               eventId: games[0].gamePk,
               eventLink: games[0].link || `/api/v1.1/game/${games[0].gamePk}/feed/live`,
@@ -255,7 +270,7 @@ const TeamPageScreen = ({ route, navigation }) => {
         console.log('Searching for upcoming games from:', startSearchDate, 'to:', end);
 
         const upcomingResponse = await fetch(
-          `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId=${teamId}&startDate=${startSearchDate}&endDate=${end}&hydrate=team,linescore,decisions`
+          `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId=${mlbApiId}&startDate=${startSearchDate}&endDate=${end}&hydrate=team,linescore,decisions`
         );
         const upcomingData = await upcomingResponse.json();
 
@@ -269,7 +284,7 @@ const TeamPageScreen = ({ route, navigation }) => {
               if (nextGame) {
                 console.log('Found upcoming game:', nextGame.gamePk, 'on', date.date);
                 try {
-                  if (isFavorite(teamId)) {
+                  if (isFavorite(teamId, sport)) {
                     await updateTeamCurrentGame(teamId, {
                       eventId: nextGame.gamePk,
                       eventLink: nextGame.link || `/api/v1.1/game/${nextGame.gamePk}/feed/live`,
@@ -295,10 +310,12 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   const fetchAllMatches = async () => {
     try {
+      // Convert ESPN ID to MLB ID for API calls
+      const mlbApiId = getAPITeamId(teamId, sport);
       // Get current year season games
       const currentYear = new Date().getFullYear();
       const response = await fetch(
-        `https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${teamId}&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&hydrate=team,linescore,decisions`
+        `https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${mlbApiId}&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&hydrate=team,linescore,decisions`
       );
       const data = await response.json();
       
@@ -404,8 +421,10 @@ const TeamPageScreen = ({ route, navigation }) => {
     
     setLoadingRoster(true);
     try {
+      // Convert ESPN ID to MLB ID for API calls
+      const mlbApiId = getAPITeamId(teamId, sport);
       const response = await fetch(
-        `https://statsapi.mlb.com/api/v1/teams/${teamId}/roster`
+        `https://statsapi.mlb.com/api/v1/teams/${mlbApiId}/roster`
       );
       const data = await response.json();
       
@@ -424,12 +443,14 @@ const TeamPageScreen = ({ route, navigation }) => {
     
     setLoadingStats(true);
     try {
+      // Convert ESPN ID to MLB ID for API calls
+      const mlbApiId = getAPITeamId(teamId, sport);
       const currentYear = new Date().getFullYear();
       
       // Fetch both hitting and pitching stats
       const [hittingResponse, pitchingResponse] = await Promise.all([
-        fetch(`https://statsapi.mlb.com/api/v1/teams/${teamId}/stats?stats=season&group=hitting&season=${currentYear}`),
-        fetch(`https://statsapi.mlb.com/api/v1/teams/${teamId}/stats?stats=season&group=pitching&season=${currentYear}`)
+        fetch(`https://statsapi.mlb.com/api/v1/teams/${mlbApiId}/stats?stats=season&group=hitting&season=${currentYear}`),
+        fetch(`https://statsapi.mlb.com/api/v1/teams/${mlbApiId}/stats?stats=season&group=pitching&season=${currentYear}`)
       ]);
       
       const [hittingData, pitchingData] = await Promise.all([
@@ -682,7 +703,9 @@ const TeamPageScreen = ({ route, navigation }) => {
     
     // Check if current team is favorited
     const currentTeam = isAwayTeam ? game.teams.away : game.teams.home;
-    const isTeamFavorited = isFavorite(currentTeam.team.id?.toString());
+    const mlbTeamId = currentTeam.team.id?.toString();
+    const espnTeamId = convertMLBIdToESPNId(mlbTeamId) || mlbTeamId;
+    const isTeamFavorited = isFavorite(espnTeamId, 'mlb');
     
     // If team is favorited, use primary color
     if (isTeamFavorited) {
@@ -704,7 +727,9 @@ const TeamPageScreen = ({ route, navigation }) => {
     
     // Check if current team is favorited
     const currentTeam = isAwayTeam ? game.teams.away : game.teams.home;
-    const isTeamFavorited = isFavorite(currentTeam.team.id?.toString());
+    const mlbTeamId = currentTeam.team.id?.toString();
+    const espnTeamId = convertMLBIdToESPNId(mlbTeamId) || mlbTeamId;
+    const isTeamFavorited = isFavorite(espnTeamId, 'mlb');
     
     const isGameFinal = game.status.abstractGameState === 'Final';
     const awayScore = parseInt(game.teams.away.score || '0');
@@ -741,7 +766,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       return streak.startsWith('W') ? '#008000' : streak.startsWith('L') ? '#FF0000' : '#666';
     };
 
-    const isTeamFavorite = isFavorite(teamId);
+    const isTeamFavorite = isFavorite(teamId, sport);
 
     const handleToggleFavorite = async () => {
       const teamPayload = {
@@ -803,15 +828,17 @@ const TeamPageScreen = ({ route, navigation }) => {
           <Text allowFontScaling={false} style={[styles.teamName, { color: getTeamColor(teamData.abbreviation) }]}>
             {teamData.name}
           </Text>
-          <Text allowFontScaling={false} style={[styles.teamDivision, { color: theme.textSecondary }]}>{teamRecord.clincher}{teamData.division?.name || 'N/A'}</Text>
+          <Text allowFontScaling={false} style={[styles.teamDivision, { color: theme.textSecondary }]}>
+            {teamRecord ? (teamRecord.clincher || '') : ''}{teamData.division?.name || 'N/A'}
+          </Text>
           
           {teamRecord && (
             <View style={styles.recordContainer}>
               <View style={styles.recordRow}>
-                <Text allowFontScaling={false} style={[styles.recordValue, { color: theme.text }]}>{teamRecord.wins}-{teamRecord.losses}</Text>
-                <Text allowFontScaling={false} style={[styles.recordValue, { color: theme.text }]}>{teamRecord.lastTen}</Text>
+                <Text allowFontScaling={false} style={[styles.recordValue, { color: theme.text }]}>{(teamRecord.wins || 0)}-{(teamRecord.losses || 0)}</Text>
+                <Text allowFontScaling={false} style={[styles.recordValue, { color: theme.text }]}>{teamRecord.lastTen || '0-0'}</Text>
                 <Text allowFontScaling={false} style={[styles.recordValue, { color: getStreakColor(teamRecord.streak) }]}>
-                  {teamRecord.streak}
+                  {teamRecord.streak || 'N/A'}
                 </Text>
               </View>
               <View style={styles.recordRow}>
@@ -840,7 +867,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       return (
         <View style={styles.matchesSection}>
           <Text allowFontScaling={false} style={[styles.gameSectionTitle, { color: colors.primary }]}>Current Game</Text>
-          <View style={styles.noGameContainer}>
+          <View style={[styles.noGameContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <Text allowFontScaling={false} style={[styles.noGameText, { color: theme.textSecondary }]}>No current or upcoming games found</Text>
           </View>
         </View>
@@ -902,7 +929,11 @@ const TeamPageScreen = ({ route, navigation }) => {
                 )}
               </View>
               <Text allowFontScaling={false} style={[getTeamNameStyle(currentGame, true), { color: getTeamNameColor(currentGame, true) }]}>
-                {isFavorite(away.team.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
+                {(() => {
+                  const mlbId = away.team.id?.toString();
+                  const espnId = convertMLBIdToESPNId(mlbId) || mlbId;
+                  return isFavorite(espnId, 'mlb') && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>;
+                })()}
                 {away.team.abbreviation}
               </Text>
               <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>
@@ -928,7 +959,11 @@ const TeamPageScreen = ({ route, navigation }) => {
                 />
               </View>
               <Text allowFontScaling={false} style={[getTeamNameStyle(currentGame, false), { color: getTeamNameColor(currentGame, false) }]}>
-                {isFavorite(home.team.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
+                {(() => {
+                  const mlbId = home.team.id?.toString();
+                  const espnId = convertMLBIdToESPNId(mlbId) || mlbId;
+                  return isFavorite(espnId, 'mlb') && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>;
+                })()}
                 {home.team.abbreviation}
               </Text>
               <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>
@@ -1036,7 +1071,11 @@ const TeamPageScreen = ({ route, navigation }) => {
               )}
             </View>
             <Text allowFontScaling={false} style={[getTeamNameStyle(game, true), { color: getTeamNameColor(game, true) }]}>
-              {isFavorite(away.team.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
+              {(() => {
+                const mlbId = away.team.id?.toString();
+                const espnId = convertMLBIdToESPNId(mlbId) || mlbId;
+                return isFavorite(espnId, 'mlb') && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>;
+              })()}
               {away.team.abbreviation}
             </Text>
             <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>
@@ -1062,7 +1101,11 @@ const TeamPageScreen = ({ route, navigation }) => {
               />
             </View>
             <Text allowFontScaling={false} style={[getTeamNameStyle(game, false), { color: getTeamNameColor(game, false) }]}>
-              {isFavorite(home.team.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
+              {(() => {
+                const mlbId = home.team.id?.toString();
+                const espnId = convertMLBIdToESPNId(mlbId) || mlbId;
+                return isFavorite(espnId, 'mlb') && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>;
+              })()}
               {home.team.abbreviation}
             </Text>
             <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>

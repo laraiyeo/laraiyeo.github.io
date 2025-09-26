@@ -16,6 +16,7 @@ import { WebView } from 'react-native-webview';
 import { MLBService } from '../../services/MLBService';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import { convertMLBIdToESPNId } from '../../utils/TeamIdMapping';
 
 const MLBGameDetailsScreen = ({ route, navigation }) => {
   const { gameId, sport } = route?.params || {};
@@ -428,22 +429,23 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
       console.log(`Found matching match: ${bestMatch.title} (score: ${bestScore.toFixed(2)})`);
 
-      // Collect all streams from all sources
+      // Collect only the first stream from each source (like soccer does)
       const allStreams = {};
       for (const source of bestMatch.sources) {
         try {
           const sourceStreams = await fetchStreamsForSource(source.source, source.id);
           
           if (sourceStreams && sourceStreams.length > 0) {
-            sourceStreams.forEach((stream, index) => {
-              const streamKey = `${source.source}${index + 1}`;
-              allStreams[streamKey] = {
-                url: stream.embedUrl || stream.url,
-                embedUrl: stream.embedUrl || stream.url,
-                source: source.source,
-                title: stream.title || `${source.source} Stream ${index + 1}`
-              };
-            });
+            // Only use the first stream from each source type
+            const firstStream = sourceStreams[0];
+            const sourceKey = source.source; // Use clean source name as key (admin, alpha, bravo, etc.)
+            allStreams[sourceKey] = {
+              url: firstStream.embedUrl || firstStream.url,
+              embedUrl: firstStream.embedUrl || firstStream.url,
+              source: source.source,
+              title: `${source.source.charAt(0).toUpperCase() + source.source.slice(1)} Stream`
+            };
+            console.log(`Added stream for ${source.source}:`, allStreams[sourceKey]);
           }
         } catch (error) {
           console.error(`Error fetching streams for ${source.source}:`, error);
@@ -976,8 +978,16 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             defaultSource={{ uri: 'https://via.placeholder.com/28x28?text=MLB' }}
           />
           {(isGameLive || isGameFinal) ? <Text allowFontScaling={false} style={[styles.stickyTeamScore, { color: getStickyScoreColor(awayIsLosing) }]}>{awayScore}</Text> : ''}
-          <Text allowFontScaling={false} style={[styles.stickyTeamName, { color: isFavorite(awayTeam?.id?.toString()) ? colors.primary : (awayIsLosing ? theme.textSecondary : theme.text) }]}>
-            {isFavorite(awayTeam?.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
+          <Text allowFontScaling={false} style={[styles.stickyTeamName, { color: (() => {
+            const mlbId = awayTeam?.id?.toString();
+            const espnId = convertMLBIdToESPNId(mlbId) || mlbId;
+            return isFavorite(espnId, 'mlb') ? colors.primary : (awayIsLosing ? theme.textSecondary : theme.text);
+          })() }]}>
+            {(() => {
+              const mlbId = awayTeam?.id?.toString();
+              const espnId = convertMLBIdToESPNId(mlbId) || mlbId;
+              return isFavorite(espnId, 'mlb') && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>;
+            })()}
             {awayTeam?.abbreviation || 'AWAY'}
           </Text>
         </View>
@@ -1025,8 +1035,16 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
         {/* Home Team */}
         <View style={styles.stickyTeamHome}>
-          <Text allowFontScaling={false} style={[styles.stickyTeamName, { color: isFavorite(homeTeam?.id?.toString()) ? colors.primary : (homeIsLosing ? theme.textSecondary : theme.text) }]}>
-            {isFavorite(homeTeam?.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
+          <Text allowFontScaling={false} style={[styles.stickyTeamName, { color: (() => {
+            const mlbId = homeTeam?.id?.toString();
+            const espnId = convertMLBIdToESPNId(mlbId) || mlbId;
+            return isFavorite(espnId, 'mlb') ? colors.primary : (homeIsLosing ? theme.textSecondary : theme.text);
+          })() }]}>
+            {(() => {
+              const mlbId = homeTeam?.id?.toString();
+              const espnId = convertMLBIdToESPNId(mlbId) || mlbId;
+              return isFavorite(espnId, 'mlb') && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>;
+            })()}
             {homeTeam?.abbreviation || 'HOME'}
           </Text>
           {(isGameLive || isGameFinal) ? <Text allowFontScaling={false} style={[styles.stickyTeamScore, { color: getStickyScoreColor(homeIsLosing) }]}>{homeScore}</Text> : ''}
@@ -1115,13 +1133,16 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     
     const streamKeys = Object.keys(streams);
     if (streamKeys.length > 0) {
-      initialStreamType = streamKeys[0];
+      // Prioritize certain stream types if available
+      const preferredOrder = ['admin', 'alpha', 'bravo', 'charlie', 'delta'];
+      initialStreamType = preferredOrder.find(type => streamKeys.includes(type)) || streamKeys[0];
+      
       const streamData = streams[initialStreamType];
       initialUrl = streamData.embedUrl || streamData.url || streamData;
       setCurrentStreamType(initialStreamType);
     } else {
       // Fallback to manual URL construction
-      initialStreamType = 'alpha1';
+      initialStreamType = 'alpha';
       initialUrl = generateStreamUrl(awayTeam.name, homeTeam.name, initialStreamType);
       setCurrentStreamType(initialStreamType);
     }
@@ -1136,8 +1157,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     
     let newUrl = '';
     if (availableStreams[streamType]) {
-      newUrl = availableStreams[streamType].embedUrl || availableStreams[streamType];
+      const streamData = availableStreams[streamType];
+      newUrl = streamData.embedUrl || streamData.url || streamData;
     } else {
+      // Fallback to manual URL construction
       const awayTeam = gameData?.gameData?.teams?.away;
       const homeTeam = gameData?.gameData?.teams?.home;
       newUrl = generateStreamUrl(awayTeam?.name, homeTeam?.name, streamType);
@@ -1245,8 +1268,14 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               defaultSource={{ uri: 'https://via.placeholder.com/50x50?text=MLB' }}
             />
             <View style={styles.teamNameContainer}>
-              <Text allowFontScaling={false} style={[styles.teamName, { color: isFavorite(awayTeam?.id?.toString()) ? colors.primary : getNameColor(awayIsLosing) }]}>
-                {isFavorite(awayTeam?.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
+              <Text allowFontScaling={false} style={[styles.teamName, { color: (() => {
+                const espnId = convertMLBIdToESPNId(awayTeam?.id?.toString());
+                return isFavorite(espnId, 'MLB') ? colors.primary : getNameColor(awayIsLosing);
+              })() }]}>
+                {(() => {
+                  const espnId = convertMLBIdToESPNId(awayTeam?.id?.toString());
+                  return isFavorite(espnId, 'MLB') && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>;
+                })()}
                 {awayTeam?.abbreviation || 'AWAY'}
               </Text>
             </View>
@@ -1304,8 +1333,14 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               defaultSource={{ uri: 'https://via.placeholder.com/50x50?text=MLB' }}
             />
             <View style={styles.teamNameContainer}>
-              <Text allowFontScaling={false} style={[styles.teamName, { color: isFavorite(homeTeam?.id?.toString()) ? colors.primary : getNameColor(homeIsLosing) }]}>
-                {isFavorite(homeTeam?.id?.toString()) && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>}
+              <Text allowFontScaling={false} style={[styles.teamName, { color: (() => {
+                const espnId = convertMLBIdToESPNId(homeTeam?.id?.toString());
+                return isFavorite(espnId, 'MLB') ? colors.primary : getNameColor(homeIsLosing);
+              })() }]}>
+                {(() => {
+                  const espnId = convertMLBIdToESPNId(homeTeam?.id?.toString());
+                  return isFavorite(espnId, 'MLB') && <Text allowFontScaling={false} style={{ color: colors.primary }}>★ </Text>;
+                })()}
                 {homeTeam?.abbreviation || 'HOME'}
               </Text>
             </View>
@@ -3155,16 +3190,16 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Stream Buttons */}
+            {/* Stream Buttons - Show all available stream types */}
             <ScrollView 
               horizontal 
               showsHorizontalScrollIndicator={false}
               style={[styles.streamButtonsContainer, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]}
               contentContainerStyle={styles.streamButtonsContent}
             >
-              {Object.keys(availableStreams).slice(0, 5).map((streamKey, index) => {
-                // Extract source name and capitalize it
-                const sourceName = streamKey.replace(/\d+$/, ''); // Remove numbers at the end
+              {Object.keys(availableStreams).map((streamKey, index) => {
+                // Use the clean source name (admin, alpha, bravo, etc.)
+                const sourceName = streamKey;
                 const capitalizedName = sourceName.charAt(0).toUpperCase() + sourceName.slice(1);
                 
                 return (
@@ -3186,6 +3221,15 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   </TouchableOpacity>
                 );
               })}
+              
+              {/* Show message if no streams are available */}
+              {Object.keys(availableStreams).length === 0 && (
+                <View style={styles.noStreamsMessage}>
+                  <Text allowFontScaling={false} style={[styles.noStreamsText, { color: theme.textSecondary }]}>
+                    No live streams found for this game
+                  </Text>
+                </View>
+              )}
             </ScrollView>
 
             {/* WebView Container */}
@@ -3543,6 +3587,46 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   onMessage={(event) => {
                     // Handle messages from injected JavaScript if needed
                     console.log('WebView message:', event.nativeEvent.data);
+                  }}
+                  // Block popup navigation within the WebView
+                  onShouldStartLoadWithRequest={(request) => {
+                    console.log('MLB WebView navigation request:', request.url);
+                    
+                    // Allow the initial stream URL to load
+                    if (request.url === streamUrl) {
+                      return true;
+                    }
+                    
+                    // Block navigation to obvious popup/ad URLs
+                    const popupKeywords = ['popup', 'ad', 'ads', 'click', 'redirect', 'promo'];
+                    const hasPopupKeywords = popupKeywords.some(keyword => 
+                      request.url.toLowerCase().includes(keyword)
+                    );
+                    
+                    // Block external navigation attempts (popups trying to navigate within WebView)
+                    const currentDomain = new URL(streamUrl).hostname;
+                    let requestDomain = '';
+                    try {
+                      requestDomain = new URL(request.url).hostname;
+                    } catch (e) {
+                      console.log('Invalid URL:', request.url);
+                      return false;
+                    }
+                    
+                    // Allow same-domain navigation but block cross-domain (likely popups)
+                    if (requestDomain !== currentDomain || hasPopupKeywords) {
+                      console.log('Blocked MLB popup/cross-domain navigation:', request.url);
+                      return false;
+                    }
+                    
+                    return true;
+                  }}
+                  // Handle when WebView tries to open a new window (popup)
+                  onOpenWindow={(syntheticEvent) => {
+                    const { nativeEvent } = syntheticEvent;
+                    console.log('Blocked MLB popup window:', nativeEvent.targetUrl);
+                    // Don't open the popup - just log it
+                    return false;
                   }}
                 />
               ) : (
@@ -4912,6 +4996,17 @@ const styles = StyleSheet.create({
   noStreamText: {
     color: '#fff',
     fontSize: 16,
+  },
+  noStreamsMessage: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  noStreamsText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   probablePitchersContainer: {
     flexDirection: 'row',
