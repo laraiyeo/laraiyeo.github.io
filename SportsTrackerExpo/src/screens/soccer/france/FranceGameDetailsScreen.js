@@ -1425,14 +1425,14 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
               <Text allowFontScaling={false} style={[
                 styles.stickyTeamAbbr, 
                 { 
-                  color: isFavorite(homeTeam?.team?.id) ? colors.primary : theme.text 
+                  color: isFavorite(homeTeam?.team?.id, 'ligue 1') ? colors.primary : theme.text 
                 },
                 // Apply loser styling if home team is losing (only for finished games)
                 homeIsLoser && {
                   opacity: 0.6
                 }
               ]}>
-                {isFavorite(homeTeam?.team?.id) ? '★ ' : ''}{homeTeam?.team?.abbreviation || homeTeam?.team?.displayName?.substring(0, 3) || 'TBD'}
+                {isFavorite(homeTeam?.team?.id, 'ligue 1') ? '★ ' : ''}{homeTeam?.team?.abbreviation || homeTeam?.team?.displayName?.substring(0, 3) || 'TBD'}
               </Text>
             </View>
             {(matchStatus.isLive || matchStatus.isPost) && (
@@ -1517,14 +1517,14 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
               <Text allowFontScaling={false} style={[
                 styles.stickyTeamAbbr, 
                 { 
-                  color: isFavorite(awayTeam?.team?.id) ? colors.primary : theme.text 
+                  color: isFavorite(awayTeam?.team?.id, 'ligue 1') ? colors.primary : theme.text 
                 },
                 // Apply loser styling if away team is losing (only for finished games)
                 awayIsLoser && {
                   opacity: 0.6
                 }
               ]}>
-                {isFavorite(awayTeam?.team?.id) ? '★ ' : ''}{awayTeam?.team?.abbreviation || awayTeam?.team?.displayName?.substring(0, 3) || 'TBD'}
+                {isFavorite(awayTeam?.team?.id, 'ligue 1') ? '★ ' : ''}{awayTeam?.team?.abbreviation || awayTeam?.team?.displayName?.substring(0, 3) || 'TBD'}
               </Text>
               <TeamLogoImage 
                 teamId={gameData.awayCompetitor?.team?.id}
@@ -1930,14 +1930,14 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
             <Text allowFontScaling={false} style={[
               styles.teamName, 
               { 
-                color: isFavorite(homeTeam?.team?.id) ? colors.primary : theme.text 
+                color: isFavorite(homeTeam?.team?.id, 'ligue 1') ? colors.primary : theme.text 
               },
               // Apply loser styling if home team is losing (only for finished games)
               homeIsLoser && {
                 opacity: 0.6
               }
             ]} numberOfLines={2}>
-              {isFavorite(homeTeam?.team?.id) ? '★ ' : ''}{homeTeam?.team?.displayName}
+              {isFavorite(homeTeam?.team?.id, 'ligue 1') ? '★ ' : ''}{homeTeam?.team?.displayName}
             </Text>
           </View>
 
@@ -2023,14 +2023,14 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
             <Text allowFontScaling={false} style={[
               styles.teamName, 
               { 
-                color: isFavorite(awayTeam?.team?.id) ? colors.primary : theme.text 
+                color: isFavorite(awayTeam?.team?.id, 'ligue 1') ? colors.primary : theme.text 
               },
               // Apply loser styling if away team is losing (only for finished games)
               awayIsLoser && {
                 opacity: 0.6
               }
             ]} numberOfLines={2}>
-              {isFavorite(awayTeam?.team?.id) ? '★ ' : ''}{awayTeam?.team?.displayName}
+              {isFavorite(awayTeam?.team?.id, 'ligue 1') ? '★ ' : ''}{awayTeam?.team?.displayName}
             </Text>
           </View>
         </View>

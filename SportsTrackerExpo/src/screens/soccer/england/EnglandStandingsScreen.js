@@ -233,8 +233,8 @@ const EnglandStandingsScreen = ({ navigation, route }) => {
             teamId={item.team.id}
             style={styles.teamLogo}
           />
-          <Text allowFontScaling={false} style={[styles.teamName, { color: isFavorite(item.team.id) ? colors.primary : theme.text }]} numberOfLines={1}>
-            {isFavorite(item.team.id) ? '★ ' : ''}{item.team.displayName}
+          <Text allowFontScaling={false} style={[styles.teamName, { color: isFavorite(item.team.id, 'premier league') ? colors.primary : theme.text }]} numberOfLines={1}>
+            {isFavorite(item.team.id, 'premier league') ? '★ ' : ''}{item.team.displayName}
           </Text>
         </View>
 

@@ -368,7 +368,7 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
           // If this team is already favorited, update the persisted favorite with a normalized currentGame
           try {
             const favId = teamData?.id || teamId || null;
-            if (favId && isFavorite(favId)) {
+            if (favId && isFavorite(favId, 'uefa champions')) {
               const eventId = foundCurrentGame.id || foundCurrentGame.eventId || foundCurrentGame.gameId || foundCurrentGame.gamePk || (foundCurrentGame.competitions?.[0]?.id) || null;
               const gameDate = foundCurrentGame.date || foundCurrentGame.gameDate || null;
               const competition = foundCurrentGame.leagueCode || (foundCurrentGame.competitions?.[0]?.league?.id) || 'uefa.champions';
@@ -590,7 +590,7 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
     if (!teamData) return null;
 
     const teamColor = getTeamColor(teamData);
-    const isTeamFavorite = isFavorite(teamData.id);
+    const isTeamFavorite = isFavorite(teamData.id, 'uefa champions');
 
     // isUpdatingFavorites and handleToggleFavorite moved to component scope
 

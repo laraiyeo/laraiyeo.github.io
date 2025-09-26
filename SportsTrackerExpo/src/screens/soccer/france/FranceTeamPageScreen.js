@@ -337,7 +337,7 @@ const FranceTeamPageScreen = ({ route, navigation }) => {
 
           try {
             const favId = teamData?.id || teamId || null;
-            if (favId && isFavorite(favId)) {
+            if (favId && isFavorite(favId, 'ligue 1')) {
               const eventId = foundCurrentGame.id || foundCurrentGame.eventId || foundCurrentGame.gameId || foundCurrentGame.gamePk || (foundCurrentGame.competitions?.[0]?.id) || null;
               const gameDate = foundCurrentGame.date || foundCurrentGame.gameDate || null;
               const competition = foundCurrentGame.leagueCode || (foundCurrentGame.competitions?.[0]?.league?.id) || 'fra.1';
@@ -605,9 +605,9 @@ const FranceTeamPageScreen = ({ route, navigation }) => {
           disabled={isUpdatingFavorites}
         >
           <Text allowFontScaling={false} style={[styles.favoriteIcon, { 
-            color: isFavorite(teamData.id) ? colors.primary : theme.textSecondary 
+            color: isFavorite(teamData.id, 'ligue 1') ? colors.primary : theme.textSecondary 
           }]}>
-            {isUpdatingFavorites ? '⏳' : (isFavorite(teamData.id) ? '★' : '☆')}
+            {isUpdatingFavorites ? '⏳' : (isFavorite(teamData.id, 'ligue 1') ? '★' : '☆')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -823,9 +823,9 @@ const FranceTeamPageScreen = ({ route, navigation }) => {
               )}
             </View>
             <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
-              color: isFavorite(homeTeam.team?.id) ? colors.primary : (homeIsLoser ? '#999' : theme.text)
+              color: isFavorite(homeTeam.team?.id, 'ligue 1') ? colors.primary : (homeIsLoser ? '#999' : theme.text)
             }]}>
-              {isFavorite(homeTeam.team?.id) ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
+              {isFavorite(homeTeam.team?.id, 'ligue 1') ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
             </Text>
           </View>
           
@@ -869,9 +869,9 @@ const FranceTeamPageScreen = ({ route, navigation }) => {
               />
             </View>
             <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
-              color: isFavorite(awayTeam.team?.id) ? colors.primary : (awayIsLoser ? '#999' : theme.text)
+              color: isFavorite(awayTeam.team?.id, 'ligue 1') ? colors.primary : (awayIsLoser ? '#999' : theme.text)
             }]}>
-              {isFavorite(awayTeam.team?.id) ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
+              {isFavorite(awayTeam.team?.id, 'ligue 1') ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
             </Text>
           </View>
         </View>

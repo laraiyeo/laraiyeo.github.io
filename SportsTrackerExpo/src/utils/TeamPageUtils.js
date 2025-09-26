@@ -185,8 +185,13 @@ export const fetchNFLTeamCurrentGame = async (teamId, updateTeamCurrentGameFunc)
   try {
     console.log(`[TEAM PAGE UTILS] Fetching NFL current game for team ${teamId}`);
     
+    // Use API-safe team id (strip sport suffixes) for ESPN API calls
+    const nflApiTeamId = getAPITeamId(teamId, 'nfl');
+    const encodedNflId = encodeURIComponent(String(nflApiTeamId));
+    console.log(`[TEAM PAGE UTILS] Using API team ID: ${nflApiTeamId} (encoded: ${encodedNflId})`);
+    
     // Use exact same ESPN API as NFL team page
-    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/teams/${teamId}/events?lang=en&region=us`);
+    const response = await fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/teams/${encodedNflId}/events?lang=en&region=us`);
     const eventsData = await response.json();
     
     if (eventsData?.items) {
@@ -309,7 +314,12 @@ export const fetchSoccerTeamCurrentGame = async (teamId, updateTeamCurrentGameFu
       try {
         console.log(`[TEAM PAGE UTILS] Checking ${competition} for team ${teamId}`);
         
-        const response = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/teams/${teamId}/events?lang=en&region=us`);
+        // Use API-safe team id (strip sport suffixes) and encode for URL
+        const soccerApiTeamId = getAPITeamId(teamId, 'soccer');
+        const encodedSoccerId = encodeURIComponent(String(soccerApiTeamId));
+        console.log(`[TEAM PAGE UTILS] Using API team ID: ${soccerApiTeamId} (encoded: ${encodedSoccerId})`);
+        
+        const response = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/teams/${encodedSoccerId}/events?lang=en&region=us`);
         const eventsData = await response.json();
         
         if (eventsData?.items && eventsData.items.length > 0) {

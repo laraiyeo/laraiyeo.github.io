@@ -339,7 +339,7 @@ const TeamPageScreen = ({ route, navigation }) => {
         });
         if (liveEvent) {
           setCurrentGame(liveEvent);
-          if (isFavorite(teamId)) {
+          if (isFavorite(teamId, 'nfl')) {
             try {
               await updateTeamCurrentGame(teamId, { eventId: liveEvent.id, eventLink: liveEvent.links?.website?.href || liveEvent.link, gameDate: liveEvent.date, competition: 'nfl', updatedAt: new Date().toISOString() });
             } catch (e) {}
@@ -358,7 +358,7 @@ const TeamPageScreen = ({ route, navigation }) => {
         });
         if (inWindowEvent) {
           setCurrentGame(inWindowEvent);
-          if (isFavorite(teamId)) {
+          if (isFavorite(teamId, 'nfl')) {
             try {
               await updateTeamCurrentGame(teamId, { eventId: inWindowEvent.id, eventLink: inWindowEvent.links?.website?.href || inWindowEvent.link, gameDate: inWindowEvent.date, competition: 'nfl', updatedAt: new Date().toISOString() });
             } catch (e) {}
@@ -373,7 +373,7 @@ const TeamPageScreen = ({ route, navigation }) => {
         });
         if (upcoming) {
           setCurrentGame(upcoming);
-          if (isFavorite(teamId)) {
+          if (isFavorite(teamId, 'nfl')) {
             try {
               await updateTeamCurrentGame(teamId, { eventId: upcoming.id, eventLink: upcoming.links?.website?.href || upcoming.link, gameDate: upcoming.date, competition: 'nfl', updatedAt: new Date().toISOString() });
             } catch (e) {}
@@ -538,7 +538,7 @@ const TeamPageScreen = ({ route, navigation }) => {
   const renderTeamHeader = () => {
     if (!teamData) return null;
 
-    const isTeamFavorite = isFavorite(teamId?.toString());
+    const isTeamFavorite = isFavorite(teamId?.toString(), 'nfl');
 
     const handleToggleFavorite = async () => {
       const teamPayload = {
@@ -725,7 +725,7 @@ const TeamPageScreen = ({ route, navigation }) => {
                   </View>
                 )}
               </View>
-              <Text allowFontScaling={false} style={[styles.teamAbbreviation, { color: isFavorite(awayTeam.team?.id) ? colors.primary : (awayIsLoser ? '#999' : theme.text) }]}>{isFavorite(awayTeam.team?.id) ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}</Text>
+              <Text allowFontScaling={false} style={[styles.teamAbbreviation, { color: isFavorite(awayTeam.team?.id, 'nfl') ? colors.primary : (awayIsLoser ? '#999' : theme.text) }]}>{isFavorite(awayTeam.team?.id, 'nfl') ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}</Text>
             </View>
 
             <View style={styles.statusSection}>
@@ -744,7 +744,7 @@ const TeamPageScreen = ({ route, navigation }) => {
                 )}
                 <TeamLogoImage team={homeTeam.team || homeTeam} style={[styles.teamLogo, homeIsLoser && styles.losingTeamLogo]} />
               </View>
-              <Text allowFontScaling={false} style={[styles.teamAbbreviation, { color: isFavorite(homeTeam.team?.id) ? colors.primary : (homeIsLoser ? '#999' : theme.text) }]}>{isFavorite(homeTeam.team?.id) ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}</Text>
+              <Text allowFontScaling={false} style={[styles.teamAbbreviation, { color: isFavorite(homeTeam.team?.id, 'nfl') ? colors.primary : (homeIsLoser ? '#999' : theme.text) }]}>{isFavorite(homeTeam.team?.id, 'nfl') ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}</Text>
             </View>
           </View>
 
@@ -923,9 +923,9 @@ const TeamPageScreen = ({ route, navigation }) => {
               )}
             </View>
             <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
-              color: isFavorite(awayTeam.team?.id) ? colors.primary : (awayIsLoser ? '#999' : theme.text)
+              color: isFavorite(awayTeam.team?.id, 'nfl') ? colors.primary : (awayIsLoser ? '#999' : theme.text)
             }]}>
-              {isFavorite(awayTeam.team?.id) ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
+              {isFavorite(awayTeam.team?.id, 'nfl') ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
             </Text>
           </View>
           
@@ -969,9 +969,9 @@ const TeamPageScreen = ({ route, navigation }) => {
               />
             </View>
             <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
-              color: isFavorite(homeTeam.team?.id) ? colors.primary : (homeIsLoser ? '#999' : theme.text)
+              color: isFavorite(homeTeam.team?.id, 'nfl') ? colors.primary : (homeIsLoser ? '#999' : theme.text)
             }]}>
-              {isFavorite(homeTeam.team?.id) ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
+              {isFavorite(homeTeam.team?.id, 'nfl') ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
             </Text>
           </View>
         </View>

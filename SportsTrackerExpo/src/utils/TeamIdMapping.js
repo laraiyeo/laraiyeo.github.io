@@ -174,17 +174,24 @@ export const getAPITeamId = (teamId, sport) => {
   return baseId;
 };
 
+// Known sport suffixes to prevent over-aggressive stripping
+const KNOWN_SPORT_SUFFIXES = ['mlb', 'nfl', 'nba', 'nhl', 'soccer', 'wnba', 'f1', 'premier league', 'la liga', 'serie a', 'bundesliga', 'ligue 1', 'uefa champions', 'uefa europa', 'uefa europa conf'];
+
 /**
  * Return whether a teamId already has a sport suffix and strip it.
  * Returns { id, sport }
+ * Only strips known sport suffixes to prevent issues with legitimate underscores in IDs
  */
 export const stripSportSuffix = (teamId) => {
   if (!teamId) return { id: '', sport: '' };
   const s = String(teamId);
   const parts = s.split('_');
   if (parts.length >= 2) {
-    const sport = parts.slice(1).join('_');
-    return { id: parts[0], sport };
+    const possibleSport = parts.slice(1).join('_').toLowerCase();
+    // Only treat as sport suffix if it matches a known sport
+    if (KNOWN_SPORT_SUFFIXES.includes(possibleSport)) {
+      return { id: parts[0], sport: possibleSport };
+    }
   }
   return { id: s, sport: '' };
 };

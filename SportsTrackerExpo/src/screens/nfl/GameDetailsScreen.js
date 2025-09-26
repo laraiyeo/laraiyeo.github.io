@@ -2371,9 +2371,9 @@ const GameDetailsScreen = ({ route }) => {
           {status?.type?.description !== 'Scheduled' ? <Text allowFontScaling={false} style={getStickyTeamScoreStyle(isAwayTeamLosing)}>{awayTeam?.score || '0'}</Text> : ''}
           <Text allowFontScaling={false} style={[
             styles.stickyTeamName, 
-            { color: isFavorite(getNFLTeamId(awayTeam?.team)) ? colors.primary : (isAwayTeamLosing ? theme.textSecondary : theme.text) }
+            { color: isFavorite(getNFLTeamId(awayTeam?.team), 'nfl') ? colors.primary : (isAwayTeamLosing ? theme.textSecondary : theme.text) }
           ]}>
-            {isFavorite(getNFLTeamId(awayTeam?.team)) && '★ '}
+            {isFavorite(getNFLTeamId(awayTeam?.team), 'nfl') && '★ '}
             {getNFLTeamAbbreviation(awayTeam?.team) || 'AWAY'}
           </Text>
           {/* Possession indicator for away team */}
@@ -2439,9 +2439,9 @@ const GameDetailsScreen = ({ route }) => {
           })()}
           <Text allowFontScaling={false} style={[
             styles.stickyTeamName, 
-            { color: isFavorite(getNFLTeamId(homeTeam?.team)) ? colors.primary : (isHomeTeamLosing ? theme.textSecondary : theme.text) }
+            { color: isFavorite(getNFLTeamId(homeTeam?.team), 'nfl') ? colors.primary : (isHomeTeamLosing ? theme.textSecondary : theme.text) }
           ]}>
-            {isFavorite(getNFLTeamId(homeTeam?.team)) && '★ '}
+            {isFavorite(getNFLTeamId(homeTeam?.team), 'nfl') && '★ '}
             {getNFLTeamAbbreviation(homeTeam?.team) || 'HOME'}
           </Text>
           {status?.type?.description !== 'Scheduled' ? <Text allowFontScaling={false} style={getStickyTeamScoreStyle(isHomeTeamLosing)}>{homeTeam?.score || '0'}</Text> : ''}
@@ -2555,9 +2555,9 @@ const GameDetailsScreen = ({ route }) => {
             <View style={styles.teamNameContainer}>
               <Text allowFontScaling={false} style={[
                 getTeamNameStyle(isAwayTeamLosing), 
-                { color: isFavorite(getNFLTeamId(awayTeam?.team)) ? colors.primary : (isAwayTeamLosing ? theme.textSecondary : theme.text) }
+                { color: isFavorite(getNFLTeamId(awayTeam?.team), 'nfl') ? colors.primary : (isAwayTeamLosing ? theme.textSecondary : theme.text) }
               ]}>
-                {isFavorite(getNFLTeamId(awayTeam?.team)) && '★ '}
+                {isFavorite(getNFLTeamId(awayTeam?.team), 'nfl') && '★ '}
                 {awayTeam?.team?.abbreviation || awayTeam?.team?.shortDisplayName || awayTeam?.team?.name}
               </Text>
             </View>
@@ -2618,9 +2618,9 @@ const GameDetailsScreen = ({ route }) => {
             <View style={styles.teamNameContainer}>
               <Text allowFontScaling={false} style={[
                 getTeamNameStyle(isHomeTeamLosing), 
-                { color: isFavorite(getNFLTeamId(homeTeam?.team)) ? colors.primary : (isHomeTeamLosing ? theme.textSecondary : theme.text) }
+                { color: isFavorite(getNFLTeamId(homeTeam?.team), 'nfl') ? colors.primary : (isHomeTeamLosing ? theme.textSecondary : theme.text) }
               ]}>
-                {isFavorite(getNFLTeamId(homeTeam?.team)) && '★ '}
+                {isFavorite(getNFLTeamId(homeTeam?.team), 'nfl') && '★ '}
                 {homeTeam?.team?.abbreviation || homeTeam?.team?.shortDisplayName || homeTeam?.team?.name}
               </Text>
             </View>

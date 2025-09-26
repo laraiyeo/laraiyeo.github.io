@@ -336,7 +336,7 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
 
           try {
             const favId = teamData?.id || teamId || null;
-            if (favId && isFavorite(favId)) {
+            if (favId && isFavorite(favId, 'la liga')) {
               const eventId = foundCurrentGame.id || foundCurrentGame.eventId || foundCurrentGame.gameId || foundCurrentGame.gamePk || (foundCurrentGame.competitions?.[0]?.id) || null;
               const gameDate = foundCurrentGame.date || foundCurrentGame.gameDate || null;
               const competition = foundCurrentGame.leagueCode || (foundCurrentGame.competitions?.[0]?.league?.id) || 'esp.1';
@@ -561,7 +561,7 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
     if (!teamData) return null;
 
     const teamColor = getTeamColor(teamData);
-    const isTeamFavorite = isFavorite(teamData.id);
+    const isTeamFavorite = isFavorite(teamData.id, 'la liga');
 
     // isUpdatingFavorites and handleToggleFavorite moved to component scope
 
@@ -821,9 +821,9 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
               )}
             </View>
             <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
-              color: isFavorite(homeTeam.team?.id) ? colors.primary : (homeIsLoser ? '#999' : theme.text)
+              color: isFavorite(homeTeam.team?.id, 'la liga') ? colors.primary : (homeIsLoser ? '#999' : theme.text)
             }]}>
-              {isFavorite(homeTeam.team?.id) ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
+              {isFavorite(homeTeam.team?.id, 'la liga') ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
             </Text>
           </View>
           
@@ -867,9 +867,9 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
               />
             </View>
             <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
-              color: isFavorite(awayTeam.team?.id) ? colors.primary : (awayIsLoser ? '#999' : theme.text)
+              color: isFavorite(awayTeam.team?.id, 'la liga') ? colors.primary : (awayIsLoser ? '#999' : theme.text)
             }]}>
-              {isFavorite(awayTeam.team?.id) ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
+              {isFavorite(awayTeam.team?.id, 'la liga') ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
             </Text>
           </View>
         </View>

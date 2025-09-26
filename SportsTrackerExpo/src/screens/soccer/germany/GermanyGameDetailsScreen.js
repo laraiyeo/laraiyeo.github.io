@@ -1424,14 +1424,14 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
               <Text allowFontScaling={false} style={[
                 styles.stickyTeamAbbr, 
                 { 
-                  color: isFavorite(homeTeam?.team?.id) ? colors.primary : theme.text 
+                  color: isFavorite(homeTeam?.team?.id, 'bundesliga') ? colors.primary : theme.text 
                 },
                 // Apply loser styling if home team is losing (only for finished games)
                 homeIsLoser && {
                   opacity: 0.6
                 }
               ]}>
-                {isFavorite(homeTeam?.team?.id) && '★ '}
+                {isFavorite(homeTeam?.team?.id, 'bundesliga') && '★ '}
                 {homeTeam?.team?.abbreviation || homeTeam?.team?.displayName?.substring(0, 3) || 'TBD'}
               </Text>
             </View>
@@ -1517,14 +1517,14 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
               <Text allowFontScaling={false} style={[
                 styles.stickyTeamAbbr, 
                 { 
-                  color: isFavorite(awayTeam?.team?.id) ? colors.primary : theme.text 
+                  color: isFavorite(awayTeam?.team?.id, 'bundesliga') ? colors.primary : theme.text 
                 },
                 // Apply loser styling if away team is losing (only for finished games)
                 awayIsLoser && {
                   opacity: 0.6
                 }
               ]}>
-                {isFavorite(awayTeam?.team?.id) && '★ '}
+                {isFavorite(awayTeam?.team?.id, 'bundesliga') && '★ '}
                 {awayTeam?.team?.abbreviation || awayTeam?.team?.displayName?.substring(0, 3) || 'TBD'}
               </Text>
               <TeamLogoImage 
@@ -1930,13 +1930,13 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
             </View>
             <Text allowFontScaling={false} style={[
               styles.teamName, 
-              { color: isFavorite(homeTeam?.team?.id) ? colors.primary : theme.text },
+              { color: isFavorite(homeTeam?.team?.id, 'bundesliga') ? colors.primary : theme.text },
               // Apply loser styling if home team is losing (only for finished games)
               homeIsLoser && {
                 opacity: 0.6
               }
             ]} numberOfLines={2}>
-              {isFavorite(homeTeam?.team?.id) ? '★ ' : ''}{homeTeam?.team?.displayName}
+              {isFavorite(homeTeam?.team?.id, 'bundesliga') ? '★ ' : ''}{homeTeam?.team?.displayName}
             </Text>
           </View>
 
@@ -2021,13 +2021,13 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
             </View>
             <Text allowFontScaling={false} style={[
               styles.teamName, 
-              { color: isFavorite(awayTeam?.team?.id) ? colors.primary : theme.text },
+              { color: isFavorite(awayTeam?.team?.id, 'bundesliga') ? colors.primary : theme.text },
               // Apply loser styling if away team is losing (only for finished games)
               awayIsLoser && {
                 opacity: 0.6
               }
             ]} numberOfLines={2}>
-              {isFavorite(awayTeam?.team?.id) ? '★ ' : ''}{awayTeam?.team?.displayName}
+              {isFavorite(awayTeam?.team?.id, 'bundesliga') ? '★ ' : ''}{awayTeam?.team?.displayName}
             </Text>
           </View>
         </View>

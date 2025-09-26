@@ -153,10 +153,10 @@ const StandingsScreen = ({ route }) => {
                             <Text allowFontScaling={false} style={[
                               styles.teamName, 
                               { 
-                                color: isFavorite(nflTeamId) ? colors.primary : theme.text 
+                                color: isFavorite(nflTeamId, 'nfl') ? colors.primary : theme.text 
                               }
                             ]} numberOfLines={1}>
-                              {isFavorite(nflTeamId) && '★ '}
+                              {isFavorite(nflTeamId, 'nfl') && '★ '}
                               {entry.team.shortDisplayName}
                             </Text>
                           </View>

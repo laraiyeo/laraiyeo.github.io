@@ -399,16 +399,42 @@ export const FavoritesProvider = ({ children }) => {
     const storedId = resolveStoredId(teamId, sport) || null;
     if (!storedId) return false;
 
-    // If sport is provided, we've already normalized
+    // Soccer competitions should share favorites (teams play in multiple competitions)
+    const soccerSports = ['la liga', 'serie a', 'bundesliga', 'premier league', 'ligue 1', 'uefa champions', 'uefa europa', 'uefa europa conf'];
+    const isSoccerSport = sport && soccerSports.includes(sport.toLowerCase());
+
     if (sport) {
-      return favorites.some(fav => String(fav.teamId) === storedId);
+      // First check for exact match
+      if (favorites.some(fav => String(fav.teamId) === storedId)) {
+        return true;
+      }
+
+      // For soccer teams, check across all soccer competitions
+      if (isSoccerSport) {
+        const baseTeamId = stripSportSuffix(storedId).id;
+        return favorites.some(fav => {
+          const favSuffix = stripSportSuffix(fav.teamId);
+          const favSport = favSuffix.sport;
+          // Match if it's the same base team ID and the favorite is from any soccer competition
+          return favSuffix.id === baseTeamId && favSport && soccerSports.includes(favSport.toLowerCase());
+        });
+      }
+
+      // For non-soccer sports, require exact match to prevent cross-sport issues
+      return false;
     }
 
-    // If no sport provided, check by base id match or exact stored id
+    // If no sport provided, prefer exact stored id match first
+    const exactMatch = favorites.find(fav => String(fav.teamId) === storedId);
+    if (exactMatch) return true;
+
+    // Only fallback to base id matching if the stored favorite has no sport suffix
+    // This prevents cross-sport matching when favorites have explicit suffixes
     const base = stripSportSuffix(storedId).id;
     return favorites.some(fav => {
-      const favBase = stripSportSuffix(fav.teamId).id;
-      return String(fav.teamId) === storedId || favBase === base;
+      const favSuffix = stripSportSuffix(fav.teamId);
+      // Only match by base id if the favorite has no sport suffix
+      return !favSuffix.sport && favSuffix.id === base;
     });
   };
 

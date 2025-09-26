@@ -226,10 +226,10 @@ const UCLStandingsScreen = ({ navigation, route }) => {
           <Text allowFontScaling={false} style={[
             styles.teamName, 
             { 
-              color: isFavorite(item.team.id) ? colors.primary : theme.text 
+              color: isFavorite(item.team.id, 'uefa champions') ? colors.primary : theme.text 
             }
           ]} numberOfLines={1}>
-            {isFavorite(item.team.id) && '★ '}
+            {isFavorite(item.team.id, 'uefa champions') && '★ '}
             {item.team.displayName}
           </Text>
         </View>

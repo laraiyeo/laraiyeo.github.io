@@ -675,10 +675,10 @@ const NFLScoreboardScreen = ({ navigation }) => {
               <Text allowFontScaling={false} style={[
                 getTeamNameStyle(item, true), 
                 { 
-                  color: isFavorite(getNFLTeamId(item.awayTeam)) ? colors.primary : getTeamNameColor(item, true) 
+                  color: isFavorite(getNFLTeamId(item.awayTeam), 'nfl') ? colors.primary : getTeamNameColor(item, true) 
                 }
               ]}>
-                {isFavorite(getNFLTeamId(item.awayTeam)) && '★ '}
+                {isFavorite(getNFLTeamId(item.awayTeam), 'nfl') && '★ '}
                 {item.awayTeam?.displayName || 'TBD'}
               </Text>
               <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.awayTeam?.record || ''}</Text>
@@ -705,10 +705,10 @@ const NFLScoreboardScreen = ({ navigation }) => {
               <Text allowFontScaling={false} style={[
                 getTeamNameStyle(item, false), 
                 { 
-                  color: isFavorite(getNFLTeamId(item.homeTeam)) ? colors.primary : getTeamNameColor(item, false) 
+                  color: isFavorite(getNFLTeamId(item.homeTeam), 'nfl') ? colors.primary : getTeamNameColor(item, false) 
                 }
               ]}>
-                {isFavorite(getNFLTeamId(item.homeTeam)) && '★ '}
+                {isFavorite(getNFLTeamId(item.homeTeam), 'nfl') && '★ '}
                 {item.homeTeam?.displayName || 'TBD'}
               </Text>
               <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.homeTeam?.record || ''}</Text>

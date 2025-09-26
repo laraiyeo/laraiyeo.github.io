@@ -519,11 +519,11 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
             <Text allowFontScaling={false} style={[
               styles.teamAbbreviation, 
               { 
-                color: isFavorite(homeTeam?.team?.id) ? colors.primary : theme.text 
+                color: isFavorite(homeTeam?.team?.id, 'uefa champions') ? colors.primary : theme.text 
               },
               matchStatus.isPost && homeTeam?.score < awayTeam?.score && styles.losingTeamName
             ]}>
-              {isFavorite(homeTeam?.team?.id) && '★ '}
+              {isFavorite(homeTeam?.team?.id, 'uefa champions') && '★ '}
               {homeTeam?.team?.abbreviation || homeTeam?.team?.displayName || 'TBD'}
             </Text>
           </View>
@@ -573,11 +573,11 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
             <Text allowFontScaling={false} style={[
               styles.teamAbbreviation, 
               { 
-                color: isFavorite(awayTeam?.team?.id) ? colors.primary : theme.text 
+                color: isFavorite(awayTeam?.team?.id, 'uefa champions') ? colors.primary : theme.text 
               },
               matchStatus.isPost && awayTeam?.score < homeTeam?.score && styles.losingTeamName
             ]}>
-              {isFavorite(awayTeam?.team?.id) && '★ '}
+              {isFavorite(awayTeam?.team?.id, 'uefa champions') && '★ '}
               {awayTeam?.team?.abbreviation || awayTeam?.team?.displayName || 'TBD'}
             </Text>
           </View>

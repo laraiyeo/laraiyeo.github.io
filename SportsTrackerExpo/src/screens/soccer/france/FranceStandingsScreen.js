@@ -234,9 +234,9 @@ const FranceStandingsScreen = ({ navigation, route }) => {
             style={styles.teamLogo}
           />
           <Text allowFontScaling={false} style={[styles.teamName, { 
-            color: isFavorite(item.team.id) ? colors.primary : theme.text 
+            color: isFavorite(item.team.id, 'ligue 1') ? colors.primary : theme.text 
           }]} numberOfLines={1}>
-            {isFavorite(item.team.id) ? '★ ' : ''}{item.team.displayName}
+            {isFavorite(item.team.id, 'ligue 1') ? '★ ' : ''}{item.team.displayName}
           </Text>
         </View>
 

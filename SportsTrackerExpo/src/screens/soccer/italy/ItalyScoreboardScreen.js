@@ -518,10 +518,10 @@ const ItalyScoreboardScreen = ({ navigation, route }) => {
             </View>
             <Text allowFontScaling={false} style={[
               styles.teamAbbreviation, 
-              { color: isFavorite(homeTeam?.team?.id) ? colors.primary : theme.text },
+              { color: isFavorite(homeTeam?.team?.id, 'serie a') ? colors.primary : theme.text },
               matchStatus.isPost && homeTeam?.score < awayTeam?.score && styles.losingTeamName
             ]}>
-              {isFavorite(homeTeam?.team?.id) ? '★ ' : ''}{homeTeam?.team?.abbreviation || homeTeam?.team?.displayName || 'TBD'}
+              {isFavorite(homeTeam?.team?.id, 'serie a') ? '★ ' : ''}{homeTeam?.team?.abbreviation || homeTeam?.team?.displayName || 'TBD'}
             </Text>
           </View>
 
@@ -569,10 +569,10 @@ const ItalyScoreboardScreen = ({ navigation, route }) => {
             </View>
             <Text allowFontScaling={false} style={[
               styles.teamAbbreviation, 
-              { color: isFavorite(awayTeam?.team?.id) ? colors.primary : theme.text },
+              { color: isFavorite(awayTeam?.team?.id, 'serie a') ? colors.primary : theme.text },
               matchStatus.isPost && awayTeam?.score < homeTeam?.score && styles.losingTeamName
             ]}>
-              {isFavorite(awayTeam?.team?.id) ? '★ ' : ''}{awayTeam?.team?.abbreviation || awayTeam?.team?.displayName || 'TBD'}
+              {isFavorite(awayTeam?.team?.id, 'serie a') ? '★ ' : ''}{awayTeam?.team?.abbreviation || awayTeam?.team?.displayName || 'TBD'}
             </Text>
           </View>
         </View>

@@ -672,54 +672,54 @@ const FavoritesScreen = ({ navigation }) => {
   };
 
   // Helper function to get "today's" date range with 2 AM EST cutoff
-  // Games are considered "today's" until 2 AM EST of the next day
+  // Games are considered "today's" until 2 AM America/New_York time of the next day
   const getTodayDateRange = () => {
     const now = new Date();
     
-    // Convert current time to EST (UTC-4 during EDT, UTC-5 during EST)
-    // For simplicity, using UTC-4 (EDT) since most sports are during this period
-    const estOffset = -4 * 60; // EST is UTC-4 during daylight time
-    const nowEST = new Date(now.getTime() + estOffset * 60 * 1000);
-    const currentHourEST = nowEST.getUTCHours();
+    // Get current time in America/New_York timezone (handles EST/EDT automatically)
+    const nyTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const currentHourNY = nyTime.getHours();
     
-    // If it's before 2 AM EST, use yesterday's date as "today"
-    let gameDay;
-    if (currentHourEST < 2) {
-      gameDay = new Date(nowEST.getTime() - 24 * 60 * 60 * 1000); // Yesterday
+    console.log(`[FAVORITES] Current time: ${now.toISOString()}, NY time: ${nyTime.toLocaleString()}, NY hour: ${currentHourNY}`);
+    
+    // If it's before 2 AM NY time, use yesterday's date as "today"
+    let gameDay = new Date(nyTime);
+    if (currentHourNY < 2) {
+      gameDay = new Date(nyTime.getTime() - 24 * 60 * 60 * 1000); // Yesterday
+      console.log(`[FAVORITES] Before 2 AM NY, using yesterday as game day: ${gameDay.toLocaleDateString()}`);
     } else {
-      gameDay = new Date(nowEST); // Today
+      console.log(`[FAVORITES] After 2 AM NY, using today as game day: ${gameDay.toLocaleDateString()}`);
     }
     
-    // Create range for the game day: from 2 AM EST of the game day to 2 AM EST of the next day
-    // Convert back to UTC for API compatibility
-    const todayStartEST = new Date(Date.UTC(gameDay.getUTCFullYear(), gameDay.getUTCMonth(), gameDay.getUTCDate(), 2, 0, 0));
-    const todayEndEST = new Date(Date.UTC(gameDay.getUTCFullYear(), gameDay.getUTCMonth(), gameDay.getUTCDate() + 1, 2, 0, 0));
+    // Create 2 AM cutoff for the game day in NY timezone
+    const todayStart2AMNY = new Date(gameDay.getFullYear(), gameDay.getMonth(), gameDay.getDate(), 2, 0, 0);
+    const tomorrowStart2AMNY = new Date(gameDay.getFullYear(), gameDay.getMonth(), gameDay.getDate() + 1, 2, 0, 0);
     
-    // Convert EST times to UTC for API queries (add 4 hours)
-    const todayStart = new Date(todayStartEST.getTime() + 4 * 60 * 60 * 1000);
-    const todayEnd = new Date(todayEndEST.getTime() + 4 * 60 * 60 * 1000);
+    // Convert NY times to UTC for API queries
+    const todayStart = new Date(todayStart2AMNY.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const todayEnd = new Date(tomorrowStart2AMNY.toLocaleString('en-US', { timeZone: 'UTC' }));
     
-    console.log(`Date range calculation: Current time: ${now.toISOString()}, EST Hour: ${currentHourEST}, Game day: ${gameDay.toDateString()}, Range: ${todayStart.toISOString()} to ${todayEnd.toISOString()}`);
+    // Adjust for timezone offset to get proper UTC times
+    const todayStartUTC = new Date(todayStart2AMNY.getTime() - (todayStart2AMNY.getTimezoneOffset() * 60000));
+    const todayEndUTC = new Date(tomorrowStart2AMNY.getTime() - (tomorrowStart2AMNY.getTimezoneOffset() * 60000));
     
-    return { todayStart, todayEnd };
+    console.log(`Date range calculation: Current time: ${now.toISOString()}, NY Hour: ${currentHourNY}, Game day: ${gameDay.toDateString()}, Range: ${todayStartUTC.toISOString()} to ${todayEndUTC.toISOString()}`);
+    
+    return { todayStart: todayStartUTC, todayEnd: todayEndUTC };
   };
 
-  // Helper function to get current "game day" based on 2 AM EST cutoff
+  // Helper function to get current "game day" based on 2 AM America/New_York cutoff
   const getCurrentGameDay = () => {
     const now = new Date();
     
-    // Convert current time to EST (UTC-4 during EDT, UTC-5 during EST)
-    // For simplicity, using UTC-4 (EDT) since most sports are during this period
-    const estOffset = -4 * 60; // EST is UTC-4 during daylight time
-    const nowEST = new Date(now.getTime() + estOffset * 60 * 1000);
-    const currentHourEST = nowEST.getUTCHours();
+    // Get current time in America/New_York timezone (handles EST/EDT automatically)
+    const nyTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const currentHourNY = nyTime.getHours();
     
-    // If it's before 2 AM EST, use yesterday's date as the game day
-    let gameDay;
-    if (currentHourEST < 2) {
-      gameDay = new Date(nowEST.getTime() - 24 * 60 * 60 * 1000); // Yesterday
-    } else {
-      gameDay = new Date(nowEST); // Today
+    // If it's before 2 AM NY time, use yesterday's date as the game day
+    let gameDay = new Date(nyTime);
+    if (currentHourNY < 2) {
+      gameDay = new Date(nyTime.getTime() - 24 * 60 * 60 * 1000); // Yesterday
     }
     
     // Return as YYYY-MM-DD format for easy comparison
@@ -4299,9 +4299,9 @@ const FavoritesScreen = ({ navigation }) => {
                   )}
                 </View>
             <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
-              color: awayIsLoser ? '#999' : (isFavorite(getMLBTeamId(awayTeam)) ? colors.primary : theme.text) 
+              color: awayIsLoser ? '#999' : (isFavorite(getMLBTeamId(awayTeam), 'mlb') ? colors.primary : theme.text) 
             }]}>
-              {isFavorite(getMLBTeamId(awayTeam)) ? '★ ' : ''}{getMLBTeamAbbreviation(awayTeam)}
+              {isFavorite(getMLBTeamId(awayTeam), 'mlb') ? '★ ' : ''}{getMLBTeamAbbreviation(awayTeam)}
             </Text>
           </View>
           
@@ -4384,9 +4384,9 @@ const FavoritesScreen = ({ navigation }) => {
               />
             </View>
             <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
-              color: homeIsLoser ? '#999' : (isFavorite(getMLBTeamId(homeTeam)) ? colors.primary : theme.text) 
+              color: homeIsLoser ? '#999' : (isFavorite(getMLBTeamId(homeTeam), 'mlb') ? colors.primary : theme.text) 
             }]}>
-              {isFavorite(getMLBTeamId(homeTeam)) ? '★ ' : ''}{getMLBTeamAbbreviation(homeTeam)}
+              {isFavorite(getMLBTeamId(homeTeam), 'mlb') ? '★ ' : ''}{getMLBTeamAbbreviation(homeTeam)}
             </Text>
           </View>
         </View>
@@ -4971,9 +4971,9 @@ const FavoritesScreen = ({ navigation }) => {
               )}
             </View>
             <Text allowFontScaling={false} style={[styles.teamAbbreviation, {
-              color: isFavorite(awayTeam.id) ? colors.primary : (awayIsLoser ? '#999' : theme.text)
+              color: isFavorite(awayTeam.id, 'nfl') ? colors.primary : (awayIsLoser ? '#999' : theme.text)
             }]}>
-              {isFavorite(awayTeam.id) ? '★ ' : ''}{awayTeam.abbreviation}
+              {isFavorite(awayTeam.id, 'nfl') ? '★ ' : ''}{awayTeam.abbreviation}
             </Text>
           </View>
           
@@ -5051,9 +5051,9 @@ const FavoritesScreen = ({ navigation }) => {
               />
             </View>
             <Text allowFontScaling={false} style={[styles.teamAbbreviation, {
-              color: isFavorite(homeTeam.id) ? colors.primary : (homeIsLoser ? '#999' : theme.text)
+              color: isFavorite(homeTeam.id, 'nfl') ? colors.primary : (homeIsLoser ? '#999' : theme.text)
             }]}>
-              {isFavorite(homeTeam.id) ? '★ ' : ''}{homeTeam.abbreviation}
+              {isFavorite(homeTeam.id, 'nfl') ? '★ ' : ''}{homeTeam.abbreviation}
             </Text>
           </View>
         </View>
@@ -5093,6 +5093,23 @@ const FavoritesScreen = ({ navigation }) => {
     const awayTeam = competitors.find(c => c.homeAway === "away");
 
     if (!homeTeam || !awayTeam) return null;
+
+    // Map league code to sport name for favorites
+    const getSportFromLeagueCode = (leagueCode) => {
+      if (!leagueCode) return 'soccer'; // default fallback
+      const code = leagueCode.toLowerCase();
+      if (code.includes('premier') || code.includes('eng.1')) return 'premier league';
+      if (code.includes('esp.1') || code.includes('laliga')) return 'la liga';
+      if (code.includes('ita.1') || code.includes('serie')) return 'serie a';
+      if (code.includes('ger.1') || code.includes('bundesliga')) return 'bundesliga';
+      if (code.includes('fra.1') || code.includes('ligue')) return 'ligue 1';
+      if (code.includes('uefa.champions')) return 'uefa champions';
+      if (code.includes('uefa.europa') && !code.includes('conf')) return 'uefa europa';
+      if (code.includes('uefa.europa.conf')) return 'uefa europa conf';
+      return 'soccer'; // fallback
+    };
+
+    const sportName = getSportFromLeagueCode(game.actualLeagueCode);
 
     const gameDate = new Date(game.date);
     
@@ -5715,9 +5732,9 @@ const FavoritesScreen = ({ navigation }) => {
             </View>
             <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
               color: homeIsLoser ? '#999' : 
-                     isFavorite(homeTeam.team?.id) ? colors.primary : theme.text 
+                     isFavorite(homeTeam.team?.id, sportName) ? colors.primary : theme.text 
             }]}>
-              {isFavorite(homeTeam.team?.id) ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
+              {isFavorite(homeTeam.team?.id, sportName) ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
             </Text>
           </View>
           
@@ -5783,9 +5800,9 @@ const FavoritesScreen = ({ navigation }) => {
             </View>
             <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
               color: awayIsLoser ? '#999' : 
-                     isFavorite(awayTeam.team?.id) ? colors.primary : theme.text 
+                     isFavorite(awayTeam.team?.id, sportName) ? colors.primary : theme.text 
             }]}>
-              {isFavorite(awayTeam.team?.id) ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
+              {isFavorite(awayTeam.team?.id, sportName) ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
             </Text>
           </View>
         </View>
