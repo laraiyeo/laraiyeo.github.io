@@ -135,11 +135,12 @@ export const normalizeTeamIdForStorage = (teamId, sport) => {
   if (sport === 'mlb' && isMLBId(teamIdString)) {
     const espnId = convertMLBIdToESPNId(teamIdString);
     console.log(`[TEAM ID MAPPING] Normalizing MLB ID ${teamIdString} -> ESPN ID ${espnId} for storage`);
-    return espnId || teamIdString;
+    // Append sport suffix for storage
+    return addSportSuffix(espnId || teamIdString, sport);
   }
   
   // For other sports, return as-is (already ESPN IDs)
-  return teamIdString;
+  return addSportSuffix(teamIdString, sport);
 };
 
 /**
@@ -152,17 +153,53 @@ export const normalizeTeamIdForStorage = (teamId, sport) => {
 export const getAPITeamId = (teamId, sport) => {
   if (!teamId) return teamId;
   
-  const teamIdString = String(teamId);
-  
+  let teamIdString = String(teamId);
+
+  // If the stored teamId includes a sport suffix (e.g. "1_mlb"), strip it for API use
+  const { id: baseId, sport: suffixSport } = stripSportSuffix(teamIdString);
+  const effectiveSport = (sport || suffixSport || '').toLowerCase();
+
   // For MLB API calls, convert ESPN ID back to MLB ID if it's an ESPN MLB ID
-  if (sport === 'mlb' && isESPNMLBId(teamIdString)) {
-    const mlbId = convertESPNIdToMLBId(teamIdString);
-    console.log(`[TEAM ID MAPPING] Converting ESPN ID ${teamIdString} -> MLB ID ${mlbId} for API call`);
-    return mlbId || teamIdString;
+  if (effectiveSport === 'mlb') {
+    // baseId may already be an ESPN ID; convert to MLB ID if possible
+    if (isESPNMLBId(baseId)) {
+      const mlbId = convertESPNIdToMLBId(baseId);
+      console.log(`[TEAM ID MAPPING] Converting ESPN ID ${baseId} -> MLB ID ${mlbId} for API call`);
+      return mlbId || baseId;
+    }
+    return baseId;
   }
-  
-  // For other sports, return as-is (ESPN IDs work directly)
-  return teamIdString;
+
+  // Other sports: return base id (ESPN ID)
+  return baseId;
+};
+
+/**
+ * Return whether a teamId already has a sport suffix and strip it.
+ * Returns { id, sport }
+ */
+export const stripSportSuffix = (teamId) => {
+  if (!teamId) return { id: '', sport: '' };
+  const s = String(teamId);
+  const parts = s.split('_');
+  if (parts.length >= 2) {
+    const sport = parts.slice(1).join('_');
+    return { id: parts[0], sport };
+  }
+  return { id: s, sport: '' };
+};
+
+export const isSuffixed = (teamId) => {
+  if (!teamId) return false;
+  return String(teamId).includes('_');
+};
+
+export const addSportSuffix = (teamId, sport) => {
+  if (!teamId) return teamId;
+  if (!sport) return String(teamId);
+  const s = String(teamId);
+  if (isSuffixed(s)) return s;
+  return `${s}_${String(sport).toLowerCase()}`;
 };
 
 /**
@@ -177,12 +214,13 @@ export const migrateFavoritesToESPNIds = (favorites) => {
   return favorites.map(favorite => {
     const { teamId, sport } = favorite;
     const normalizedId = normalizeTeamIdForStorage(teamId, sport);
-    
-    if (normalizedId !== teamId) {
-      console.log(`[TEAM ID MAPPING] Migrating favorite: ${teamId} -> ${normalizedId} (${sport})`);
-      return { ...favorite, teamId: normalizedId };
+    const normalizedSport = sport || stripSportSuffix(teamId).sport || null;
+
+    if (normalizedId !== teamId || favorite.sport == null) {
+      console.log(`[TEAM ID MAPPING] Migrating favorite: ${teamId} -> ${normalizedId} (${normalizedSport})`);
+      return { ...favorite, teamId: normalizedId, sport: normalizedSport };
     }
-    
+
     return favorite;
   });
 };

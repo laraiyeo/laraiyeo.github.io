@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { stripSportSuffix } from '../utils/TeamIdMapping';
 
 const ThemeContext = createContext();
 
@@ -141,7 +142,9 @@ export const ThemeProvider = ({ children }) => {
   // Generate logo path based on theme
   const getLogoPath = (teamId, size = '500') => {
     const themeSuffix = isDarkMode ? '-dark' : '';
-    return `https://a.espncdn.com/i/teamlogos/mlb/500${themeSuffix}/${teamId}.png`;
+    // If teamId is suffixed (e.g. "1_mlb"), strip it for logo URL
+    const base = stripSportSuffix(teamId).id || teamId;
+    return `https://a.espncdn.com/i/teamlogos/mlb/500${themeSuffix}/${base}.png`;
   };
 
   const getTeamLogoUrl = (sport, teamId, size = '500') => {
@@ -152,8 +155,9 @@ export const ThemeProvider = ({ children }) => {
     
     const themeSuffix = isDarkMode ? '-dark' : '';
     
-    // Handle abbreviation mapping for special cases only where ESPN uses different abbreviations
-    let normalizedTeamId = teamId;
+  // Handle abbreviation mapping for special cases only where ESPN uses different abbreviations
+  // If teamId is suffixed (e.g. '1_mlb'), strip the suffix before building URLs
+  let normalizedTeamId = stripSportSuffix(teamId).id || teamId;
     if (sport === 'mlb') {
       const abbreviationMap = {
         'AZ': 'ari',   // Arizona Diamondbacks (MLB API uses AZ, logo URL uses ari)
