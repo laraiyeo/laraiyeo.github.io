@@ -31,6 +31,7 @@ const CompareScreen = ({ route }) => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchingForPlayer, setSearchingForPlayer] = useState(null); // 1 or 2
+  const [allPlayersLoading, setAllPlayersLoading] = useState(false);
   
   // State for year selectors
   const [showYear1Picker, setShowYear1Picker] = useState(false);
@@ -56,6 +57,7 @@ const CompareScreen = ({ route }) => {
 
   const fetchAllMLBPlayers = async () => {
     try {
+      setAllPlayersLoading(true);
       const teams = [
         108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121,
         133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 158
@@ -130,6 +132,9 @@ const CompareScreen = ({ route }) => {
     } catch (error) {
       console.error('Error fetching all MLB players:', error);
     }
+    finally {
+      setAllPlayersLoading(false);
+    }
   };
 
   const searchPlayers = (query) => {
@@ -147,6 +152,24 @@ const CompareScreen = ({ route }) => {
 
     setSearchResults(filteredPlayers);
   };
+
+  // Debounce the search input so we show a loading indicator similar to SearchScreen
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (searchText.length >= 2) {
+        setSearchLoading(true);
+        try {
+          searchPlayers(searchText);
+        } finally {
+          setSearchLoading(false);
+        }
+      } else {
+        setSearchResults([]);
+      }
+    }, 350);
+
+    return () => clearTimeout(handler);
+  }, [searchText, allMLBPlayers]);
 
   const selectPlayer = (player, playerNumber) => {
     const playerData = {
@@ -530,48 +553,54 @@ const CompareScreen = ({ route }) => {
             placeholder="Search for a player..."
             placeholderTextColor={theme.textSecondary}
             value={searchText}
-            onChangeText={(text) => {
-              setSearchText(text);
-              searchPlayers(text);
-            }}
+            onChangeText={(text) => setSearchText(text)}
             autoFocus
           />
         </View>
         
         <ScrollView style={styles.searchResults}>
-          {searchResults.map((player) => (
-            <TouchableOpacity
-              key={player.id}
-              style={[styles.searchResultItem, { backgroundColor: theme.surface }]}
-              onPress={() => selectPlayer(player, searchingForPlayer)}
-            >
-              <Image 
-                source={{ uri: player.headshot }}
-                style={styles.searchResultImage}
-                defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
-              />
-              <View style={styles.searchResultInfo}>
-                <Text allowFontScaling={false} style={[styles.searchResultName, { color: theme.text }]}>
-                  {player.fullName}
-                </Text>
-                <Text allowFontScaling={false} style={[styles.searchResultDetails, { color: theme.textSecondary }]}>
-                  #{player.jersey} | {player.position} {player.isTwoWayPlayer && '(TWP)'}
-                </Text>
-                {player.teamName && (
-                  <Text allowFontScaling={false} style={[styles.searchResultTeam, { color: theme.textSecondary }]}>
-                    {player.teamName}
-                  </Text>
-                )}
-              </View>
-              {player.teamAbbr && (
-                <Image
-                  source={{ uri: getTeamLogo(player) }}
-                  style={styles.searchResultTeamLogo}
-                  resizeMode="contain"
+          {(allPlayersLoading || searchLoading) ? (
+            <View style={{ padding: 24, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text allowFontScaling={false} style={{ marginTop: 12, color: theme.textSecondary }}>
+                {allPlayersLoading ? 'Loading player roster...' : 'Searching...'}
+              </Text>
+            </View>
+          ) : (
+            searchResults.map((player) => (
+              <TouchableOpacity
+                key={player.id}
+                style={[styles.searchResultItem, { backgroundColor: theme.surface }]}
+                onPress={() => selectPlayer(player, searchingForPlayer)}
+              >
+                <Image 
+                  source={{ uri: player.headshot }}
+                  style={styles.searchResultImage}
+                  defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
                 />
-              )}
-            </TouchableOpacity>
-          ))}
+                <View style={styles.searchResultInfo}>
+                  <Text allowFontScaling={false} style={[styles.searchResultName, { color: theme.text }]}> 
+                    {player.fullName}
+                  </Text>
+                  <Text allowFontScaling={false} style={[styles.searchResultDetails, { color: theme.textSecondary }]}> 
+                    #{player.jersey} | {player.position} {player.isTwoWayPlayer && '(TWP)'}
+                  </Text>
+                  {player.teamName && (
+                    <Text allowFontScaling={false} style={[styles.searchResultTeam, { color: theme.textSecondary }]}> 
+                      {player.teamName}
+                    </Text>
+                  )}
+                </View>
+                {player.teamAbbr && (
+                  <Image
+                    source={{ uri: getTeamLogo(player) }}
+                    style={styles.searchResultTeamLogo}
+                    resizeMode="contain"
+                  />
+                )}
+              </TouchableOpacity>
+            ))
+          )}
         </ScrollView>
       </View>
     </Modal>

@@ -140,7 +140,7 @@ export const normalizeTeamIdForStorage = (teamId, sport) => {
   }
   
   // For other sports, return as-is (already ESPN IDs)
-  return addSportSuffix(teamIdString, sport);
+  return addSportSuffix(teamIdString, sportMapNormalize(sport));
 };
 
 /**
@@ -171,10 +171,22 @@ export const getAPITeamId = (teamId, sport) => {
   }
 
   // Other sports: return base id (ESPN ID)
+  // If we failed to strip a suffix but the effective sport is soccer (or a UEFA variant),
+  // try a defensive fallback: extract a leading numeric id (many soccer team ids are numeric)
+  if (effectiveSport && effectiveSport.includes('soccer') || effectiveSport.includes('uefa') || effectiveSport.includes('champions') || effectiveSport.includes('europa')) {
+    const m = String(baseId).match(/^(\d+)/);
+    if (m) {
+      console.log(`[TEAM ID MAPPING] Fallback: extracted numeric API id ${m[1]} from ${baseId}`);
+      return m[1];
+    }
+  }
+
   return baseId;
 };
 
 // Known sport suffixes to prevent over-aggressive stripping
+// Keep these normalized to space-separated, lower-case forms. We will normalize incoming
+// sport strings (dots -> spaces) so both 'uefa.champions' and 'uefa champions' match.
 const KNOWN_SPORT_SUFFIXES = ['mlb', 'nfl', 'nba', 'nhl', 'soccer', 'wnba', 'f1', 'premier league', 'la liga', 'serie a', 'bundesliga', 'ligue 1', 'uefa champions', 'uefa europa', 'uefa europa conf'];
 
 /**
@@ -187,10 +199,18 @@ export const stripSportSuffix = (teamId) => {
   const s = String(teamId);
   const parts = s.split('_');
   if (parts.length >= 2) {
-    const possibleSport = parts.slice(1).join('_').toLowerCase();
-    // Only treat as sport suffix if it matches a known sport
-    if (KNOWN_SPORT_SUFFIXES.includes(possibleSport)) {
-      return { id: parts[0], sport: possibleSport };
+    // Join the tail parts to preserve multi-word sports and normalize separators
+    let possibleSport = parts.slice(1).join('_').toLowerCase();
+    // Remove any trailing parenthetical display name like " (Champions League)"
+    // e.g. "champions league (Champions League)" -> "champions league"
+    possibleSport = possibleSport.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    // Normalize '.' to spaces and underscores to spaces, trim
+    possibleSport = possibleSport.replace(/\./g, ' ').replace(/_/g, ' ').trim();
+    // Map aliases to canonical sport suffixes (e.g., 'champions league' -> 'uefa champions')
+    const normalizedSport = sportMapNormalize(possibleSport);
+    // Only treat as sport suffix if it matches a known sport (normalized list)
+    if (KNOWN_SPORT_SUFFIXES.includes(normalizedSport)) {
+      return { id: parts[0], sport: normalizedSport };
     }
   }
   return { id: s, sport: '' };
@@ -206,7 +226,34 @@ export const addSportSuffix = (teamId, sport) => {
   if (!sport) return String(teamId);
   const s = String(teamId);
   if (isSuffixed(s)) return s;
-  return `${s}_${String(sport).toLowerCase()}`;
+  // Normalize sport string: convert dots/underscores to spaces and lowercase
+  const normalized = sportMapNormalize(sport);
+  return `${s}_${normalized}`;
+};
+
+// Map incoming sport strings to canonical normalized suffix used in storage
+const SPORT_ALIAS_MAP = {
+  'champions league': 'uefa champions',
+  'uefa.champions': 'uefa champions',
+  'uefa champions': 'uefa champions',
+  'uefa.champions_qual': 'uefa champions',
+  'europa league': 'uefa europa',
+  'uefa.europa': 'uefa europa',
+  'uefa europa': 'uefa europa',
+  'europa conference': 'uefa europa conf',
+  'uefa.europa.conf': 'uefa europa conf',
+  'uefa.europa.conf': 'uefa europa conf',
+  'premier league': 'premier league',
+  'la liga': 'la liga',
+  'serie a': 'serie a',
+  'bundesliga': 'bundesliga',
+  'ligue 1': 'ligue 1'
+};
+
+const sportMapNormalize = (sport) => {
+  if (!sport) return '';
+  const s = String(sport).toLowerCase().replace(/\./g, ' ').replace(/_/g, ' ').trim();
+  return SPORT_ALIAS_MAP[s] || s;
 };
 
 /**

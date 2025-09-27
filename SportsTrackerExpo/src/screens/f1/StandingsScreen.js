@@ -82,16 +82,25 @@ const StandingsScreen = ({ route }) => {
     try {
       setLoading(true);
       
-      // Fetch driver standings
-      const driversResponse = await fetch('https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/types/2/standings/0');
-      const driversData = await driversResponse.json();
+      // Fetch both driver and constructor standings in parallel
+      const [driversResponse, constructorsResponse] = await Promise.all([
+        fetch('https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/types/2/standings/0'),
+        fetch('https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/types/2/standings/1')
+      ]);
       
+      const [driversData, constructorsData] = await Promise.all([
+        driversResponse.json(),
+        constructorsResponse.json()
+      ]);
+      
+      // Prepare driversWithDetails so constructors can reference it later
+      let driversWithDetails = [];
       if (driversData && driversData.standings) {
         // Process driver standings with team information
-        const driversWithDetails = await Promise.all(
+        driversWithDetails = await Promise.all(
           driversData.standings.map(async (standing, index) => {
             try {
-              // Get athlete details
+              // Get athlete details first
               const athleteResponse = await fetch(convertToHttps(standing.athlete.$ref));
               const athleteData = await athleteResponse.json();
               
@@ -101,6 +110,7 @@ const StandingsScreen = ({ route }) => {
               
               try {
                 if (athleteData.eventLog && athleteData.eventLog.$ref) {
+                  // Fetch event log data
                   const eventLogResponse = await fetch(convertToHttps(athleteData.eventLog.$ref));
                   const eventLogData = await eventLogResponse.json();
                   
@@ -115,7 +125,8 @@ const StandingsScreen = ({ route }) => {
                       }
                     }
 
-                    if (lastEvent.competitor?.$ref) {
+                    if (lastEvent?.competitor?.$ref) {
+                      // Fetch competitor data to get team info
                       const competitorResponse = await fetch(convertToHttps(lastEvent.competitor.$ref));
                       const competitorData = await competitorResponse.json();
                       
@@ -174,12 +185,10 @@ const StandingsScreen = ({ route }) => {
         );
         
         setDriverStandings(driversWithDetails);
+      }
         
-        // Fetch constructor standings separately using the proper endpoint
-        const constructorsResponse = await fetch('https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/types/2/standings/1');
-        const constructorsData = await constructorsResponse.json();
-        
-        if (constructorsData && constructorsData.standings) {
+      // Process constructor standings using already-fetched data
+      if (constructorsData && constructorsData.standings) {
           const constructorsWithDetails = await Promise.all(
             constructorsData.standings.map(async (standing, index) => {
               try {
@@ -221,7 +230,6 @@ const StandingsScreen = ({ route }) => {
           
           setConstructorStandings(constructorsWithDetails);
         }
-      }
     } catch (error) {
       console.error('Error fetching F1 standings:', error);
       Alert.alert('Error', 'Failed to fetch F1 standings');

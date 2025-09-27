@@ -10,6 +10,7 @@ import { ChampionsLeagueServiceEnhanced } from '../services/soccer/ChampionsLeag
 import { MLBService } from '../services/MLBService';
 import { getAPITeamId, convertMLBIdToESPNId, normalizeTeamIdForStorage } from '../utils/TeamIdMapping';
 import { NFLService } from '../services/NFLService';
+import { getCurrentGameDay, getTodayDateRange } from '../utils/DateUtils';
 
 // Module-level helpers so any function in the file can use them reliably
 const promiseWithTimeout = (p, ms = 3000) => {
@@ -549,7 +550,7 @@ const getGamesBeingTrackedForUpdates = () => {
 
 const FavoritesScreen = ({ navigation }) => {
   const { theme, colors, isDarkMode, getTeamLogoUrl } = useTheme();
-  const { getFavoriteTeams, isFavorite, favorites, getTeamCurrentGame, updateTeamCurrentGame, clearTeamCurrentGame, autoPopulating } = useFavorites();
+  const { getFavoriteTeams, isFavorite, favorites, getTeamCurrentGame, updateTeamCurrentGame, clearTeamCurrentGame, refreshAllCurrentGames, autoPopulating } = useFavorites();
   const [favoriteGames, setFavoriteGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -564,6 +565,8 @@ const FavoritesScreen = ({ navigation }) => {
   const [liveGamesInterval, setLiveGamesInterval] = useState(null);
   const [currentGameDay, setCurrentGameDay] = useState(null);
   const [dailyCleanupInterval, setDailyCleanupInterval] = useState(null);
+  
+
 
   // Using module-level helper promiseWithTimeout defined above.
 
@@ -671,62 +674,7 @@ const FavoritesScreen = ({ navigation }) => {
     });
   };
 
-  // Helper function to get "today's" date range with 2 AM EST cutoff
-  // Games are considered "today's" until 2 AM America/New_York time of the next day
-  const getTodayDateRange = () => {
-    const now = new Date();
-    
-    // Get current time in America/New_York timezone (handles EST/EDT automatically)
-    const nyTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    const currentHourNY = nyTime.getHours();
-    
-    console.log(`[FAVORITES] Current time: ${now.toISOString()}, NY time: ${nyTime.toLocaleString()}, NY hour: ${currentHourNY}`);
-    
-    // If it's before 2 AM NY time, use yesterday's date as "today"
-    let gameDay = new Date(nyTime);
-    if (currentHourNY < 2) {
-      gameDay = new Date(nyTime.getTime() - 24 * 60 * 60 * 1000); // Yesterday
-      console.log(`[FAVORITES] Before 2 AM NY, using yesterday as game day: ${gameDay.toLocaleDateString()}`);
-    } else {
-      console.log(`[FAVORITES] After 2 AM NY, using today as game day: ${gameDay.toLocaleDateString()}`);
-    }
-    
-    // Create 2 AM cutoff for the game day in NY timezone
-    const todayStart2AMNY = new Date(gameDay.getFullYear(), gameDay.getMonth(), gameDay.getDate(), 2, 0, 0);
-    const tomorrowStart2AMNY = new Date(gameDay.getFullYear(), gameDay.getMonth(), gameDay.getDate() + 1, 2, 0, 0);
-    
-    // Convert NY times to UTC for API queries
-    const todayStart = new Date(todayStart2AMNY.toLocaleString('en-US', { timeZone: 'UTC' }));
-    const todayEnd = new Date(tomorrowStart2AMNY.toLocaleString('en-US', { timeZone: 'UTC' }));
-    
-    // Adjust for timezone offset to get proper UTC times
-    const todayStartUTC = new Date(todayStart2AMNY.getTime() - (todayStart2AMNY.getTimezoneOffset() * 60000));
-    const todayEndUTC = new Date(tomorrowStart2AMNY.getTime() - (tomorrowStart2AMNY.getTimezoneOffset() * 60000));
-    
-    console.log(`Date range calculation: Current time: ${now.toISOString()}, NY Hour: ${currentHourNY}, Game day: ${gameDay.toDateString()}, Range: ${todayStartUTC.toISOString()} to ${todayEndUTC.toISOString()}`);
-    
-    return { todayStart: todayStartUTC, todayEnd: todayEndUTC };
-  };
-
-  // Helper function to get current "game day" based on 2 AM America/New_York cutoff
-  const getCurrentGameDay = () => {
-    const now = new Date();
-    
-    // Get current time in America/New_York timezone (handles EST/EDT automatically)
-    const nyTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    const currentHourNY = nyTime.getHours();
-    
-    // If it's before 2 AM NY time, use yesterday's date as the game day
-    let gameDay = new Date(nyTime);
-    if (currentHourNY < 2) {
-      gameDay = new Date(nyTime.getTime() - 24 * 60 * 60 * 1000); // Yesterday
-    }
-    
-    // Return as YYYY-MM-DD format for easy comparison
-    return gameDay.getFullYear() + '-' + 
-           String(gameDay.getMonth() + 1).padStart(2, '0') + '-' + 
-           String(gameDay.getDate()).padStart(2, '0');
-  };
+  // NOTE: Using unified date utils from DateUtils.js for consistent 2 AM NY cutoff
 
   // Helper function to clear all team current games and force refresh
   const clearAllCurrentGamesAndRefresh = async () => {
@@ -2092,9 +2040,11 @@ const FavoritesScreen = ({ navigation }) => {
         return null;
       }
       
-      // For favorited teams, expand the date range to include next day's games
-      const extendedTodayEnd = new Date(todayEnd.getTime() + 24 * 60 * 60 * 1000); // Add 24 hours
-      
+      // For favorited teams we want to include games within the standard 2AM NY -> 2AM NY window.
+      // Previously this incorrectly added 24 hours to the end which caused tomorrow's games to be
+      // included. Keep the range bounded to todayEnd to avoid pulling in games for the following day.
+      const extendedTodayEnd = new Date(todayEnd.getTime()); // don't expand beyond next 2AM NY
+
       if (gameDate < todayStart || gameDate >= extendedTodayEnd) {
         console.log(`[DATE FILTER] Game for ${teamName} excluded - gameDate: ${gameDate.toISOString()}, todayStart: ${todayStart.toISOString()}, extendedTodayEnd: ${extendedTodayEnd.toISOString()}`);
         return null;
@@ -5113,8 +5063,8 @@ const FavoritesScreen = ({ navigation }) => {
 
     const gameDate = new Date(game.date);
     
-    // Convert to EST
-    const estDate = new Date(gameDate.toLocaleString("en-US", {timeZone: "America/New_York"}));
+    // Use gameDate directly since formatGameTime/formatGameDate handle timezone conversion
+    const estDate = gameDate;
     
     const formatGameTime = (date) => {
       return date.toLocaleTimeString('en-US', {

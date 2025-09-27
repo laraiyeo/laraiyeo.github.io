@@ -2,6 +2,7 @@
 // These can be called directly without navigating to team pages
 
 import { getAPITeamId } from './TeamIdMapping';
+import { getMLBDateRange } from './DateUtils';
 
 // Helper function to determine if we should fetch a finished game based on timing restrictions
 const shouldFetchFinishedGame = (gameDate, sport) => {
@@ -46,35 +47,7 @@ export const fetchMLBTeamCurrentGame = async (teamId, updateTeamCurrentGameFunc)
     const mlbApiTeamId = getAPITeamId(teamId, 'mlb');
     console.log(`[TEAM PAGE UTILS] Fetching MLB current game for team ${teamId} (API ID: ${mlbApiTeamId})`);
     
-    // Use the same date range logic as FavoritesScreen (12am today -> 2am tomorrow)
-    const getMLBDateRange = () => {
-      const now = new Date();
-      const currentHourUTC = now.getUTCHours(); // Use UTC hours since game times are in UTC
-      
-      let gameDay;
-      if (currentHourUTC < 2) {
-        // Before 2 AM UTC: use previous day (games from 12am today are "yesterday's" games)
-        gameDay = new Date(now);
-        gameDay.setDate(gameDay.getDate() - 1);
-      } else {
-        // After 2 AM UTC: use current day 
-        gameDay = new Date(now);
-      }
-      
-      const today = gameDay.getFullYear() + "-" +
-                   String(gameDay.getMonth() + 1).padStart(2, "0") + "-" +
-                   String(gameDay.getDate()).padStart(2, "0");
-      
-      // Also check tomorrow for games that might start after midnight
-      const tomorrow = new Date(gameDay);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowStr = tomorrow.getFullYear() + "-" +
-                         String(tomorrow.getMonth() + 1).padStart(2, "0") + "-" +
-                         String(tomorrow.getDate()).padStart(2, "0");
-      
-      return { today, tomorrow: tomorrowStr };
-    };
-
+    // Use unified date range logic that matches FavoritesScreen (2 AM America/New_York cutoff)
     const { today, tomorrow } = getMLBDateRange();
     console.log(`[TEAM PAGE UTILS] MLB date range: ${today} to ${tomorrow}`);
     
@@ -301,22 +274,93 @@ export const fetchNFLTeamCurrentGame = async (teamId, updateTeamCurrentGameFunc)
 /**
  * Fetch current game for soccer team using exact same logic as UCLTeamPageScreen
  */
-export const fetchSoccerTeamCurrentGame = async (teamId, updateTeamCurrentGameFunc) => {
+export const fetchSoccerTeamCurrentGame = async (teamId, sport, updateTeamCurrentGameFunc) => {
   try {
     console.log(`[TEAM PAGE UTILS] Fetching soccer current game for team ${teamId}`);
     
-    // Try multiple competitions (same as soccer team pages)
-    const competitions = ['uefa.champions', 'uefa.europa', 'uefa.europa.conf'];
-    let bestGame = null;
+    // Try multiple competitions. Start with domestic competitions based on sport hint
+    // so that teams favorited in their domestic leagues will be found even if they
+    // also participate in UEFA competitions.
+    const domesticMap = {
+      'premier league': ['eng.1'],
+      'la liga': ['esp.1'],
+      'serie a': ['ita.1'],
+      'bundesliga': ['ger.1'],
+      'ligue 1': ['fra.1']
+    };
+
+    let competitions = [];
+  const sportLower = String(sport || '').toLowerCase();
+  if (domesticMap[sportLower]) competitions.push(...domesticMap[sportLower]);
+
+  let bestGame = null;
     const currentTime = new Date();
     
+    // Resolve a single API team id once (strip suffixes/normalize)
+    const soccerApiTeamId = getAPITeamId(teamId, sport || 'soccer');
+    const encodedSoccerId = encodeURIComponent(String(soccerApiTeamId));
+
+    // If we don't have any domestic competitions from the sport hint, try to fetch
+    // the team resource to discover which domestic leagues the team participates in.
+    if (competitions.length === 0) {
+      try {
+        console.log(`[TEAM PAGE UTILS] No domestic competition hint for ${teamId}; fetching team resource to discover domestic leagues`);
+        const teamResp = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/teams/${encodedSoccerId}`);
+        const teamJson = await teamResp.json();
+        const discovered = [];
+        
+        // Check for defaultLeague first (most reliable for domestic league)
+        if (teamJson?.defaultLeague?.$ref) {
+          const defaultLeagueMatch = String(teamJson.defaultLeague.$ref).match(/leagues\/(.+?)(?:\?|$|\/)/);
+          if (defaultLeagueMatch) {
+            discovered.push(defaultLeagueMatch[1]);
+            console.log(`[TEAM PAGE UTILS] Found default league: ${defaultLeagueMatch[1]}`);
+          }
+        }
+        
+        // Also check competitions array if it exists
+        if (teamJson?.competitions && Array.isArray(teamJson.competitions)) {
+          console.log(`[TEAM PAGE UTILS] Found ${teamJson.competitions.length} competitions in team resource`);
+          for (const c of teamJson.competitions) {
+            try {
+              // c may be an object with $ref or an object with league/id fields
+              if (c.$ref) {
+                const m = String(c.$ref).match(/leagues\/(.+?)(?:$|\/)/);
+                if (m) discovered.push(m[1]);
+              } else if (c.league && c.league.id) {
+                discovered.push(c.league.id);
+              } else if (c.id) {
+                discovered.push(c.id);
+              }
+            } catch (e) {
+              console.log(`[TEAM PAGE UTILS] Error processing competition:`, c, e.message);
+            }
+          }
+        } else {
+          console.log(`[TEAM PAGE UTILS] No competitions array found in team resource or not an array:`, teamJson?.competitions);
+        }
+
+        console.log(`[TEAM PAGE UTILS] All discovered competition codes:`, discovered);
+        // Filter out UEFA competitions (we'll try domestic first)
+        const domesticOnly = discovered.filter(code => !String(code).toLowerCase().startsWith('uefa'));
+        console.log(`[TEAM PAGE UTILS] Domestic-only competitions after filtering:`, domesticOnly);
+        if (domesticOnly.length > 0) {
+          console.log(`[TEAM PAGE UTILS] Discovered domestic competitions for ${teamId}: ${domesticOnly.join(', ')}`);
+          competitions.push(...domesticOnly);
+        }
+      } catch (e) {
+        console.log(`[TEAM PAGE UTILS] Failed to fetch team resource for ${teamId}: ${e.message}`);
+      }
+    }
+
+    // Always check UEFA competitions after domestic ones
+    competitions.push('uefa.champions', 'uefa.europa', 'uefa.europa.conf');
+
+    console.log(`[TEAM PAGE UTILS] Final competitions list for ${teamId}:`, competitions);
+
     for (const competition of competitions) {
       try {
         console.log(`[TEAM PAGE UTILS] Checking ${competition} for team ${teamId}`);
-        
-        // Use API-safe team id (strip sport suffixes) and encode for URL
-        const soccerApiTeamId = getAPITeamId(teamId, 'soccer');
-        const encodedSoccerId = encodeURIComponent(String(soccerApiTeamId));
         console.log(`[TEAM PAGE UTILS] Using API team ID: ${soccerApiTeamId} (encoded: ${encodedSoccerId})`);
         
         const response = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/teams/${encodedSoccerId}/events?lang=en&region=us`);
@@ -454,7 +498,7 @@ export const fetchTeamCurrentGame = async (teamId, sport, updateTeamCurrentGameF
       sportLower.includes('uefa') ||
       sportLower.includes('champions') ||
       sportLower.includes('europa')) {
-    return await fetchSoccerTeamCurrentGame(teamId, updateTeamCurrentGameFunc);
+  return await fetchSoccerTeamCurrentGame(teamId, sport, updateTeamCurrentGameFunc);
   }
   
   console.log(`[TEAM PAGE UTILS] Unsupported sport: ${sport}`);

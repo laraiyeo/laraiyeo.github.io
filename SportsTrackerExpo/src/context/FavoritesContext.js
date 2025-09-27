@@ -264,8 +264,29 @@ export const FavoritesProvider = ({ children }) => {
         return null;
       };
 
-      const competitions = ['uefa.champions', 'uefa.europa', 'uefa.europa.conf'];
-      for (const comp of competitions) {
+      // For soccer teams, check domestic competitions first (based on common leagues),
+      // then fall back to UEFA competitions so domestic favorites are discovered.
+      const domesticById = ['eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1'];
+      const uefaComps = ['uefa.champions', 'uefa.europa', 'uefa.europa.conf'];
+
+      // If the stored id includes a sport hint, try to infer domestic competition from it
+      const sportHint = suffix || '';
+      const sportToDomestic = {
+        'premier league': ['eng.1'],
+        'la liga': ['esp.1'],
+        'serie a': ['ita.1'],
+        'bundesliga': ['ger.1'],
+        'ligue 1': ['fra.1']
+      };
+
+      let checkOrder = [];
+      if (sportToDomestic[sportHint]) checkOrder.push(...sportToDomestic[sportHint]);
+      // default domestic list (covers teams without a specific sport hint)
+      checkOrder.push(...domesticById);
+      // finally check UEFA competitions
+      checkOrder.push(...uefaComps);
+
+      for (const comp of checkOrder) {
         const found = await checkCompetition(comp);
         if (found) {
           // Persist to favorites

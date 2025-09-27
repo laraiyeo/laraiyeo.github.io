@@ -361,12 +361,20 @@ const F1TabNavigator = ({ route }) => {
           // Use the local SVG asset for the Vehicles tab. If your bundler
           // supports importing SVGs as images, this will render the SVG.
           if (route.name === 'Vehicles') {
+            // Wrap the image so we can control background/tint safely.
+            // Avoid relying solely on tintColor which can make the icon invisible
+            // when the tint matches the tab background. Provide a subtle fallback
+            // color and fixed sizing for consistency.
+            const iconSize = 50;
+            const safeTint = color || (focused ? colors.primary : theme.textTertiary);
             return (
-              <Image
-                source={require('./assets/f1-car-svgrepo-com.png')}
-                style={{ width: 50, height: 50, tintColor: color }}
-                resizeMode="contain"
-              />
+              <View style={{ width: iconSize, height: iconSize, alignItems: 'center', justifyContent: 'center' }}>
+                <Image
+                  source={require('./assets/f1-car-svgrepo-com.png')}
+                  style={{ width: iconSize, height: iconSize, tintColor: safeTint }}
+                  resizeMode="contain"
+                />
+              </View>
             );
           }
 

@@ -377,20 +377,18 @@ const ConstructorDetailsScreen = ({ route }) => {
         }
       };
 
-      const events = [];
-
-      // Process calendar sections
-      for (const section of calJson.sections) {
+      // Process calendar sections in parallel
+      const sectionPromises = calJson.sections.map(async (section) => {
         try {
           const evName = section.label || section.title || 'Event';
           const startDate = section.startDate || section.event?.startDate || section.event?.date;
           const endDate = section.endDate || section.event?.endDate || section.event?.date;
           const eventRef = section.event?.$ref;
 
-          if (!eventRef) continue;
+          if (!eventRef) return null;
 
           const eventData = await fetchRef(eventRef);
-          if (!eventData) continue;
+          if (!eventData) return null;
 
           // Determine event status
           const startMs = startDate ? Date.parse(startDate) : (eventData.date ? Date.parse(eventData.date) : null);
@@ -402,7 +400,7 @@ const ConstructorDetailsScreen = ({ route }) => {
           const isInProgress = !isCompleted && !isUpcoming;
 
           // Only keep finished & in-progress races per request
-          if (!isCompleted && !isInProgress) continue;
+          if (!isCompleted && !isInProgress) return null;
 
           // Get venue name and country flag
           let venueName = '';
@@ -607,7 +605,7 @@ const ConstructorDetailsScreen = ({ route }) => {
           const status = isCompleted ? 'Final' : (isInProgress ? 'In Progress' : 'Scheduled');
           const competitionType = usedCompetition?.type?.text || usedCompetition?.type?.abbreviation || 'Race';
 
-          events.push({
+          return {
             id: eventData.id || eventData.uid || `${eventData.name}_${eventData.date}`,
             name: eventData.name || eventData.shortName || evName,
             date: eventData.date || eventData.startDate || startDate || null,
@@ -620,11 +618,15 @@ const ConstructorDetailsScreen = ({ route }) => {
             isCompleted,
             isInProgress,
             drivers: driverResults
-          });
+          };
         } catch (secErr) {
           console.warn('Failed to process calendar section for race log', secErr);
+          return null;
         }
-      }
+      });
+
+      // Execute all section processing in parallel and filter out null results
+      const events = (await Promise.all(sectionPromises)).filter(event => event !== null);
 
       // Sort newest first (reverse chronological order)
       const sorted = events

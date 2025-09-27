@@ -931,75 +931,121 @@ const RaceDetailsScreen = ({ route }) => {
         eventData = await eventResponse.json();
       }
       
-  setRaceData(eventData);
+      setRaceData(eventData);
       
-      // Get venue details for country flag and venue name
+      // Fetch venue, circuit, and race winner data in parallel
+      const parallelFetches = [];
+      
+      // Add venue fetch if venues exist
       if (eventData.venues && eventData.venues.length > 0) {
-        try {
-          const venueResponse = await fetch(convertToHttps(eventData.venues[0].$ref));
-          const venueData = await venueResponse.json();
-          
-          setCircuitInfo({
-            name: venueData.fullName || 'Unknown Circuit',
-            city: venueData.address?.city || '',
-            country: venueData.address?.country || '',
-            countryFlag: venueData.countryFlag?.href || ''
-          });
-
-          // Also try to fetch the circuit resource to obtain diagrams/map images
-          try {
-            const circuitRef = eventData.circuit?.$ref || eventData.circuit;
-            if (circuitRef && typeof circuitRef === 'string') {
-              const circuitResp = await fetch(convertToHttps(circuitRef));
-              const circuitData = await circuitResp.json();
-              const mapHref = getCircuitMapHref(circuitData.diagrams, isDarkMode);
-              // collect circuit fields we care about
-              const circuitFields = {
-                type: circuitData.type || circuitData.type?.text || '',
-                length: circuitData.length || '',
-                distance: circuitData.distance || '',
-                laps: circuitData.laps || '',
-                turns: circuitData.turns || '',
-                direction: circuitData.direction || '',
-                established: circuitData.established || '',
-                fastestLapTime: circuitData.fastestLapTime || '',
-                fastestLapYear: circuitData.fastestLapYear || ''
-              };
-
-              if (mapHref) {
-                circuitFields.mapHref = mapHref;
-              }
-
-              // if there's a fastestLapDriver ref, fetch the athlete to get displayName
-              try {
-                const fastestRef = circuitData.fastestLapDriver?.$ref || circuitData.fastestLapDriver;
-                if (fastestRef && typeof fastestRef === 'string') {
-                  const athlete = await fetchAthleteData(fastestRef);
-                  if (athlete) {
-                    circuitFields.fastestDriverName = athlete.displayName || athlete.shortName || athlete.fullName || '';
-                  }
-                }
-              } catch (fdErr) {
-                // ignore fastest driver fetch errors
-              }
-
-              setCircuitInfo(prev => ({ ...(prev || {}), ...circuitFields }));
-            }
-          } catch (cErr) {
-            // ignore circuit fetch errors, map is optional
-          }
-        } catch (error) {
-          console.error('Error fetching venue data:', error);
-        }
+        parallelFetches.push(
+          fetch(convertToHttps(eventData.venues[0].$ref))
+            .then(response => response.json())
+            .then(venueData => ({ type: 'venue', data: venueData }))
+            .catch(error => {
+              console.error('Error fetching venue data:', error);
+              return null;
+            })
+        );
       }
       
-      // Fetch race winner if the race has finished or if winner is present
-      const winner = await fetchRaceWinner(eventData);
+      // Add circuit fetch if circuit exists
+      const circuitRef = eventData.circuit?.$ref || eventData.circuit;
+      if (circuitRef && typeof circuitRef === 'string') {
+        parallelFetches.push(
+          fetch(convertToHttps(circuitRef))
+            .then(response => response.json())
+            .then(circuitData => ({ type: 'circuit', data: circuitData }))
+            .catch(error => {
+              console.error('Error fetching circuit data:', error);
+              return null;
+            })
+        );
+      }
+      
+      // Add race winner fetch
+      parallelFetches.push(
+        fetchRaceWinner(eventData)
+          .then(winner => ({ type: 'winner', data: winner }))
+          .catch(error => {
+            console.error('Error fetching race winner:', error);
+            return null;
+          })
+      );
+      
+      // Execute all fetches in parallel
+      const results = await Promise.all(parallelFetches);
+      
+      // Process results
+      let venueData = null;
+      let circuitData = null;
+      let winner = null;
+      
+      results.forEach(result => {
+        if (!result) return;
+        
+        switch (result.type) {
+          case 'venue':
+            venueData = result.data;
+            break;
+          case 'circuit':
+            circuitData = result.data;
+            break;
+          case 'winner':
+            winner = result.data;
+            break;
+        }
+      });
+      
+      // Process venue data
+      if (venueData) {
+        setCircuitInfo({
+          name: venueData.fullName || 'Unknown Circuit',
+          city: venueData.address?.city || '',
+          country: venueData.address?.country || '',
+          countryFlag: venueData.countryFlag?.href || ''
+        });
+      }
+      
+      // Process circuit data
+      if (circuitData) {
+        const mapHref = getCircuitMapHref(circuitData.diagrams, isDarkMode);
+        const circuitFields = {
+          type: circuitData.type || circuitData.type?.text || '',
+          length: circuitData.length || '',
+          distance: circuitData.distance || '',
+          laps: circuitData.laps || '',
+          turns: circuitData.turns || '',
+          direction: circuitData.direction || '',
+          established: circuitData.established || '',
+          fastestLapTime: circuitData.fastestLapTime || '',
+          fastestLapYear: circuitData.fastestLapYear || ''
+        };
+
+        if (mapHref) {
+          circuitFields.mapHref = mapHref;
+        }
+
+        // Fetch fastest lap driver if available
+        const fastestRef = circuitData.fastestLapDriver?.$ref || circuitData.fastestLapDriver;
+        if (fastestRef && typeof fastestRef === 'string') {
+          try {
+            const athlete = await fetchAthleteData(fastestRef);
+            if (athlete) {
+              circuitFields.fastestDriverName = athlete.displayName || athlete.shortName || athlete.fullName || '';
+            }
+          } catch (fdErr) {
+            // ignore fastest driver fetch errors
+          }
+        }
+
+        setCircuitInfo(prev => ({ ...(prev || {}), ...circuitFields }));
+      }
+      
+      // Process race winner
       if (winner) {
         setWinnerDriver(winner);
-      }
-
-      // Determine current/next competition label, but only when the event is in-progress
+      }      // Determine current/next competition label, but only when the event is in-progress
       try {
   const nowMs = Date.now();
   const startMs = Date.parse(eventData.date || '');
