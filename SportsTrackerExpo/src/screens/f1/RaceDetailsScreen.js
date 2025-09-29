@@ -13,6 +13,7 @@ import {
   Modal
 } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { SvgUri } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
@@ -122,7 +123,8 @@ const RaceDetailsScreen = ({ route }) => {
     drivers: {},
     eventsLoading: false,
     eventsError: null,
-    selectedDriverFilter: null // null means show all drivers, otherwise driver number
+    selectedDriverFilter: null, // null means show all drivers, otherwise driver number
+    stints: [] // array of stints for the current selected session
   });
 
   const tabs = [
@@ -373,6 +375,15 @@ const RaceDetailsScreen = ({ route }) => {
     'Haas': '#B6BABD'
   };
 
+  // Tire image mapping (from c2.txt)
+  const TIRE_IMAGES = {
+    SOFT: 'https://upload.wikimedia.org/wikipedia/commons/d/df/F1_tire_Pirelli_PZero_Red.svg',
+    MEDIUM: 'https://upload.wikimedia.org/wikipedia/commons/4/4d/F1_tire_Pirelli_PZero_Yellow.svg',
+    HARD: 'https://upload.wikimedia.org/wikipedia/commons/d/d6/F1_tire_Pirelli_PZero_White.svg',
+    INTERMEDIATE: 'https://upload.wikimedia.org/wikipedia/commons/8/86/F1_tire_Pirelli_Cinturato_Green.svg',
+    WET: 'https://upload.wikimedia.org/wikipedia/commons/6/63/F1_tire_Pirelli_Cinturato_Blue.svg'
+  };
+
   // Helper to format color (adds # if missing, like StandingsScreen)
   const formatColor = (color) => {
     if (!color) return '#000000';
@@ -496,6 +507,124 @@ const RaceDetailsScreen = ({ route }) => {
     } catch (e) {
       return null;
     }
+  };
+
+  // Get stints for a given driver number from openF1Data.stints
+  const getStintsForDriver = (driverNumber) => {
+    console.log('getStintsForDriver called with driverNumber:', driverNumber);
+    console.log('openF1Data.stints:', openF1Data.stints);
+    if (!driverNumber || !openF1Data || !Array.isArray(openF1Data.stints)) {
+      console.log('Early return from getStintsForDriver - missing data');
+      return [];
+    }
+    // openf1 stints use driver_number field
+    const filtered = openF1Data.stints.filter(s => Number(s.driver_number) === Number(driverNumber));
+    console.log('Filtered stints for driver', driverNumber, ':', filtered);
+    return filtered.sort((a,b) => (a.lap_start || 0) - (b.lap_start || 0));
+  };
+
+  // Render Tires UI: each stint row shows tire icon and lap range, with arrows between
+  const renderTiresForDriver = (driverNumber) => {
+    console.log('renderTiresForDriver called with driverNumber:', driverNumber);
+    const stints = getStintsForDriver(driverNumber);
+    console.log('Got stints for rendering:', stints);
+    if (!stints || stints.length === 0) {
+      console.log('No stints found, showing debug message');
+      // Show debug message instead of null for now
+      return (
+        <View style={{ marginTop: 8 }}>
+          <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary, marginBottom: 6 }]}>Tires</Text>
+          <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text, fontSize: 12 }]}>
+            No stints data (Driver: {driverNumber || 'unknown'})
+          </Text>
+        </View>
+      );
+    }
+
+    // Build rows: display each stint as [icon lap_start - lap_end] -> between
+    return (
+      <View style={{ marginTop: 8 }}>
+        <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary, marginBottom: 6 }]}>Tires</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'nowrap' }}>
+          {stints.map((s, idx) => {
+            const comp = (s.compound || '').toUpperCase();
+            const icon = TIRE_IMAGES[comp] || null;
+            const lapStart = s.lap_start != null ? s.lap_start : '-';
+            const lapEnd = s.lap_end != null ? s.lap_end : '-';
+            return (
+              <React.Fragment key={`stint-${idx}`}>
+                <View style={{ alignItems: 'center', marginRight: 6 }}>
+                  {icon ? (
+                    icon.toLowerCase().endsWith('.svg') ? (
+                      <SvgUri uri={icon} width={28} height={28} />
+                    ) : (
+                      <Image source={{ uri: icon }} style={{ width: 28, height: 28 }} />
+                    )
+                  ) : (
+                    <View style={{ width: 28, height: 28, backgroundColor: '#ddd', borderRadius: 14 }} />
+                  )}
+                  <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text, fontSize: 12, marginTop: 2 }]}>{`${lapStart} - ${lapEnd}`}</Text>
+                </View>
+                {idx !== stints.length - 1 ? (
+                  <View style={{ width: 18, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text allowFontScaling={false} style={{ color: theme.textSecondary }}>{'→'}</Text>
+                  </View>
+                ) : null}
+              </React.Fragment>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
+
+  // Compact inline renderer used as the right-side value for the modal stat row
+  const renderTiresInlineForDriver = (driverNumber) => {
+    const stints = getStintsForDriver(driverNumber);
+    if (!stints || stints.length === 0) return null;
+    // Chunk into rows of 5
+    const chunkSize = 5;
+    const rows = [];
+    for (let i = 0; i < stints.length; i += chunkSize) {
+      rows.push(stints.slice(i, i + chunkSize));
+    }
+
+    return (
+      <View style={{ flexDirection: 'column', alignItems: 'flex-end' }}>
+        {rows.map((row, rowIdx) => (
+          <View key={`stint-row-${rowIdx}`} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: rowIdx === 0 ? 0 : 6 }}>
+            {row.map((s, idx) => {
+              const comp = (s.compound || '').toUpperCase();
+              const icon = TIRE_IMAGES[comp] || null;
+              const lapStart = s.lap_start != null ? s.lap_start : '-';
+              const lapEnd = s.lap_end != null ? s.lap_end : '-';
+              const globalIdx = rowIdx * chunkSize + idx;
+              return (
+                <React.Fragment key={`stint-inline-${globalIdx}`}>
+                  <View style={{ alignItems: 'center', marginLeft: idx === 0 ? 0 : 8 }}>
+                    {icon ? (
+                      icon.toLowerCase().endsWith('.svg') ? (
+                        <SvgUri uri={icon} width={28} height={28} />
+                      ) : (
+                        <Image source={{ uri: icon }} style={{ width: 28, height: 28 }} />
+                      )
+                    ) : (
+                      <View style={{ width: 28, height: 28, backgroundColor: '#ddd', borderRadius: 10 }} />
+                    )}
+                    <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text, fontSize: 11, marginTop: 2 }]}>{`${lapStart} - ${lapEnd}`}</Text>
+                  </View>
+                  {idx !== row.length - 1 ? (
+                    <View style={{ width: 18, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text allowFontScaling={false} style={{ color: theme.textSecondary, fontSize: 12, marginLeft: 8, marginBottom: 8 }}>{'→'}</Text>
+                    </View>
+                  ) : null}
+                </React.Fragment>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+    );
   };
 
   // Fetch per-competitor statistics JSON (returns parsed stats object)
@@ -752,6 +881,20 @@ const RaceDetailsScreen = ({ route }) => {
     }
   };
 
+  const fetchOpenF1Stints = async (sessionKey) => {
+    try {
+      console.log('Fetching stints for session key:', sessionKey);
+      const response = await fetch(`https://api.openf1.org/v1/stints?session_key=${sessionKey}`);
+      if (!response.ok) throw new Error(`Failed to fetch stints: ${response.status}`);
+      const stints = await response.json();
+      console.log('Fetched stints:', stints);
+      return stints;
+    } catch (error) {
+      console.error('Error fetching OpenF1 stints:', error);
+      return [];
+    }
+  };
+
   const matchRaceWithOpenF1Meeting = async (raceName, raceDate) => {
     try {
       const meetings = await fetchOpenF1Meetings();
@@ -828,9 +971,10 @@ const RaceDetailsScreen = ({ route }) => {
     }));
 
     try {
-      const [events, drivers] = await Promise.all([
+      const [events, drivers, stints] = await Promise.all([
         fetchOpenF1Events(sessionKey),
-        fetchOpenF1Drivers(sessionKey)
+        fetchOpenF1Drivers(sessionKey),
+        fetchOpenF1Stints(sessionKey)
       ]);
 
       // Create a driver lookup map
@@ -843,6 +987,7 @@ const RaceDetailsScreen = ({ route }) => {
         ...prev,
         events: events,
         drivers: driverMap,
+        stints: Array.isArray(stints) ? stints : [],
         eventsLoading: false,
         eventsError: null
       }));
@@ -3079,6 +3224,63 @@ const RaceDetailsScreen = ({ route }) => {
                           <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary }]}>Laps</Text>
                           <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text }]}>{lapsCompleted ?? '-'}</Text>
                         </View>
+                        {/* Tires section under Laps */}
+                        {(() => {
+                          // try to find driver number from multiple sources
+                          const athlete = selectedDriverDetails.athlete;
+                          const competitor = selectedDriverDetails.competitor;
+                          const raw = competitor?.raw;
+                          
+                          // Try various fields that might contain the driver number
+                          let driverNumber = null;
+                          const candidates = [
+                            athlete?.number,
+                            athlete?.jerseyNumber,
+                            // prefer vehicle number where available (this is the actual F1 number)
+                            competitor?.vehicle?.number,
+                            raw?.vehicle?.number,
+                            raw?.number,
+                            raw?.driver_number,
+                            raw?.driverNumber,
+                            competitor?.id,
+                            competitor?.number,
+                            // Sometimes ESPN uses specific F1 driver numbers - common ones
+                            athlete?.displayName === 'Max Verstappen' ? 1 : null,
+                            athlete?.displayName === 'Sergio Perez' ? 11 : null,
+                            athlete?.displayName === 'Lewis Hamilton' ? 44 : null,
+                            athlete?.displayName === 'George Russell' ? 63 : null,
+                            athlete?.displayName === 'Charles Leclerc' ? 16 : null,
+                            athlete?.displayName === 'Carlos Sainz Jr.' ? 55 : null,
+                          ];
+                          
+                          for (const candidate of candidates) {
+                            if (candidate != null && !isNaN(Number(candidate))) {
+                              driverNumber = Number(candidate);
+                              break;
+                            }
+                          }
+                          
+                          console.log('Driver number detection:', {
+                            athleteName: athlete?.displayName || athlete?.shortName,
+                            athleteNumber: athlete?.number,
+                            competitorRawNumber: raw?.number,
+                            competitorVehicleNumber: competitor?.vehicle?.number,
+                            competitorId: competitor?.id,
+                            finalDriverNumber: driverNumber,
+                            allCandidates: candidates,
+                            selectedDriverDetails: selectedDriverDetails
+                          });
+
+                          // Render as a standard modalStatRow: label on left, value on right
+                          return (
+                            <View style={styles.modalStatRow}>
+                              <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary }]}>Tires</Text>
+                              {renderTiresInlineForDriver(driverNumber) || (
+                                <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text }]}>-</Text>
+                              )}
+                            </View>
+                          );
+                        })()}
                         <View style={styles.modalStatRow}>
                           <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary }]}>Total Time</Text>
                           <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text }]}>{totalTime ?? (behindLaps != null ? `+${behindLaps} Laps` : '-')}</Text>

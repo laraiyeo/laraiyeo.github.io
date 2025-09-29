@@ -122,7 +122,7 @@ const StandingsScreen = ({ route }) => {
                       console.log('Team entry:', JSON.stringify(entry.team, null, 2)); // Debug log
                       const espnTeamId = getESPNTeamId(entry.team);
                       const clinchCode = entry.team?.clincher ? entry.team.clincher.toUpperCase() : null;
-                      const clinchColor = clinchCode === 'X' ? theme.success : clinchCode === 'Z' ? theme.warning : clinchCode === 'E' ? theme.error : theme.surface;
+                      const clinchColor = (clinchCode === 'X' || clinchCode === '*') ? theme.success : clinchCode === 'Z' ? theme.warning : clinchCode === 'E' ? theme.error : clinchCode === 'Y' ? theme.info : theme.surface;
 
                       return (
                         <TouchableOpacity 
@@ -171,11 +171,19 @@ const StandingsScreen = ({ route }) => {
           <View style={styles.legendItems}>
             <View style={styles.legendItem}>
               <View style={[styles.legendSwatch, { backgroundColor: theme.success }]} />
+              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>* - Clinched Best League Record</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { backgroundColor: theme.success }]} />
               <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>X - Clinched Division</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendSwatch, { backgroundColor: theme.warning }]} />
               <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>Z - Clinched Playoffs</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { backgroundColor: theme.info }]} />
+              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>Y - Clinched Wild Card</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendSwatch, { backgroundColor: theme.error }]} />

@@ -4930,7 +4930,7 @@ const FavoritesScreen = ({ navigation }) => {
           {/* Status/Live Info Section */}
           <View style={styles.statusSection}>
             <Text allowFontScaling={false} style={[styles.gameStatus, {
-              color: isLive ? colors.primary : theme.text
+              color: colors.primary
             }]}>
               {gameStatusText}
             </Text>

@@ -65,6 +65,16 @@ import F1VehiclesScreen from './src/screens/f1/VehiclesScreen';
 // Soccer specific screens
 import SoccerHomeScreen from './src/screens/soccer/SoccerHomeScreen';
 
+// NHL specific screens (added)
+import NHLScoreboardScreen from './src/screens/nhl/ScoreboardScreen';
+import NHLStandingsScreen from './src/screens/nhl/StandingsScreen';
+import NHLSearchScreen from './src/screens/nhl/SearchScreen';
+import NHLCompareScreen from './src/screens/nhl/CompareScreen';
+import NHLStatsScreen from './src/screens/nhl/StatsScreen';
+import NHLGameDetailsScreen from './src/screens/nhl/GameDetailsScreen';
+import NHLTeamPageScreen from './src/screens/nhl/TeamPageScreen';
+import NHLPlayerPageScreen from './src/screens/nhl/PlayerPageScreen';
+
 // Italy enhanced screens
 import ItalyScoreboardScreen from './src/screens/soccer/italy/ItalyScoreboardScreen';
 import ItalyStandingsScreen from './src/screens/soccer/italy/ItalyStandingsScreen';
@@ -244,6 +254,14 @@ const SportTabNavigator = ({ route }) => {
           SearchScreen: MLBSearchScreen,
           CompareScreen: MLBCompareScreen,
           StatsScreen: MLBStatsScreen,
+        };
+      case 'nhl':
+        return {
+          ScoreboardScreen: NHLScoreboardScreen,
+          StandingsScreen: NHLStandingsScreen,
+          SearchScreen: NHLSearchScreen,
+          CompareScreen: NHLCompareScreen,
+          StatsScreen: NHLStatsScreen,
         };
       case 'f1':
         return {
@@ -663,6 +681,8 @@ const MainStackNavigator = () => {
               return <NFLGameDetailsScreen {...props} />;
             case 'mlb':
               return <MLBGameDetailsScreen {...props} />;
+            case 'nhl':
+              return <NHLGameDetailsScreen {...props} />;
             case 'f1':
               return <F1RaceDetailsScreen {...props} />;
             case 'soccer':
@@ -825,6 +845,9 @@ const MainStackNavigator = () => {
             case 'mlb':
               console.log('Rendering MLB TeamPage');
               return <MLBTeamPageScreen {...props} />;
+            case 'nhl':
+              console.log('Rendering NHL TeamPage');
+              return <NHLTeamPageScreen {...props} />;
             case 'soccer':
               console.log('Rendering Spain TeamPage');
               return <SpainTeamPageScreen {...props} />;
@@ -1044,6 +1067,8 @@ const MainStackNavigator = () => {
               return <NFLPlayerPageScreen {...props} />;
             case 'mlb':
               return <MLBPlayerPageScreen {...props} />;
+            case 'nhl':
+              return <NHLPlayerPageScreen {...props} />;
             default:
               return <MLBPlayerPageScreen {...props} />; // Default fallback for now
           }

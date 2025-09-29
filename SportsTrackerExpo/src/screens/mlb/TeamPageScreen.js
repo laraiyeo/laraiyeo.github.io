@@ -315,7 +315,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       // Get current year season games
       const currentYear = new Date().getFullYear();
       const response = await fetch(
-        `https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${mlbApiId}&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&hydrate=team,linescore,decisions`
+        `https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${mlbApiId}&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&hydrate=team,linescore,decisions`
       );
       const data = await response.json();
       
