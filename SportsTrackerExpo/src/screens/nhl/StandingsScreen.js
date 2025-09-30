@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { NHLService } from '../../services/NHLService';
@@ -134,23 +135,47 @@ const NHLStandingsScreen = () => {
     conferences.push({ name: 'NHL', divisions: [{ name: '', teams: [] }] });
   }
 
+  // Team navigation function with proper ID handling
+  const navigateToTeam = (team) => {
+    // Prefer numeric id; if missing, try abbreviation->id map; otherwise pass team object
+    const safeId = team.id || mapAbbrToId(team.abbreviation) || team;
+    navigation.navigate('TeamPage', { teamId: safeId, sport: 'nhl' });
+  };
+
+  // Helper function to get NHL team ID for favorites
+  const getNHLTeamId = (team) => {
+    return team?.id || mapAbbrToId(team?.abbreviation) || null;
+  };
+
   // Helper to render a single team row (extracted to avoid deep JSX nesting in maps)
   const renderTeamRow = (team, ti) => {
     const clinchCode = team.clinchIndicator ? String(team.clinchIndicator).toUpperCase() : null;
     const clinchColor = clinchCode && ['P','Y','Z'].includes(clinchCode) ? theme.success : (clinchCode === 'E' ? theme.error : (clinchCode === 'X' ? theme.warning : theme.surface));
+    const teamId = getNHLTeamId(team);
+    const isTeamFavorite = isFavorite(teamId, 'nhl');
+    
     return (
-  <TouchableOpacity key={ti} style={[styles.tableRow, { backgroundColor: theme.surface, borderBottomColor: theme.border, borderLeftColor: clinchColor, borderLeftWidth: clinchCode ? 4 : 0 }]} onPress={() => {
-        // Prefer numeric id; if missing, try abbreviation->id map; otherwise pass team object
-        const safeId = team.id || mapAbbrToId(team.abbreviation) || team;
-        navigation.navigate('TeamPage', { teamId: safeId, sport: 'nhl' });
-      }}>
+      <TouchableOpacity key={ti} style={[styles.tableRow, { backgroundColor: theme.surface, borderBottomColor: theme.border, borderLeftColor: clinchColor, borderLeftWidth: clinchCode ? 4 : 0 }]} onPress={() => navigateToTeam(team)}>
         <View style={[styles.tableCell, styles.teamColumn]}>
           <Image source={{ uri: getTeamLogoUrl('nhl', (function(a){ if (!a) return a; const m = { lak: 'la', sjs: 'sj', tbl: 'tb' }; return (m[String(a).toLowerCase()] || a).toString(); })(team.abbreviation)) || team.logo }} style={styles.teamLogo} />
-          <Text allowFontScaling={false} style={[styles.teamName, { color: isFavorite(team.id, 'nhl') ? colors.primary : theme.text }]} numberOfLines={1}>
-            <Text allowFontScaling={false} style={[styles.teamSeed, { color: colors.primary }]}>{team.seed ? `(${team.seed}) ` : ''}</Text>
-            {isFavorite(team.id, 'nhl') && '★ '}
-            {team.displayName}
-          </Text>
+          <View style={styles.teamNameContainer}>
+            <View style={styles.teamNameRow}>
+              {team.seed && (
+                <Text allowFontScaling={false} style={[styles.teamSeed, { color: colors.primary }]}>({team.seed}) </Text>
+              )}
+              {isTeamFavorite && (
+                <Ionicons 
+                  name="star" 
+                  size={12} 
+                  color={colors.primary} 
+                  style={styles.favoriteIcon} 
+                />
+              )}
+              <Text allowFontScaling={false} style={[styles.teamName, { color: isTeamFavorite ? colors.primary : theme.text }]} numberOfLines={1}>
+                {team.displayName}
+              </Text>
+            </View>
+          </View>
         </View>
         <Text allowFontScaling={false} style={[styles.tableCell, { color: theme.text }]}>{team.wins}</Text>
         <Text allowFontScaling={false} style={[styles.tableCell, { color: theme.text }]}>{team.losses}</Text>
@@ -227,8 +252,11 @@ const styles = StyleSheet.create({
   tableCell: { flex: 1, fontSize: 12, textAlign: 'center' },
   teamColumn: { flex: 3, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start' },
   teamLogo: { width: 20, height: 20, marginRight: 8 },
+  teamNameContainer: { flex: 1 },
+  teamNameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
+  favoriteIcon: { marginRight: 2 },
   teamName: { fontSize: 12, fontWeight: '500', flex: 1 },
-  teamSeed: { fontSize: 12, fontWeight: '500', flex: 1 },
+  teamSeed: { fontSize: 12, fontWeight: '500' },
   legendContainer: { marginHorizontal: 10, marginTop: 12, padding: 12, borderTopWidth: 1, borderRadius: 6, marginBottom: 25 },
   legendTitle: { fontSize: 14, fontWeight: '700', marginBottom: 8 },
   legendItems: { flexDirection: 'column', justifyContent: 'space-between' },

@@ -160,6 +160,96 @@ export class NHLService {
     });
   }
 
+  static async getPlayerGameStats(gameId, playerId) {
+    try {
+      const url = `https://cdn.espn.com/core/nhl/boxscore?xhr=1&gameId=${gameId}`;
+      
+      const response = await fetch(this.convertToHttps(url));
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const gameData = await response.json();
+      
+      // Use the exact same structure as team-page.js
+      const players = gameData.gamepackageJSON?.boxscore?.players || [];
+
+      if (players.length === 0) {
+        return null;
+      }
+
+      // Find the player in the game stats
+      let playerStats = {};
+      let foundPlayer = false;
+
+      for (const team of players) {
+        if (!team.statistics || team.statistics.length === 0) continue;
+
+        // Search through all statistics categories for this team
+        for (const statCategory of team.statistics) {
+          const athletes = statCategory.athletes || [];
+          
+          // Try different ID matching approaches
+          const foundPlayerInCategory = athletes.find(athlete => 
+            athlete.athlete.id === playerId.toString() ||
+            athlete.athlete.id === playerId
+          );
+
+          if (foundPlayerInCategory) {
+            foundPlayer = true;
+            playerStats[statCategory.name] = {
+              name: statCategory.name,
+              displayName: statCategory.displayName || statCategory.name,
+              stats: foundPlayerInCategory.stats || []
+            };
+          }
+        }
+
+        if (foundPlayer) break;
+      }
+
+      if (!foundPlayer) {
+        return null;
+      }
+
+      // Convert to the format expected by the mobile app
+      const formattedStats = {
+        splits: {
+          categories: Object.values(playerStats).map(category => ({
+            name: category.name,
+            displayName: category.displayName,
+            stats: category.stats.map((statValue, index) => {
+              // Map common stat names based on category and index for NHL
+              let statName = `Stat ${index + 1}`;
+              let displayName = statName;
+              
+              if (category.name === 'skaters' || category.name === 'forwards' || category.name === 'defensemen') {
+                const skaterStats = ['Goals', 'Assists', 'Time on Ice', 'Shots', 'Hits', 'Blocked Shots', 'Plus/Minus'];
+                displayName = skaterStats[index] || statName;
+              } else if (category.name === 'goalies' || category.name === 'goaltending') {
+                const goalieStats = ['Goals Against', 'Shots Against', 'Save Pct', 'Saves', 'Minutes'];
+                displayName = goalieStats[index] || statName;
+              }
+              
+              return {
+                name: statName,
+                displayName: displayName,
+                value: statValue,
+                displayValue: statValue.toString()
+              };
+            })
+          }))
+        }
+      };
+
+      return formattedStats;
+      
+    } catch (error) {
+      console.error('Error fetching player game stats:', error);
+      throw error;
+    }
+  }
+
   static clearCache() {
     this.cache.clear();
     this.cacheTimestamps.clear();

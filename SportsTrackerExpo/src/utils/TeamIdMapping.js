@@ -184,6 +184,43 @@ export const getAPITeamId = (teamId, sport) => {
   return baseId;
 };
 
+// NHL team abbreviation to team ID mapping for reference
+export const NHL_ABBREVIATION_TO_ID = {
+  'TOR': '21', 'MTL': '10', 'CGY': '3', 'EDM': '6', 'VAN': '22', 'WPG': '28',
+  'BOS': '1', 'NYR': '13', 'PHI': '15', 'PIT': '16', 'TBL': '20', 'CAR': '7',
+  'CHI': '4', 'DET': '5', 'NSH': '27', 'STL': '19', 'WSH': '23',
+  'ANA': '25', 'LAK': '8', 'SJS': '18', 'CBJ': '29', 'MIN': '30', 'OTT': '14',
+  'FLA': '26', 'BUF': '2', 'NJD': '11', 'NYI': '12', 'DAL': '9', 'COL': '17',
+  'UTA': '129764', 'SEA': '124292', 'VGK': '37',
+  // Alternate abbreviations
+  'TB': '20', 'CAR': '7', 'VEG': '37', 'LV': '37', 'VGS': '37', 'LA': '8', 'SJ': '18'
+};
+
+// NHL team ID to abbreviation mapping (reverse lookup)
+export const NHL_ID_TO_ABBREVIATION = Object.fromEntries(
+  Object.entries(NHL_ABBREVIATION_TO_ID).map(([abbr, id]) => [id, abbr])
+);
+
+/**
+ * Get NHL team ID from abbreviation
+ * @param {string} abbreviation - The NHL team abbreviation
+ * @returns {string|null} - The corresponding team ID, or null if not found
+ */
+export const getNHLTeamIdFromAbbreviation = (abbreviation) => {
+  if (!abbreviation) return null;
+  return NHL_ABBREVIATION_TO_ID[String(abbreviation).toUpperCase()] || null;
+};
+
+/**
+ * Get NHL team abbreviation from team ID
+ * @param {string|number} teamId - The NHL team ID
+ * @returns {string|null} - The corresponding abbreviation, or null if not found
+ */
+export const getNHLAbbreviationFromId = (teamId) => {
+  if (!teamId) return null;
+  return NHL_ID_TO_ABBREVIATION[String(teamId)] || null;
+};
+
 // Known sport suffixes to prevent over-aggressive stripping
 // Keep these normalized to space-separated, lower-case forms. We will normalize incoming
 // sport strings (dots -> spaces) so both 'uefa.champions' and 'uefa champions' match.

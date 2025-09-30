@@ -285,6 +285,7 @@ const TeamPageScreen = ({ route, navigation }) => {
                 console.log('Found upcoming game:', nextGame.gamePk, 'on', date.date);
                 try {
                   if (isFavorite(teamId, sport)) {
+                    // Persist as favorite upcoming game but do not treat it as the "current" game in the UI
                     await updateTeamCurrentGame(teamId, {
                       eventId: nextGame.gamePk,
                       eventLink: nextGame.link || `/api/v1.1/game/${nextGame.gamePk}/feed/live`,
@@ -296,7 +297,7 @@ const TeamPageScreen = ({ route, navigation }) => {
                 } catch (e) {
                   console.log('TeamPage: failed to persist upcoming currentGame to favorites', e?.message || e);
                 }
-                setCurrentGame(nextGame);
+                // Do not call setCurrentGame for future scheduled games; they belong in Upcoming
                 break;
               }
             }

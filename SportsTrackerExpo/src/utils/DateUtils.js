@@ -80,23 +80,48 @@ export const getTodayDateRange = () => {
     console.log(`[DATE UTILS] After 2 AM NY, using today as game day: ${gameDay.toLocaleDateString()}`);
   }
   
-  // Create 2 AM cutoff for the game day in NY timezone
-  const todayStart2AMNY = new Date(gameDay.getFullYear(), gameDay.getMonth(), gameDay.getDate(), 2, 0, 0);
-  const tomorrowStart2AMNY = new Date(gameDay.getFullYear(), gameDay.getMonth(), gameDay.getDate() + 1, 2, 0, 0);
+  // Create 2 AM EST/EDT times and convert to UTC properly
+  // Use a more reliable method: create the time string and parse it explicitly
+  const todayDateStr = gameDay.getFullYear() + '-' + 
+                       String(gameDay.getMonth() + 1).padStart(2, '0') + '-' + 
+                       String(gameDay.getDate()).padStart(2, '0');
+  const tomorrowDateStr = gameDay.getFullYear() + '-' + 
+                          String(gameDay.getMonth() + 1).padStart(2, '0') + '-' + 
+                          String(gameDay.getDate() + 1).padStart(2, '0');
   
-  // Convert NY times to UTC for API queries
-  const todayStartUTC = new Date(todayStart2AMNY.getTime() - (todayStart2AMNY.getTimezoneOffset() * 60000));
-  const todayEndUTC = new Date(tomorrowStart2AMNY.getTime() - (tomorrowStart2AMNY.getTimezoneOffset() * 60000));
+  // Determine if we're currently in daylight saving time by checking a date in America/New_York timezone
+  const checkDST = (date) => {
+    const tempDate = new Date(date);
+    const testString = tempDate.toLocaleString('en-US', { 
+      timeZone: 'America/New_York',
+      timeZoneName: 'short'
+    });
+    // EST during standard time, EDT during daylight time
+    return testString.includes('EDT');
+  };
+  
+  // Create proper timezone strings based on whether we're in DST
+  const todayIsDST = checkDST(new Date(todayDateStr + 'T12:00:00'));
+  const tomorrowIsDST = checkDST(new Date(tomorrowDateStr + 'T12:00:00'));
+  
+  // Create Date objects representing 2 AM in NY timezone
+  const todayStart = todayIsDST ? 
+    new Date(`${todayDateStr}T02:00:00-04:00`) : // EDT (daylight saving)
+    new Date(`${todayDateStr}T02:00:00-05:00`);  // EST (standard time)
+    
+  const todayEnd = tomorrowIsDST ? 
+    new Date(`${tomorrowDateStr}T02:00:00-04:00`) : // EDT (daylight saving)
+    new Date(`${tomorrowDateStr}T02:00:00-05:00`);  // EST (standard time)
   
   const gameDayStr = gameDay.getFullYear() + '-' + 
                      String(gameDay.getMonth() + 1).padStart(2, '0') + '-' + 
                      String(gameDay.getDate()).padStart(2, '0');
   
-  console.log(`[DATE UTILS] Date range calculation: Current time: ${now.toISOString()}, NY Hour: ${currentHourNY}, Game day: ${gameDay.toDateString()}, Range: ${todayStartUTC.toISOString()} to ${todayEndUTC.toISOString()}`);
+  console.log(`[DATE UTILS] Date range calculation: Current time: ${now.toISOString()}, NY Hour: ${currentHourNY}, Game day: ${gameDay.toDateString()}, Range: ${todayStart.toISOString()} to ${todayEnd.toISOString()}`);
   
   return { 
-    todayStart: todayStartUTC, 
-    todayEnd: todayEndUTC, 
+    todayStart: todayStart, 
+    todayEnd: todayEnd, 
     gameDay: gameDayStr 
   };
 };

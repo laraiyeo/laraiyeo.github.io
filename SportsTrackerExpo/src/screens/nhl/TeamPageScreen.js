@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { NHLService } from '../../services/NHLService';
@@ -433,28 +434,8 @@ const TeamPageScreen = ({ route, navigation }) => {
           return;
         }
 
-        // If none in-window or live, fallback to next scheduled/pre-game
-        const upcoming = events.find(ev => {
-          const state = ev.status?.type?.state;
-          return state === 'pre' || state === 'preview' || state === 'pre-game' || state === 'scheduled';
-        });
-        if (upcoming) {
-          console.log('NHL fetchCurrentGame: selected upcoming game as current:', {
-            gameId: upcoming.id,
-            gameDate: upcoming.date,
-            gameStatus: upcoming.status?.type?.state,
-            currentDate: new Date().toISOString(),
-            reason: 'fallback to next scheduled/pre-game'
-          });
-          const normalizedUpcoming = upcoming.homeTeam ? upcoming : normalizeEventForUI(upcoming);
-          setCurrentGame(normalizedUpcoming);
-          if (isFavorite(teamId, 'nhl')) {
-            try {
-              await updateTeamCurrentGame(teamId, { eventId: upcoming.id, eventLink: upcoming.links?.website?.href || upcoming.link, gameDate: upcoming.date, competition: 'nhl', updatedAt: new Date().toISOString() });
-            } catch (e) {}
-          }
-          return;
-        }
+        // If none live or in-window, do NOT fallback to upcoming scheduled games as 'current'
+        // Upcoming scheduled games will be shown in the Upcoming section instead.
       }
     } catch (error) {
       console.error('Error fetching current NHL game:', error);
@@ -1103,6 +1084,27 @@ const TeamPageScreen = ({ route, navigation }) => {
     return isLosing ? [styles.gameTeamScore, styles.losingTeamScore] : styles.gameTeamScore;
   };
 
+  // Helper function to get NHL team ID for favorites checking
+  const getNHLTeamId = (team) => {
+    console.log('TeamPageScreen getNHLTeamId called with:', team);
+    if (!team) return null;
+    
+    // Try direct id first
+    if (team.id) return String(team.id);
+    
+    // Try team.team.id (nested structure)
+    if (team.team?.id) return String(team.team.id);
+    
+    // Try abbreviation to ID mapping as fallback
+    if (team.abbreviation) {
+      const mappedId = mapAbbrToId(team.abbreviation);
+      if (mappedId) return mappedId;
+    }
+    
+    console.log('TeamPageScreen getNHLTeamId returning null for:', team);
+    return null;
+  };
+
   // Safe display for score values: return empty string when null/undefined to avoid showing 0 for missing scores
   const displayScore = (s) => {
     if (s === null || s === undefined) return '';
@@ -1201,9 +1203,8 @@ const TeamPageScreen = ({ route, navigation }) => {
           onPress={async () => {
             try {
               await toggleFavorite(
-                teamId,
                 {
-                  id: teamId,
+                  teamId: teamId,
                   displayName: teamData?.displayName || teamData?.abbreviation,
                   abbreviation: teamData?.abbreviation,
                   sport 
@@ -1211,7 +1212,7 @@ const TeamPageScreen = ({ route, navigation }) => {
                 currentGame ? {
                   eventId: currentGame.id,
                   eventLink: `/nhl/game/${currentGame.id}`,
-                  gameDate: currentGame.date.toISOString(),
+                  gameDate: currentGame.date instanceof Date ? currentGame.date.toISOString() : new Date(currentGame.date).toISOString(),
                   competition: 'nhl'
                 } : null
               );
@@ -1219,13 +1220,13 @@ const TeamPageScreen = ({ route, navigation }) => {
               console.error('Error toggling favorite:', error);
             }
           }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Text style={[
-            styles.favoriteIcon, 
-            { color: isFavorite(teamId, sport) ? colors.primary : theme.textSecondary }
-          ]}>
-            {isFavorite(teamId, sport) ? '★' : '☆'}
-          </Text>
+          <Ionicons 
+            name={isFavorite(teamId, sport) ? "star" : "star-outline"} 
+            size={24} 
+            color={isFavorite(teamId, sport) ? colors.primary : theme.textSecondary} 
+          />
         </TouchableOpacity>
       </View>
     );
@@ -1355,12 +1356,21 @@ const TeamPageScreen = ({ route, navigation }) => {
                 </View>
               )}
             </View>
-            <Text style={[
-              styles.teamAbbreviation, 
-              { color: isCompleted && awayTeam.score < homeTeam.score ? theme.textSecondary : theme.text }
-            ]}>
-              {awayTeam.abbreviation || 'TBD'}
-            </Text>
+            <View style={styles.teamNameContainer}>
+              {isFavorite(getNHLTeamId(awayTeam), 'nhl') && (
+                <Ionicons name="star" size={12} color={colors.primary} style={styles.favoriteIcon} />
+              )}
+              <Text style={[
+                styles.teamAbbreviation, 
+                { 
+                  color: isFavorite(getNHLTeamId(awayTeam), 'nhl') 
+                    ? colors.primary 
+                    : (isCompleted && awayTeam.score < homeTeam.score ? theme.textSecondary : theme.text)
+                }
+              ]}>
+                {awayTeam.abbreviation || 'TBD'}
+              </Text>
+            </View>
           </View>
 
           {/* Status Section */}
@@ -1415,12 +1425,21 @@ const TeamPageScreen = ({ route, navigation }) => {
                 ]}
               />
             </View>
-            <Text style={[
-              styles.teamAbbreviation, 
-              { color: isCompleted && homeTeam.score < awayTeam.score ? theme.textSecondary : theme.text }
-            ]}>
-              {homeTeam.abbreviation || 'TBD'}
-            </Text>
+            <View style={styles.teamNameContainer}>
+              {isFavorite(getNHLTeamId(homeTeam), 'nhl') && (
+                <Ionicons name="star" size={12} color={colors.primary} style={styles.favoriteIcon} />
+              )}
+              <Text style={[
+                styles.teamAbbreviation, 
+                { 
+                  color: isFavorite(getNHLTeamId(homeTeam), 'nhl') 
+                    ? colors.primary 
+                    : (isCompleted && homeTeam.score < awayTeam.score ? theme.textSecondary : theme.text)
+                }
+              ]}>
+                {homeTeam.abbreviation || 'TBD'}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -1451,22 +1470,20 @@ const TeamPageScreen = ({ route, navigation }) => {
           <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>
             Recent Games
           </Text>
-          <Text style={[styles.collapseArrow, { color: theme.textSecondary }]}>
-            {lastMatchesCollapsed ? '▼' : '▲'}
+          <Text style={[styles.collapseArrow, { color: colors.primary }]}>
+            {lastMatchesCollapsed ? '▶' : '▼'}
           </Text>
         </TouchableOpacity>
         
-        {!lastMatchesCollapsed && (
-          <View>
-            {lastMatches.length === 0 ? (
-              <Text style={[styles.contentText, { color: theme.textSecondary }]}>
-                No recent games
-              </Text>
-            ) : (
-              lastMatches.map((game) => renderMatchCard(game))
-            )}
-          </View>
-        )}
+        <View>
+          {lastMatches.length === 0 ? (
+            <Text style={[styles.contentText, { color: theme.textSecondary }]}> 
+              No recent games
+            </Text>
+          ) : (
+            (lastMatchesCollapsed ? lastMatches.slice(0,1) : lastMatches).map((game) => renderMatchCard(game))
+          )}
+        </View>
       </View>
 
       <View style={styles.gameSection}>
@@ -1477,22 +1494,20 @@ const TeamPageScreen = ({ route, navigation }) => {
           <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>
             Upcoming Games
           </Text>
-          <Text style={[styles.collapseArrow, { color: theme.textSecondary }]}>
-            {nextMatchesCollapsed ? '▼' : '▲'}
+          <Text style={[styles.collapseArrow, { color: colors.primary }]}>
+            {nextMatchesCollapsed ? '▶' : '▼'}
           </Text>
         </TouchableOpacity>
         
-        {!nextMatchesCollapsed && (
-          <View>
-            {nextMatches.length === 0 ? (
-              <Text style={[styles.contentText, { color: theme.textSecondary }]}>
-                No upcoming games
-              </Text>
-            ) : (
-              nextMatches.map((game) => renderMatchCard(game))
-            )}
-          </View>
-        )}
+        <View>
+          {nextMatches.length === 0 ? (
+            <Text style={[styles.contentText, { color: theme.textSecondary }]}> 
+              No upcoming games
+            </Text>
+          ) : (
+            (nextMatchesCollapsed ? nextMatches.slice(0,1) : nextMatches).map((game) => renderMatchCard(game))
+          )}
+        </View>
       </View>
     </ScrollView>
   );
@@ -1532,13 +1547,22 @@ const TeamPageScreen = ({ route, navigation }) => {
               <Text allowFontScaling={false} style={[styles.rosterTableHeaderPlayer, { color: theme.text }]}>Player</Text>
               <Text allowFontScaling={false} style={[styles.rosterTableHeaderStatus, { color: theme.text }]}>Status</Text>
             </View>
-            {players.map((player) => (
+              {players.map((player) => (
               <TouchableOpacity 
                 key={player.id || player.name} 
                 style={[styles.rosterTableRow, { borderBottomColor: theme.border, backgroundColor: theme.surfaceSecondary }]}
                 onPress={() => {
                   console.log('Navigating to player page:', player.id, player.name);
-                  // Add navigation to player page if needed
+                  try {
+                    navigation.navigate('PlayerPage', { 
+                      playerId: player.id,
+                      playerName: player.name,
+                      teamId: teamId,
+                      sport: 'nhl'
+                    });
+                  } catch (e) {
+                    console.warn('Navigation to PlayerPage failed', e);
+                  }
                 }}
                 activeOpacity={0.7}
               >
@@ -2194,6 +2218,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  teamNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  favoriteIcon: {
+    marginRight: 4,
   },
   statusSection: {
     flex: 1,

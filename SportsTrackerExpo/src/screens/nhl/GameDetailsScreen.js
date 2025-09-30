@@ -1,14 +1,20 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, ActivityIndicator, ScrollView, Image, StyleSheet, TouchableOpacity, Modal, Animated } from 'react-native';
-import { FontAwesome6 } from '@expo/vector-icons';
+import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { WebView } from 'react-native-webview';
 import { useTheme } from '../../context/ThemeContext';
+import { useFavorites } from '../../context/FavoritesContext';
+import { useNavigation } from '@react-navigation/native';
 import { NHLService } from '../../services/NHLService';
 
 const NHLGameDetailsScreen = ({ route }) => {
   const { gameId } = route.params || {};
-  const { theme, colors, getTeamLogoUrl } = useTheme();
+  const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const navigation = useNavigation();
+  const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
+  const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [loading, setLoading] = useState(true);
   const [details, setDetails] = useState(null);
   const [activeTab, setActiveTab] = useState('stats');
@@ -323,6 +329,25 @@ const NHLGameDetailsScreen = ({ route }) => {
     return () => { mounted = false; };
   }, [gameId]);
 
+  // Sticky header scroll handler (replicates NFL approach)
+  const handleScroll = (event) => {
+    const scrollY = event.nativeEvent.contentOffset.y;
+    const fadeStartY = 100;
+    const fadeEndY = 150;
+    let opacity = 0;
+    if (scrollY >= fadeStartY) {
+      if (scrollY >= fadeEndY) opacity = 1;
+      else opacity = (scrollY - fadeStartY) / (fadeEndY - fadeStartY);
+    }
+    const shouldShow = opacity > 0;
+    if (shouldShow !== showStickyHeader) setShowStickyHeader(shouldShow);
+    Animated.timing(stickyHeaderOpacity, {
+      toValue: opacity,
+      duration: 0,
+      useNativeDriver: true,
+    }).start();
+  };
+
   // Auto-refresh game details every 4 seconds for live updates (stop when game is completed)
   useEffect(() => {
     if (!gameId || !details) return;
@@ -493,7 +518,7 @@ const NHLGameDetailsScreen = ({ route }) => {
             const coordYRaw = play?.coordinate?.y ?? play?.y ?? null;
             const coordX = (typeof coordXRaw === 'number') ? coordXRaw : (coordXRaw ? parseFloat(coordXRaw) : null);
             const coordY = (typeof coordYRaw === 'number') ? coordYRaw : (coordYRaw ? parseFloat(coordYRaw) : null);
-            const textColor = isScoring ? '#FFFFFF' : theme.text;
+            const textColor = theme.text;
             const borderLeftWidth = playTeamColor ? 6 : 0;
             const borderLeftColor = playTeamColor || 'transparent';
             const awayLogoUri = getLogoUriForTeam(awayLocal, isScoring) || getTeamLogoUrl('nhl', awayLocal?.team?.abbreviation || awayLocal?.abbreviation);
@@ -1069,16 +1094,36 @@ const NHLGameDetailsScreen = ({ route }) => {
     const awayTeam = teams.find(t => t.homeAway === 'away') || teams[0];
     const homeTeam = teams.find(t => t.homeAway === 'home') || teams[1];
     
-    const keyStats = [
-      'shotsTotal',
-      'hits', 
-      'blockedShots',
-      'powerPlayGoals',
-      'powerPlayOpportunities',
-      'faceoffsWon',
-      'penalties',
-      'penaltyMinutes'
-    ];
+    // Check if game is scheduled to use different stats
+    const competition = details?.header?.competitions?.[0] || details?.boxscore?.game || details?.game || null;
+    const statusType = competition?.status?.type || details?.game?.status?.type || {};
+    const isScheduled = !!(statusType?.state === 'pre' || (statusType?.description || '').toLowerCase().includes('scheduled'));
+    
+    let keyStats = [];
+    if (isScheduled) {
+      // For scheduled games, use the stats that are actually available in a.txt
+      keyStats = [
+        'avgShots',
+        'avgGoals',
+        'avgGoalsAgainst',
+        'powerPlayGoals', 
+        'powerPlayPct',
+        'penaltyKillPct',
+        'penaltyMinutes'
+      ];
+    } else {
+      // For live/finished games, use the standard stats
+      keyStats = [
+        'shotsTotal',
+        'hits', 
+        'blockedShots',
+        'powerPlayGoals',
+        'powerPlayOpportunities',
+        'faceoffsWon',
+        'penalties',
+        'penaltyMinutes'
+      ];
+    }
     
     // Get team colors
     const homeColor = homeTeam?.team?.color ? `#${homeTeam.team.color}` : colors.primary;
@@ -1190,19 +1235,245 @@ const NHLGameDetailsScreen = ({ route }) => {
 
   // Function to render roster section (home or away)
   const renderRosterSection = (teamType) => {
-    if (!details?.boxscore?.teams) return null;
+    console.log(`=== RENDER ROSTER SECTION CALLED FOR ${teamType.toUpperCase()} ===`);
+    
+    if (!details?.boxscore?.teams) {
+      console.log('No boxscore teams found');
+      return null;
+    }
     
     const teams = details.boxscore.teams;
     const team = teams.find(t => t.homeAway === teamType);
-    if (!team) return null;
+    if (!team) {
+      console.log(`No team found for ${teamType}`);
+      return null;
+    }
+    
+    console.log(`Team found: ${team.team?.displayName} (ID: ${team.team?.id})`);
+    console.log(`Details has goalies: ${!!details.goalies}`);
+    console.log(`Details has injuries: ${!!details.injuries}`);
+    console.log(`Details has lastFiveGames: ${!!details.lastFiveGames}`);
     
     // Check if game is finished - if so, always show full boxscore
     const competition = details?.header?.competitions?.[0] || details?.boxscore?.game || details?.game || null;
     const statusType = competition?.status?.type || details?.game?.status?.type || {};
     const isGameFinished = !!(statusType?.state === 'post' || (statusType?.description || '').toLowerCase().includes('final') || statusType?.completed);
     
+    console.log(`Game finished check: ${isGameFinished}, statusType: ${JSON.stringify(statusType)}`);
+    
+    // Check if game is scheduled (pre) - we want to show goalies, injuries and last five games
+    const competitionForStatus = details?.header?.competitions?.[0] || details?.boxscore?.game || details?.game || null;
+    const statusTypeForRoster = competitionForStatus?.status?.type || details?.game?.status?.type || {};
+    const gameStatus = getGameStatus();
+    
+    console.log(`Competition status: ${JSON.stringify(statusTypeForRoster)}`);
+    console.log(`Game status: ${JSON.stringify(gameStatus)}`);
+    
+    const isScheduledForRoster = !!(
+      statusTypeForRoster?.state === 'pre' || 
+      String(statusTypeForRoster?.description || '').toLowerCase().includes('scheduled') ||
+      gameStatus.isPre
+    );
+    
+    console.log(`Is scheduled for roster: ${isScheduledForRoster}`);
+    
+    // For scheduled games, show goalies, injuries, and last five games
+    if (isScheduledForRoster) {
+      // Get goalies from details.goalies structure (from a.txt format)
+      let goalies = [];
+      if (details.goalies) {
+        const goalieTeamData = teamType === 'home' ? details.goalies.homeTeam : details.goalies.awayTeam;
+        // Check that the team ID matches to ensure we get the right goalies
+        if (goalieTeamData && String(goalieTeamData.teamId) === String(team.team.id)) {
+          goalies = (goalieTeamData.athletes || []).map(athlete => {
+            // Build meta for these projected goalies from the athlete.statistics array
+            const statsArr = athlete.statistics || [];
+            // Create keys/labels based on typical goalie stats order from a.txt
+            const keys = ['avgGoalsAgainst', 'shutouts', 'savePct', 'overtimeLosses', 'games', 'wins', 'losses'];
+            const labels = ['GAA', 'SO', 'SV%', 'OTL', 'GP', 'W', 'L'];
+            const meta = { keys, labels, groupName: 'goalies' };
+            
+            return {
+              athlete: athlete,
+              position: 'goalies',
+              stats: statsArr.map(s => (s && s.displayValue != null) ? s.displayValue : (s && s.value != null ? s.value : '0')),
+              meta
+            };
+          });
+        }
+      }
+      
+      // Fallback: try to get goalies from boxscore players if goalies structure not available
+      if (goalies.length === 0) {
+        const playersBoxAll = details.boxscore.players || [];
+        const teamBoxForInj = playersBoxAll.find(pb => String(pb.team?.id) === String(team.team.id) || pb.team?.abbreviation === team.team.abbreviation) || null;
+        const groups = teamBoxForInj?.statistics || [];
+        const goaliesGroup = groups.find(g => (g.name || '').toLowerCase().includes('goalies'));
+        goalies = (goaliesGroup?.athletes || []).map(a => ({ ...a, position: 'goalies' }));
+      }
+
+      // Get injuries from details.injuries array - find matching team
+      const teamInjuries = (details.injuries || []).find(injTeam => 
+        String(injTeam.team?.id) === String(team.team.id) || 
+        injTeam.team?.abbreviation === team.team.abbreviation
+      );
+      const injuriesList = teamInjuries?.injuries || [];
+
+      // Get last five games from details.lastFiveGames array - find matching team
+      const teamLastFive = (details.lastFiveGames || []).find(l5Team => 
+        String(l5Team.team?.id) === String(team.team.id) || 
+        l5Team.team?.abbreviation === team.team.abbreviation
+      );
+      const lastFiveEvents = teamLastFive?.events || [];
+
+      // Console logs for debugging
+      console.log(`=== DEBUGGING ${teamType.toUpperCase()} TEAM ===`);
+      console.log(`Team ID: ${team.team.id}, Team Name: ${team.team.displayName}`);
+      
+      // Goalies debug
+      console.log(`Goalies found: ${goalies.length}`);
+      goalies.forEach(goalie => {
+        console.log(`Team Name: ${team.team.displayName} | Name: ${goalie.athlete?.displayName || 'Unknown'}`);
+      });
+      
+      // Injuries debug
+      console.log(`Injuries found: ${injuriesList.length}`);
+      injuriesList.forEach(injury => {
+        console.log(`Team Name: ${team.team.displayName} | Name: ${injury.athlete?.displayName || 'Unknown'} | Status: ${injury.status || 'Unknown'} | Details type: ${injury.details?.type || 'Unknown'}`);
+      });
+      
+      // Last 5 games debug
+      console.log(`Last 5 games found: ${lastFiveEvents.length}`);
+      lastFiveEvents.forEach(game => {
+        console.log(`Team Name: ${team.team.displayName} | Opponent Name: ${game.opponent?.displayName || 'Unknown'} | Score: ${game.score || 'Unknown'}`);
+      });
+      
+      console.log(`=== END DEBUG ${teamType.toUpperCase()} ===`);
+
+      return (
+        <View style={styles.rosterContainer}>
+          <View style={styles.rosterHeader}>
+            <Image 
+              source={{ uri: team?.team?.logo || getTeamLogoUrl('nhl', team.team?.abbreviation) }} 
+              style={styles.rosterTeamLogo} 
+            />
+            <Text style={[styles.rosterTeamName, { color: theme.text }]}> {team.team?.displayName} </Text>
+          </View>
+
+          {/* Goalies Section */}
+          <View style={[styles.modernRosterSection, { backgroundColor: theme.surface }]}>
+            <View style={styles.modernSectionHeader}>
+              <FontAwesome6 name="gauge" size={16} color={theme.text} />
+              <Text style={[styles.modernSectionTitle, { color: theme.text }]}>Projected Goalies ({goalies.length})</Text>
+            </View>
+            {goalies.length === 0 ? (
+              <Text style={[styles.contentText, { color: theme.textSecondary, padding: 12 }]}>No goalies listed</Text>
+            ) : (
+              <>
+                {renderStatHeaders(['GAA', 'W', 'SV%'], false)}
+                {goalies.map((g, idx) => renderPlayerRow(g, idx, 'proj-goalie', [0,4,2]))}
+              </>
+            )}
+          </View>
+
+          {/* Injuries Section */}
+          <View style={[styles.modernRosterSection, { backgroundColor: theme.surface, marginTop: 12 }]}>
+            <View style={styles.modernSectionHeader}>
+              <FontAwesome6 name="user-injured" size={16} color={theme.text} />
+              <Text style={[styles.modernSectionTitle, { color: theme.text }]}>Injuries ({injuriesList.length})</Text>
+            </View>
+            {injuriesList.length === 0 ? (
+              <Text style={[styles.contentText, { color: theme.textSecondary, padding: 12 }]}>No injuries listed</Text>
+            ) : (
+              <View style={{ padding: 12 }}>
+                {injuriesList.map((inj, ii) => (
+                  <View key={`inj-${ii}`} style={[styles.injuryItem, { borderBottomColor: theme.border }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginBottom: 4 }}>
+                      <Text style={[styles.injuryPlayerName, { color: theme.text }]}>
+                        {inj?.athlete?.displayName || 'Unknown Player'}
+                      </Text>
+                      <Text style={[styles.playerDetails, { color: theme.textSecondary, marginLeft: 8 }]}>
+                        {inj?.athlete?.jersey && inj?.athlete?.position?.abbreviation ? `• #${inj.athlete.jersey} • ${inj.athlete.position.abbreviation}` : 
+                         inj?.athlete?.jersey ? `#${inj.athlete.jersey}` : 
+                         inj?.athlete?.position?.abbreviation ? inj.athlete.position.abbreviation : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.injuryDetails}>
+                      <Text style={[styles.injuryStatus, { 
+                        color: inj?.status === 'Out' ? '#F44336' : inj?.status === 'Day-To-Day' ? '#FF9800' : theme.textSecondary 
+                      }]}>
+                        {inj?.status || 'Unknown Status'}
+                      </Text>
+                      {inj?.details?.detail && (
+                        <Text style={[styles.injuryDetail, { color: theme.textSecondary }]}>
+                          {inj.details.detail}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Last Five Games Section */}
+          {lastFiveEvents.length > 0 && (
+            <View style={[styles.modernRosterSection, { backgroundColor: theme.surface, marginTop: 12 }]}>
+              <View style={styles.modernSectionHeader}>
+                <FontAwesome6 name="calendar-days" size={16} color={theme.text} />
+                <Text style={[styles.modernSectionTitle, { color: theme.text }]}>Last 5 Games</Text>
+              </View>
+              <View style={{ padding: 8 }}>
+                {lastFiveEvents.slice(0, 5).map((game, i) => (
+                  <TouchableOpacity
+                    key={`mini-${teamType}-${i}`}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      // Try multiple possible id fields from the game object
+                      const gameId = game.id || game.gameId || game.eventId || game.event?.id;
+                      if (gameId) {
+                        navigation.navigate('GameDetails', { gameId, sport: 'nhl' });
+                      }
+                    }}
+                  >
+                    <View style={[styles.miniGameCard, { backgroundColor: theme.surfaceSecondary || theme.surface }]}>
+                      <View style={styles.miniGameHeader}>
+                        <Text style={[styles.miniGameResult, { color: game.gameResult === 'W' ? '#4CAF50' : '#F44336' }]}>
+                          {game.gameResult || 'L'}
+                        </Text>
+                        <Text style={[styles.miniGameScore, { color: theme.text }]}>
+                          {game.score || `${game.awayTeamScore || 0}-${game.homeTeamScore || 0}`}
+                        </Text>
+                      </View>
+                      <View style={styles.miniGameInfo}>
+                        <Image 
+                          source={{ uri: isDarkMode ? game.opponent?.logos?.[1]?.href : game.opponent?.logos?.[0]?.href }} 
+                          style={styles.miniGameOpponentLogo}
+                          defaultSource={require('../../../assets/nhl.png')} 
+                        />
+                        <View style={styles.miniGameMeta}>
+                          <Text style={[styles.miniGameOpponent, { color: theme.text }]}>
+                            {game.atVs} {game.opponent?.abbreviation || 'OPP'}
+                          </Text>
+                          <Text style={[styles.miniGameDate, { color: theme.textSecondary }]}>
+                            {new Date(game.gameDate || game.date || '').toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+        </View>
+      );
+    }
+    
     // Check if we have onIce data (only use if game is not finished)
     const hasOnIceData = !isGameFinished && details?.onIce && Array.isArray(details.onIce) && details.onIce.length > 0;
+    
+    console.log(`Has onIce data: ${hasOnIceData}, onIce length: ${details?.onIce?.length || 0}`);
     
     // Get players on ice for this team (from onIce array) if available and game not finished
     const onIceData = hasOnIceData ? details.onIce.find(ice => ice.teamId === team.team.id) : null;
@@ -1229,6 +1500,7 @@ const NHLGameDetailsScreen = ({ route }) => {
     });
     
     if (!hasOnIceData) {
+      console.log(`Taking !hasOnIceData path - showing all players section`);
       // No onIce data OR game is finished - show all players in one section
       const skaters = allPlayers.filter(p => p.position !== 'goalies');
       const goalies = allPlayers.filter(p => p.position === 'goalies');
@@ -1269,6 +1541,8 @@ const NHLGameDetailsScreen = ({ route }) => {
         </View>
       );
     }
+
+
     
     // Has onIce data - show on ice and bench sections
     const playersOnIce = allPlayers.filter(p => p.isOnIce);
@@ -1309,14 +1583,24 @@ const NHLGameDetailsScreen = ({ route }) => {
                       player.position === 'forwards' ? 'F' : 
                       player.position === 'defenses' ? 'D' : '';
       
-      // pull the stat strings safely by index
-      const statValues = statIndices.map(si => (player.stats && player.stats[si] != null) ? player.stats[si] : '0');
+      // pull the stat strings safely by index and normalize objects to their displayValue
+      function statToString(s) {
+        if (s == null) return '0';
+        if (typeof s === 'string' || typeof s === 'number') return String(s);
+        if (typeof s === 'object') return s.displayValue ?? s.value ?? JSON.stringify(s);
+        return String(s);
+      }
+
+      const statValues = statIndices.map(si => {
+        const raw = (player.stats && player.stats[si] != null) ? player.stats[si] : null;
+        return statToString(raw);
+      });
 
       const displayName = player.athlete?.shortName || player.athlete?.displayName || player.athlete?.fullName || '';
 
       const openPlayer = () => {
-        // Attach the stat metadata so the modal can render labels
-        const meta = findPlayerStatsMeta(player);
+        // Use player's meta if available (for projected goalies), otherwise find from boxscore
+        const meta = player.meta || findPlayerStatsMeta(player);
         setSelectedPlayer({ player, meta, displayName });
       };
 
@@ -1449,11 +1733,11 @@ const NHLGameDetailsScreen = ({ route }) => {
                 </View>
                 <View style={styles.playSummary}>
                   <Text style={[styles.playDescription, { color: p.textColor }]}>{p.playText}</Text>
-                  {p.isScoring && (
-                    <View style={[styles.scoreIndicator, { backgroundColor: p.playTeamColor || colors.primary }]}>
-                      <Text style={[styles.scoreIndicatorText, { color: `#fff` }]}>GOAL</Text>
-                    </View>
-                  )}
+                      {p.isScoring && (
+                        <View style={[styles.scoreIndicator, { backgroundColor: p.playTeamColor || colors.primary }]}>
+                          <Text style={[styles.scoreIndicatorText, { color: theme.text }]}>GOAL</Text>
+                        </View>
+                      )}
                 </View>
               </View>
               <View style={styles.playRightSection}>
@@ -1483,7 +1767,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                     </View>
 
                     <View style={[styles.playEventInfo, { backgroundColor: p.isScoring ? 'rgba(255,255,255,0.12)' : theme.background, flex: 1 }]}> 
-                      <Text style={[styles.playDescription, { color: p.isScoring ? '#FFFFFF' : theme.text }]}> 
+                      <Text style={[styles.playDescription, { color: theme.text }]}> 
                         {p.playText}
                       </Text>
                       {(p.clock || p.period) && (
@@ -1509,8 +1793,130 @@ const NHLGameDetailsScreen = ({ route }) => {
     );
   };
 
+  // Sticky header component (exactly like NFL)
+  const renderStickyHeader = () => {
+    return (
+      <Animated.View 
+        style={[
+          styles.stickyHeader, 
+          { 
+            opacity: stickyHeaderOpacity,
+            transform: [{ 
+              translateY: stickyHeaderOpacity.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-20, 0],
+              })
+            }]
+          },
+          { backgroundColor: theme.surfaceSecondary || theme.surface, borderBottomColor: theme.border }
+        ]}
+        pointerEvents={showStickyHeader ? 'auto' : 'none'}
+      >
+        {/* Away Team */}
+        <View style={styles.stickyTeamAway}>
+          <Image 
+            source={{ uri: away?.team?.logo || away?.logo || getTeamLogoUrl('nhl', away?.team?.abbreviation) }} 
+            style={[styles.stickyTeamLogo, { opacity: awayIsLoser ? 0.5 : 1 }]}
+          />
+          {statusDesc !== 'Scheduled' ? <Text style={[styles.stickyTeamScore, { color: awayIsLoser ? theme.textSecondary : theme.text }]}>{awayScoreNum || '0'}</Text> : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {isFavorite(getNHLTeamId(away), 'nhl') && (
+              <Text style={{ color: colors.primary, marginRight: 4 }}>★</Text>
+            )}
+            <Text style={[styles.stickyTeamName, { color: awayIsLoser ? theme.textSecondary : (isFavorite(getNHLTeamId(away), 'nhl') ? colors.primary : theme.text) }]}>
+              {away?.team?.abbreviation || 'AWAY'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Status and Time */}
+        <View style={styles.stickyStatus}>
+          <Text style={[styles.stickyStatusText, { color: colors.primary }]}>
+            {getGameStatus().text}
+          </Text>
+          <Text style={[styles.stickyClock, { color: theme.textSecondary }]}>
+            {getGameStatus().detail}
+          </Text>
+        </View>
+
+        {/* Home Team */}
+        <View style={styles.stickyTeamHome}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={[styles.stickyTeamName, { color: homeIsLoser ? theme.textSecondary : (isFavorite(getNHLTeamId(home), 'nhl') ? colors.primary : theme.text) }]}>
+              {home?.team?.abbreviation || 'HOME'}
+            </Text>
+            {isFavorite(getNHLTeamId(home), 'nhl') && (
+              <Text style={{ color: colors.primary, marginLeft: 4 }}>★</Text>
+            )}
+          </View>
+          {statusDesc !== 'Scheduled' ? <Text style={[styles.stickyTeamScore, { color: homeIsLoser ? theme.textSecondary : theme.text }]}>{homeScoreNum || '0'}</Text> : null}
+          <Image 
+            source={{ uri: home?.team?.logo || home?.logo || getTeamLogoUrl('nhl', home?.team?.abbreviation) }} 
+            style={[styles.stickyTeamLogo, { opacity: homeIsLoser ? 0.5 : 1 }]}
+          />
+        </View>
+      </Animated.View>
+    );
+  };
+
+  // Team navigation function with proper ID handling
+  const navigateToTeam = (team) => {
+    if (!team || (!team.id && !team.team?.id)) {
+      console.warn('NHL GameDetails navigateToTeam: Invalid team object', team);
+      return;
+    }
+    
+    const teamId = team.id || team.team?.id;
+    const abbreviation = team.abbreviation || team.team?.abbreviation;
+    const displayName = team.displayName || team.team?.displayName || team.name || team.team?.name;
+    
+    const teamData = {
+      teamId,
+      abbreviation,
+      displayName,
+      sport: 'nhl'
+    };
+    
+    navigation.navigate('TeamPage', teamData);
+  };
+
+  // Helper function to get NHL team ID for favorites
+  const getNHLTeamId = (team) => {
+    const teamId = team?.id || team?.team?.id || null;
+    console.log(`[NHL GameDetails] getNHLTeamId: team=${JSON.stringify(team?.team?.abbreviation || team?.abbreviation)}, id=${teamId}`);
+    return teamId;
+  };
+
+  // Helper function to handle favorite toggle
+  const handleFavoriteToggle = async (team) => {
+    const teamId = getNHLTeamId(team);
+    if (!teamId) {
+      console.warn('NHL GameDetails handleFavoriteToggle: Invalid team ID', team);
+      return;
+    }
+    
+    const teamData = {
+      teamId,
+      abbreviation: team.abbreviation || team.team?.abbreviation,
+      displayName: team.displayName || team.team?.displayName || team.name || team.team?.name,
+      sport: 'nhl'
+    };
+    
+    await toggleFavorite(teamData);
+  };
+
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={{ padding: 12 }}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Sticky Header - Always render but animated */}
+      {renderStickyHeader()}
+      
+      {/* Main Content */}
+      <ScrollView 
+        style={[styles.scrollView, { backgroundColor: theme.background }]}
+        contentContainerStyle={styles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
       {/* Top header card (matches soccer layout) */}
       <View style={[styles.headerCard, { backgroundColor: theme.surface, borderColor: 'rgba(0,0,0,0.08)' }]}>
         <Text style={[styles.competitionText, { color: theme.textSecondary }]} numberOfLines={1}>
@@ -1520,28 +1926,42 @@ const NHLGameDetailsScreen = ({ route }) => {
         <View style={styles.soccerMainRow}>
           {/* Away team section (left) */}
           <View style={styles.soccerTeamSection}>
-            {away?.team?.logo || away?.logo ? (
-              <Image source={{ uri: away.team?.logo || away.logo }} style={[styles.soccerTeamLogo, awayIsLoser && styles.losingTeamLogo]} />
-            ) : (
-              <Image source={{ uri: getTeamLogoUrl('nhl', away?.team?.abbreviation || away?.abbreviation) }} style={[styles.soccerTeamLogo, awayIsLoser && styles.losingTeamLogo]} />
-            )}
-            <Text style={[styles.soccerTeamName, { color: awayIsLoser ? '#999' : theme.text }]} numberOfLines={2}>
-              {away?.team?.abbreviation || away?.team?.name || away?.team?.displayName || ''}
-            </Text>
+            <TouchableOpacity onPress={() => navigateToTeam(away)} activeOpacity={0.7}>
+              {away?.team?.logo || away?.logo ? (
+                <Image source={{ uri: away.team?.logo || away.logo }} style={[styles.soccerTeamLogo, awayIsLoser && styles.losingTeamLogo]} />
+              ) : (
+                <Image source={{ uri: getTeamLogoUrl('nhl', away?.team?.abbreviation || away?.abbreviation) }} style={[styles.soccerTeamLogo, awayIsLoser && styles.losingTeamLogo]} />
+              )}
+            </TouchableOpacity>
+            <View style={styles.teamNameWithFavorite}>
+              <View style={styles.teamNameRow}>
+                {isFavorite(getNHLTeamId(away), 'nhl') && (
+                  <Ionicons 
+                    name="star" 
+                    size={14} 
+                    color={colors.primary} 
+                    style={styles.favoriteIconHeader} 
+                  />
+                )}
+                <Text style={[styles.soccerTeamName, { color: awayIsLoser ? '#999' : (isFavorite(getNHLTeamId(away), 'nhl') ? colors.primary : theme.text) }]} numberOfLines={2}>
+                  {away?.team?.abbreviation || away?.team?.name || away?.team?.displayName || ''}
+                </Text>
+              </View>
+            </View>
           </View>
 
           {/* Score section (center) */}
           <View style={styles.soccerScoreSection}>
             <View style={styles.soccerScoreRow}>
               <Text style={[styles.soccerScore, { color: isGameFinal ? (awayIsWinner ? colors.primary : (awayIsLoser ? '#999' : theme.text)) : theme.text }]}>
-                {away?.score ?? away?.team?.score ?? '0'}
+                {getGameStatus().isPre ? '' : away?.score ?? away?.team?.score ?? '0'}
               </Text>
               <View style={[
                 styles.soccerStatusBadge,
                 (() => {
                   const gameStatus = getGameStatus();
-                  if (gameStatus.isLive) return { backgroundColor: colors.primary };
-                  if (gameStatus.isPre) return { backgroundColor: '#4CAF50' };
+                  if (gameStatus.isLive) return { backgroundColor: theme.success };
+                  if (gameStatus.isPre) return { backgroundColor: theme.info };
                   return { backgroundColor: '#9E9E9E' };
                 })()
               ]}>
@@ -1551,21 +1971,35 @@ const NHLGameDetailsScreen = ({ route }) => {
                 </Text>
               </View>
               <Text style={[styles.soccerScore, { color: isGameFinal ? (homeIsWinner ? colors.primary : (homeIsLoser ? '#999' : theme.text)) : theme.text }]}>
-                {home?.score ?? home?.team?.score ?? '0'}
+                {getGameStatus().isPre ? '' : home?.score ?? home?.team?.score ?? '0'}
               </Text>
             </View>
           </View>
 
           {/* Home team section (right) */}
           <View style={styles.soccerTeamSection}>
-            {home?.team?.logo || home?.logo ? (
-              <Image source={{ uri: home.team?.logo || home.logo }} style={[styles.soccerTeamLogo, homeIsLoser && styles.losingTeamLogo]} />
-            ) : (
-              <Image source={{ uri: getTeamLogoUrl('nhl', home?.team?.abbreviation || home?.abbreviation) }} style={[styles.soccerTeamLogo, homeIsLoser && styles.losingTeamLogo]} />
-            )}
-            <Text style={[styles.soccerTeamName, { color: homeIsLoser ? '#999' : theme.text }]} numberOfLines={2}>
-              {home?.team?.abbreviation || home?.team?.name || home?.team?.displayName || ''}
-            </Text>
+            <TouchableOpacity onPress={() => navigateToTeam(home)} activeOpacity={0.7}>
+              {home?.team?.logo || home?.logo ? (
+                <Image source={{ uri: home.team?.logo || home.logo }} style={[styles.soccerTeamLogo, homeIsLoser && styles.losingTeamLogo]} />
+              ) : (
+                <Image source={{ uri: getTeamLogoUrl('nhl', home?.team?.abbreviation || home?.abbreviation) }} style={[styles.soccerTeamLogo, homeIsLoser && styles.losingTeamLogo]} />
+              )}
+            </TouchableOpacity>
+            <View style={styles.teamNameWithFavorite}>
+              <View style={styles.teamNameRow}>
+                {isFavorite(getNHLTeamId(home), 'nhl') && (
+                  <Ionicons 
+                    name="star" 
+                    size={14} 
+                    color={colors.primary} 
+                    style={styles.favoriteIconHeader} 
+                  />
+                )}
+                <Text style={[styles.soccerTeamName, { color: homeIsLoser ? '#999' : (isFavorite(getNHLTeamId(home), 'nhl') ? colors.primary : theme.text) }]} numberOfLines={2}>
+                  {home?.team?.abbreviation || home?.team?.name || home?.team?.displayName || ''}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -1724,6 +2158,8 @@ const NHLGameDetailsScreen = ({ route }) => {
               const keys = meta.keys || [];
               const stats = player?.stats || [];
               const groupName = meta.groupName || '';
+              // Mark projected goalie (built earlier for scheduled games) so modal rendering can adapt
+              const isProjectedGoalie = player?.meta && player.meta.groupName === 'goalies';
               
               // Player info
               const headshot = athlete?.headshot?.href;
@@ -1732,25 +2168,41 @@ const NHLGameDetailsScreen = ({ route }) => {
               const jersey = athlete?.jersey;
               const position = athlete?.position?.abbreviation || athlete?.position?.name || '';
               
-              // Team info - get from the team box that contains this player
-              const playersBox = details?.boxscore?.players || [];
+              // Team info - get from the team box that contains this player or from projected goalie context
               let team = null;
-              for (const teamBox of playersBox) {
-                if (teamBox?.statistics) {
-                  for (const group of teamBox.statistics) {
-                    if (group?.athletes) {
-                      const found = group.athletes.find(a => String(a?.athlete?.id) === String(athlete?.id));
-                      if (found) {
-                        team = teamBox.team;
-                        break;
+              let teamName = '';
+              let teamLogo = null;
+              
+              if (isProjectedGoalie) {
+                // For projected goalies, get team info from the current context
+                const teams = details.boxscore.teams;
+                if (details.goalies?.homeTeam?.athletes?.some(a => String(a.id) === String(athlete?.id))) {
+                  team = teams.find(t => t.homeAway === 'home')?.team;
+                } else if (details.goalies?.awayTeam?.athletes?.some(a => String(a.id) === String(athlete?.id))) {
+                  team = teams.find(t => t.homeAway === 'away')?.team;
+                }
+                teamName = team?.displayName || team?.name || '';
+                teamLogo = team?.logo || (team?.abbreviation ? getTeamLogoUrl('nhl', team.abbreviation) : null);
+              } else {
+                // Regular logic for boxscore players
+                const playersBox = details?.boxscore?.players || [];
+                for (const teamBox of playersBox) {
+                  if (teamBox?.statistics) {
+                    for (const group of teamBox.statistics) {
+                      if (group?.athletes) {
+                        const found = group.athletes.find(a => String(a?.athlete?.id) === String(athlete?.id));
+                        if (found) {
+                          team = teamBox.team;
+                          break;
+                        }
                       }
                     }
+                    if (team) break;
                   }
-                  if (team) break;
                 }
+                teamName = team?.displayName || team?.name || '';
+                teamLogo = team?.logo || (team?.abbreviation ? getTeamLogoUrl('nhl', team.abbreviation) : null);
               }
-              const teamName = team?.displayName || team?.name || '';
-              const teamLogo = team?.logo || (team?.abbreviation ? getTeamLogoUrl('nhl', team.abbreviation) : null);
               
               // Define most important stats by position
               const isGoalie = groupName === 'goalies' || position === 'G';
@@ -1758,7 +2210,13 @@ const NHLGameDetailsScreen = ({ route }) => {
               let importantStatIndices = [];
               let importantLabels = [];
               
-              if (isGoalie) {
+              // Check if this is a projected goalie (from scheduled game)
+              // (isProjectedGoalie already declared above near groupName)
+              if (isProjectedGoalie) {
+                // For projected goalies, show all available stats since we have limited data
+                importantStatIndices = stats.map((_, idx) => idx);
+                importantLabels = labels.slice(0, stats.length);
+              } else if (isGoalie) {
                 // Goalies: GA, SA, Saves, SV%, TOI, PPSV, SHSV, ESSV, PIM
                 const goalieStats = ['goalsAgainst', 'shotsAgainst', 'saves', 'savePct', 'timeOnIce', 'powerPlaySaves', 'shortHandedSaves', 'evenStrengthSaves', 'penaltyMinutes'];
                 goalieStats.forEach(statKey => {
@@ -1794,10 +2252,14 @@ const NHLGameDetailsScreen = ({ route }) => {
                         </View>
                       )}
                       <View style={styles.modalPlayerDetails}>
-                        <Text style={[styles.modalName, { color: theme.text }]} numberOfLines={1}>{fullName}</Text>
-                        <Text style={[styles.modalPlayerMeta, { color: theme.textSecondary }]} numberOfLines={1}>
-                          {jersey && position ? `#${jersey} • ${position}` : jersey ? `#${jersey}` : position ? position : ''}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <Text style={[styles.modalName, { color: theme.text }]} numberOfLines={1}>{fullName}</Text>
+                          <Text style={[styles.modalPlayerMeta, { color: theme.textSecondary, marginLeft: 8 }]} numberOfLines={1}>
+                            {jersey && (isProjectedGoalie || position) ? `#${jersey} • ${isProjectedGoalie ? 'G' : position}` : 
+                             jersey ? `#${jersey}` : 
+                             (isProjectedGoalie ? 'G' : position) ? (isProjectedGoalie ? 'G' : position) : ''}
+                          </Text>
+                        </View>
                         <View style={styles.modalTeamRow}>
                           {teamLogo && <Image source={{ uri: teamLogo }} style={styles.modalTeamLogo} />}
                           <Text style={[styles.modalTeam, { color: theme.textSecondary }]} numberOfLines={1}>{teamName}</Text>
@@ -1816,7 +2278,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                     </Text>
                   </View>
 
-                  <ScrollView style={styles.modalStatsContainer} contentContainerStyle={{ padding: 12 }}>
+                  <ScrollView style={styles.modalStatsContainer} contentContainerStyle={{ padding: 12 }} scrollEnabled={false}>
                     {importantStatIndices.length > 0 ? (
                       <View style={styles.modalStatsGrid}>
                         {importantStatIndices.map((statIdx, i) => (
@@ -2049,7 +2511,8 @@ const NHLGameDetailsScreen = ({ route }) => {
         </View>
       </Modal>
 
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
@@ -2059,11 +2522,84 @@ const NHLGameDetailsScreen = ({ route }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: 12,
+  },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   title: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
   teamRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
-  logo: { width: 48, height: 48, marginRight: 12 }
-  ,
+  logo: { width: 48, height: 48, marginRight: 12 },
+  // Sticky header styles (from NFL)
+  stickyHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  stickyTeamAway: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'flex-start',
+  },
+  stickyTeamHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  stickyTeamLogo: {
+    width: 28,
+    height: 28,
+    marginHorizontal: 8,
+  },
+  stickyTeamScore: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#013369',
+    minWidth: 35,
+    textAlign: 'center',
+  },
+  stickyTeamName: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginHorizontal: 8,
+  },
+  stickyStatus: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  stickyStatusText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#013369',
+    textAlign: 'center',
+  },
+  stickyClock: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 2,
+  },
   /* Soccer-like header card styles */
   headerCard: {
     borderRadius: 12,
@@ -2562,6 +3098,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 2,
+  },
+  teamNameWithFavorite: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  teamNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  favoriteIconHeader: {
+    marginRight: 4,
+  },
+  favoriteButton: {
+    padding: 4,
   },
   soccerScorerText: {
     fontSize: 12.5,
@@ -3400,6 +3952,94 @@ const styles = StyleSheet.create({
   noStreamText: {
     fontSize: 16,
     textAlign: 'center',
+  },
+  // Modern section header styles
+  modernSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
+  modernSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modernRosterSection: {
+    padding: 16,
+    borderRadius: 12,
+    marginVertical: 4,
+  },
+  // Mini game card styles
+  miniGameCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  miniGameHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  miniGameResult: {
+    fontSize: 17.5,
+    fontWeight: 'bold',
+    width: 20,
+    textAlign: 'center',
+  },
+  miniGameScore: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  miniGameInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  miniGameOpponentLogo: {
+    width: 20,
+    height: 20,
+  },
+  miniGameDate: {
+    fontSize: 12,
+  },
+  miniGameMeta: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+  },
+  miniGameOpponent: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  // Injury styles
+  injuryItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    marginBottom: 4,
+  },
+  injuryPlayerName: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  injuryDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  injuryStatus: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  injuryDetail: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    flex: 1,
+    textAlign: 'right',
   },
 });
 

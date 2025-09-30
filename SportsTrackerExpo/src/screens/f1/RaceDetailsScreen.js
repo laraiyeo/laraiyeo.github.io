@@ -178,21 +178,20 @@ const RaceDetailsScreen = ({ route }) => {
     const compTypeName = competition.type?.name?.toLowerCase() || '';
     const compDisplayName = competition.type?.displayName?.toLowerCase() || '';
     
-    if (competitionName.includes('race') || compTypeAbbrev === 'race' || compTypeName.includes('race') || compDisplayName.includes('race')) {
-      targetSession = openF1Data.sessions.find(s => s.session_type === 'Race');
-    } else if (competitionName.includes('qualifying') || competitionName.includes('qualification') || 
-               compTypeAbbrev === 'qual' || compTypeAbbrev === 'q' || 
-               compTypeName.includes('qualifying') || compDisplayName.includes('qualifying')) {
-      targetSession = openF1Data.sessions.find(s => s.session_type === 'Qualifying');
-    } else if (competitionName.includes('practice 3') || competitionName.includes('fp3') || 
-               compTypeAbbrev === 'fp3' || compTypeAbbrev === 'p3') {
+    if (compTypeAbbrev === 'race') {
+      targetSession = openF1Data.sessions.find(s => s.session_name === 'Race');
+    } else if (compTypeAbbrev === 'qual') {
+      targetSession = openF1Data.sessions.find(s => s.session_name === 'Qualifying');
+    } else if (compTypeAbbrev === 'fp3') {
       targetSession = openF1Data.sessions.find(s => s.session_name === 'Practice 3');
-    } else if (competitionName.includes('practice 2') || competitionName.includes('fp2') || 
-               compTypeAbbrev === 'fp2' || compTypeAbbrev === 'p2') {
+    } else if (compTypeAbbrev === 'fp2') {
       targetSession = openF1Data.sessions.find(s => s.session_name === 'Practice 2');
-    } else if (competitionName.includes('practice 1') || competitionName.includes('fp1') || 
-               compTypeAbbrev === 'fp1' || compTypeAbbrev === 'p1') {
+    } else if (compTypeAbbrev === 'fp1') {
       targetSession = openF1Data.sessions.find(s => s.session_name === 'Practice 1');
+    } else if (compTypeAbbrev === 'ss') {
+      targetSession = openF1Data.sessions.find(s => s.session_name === 'Sprint Qualifying');
+    } else if (compTypeAbbrev === 'sr') {
+      targetSession = openF1Data.sessions.find(s => s.session_name === 'Sprint');
     }
 
     // If we found a matching session, switch to it
@@ -943,7 +942,7 @@ const RaceDetailsScreen = ({ route }) => {
       }
 
       const sessions = await fetchOpenF1Sessions(meeting.meeting_key);
-      const raceSession = sessions.find(s => s.session_type === 'Race');
+      const raceSession = sessions.find(s => s.session_name === 'Race');
       
       setOpenF1Data(prev => ({
         ...prev,
@@ -2055,7 +2054,7 @@ const RaceDetailsScreen = ({ route }) => {
           );
           if (initiatorNum) {
             const initiator = getDriverName(initiatorNum);
-            const duration = ` ${details.pit_stop_duration}S` || '';
+            const duration = (details.pit_stop_duration !== null ? ` ${details.pit_stop_duration}S` : '') || '';
             const tyreType = details.tyre_age_at_start === 0 ? 'NEW' : 'USED';
             const compound = details.compound || 'Unknown';
             return `${initiator}:${duration} PIT FOR ${tyreType} ${compound.toUpperCase()} TIRES`;

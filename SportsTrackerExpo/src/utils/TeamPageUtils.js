@@ -476,6 +476,89 @@ export const fetchSoccerTeamCurrentGame = async (teamId, sport, updateTeamCurren
 };
 
 /**
+ * Fetch current game for NHL team using exact same logic as NHLTeamPageScreen
+ */
+export const fetchNHLTeamCurrentGame = async (teamId, updateTeamCurrentGameFunc) => {
+  try {
+    console.log(`[TEAM PAGE UTILS] Fetching NHL current game for team ${teamId}`);
+    
+    // Use API-safe team id (strip sport suffixes) for ESPN API calls
+    const nhlApiTeamId = getAPITeamId(teamId, 'nhl');
+    const encodedNhlId = encodeURIComponent(String(nhlApiTeamId));
+    console.log(`[TEAM PAGE UTILS] Using API team ID: ${nhlApiTeamId} (encoded: ${encodedNhlId})`);
+    
+    // Get today's date range
+    const today = new Date();
+    const formatDate = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    const dateStr = formatDate(today);
+    console.log(`[TEAM PAGE UTILS] NHL date: ${dateStr}`);
+    
+    // Fetch NHL schedule for the team
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${encodedNhlId}/schedule`);
+    const data = await response.json();
+    
+    if (!data.events || data.events.length === 0) {
+      console.log(`[TEAM PAGE UTILS] No NHL games found for team ${teamId}`);
+      return { success: false, reason: 'No games found' };
+    }
+    
+    // Find today's game
+    const todayGame = data.events.find(event => {
+      const gameDate = new Date(event.date);
+      const gameDateStr = formatDate(gameDate);
+      return gameDateStr === dateStr;
+    });
+    
+    if (!todayGame) {
+      console.log(`[TEAM PAGE UTILS] No NHL game today for team ${teamId}`);
+      return { success: false, reason: 'No game today' };
+    }
+    
+    // Check if we should fetch this game based on timing restrictions
+    if (!shouldFetchFinishedGame(todayGame.date, 'nhl')) {
+      console.log(`[TEAM PAGE UTILS] NHL game is finished and outside fetch window for team ${teamId}`);
+      return { success: false, reason: 'Game finished, outside fetch window' };
+    }
+    
+    console.log(`[TEAM PAGE UTILS] Found NHL game for team ${teamId}: ${todayGame.id}`);
+    
+    // Store using the same format as other sports for consistency
+    if (updateTeamCurrentGameFunc) {
+      await updateTeamCurrentGameFunc(teamId, {
+        eventId: todayGame.id,
+        eventLink: `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/summary?event=${todayGame.id}`,
+        gameDate: todayGame.date,
+        competition: 'nhl',
+        updatedAt: new Date().toISOString()
+      });
+    }
+    
+    const currentGameData = {
+      gameId: todayGame.id,
+      status: todayGame.status?.type?.name || 'Unknown',
+      homeTeam: todayGame.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home'),
+      awayTeam: todayGame.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away'),
+      date: todayGame.date,
+      venue: todayGame.competitions?.[0]?.venue?.fullName,
+      lastUpdated: new Date().toISOString(),
+      sport: 'nhl'
+    };
+    
+    return { success: true, game: currentGameData };
+    
+  } catch (error) {
+    console.error(`[TEAM PAGE UTILS] Error fetching NHL current game for team ${teamId}:`, error);
+    return { success: false, reason: error.message };
+  }
+};
+
+/**
  * Master function to fetch current game for any team based on sport
  */
 export const fetchTeamCurrentGame = async (teamId, sport, updateTeamCurrentGameFunc) => {
@@ -487,6 +570,10 @@ export const fetchTeamCurrentGame = async (teamId, sport, updateTeamCurrentGameF
   
   if (sportLower === 'nfl' || sportLower === 'football') {
     return await fetchNFLTeamCurrentGame(teamId, updateTeamCurrentGameFunc);
+  }
+  
+  if (sportLower === 'nhl' || sportLower === 'hockey') {
+    return await fetchNHLTeamCurrentGame(teamId, updateTeamCurrentGameFunc);
   }
   
   if (sportLower === 'soccer' || 

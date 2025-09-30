@@ -11,6 +11,7 @@ import {
   Alert
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { NHLService } from '../../services/NHLService';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
@@ -269,6 +270,28 @@ const NHLScoreboardScreen = ({ navigation }) => {
 
   const navigateToGameDetails = (gameId) => { if (!gameId) return; navigation.navigate('GameDetails', { gameId, sport: 'nhl' }); };
 
+  // Team navigation function with proper ID handling
+  const navigateToTeam = (team) => {
+    if (!team || !team.id) {
+      console.warn('NavigateToTeam: Invalid team object', team);
+      return;
+    }
+    
+    const teamData = {
+      teamId: team.id,
+      abbreviation: team.abbreviation,
+      displayName: team.displayName,
+      sport: 'nhl'
+    };
+    
+    navigation.navigate('TeamPage', teamData);
+  };
+
+  // Helper function to get NHL team ID for favorites
+  const getNHLTeamId = (team) => {
+    return team?.id || team?.teamId || null;
+  };
+
   const renderDateHeader = (date) => (
     <View style={[styles.dateHeader, { backgroundColor: colors.primary, borderBottomColor: theme.border }]}>
       <Text allowFontScaling={false} style={[styles.dateHeaderText, { color: '#fff' }]}>{date}</Text>
@@ -302,19 +325,49 @@ const NHLScoreboardScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.teamsContainer}>
+          {/* Away Team */}
           <View style={styles.teamRow}>
-            <Image source={{ uri: getTeamLogoUrl('nhl', normalizeAbbreviation(item.awayTeam.abbreviation)) || item.awayTeam.logo }} style={[styles.teamLogo, isTeamLosing(item, true) ? styles.losingTeamLogo : null]} />
+            <TouchableOpacity onPress={() => navigateToTeam(item.awayTeam)} style={styles.teamLogoContainer}>
+              <Image source={{ uri: getTeamLogoUrl('nhl', normalizeAbbreviation(item.awayTeam.abbreviation)) || item.awayTeam.logo }} style={[styles.teamLogo, isTeamLosing(item, true) ? styles.losingTeamLogo : null]} />
+            </TouchableOpacity>
             <View style={styles.teamInfo}>
-              <Text allowFontScaling={false} style={[getTeamNameStyle(item, true), { color: isFavorite(item.awayTeam.id, 'nhl') ? colors.primary : getTeamNameColor(item, true) }]}>{isFavorite(item.awayTeam.id, 'nhl') ? '★ ' : ''}{item.awayTeam.displayName}</Text>
+              <View style={styles.teamNameRow}>
+                {isFavorite(getNHLTeamId(item.awayTeam), 'nhl') && (
+                  <Ionicons 
+                    name="star" 
+                    size={14} 
+                    color={colors.primary} 
+                    style={styles.favoriteIcon} 
+                  />
+                )}
+                <Text allowFontScaling={false} style={[getTeamNameStyle(item, true), { color: isFavorite(getNHLTeamId(item.awayTeam), 'nhl') ? colors.primary : getTeamNameColor(item, true) }]}>
+                  {item.awayTeam.displayName}
+                </Text>
+              </View>
               <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.awayTeam.record}</Text>
             </View>
             <Text allowFontScaling={false} style={[getTeamScoreStyle(item, true), { color: getScoreColor(item, true) }]}>{(isLive || item.isCompleted) ? (item.awayTeam.score ?? '') : ''}</Text>
           </View>
 
+          {/* Home Team */}
           <View style={styles.teamRow}>
-            <Image source={{ uri: getTeamLogoUrl('nhl', normalizeAbbreviation(item.homeTeam.abbreviation)) || item.homeTeam.logo }} style={[styles.teamLogo, isTeamLosing(item, false) ? styles.losingTeamLogo : null]} />
+            <TouchableOpacity onPress={() => navigateToTeam(item.homeTeam)} style={styles.teamLogoContainer}>
+              <Image source={{ uri: getTeamLogoUrl('nhl', normalizeAbbreviation(item.homeTeam.abbreviation)) || item.homeTeam.logo }} style={[styles.teamLogo, isTeamLosing(item, false) ? styles.losingTeamLogo : null]} />
+            </TouchableOpacity>
             <View style={styles.teamInfo}>
-              <Text allowFontScaling={false} style={[getTeamNameStyle(item, false), { color: isFavorite(item.homeTeam.id, 'nhl') ? colors.primary : getTeamNameColor(item, false) }]}>{isFavorite(item.homeTeam.id, 'nhl') ? '★ ' : ''}{item.homeTeam.displayName}</Text>
+              <View style={styles.teamNameRow}>
+                {isFavorite(getNHLTeamId(item.homeTeam), 'nhl') && (
+                  <Ionicons 
+                    name="star" 
+                    size={14} 
+                    color={colors.primary} 
+                    style={styles.favoriteIcon} 
+                  />
+                )}
+                <Text allowFontScaling={false} style={[getTeamNameStyle(item, false), { color: isFavorite(getNHLTeamId(item.homeTeam), 'nhl') ? colors.primary : getTeamNameColor(item, false) }]}>
+                  {item.homeTeam.displayName}
+                </Text>
+              </View>
               <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.homeTeam.record}</Text>
             </View>
             <Text allowFontScaling={false} style={[getTeamScoreStyle(item, false), { color: getScoreColor(item, false) }]}>{(isLive || item.isCompleted) ? (item.homeTeam.score ?? '') : ''}</Text>
@@ -380,8 +433,11 @@ const styles = StyleSheet.create({
   teamsContainer: { marginBottom: 12 },
   teamRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
   teamLogo: { width: 40, height: 40, marginRight: 12 },
+  teamLogoContainer: { flexDirection: 'row', alignItems: 'center' },
   teamInfo: { flex: 1 },
   teamName: { fontSize: 16, fontWeight: '600' },
+  teamNameRow: { flexDirection: 'row', alignItems: 'center' },
+  favoriteIcon: { marginRight: 4 },
   teamRecord: { fontSize: 12, marginTop: 2 },
   teamScore: { fontSize: 24, fontWeight: 'bold', minWidth: 40, textAlign: 'center' },
   losingTeamScore: { color: '#999' },

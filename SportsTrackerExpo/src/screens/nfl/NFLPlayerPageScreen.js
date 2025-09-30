@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView, Modal } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { NFLService } from '../../services/NFLService';
@@ -124,7 +124,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
     return `https://a.espncdn.com/i/teamlogos/nfl/${useDarkMode ? '500-dark' : '500'}/${normalized}.png`;
   };
 
-  const handleLogoError = (teamParam, useDarkMode) => {
+  const handleLogoError = useCallback((teamParam, useDarkMode) => {
     // Derive the same normalized key as getTeamLogoUrl
     let token = null;
     if (typeof teamParam === 'object') {
@@ -141,7 +141,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
     const normalized = String(normalizedToken).toLowerCase();
     const logoKey = `${normalized}-${useDarkMode ? '500-dark' : '500'}`;
     setFailedLogos(prev => new Set([...prev, logoKey]));
-  };
+  }, []);
 
   const getTeamLogoFallbackUrl = (teamParam, useDarkMode = isDarkMode) => {
     if (!teamParam) return require('../../../assets/nfl.png');
@@ -368,6 +368,28 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
       return [];
     }
   };
+
+  // Memoize frequently used logo URLs to prevent flickering
+  const playerTeamLogoUrl = useMemo(() => {
+    if (!playerData?.team?.id) return null;
+    return getTeamLogoUrl(playerData.team.id, isDarkMode);
+  }, [playerData?.team?.id, isDarkMode, failedLogos]);
+
+  const playerTeamFallbackUrl = useMemo(() => {
+    if (!playerData?.team?.id) return require('../../../assets/nfl.png');
+    return getTeamLogoFallbackUrl(playerData.team.id, isDarkMode);
+  }, [playerData?.team?.id, isDarkMode]);
+
+  // Helper function to get memoized logo URLs for teams to prevent flickering
+  const getStableTeamLogoUrl = useCallback((teamParam) => {
+    if (!teamParam) return null;
+    return getTeamLogoUrl(teamParam, isDarkMode);
+  }, [isDarkMode, failedLogos]);
+
+  const getStableTeamFallbackUrl = useCallback((teamParam) => {
+    if (!teamParam) return require('../../../assets/nfl.png');
+    return getTeamLogoFallbackUrl(teamParam, isDarkMode);
+  }, [isDarkMode]);
 
   useEffect(() => {
     let mounted = true;
@@ -955,9 +977,10 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
             {playerData.team && (playerData.team.abbreviation || playerData.team.id) && (
               <View style={[styles.teamContainer, { marginRight: 8 }]}>
                 <Image 
-                  source={getTeamLogoUrl(playerData.team, isDarkMode) ? { uri: getTeamLogoUrl(playerData.team, isDarkMode) } : require('../../../assets/nfl.png')}
+                  key={`nfl-player-team-logo-${playerData.team.id}`}
+                  source={playerTeamLogoUrl ? { uri: playerTeamLogoUrl } : require('../../../assets/nfl.png')}
                   style={[styles.teamLogo, { width: 22, height: 22 }]}
-                  defaultSource={getTeamLogoFallbackUrl(playerData.team, isDarkMode)}
+                  defaultSource={playerTeamFallbackUrl}
                   onError={() => handleLogoError(playerData.team, isDarkMode)}
                 />
               </View>
@@ -1098,9 +1121,10 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                   return (
                     <TouchableOpacity key={`opp-${idx}`} style={[styles.teamCard, { backgroundColor: theme.surface }]} onPress={() => openSplitDetail(it)}>
                       <Image 
-                        source={getTeamLogoUrl({ abbreviation: teamAbbr }, isDarkMode) ? { uri: getTeamLogoUrl({ abbreviation: teamAbbr }, isDarkMode) } : require('../../../assets/nfl.png')} 
+                        key={`nfl-splits-team-logo-${teamAbbr}`}
+                        source={getStableTeamLogoUrl({ abbreviation: teamAbbr }) ? { uri: getStableTeamLogoUrl({ abbreviation: teamAbbr }) } : require('../../../assets/nfl.png')} 
                         style={styles.teamCardLogo} 
-                        defaultSource={getTeamLogoFallbackUrl({ abbreviation: teamAbbr }, isDarkMode)} 
+                        defaultSource={getStableTeamFallbackUrl({ abbreviation: teamAbbr })} 
                       />
                       <Text allowFontScaling={false} style={[styles.teamCardName, { color: theme.text }]}>{teamAbbr}</Text>
                     </TouchableOpacity>
@@ -1233,22 +1257,24 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                 <View style={[styles.mlbMatchRow, { borderTopColor: theme.surfaceSecondary }]}>
                   <View style={styles.mlbTeamLogos}>
                     <Image 
-                      source={getTeamLogoUrl(playerData?.team || game.team, isDarkMode) ? 
-                        { uri: getTeamLogoUrl(playerData?.team || game.team, isDarkMode) } : 
+                      key={`nfl-game-player-team-${game.id}-${(playerData?.team?.id || game.team?.id)}`}
+                      source={getStableTeamLogoUrl(playerData?.team || game.team) ? 
+                        { uri: getStableTeamLogoUrl(playerData?.team || game.team) } : 
                         require('../../../assets/nfl.png')}
                       style={styles.mlbTeamLogo}
-                      defaultSource={getTeamLogoFallbackUrl(playerData?.team || game.team, isDarkMode)}
+                      defaultSource={getStableTeamFallbackUrl(playerData?.team || game.team)}
                       onError={() => handleLogoError(playerData?.team || game.team, isDarkMode)}
                     />
                     <Text allowFontScaling={false} style={[styles.mlbVersus, { color: theme.textSecondary }]}>
                       {game.atVs === '@' ? '@' : 'vs'}
                     </Text>
                     <Image 
-                      source={getTeamLogoUrl(game.opponent, isDarkMode) ? 
-                        { uri: getTeamLogoUrl(game.opponent, isDarkMode) } : 
+                      key={`nfl-game-opponent-${game.id}-${game.opponent?.id}`}
+                      source={getStableTeamLogoUrl(game.opponent) ? 
+                        { uri: getStableTeamLogoUrl(game.opponent) } : 
                         require('../../../assets/nfl.png')}
                       style={styles.mlbTeamLogo}
-                      defaultSource={getTeamLogoFallbackUrl(game.opponent, isDarkMode)}
+                      defaultSource={getStableTeamFallbackUrl(game.opponent)}
                       onError={() => handleLogoError(game.opponent, isDarkMode)}
                     />
                   </View>
@@ -1329,11 +1355,12 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                   {playerData?.team && playerData.team.id && (
                     <View style={styles.teamContainer}>
                       <Image 
-                        source={getTeamLogoUrl(playerData.team.id, isDarkMode) ? 
-                          { uri: getTeamLogoUrl(playerData.team.id, isDarkMode) } : 
+                        key={`nfl-modal-player-team-logo-${playerData.team.id}`}
+                        source={playerTeamLogoUrl ? 
+                          { uri: playerTeamLogoUrl } : 
                           require('../../../assets/nfl.png')}
                         style={styles.teamLogo}
-                        defaultSource={getTeamLogoFallbackUrl(playerData.team.id, isDarkMode)}
+                        defaultSource={playerTeamFallbackUrl}
                         onError={() => handleLogoError(playerData.team.id, isDarkMode)}
                       />
                       <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary, fontWeight: 'bold' }]}>
@@ -1420,22 +1447,24 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                   <View style={styles.modalTeamContainer}>
                     <View style={styles.mlbTeamLogos}>
                       <Image 
-                        source={getTeamLogoUrl(playerData?.team || g.team, isDarkMode) ? 
-                          { uri: getTeamLogoUrl(playerData?.team || g.team, isDarkMode) } : 
+                        key={`nfl-modal-game-player-team-${g.id}-${(playerData?.team?.id || g.team?.id)}`}
+                        source={getStableTeamLogoUrl(playerData?.team || g.team) ? 
+                          { uri: getStableTeamLogoUrl(playerData?.team || g.team) } : 
                           require('../../../assets/nfl.png')}
                         style={styles.modalSeasonTeamLogo}
-                        defaultSource={getTeamLogoFallbackUrl(playerData?.team || g.team, isDarkMode)}
+                        defaultSource={getStableTeamFallbackUrl(playerData?.team || g.team)}
                         onError={() => handleLogoError(playerData?.team || g.team, isDarkMode)}
                       />
                       <Text allowFontScaling={false} style={[styles.mlbVersus, { color: theme.textSecondary, fontSize: 16, marginHorizontal: 12 }]}>
                         {g.atVs === '@' ? '@' : 'vs'}
                       </Text>
                       <Image 
-                        source={getTeamLogoUrl(g.opponent, isDarkMode) ? 
-                          { uri: getTeamLogoUrl(g.opponent, isDarkMode) } : 
+                        key={`nfl-modal-game-opponent-${g.id}-${g.opponent?.id}`}
+                        source={getStableTeamLogoUrl(g.opponent) ? 
+                          { uri: getStableTeamLogoUrl(g.opponent) } : 
                           require('../../../assets/nfl.png')}
                         style={styles.modalSeasonTeamLogo}
-                        defaultSource={getTeamLogoFallbackUrl(g.opponent, isDarkMode)}
+                        defaultSource={getStableTeamFallbackUrl(g.opponent)}
                         onError={() => handleLogoError(g.opponent, isDarkMode)}
                       />
                     </View>
@@ -1485,7 +1514,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                 <View style={styles.careerTileHeader}>
                   <View style={styles.careerLogosRow}>
                     {logos.map((l, li) => (
-                      <Image key={`logo-${li}`} source={getTeamLogoUrl(l, isDarkMode) ? { uri: getTeamLogoUrl(l, isDarkMode) } : require('../../../assets/nfl.png')} style={styles.careerLogo} defaultSource={getTeamLogoFallbackUrl(l, isDarkMode)} onError={() => handleLogoError(l, isDarkMode)} />
+                      <Image key={`nfl-career-logo-${item.season}-${li}-${l}`} source={getStableTeamLogoUrl(l) ? { uri: getStableTeamLogoUrl(l) } : require('../../../assets/nfl.png')} style={styles.careerLogo} defaultSource={getStableTeamFallbackUrl(l)} onError={() => handleLogoError(l, isDarkMode)} />
                     ))}
                   </View>
                   <Text allowFontScaling={false} style={[styles.careerTeamsText, { color: theme.textSecondary }]}>{displayLabel}</Text>
@@ -1551,10 +1580,10 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                       const token = teamObj.abbreviation || teamObj.id || convertTeamIdToAbbr(teamObj.id);
                       return (
                         <Image 
-                          key={`modal-team-logo-${index}`}
-                          source={getTeamLogoUrl(token, isDarkMode) ? { uri: getTeamLogoUrl(token, isDarkMode) } : require('../../../assets/nfl.png')} 
+                          key={`nfl-modal-season-team-logo-${selectedSeasonStats?.season}-${index}-${token}`}
+                          source={getStableTeamLogoUrl(token) ? { uri: getStableTeamLogoUrl(token) } : require('../../../assets/nfl.png')} 
                           style={[styles.modalSeasonTeamLogo, { width: 40, height: 40, marginHorizontal: 4 }]} 
-                          defaultSource={getTeamLogoFallbackUrl(token, isDarkMode)} 
+                          defaultSource={getStableTeamFallbackUrl(token)} 
                           onError={() => handleLogoError(token, isDarkMode)} 
                         />
                       );
