@@ -1,11 +1,17 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, TextInput, Modal } from 'react-native';
 import { useFavorites } from '../context/FavoritesContext';
 import { useTheme } from '../context/ThemeContext';
+import { useChat } from '../context/ChatContext';
 
 const SettingsScreen = ({ navigation }) => {
   const { isDarkMode, theme, colors, colorPalettes, currentColorPalette, toggleTheme, changeColorPalette } = useTheme();
   const { favorites, removeFavorite, getFavoriteTeams, clearAllFavorites } = useFavorites();
+  const { userName, userColor, updateUserName, updateUserColor, nameColors } = useChat();
+  
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [tempUsername, setTempUsername] = useState(userName);
+  const [colorModalVisible, setColorModalVisible] = useState(false);
 
   const renderColorOption = (paletteKey, palette) => {
     const isSelected = currentColorPalette === paletteKey;
@@ -14,7 +20,7 @@ const SettingsScreen = ({ navigation }) => {
       <TouchableOpacity
         key={paletteKey}
         style={[
-          styles.colorOption,
+          styles.colorOption1,
           { 
             backgroundColor: theme.surface,
             borderColor: isSelected ? colors.primary : theme.border,
@@ -42,7 +48,8 @@ const SettingsScreen = ({ navigation }) => {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <ScrollView style={{ flex: 1 }}>
       <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         <Text allowFontScaling={false} style={[styles.title, { color: theme.text }]}>Settings</Text>
         <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textSecondary }]}>
@@ -86,7 +93,7 @@ const SettingsScreen = ({ navigation }) => {
             </Text>
           </View>
           
-          <View style={styles.colorGrid}>
+          <View style={styles.colorGrid1}>
             {Object.entries(colorPalettes).map(([key, palette]) => 
               renderColorOption(key, palette)
             )}
@@ -115,6 +122,59 @@ const SettingsScreen = ({ navigation }) => {
                 <Text allowFontScaling={false} style={styles.previewButtonText}>Sample Button</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+
+        {/* Chat Settings Section */}
+        <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={styles.sectionHeader}>
+            <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Chat Settings</Text>
+            <Text allowFontScaling={false} style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+              Customize your chat appearance
+            </Text>
+          </View>
+          
+          {/* Username Setting */}
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text allowFontScaling={false} style={[styles.settingLabel, { color: theme.text }]}>
+                Username
+              </Text>
+              <Text allowFontScaling={false} style={[styles.settingDescription, { color: theme.textSecondary }]}>
+                Your display name in chat: {userName}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.openSettingsButton, { backgroundColor: colors.primary }]}
+              onPress={() => {
+                setTempUsername(userName);
+                setIsEditingUsername(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text allowFontScaling={false} style={styles.openSettingsButtonText}>
+                Edit
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Name Color Setting */}
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text allowFontScaling={false} style={[styles.settingLabel, { color: theme.text }]}>
+                Name Color
+              </Text>
+              <Text allowFontScaling={false} style={[styles.settingDescription, { color: theme.textSecondary }]}>
+                Choose your name color in chat
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.colorPreviewButton, { backgroundColor: userColor }]}
+              onPress={() => setColorModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.colorDot, { backgroundColor: userColor }]} />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -152,6 +212,114 @@ const SettingsScreen = ({ navigation }) => {
         </View>
       </View>
     </ScrollView>
+
+      {/* Username Edit Modal */}
+      <Modal
+        visible={isEditingUsername}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsEditingUsername(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
+            <Text allowFontScaling={false} style={[styles.modalTitle, { color: theme.text }]}>
+              Edit Username
+            </Text>
+            
+            <TextInput
+              style={[
+                styles.usernameInput,
+                { 
+                  backgroundColor: theme.background,
+                  color: theme.text,
+                  borderColor: theme.border 
+                }
+              ]}
+              value={tempUsername}
+              onChangeText={setTempUsername}
+              placeholder="Enter username"
+              placeholderTextColor={theme.textSecondary}
+              maxLength={20}
+              autoFocus={true}
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: theme.border }]}
+                onPress={() => setIsEditingUsername(false)}
+              >
+                <Text allowFontScaling={false} style={[styles.modalButtonText, { color: theme.text }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.primary }]}
+                onPress={() => {
+                  if (tempUsername.trim()) {
+                    updateUserName(tempUsername.trim());
+                  }
+                  setIsEditingUsername(false);
+                }}
+              >
+                <Text allowFontScaling={false} style={[styles.modalButtonText, { color: '#fff' }]}>
+                  Save
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Color Selection Modal */}
+      <Modal
+        visible={colorModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setColorModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
+            <Text allowFontScaling={false} style={[styles.modalTitle, { color: theme.text }]}>
+              Choose Name Color
+            </Text>
+            
+            <View style={styles.colorGrid}>
+              {nameColors.map((color, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.colorOption,
+                    { 
+                      backgroundColor: color,
+                      borderColor: userColor === color ? '#fff' : 'transparent',
+                      borderWidth: userColor === color ? 3 : 0
+                    }
+                  ]}
+                  onPress={() => {
+                    updateUserColor(color);
+                    setColorModalVisible(false);
+                  }}
+                >
+                  {userColor === color && (
+                    <Text allowFontScaling={false} style={styles.selectedColorCheck}>✓</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+            
+            <TouchableOpacity
+              style={[styles.colorModalCloseButton, { backgroundColor: theme.border, alignSelf: 'center' }]}
+              onPress={() => setColorModalVisible(false)}
+            >
+              <Text allowFontScaling={false} style={[styles.modalButtonText, { color: theme.text }]}>
+                Close
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 };
 
@@ -212,10 +380,10 @@ const styles = StyleSheet.create({
   settingDescription: {
     fontSize: 14,
   },
-  colorGrid: {
+  colorGrid1: {
     padding: 16,
   },
-  colorOption: {
+  colorOption1: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
@@ -310,6 +478,87 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: '600',
+  },
+  colorPreviewButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 12,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  usernameInput: {
+    height: 50,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    fontSize: 16,
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center'
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  colorGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  colorOption: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: 8,
+  },
+  
+  /* Close button in color modal should be compact and centered */
+  colorModalCloseButton: {
+    height: 44,
+    minWidth: 120,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+  },
+  selectedColorCheck: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
 });
 

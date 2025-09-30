@@ -104,12 +104,12 @@ const PlayerPageScreen = ({ route, navigation }) => {
       
       let statsUrl;
       if (isPitcher) {
-        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=2024`;
+        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=2025`;
       } else if (isTwoWay) {
         // For two-way players, we'll fetch hitting stats first, then pitching if needed
-        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=2024`;
+        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=2025`;
       } else {
-        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=2024`;
+        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=2025`;
       }
       
       console.log('Fetching player stats from:', statsUrl);
@@ -133,7 +133,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       
       // If no team found and it's a two-way player, try pitching stats
       if (!player.currentTeam && isTwoWay) {
-        const pitchingStatsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=2024`;
+        const pitchingStatsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=2025`;
         console.log('Fetching two-way player pitching stats from:', pitchingStatsUrl);
         
         const pitchingResponse = await fetch(pitchingStatsUrl);
@@ -172,16 +172,16 @@ const PlayerPageScreen = ({ route, navigation }) => {
       
       if (isPitcher) {
         // Fetch pitching game log
-        const pitchingResponse = await fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=pitching&season=${currentYear}`);
+        const pitchingResponse = await fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=pitching&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F`);
         const pitchingData = await pitchingResponse.json();
         gameLogData.pitching = pitchingData.stats?.[0]?.splits || [];
         
       } else if (isTwoWay) {
         // Fetch both hitting and pitching game logs for two-way players
-        const hittingResponse = await fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=hitting&season=${currentYear}`);
+        const hittingResponse = await fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=hitting&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F`);
         const hittingData = await hittingResponse.json();
         
-        const pitchingResponse = await fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=pitching&season=${currentYear}`);
+        const pitchingResponse = await fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=pitching&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F`);
         const pitchingData = await pitchingResponse.json();
         
         gameLogData.hitting = hittingData.stats?.[0]?.splits || [];
@@ -189,7 +189,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
         
       } else {
         // Fetch hitting game log
-        const hittingResponse = await fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=hitting&season=${currentYear}`);
+        const hittingResponse = await fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=hitting&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F`);
         const hittingData = await hittingResponse.json();
         gameLogData.hitting = hittingData.stats?.[0]?.splits || [];
       }

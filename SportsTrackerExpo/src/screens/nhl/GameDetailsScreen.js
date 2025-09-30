@@ -7,6 +7,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { useNavigation } from '@react-navigation/native';
 import { NHLService } from '../../services/NHLService';
+import ChatComponent from '../../components/ChatComponent';
 
 const NHLGameDetailsScreen = ({ route }) => {
   const { gameId } = route.params || {};
@@ -31,6 +32,7 @@ const NHLGameDetailsScreen = ({ route }) => {
   const [availableStreams, setAvailableStreams] = useState({});
   const [streamUrl, setStreamUrl] = useState('');
   const [isStreamLoading, setIsStreamLoading] = useState(true);
+  const [chatModalVisible, setChatModalVisible] = useState(false);
 
   // Stream API functions (adapted from NFL)
   const STREAM_API_BASE = 'https://streamed.pk/api';
@@ -2512,6 +2514,52 @@ const NHLGameDetailsScreen = ({ route }) => {
       </Modal>
 
       </ScrollView>
+      
+      {/* Floating Chat Button */}
+      <TouchableOpacity
+        style={[styles.floatingChatButton, { backgroundColor: colors.primary }]}
+        onPress={() => setChatModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="chatbubble-ellipses-outline" size={24} color="#fff" />
+      </TouchableOpacity>
+      
+      {/* Chat Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={chatModalVisible}
+        onRequestClose={() => setChatModalVisible(false)}
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.chatModalOverlay}>
+          <View style={[styles.chatModalContent, { backgroundColor: theme.surface, paddingBottom: 20 }]}>
+            {/* Chat Modal Header */}
+            <View style={[styles.chatModalHeader, { borderBottomColor: theme.border }]}>
+              <Text allowFontScaling={false} style={[styles.chatModalTitle, { color: theme.text }]}>
+                {details ? `${details.awayTeam?.name?.default || 'Away'} vs ${details.homeTeam?.name?.default || 'Home'}` : 'Chat'}
+              </Text>
+              <TouchableOpacity
+                style={styles.chatModalCloseButton}
+                onPress={() => setChatModalVisible(false)}
+              >
+                <Ionicons name="close" size={24} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Chat Content */}
+            <View style={styles.chatModalBody}>
+              {details && (
+                <ChatComponent 
+                  gameId={gameId} 
+                  gameData={details}
+                  hideHeader={true}
+                />
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -4040,6 +4088,58 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     flex: 1,
     textAlign: 'right',
+  },
+  // Floating Chat Button
+  floatingChatButton: {
+    position: 'absolute',
+    bottom: 30,
+    left: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+  },
+  // Chat Modal Styles
+  chatModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  chatModalContent: {
+    height: '85%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+  },
+  chatModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  chatModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
+    marginRight: -20
+  },
+  chatModalCloseButton: {
+    padding: 4,
+  },
+  chatModalBody: {
+    flex: 1,
   },
 });
 

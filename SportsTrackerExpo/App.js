@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 // Import theme context
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { FavoritesProvider } from './src/context/FavoritesContext';
+import { ChatProvider } from './src/context/ChatContext';
 
 // Custom header title component that disables font scaling
 const HeaderTitle = ({ children, style }) => {
@@ -1234,7 +1235,9 @@ export default function App() {
   return (
     <ThemeProvider>
       <FavoritesProvider>
-        <AppContent />
+        <ChatProvider>
+          <AppContent />
+        </ChatProvider>
       </FavoritesProvider>
     </ThemeProvider>
   );

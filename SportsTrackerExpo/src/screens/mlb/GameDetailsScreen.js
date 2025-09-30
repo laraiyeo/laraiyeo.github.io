@@ -12,11 +12,13 @@ import {
   Modal,
   Dimensions
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { MLBService } from '../../services/MLBService';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { convertMLBIdToESPNId } from '../../utils/TeamIdMapping';
+import ChatComponent from '../../components/ChatComponent';
 
 const MLBGameDetailsScreen = ({ route, navigation }) => {
   const { gameId, sport } = route?.params || {};
@@ -39,6 +41,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   const [playerModalVisible, setPlayerModalVisible] = useState(false);
   const [playerStats, setPlayerStats] = useState(null);
   const [loadingPlayerStats, setLoadingPlayerStats] = useState(false);
+  const [chatModalVisible, setChatModalVisible] = useState(false);
   const [awayRoster, setAwayRoster] = useState(null);
   const [homeRoster, setHomeRoster] = useState(null);
   const [loadingRoster, setLoadingRoster] = useState(false);
@@ -3107,6 +3110,15 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       </ScrollView>
       {renderStickyHeader()}
       
+      {/* Floating Chat Button */}
+      <TouchableOpacity
+        style={[styles.floatingChatButton, { backgroundColor: colors.primary }]}
+        onPress={() => setChatModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="chatbubble-ellipses-outline" size={24} color="#fff" />
+      </TouchableOpacity>
+      
       {/* Player Modal */}
       <Modal
         animationType="slide"
@@ -3633,6 +3645,46 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 <View style={styles.noStreamContainer}>
                   <Text allowFontScaling={false} style={[styles.noStreamText, { color: '#fff' }]}>No stream URL available</Text>
                 </View>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Chat Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={chatModalVisible}
+        onRequestClose={() => setChatModalVisible(false)}
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.chatModalOverlay}>
+          <View style={[styles.chatModalContent, { backgroundColor: theme.surface, paddingBottom: 20 }]}>
+            {/* Chat Modal Header */}
+            <View style={[styles.chatModalHeader, { borderBottomColor: theme.border }]}>
+              <Text allowFontScaling={false} style={[styles.chatModalTitle, { color: theme.text }]}>
+                {(() => {
+                  console.log('GameData at line 3667:', gameData);
+                  return gameData ? `${gameData.gameData?.teams?.away?.teamName || 'Away'} vs ${gameData.gameData?.teams?.home?.teamName || 'Home'}` : 'Chat';
+                })()}
+              </Text>
+              <TouchableOpacity
+                style={styles.chatModalCloseButton}
+                onPress={() => setChatModalVisible(false)}
+              >
+                <Ionicons name="close" size={24} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Chat Content */}
+            <View style={styles.chatModalBody}>
+              {gameData && (
+                <ChatComponent 
+                  gameId={gameId} 
+                  gameData={gameData}
+                  hideHeader={true}
+                />
               )}
             </View>
           </View>
@@ -5434,6 +5486,58 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: 'center',
     marginTop: 2,
+  },
+  // Floating Chat Button
+  floatingChatButton: {
+    position: 'absolute',
+    bottom: 30,
+    left: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+  },
+  // Chat Modal Styles
+  chatModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  chatModalContent: {
+    height: '85%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+  },
+  chatModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  chatModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
+    marginRight: -20
+  },
+  chatModalCloseButton: {
+    padding: 4,
+  },
+  chatModalBody: {
+    flex: 1,
   },
 });
 

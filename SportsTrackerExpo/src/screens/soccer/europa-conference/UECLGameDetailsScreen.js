@@ -21,6 +21,8 @@ import Svg, { Line, Circle, Defs, LinearGradient, Stop, Path } from 'react-nativ
 import { EuropaConferenceLeagueServiceEnhanced } from '../../../services/soccer/EuropaConferenceLeagueServiceEnhanced';
 import { useTheme } from '../../../context/ThemeContext';
 import { useFavorites } from '../../../context/FavoritesContext';
+import ChatComponent from '../../../components/ChatComponent';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
@@ -64,6 +66,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
   const [streamLoading, setStreamLoading] = useState(false);
   const [streamError, setStreamError] = useState(false);
   const [showStreamModal, setShowStreamModal] = useState(false);
+  const [chatModalVisible, setChatModalVisible] = useState(false);
   
   const scrollViewRef = useRef(null);
   const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
@@ -4176,6 +4179,52 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           </View>
         </View>
       </Modal>
+      
+      {/* Floating Chat Button */}
+      <TouchableOpacity
+        style={[styles.floatingChatButton, { backgroundColor: colors.primary }]}
+        onPress={() => setChatModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="chatbubble-ellipses-outline" size={24} color="#fff" />
+      </TouchableOpacity>
+      
+      {/* Chat Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={chatModalVisible}
+        onRequestClose={() => setChatModalVisible(false)}
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.chatModalOverlay}>
+          <View style={[styles.chatModalContent, { backgroundColor: theme.surface, paddingBottom: 20 }]}>
+            {/* Chat Modal Header */}
+            <View style={[styles.chatModalHeader, { borderBottomColor: theme.border }]}>
+              <Text allowFontScaling={false} style={[styles.chatModalTitle, { color: theme.text }]}>
+                {gameData ? `${gameData.awayTeam?.name || awayTeam || 'Away'} vs ${gameData.homeTeam?.name || homeTeam || 'Home'}` : 'Chat'}
+              </Text>
+              <TouchableOpacity
+                style={styles.chatModalCloseButton}
+                onPress={() => setChatModalVisible(false)}
+              >
+                <Ionicons name="close" size={24} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Chat Content */}
+            <View style={styles.chatModalBody}>
+              {gameData && (
+                <ChatComponent 
+                  gameId={gameId} 
+                  gameData={gameData}
+                  hideHeader={true}
+                />
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -5446,6 +5495,52 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     fontWeight: '600',
+  },
+  floatingChatButton: {
+    position: 'absolute',
+    bottom: 30,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 999,
+  },
+  chatModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingTop: 50,
+  },
+  chatModalContent: {
+    flex: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+  },
+  chatModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+  },
+  chatModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    flex: 1,
+    marginRight: 10,
+  },
+  chatModalCloseButton: {
+    padding: 5,
+  },
+  chatModalBody: {
+    flex: 1,
   },
 });
 
