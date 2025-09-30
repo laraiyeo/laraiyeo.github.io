@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
 import { useFavorites } from '../context/FavoritesContext';
 import { useTheme } from '../context/ThemeContext';
 
-const SettingsScreen = () => {
+const SettingsScreen = ({ navigation }) => {
   const { isDarkMode, theme, colors, colorPalettes, currentColorPalette, toggleTheme, changeColorPalette } = useTheme();
   const { favorites, removeFavorite, getFavoriteTeams, clearAllFavorites } = useFavorites();
 
@@ -122,42 +122,31 @@ const SettingsScreen = () => {
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.sectionHeader}>
             <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Favorites</Text>
-            <Text allowFontScaling={false} style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>Your Favorite Teams</Text>
+            <Text allowFontScaling={false} style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+              Manage your favorite teams
+            </Text>
           </View>
-          <View style={{ padding: 12 }}>
-            <FlatList
-              data={getFavoriteTeams()}
-              keyExtractor={(item) => item.teamId ? String(item.teamId) : (item.displayName || item.teamName || Math.random()).toString()}
-              numColumns={2}
-              columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 6 }}
-              renderItem={({ item }) => (
-                <View style={[styles.favoriteTile, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                  <Text allowFontScaling={false} style={[styles.favoriteText, { color: theme.text }]} numberOfLines={1}>
-                    {item.displayName || item.teamName || 'Unnamed Team'}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={async () => {
-                      if (item.teamId) await removeFavorite(item.teamId);
-                    }}
-                  >
-                    <Text allowFontScaling={false} style={styles.deleteButtonText}>×</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-              ListEmptyComponent={() => (
-                <Text allowFontScaling={false} style={[styles.previewText, { color: theme.textSecondary }]}>No favorite teams yet.</Text>
-              )}
-            />
-
+          
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text allowFontScaling={false} style={[styles.settingLabel, { color: theme.text }]}>
+                Favorite Teams
+              </Text>
+              <Text allowFontScaling={false} style={[styles.settingDescription, { color: theme.textSecondary }]}>
+                {getFavoriteTeams().length === 0 
+                  ? 'No favorite teams yet' 
+                  : `${getFavoriteTeams().length} favorite team${getFavoriteTeams().length !== 1 ? 's' : ''}`
+                }
+              </Text>
+            </View>
             <TouchableOpacity
-              style={[styles.resetButton, { backgroundColor: colors.primary, opacity: (favorites && favorites.length > 0) ? 1 : 0.5 }]}
-              disabled={!(favorites && favorites.length > 0)}
-              onPress={async () => {
-                await clearAllFavorites();
-              }}
+              style={[styles.openSettingsButton, { backgroundColor: colors.primary }]}
+              onPress={() => navigation.navigate('FavoritesManagement')}
+              activeOpacity={0.7}
             >
-              <Text allowFontScaling={false} style={styles.resetButtonText}>Reset Favorites</Text>
+              <Text allowFontScaling={false} style={styles.openSettingsButtonText}>
+                Open Settings
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -310,46 +299,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  favoriteTile: {
-    flex: 1,
-    minWidth: '48%',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    marginBottom: 6,
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  favoriteText: {
-    fontSize: 14,
-  },
-  resetButton: {
-    marginTop: 8,
+  openSettingsButton: {
     paddingVertical: 10,
-    borderRadius: 6,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     alignItems: 'center',
-  },
-  resetButtonText: {
-    color: 'white',
-    fontWeight: '700',
-  },
-  deleteButton: {
-    position: 'absolute',
-    right: 6,
-    top: 6,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#ff4d4f',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  deleteButtonText: {
+  openSettingsButtonText: {
     color: 'white',
-    fontWeight: '700',
-    lineHeight: 18,
     fontSize: 14,
+    fontWeight: '600',
   },
 });
 

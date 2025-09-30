@@ -33,6 +33,7 @@ const HeaderTitle = ({ children, style }) => {
 import HomeScreen from './src/screens/HomeScreen';
 import FavoritesScreen from './src/screens/FavoritesScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import FavoritesManagementScreen from './src/screens/FavoritesManagementScreen';
 
 // NFL specific screens
 import NFLScoreboardScreen from './src/screens/nfl/ScoreboardScreen';
@@ -53,6 +54,16 @@ import MLBStatsScreen from './src/screens/mlb/StatsScreen';
 import MLBGameDetailsScreen from './src/screens/mlb/GameDetailsScreen';
 import MLBTeamPageScreen from './src/screens/mlb/TeamPageScreen';
 import MLBPlayerPageScreen from './src/screens/mlb/PlayerPageScreen';
+
+// NBA specific screens
+import NBAScoreboardScreen from './src/screens/nba/ScoreboardScreen';
+import NBAStandingsScreen from './src/screens/nba/StandingsScreen';
+import NBASearchScreen from './src/screens/nba/SearchScreen';
+import NBACompareScreen from './src/screens/nba/CompareScreen';
+import NBAStatsScreen from './src/screens/nba/StatsScreen';
+import NBAGameDetailsScreen from './src/screens/nba/GameDetailsScreen';
+import NBATeamPageScreen from './src/screens/nba/TeamPageScreen';
+import NBAPlayerPageScreen from './src/screens/nba/PlayerPageScreen';
 
 // F1 specific screens
 import F1ResultsScreen from './src/screens/f1/ResultsScreen';
@@ -254,6 +265,14 @@ const SportTabNavigator = ({ route }) => {
           SearchScreen: MLBSearchScreen,
           CompareScreen: MLBCompareScreen,
           StatsScreen: MLBStatsScreen,
+        };
+      case 'nba':
+        return {
+          ScoreboardScreen: NBAScoreboardScreen,
+          StandingsScreen: NBAStandingsScreen,
+          SearchScreen: NBASearchScreen,
+          CompareScreen: NBACompareScreen,
+          StatsScreen: NBAStatsScreen,
         };
       case 'nhl':
         return {
@@ -681,6 +700,8 @@ const MainStackNavigator = () => {
               return <NFLGameDetailsScreen {...props} />;
             case 'mlb':
               return <MLBGameDetailsScreen {...props} />;
+            case 'nba':
+              return <NBAGameDetailsScreen {...props} />;
             case 'nhl':
               return <NHLGameDetailsScreen {...props} />;
             case 'f1':
@@ -845,6 +866,9 @@ const MainStackNavigator = () => {
             case 'mlb':
               console.log('Rendering MLB TeamPage');
               return <MLBTeamPageScreen {...props} />;
+            case 'nba':
+              console.log('Rendering NBA TeamPage');
+              return <NBATeamPageScreen {...props} />;
             case 'nhl':
               console.log('Rendering NHL TeamPage');
               return <NHLTeamPageScreen {...props} />;
@@ -1067,6 +1091,8 @@ const MainStackNavigator = () => {
               return <NFLPlayerPageScreen {...props} />;
             case 'mlb':
               return <MLBPlayerPageScreen {...props} />;
+            case 'nba':
+              return <NBAPlayerPageScreen {...props} />;
             case 'nhl':
               return <NHLPlayerPageScreen {...props} />;
             default:
@@ -1185,6 +1211,13 @@ const MainStackNavigator = () => {
           },
           headerTintColor: '#fff',
           headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="FavoritesManagement" 
+        component={FavoritesManagementScreen}
+        options={{ 
+          headerShown: false, // We're handling the header in the component
         }}
       />
     </Stack.Navigator>

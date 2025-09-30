@@ -37,14 +37,6 @@ const colorPalettes = {
     light: '#ddd6fe',        // Adjusted for better contrast
     name: 'Royal Purple'
   },
-  orange: {
-    primary: '#ea580c',      // Brighter orange for better visibility
-    primaryDark: '#c2410c',  // Lighter than original for dark mode
-    secondary: '#f97316',    // More vibrant orange for both modes
-    accent: '#fb923c',       // Lighter accent for dark mode visibility
-    light: '#fed7aa',        // Adjusted for better contrast
-    name: 'Energy Orange'
-  },
   teal: {
     primary: '#0d9488',      // Brighter teal for better visibility
     primaryDark: '#0f766e',  // Lighter than original for dark mode
@@ -52,7 +44,15 @@ const colorPalettes = {
     accent: '#2dd4bf',       // Lighter accent for dark mode visibility
     light: '#99f6e4',        // Adjusted for better contrast
     name: 'Ocean Teal'
-  }
+  },
+  gold: {
+    primary: '#bf9b30',      // Brighter gold for better visibility
+    primaryDark: '#a67c00',  // Slightly darker for dark mode
+    secondary: '#ffbf00',    // More vibrant gold for both modes
+    accent: '#ffcf40',       // Lighter accent for dark mode visibility
+    light: '#ffdc73',        // Adjusted for better contrast
+    name: 'Golden Glory'
+}
 };
 
 const lightTheme = {
@@ -158,7 +158,17 @@ export const ThemeProvider = ({ children }) => {
   // Handle abbreviation mapping for special cases only where ESPN uses different abbreviations
   // If teamId is suffixed (e.g. '1_mlb'), strip the suffix before building URLs
   let normalizedTeamId = stripSportSuffix(teamId).id || teamId;
-    if (sport === 'mlb') {
+    // Normalize incoming sport string for defensive handling
+    const incomingSport = (sport || '').toString().toLowerCase();
+
+    // If teamId is suffixed with a sport/league (e.g. '367_champions league'),
+    // stripSportSuffix will return { id, sport } where sport is normalized to
+    // a canonical form (e.g. 'uefa champions'). For building logo URLs we only
+    // want the raw id portion (usually numeric for soccer) and the generic
+    // 'soccer' path, not the league name. So prefer the stripped id value.
+    normalizedTeamId = stripSportSuffix(teamId).id || teamId;
+
+    if (incomingSport === 'mlb') {
       const abbreviationMap = {
         'AZ': 'ari',   // Arizona Diamondbacks (MLB API uses AZ, logo URL uses ari)
         'CWS': 'chw',  // Chicago White Sox (ESPN uses CWS, logo URL uses chw)
@@ -195,6 +205,32 @@ export const ThemeProvider = ({ children }) => {
         return `https://a.espncdn.com/i/teamlogos/nba/${size}${themeSuffix}/${normalizedTeamId}.png`;
       case 'nhl':
         return `https://a.espncdn.com/i/teamlogos/nhl/${size}${themeSuffix}/${normalizedTeamId}.png`;
+      case 'soccer':
+      case 'champions league':
+      case 'uefa champions':
+      case 'europa league': 
+      case 'uefa europa':
+      case 'europa conference':
+      case 'uefa europa conf':
+      case 'premier league':
+      case 'england':
+      case 'la liga':
+      case 'serie a':
+      case 'bundesliga':
+      case 'ligue 1':
+        // All soccer-related leagues use the same logo handling:
+        // Extract the raw team ID (usually numeric) and build a clean URL 
+        // using the generic 'soccer' path to avoid league names in URLs
+        try {
+          const stripped = stripSportSuffix(teamId || normalizedTeamId);
+          const cleanId = (stripped && stripped.id) ? String(stripped.id) : String(normalizedTeamId);
+          // Some soccer IDs are numeric; prefer the numeric portion if present
+          const numericMatch = String(cleanId).match(/(\d+)/);
+          const finalId = numericMatch ? numericMatch[1] : cleanId.replace(/\s+/g, '-').toLowerCase();
+          return `https://a.espncdn.com/i/teamlogos/soccer/${size}${themeSuffix}/${finalId}.png`;
+        } catch (e) {
+          return `https://a.espncdn.com/i/teamlogos/soccer/${size}${themeSuffix}/${normalizedTeamId}.png`;
+        }
       default:
         return `https://a.espncdn.com/i/teamlogos/${sport}/${size}${themeSuffix}/${normalizedTeamId}.png`;
     }
