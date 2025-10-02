@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -49,6 +49,10 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
   const [playsData, setPlaysData] = useState(null);
   const [openPlays, setOpenPlays] = useState(new Set());
   const [loadingPlays, setLoadingPlays] = useState(false);
+
+  // Lazy loading state for plays
+  const [visiblePlaysCount, setVisiblePlaysCount] = useState(30);
+  const [isLoadingMorePlays, setIsLoadingMorePlays] = useState(false);
   const [lineupData, setLineupData] = useState({ 
     homeLineup: [], 
     awayLineup: [], 
@@ -681,6 +685,26 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
     }
     setOpenPlays(newOpenPlays);
   };
+
+  // Function to load more plays
+  const loadMorePlays = useCallback(() => {
+    if (isLoadingMorePlays || !playsData) return;
+    
+    console.log(`[PLAYS DEBUG] Loading more plays. Current: ${visiblePlaysCount}, Total: ${playsData.length}`);
+    setIsLoadingMorePlays(true);
+    
+    // Simulate a small delay to prevent rapid loading
+    setTimeout(() => {
+      setVisiblePlaysCount(prev => Math.min(prev + 30, playsData.length));
+      setIsLoadingMorePlays(false);
+      console.log(`[PLAYS DEBUG] Loaded more plays. New count: ${Math.min(visiblePlaysCount + 30, playsData.length)}`);
+    }, 100);
+  }, [isLoadingMorePlays, playsData, visiblePlaysCount]);
+
+  // Reset visible plays count when switching to plays tab
+  const resetPlaysCount = useCallback(() => {
+    setVisiblePlaysCount(30);
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -2079,7 +2103,12 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                 activeTab === tab.key && { backgroundColor: colors.primary },
                 index === tabs.length - 1 && styles.lastTab // Remove margin from last tab
               ]}
-              onPress={() => setActiveTab(tab.key)}
+              onPress={() => {
+                setActiveTab(tab.key);
+                if (tab.key === 'plays') {
+                  resetPlaysCount();
+                }
+              }}
             >
               <Text allowFontScaling={false}
                 style={[
@@ -3525,9 +3554,11 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
     const homeLogo = gameData.homeLogo || 'https://via.placeholder.com/40';
     const awayLogo = gameData.awayLogo || 'https://via.placeholder.com/40';
 
-    return (
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {playsData.map((play, index) => {
+    // Only render the visible plays for performance
+    const visiblePlays = playsData.slice(0, visiblePlaysCount);
+    console.log(`[PLAYS DEBUG] Rendering ${visiblePlays.length} of ${playsData.length} plays`);
+
+    const renderedPlays = visiblePlays.map((play, index) => {
           const playKey = computePlayKey(play);
           const isOpen = openPlays.has(playKey);
           const isScoring = play.scoringPlay || false;
@@ -3720,7 +3751,32 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
               )}
             </View>
           );
-        })}
+        });
+
+    // Add load more button if there are more plays to show
+    const loadMoreButton = [];
+    if (visiblePlaysCount < playsData.length) {
+      loadMoreButton.push(
+        <TouchableOpacity
+          key="load-more-button"
+          style={[styles.loadMoreButton, { backgroundColor: colors.primary }]}
+          onPress={loadMorePlays}
+          disabled={isLoadingMorePlays}
+        >
+          {isLoadingMorePlays ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={[styles.loadMoreText, { color: '#fff' }]}>
+              Load More Plays ({playsData.length - visiblePlaysCount} remaining)
+            </Text>
+          )}
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {[...renderedPlays, ...loadMoreButton]}
       </ScrollView>
     );
   };
@@ -5541,6 +5597,16 @@ const styles = StyleSheet.create({
   },
   chatModalBody: {
     flex: 1,
+  },
+  loadMoreButton: {
+    margin: 16,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  loadMoreText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

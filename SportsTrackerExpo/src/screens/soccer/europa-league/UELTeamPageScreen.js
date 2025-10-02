@@ -893,7 +893,7 @@ const UELTeamPageScreen = ({ route, navigation }) => {
         </View>
         
         {/* Venue */}
-        <View style={styles.venueSection}>
+        <View style={[styles.venueSection, { borderTopColor: theme.border }]}>
           <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>{venue}</Text>
         </View>
       </TouchableOpacity>

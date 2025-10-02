@@ -10,7 +10,7 @@ import {
   StyleSheet 
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import NBADataService from '../../services/NBADataService';
+import WNBADataService from '../../services/WNBADataService';
 
 const SearchScreen = ({ route, navigation }) => {
   const { sport } = route.params;
@@ -21,19 +21,19 @@ const SearchScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   
-  // Local state for NBA data
-  const [nbaData, setNbaData] = useState(NBADataService.getData());
+  // Local state for WNBA data
+  const [wnbaData, setWnbaData] = useState(WNBADataService.getData());
 
   // Initialize data on component mount
   useEffect(() => {
     const initData = async () => {
-      await NBADataService.initializeData();
+      await WNBADataService.initializeData();
     };
     
     initData();
 
     // Listen for data updates
-    const unsubscribe = NBADataService.addListener(setNbaData);
+    const unsubscribe = WNBADataService.addListener(setWnbaData);
     return unsubscribe;
   }, []);
 
@@ -49,15 +49,15 @@ const SearchScreen = ({ route, navigation }) => {
     }, 500);
 
     return () => clearTimeout(delayedSearch);
-  }, [searchQuery, nbaData.teamsCache, nbaData.playersCache]);
+  }, [searchQuery, wnbaData.teamsCache, wnbaData.playersCache]);
 
   const performSearch = async (query) => {
     if (query.length < 3) return;
     
     // Wait for data to be initialized if not already
-    if (!nbaData.teamsCache || !nbaData.playersCache) {
-      if (!nbaData.isInitializing) {
-        await NBADataService.initializeData();
+    if (!wnbaData.teamsCache || !wnbaData.playersCache) {
+      if (!wnbaData.isInitializing) {
+        await WNBADataService.initializeData();
       }
       return;
     }
@@ -66,8 +66,8 @@ const SearchScreen = ({ route, navigation }) => {
     setHasSearched(true);
     
     try {
-      const teamResults = NBADataService.searchTeams(query);
-      const playerResults = NBADataService.searchPlayers(query);
+      const teamResults = WNBADataService.searchTeams(query);
+      const playerResults = WNBADataService.searchPlayers(query);
       
       const combinedResults = [
         ...teamResults.map(team => ({ ...team, type: 'team' })),
@@ -83,13 +83,10 @@ const SearchScreen = ({ route, navigation }) => {
     }
   };
 
-  const getNBATeamAbbreviation = (team) => {
+  const getWNBATeamAbbreviation = (team) => {
     const teamMapping = {
-      '1': 'ATL', '2': 'BOS', '3': 'BKN', '4': 'CHA', '5': 'CHI', '6': 'CLE',
-      '7': 'DAL', '8': 'DEN', '9': 'DET', '10': 'GSW', '11': 'HOU', '12': 'IND',
-      '13': 'LAC', '14': 'LAL', '15': 'MEM', '16': 'MIA', '17': 'MIL', '18': 'MIN',
-      '19': 'NOP', '20': 'NYK', '21': 'OKC', '22': 'ORL', '23': 'PHI', '24': 'PHX',
-      '25': 'POR', '26': 'SAC', '27': 'SAS', '28': 'TOR', '29': 'UTA', '30': 'WAS'
+      '3' : 'DAL', '5' : 'IND', '6' : 'LA', '8' : 'MIN', '9' : 'NY', '11' : 'PHX', '14' : 'SEA', 
+      '16' : 'WSH', '17' : 'LV', '18' : 'CON', '19' : 'CHI', '20' : 'ATL', '129689' : 'GS'
     };
 
     if (team?.abbreviation) {
@@ -101,7 +98,7 @@ const SearchScreen = ({ route, navigation }) => {
       return abbr;
     }
     
-    return team?.name?.substring(0, 3)?.toUpperCase() || 'NBA';
+    return team?.name?.substring(0, 3)?.toUpperCase() || 'WNBA';
   };
 
   const handleItemPress = (item) => {
@@ -138,7 +135,7 @@ const SearchScreen = ({ route, navigation }) => {
             {item.displayName}
           </Text>
           <Text allowFontScaling={false} style={[styles.teamDetails, { color: theme.textSecondary }]}>
-            {item.location} • NBA
+            {item.location} • WNBA
           </Text>
         </View>
       </TouchableOpacity>
@@ -146,7 +143,7 @@ const SearchScreen = ({ route, navigation }) => {
   };
 
   const renderPlayerItem = (item) => {
-    const teamAbbr = item.team?.abbreviation || getNBATeamAbbreviation(item.team) || 'NBA';
+    const teamAbbr = item.team?.abbreviation || getWNBATeamAbbreviation(item.team) || 'WNBA';
     
     return (
       <TouchableOpacity
@@ -155,7 +152,7 @@ const SearchScreen = ({ route, navigation }) => {
       >
         <Image
           source={{ 
-            uri: item.headshot?.href || `https://a.espncdn.com/i/headshots/nba/players/full/${item.id}.png`
+            uri: item.headshot?.href || `https://a.espncdn.com/i/headshots/wnba/players/full/${item.id}.png`
           }}
           style={styles.playerHeadshot}
         />
@@ -204,16 +201,16 @@ const SearchScreen = ({ route, navigation }) => {
 
       {/* Results */}
       <View style={styles.resultsContainer}>
-        {nbaData.isInitializing && (
+        {wnbaData.isInitializing && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>
-              Loading NBA data...
+              Loading WNBA data...
             </Text>
           </View>
         )}
 
-        {!nbaData.isInitializing && loading && (
+        {!wnbaData.isInitializing && loading && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>
@@ -222,7 +219,7 @@ const SearchScreen = ({ route, navigation }) => {
           </View>
         )}
 
-        {!nbaData.isInitializing && !loading && hasSearched && searchResults.length === 0 && (
+        {!wnbaData.isInitializing && !loading && hasSearched && searchResults.length === 0 && (
           <View style={styles.noResultsContainer}>
             <Text allowFontScaling={false} style={[styles.noResultsText, { color: theme.textSecondary }]}>
               No results found for "{searchQuery}"
@@ -233,7 +230,7 @@ const SearchScreen = ({ route, navigation }) => {
           </View>
         )}
 
-        {!nbaData.isInitializing && !loading && searchResults.length > 0 && (
+        {!wnbaData.isInitializing && !loading && searchResults.length > 0 && (
           <FlatList
             data={searchResults}
             renderItem={renderResultItem}
@@ -243,7 +240,7 @@ const SearchScreen = ({ route, navigation }) => {
           />
         )}
 
-        {!nbaData.isInitializing && !hasSearched && searchQuery.length === 0 && (
+        {!wnbaData.isInitializing && !hasSearched && searchQuery.length === 0 && (
           <View style={styles.instructionsContainer}>
             <Text allowFontScaling={false} style={[styles.instructionsText, { color: theme.textSecondary }]}>
               Enter at least 3 characters to search for teams and players

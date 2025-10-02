@@ -214,7 +214,7 @@ export const FavoritesProvider = ({ children }) => {
   };
 
   // Background resolver: if a team is favorited without currentGame info, try to resolve
-  // whether the team has a UEFA competition game today (UCL, UEL, UECL) and persist it.
+  // whether the team has a game today and persist it.
   const resolveCurrentGameForTeam = async (teamId) => {
     try {
       if (!teamId) return null;
@@ -222,7 +222,18 @@ export const FavoritesProvider = ({ children }) => {
       const raw = resolveId(teamId);
       const { id: baseId, sport: suffix } = stripSportSuffix(raw);
       const id = baseId;
-      // Helper to check a single competition
+      
+      // Only resolve current games for soccer teams - other sports (NBA, WNBA, etc.) 
+      // should use their respective team page logic, not this generic resolver
+      const soccerSports = ['la liga', 'serie a', 'bundesliga', 'premier league', 'ligue 1', 'uefa champions', 'uefa europa', 'uefa europa conf'];
+      const isSoccerTeam = suffix && soccerSports.includes(suffix.toLowerCase());
+      
+      if (!isSoccerTeam) {
+        console.log(`FavoritesContext: Skipping resolveCurrentGameForTeam for non-soccer sport: ${suffix}`);
+        return null;
+      }
+      
+      // Helper to check a single soccer competition
       const checkCompetition = async (leagueCode) => {
         try {
           const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/2025/teams/${id}/events?lang=en&region=us&limit=10`;

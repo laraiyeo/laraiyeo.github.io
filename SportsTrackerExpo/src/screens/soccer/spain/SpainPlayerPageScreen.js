@@ -1747,7 +1747,7 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
                       onError={() => handleLogoError(game.opponent?.id || '86', isDarkMode)}
                     />
                   </View>
-                  <Text allowFontScaling={false} style={[styles.mlbOpponentName, { color: theme.text }]}>
+                  <Text allowFontScaling={false} style={[styles.mlbOpponentName, { color: theme.textTertiary }]}>
                     {getCompetitionName(game.leagueCode)}
                   </Text>
                 </View>

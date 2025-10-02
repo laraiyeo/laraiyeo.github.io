@@ -91,6 +91,23 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
     return nameMap[idStr] || null;
   };
 
+  // Convert team name to NHL abbreviation for splits
+  const convertTeamNameToAbbr = (teamName) => {
+    if (!teamName) return null;
+    const name = String(teamName).toLowerCase().replace('vs ', '').trim();
+    const nameToAbbrMap = {
+      'toronto maple leafs': 'TOR', 'montreal canadiens': 'MTL', 'calgary flames': 'CGY', 'edmonton oilers': 'EDM', 
+      'vancouver canucks': 'VAN', 'winnipeg jets': 'WPG', 'boston bruins': 'BOS', 'new york rangers': 'NYR', 
+      'philadelphia flyers': 'PHI', 'pittsburgh penguins': 'PIT', 'tampa bay lightning': 'TB', 'carolina hurricanes': 'CAR',
+      'chicago blackhawks': 'CHI', 'detroit red wings': 'DET', 'nashville predators': 'NSH', 'st. louis blues': 'STL', 
+      'washington capitals': 'WSH', 'anaheim ducks': 'ANA', 'los angeles kings': 'LA', 'san jose sharks': 'SJ', 
+      'columbus blue jackets': 'CBJ', 'minnesota wild': 'MIN', 'ottawa senators': 'OTT', 'florida panthers': 'FLA', 
+      'buffalo sabres': 'BUF', 'new jersey devils': 'NJD', 'new york islanders': 'NYI', 'dallas stars': 'DAL', 
+      'colorado avalanche': 'COL', 'utah mammoth': 'UTA', 'seattle kraken': 'SEA', 'vegas golden knights': 'VGK'
+    };
+    return nameToAbbrMap[name] || null;
+  };
+
   // Helper function to get team logo URL with fallback. Prefer abbreviation over numeric id.
   const getTeamLogoUrl = (teamParam, useDarkMode = isDarkMode) => {
     if (!teamParam) return null;
@@ -1033,7 +1050,9 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
               <View style={styles.teamGrid}>
                 {items.map((it, idx) => {
                   const label = it.displayName || it.abbreviation || '';
-                  const teamAbbr = label.replace('vs ', '').trim();
+                  const teamName = label.replace('vs ', '').trim();
+                  // Convert team name to abbreviation for logo URLs
+                  const teamAbbr = convertTeamNameToAbbr(teamName) || teamName;
                   return (
                     <TouchableOpacity key={`opp-${idx}`} style={[styles.teamCard, { backgroundColor: theme.surface }]} onPress={() => openSplitDetail(it)}>
                       <Image 
@@ -1193,7 +1212,7 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
                       onError={() => handleLogoError(game.opponent, isDarkMode)}
                     />
                   </View>
-                  <Text allowFontScaling={false} style={[styles.mlbOpponentName, { color: theme.text }]}>
+                  <Text allowFontScaling={false} style={[styles.mlbOpponentName, { color: theme.textTertiary }]}>
                     {game.leagueName || game.leagueShortName || 'NHL'}
                   </Text>
                 </View>
@@ -1465,6 +1484,11 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
             } else {
               teams = Array.isArray(item.teams) ? item.teams.filter(Boolean).map(t => ({ id: t.id || t, abbreviation: t.abbreviation || t.abbr || (t.id ? convertTeamIdToAbbr(t.id) : null), displayName: t.displayName || t.name || null })) : [];
             }
+            // Filter out teams with invalid IDs (not in our conversion mapping)
+            teams = teams.filter(t => {
+              const teamId = t.id;
+              return teamId && (convertTeamIdToAbbr(teamId) || convertTeamIdToFullName(teamId));
+            });
             // If there are no teams for this season, skip rendering the card
             if (!teams || teams.length === 0) return null;
             const lastFirst = teams.slice().reverse();
@@ -1530,6 +1554,13 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
             let teams = [];
             if (Array.isArray(ev) && ev.length > 0) teams = ev;
             else if (Array.isArray(item.teams) && item.teams.length > 0) teams = item.teams;
+            
+            // Filter out teams that don't have valid abbreviations or conversions
+            teams = teams.filter(team => {
+              const teamId = team.id;
+              return teamId && (convertTeamIdToAbbr(teamId) || convertTeamIdToFullName(teamId));
+            });
+            
             if (!teams || teams.length === 0) return null;
             
             return (
@@ -1555,8 +1586,8 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
                   </View>
                   <Text allowFontScaling={false} style={[styles.modalTeamName, { color: theme.text, textAlign: 'center' }]}>
                     {teams.length === 1 
-                      ? (teams[0].displayName || convertTeamIdToFullName(teams[0].id) || (teams[0].abbreviation || teams[0].id))
-                      : teams.map(t => t.abbreviation || convertTeamIdToAbbr(t.id) || t.id).join(' / ')
+                      ? (teams[0].displayName || convertTeamIdToFullName(teams[0].id) || teams[0].abbreviation)
+                      : teams.map(t => t.abbreviation || convertTeamIdToAbbr(t.id)).filter(Boolean).join(' / ')
                     }
                   </Text>
                 </View>

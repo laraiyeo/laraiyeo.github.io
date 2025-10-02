@@ -66,6 +66,16 @@ import NBAGameDetailsScreen from './src/screens/nba/GameDetailsScreen';
 import NBATeamPageScreen from './src/screens/nba/TeamPageScreen';
 import NBAPlayerPageScreen from './src/screens/nba/PlayerPageScreen';
 
+// WNBA specific screens
+import WNBAScoreboardScreen from './src/screens/wnba/ScoreboardScreen';
+import WNBAStandingsScreen from './src/screens/wnba/StandingsScreen';
+import WNBASearchScreen from './src/screens/wnba/SearchScreen';
+import WNBACompareScreen from './src/screens/wnba/CompareScreen';
+import WNBAStatsScreen from './src/screens/wnba/StatsScreen';
+import WNBAGameDetailsScreen from './src/screens/wnba/GameDetailsScreen';
+import WNBATeamPageScreen from './src/screens/wnba/TeamPageScreen';
+import WNBAPlayerPageScreen from './src/screens/wnba/PlayerPageScreen';
+
 // F1 specific screens
 import F1ResultsScreen from './src/screens/f1/ResultsScreen';
 import F1StandingsScreen from './src/screens/f1/StandingsScreen';
@@ -274,6 +284,14 @@ const SportTabNavigator = ({ route }) => {
           SearchScreen: NBASearchScreen,
           CompareScreen: NBACompareScreen,
           StatsScreen: NBAStatsScreen,
+        };
+      case 'wnba':
+        return {
+          ScoreboardScreen: WNBAScoreboardScreen,
+          StandingsScreen: WNBAStandingsScreen,
+          SearchScreen: WNBASearchScreen,
+          CompareScreen: WNBACompareScreen,
+          StatsScreen: WNBAStatsScreen,
         };
       case 'nhl':
         return {
@@ -703,6 +721,8 @@ const MainStackNavigator = () => {
               return <MLBGameDetailsScreen {...props} />;
             case 'nba':
               return <NBAGameDetailsScreen {...props} />;
+            case 'wnba':
+              return <WNBAGameDetailsScreen {...props} />;
             case 'nhl':
               return <NHLGameDetailsScreen {...props} />;
             case 'f1':
@@ -870,6 +890,9 @@ const MainStackNavigator = () => {
             case 'nba':
               console.log('Rendering NBA TeamPage');
               return <NBATeamPageScreen {...props} />;
+            case 'wnba':
+              console.log('Rendering WNBA TeamPage');
+              return <WNBATeamPageScreen {...props} />;
             case 'nhl':
               console.log('Rendering NHL TeamPage');
               return <NHLTeamPageScreen {...props} />;
@@ -1094,6 +1117,8 @@ const MainStackNavigator = () => {
               return <MLBPlayerPageScreen {...props} />;
             case 'nba':
               return <NBAPlayerPageScreen {...props} />;
+            case 'wnba':
+              return <WNBAPlayerPageScreen {...props} />;
             case 'nhl':
               return <NHLPlayerPageScreen {...props} />;
             default:

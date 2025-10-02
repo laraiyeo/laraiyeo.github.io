@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, ActivityIndicator, ScrollView, Image, StyleSheet, TouchableOpacity, Modal, Animated } from 'react-native';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
@@ -25,6 +25,30 @@ const NHLGameDetailsScreen = ({ route }) => {
   const [homeScorers, setHomeScorers] = useState([]);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const lastPlaysHash = useRef(null);
+
+  // Lazy loading state for plays
+  const [visiblePlaysCount, setVisiblePlaysCount] = useState(30);
+  const [isLoadingMorePlays, setIsLoadingMorePlays] = useState(false);
+
+  // Function to load more plays
+  const loadMorePlays = useCallback(() => {
+    if (isLoadingMorePlays || !playsData) return;
+    
+    console.log(`[PLAYS DEBUG] Loading more plays. Current: ${visiblePlaysCount}, Total: ${playsData.length}`);
+    setIsLoadingMorePlays(true);
+    
+    // Simulate a small delay to prevent rapid loading
+    setTimeout(() => {
+      setVisiblePlaysCount(prev => Math.min(prev + 20, playsData.length));
+      setIsLoadingMorePlays(false);
+      console.log(`[PLAYS DEBUG] Loaded more plays. New count: ${Math.min(visiblePlaysCount + 20, playsData.length)}`);
+    }, 100);
+  }, [isLoadingMorePlays, playsData, visiblePlaysCount]);
+
+  // Reset visible plays count when switching to plays tab
+  const resetPlaysCount = useCallback(() => {
+    setVisiblePlaysCount(30);
+  }, []);
   
   // Stream-related state variables
   const [streamModalVisible, setStreamModalVisible] = useState(false);
@@ -1136,12 +1160,12 @@ const NHLGameDetailsScreen = ({ route }) => {
         <Text style={[styles.statsSectionTitle, { color: theme.text }]}>Team Statistics</Text>
         <View style={styles.statsHeader}>
           <View style={styles.teamHeaderLeft}>
-            <Image source={{ uri: awayTeam?.team?.logo || getTeamLogoUrl('nhl', awayTeam?.team?.abbreviation) }} style={styles.teamSmallLogo} />
+            <Image source={{ uri: awayTeam?.team?.logos?.[isDarkMode ? 1 : 0].href || getTeamLogoUrl('nhl', awayTeam?.team?.abbreviation) }} style={styles.teamSmallLogo} />
             <Text style={[styles.teamStatsTeamName, { color: theme.text }]}>{awayTeam?.team?.abbreviation}</Text>
           </View>
           <View style={styles.teamHeaderRight}>
             <Text style={[styles.teamStatsTeamName, { color: theme.text }]}>{homeTeam?.team?.abbreviation}</Text>
-            <Image source={{ uri: homeTeam?.team?.logo || getTeamLogoUrl('nhl', homeTeam?.team?.abbreviation) }} style={[styles.teamSmallLogo, {marginLeft: 8}]} />
+            <Image source={{ uri: homeTeam?.team?.logos?.[isDarkMode ? 1 : 0].href || getTeamLogoUrl('nhl', homeTeam?.team?.abbreviation) }} style={[styles.teamSmallLogo, {marginLeft: 8}]} />
           </View>
         </View>
       
@@ -1172,7 +1196,7 @@ const NHLGameDetailsScreen = ({ route }) => {
           <View key={teamIdx} style={styles.teamLeadersContainer}>
             <View style={styles.teamLeadersHeader}>
               <Image 
-                source={{ uri: teamLeaders.team?.logo || getTeamLogoUrl('nhl', teamLeaders.team?.abbreviation) }} 
+                source={{ uri: teamLeaders.team?.logos?.[isDarkMode ? 1 : 0].href || getTeamLogoUrl('nhl', teamLeaders.team?.abbreviation) }} 
                 style={styles.teamLeadersLogo} 
               />
               <Text style={[styles.teamLeadersName, { color: theme.text }]}>
@@ -1356,7 +1380,7 @@ const NHLGameDetailsScreen = ({ route }) => {
         <View style={styles.rosterContainer}>
           <View style={styles.rosterHeader}>
             <Image 
-              source={{ uri: team?.team?.logo || getTeamLogoUrl('nhl', team.team?.abbreviation) }} 
+              source={{ uri: team?.team?.logos?.[isDarkMode ? 1 : 0].href || getTeamLogoUrl('nhl', team.team?.abbreviation) }} 
               style={styles.rosterTeamLogo} 
             />
             <Text style={[styles.rosterTeamName, { color: theme.text }]}> {team.team?.displayName} </Text>
@@ -1515,7 +1539,7 @@ const NHLGameDetailsScreen = ({ route }) => {
         <View style={styles.rosterContainer}>
           <View style={styles.rosterHeader}>
             <Image 
-              source={{ uri: team?.team?.logo || getTeamLogoUrl('nhl', team.team?.abbreviation) }} 
+              source={{ uri: team?.team?.logos?.[isDarkMode ? 1 : 0].href || getTeamLogoUrl('nhl', team.team?.abbreviation) }} 
               style={styles.rosterTeamLogo} 
             />
             <Text style={[styles.rosterTeamName, { color: theme.text }]}>
@@ -1706,7 +1730,11 @@ const NHLGameDetailsScreen = ({ route }) => {
         );
       }
 
-      return playsData.map((p, index) => {
+      // Only render the visible plays for performance
+      const visiblePlays = playsData.slice(0, visiblePlaysCount);
+      console.log(`[PLAYS DEBUG] Rendering ${visiblePlays.length} of ${playsData.length} plays`);
+
+      const renderedPlays = visiblePlays.map((p, index) => {
         const playKey = p.id ?? index;
         const isOpen = openPlays.has(playKey);
         
@@ -1785,6 +1813,29 @@ const NHLGameDetailsScreen = ({ route }) => {
           </View>
         );
       });
+
+      // Add load more button if there are more plays to show
+      const loadMoreButton = [];
+      if (visiblePlaysCount < playsData.length) {
+        loadMoreButton.push(
+          <TouchableOpacity
+            key="load-more-button"
+            style={[styles.loadMoreButton, { backgroundColor: colors.primary }]}
+            onPress={loadMorePlays}
+            disabled={isLoadingMorePlays}
+          >
+            {isLoadingMorePlays ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={[styles.loadMoreText, { color: '#fff' }]}>
+                Load More Plays ({playsData.length - visiblePlaysCount} remaining)
+              </Text>
+            )}
+          </TouchableOpacity>
+        );
+      }
+
+      return [...renderedPlays, ...loadMoreButton];
     }
 
     // fallback (previous inline computation) — keep for safety but should rarely run now
@@ -2098,7 +2149,10 @@ const NHLGameDetailsScreen = ({ route }) => {
               styles.lastTab,
               { backgroundColor: activeTab === 'plays' ? colors.primary : 'transparent' }
             ]}
-            onPress={() => setActiveTab('plays')}
+            onPress={() => {
+              setActiveTab('plays');
+              resetPlaysCount();
+            }}
           >
             <Text style={[styles.tabText, { color: activeTab === 'plays' ? '#fff' : theme.text }]}>
               Plays
@@ -4140,6 +4194,16 @@ const styles = StyleSheet.create({
   },
   chatModalBody: {
     flex: 1,
+  },
+  loadMoreButton: {
+    margin: 16,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  loadMoreText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

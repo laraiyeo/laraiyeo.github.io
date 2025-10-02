@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
-import { NBAService } from '../../services/NBAService';
+import { WNBAService } from '../../services/WNBAService';
 
 // Helper to normalize API team info to what UI expects
 const normalizeTeam = (entry) => {
@@ -14,11 +14,10 @@ const normalizeTeam = (entry) => {
   // Stats are already converted to object format by formatStandingsForMobile
   const statObj = stats;
 
-  // Calculate PPG stats
-  const totalGames = parseInt(statObj.wins || '0') + parseInt(statObj.losses || '0');
-  const ppg = totalGames > 0 ? (parseFloat(statObj.pointsFor || '0') / totalGames).toFixed(1) : '0.0';
-  const oppPpg = totalGames > 0 ? (parseFloat(statObj.pointsAgainst || '0') / totalGames).toFixed(1) : '0.0';
-  const diff = totalGames > 0 ? (parseFloat(ppg) - parseFloat(oppPpg)).toFixed(1) : '0.0';
+  // WNBA has direct PPG stats in the API (avgPointsFor, avgPointsAgainst)
+  const ppg = statObj.avgPointsFor || '0.0';
+  const oppPpg = statObj.avgPointsAgainst || '0.0';
+  const diff = (parseFloat(ppg) - parseFloat(oppPpg)).toFixed(1);
   const diffFormatted = diff > 0 ? `+${diff}` : diff;
 
   return {
@@ -26,7 +25,7 @@ const normalizeTeam = (entry) => {
     abbreviation: team.abbreviation,
     displayName: team.displayName,
     logo: team.logo,
-    seed: statObj.rank || statObj.seed,
+    seed: team.seed || statObj.rank || statObj.seed,
     wins: statObj.wins || '0',
     losses: statObj.losses || '0',
     winPercentage: statObj.winPercent || statObj.winPercentage || '0.000',
@@ -39,7 +38,7 @@ const normalizeTeam = (entry) => {
     diff: diffFormatted,
     conferenceName: team.conferenceName,
     divisionName: team.divisionName,
-    clinchIndicator: statObj.clinchIndicator || null,
+    clinchIndicator: team.clincher || statObj.clinchIndicator || null,
   };
 };
 
@@ -47,7 +46,7 @@ const TeamLogo = ({ teamAbbreviation, size, style, iconStyle }) => {
   const { colors, getTeamLogoUrl } = useTheme();
   const [imageError, setImageError] = useState(false);
   
-  const logoUri = getTeamLogoUrl('nba', teamAbbreviation);
+  const logoUri = getTeamLogoUrl('wnba', teamAbbreviation);
   
   if (!logoUri || imageError) {
     return (
@@ -69,7 +68,7 @@ const TeamLogo = ({ teamAbbreviation, size, style, iconStyle }) => {
   );
 };
 
-const NBAStandingsScreen = () => {
+const WNBAStandingsScreen = () => {
   const { theme, colors, getTeamLogoUrl } = useTheme();
   const { isFavorite } = useFavorites();
   const navigation = useNavigation();
@@ -77,13 +76,10 @@ const NBAStandingsScreen = () => {
   const [standings, setStandings] = useState(null);
   const [intervalId, setIntervalId] = useState(null);
 
-  // NBA team abbreviation -> id mapping for navigation
+  // WNBA team abbreviation -> id mapping for navigation
   const abbrToIdMap = {
-    'atl': '1', 'bos': '2', 'bkn': '17', 'cha': '30', 'chi': '4', 'cle': '5',
-    'dal': '6', 'den': '7', 'det': '8', 'gs': '9', 'hou': '10', 'ind': '11',
-    'lac': '12', 'lal': '13', 'mem': '29', 'mia': '14', 'mil': '15', 'min': '16',
-    'no': '3', 'nyk': '18', 'okc': '25', 'orl': '19', 'phi': '20', 'phx': '21',
-    'por': '22', 'sac': '23', 'sa': '24', 'tor': '28', 'uta': '26', 'wsh': '27'
+  'dal': '3', 'ind': '5', 'la': '6', 'min': '8', 'ny': '9', 'phx': '11',
+  'sea': '14', 'wsh': '16', 'lv': '17', 'con': '18', 'chi': '19', 'atl': '20', 'gs': '129689'
   };
 
   const mapAbbrToId = (abbr) => {
@@ -95,12 +91,12 @@ const NBAStandingsScreen = () => {
     let mounted = true;
     const load = async () => {
       try {
-        const data = await NBAService.getStandings();
+        const data = await WNBAService.getStandings();
         if (!mounted) return;
-        const formattedData = NBAService.formatStandingsForMobile(data);
+        const formattedData = WNBAService.formatStandingsForMobile(data);
         setStandings(formattedData);
       } catch (e) {
-        console.error('Failed to load NBA standings', e);
+        console.error('Failed to load WNBA standings', e);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -127,19 +123,26 @@ const NBAStandingsScreen = () => {
   // Team navigation function with proper ID handling
   const navigateToTeam = (team) => {
     const safeId = team.id || mapAbbrToId(team.abbreviation) || team;
-    navigation.navigate('TeamPage', { teamId: safeId, sport: 'nba' });
+    navigation.navigate('TeamPage', { teamId: safeId, sport: 'wnba' });
   };
 
-  // Helper function to get NBA team ID for favorites
-  const getNBATeamId = (team) => {
+  // Helper function to get WNBA team ID for favorites
+  const getWNBATeamId = (team) => {
     return team?.id || mapAbbrToId(team?.abbreviation) || null;
   };
 
   // Helper to render a single team row
   const renderTeamRow = (entry, index) => {
     const team = normalizeTeam(entry);
-    const teamId = getNBATeamId(team);
-    const isFav = teamId && isFavorite(teamId, 'nba');
+    
+    // Debug: Log the first team's data to see structure
+    if (index === 0) {
+      console.log('WNBA Team Data:', JSON.stringify(team, null, 2));
+      console.log('Original Entry:', JSON.stringify(entry, null, 2));
+    }
+    
+    const teamId = getWNBATeamId(team);
+    const isFav = teamId && isFavorite(teamId, 'wnba');
     const normalizeAbbreviation = (abbrev) => {
       if (!abbrev) return abbrev;
       const a = String(abbrev).toLowerCase();
@@ -147,10 +150,26 @@ const NBAStandingsScreen = () => {
       return (map[a] || abbrev).toString();
     };
 
+    // Determine clinch border color
+    const getClinchBorderColor = () => {
+      if (!team.clinchIndicator) return 'transparent';
+      const clincher = team.clinchIndicator.toLowerCase();
+      if (['z', 'y', 'x', 'xp', '*', 'cx'].includes(clincher)) return theme.success;
+      if (clincher === 'e') return theme.error;
+      return theme.textSecondary;
+    };
+
     return (
       <TouchableOpacity
         key={`${team.id || team.abbreviation}-${index}`}
-        style={[styles.teamRow, { backgroundColor: theme.surface }]}
+        style={[
+          styles.teamRow, 
+          { 
+            backgroundColor: theme.surface,
+            borderLeftWidth: team.clinchIndicator ? 4 : 0,
+            borderLeftColor: getClinchBorderColor()
+          }
+        ]}
         onPress={() => navigateToTeam(team)}
         activeOpacity={0.7}
       >
@@ -173,6 +192,18 @@ const NBAStandingsScreen = () => {
             <Text allowFontScaling={false} style={[styles.teamName, { color: isFav ? colors.primary : theme.text }]} numberOfLines={1}>
               {team.displayName}
             </Text>
+            {team.clinchIndicator && (
+              <Text allowFontScaling={false} style={[
+                styles.clinchText,
+                { 
+                  color: ['z', 'y', 'x', 'xp', '*', 'cx'].includes(team.clinchIndicator.toLowerCase()) ? theme.success :
+                         ['e'].includes(team.clinchIndicator.toLowerCase()) ? theme.error :
+                         theme.textSecondary
+                }
+              ]}>
+                - {team.clinchIndicator.toUpperCase()}
+              </Text>
+            )}
           </View>
           <View style={styles.recordStreakContainer}>
             <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>
@@ -212,11 +243,6 @@ const NBAStandingsScreen = () => {
           <Text allowFontScaling={false} style={[styles.statText, { color: theme.textSecondary }]}>
             GB: {team.gamesBehind}
           </Text>
-          {team.clinchIndicator && (
-            <Text allowFontScaling={false} style={[styles.clinchText, { color: theme.success }]}>
-              {team.clinchIndicator}
-            </Text>
-          )}
         </View>
       </TouchableOpacity>
     );
@@ -256,12 +282,50 @@ const NBAStandingsScreen = () => {
     );
   };
 
+  // Helper to render the legend
+  const renderLegend = () => {
+    return (
+      <View style={[styles.legendContainer, { backgroundColor: theme.surface }]}>
+        <Text allowFontScaling={false} style={[styles.legendTitle, { color: theme.text }]}>
+          Playoff Indicators
+        </Text>
+        <View style={styles.legendGrid}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendIndicator, { backgroundColor: theme.success }]} />
+            <Text allowFontScaling={false} style={[styles.legendText, { color: theme.textSecondary }]}>
+              * - Clinched Best League Record
+            </Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendIndicator, { backgroundColor: theme.success }]} />
+            <Text allowFontScaling={false} style={[styles.legendText, { color: theme.textSecondary }]}>
+              CX - Clinched Playoffs and Won Commissioner's Cup
+            </Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendIndicator, { backgroundColor: theme.success }]} />
+            <Text allowFontScaling={false} style={[styles.legendText, { color: theme.textSecondary }]}>
+              X - Clinched Playoffs
+            </Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendIndicator, { backgroundColor: theme.error }]} />
+            <Text allowFontScaling={false} style={[styles.legendText, { color: theme.textSecondary }]}>
+              E - Eliminated From Playoffs
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {Object.entries(standings).map(([conferenceName, divisions], conferenceIndex) => 
           renderConference(conferenceName, divisions, conferenceIndex)
         )}
+        {renderLegend()}
       </ScrollView>
     </View>
   );
@@ -376,10 +440,42 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   clinchText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    marginTop: 2,
+    marginLeft: 4,
+  },
+  legendContainer: {
+    marginTop: 24,
+    padding: 16,
+    borderRadius: 8,
+  },
+  legendTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  legendGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '48%',
+    marginBottom: 8,
+  },
+  legendIndicator: {
+    width: 4,
+    height: 16,
+    marginRight: 8,
+    borderRadius: 2,
+  },
+  legendText: {
+    fontSize: 12,
+    flex: 1,
   },
 });
 
-export default NBAStandingsScreen;
+export default WNBAStandingsScreen;

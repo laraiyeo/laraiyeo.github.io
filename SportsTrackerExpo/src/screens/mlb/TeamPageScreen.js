@@ -917,6 +917,12 @@ const TeamPageScreen = ({ route, navigation }) => {
           onPress={() => handleGamePress(currentGame)}
           activeOpacity={0.7}
         >
+        {/* Game Description Banner - Full width at top */}
+        {currentGame.description && (
+          <View style={[styles.gameDescriptionBanner, { backgroundColor: colors.primary }]}>
+            <Text allowFontScaling={false} style={styles.gameDescriptionText}>{currentGame.description}</Text>
+          </View>
+        )}
           <View style={styles.gameTeams}>
             <View style={styles.teamContainer}>
               <View style={styles.teamLogoContainer}>

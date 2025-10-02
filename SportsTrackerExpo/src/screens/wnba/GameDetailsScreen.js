@@ -6,13 +6,22 @@ import { WebView } from 'react-native-webview';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { useNavigation } from '@react-navigation/native';
-import { NBAService } from '../../services/NBAService';
+import { WNBAService } from '../../services/WNBAService';
 import ChatComponent from '../../components/ChatComponent';
 
 // Stable TeamLogo component outside main component to prevent recreation and state loss
 const TeamLogo = ({ teamAbbreviation, logoUri, size = 32, style, iconStyle, colors, getTeamLogoUrl }) => {
   const [imageError, setImageError] = useState(false);
-  const resolvedUri = logoUri || getTeamLogoUrl('nba', teamAbbreviation);
+  const resolvedUri = logoUri || getTeamLogoUrl('wnba', teamAbbreviation);
+
+  // Debug logging
+  console.log('TeamLogo component debug:', {
+    teamAbbreviation,
+    logoUri,
+    resolvedUri,
+    imageError,
+    size
+  });
 
   // Reset error state when URI changes
   React.useEffect(() => {
@@ -36,7 +45,11 @@ const TeamLogo = ({ teamAbbreviation, logoUri, size = 32, style, iconStyle, colo
     <Image
       source={{ uri: resolvedUri }}
       style={style}
-      onError={() => setImageError(true)}
+      onLoad={() => console.log('TeamLogo image loaded successfully:', resolvedUri)}
+      onError={(error) => {
+        console.log('TeamLogo image load error:', error, 'URI:', resolvedUri);
+        setImageError(true);
+      }}
     />
   );
 };
@@ -151,7 +164,7 @@ const BasketballCourt = React.memo(({ coordinate, isScoring, teamSide, teamColor
   );
 });
 
-const NBAGameDetailsScreen = ({ route }) => {
+const WNBAGameDetailsScreen = ({ route }) => {
   const { gameId } = route.params || {};
   const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -170,8 +183,8 @@ const NBAGameDetailsScreen = ({ route }) => {
   const [homeScorers, setHomeScorers] = useState([]);
   const [openPlays, setOpenPlays] = useState(new Set());
   const lastPlaysHash = useRef(null);
-
-  // Lazy loading state for plays
+  
+  // Lazy loading for plays
   const [visiblePlaysCount, setVisiblePlaysCount] = useState(30);
   const [isLoadingMorePlays, setIsLoadingMorePlays] = useState(false);
 
@@ -194,24 +207,6 @@ const NBAGameDetailsScreen = ({ route }) => {
     return home?.id || home?.team?.id || null;
   }, [details]);
 
-  // Toggle function for plays - optimized with auto-open plays section
-  const togglePlay = useCallback((playKey) => {
-    // Auto-switch to plays tab if not already there
-    if (activeTab !== 'plays') {
-      setActiveTab('plays');
-    }
-    
-    setOpenPlays(prevOpen => {
-      const newOpen = new Set(prevOpen);
-      if (newOpen.has(playKey)) {
-        newOpen.delete(playKey);
-      } else {
-        newOpen.add(playKey);
-      }
-      return newOpen;
-    });
-  }, [activeTab]);
-
   // Function to load more plays
   const loadMorePlays = useCallback(() => {
     if (isLoadingMorePlays || !playsData) return;
@@ -231,6 +226,24 @@ const NBAGameDetailsScreen = ({ route }) => {
   const resetPlaysCount = useCallback(() => {
     setVisiblePlaysCount(30);
   }, []);
+
+  // Toggle function for plays - optimized with auto-open plays section
+  const togglePlay = useCallback((playKey) => {
+    // Auto-switch to plays tab if not already there
+    if (activeTab !== 'plays') {
+      setActiveTab('plays');
+    }
+    
+    setOpenPlays(prevOpen => {
+      const newOpen = new Set(prevOpen);
+      if (newOpen.has(playKey)) {
+        newOpen.delete(playKey);
+      } else {
+        newOpen.add(playKey);
+      }
+      return newOpen;
+    });
+  }, [activeTab]);
 
   // Stream API functions (adapted from NFL)
   const STREAM_API_BASE = 'https://streamed.pk/api';
@@ -253,11 +266,11 @@ const NBAGameDetailsScreen = ({ route }) => {
       const allMatches = await response.json();
       console.log(`Found ${allMatches.length} total live matches`);
 
-      // Filter matches by basketball / nba
+      // Filter matches by basketball / wnba
       const matches = allMatches.filter(match => {
         const matchSport = match.sport || match.category;
-        return matchSport === 'basketball' || matchSport === 'nba' || 
-               (match.title && (match.title.toLowerCase().includes('nba') || match.title.toLowerCase().includes('basketball')));
+        return matchSport === 'basketball' || matchSport === 'wnba' || 
+               (match.title && (match.title.toLowerCase().includes('wnba') || match.title.toLowerCase().includes('basketball')));
       });
       console.log(`Filtered to ${matches.length} basketball matches`);
       
@@ -284,14 +297,14 @@ const NBAGameDetailsScreen = ({ route }) => {
     }
   };
 
-  // Team name normalization for NBA
-  const normalizeNBATeamName = (teamName) => {
+  // Team name normalization for WNBA
+  const normalizeWNBATeamName = (teamName) => {
     if (!teamName) return '';
     
-    const nbaMappings = {
+    const wnbaMappings = {
     };
 
-    if (nbaMappings[teamName]) return nbaMappings[teamName];
+    if (wnbaMappings[teamName]) return wnbaMappings[teamName];
 
     return teamName.toLowerCase()
       .replace(/á/g, 'a').replace(/é/g, 'e').replace(/í/g, 'i').replace(/ó/g, 'o').replace(/ú/g, 'u')
@@ -301,20 +314,20 @@ const NBAGameDetailsScreen = ({ route }) => {
       .replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
   };
 
-  const findNBAMatchStreams = async (homeTeamName, awayTeamName) => {
+  const findWNBAMatchStreams = async (homeTeamName, awayTeamName) => {
     try {
-      console.log(`Finding NBA streams for: ${awayTeamName} vs ${homeTeamName}`);
+      console.log(`Finding WNBA streams for: ${awayTeamName} vs ${homeTeamName}`);
 
       const liveMatches = await fetchLiveMatches();
       if (!liveMatches || !Array.isArray(liveMatches) || liveMatches.length === 0) {
-        console.log('No live NBA matches data available');
+        console.log('No live WNBA matches data available');
         return {};
       }
 
-      const homeNormalized = normalizeNBATeamName(homeTeamName).toLowerCase();
-      const awayNormalized = normalizeNBATeamName(awayTeamName).toLowerCase();
+      const homeNormalized = normalizeWNBATeamName(homeTeamName).toLowerCase();
+      const awayNormalized = normalizeWNBATeamName(awayTeamName).toLowerCase();
 
-      console.log(`Normalized NBA team names: {homeNormalized: '${homeNormalized}', awayNormalized: '${awayNormalized}'}`);
+      console.log(`Normalized WNBA team names: {homeNormalized: '${homeNormalized}', awayNormalized: '${awayNormalized}'}`);
 
       let bestMatch = null;
       let bestScore = 0;
@@ -364,11 +377,11 @@ const NBAGameDetailsScreen = ({ route }) => {
       }
 
       if (!bestMatch || bestScore < 0.25) {
-        console.log(`No good matching NBA live match found (best score: ${bestScore})`);
+        console.log(`No good matching WNBA live match found (best score: ${bestScore})`);
         return {};
       }
 
-      console.log(`Found matching NBA match: ${bestMatch.title || bestMatch.id} (score: ${bestScore})`);
+      console.log(`Found matching WNBA match: ${bestMatch.title || bestMatch.id} (score: ${bestScore})`);
 
       const allStreams = {};
       for (const source of bestMatch.sources) {
@@ -383,28 +396,28 @@ const NBAGameDetailsScreen = ({ route }) => {
               source: source.source,
               title: `${source.source.charAt(0).toUpperCase() + source.source.slice(1)} Stream`
             };
-            console.log(`Added NBA stream for ${source.source}:`, allStreams[sourceKey]);
+            console.log(`Added WNBA stream for ${source.source}:`, allStreams[sourceKey]);
           }
         } catch (error) {
-          console.error(`Error fetching NBA streams for ${source.source}:`, error);
+          console.error(`Error fetching WNBA streams for ${source.source}:`, error);
         }
       }
 
-      console.log('Final NBA streams found:', allStreams);
+      console.log('Final WNBA streams found:', allStreams);
       return allStreams;
     } catch (error) {
-      console.error('Error in findNBAMatchStreams:', error);
+      console.error('Error in findWNBAMatchStreams:', error);
       return {};
     }
   };
 
-  const generateNBAStreamUrl = (awayTeamName, homeTeamName, streamType = 'alpha') => {
-    const normalizedAway = normalizeNBATeamName(awayTeamName);
-    const normalizedHome = normalizeNBATeamName(homeTeamName);
+  const generateWNBAStreamUrl = (awayTeamName, homeTeamName, streamType = 'alpha') => {
+    const normalizedAway = normalizeWNBATeamName(awayTeamName);
+    const normalizedHome = normalizeWNBATeamName(homeTeamName);
     const streamUrls = {
-      alpha: `https://weakstreams.com/nba-live-streams/${normalizedAway}-vs-${normalizedHome}-live-stream`,
-      bravo: `https://sportsurge.club/nba/${normalizedAway}-vs-${normalizedHome}`,
-      charlie: `https://sportshd.me/nba/${normalizedAway}-${normalizedHome}`
+      alpha: `https://weakstreams.com/wnba-live-streams/${normalizedAway}-vs-${normalizedHome}-live-stream`,
+      bravo: `https://sportsurge.club/wnba/${normalizedAway}-vs-${normalizedHome}`,
+      charlie: `https://sportshd.me/wnba/${normalizedAway}-${normalizedHome}`
     };
     return streamUrls[streamType] || streamUrls.alpha;
   };
@@ -450,7 +463,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       const homeName = homeTeam.displayName || homeTeam.name || homeTeam.fullName || homeTeam.abbreviation || '';
       const awayName = awayTeam.displayName || awayTeam.name || awayTeam.fullName || awayTeam.abbreviation || '';
 
-      const streams = await findNBAMatchStreams(homeName, awayName);
+      const streams = await findWNBAMatchStreams(homeName, awayName);
       console.log('openStreamModal: streams result =', streams);
       setAvailableStreams(streams || {});
 
@@ -467,7 +480,7 @@ const NBAGameDetailsScreen = ({ route }) => {
         setCurrentStreamType(initialStreamType);
       } else {
         initialStreamType = 'alpha';
-        initialUrl = generateNBAStreamUrl(awayName, homeName, initialStreamType);
+        initialUrl = generateWNBAStreamUrl(awayName, homeName, initialStreamType);
         setCurrentStreamType(initialStreamType);
       }
 
@@ -490,7 +503,7 @@ const NBAGameDetailsScreen = ({ route }) => {
     } else {
       const awayTeam = details?.competitions?.[0]?.competitors?.find(comp => !comp.homeAway || comp.homeAway === 'away')?.team;
       const homeTeam = details?.competitions?.[0]?.competitors?.find(comp => comp.homeAway === 'home')?.team;
-      newUrl = generateNBAStreamUrl(awayTeam?.displayName || awayTeam?.name, homeTeam?.displayName || homeTeam?.name, streamType);
+      newUrl = generateWNBAStreamUrl(awayTeam?.displayName || awayTeam?.name, homeTeam?.displayName || homeTeam?.name, streamType);
     }
     setStreamUrl(newUrl);
     setTimeout(() => setIsStreamLoading(false), 1000);
@@ -509,10 +522,10 @@ const NBAGameDetailsScreen = ({ route }) => {
     let mounted = true;
     const load = async () => {
       try {
-        const data = await NBAService.getGameDetails(gameId);
+        const data = await WNBAService.getGameDetails(gameId);
         if (mounted) setDetails(data);
       } catch (e) {
-        console.error('Failed to load NBA game details', e);
+        console.error('Failed to load WNBA game details', e);
       } finally { if (mounted) setLoading(false); }
     };
     load();
@@ -555,7 +568,7 @@ const NBAGameDetailsScreen = ({ route }) => {
     
     const intervalId = setInterval(async () => {
       try {
-        const data = await NBAService.getGameDetails(gameId);
+        const data = await WNBAService.getGameDetails(gameId);
         setDetails(data);
         
         // Check if game just completed and stop future refreshes
@@ -568,7 +581,7 @@ const NBAGameDetailsScreen = ({ route }) => {
           clearInterval(intervalId);
         }
       } catch (e) {
-        console.error('Failed to refresh NBA game details', e);
+        console.error('Failed to refresh WNBA game details', e);
         // Don't show loading or reset details on refresh errors - keep current data
       }
     }, 4000);
@@ -576,7 +589,7 @@ const NBAGameDetailsScreen = ({ route }) => {
     return () => clearInterval(intervalId);
   }, [gameId, details]);
 
-  // Lightweight plays processing for NBA - simplified version without heavy computation  
+  // Lightweight plays processing for WNBA - simplified version without heavy computation  
   useEffect(() => {
     if (!details) {
       setPlaysData(null);
@@ -655,8 +668,8 @@ const NBAGameDetailsScreen = ({ route }) => {
         borderLeftWidth: borderWidth,
         borderLeftColor: borderColor,
         playTeamColor,
-        awayLogoUri: getTeamLogoUrl('nba', away?.team?.abbreviation || away?.abbreviation),
-        homeLogoUri: getTeamLogoUrl('nba', home?.team?.abbreviation || home?.abbreviation),
+        awayLogoUri: getTeamLogoUrl('wnba', away?.team?.abbreviation || away?.abbreviation),
+        homeLogoUri: getTeamLogoUrl('wnba', home?.team?.abbreviation || home?.abbreviation),
         awayAbbreviation: away?.team?.abbreviation || away?.abbreviation,
         homeAbbreviation: home?.team?.abbreviation || home?.abbreviation,
         // Add coordinate data for shot charts
@@ -754,7 +767,7 @@ const NBAGameDetailsScreen = ({ route }) => {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
 
-  // Get NBA game status like soccer's getMatchStatus
+  // Get WNBA game status like soccer's getMatchStatus
   const getGameStatus = () => {
     if (!details) return { text: 'FT', detail: 'Full Time', isLive: false, isPre: false, isPost: true };
     
@@ -872,7 +885,7 @@ const NBAGameDetailsScreen = ({ route }) => {
 
   // Percent-based normalizer (matches soccer approach which places dots using percent offsets)
   // Returns leftPercent (0..100) and bottomPercent (0..100) 
-  // Adjusted for NBA rink proportions and ESPN coordinate system
+  // Adjusted for WNBA rink proportions and ESPN coordinate system
   const normalizeCoordPercent = (x, y) => {
     const clampedX = Math.max(-99, Math.min(99, Number(x)));
     const clampedY = Math.max(-42, Math.min(42, Number(y)));
@@ -1390,6 +1403,7 @@ const NBAGameDetailsScreen = ({ route }) => {
           abbreviation: homeTeam?.team?.abbreviation,
           logo: homeTeam?.team?.logo,
           logos: homeTeam?.team?.logos,
+          logosDetailed: homeTeam?.team?.logos?.map((logo, idx) => ({ index: idx, ...logo })),
           score: homeTeam?.score,
           winner: homeTeam?.winner
         },
@@ -1397,11 +1411,16 @@ const NBAGameDetailsScreen = ({ route }) => {
           abbreviation: awayTeam?.team?.abbreviation,
           logo: awayTeam?.team?.logo,
           logos: awayTeam?.team?.logos,
+          logosDetailed: awayTeam?.team?.logos?.map((logo, idx) => ({ index: idx, ...logo })),
           score: awayTeam?.score,
           winner: awayTeam?.winner
         },
         isDarkMode,
-        completed: event.statusType?.completed
+        completed: event.statusType?.completed,
+        calculatedLogoUri: {
+          away: isDarkMode ? (awayTeam?.team?.logos?.[1]?.href || awayTeam?.team?.logos?.[1]?.url) : (awayTeam?.team?.logos?.[0]?.href || awayTeam?.team?.logos?.[0]?.url),
+          home: isDarkMode ? (homeTeam?.team?.logos?.[1]?.href || homeTeam?.team?.logos?.[1]?.url) : (homeTeam?.team?.logos?.[0]?.href || homeTeam?.team?.logos?.[0]?.url)
+        }
       });
       
       // Determine winner/loser for styling
@@ -1414,7 +1433,7 @@ const NBAGameDetailsScreen = ({ route }) => {
           style={[styles.seasonSeriesGameEvent, { backgroundColor: theme.surfaceSecondary || theme.surface }]}
           onPress={() => {
             // Navigate to game details
-            navigation.navigate('GameDetails', { gameId: event.id, sport: 'nba' });
+            navigation.navigate('GameDetails', { gameId: event.id, sport: 'wnba' });
           }}
         >
           {/* Team logos and scores */}
@@ -1428,10 +1447,10 @@ const NBAGameDetailsScreen = ({ route }) => {
                   teamAbbreviation={awayTeam?.team?.abbreviation}
                   logoUri={awayTeam?.team?.logos?.[isDarkMode ? 1 : 0]?.href}
                   size={32}
-                  style={[styles.gameEventTeamLogo, { opacity: awayWon ? 1 : (homeWon ? 0.5 : 1) }]}
+                  style={[styles.gameEventTeamLogo, {opacity: awayWon ? 1 : (homeWon ? 0.5 : 1)}]}
                 />
                 <Text style={[styles.gameEventScore, { 
-                  color: awayWon ? (colors.primary || '#4CAF50') : (homeWon ? theme.textSecondary : colors.primary)
+                  color: awayWon ? (colors.primary || '#4CAF50') : (homeWon ? theme.textSecondary : theme.text)
                 }]}>
                   {event.statusType?.completed ? (awayTeam?.score || '0') : '-'}
                 </Text>
@@ -1461,7 +1480,7 @@ const NBAGameDetailsScreen = ({ route }) => {
             <View style={[styles.gameEventTeamSection, homeWon && styles.winnerTeam]}>
               <View style={styles.gameEventTeamLogoScore}>
                 <Text style={[styles.gameEventScore, { 
-                  color: homeWon ? (colors.primary || '#4CAF50') : (awayWon ? theme.textSecondary : colors.primary)
+                  color: homeWon ? (colors.primary || '#4CAF50') : (awayWon ? theme.textSecondary : theme.text)
                 }]}>
                   {event.statusType?.completed ? (homeTeam?.score || '0') : '-'}
                 </Text>
@@ -1471,7 +1490,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                   teamAbbreviation={homeTeam?.team?.abbreviation}
                   logoUri={homeTeam?.team?.logos?.[isDarkMode ? 1 : 0]?.href}
                   size={32}
-                  style={[styles.gameEventTeamLogoHome, { opacity: homeWon ? 1 : (awayWon ? 0.5 : 1) }]}
+                  style={[styles.gameEventTeamLogoHome, {opacity: homeWon ? 1 : (awayWon ? 0.5 : 1)}]}
                 />
               </View>
               <Text style={[styles.gameEventTeamAbbr, { 
@@ -1747,7 +1766,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                       // Try multiple possible id fields from the game object
                       const gameId = game.id || game.gameId || game.eventId || game.event?.id;
                       if (gameId) {
-                        navigation.navigate('GameDetails', { gameId, sport: 'nba' });
+                        navigation.navigate('GameDetails', { gameId, sport: 'wnba' });
                       }
                     }}
                   >
@@ -1822,7 +1841,7 @@ const NBAGameDetailsScreen = ({ route }) => {
         <View style={styles.rosterContainer}>
           <View style={styles.rosterHeader}>
             <Image 
-              source={{ uri: team?.team?.logos?.[isDarkMode ? 1 : 0]?.href || getTeamLogoUrl('nba', team.team?.abbreviation) }} 
+              source={{ uri: team?.team?.logos?.[isDarkMode ? 1 : 0]?.href || getTeamLogoUrl('wnba', team.team?.abbreviation) }} 
               style={styles.rosterTeamLogo} 
             />
             <Text style={[styles.rosterTeamName, { color: theme.text }]}>
@@ -1953,7 +1972,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       <View style={styles.rosterContainer}>
         <View style={styles.rosterHeader}>
           <Image 
-            source={{ uri: team?.team?.logo || getTeamLogoUrl('nba', team.team?.abbreviation) }} 
+            source={{ uri: team?.team?.logo || getTeamLogoUrl('wnba', team.team?.abbreviation) }} 
             style={styles.rosterTeamLogo} 
           />
           <Text style={[styles.rosterTeamName, { color: theme.text }]}>
@@ -1996,8 +2015,12 @@ const NBAGameDetailsScreen = ({ route }) => {
     );
   };
 
-  // Function to render plays in soccer-style containers
+  // Function to render plays with lazy loading
   const renderPlays = () => {
+    console.log(`[PLAYS DEBUG] renderPlays() called at: ${new Date().toISOString()}`);
+    console.log(`[PLAYS DEBUG] renderPlays() - playsData:`, playsData ? `Array with ${playsData.length} items` : 'null');
+    console.log(`[PLAYS DEBUG] renderPlays() - visiblePlaysCount:`, visiblePlaysCount);
+    
     // Use precomputed playsData when available (fast path). If not, fall back to computing inline.
     if (playsData && Array.isArray(playsData)) {
       if (playsData.length === 0) {
@@ -2160,15 +2183,15 @@ const NBAGameDetailsScreen = ({ route }) => {
         {/* Away Team */}
         <View style={styles.stickyTeamAway}>
           <Image 
-            source={{ uri: away?.team?.logo || away?.logo || getTeamLogoUrl('nba', away?.team?.abbreviation) }} 
+            source={{ uri: away?.team?.logo || away?.logo || getTeamLogoUrl('wnba', away?.team?.abbreviation) }} 
             style={[styles.stickyTeamLogo, { opacity: awayIsLoser ? 0.5 : 1 }]}
           />
           {statusDesc !== 'Scheduled' ? <Text style={[styles.stickyTeamScore, { color: awayIsLoser ? theme.textSecondary : theme.text }]}>{awayScoreNum || '0'}</Text> : null}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {isFavorite(awayTeamId, 'nba') && (
+            {isFavorite(awayTeamId, 'wnba') && (
               <Text style={{ color: colors.primary, marginLeft: 4 }}>★</Text>
             )}
-            <Text style={[styles.stickyTeamName, { color: awayIsLoser ? theme.textSecondary : (isFavorite(awayTeamId, 'nba') ? colors.primary : theme.text) }]}>
+            <Text style={[styles.stickyTeamName, { color: awayIsLoser ? theme.textSecondary : (isFavorite(awayTeamId, 'wnba') ? colors.primary : theme.text) }]}>
               {away?.team?.abbreviation || 'AWAY'}
             </Text>
           </View>
@@ -2187,16 +2210,16 @@ const NBAGameDetailsScreen = ({ route }) => {
         {/* Home Team */}
         <View style={styles.stickyTeamHome}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={[styles.stickyTeamName, { color: homeIsLoser ? theme.textSecondary : (isFavorite(homeTeamId, 'nba') ? colors.primary : theme.text) }]}>
+            <Text style={[styles.stickyTeamName, { color: homeIsLoser ? theme.textSecondary : (isFavorite(homeTeamId, 'wnba') ? colors.primary : theme.text) }]}>
               {home?.team?.abbreviation || 'HOME'}
             </Text>
-            {isFavorite(homeTeamId, 'nba') && (
+            {isFavorite(homeTeamId, 'wnba') && (
               <Text style={{ color: colors.primary, marginRight: 4 }}>★</Text>
             )}
           </View>
           {statusDesc !== 'Scheduled' ? <Text style={[styles.stickyTeamScore, { color: homeIsLoser ? theme.textSecondary : theme.text }]}>{homeScoreNum || '0'}</Text> : null}
           <Image 
-            source={{ uri: home?.team?.logo || home?.logo || getTeamLogoUrl('nba', home?.team?.abbreviation) }} 
+            source={{ uri: home?.team?.logo || home?.logo || getTeamLogoUrl('wnba', home?.team?.abbreviation) }} 
             style={[styles.stickyTeamLogo, { opacity: homeIsLoser ? 0.5 : 1 }]}
           />
         </View>
@@ -2207,7 +2230,7 @@ const NBAGameDetailsScreen = ({ route }) => {
   // Team navigation function with proper ID handling
   const navigateToTeam = (team) => {
     if (!team || (!team.id && !team.team?.id)) {
-      console.warn('NBA GameDetails navigateToTeam: Invalid team object', team);
+      console.warn('WNBA GameDetails navigateToTeam: Invalid team object', team);
       return;
     }
     
@@ -2219,7 +2242,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       teamId,
       abbreviation,
       displayName,
-      sport: 'nba'
+      sport: 'wnba'
     };
     
     navigation.navigate('TeamPage', teamData);
@@ -2228,7 +2251,7 @@ const NBAGameDetailsScreen = ({ route }) => {
   // Helper function to handle favorite toggle - optimized with direct team data
   const handleFavoriteToggle = async (team, teamId) => {
     if (!teamId) {
-      console.warn('NBA GameDetails handleFavoriteToggle: Invalid team ID', team);
+      console.warn('WNBA GameDetails handleFavoriteToggle: Invalid team ID', team);
       return;
     }
     
@@ -2236,7 +2259,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       teamId,
       abbreviation: team.abbreviation || team.team?.abbreviation,
       displayName: team.displayName || team.team?.displayName || team.name || team.team?.name,
-      sport: 'nba'
+      sport: 'wnba'
     };
     
     await toggleFavorite(teamData);
@@ -2257,7 +2280,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       {/* Top header card (matches soccer layout) */}
       <View style={[styles.headerCard, { backgroundColor: theme.surface, borderColor: 'rgba(0,0,0,0.08)' }]}>
         <Text style={[styles.competitionText, { color: theme.textSecondary }]} numberOfLines={1}>
-          {competition?.name || details?.league || 'NBA'}{details?.gameInfo?.venue?.fullName ? ` - ${details.gameInfo.venue.fullName}` : ''}
+          {competition?.name || details?.league || 'WNBA'}{details?.gameInfo?.venue?.fullName ? ` - ${details.gameInfo.venue.fullName}` : ''}
         </Text>
 
         <View style={styles.soccerMainRow}>
@@ -2268,7 +2291,7 @@ const NBAGameDetailsScreen = ({ route }) => {
             </TouchableOpacity>
             <View style={styles.teamNameWithFavorite}>
               <View style={styles.teamNameRow}>
-                {isFavorite(awayTeamId, 'nba') && (
+                {isFavorite(awayTeamId, 'wnba') && (
                   <Ionicons 
                     name="star" 
                     size={14} 
@@ -2276,7 +2299,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                     style={styles.favoriteIconHeader} 
                   />
                 )}
-                <Text style={[styles.soccerTeamName, { color: awayIsLoser ? '#999' : (isFavorite(awayTeamId, 'nba') ? colors.primary : theme.text) }]} numberOfLines={2}>
+                <Text style={[styles.soccerTeamName, { color: awayIsLoser ? '#999' : (isFavorite(awayTeamId, 'wnba') ? colors.primary : theme.text) }]} numberOfLines={2}>
                   {away?.team?.abbreviation || away?.team?.name || away?.team?.displayName || ''}
                 </Text>
               </View>
@@ -2316,7 +2339,7 @@ const NBAGameDetailsScreen = ({ route }) => {
             </TouchableOpacity>
             <View style={styles.teamNameWithFavorite}>
               <View style={styles.teamNameRow}>
-                {isFavorite(homeTeamId, 'nba') && (
+                {isFavorite(homeTeamId, 'wnba') && (
                   <Ionicons 
                     name="star" 
                     size={14} 
@@ -2324,7 +2347,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                     style={styles.favoriteIconHeader} 
                   />
                 )}
-                <Text style={[styles.soccerTeamName, { color: homeIsLoser ? '#999' : (isFavorite(homeTeamId, 'nba') ? colors.primary : theme.text) }]} numberOfLines={2}>
+                <Text style={[styles.soccerTeamName, { color: homeIsLoser ? '#999' : (isFavorite(homeTeamId, 'wnba') ? colors.primary : theme.text) }]} numberOfLines={2}>
                   {home?.team?.abbreviation || home?.team?.name || home?.team?.displayName || ''}
                 </Text>
               </View>
@@ -2425,8 +2448,9 @@ const NBAGameDetailsScreen = ({ route }) => {
               { backgroundColor: activeTab === 'plays' ? colors.primary : 'transparent' }
             ]}
             onPress={() => {
-              setActiveTab('plays');
+              console.log(`[PLAYS DEBUG] Plays tab clicked at: ${new Date().toISOString()}`);
               resetPlaysCount();
+              setActiveTab('plays');
             }}
           >
             <Text style={[styles.tabText, { color: activeTab === 'plays' ? '#fff' : theme.text }]}>
@@ -2525,7 +2549,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                 }
               }
               teamName = team?.displayName || team?.name || '';
-              teamLogo = team?.logo || (team?.abbreviation ? getTeamLogoUrl('nba', team.abbreviation) : null);
+              teamLogo = team?.logo || (team?.abbreviation ? getTeamLogoUrl('wnba', team.abbreviation) : null);
               
               // Define most important stats for basketball players
               let importantStatIndices = [];
@@ -2773,7 +2797,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                 }}
                 // Block popup navigation within the WebView
                 onShouldStartLoadWithRequest={(request) => {
-                  console.log('NBA WebView navigation request:', request.url);
+                  console.log('WNBA WebView navigation request:', request.url);
                   
                   // Allow the initial stream URL to load
                   if (request.url === streamUrl) {
@@ -2798,7 +2822,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                   
                   // Allow same-domain navigation but block cross-domain (likely popups)
                   if (requestDomain !== currentDomain || hasPopupKeywords) {
-                    console.log('Blocked NBA popup/cross-domain navigation:', request.url);
+                    console.log('Blocked WNBA popup/cross-domain navigation:', request.url);
                     return false;
                   }
                   
@@ -2807,7 +2831,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                 // Handle when WebView tries to open a new window (popup)
                 onOpenWindow={(syntheticEvent) => {
                   const { nativeEvent } = syntheticEvent;
-                  console.log('Blocked NBA popup window:', nativeEvent.targetUrl);
+                  console.log('Blocked WNBA popup window:', nativeEvent.targetUrl);
                   // Don't open the popup - just log it
                   return false;
                 }}
@@ -4687,10 +4711,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   loadMoreButton: {
-    margin: 16,
-    padding: 12,
+    marginHorizontal: 16,
+    marginVertical: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
     borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
   loadMoreText: {
     fontSize: 16,
@@ -4698,4 +4726,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default NBAGameDetailsScreen;
+export default WNBAGameDetailsScreen;

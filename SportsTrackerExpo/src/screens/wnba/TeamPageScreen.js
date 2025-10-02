@@ -3,15 +3,15 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Scr
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
-import { NBAService } from '../../services/NBAService';
+import { WNBAService } from '../../services/WNBAService';
 
 // Normalize abbreviations for logo lookup consistency
 const normalizeAbbreviation = (abbrev) => {
   if (!abbrev) return abbrev;
   const lowerAbbrev = String(abbrev).toLowerCase();
-  // Most NBA teams use standard abbreviations, but some may need normalization
+  // Most WNBA teams use standard abbreviations, but some may need normalization
   const normalizationMap = {
-    // Add any specific NBA team abbreviation normalizations here if needed
+    // Add any specific WNBA team abbreviation normalizations here if needed
   };
   return normalizationMap[lowerAbbrev] || lowerAbbrev;
 };
@@ -20,11 +20,8 @@ const normalizeAbbreviation = (abbrev) => {
 // abbreviation (e.g. { abbreviation: 'TOR' }) without a numeric id. Add more
 // entries here as needed; this avoids undefined teamId navigation errors.
 const abbrToIdMap = {
-  'atl': '1',  'bos': '2',  'no': '3', 'chi': '4',  'cle': '5',  'dal': '6',
-    'den': '7',  'det': '8',  'gs': '9', 'hou': '10', 'ind': '11', 'lac': '12',
-    'lal': '13', 'mia': '14', 'mil': '15', 'min': '16', 'bkn': '17', 'ny': '18',
-    'orl': '19', 'phi': '20', 'phx': '21', 'por': '22', 'sac': '23', 'sa': '24',
-    'okc': '25', 'utah': '26','wsh': '27', 'tor': '28', 'mem': '29', 'cha': '30'
+  'dal': '3', 'ind': '5', 'la': '6', 'min': '8', 'ny': '9', 'phx': '11',
+  'sea': '14', 'wsh': '16', 'lv': '17', 'con': '18', 'chi': '19', 'atl': '20', 'gs': '129689'
 };
 
 const mapAbbrToId = (abbr) => {
@@ -33,7 +30,7 @@ const mapAbbrToId = (abbr) => {
 };
 
 const TeamPageScreen = ({ route, navigation }) => {
-  const { teamId: rawTeamId, sport = 'nba' } = route.params || {};
+  const { teamId: rawTeamId, sport = 'wnba' } = route.params || {};
   // Some callers pass the full team object as `team`, others pass `teamId`.
   // Prefer the explicit teamId param, then the `team` object, then the whole params
   // object as a last resort. This makes navigation resilient to different
@@ -41,10 +38,10 @@ const TeamPageScreen = ({ route, navigation }) => {
   const incomingParam = rawTeamId ?? route.params?.team ?? route.params ?? null;
   // Debug log to help trace navigation shapes when something still goes wrong
   // (will appear in console when navigating to the Team page).
-  // Example: TeamPage navigation - sport: nba params: {teamId: undefined, team: {...}, sport: 'nba'}
+  // Example: TeamPage navigation - sport: wnba params: {teamId: undefined, team: {...}, sport: 'wnba'}
   // Keep this log lightweight; remove or gate by env/dev later if noisy.
   // eslint-disable-next-line no-console
-  console.log('NBA TeamPage navigation - sport:', sport, 'params:', route.params);
+  console.log('WNBA TeamPage navigation - sport:', sport, 'params:', route.params);
   // Resolve incoming team identifier which may be:
   // - a plain ESPN-style id (string/number)
   // - an object containing { id, teamId, team: { id }, abbreviation }
@@ -189,7 +186,7 @@ const TeamPageScreen = ({ route, navigation }) => {
     const standingSummary = teamData?.standingSummary || teamData?.standing?.summary || teamData?.team?.standingSummary || null;
     
     // Debug: log the exact values extracted for header
-    console.log('NBA deriveHeaderStats extracted:', {
+    console.log('WNBA deriveHeaderStats extracted:', {
       recordDisplay,
       points,
       streakDisplay,
@@ -212,18 +209,18 @@ const TeamPageScreen = ({ route, navigation }) => {
   // Debug: log the exact teams link and the header stats used for display whenever relevant data changes
   useEffect(() => {
     try {
-      const teamsUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}`;
+      const teamsUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${teamId}`;
       const headerStats = (typeof deriveHeaderStats === 'function') ? deriveHeaderStats() : null;
-      console.log('NBA TeamHeader debug:', { teamsUrl, headerStats, teamDataLoaded: !!teamData, teamRecordLoaded: !!teamRecord });
-      console.log('NBA TeamHeader teamData record structure:', {
+      console.log('WNBA TeamHeader debug:', { teamsUrl, headerStats, teamDataLoaded: !!teamData, teamRecordLoaded: !!teamRecord });
+      console.log('WNBA TeamHeader teamData record structure:', {
         hasRecord: !!teamData?.record,
         recordItems: teamData?.record?.items?.length || 0,
         firstItemSummary: teamData?.record?.items?.[0]?.summary,
         firstItemStatsCount: teamData?.record?.items?.[0]?.stats?.length || 0
       });
-      console.log('NBA TeamHeader teamRecord fallback:', teamRecord);
+      console.log('WNBA TeamHeader teamRecord fallback:', teamRecord);
     } catch (e) {
-      console.warn('NBA TeamHeader debug log failed', e);
+      console.warn('WNBA TeamHeader debug log failed', e);
     }
   }, [teamData, teamRecord, teamId]);
 
@@ -289,15 +286,15 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   const fetchTeamData = async () => {
     try {
-      // Use ESPN core API for NBA team info
-      const espnUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}`;
-      console.log('Fetching NBA team data from:', espnUrl);
+      // Use ESPN core API for WNBA team info
+      const espnUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${teamId}`;
+      console.log('Fetching WNBA team data from:', espnUrl);
       const res = await fetch(espnUrl);
       const data = await res.json();
       // Debug: print the exact places we look for header numbers so we can trace where
       // values like points, record, and streak are coming from in the teams payload.
       try {
-        console.log('NBA /teams payload debug:', {
+        console.log('WNBA /teams payload debug:', {
           raw: data,
           teamTopLevel: data?.team,
           points_direct: data?.team?.points,
@@ -318,19 +315,19 @@ const TeamPageScreen = ({ route, navigation }) => {
         // Fetch schedule types 1,2,3 and pick the last non-empty type for updates
         const typeList = [1,2,3];
         const schedulePromises = typeList.map(type => {
-          const scheduleUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}/schedule?seasontype=${type}`;
+          const scheduleUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${teamId}/schedule?seasontype=${type}`;
           return fetch(scheduleUrl)
             .then(r => r.json())
             .then(j => {
               const events = j?.events || j?.schedule || [];
               try {
                 // Log a small sample for debugging (first 3 events)
-                console.log('NBA TeamPage: schedule response', { type, scheduleUrl, eventsCount: Array.isArray(events) ? events.length : 0, sample: Array.isArray(events) ? events.slice(0, 3) : events });
+                console.log('WNBA TeamPage: schedule response', { type, scheduleUrl, eventsCount: Array.isArray(events) ? events.length : 0, sample: Array.isArray(events) ? events.slice(0, 3) : events });
               } catch (e) { /* ignore stringify issues */ }
               return { type, events };
             })
             .catch((err) => {
-              console.log('NBA TeamPage: schedule fetch failed for type', type, 'url', scheduleUrl, err);
+              console.log('WNBA TeamPage: schedule fetch failed for type', type, 'url', scheduleUrl, err);
               return { type, events: [] };
             });
         });
@@ -365,7 +362,7 @@ const TeamPageScreen = ({ route, navigation }) => {
 
         // debug: show chosen type/events sample before processing
         try {
-          console.log('NBA TeamPage: chosen season type and events', { chosenType, chosenEventsCount: Array.isArray(normalizedEvents) ? normalizedEvents.length : 0, sample: Array.isArray(normalizedEvents) ? normalizedEvents.slice(0, 3) : normalizedEvents });
+          console.log('WNBA TeamPage: chosen season type and events', { chosenType, chosenEventsCount: Array.isArray(normalizedEvents) ? normalizedEvents.length : 0, sample: Array.isArray(normalizedEvents) ? normalizedEvents.slice(0, 3) : normalizedEvents });
         } catch (e) {}
 
         // Process current game using ALL season types (not just chosen type) to find live games
@@ -381,7 +378,7 @@ const TeamPageScreen = ({ route, navigation }) => {
   await fetchAllMatches(normalizedEvents);
       }
     } catch (error) {
-      console.error('Error fetching NBA team data:', error);
+      console.error('Error fetching WNBA team data:', error);
     } finally {
       setLoading(false);
     }
@@ -395,7 +392,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       if (!events) {
         // Use the previously selected season type if available, otherwise default to type=1
         const chosenType = cachedEvents.selectedSeasonType || 1;
-        const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}/schedule?seasontype=${chosenType}`;
+        const scoreboardUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${teamId}/schedule?seasontype=${chosenType}`;
         const res = await fetch(scoreboardUrl);
         const json = await res.json();
         events = json?.events || json?.schedule || [];
@@ -413,7 +410,7 @@ const TeamPageScreen = ({ route, navigation }) => {
           return state === 'in' || state === 'live';
         });
         if (liveEvent) {
-          console.log('NBA fetchCurrentGame: selected live game as current:', {
+          console.log('WNBA fetchCurrentGame: selected live game as current:', {
             gameId: liveEvent.id,
             gameDate: liveEvent.date,
             gameStatus: liveEvent.status?.type?.state,
@@ -422,9 +419,9 @@ const TeamPageScreen = ({ route, navigation }) => {
           // Normalize the live event to ensure scores are parsed properly
           const normalizedLive = liveEvent.homeTeam ? liveEvent : normalizeEventForUI(liveEvent);
           setCurrentGame(normalizedLive);
-          if (isFavorite(teamId, 'nba')) {
+          if (isFavorite(teamId, 'wnba')) {
             try {
-              await updateTeamCurrentGame(teamId, { eventId: liveEvent.id, eventLink: liveEvent.links?.website?.href || liveEvent.link, gameDate: liveEvent.date, competition: 'nba', updatedAt: new Date().toISOString() });
+              await updateTeamCurrentGame(teamId, { eventId: liveEvent.id, eventLink: liveEvent.links?.website?.href || liveEvent.link, gameDate: liveEvent.date, competition: 'wnba', updatedAt: new Date().toISOString() });
             } catch (e) {}
           }
           return;
@@ -440,7 +437,7 @@ const TeamPageScreen = ({ route, navigation }) => {
           }
         });
         if (inWindowEvent) {
-          console.log('NBA fetchCurrentGame: selected in-window game as current:', {
+          console.log('WNBA fetchCurrentGame: selected in-window game as current:', {
             gameId: inWindowEvent.id,
             gameDate: inWindowEvent.date,
             gameStatus: inWindowEvent.status?.type?.state,
@@ -449,9 +446,9 @@ const TeamPageScreen = ({ route, navigation }) => {
           });
           const normalizedInWindow = inWindowEvent.homeTeam ? inWindowEvent : normalizeEventForUI(inWindowEvent);
           setCurrentGame(normalizedInWindow);
-          if (isFavorite(teamId, 'nba')) {
+          if (isFavorite(teamId, 'wnba')) {
             try {
-              await updateTeamCurrentGame(teamId, { eventId: inWindowEvent.id, eventLink: inWindowEvent.links?.website?.href || inWindowEvent.link, gameDate: inWindowEvent.date, competition: 'nba', updatedAt: new Date().toISOString() });
+              await updateTeamCurrentGame(teamId, { eventId: inWindowEvent.id, eventLink: inWindowEvent.links?.website?.href || inWindowEvent.link, gameDate: inWindowEvent.date, competition: 'wnba', updatedAt: new Date().toISOString() });
             } catch (e) {}
           }
           return;
@@ -461,7 +458,7 @@ const TeamPageScreen = ({ route, navigation }) => {
         // Upcoming scheduled games will be shown in the Upcoming section instead.
       }
     } catch (error) {
-      console.error('Error fetching current NBA game:', error);
+      console.error('Error fetching current WNBA game:', error);
     }
   };
 
@@ -470,7 +467,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       // Fetch season schedule via ESPN site API
       // Accept pre-fetched events to avoid duplicate network requests
       let events = eventsParam || cachedEvents.current;
-      console.log('NBA fetchAllMatches: eventsParam length:', Array.isArray(eventsParam) ? eventsParam.length : 'not array', 'cachedEvents.current length:', Array.isArray(cachedEvents.current) ? cachedEvents.current.length : 'not array');
+      console.log('WNBA fetchAllMatches: eventsParam length:', Array.isArray(eventsParam) ? eventsParam.length : 'not array', 'cachedEvents.current length:', Array.isArray(cachedEvents.current) ? cachedEvents.current.length : 'not array');
       
       // If we have cached per-type results, combine them so Last Matches shows games from all types
       if (cachedEvents.byType) {
@@ -486,26 +483,26 @@ const TeamPageScreen = ({ route, navigation }) => {
           }
           events = Array.from(map.values());
           cachedEvents.current = events;
-          console.log('NBA fetchAllMatches: combined events from byType, total:', events.length);
+          console.log('WNBA fetchAllMatches: combined events from byType, total:', events.length);
         } catch (e) {
           // Fallback to fetching chosen type if combining fails
           const chosenType = cachedEvents.selectedSeasonType || 1;
-          const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}/schedule?seasontype=${chosenType}`;
+          const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${teamId}/schedule?seasontype=${chosenType}`;
           const res = await fetch(url);
           const json = await res.json();
           events = json?.events || [];
           cachedEvents.current = events;
-          console.log('NBA fetchAllMatches: fallback fetch for type', chosenType, 'events:', events.length);
+          console.log('WNBA fetchAllMatches: fallback fetch for type', chosenType, 'events:', events.length);
         }
       } else if (!events) {
         // Use the previously selected season type if available, otherwise default to type=1
         const chosenType = cachedEvents.selectedSeasonType || 1;
-        const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}/schedule?seasontype=${chosenType}`;
+        const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${teamId}/schedule?seasontype=${chosenType}`;
         const res = await fetch(url);
         const json = await res.json();
         events = json?.events || [];
         cachedEvents.current = events;
-        console.log('NBA fetchAllMatches: fresh fetch for type', chosenType, 'events:', events.length);
+        console.log('WNBA fetchAllMatches: fresh fetch for type', chosenType, 'events:', events.length);
       }
       // Determine today's window: today local midnight -> next day 2:00 AM
       const nowLocal = new Date();
@@ -520,14 +517,14 @@ const TeamPageScreen = ({ route, navigation }) => {
         if (Array.isArray(events) && events.length > 0 && !events[0].homeTeam) {
           events = events.map(ev => normalizeEventForUI(ev));
           cachedEvents.current = events;
-          console.log('NBA fetchAllMatches: normalized events for rendering, total:', events.length);
+          console.log('WNBA fetchAllMatches: normalized events for rendering, total:', events.length);
         }
       } catch (e) {
-        console.log('NBA fetchAllMatches: error normalizing events', e);
+        console.log('WNBA fetchAllMatches: error normalizing events', e);
       }
 
-      console.log('NBA fetchAllMatches: processing', events.length, 'events for past/future classification');
-      console.log('NBA fetchAllMatches: today window', { startOfTodayLocal, endOfWindowLocal });
+      console.log('WNBA fetchAllMatches: processing', events.length, 'events for past/future classification');
+      console.log('WNBA fetchAllMatches: today window', { startOfTodayLocal, endOfWindowLocal });
 
   for (const ev of events) {
         // parse event date
@@ -540,14 +537,14 @@ const TeamPageScreen = ({ route, navigation }) => {
 
         // If event falls within today's window, skip it here (it's handled by currentGame)
         if (evDate && evDate >= startOfTodayLocal && evDate <= endOfWindowLocal) {
-          console.log('NBA fetchAllMatches: skipping event in today window:', { id: ev.id, date: ev.date, evDate });
+          console.log('WNBA fetchAllMatches: skipping event in today window:', { id: ev.id, date: ev.date, evDate });
           continue;
         }
 
         // Additionally, if we already selected a currentGame, don't include that same
         // event in the Upcoming/future list so it doesn't appear twice.
         if (currentGame && currentGame.id && ev && ev.id && String(ev.id) === String(currentGame.id)) {
-          console.log('NBA fetchAllMatches: filtering out currentGame from future list:', ev.id);
+          console.log('WNBA fetchAllMatches: filtering out currentGame from future list:', ev.id);
           continue;
         }
 
@@ -569,20 +566,20 @@ const TeamPageScreen = ({ route, navigation }) => {
       past.sort((a, b) => new Date(b.date) - new Date(a.date));
       future.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-      console.log('NBA fetchAllMatches: final results - past:', past.length, 'future:', future.length);
-      console.log('NBA fetchAllMatches: past sample:', past.slice(0, 2));
-      console.log('NBA fetchAllMatches: future sample:', future.slice(0, 2));
+      console.log('WNBA fetchAllMatches: final results - past:', past.length, 'future:', future.length);
+      console.log('WNBA fetchAllMatches: past sample:', past.slice(0, 2));
+      console.log('WNBA fetchAllMatches: future sample:', future.slice(0, 2));
 
       setLastMatches(past);
       setNextMatches(future);
     } catch (e) {
-      console.error('Error fetching NBA matches:', e);
+      console.error('Error fetching WNBA matches:', e);
     }
   };
 
   const fetchTeamRecord = async () => {
     try {
-      const standingsData = await NBAService.getStandings();
+      const standingsData = await WNBAService.getStandings();
       
       if (standingsData?.standings || standingsData?.conferences) {
         let teamRecord = null;
@@ -622,18 +619,18 @@ const TeamPageScreen = ({ route, navigation }) => {
     try {
       const currentTeamId = teamData?.id || resolvedParam.id;
       if (!currentTeamId) {
-        console.log('NBA TeamPage: no team id available for roster fetch');
+        console.log('WNBA TeamPage: no team id available for roster fetch');
         setRoster([]);
         return;
       }
 
-      console.log('NBA TeamPage: fetching roster for team id:', currentTeamId);
-      const rosterUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${currentTeamId}/roster`;
+      console.log('WNBA TeamPage: fetching roster for team id:', currentTeamId);
+      const rosterUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${currentTeamId}/roster`;
       const response = await fetch(rosterUrl);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('NBA TeamPage: roster API response:', data);
+        console.log('WNBA TeamPage: roster API response:', data);
         
         if (data.athletes && Array.isArray(data.athletes)) {
           const players = data.athletes.map(athlete => ({
@@ -643,14 +640,14 @@ const TeamPageScreen = ({ route, navigation }) => {
             number: athlete.jersey || 'N/A',
             headshot: athlete.headshot?.href
           }));
-          console.log('NBA TeamPage: processed roster players:', players.length);
+          console.log('WNBA TeamPage: processed roster players:', players.length);
           setRoster(players);
         } else {
-          console.log('NBA TeamPage: no athletes in roster response');
+          console.log('WNBA TeamPage: no athletes in roster response');
           setRoster([]);
         }
       } else {
-        console.log('NBA TeamPage: roster API failed, status:', response.status);
+        console.log('WNBA TeamPage: roster API failed, status:', response.status);
         setRoster([]);
       }
     } catch (error) {
@@ -668,25 +665,25 @@ const TeamPageScreen = ({ route, navigation }) => {
     try {
       const currentTeamId = teamData?.id || resolvedParam.id;
       if (!currentTeamId) {
-        console.log('NBA TeamPage: no team id available for stats fetch');
+        console.log('WNBA TeamPage: no team id available for stats fetch');
         setTeamStats({});
         return;
       }
-      console.log('NBA TeamPage: fetching stats for team id (v2):', currentTeamId);
-      console.log('NBA TeamPage: teamData:', teamData);
-      console.log('NBA TeamPage: resolvedParam:', resolvedParam);
+      console.log('WNBA TeamPage: fetching stats for team id (v2):', currentTeamId);
+      console.log('WNBA TeamPage: teamData:', teamData);
+      console.log('WNBA TeamPage: resolvedParam:', resolvedParam);
 
       // Try types 2, then 1
       const typesToTry = [2, 1];
       let v2data = null;
       for (const t of typesToTry) {
         try {
-          const statsUrl = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/types/${t}/teams/${currentTeamId}/statistics?lang=en&region=us`;
+          const statsUrl = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/2025/types/${t}/teams/${currentTeamId}/statistics?lang=en&region=us`;
           // eslint-disable-next-line no-console
-          console.log('NBA TeamPage: trying stats type', t, statsUrl);
+          console.log('WNBA TeamPage: trying stats type', t, statsUrl);
           const resp = await fetch(statsUrl);
           if (!resp.ok) {
-            console.log('NBA TeamPage: stats v2 request failed for type', t, 'status', resp.status);
+            console.log('WNBA TeamPage: stats v2 request failed for type', t, 'status', resp.status);
             continue;
           }
           const json = await resp.json();
@@ -698,17 +695,17 @@ const TeamPageScreen = ({ route, navigation }) => {
           const hasSplitsCategories = json.splits && ((Array.isArray(json.splits) && json.splits.some(s => Array.isArray(s.categories) && s.categories.length > 0)) || (json.splits.categories && Array.isArray(json.splits.categories) && json.splits.categories.length > 0));
           if (json && (hasGroups || hasCategories || hasStatistics || hasResultsCategories || hasSplitsCategories)) {
             v2data = json;
-            console.log('NBA TeamPage: got v2 stats for type', t);
+            console.log('WNBA TeamPage: got v2 stats for type', t);
             break;
           } else {
-            console.log('NBA TeamPage: v2 type', t, 'returned HTTP 200 but no usable data. keys:', Object.keys(json), 'hasGroups:', hasGroups, 'hasCategories:', hasCategories, 'hasStatistics:', hasStatistics, 'hasResultsCategories:', hasResultsCategories, 'hasSplitsCategories:', hasSplitsCategories);
+            console.log('WNBA TeamPage: v2 type', t, 'returned HTTP 200 but no usable data. keys:', Object.keys(json), 'hasGroups:', hasGroups, 'hasCategories:', hasCategories, 'hasStatistics:', hasStatistics, 'hasResultsCategories:', hasResultsCategories, 'hasSplitsCategories:', hasSplitsCategories);
             // for debugging, log a small sample if there is content
-            try { console.log('NBA TeamPage: v2 sample:', JSON.stringify(json && (json.groups || json.categories || json.results || json.statistics || json.splits) || json).slice(0, 2000)); } catch (e) { /* ignore */ }
+            try { console.log('WNBA TeamPage: v2 sample:', JSON.stringify(json && (json.groups || json.categories || json.results || json.statistics || json.splits) || json).slice(0, 2000)); } catch (e) { /* ignore */ }
           }
         } catch (e) {
           // don't fail fast; try next type
           // eslint-disable-next-line no-console
-          console.log('NBA TeamPage: error fetching v2 stats for type', t, e);
+          console.log('WNBA TeamPage: error fetching v2 stats for type', t, e);
         }
       }
 
@@ -773,27 +770,27 @@ const TeamPageScreen = ({ route, navigation }) => {
         }
 
         if (categories.length) {
-          console.log('NBA TeamPage: normalized categories count:', categories.length);
-          console.log('NBA TeamPage: sample categories:', categories.slice(0, 2));
+          console.log('WNBA TeamPage: normalized categories count:', categories.length);
+          console.log('WNBA TeamPage: sample categories:', categories.slice(0, 2));
           // Provide both shapes so existing render code (which checks multiple paths) finds them
           const finalStats = { categories, results: { stats: { categories } }, groups: v2data.groups || [] };
-          console.log('NBA TeamPage: setting teamStats with structure:', Object.keys(finalStats));
+          console.log('WNBA TeamPage: setting teamStats with structure:', Object.keys(finalStats));
           setTeamStats(finalStats);
         } else {
-          console.log('NBA TeamPage: no categories could be normalized from v2 stats response');
+          console.log('WNBA TeamPage: no categories could be normalized from v2 stats response');
           setTeamStats({});
         }
       } else {
-        console.log('NBA TeamPage: no v2 stats found for any type; falling back to site API (match NFL behavior)');
+        console.log('WNBA TeamPage: no v2 stats found for any type; falling back to site API (match NFL behavior)');
         // Fallback to previous site API endpoint and set raw JSON (like NFL implementation)
         try {
-          const statsUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${currentTeamId}/statistics`;
-          console.log('NBA TeamPage: trying site API fallback:', statsUrl);
+          const statsUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${currentTeamId}/statistics`;
+          console.log('WNBA TeamPage: trying site API fallback:', statsUrl);
           const response = await fetch(statsUrl);
           if (response.ok) {
             const data = await response.json();
-            console.log('NBA TeamPage: fallback stats API response (site) keys:', Object.keys(data));
-            console.log('NBA TeamPage: fallback stats API response (site) structure:', data);
+            console.log('WNBA TeamPage: fallback stats API response (site) keys:', Object.keys(data));
+            console.log('WNBA TeamPage: fallback stats API response (site) structure:', data);
             // Try to normalize common shapes from the site API into the categories/groups
             // shape our renderer prefers (so UI shows stats like NFL). If we can't
             // find any usable categories, fall back to the raw JSON (preserve
@@ -842,24 +839,24 @@ const TeamPageScreen = ({ route, navigation }) => {
 
               if (fallbackCategories.length) {
                 const finalStats = { categories: fallbackCategories, results: { stats: { categories: fallbackCategories } }, groups: (data?.results?.groups || data?.groups || []) };
-                console.log('NBA TeamPage: normalized fallback categories count:', fallbackCategories.length);
+                console.log('WNBA TeamPage: normalized fallback categories count:', fallbackCategories.length);
                 setTeamStats(finalStats);
               } else {
                 // couldn't normalize; keep the raw shape so existing callers can
                 // still inspect other fields if needed
-                console.log('NBA TeamPage: could not normalize fallback stats; using raw site response');
+                console.log('WNBA TeamPage: could not normalize fallback stats; using raw site response');
                 setTeamStats(data);
               }
             } catch (e) {
-              console.log('NBA TeamPage: error normalizing fallback stats response', e);
+              console.log('WNBA TeamPage: error normalizing fallback stats response', e);
               setTeamStats(data);
             }
           } else {
-            console.log('NBA TeamPage: fallback stats API failed, status:', response.status);
+            console.log('WNBA TeamPage: fallback stats API failed, status:', response.status);
             setTeamStats({});
           }
         } catch (e) {
-          console.log('NBA TeamPage: fallback stats fetch error', e);
+          console.log('WNBA TeamPage: fallback stats fetch error', e);
           setTeamStats({});
         }
       }
@@ -873,7 +870,7 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   // Handle game click navigation
   const handleGamePress = (game) => {
-    navigation.navigate('GameDetails', { gameId: game.id, sport: 'nba' });
+    navigation.navigate('GameDetails', { gameId: game.id, sport: 'wnba' });
   };
 
   const isGameLive = (game) => {
@@ -920,7 +917,7 @@ const TeamPageScreen = ({ route, navigation }) => {
     if (player.headshot) return player.headshot;
     if (player.athlete && player.athlete.headshot) return player.athlete.headshot;
     const id = player.id || player.athlete?.id;
-    if (id) return `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/${id}.png&w=88&h=88`;
+    if (id) return `https://a.espncdn.com/combiner/i?img=/i/headshots/wnba/players/${id}.png&w=88&h=88`;
     return 'https://via.placeholder.com/88x88?text=Player';
   };
 
@@ -1002,7 +999,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       }
     };
 
-    const placeholder = require('../../../assets/nba.png');
+    const placeholder = require('../../../assets/wnba.png');
     return (
       <Image
         style={style}
@@ -1059,12 +1056,12 @@ const TeamPageScreen = ({ route, navigation }) => {
     const idRaw = (teamParam && typeof teamParam === 'object') ? (teamParam.abbreviation || teamParam.id || (teamParam.team && (teamParam.team.abbreviation || teamParam.team.id))) : teamParam;
     const normalized = String(idRaw || '').toLowerCase();
     const primaryUrl = isDarkMode
-      ? `https://a.espncdn.com/i/teamlogos/nba/500-dark/${normalized}.png`
-      : `https://a.espncdn.com/i/teamlogos/nba/500/${normalized}.png`;
+      ? `https://a.espncdn.com/i/teamlogos/wnba/500-dark/${normalized}.png`
+      : `https://a.espncdn.com/i/teamlogos/wnba/500/${normalized}.png`;
 
     const fallbackUrl = isDarkMode
-      ? `https://a.espncdn.com/i/teamlogos/nba/500/${normalized}.png`
-      : `https://a.espncdn.com/i/teamlogos/nba/500-dark/${normalized}.png`;
+      ? `https://a.espncdn.com/i/teamlogos/wnba/500/${normalized}.png`
+      : `https://a.espncdn.com/i/teamlogos/wnba/500-dark/${normalized}.png`;
 
     return { primaryUrl, fallbackUrl };
   };
@@ -1074,18 +1071,18 @@ const TeamPageScreen = ({ route, navigation }) => {
     // Minimal mapping; expand if needed
     const code = String(leagueCode).toLowerCase();
     switch (code) {
-      case 'nba': return 'NBA';
+      case 'wnba': return 'WNBA';
       default: return leagueCode;
     }
   };
 
-  const getTeamLogoUrl_NBA = (abbreviation) => {
-    return getTeamLogoUrl('nba', normalizeAbbreviation(abbreviation));
+  const getTeamLogoUrl_WNBA = (abbreviation) => {
+    return getTeamLogoUrl('wnba', normalizeAbbreviation(abbreviation));
   };
 
   const getThemeTeamLogoUrlHelper = (abbrOrId) => {
     if (!abbrOrId) return null;
-    return getTeamLogoUrl('nba', String(abbrOrId));
+    return getTeamLogoUrl('wnba', String(abbrOrId));
   };
 
   const getTeamColor = (team) => {
@@ -1105,9 +1102,9 @@ const TeamPageScreen = ({ route, navigation }) => {
     return isLosing ? [styles.gameTeamScore, styles.losingTeamScore] : styles.gameTeamScore;
   };
 
-  // Helper function to get NBA team ID for favorites checking
-  const getNBATeamId = (team) => {
-    console.log('TeamPageScreen getNBATeamId called with:', team);
+  // Helper function to get WNBA team ID for favorites checking
+  const getWNBATeamId = (team) => {
+    console.log('TeamPageScreen getWNBATeamId called with:', team);
     if (!team) return null;
     
     // Try direct id first
@@ -1122,7 +1119,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       if (mappedId) return mappedId;
     }
     
-    console.log('TeamPageScreen getNBATeamId returning null for:', team);
+    console.log('TeamPageScreen getWNBATeamId returning null for:', team);
     return null;
   };
 
@@ -1182,13 +1179,13 @@ const TeamPageScreen = ({ route, navigation }) => {
     return (
       <View style={[styles.teamHeader, { backgroundColor: theme.surface }]}>
         <Image 
-          source={{ uri: getTeamLogoUrl_NBA(teamData?.abbreviation) }} 
+          source={{ uri: getTeamLogoUrl_WNBA(teamData?.abbreviation) }} 
           style={styles.headTeamLogo}
           onError={() => console.log('Failed to load team logo')}
         />
         <View style={styles.teamInfo}>
           <Text style={[styles.teamName, { color: teamData?.color ? `#${teamData.color}` : theme.text }]}> 
-            {teamData?.displayName || 'NBA Team'}
+            {teamData?.displayName || 'WNBA Team'}
           </Text>
           <Text style={[styles.teamDivision, { color: theme.textSecondary }]}> 
             {headerStats.standingSummary || 'Loading record...'}
@@ -1232,9 +1229,9 @@ const TeamPageScreen = ({ route, navigation }) => {
                 },
                 currentGame ? {
                   eventId: currentGame.id,
-                  eventLink: `/nba/game/${currentGame.id}`,
+                  eventLink: `/wnba/game/${currentGame.id}`,
                   gameDate: currentGame.date instanceof Date ? currentGame.date.toISOString() : new Date(currentGame.date).toISOString(),
-                  competition: 'nba'
+                  competition: 'wnba'
                 } : null
               );
             } catch (error) {
@@ -1291,7 +1288,7 @@ const TeamPageScreen = ({ route, navigation }) => {
   );
 
   const renderMatchCard = (game) => {
-    const competition = getCompetitionName(game.competition?.id || 'nba') || 'NBA';
+    const competition = getCompetitionName(game.competition?.id || 'wnba') || 'WNBA';
     const gameDate = new Date(game.date);
     
     // Debug: log raw date and parsed values to troubleshoot date display (e.g., Oct 8, 2025)
@@ -1378,13 +1375,13 @@ const TeamPageScreen = ({ route, navigation }) => {
               )}
             </View>
             <View style={styles.teamNameContainer}>
-              {isFavorite(getNBATeamId(awayTeam), 'nba') && (
+              {isFavorite(getWNBATeamId(awayTeam), 'wnba') && (
                 <Ionicons name="star" size={12} color={colors.primary} style={styles.favoriteIcon} />
               )}
               <Text style={[
                 styles.teamAbbreviation, 
                 { 
-                  color: isFavorite(getNBATeamId(awayTeam), 'nba') 
+                  color: isFavorite(getWNBATeamId(awayTeam), 'wnba') 
                     ? colors.primary 
                     : (isCompleted && awayTeam.score < homeTeam.score ? theme.textSecondary : theme.text)
                 }
@@ -1447,13 +1444,13 @@ const TeamPageScreen = ({ route, navigation }) => {
               />
             </View>
             <View style={styles.teamNameContainer}>
-              {isFavorite(getNBATeamId(homeTeam), 'nba') && (
+              {isFavorite(getWNBATeamId(homeTeam), 'wnba') && (
                 <Ionicons name="star" size={12} color={colors.primary} style={styles.favoriteIcon} />
               )}
               <Text style={[
                 styles.teamAbbreviation, 
                 { 
-                  color: isFavorite(getNBATeamId(homeTeam), 'nba') 
+                  color: isFavorite(getWNBATeamId(homeTeam), 'wnba') 
                     ? colors.primary 
                     : (isCompleted && homeTeam.score < awayTeam.score ? theme.textSecondary : theme.text)
                 }
@@ -1533,7 +1530,7 @@ const TeamPageScreen = ({ route, navigation }) => {
     </ScrollView>
   );
 
-  // Group NBA roster into MLB-like sections: Forwards, Defensemen, Goalies, Others
+  // Group WNBA roster into MLB-like sections: Forwards, Defensemen, Goalies, Others
 
 
   const renderRosterSection = (title, players, sectionKey) => {
@@ -1579,7 +1576,7 @@ const TeamPageScreen = ({ route, navigation }) => {
                       playerId: player.id,
                       playerName: player.name,
                       teamId: teamId,
-                      sport: 'nba'
+                      sport: 'wnba'
                     });
                   } catch (e) {
                     console.warn('Navigation to PlayerPage failed', e);
@@ -1591,10 +1588,10 @@ const TeamPageScreen = ({ route, navigation }) => {
                   <View style={styles.rosterPlayerRow}>
                     <Image 
                       source={{ 
-                        uri: player.headshot || 'https://via.placeholder.com/40x40?text=NBA' 
+                        uri: player.headshot || 'https://via.placeholder.com/40x40?text=WNBA' 
                       }}
                       style={styles.playerHeadshot}
-                      defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=NBA' }}
+                      defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=WNBA' }}
                     />
                     <View style={styles.rosterPlayerInfo}>
                       <Text allowFontScaling={false} style={[styles.rosterTablePlayerName, { color: theme.text }]}>
@@ -1611,7 +1608,7 @@ const TeamPageScreen = ({ route, navigation }) => {
                 <View style={styles.rosterTableStatusCell}>
                   <Text allowFontScaling={false} style={[
                     styles.rosterTableStatusText,
-                    styles.activeStatus // For now, all NBA players are active
+                    styles.activeStatus // For now, all WNBA players are active
                   ]}>
                     Active
                   </Text>
@@ -1679,7 +1676,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       <View style={styles.statsLoadingContainer}><Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Team statistics not available</Text></View>
     );
 
-    // We'll render every category but only the top 6 stats per category (by presence order)
+    // We'll render every category using configurable stats selection
     const categories = teamStats?.results?.stats?.categories || teamStats?.categories || teamStats?.groups || [];
 
     const pickTopStats = (statsArr, categoryName = '') => {

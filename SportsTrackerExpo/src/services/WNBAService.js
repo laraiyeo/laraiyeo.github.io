@@ -1,10 +1,10 @@
-// NBA API Service for Mobile App
-// Uses ESPN NBA endpoints for comprehensive NBA data
+// WNBA API Service for Mobile App
+// Uses ESPN WNBA endpoints for comprehensive WNBA data
 
-export class NBAService {
-  static SCOREBOARD_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard";
-  static TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
-  static STANDINGS_API_URL = "https://cdn.espn.com/core/nba/standings?xhr=1";
+export class WNBAService {
+  static SCOREBOARD_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard";
+  static TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams";
+  static STANDINGS_API_URL = "https://cdn.espn.com/core/wnba/standings?xhr=1";
 
   static cache = new Map();
   static cacheTimestamps = new Map();
@@ -56,7 +56,7 @@ export class NBAService {
   static async getGameDetails(gameId) {
     const cacheKey = `gameDetails_${gameId}`;
     return this.getCachedData(cacheKey, async () => {
-      const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${gameId}`;
+      const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/summary?event=${gameId}`;
       const res = await fetch(this.convertToHttps(url));
       const data = await res.json();
       return data;
@@ -65,9 +65,9 @@ export class NBAService {
 
   // Fetch standings
   static async getStandings() {
-    const cacheKey = 'nba_standings';
+    const cacheKey = 'wnba_standings';
     return this.getCachedData(cacheKey, async () => {
-      const url = 'https://cdn.espn.com/core/nba/standings?xhr=1';
+      const url = 'https://cdn.espn.com/core/wnba/standings?xhr=1';
       const res = await fetch(url);
       const data = await res.json();
       return data;
@@ -88,7 +88,7 @@ export class NBAService {
   static async getTeamDetails(teamId) {
     const cacheKey = `teamDetails_${teamId}`;
     return this.getCachedData(cacheKey, async () => {
-      const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}`;
+      const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${teamId}`;
       const res = await fetch(url);
       const data = await res.json();
       return data;
@@ -99,7 +99,7 @@ export class NBAService {
   static async getTeamRoster(teamId) {
     const cacheKey = `teamRoster_${teamId}`;
     return this.getCachedData(cacheKey, async () => {
-      const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}/roster`;
+      const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${teamId}/roster`;
       const res = await fetch(url);
       const data = await res.json();
       return data;
@@ -110,7 +110,7 @@ export class NBAService {
   static async getAthleteDetails(athleteId) {
     const cacheKey = `athleteDetails_${athleteId}`;
     return this.getCachedData(cacheKey, async () => {
-      const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/athletes/${athleteId}`;
+      const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/athletes/${athleteId}`;
       const res = await fetch(url);
       const data = await res.json();
       return data;
@@ -161,7 +161,7 @@ export class NBAService {
         }
       };
     } catch (error) {
-      console.error('Error formatting NBA game:', error);
+      console.error('Error formatting WNBA game:', error);
       return null;
     }
   }
@@ -169,35 +169,66 @@ export class NBAService {
   // Format team standings data
   static formatStandingsForMobile(standingsData) {
     try {
-      // New structure: data.content.standings.groups
-      const groups = standingsData?.content?.standings?.groups || [];
+      // WNBA structure: data.content.standings.standings.entries (single list, no conference groups)
+      const allEntries = standingsData?.content?.standings?.standings?.entries || [];
+      
+      // Define conference mappings like in the JS version
+      const eastTeams = ["ATL", "CHI", "CON", "IND", "NY", "WSH"];
+      const westTeams = ["DAL", "GS", "LV", "LA", "MIN", "PHX", "SEA"];
+      
       const formatted = {};
 
-      groups.forEach(group => {
-        const confName = group.name; // "Eastern Conference" or "Western Conference"
-        formatted[confName] = {};
-
-        // In the new structure, there's no division breakdown, just one standings list per conference
-        const entries = group.standings?.entries || [];
-        formatted[confName]['teams'] = entries.map(entry => ({
+      // Eastern Conference
+      const easternEntries = allEntries.filter(entry => 
+        eastTeams.includes(entry.team?.abbreviation)
+      );
+      
+      formatted["Eastern Conference"] = {
+        teams: easternEntries.map(entry => ({
           team: {
             id: entry.team?.id,
             displayName: entry.team?.displayName || '',
             abbreviation: entry.team?.abbreviation || '',
             logo: this.convertToHttps(entry.team?.logos?.[0]?.href),
             color: entry.team?.color,
-            alternateColor: entry.team?.alternateColor
+            alternateColor: entry.team?.alternateColor,
+            seed: entry.team?.seed,
+            clincher: entry.team?.clincher
           },
           stats: entry.stats?.reduce((acc, stat) => {
             acc[stat.name] = stat.displayValue;
             return acc;
           }, {}) || {}
-        }));
-      });
+        }))
+      };
+
+      // Western Conference
+      const westernEntries = allEntries.filter(entry => 
+        westTeams.includes(entry.team?.abbreviation)
+      );
+      
+      formatted["Western Conference"] = {
+        teams: westernEntries.map(entry => ({
+          team: {
+            id: entry.team?.id,
+            displayName: entry.team?.displayName || '',
+            abbreviation: entry.team?.abbreviation || '',
+            logo: this.convertToHttps(entry.team?.logos?.[0]?.href),
+            color: entry.team?.color,
+            alternateColor: entry.team?.alternateColor,
+            seed: entry.team?.seed,
+            clincher: entry.team?.clincher
+          },
+          stats: entry.stats?.reduce((acc, stat) => {
+            acc[stat.name] = stat.displayValue;
+            return acc;
+          }, {}) || {}
+        }))
+      };
 
       return formatted;
     } catch (error) {
-      console.error('Error formatting NBA standings:', error);
+      console.error('Error formatting WNBA standings:', error);
       return {};
     }
   }
@@ -221,7 +252,7 @@ export class NBAService {
         standingSummary: team.standingSummary || ''
       };
     } catch (error) {
-      console.error('Error formatting NBA team:', error);
+      console.error('Error formatting WNBA team:', error);
       return null;
     }
   }
@@ -249,7 +280,7 @@ export class NBAService {
         stats: athlete.statistics || []
       };
     } catch (error) {
-      console.error('Error formatting NBA athlete:', error);
+      console.error('Error formatting WNBA athlete:', error);
       return null;
     }
   }

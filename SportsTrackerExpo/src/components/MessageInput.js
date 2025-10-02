@@ -154,7 +154,7 @@ const MessageInput = ({ onSendMessage, disabled = false }) => {
           placeholder="Type a message..."
           placeholderTextColor={theme.textSecondary}
           multiline={true}
-          maxLength={500}
+          maxLength={150}
           editable={!disabled && !sending && !cooldownActive}
           onSubmitEditing={handleSend}
           blurOnSubmit={false}
@@ -230,7 +230,7 @@ const MessageInput = ({ onSendMessage, disabled = false }) => {
               placeholder="Type a message..."
               placeholderTextColor={theme.textSecondary}
               multiline={true}
-              maxLength={500}
+              maxLength={150}
               editable={!disabled && !sending && !cooldownActive}
               autoFocus={false}
             />

@@ -1278,7 +1278,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
                       onError={() => handleLogoError(game.opponent, isDarkMode)}
                     />
                   </View>
-                  <Text allowFontScaling={false} style={[styles.mlbOpponentName, { color: theme.text }]}>
+                  <Text allowFontScaling={false} style={[styles.mlbOpponentName, { color: theme.textTertiary }]}>
                     {game.leagueName || game.leagueShortName || 'NFL'}
                   </Text>
                 </View>

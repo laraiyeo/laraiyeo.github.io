@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView, Modal } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { NBAService } from '../../services/NBAService';
+import { WNBAService } from '../../services/WNBAService';
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
 const convertToHttps = (url) => {
@@ -11,7 +11,7 @@ const convertToHttps = (url) => {
   return url;
 };
 
-const NBAPlayerPageScreen = ({ route, navigation }) => {
+const WNBAPlayerPageScreen = ({ route, navigation }) => {
   const { playerId, playerName, teamId, sport } = route.params;
   const { theme, colors, isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState('Stats');
@@ -42,8 +42,8 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
 
   const getHeadshotSource = (p) => {
     try {
-      if (headshotFailed) return require('../../../assets/nba.png');
-      if (!p) return require('../../../assets/nba.png');
+      if (headshotFailed) return require('../../../assets/wnba.png');
+      if (!p) return require('../../../assets/wnba.png');
       // Prefer provided headshot fields (could be string or object)
       if (p.headshot) return typeof p.headshot === 'string' ? { uri: convertToHttps(p.headshot) } : { uri: convertToHttps(p.headshot.href || p.headshot.uri || p.headshot.url) };
       if (p.athlete && p.athlete.headshot) return typeof p.athlete.headshot === 'string' ? { uri: convertToHttps(p.athlete.headshot) } : { uri: convertToHttps(p.athlete.headshot.href || p.athlete.headshot.uri || p.athlete.headshot.url) };
@@ -54,52 +54,44 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
 
       // Build combiner 88x88 ESPN headshot by id (same as TeamPage helper)
       const id = p.id || p.athlete?.id || (typeof route?.params?.playerId !== 'undefined' ? route.params.playerId : null);
-      if (id) return { uri: convertToHttps(`https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/${id}.png&w=88&h=88`) };
+      if (id) return { uri: convertToHttps(`https://a.espncdn.com/combiner/i?img=/i/headshots/wnba/players/${id}.png&w=88&h=88`) };
     } catch (e) {
       // fall through
     }
-    return require('../../../assets/nba.png');
+    return require('../../../assets/wnba.png');
   };
 
-  // Convert ESPN numeric team id to NBA abbreviation (same mapping used in ScoreboardScreen)
+  // Convert ESPN numeric team id to WNBA abbreviation (same mapping used in ScoreboardScreen)
   const convertTeamIdToAbbr = (teamId) => {
     if (!teamId) return null;
     const idStr = String(teamId);
     const teamMapping = {
-      '1': 'ATL', '2': 'BOS', '3': 'NO', '4': 'CHI', '5': 'CLE', '6': 'DAL', '7': 'DEN', '8': 'DET', '9': 'GS', '10': 'HOU',
-      '11': 'IND', '12': 'LAC', '13': 'LAL', '14': 'MIA', '15': 'MIL', '16': 'MIN', '17': 'BKN', '18': 'NY', '19': 'ORL', '20': 'PHI',
-      '21': 'PHX', '22': 'POR', '23': 'SAC', '24': 'SA', '25': 'OKC', '26': 'UTAH', '27': 'WSH', '28': 'TOR', '29': 'MEM', '30': 'CHA',
+      '3' : 'DAL', '5' : 'IND', '6' : 'LA', '8' : 'MIN', '9' : 'NY', '11' : 'PHX', '14' : 'SEA', 
+      '16' : 'WSH', '17' : 'LV', '18' : 'CON', '19' : 'CHI', '20' : 'ATL', '129689' : 'GS'
     };
     return teamMapping[idStr] || null;
   };
 
-  // Convert ESPN numeric team id to full NBA team name
+  // Convert ESPN numeric team id to full WNBA team name
   const convertTeamIdToFullName = (teamId) => {
     if (!teamId) return null;
     const idStr = String(teamId);
     const nameMap = {
-      '1': 'Atlanta Hawks', '2': 'Boston Celtics', '3': 'New Orleans Pelicans', '4': 'Chicago Bulls', '5': 'Cleveland Cavaliers', '6': 'Dallas Mavericks',
-      '7': 'Denver Nuggets', '8': 'Detroit Pistons', '9': 'Golden State Warriors', '10': 'Houston Rockets', '11': 'Indiana Pacers', '12': 'Los Angeles Clippers',
-      '13': 'Los Angeles Lakers', '14': 'Miami Heat', '15': 'Milwaukee Bucks', '16': 'Minnesota Timberwolves', '17': 'Brooklyn Nets', '18': 'New York Knicks',
-      '19': 'Orlando Magic', '20': 'Philadelphia 76ers', '21': 'Phoenix Suns', '22': 'Portland Trail Blazers', '23': 'Sacramento Kings', '24': 'San Antonio Spurs',
-      '25': 'Oklahoma City Thunder', '26': 'Utah Jazz', '27': 'Washington Wizards', '28': 'Toronto Raptors', '29': 'Memphis Grizzlies', '30': 'Charlotte Hornets',
+      '3': 'Dallas Wings', '5': 'Indiana Fever', '6': 'Los Angeles Sparks', '8': 'Minnesota Lynx', '9': 'New York Liberty',
+      '11': 'Phoenix Mercury', '14': 'Seattle Storm', '16': 'Washington Mystics', '17': 'Las Vegas Aces', '18': 'Connecticut Sun',
+      '19': 'Chicago Sky', '20': 'Atlanta Dream', '129689': 'Golden State Warriors'
     };
     return nameMap[idStr] || null;
   };
 
-  // Convert team name to NBA abbreviation for splits
+  // Convert team name to WNBA abbreviation for splits
   const convertTeamNameToAbbr = (teamName) => {
     if (!teamName) return null;
     const name = String(teamName).toLowerCase().replace('vs ', '').trim();
     const nameToAbbrMap = {
-      'atlanta hawks': 'ATL', 'boston celtics': 'BOS', 'new orleans pelicans': 'NO', 'chicago bulls': 'CHI', 
-      'cleveland cavaliers': 'CLE', 'dallas mavericks': 'DAL', 'denver nuggets': 'DEN', 'detroit pistons': 'DET', 
-      'golden state warriors': 'GS', 'houston rockets': 'HOU', 'indiana pacers': 'IND', 'los angeles clippers': 'LAC', 
-      'los angeles lakers': 'LAL', 'miami heat': 'MIA', 'milwaukee bucks': 'MIL', 'minnesota timberwolves': 'MIN', 
-      'brooklyn nets': 'BKN', 'new york knicks': 'NY', 'orlando magic': 'ORL', 'philadelphia 76ers': 'PHI', 
-      'phoenix suns': 'PHX', 'portland trail blazers': 'POR', 'sacramento kings': 'SAC', 'san antonio spurs': 'SA', 
-      'oklahoma city thunder': 'OKC', 'utah jazz': 'UTAH', 'washington wizards': 'WSH', 'toronto raptors': 'TOR', 
-      'memphis grizzlies': 'MEM', 'charlotte hornets': 'CHA'
+      'dallas wings': 'DAL', 'indiana fever': 'IND', 'los angeles sparks': 'LA', 'minnesota lynx': 'MIN', 'new york liberty': 'NY',
+      'phoenix mercury': 'PHX', 'seattle storm': 'SEA', 'washington mystics': 'WSH', 'las vegas aces': 'LV', 'connecticut sun': 'CON',
+      'chicago sky': 'CHI', 'atlanta dream': 'ATL', 'golden state warriors': 'GS'
     };
     return nameToAbbrMap[name] || null;
   };
@@ -129,9 +121,9 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
     const fallbackKey = `${normalized}-${useDarkMode ? '500' : '500-dark'}`;
     if (failedLogos.has(primaryKey) && failedLogos.has(fallbackKey)) return null;
     if (failedLogos.has(primaryKey)) {
-      return `https://a.espncdn.com/i/teamlogos/nba/${useDarkMode ? '500' : '500-dark'}/${normalized}.png`;
+      return `https://a.espncdn.com/i/teamlogos/wnba/${useDarkMode ? '500' : '500-dark'}/${normalized}.png`;
     }
-    return `https://a.espncdn.com/i/teamlogos/nba/${useDarkMode ? '500-dark' : '500'}/${normalized}.png`;
+    return `https://a.espncdn.com/i/teamlogos/wnba/${useDarkMode ? '500-dark' : '500'}/${normalized}.png`;
   };
 
   const handleLogoError = useCallback((teamParam, useDarkMode) => {
@@ -154,21 +146,21 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
   }, []);
 
   const getTeamLogoFallbackUrl = (teamParam, useDarkMode = isDarkMode) => {
-    if (!teamParam) return require('../../../assets/nba.png');
+    if (!teamParam) return require('../../../assets/wnba.png');
     let token = null;
     if (typeof teamParam === 'object') {
       token = teamParam.abbreviation || teamParam.abbr || teamParam.id;
     } else {
       token = teamParam;
     }
-    if (!token) return require('../../../assets/nba.png');
+    if (!token) return require('../../../assets/wnba.png');
     let normalizedToken = token;
     if (/^\d+$/.test(String(token))) {
       const abbr = convertTeamIdToAbbr(token);
       if (abbr) normalizedToken = abbr;
     }
     const normalized = String(normalizedToken).toLowerCase();
-    return { uri: `https://a.espncdn.com/i/teamlogos/nba/500/${normalized}.png` };
+    return { uri: `https://a.espncdn.com/i/teamlogos/wnba/500/${normalized}.png` };
   };
 
   // Find per-event stats array in the gamelog/seasonTypes structure by eventId
@@ -185,9 +177,9 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
     return null;
   };
 
-  // For NBA, all players are treated the same - no position-specific logic needed
+  // For WNBA, all players are treated the same - no position-specific logic needed
 
-  // Format the concise stat string to show on the game card for NBA players
+  // Format the concise stat string to show on the game card for WNBA players
   const getGameCardStatsString = (game) => {
     try {
       if (!game || !game.id) return '';
@@ -197,7 +189,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
       // Helper to safely read index
       const s = (i) => (typeof statsArr[i] !== 'undefined' && statsArr[i] !== null ? statsArr[i] : '');
 
-      // For NBA: MIN | PTS | FG (Minutes, Points, Field Goals)
+      // For WNBA: MIN | PTS | FG (Minutes, Points, Field Goals)
       return `${s(0)} MIN • ${s(13)} PTS • ${s(1)} FG`;
     } catch (e) {
       return '';
@@ -279,7 +271,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
 
       let tileStats = [];
       
-      // For NBA players, prioritize common basketball stats
+      // For WNBA players, prioritize common basketball stats
       const pts = findStatByNames(['points', 'point', 'totalPoints']);
       const reb = findStatByNames(['rebounds', 'rebound', 'totalRebounds']);
       const ast = findStatByNames(['assists', 'assist', 'totalAssists']);
@@ -312,7 +304,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
   }, [playerData?.team?.id, isDarkMode, failedLogos]);
 
   const playerTeamFallbackUrl = useMemo(() => {
-    if (!playerData?.team?.id) return require('../../../assets/nba.png');
+    if (!playerData?.team?.id) return require('../../../assets/wnba.png');
     return getTeamLogoFallbackUrl(playerData.team.id, isDarkMode);
   }, [playerData?.team?.id, isDarkMode]);
 
@@ -323,7 +315,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
   }, [isDarkMode, failedLogos]);
 
   const getStableTeamFallbackUrl = useCallback((teamParam) => {
-    if (!teamParam) return require('../../../assets/nba.png');
+    if (!teamParam) return require('../../../assets/wnba.png');
     return getTeamLogoFallbackUrl(teamParam, isDarkMode);
   }, [isDarkMode]);
 
@@ -368,7 +360,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
       const results = {};
       await Promise.all(seasons.map(async (season) => {
         try {
-          const url = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${season}/athletes/${playerId}/eventlog?lang=en&region=us&limit=1`;
+          const url = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/${season}/athletes/${playerId}/eventlog?lang=en&region=us&limit=1`;
           const res = await fetch(convertToHttps(url));
           if (!res.ok) {
             results[season] = null;
@@ -410,7 +402,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
       seasons = seasons.slice(0, 8);
 
       const fetches = seasons.map(season => {
-        const url = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${season}/types/2/athletes/${playerId}/statistics?lang=en&region=us`;
+        const url = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/${season}/types/2/athletes/${playerId}/statistics?lang=en&region=us`;
         return fetch(convertToHttps(url)).then(r => r.ok ? r.json().catch(() => null) : null).catch(() => null);
       });
 
@@ -486,7 +478,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
             return { label, value, rank };
           };
 
-          // For NBA players, prioritize common basketball stats
+          // For WNBA players, prioritize common basketball stats
           const pts = findStatByNames(['points', 'point', 'totalPoints']);
           const reb = findStatByNames(['rebounds', 'rebound', 'totalRebounds']);
           const ast = findStatByNames(['assists', 'assist', 'totalAssists']);
@@ -604,15 +596,15 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
         jersey: '',
         position: { displayName: 'Player' },
         team: { id: teamId, abbreviation: maybeAbbr, displayName: '' },
-        headshot: { href: `https://a.espncdn.com/i/headshots/nba/players/full/${playerId}.png` }
+        headshot: { href: `https://a.espncdn.com/i/headshots/wnba/players/full/${playerId}.png` }
       };
 
       const seasonYear = new Date().getFullYear();
-      const siteUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/athletes/${playerId}`;
-      const splitsUrl = `https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/${playerId}/splits`;
-      const statsUrl = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${seasonYear}/types/2/athletes/${playerId}/statistics?lang=en&region=us`;
-      const gamelogUrl = `https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/${playerId}/gamelog`;
-      const coreUrl = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${seasonYear}/athletes/${playerId}`;
+      const siteUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/athletes/${playerId}`;
+      const splitsUrl = `https://site.web.api.espn.com/apis/common/v3/sports/basketball/wnba/athletes/${playerId}/splits`;
+      const statsUrl = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/${seasonYear}/types/2/athletes/${playerId}/statistics?lang=en&region=us`;
+      const gamelogUrl = `https://site.web.api.espn.com/apis/common/v3/sports/basketball/wnba/athletes/${playerId}/gamelog`;
+      const coreUrl = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/${seasonYear}/athletes/${playerId}`;
 
       const [siteRes, splitsRes, glRes, coreRes, statsRes] = await Promise.allSettled([
         fetch(convertToHttps(siteUrl)),
@@ -720,7 +712,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
       // Parse statistics endpoint into categories and take up to 6 important stats per category
       if (statsData && statsData.splits && Array.isArray(statsData.splits.categories)) {
         try {
-          // Priority lists per category for NBA stats.
+          // Priority lists per category for WNBA stats.
           // Each array lists preferred stat.name keys in order of importance for that category.
           const preferredByCategory = {
             general: [
@@ -819,7 +811,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
       }
 
     } catch (error) {
-      console.error('Error in fetchPlayerData (NBA):', error);
+      console.error('Error in fetchPlayerData (WNBA):', error);
       setPlayerData({ id: playerId, displayName: playerName });
       setPlayerStats(null);
       setGameLog([]);
@@ -856,7 +848,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
               <View style={[styles.teamContainer, { marginRight: 8 }]}>
                 <Image 
                   key={`player-team-logo-${playerData.team.id}`}
-                  source={playerTeamLogoUrl ? { uri: playerTeamLogoUrl } : require('../../../assets/nba.png')}
+                  source={playerTeamLogoUrl ? { uri: playerTeamLogoUrl } : require('../../../assets/wnba.png')}
                   style={[styles.teamLogo, { width: 22, height: 22 }]}
                   defaultSource={playerTeamFallbackUrl}
                   onError={() => handleLogoError(playerData.team, isDarkMode)}
@@ -1001,7 +993,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
                   return (
                     <TouchableOpacity key={`opp-${idx}`} style={[styles.teamCard, { backgroundColor: theme.surface }]} onPress={() => openSplitDetail(it)}>
                       <Image 
-                        source={getTeamLogoUrl({ abbreviation: teamAbbr }, isDarkMode) ? { uri: getTeamLogoUrl({ abbreviation: teamAbbr }, isDarkMode) } : require('../../../assets/nba.png')} 
+                        source={getTeamLogoUrl({ abbreviation: teamAbbr }, isDarkMode) ? { uri: getTeamLogoUrl({ abbreviation: teamAbbr }, isDarkMode) } : require('../../../assets/wnba.png')} 
                         style={styles.teamCardLogo} 
                         defaultSource={getTeamLogoFallbackUrl({ abbreviation: teamAbbr }, isDarkMode)} 
                       />
@@ -1139,7 +1131,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
                       key={`game-player-team-${game.id}-${(playerData?.team?.id || game.team?.id)}`}
                       source={getStableTeamLogoUrl(playerData?.team || game.team) ? 
                         { uri: getStableTeamLogoUrl(playerData?.team || game.team) } : 
-                        require('../../../assets/nba.png')}
+                        require('../../../assets/wnba.png')}
                       style={styles.mlbTeamLogo}
                       defaultSource={getStableTeamFallbackUrl(playerData?.team || game.team)}
                       onError={() => handleLogoError(playerData?.team || game.team, isDarkMode)}
@@ -1151,14 +1143,14 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
                       key={`game-opponent-${game.id}-${game.opponent?.id}`}
                       source={getStableTeamLogoUrl(game.opponent) ? 
                         { uri: getStableTeamLogoUrl(game.opponent) } : 
-                        require('../../../assets/nba.png')}
+                        require('../../../assets/wnba.png')}
                       style={styles.mlbTeamLogo}
                       defaultSource={getStableTeamFallbackUrl(game.opponent)}
                       onError={() => handleLogoError(game.opponent, isDarkMode)}
                     />
                   </View>
                   <Text allowFontScaling={false} style={[styles.mlbOpponentName, { color: theme.textTertiary }]}>
-                    {game.leagueName || game.leagueShortName || 'NBA'}
+                    {game.leagueName || game.leagueShortName || 'WNBA'}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -1176,12 +1168,12 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
       setLoadingSelectedGameStats(true);
       setSelectedGameStatsDetails(null);
       
-      // For NBA, use the stats from game log data instead of service call
+      // For WNBA, use the stats from game log data instead of service call
       if (game && game.id) {
         try {
           const statsArr = findEventStatsByEventId(game.id);
           if (statsArr && Array.isArray(statsArr)) {
-            // Format the game log stats for NBA basketball
+            // Format the game log stats for WNBA basketball
             const formattedStats = {
               splits: {
                 categories: [{
@@ -1266,7 +1258,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
                         key={`modal-player-team-logo-${playerData.team.id}`}
                         source={playerTeamLogoUrl ? 
                           { uri: playerTeamLogoUrl } : 
-                          require('../../../assets/nba.png')}
+                          require('../../../assets/wnba.png')}
                         style={styles.teamLogo}
                         defaultSource={playerTeamFallbackUrl}
                         onError={() => handleLogoError(playerData.team.id, isDarkMode)}
@@ -1296,7 +1288,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
                     })}
                   </Text>
                   <Text allowFontScaling={false} style={[styles.modalLeagueName, { color: theme.textSecondary }]}>
-                    {g.leagueName || g.leagueShortName || 'NBA'}
+                    {g.leagueName || g.leagueShortName || 'WNBA'}
                   </Text>
                 </View>
               </View>
@@ -1348,7 +1340,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
               // Close the modal first so it doesn't remain visible after navigation
               setShowStatsModal(false);
               // Slight delay to allow modal closing animation to start, then navigate
-              setTimeout(() => navigation.navigate('GameDetails', { gameId: g.id || g.eventId || g.gameId, sport: 'nba' }), 150);
+              setTimeout(() => navigation.navigate('GameDetails', { gameId: g.id || g.eventId || g.gameId, sport: 'wnba' }), 150);
             }}>
               <View style={[styles.modalSeasonHeader, { backgroundColor: theme.surface, marginTop: -5 }]}>
                 <View style={[styles.modalSeasonTopRow, { justifyContent: 'center' }]}>
@@ -1358,7 +1350,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
                         key={`modal-game-player-team-${g.id}-${(playerData?.team?.id || g.team?.id)}`}
                         source={getStableTeamLogoUrl(playerData?.team || g.team) ? 
                           { uri: getStableTeamLogoUrl(playerData?.team || g.team) } : 
-                          require('../../../assets/nba.png')}
+                          require('../../../assets/wnba.png')}
                         style={styles.modalSeasonTeamLogo}
                         defaultSource={getStableTeamFallbackUrl(playerData?.team || g.team)}
                         onError={() => handleLogoError(playerData?.team || g.team, isDarkMode)}
@@ -1370,7 +1362,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
                         key={`modal-game-opponent-${g.id}-${g.opponent?.id}`}
                         source={getStableTeamLogoUrl(g.opponent) ? 
                           { uri: getStableTeamLogoUrl(g.opponent) } : 
-                          require('../../../assets/nba.png')}
+                          require('../../../assets/wnba.png')}
                         style={styles.modalSeasonTeamLogo}
                         defaultSource={getStableTeamFallbackUrl(g.opponent)}
                         onError={() => handleLogoError(g.opponent, isDarkMode)}
@@ -1395,7 +1387,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
     return (
       <ScrollView style={[styles.statsContainer, { backgroundColor: theme.background }]} showsVerticalScrollIndicator={false}>
         <View style={styles.careerContainer}>
-          <Text allowFontScaling={false} style={[styles.careerSectionTitle, { color: colors.primary }]}>NBA Career</Text>
+          <Text allowFontScaling={false} style={[styles.careerSectionTitle, { color: colors.primary }]}>WNBA Career</Text>
 
           {/* removed debug Year|Teams listing */}
 
@@ -1427,7 +1419,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
                 <View style={styles.careerTileHeader}>
                   <View style={styles.careerLogosRow}>
                     {logos.map((l, li) => (
-                      <Image key={`career-logo-${item.season}-${li}-${l?.id || l}`} source={getStableTeamLogoUrl(l) ? { uri: getStableTeamLogoUrl(l) } : require('../../../assets/nba.png')} style={styles.careerLogo} defaultSource={getStableTeamFallbackUrl(l)} onError={() => handleLogoError(l, isDarkMode)} />
+                      <Image key={`career-logo-${item.season}-${li}-${l?.id || l}`} source={getStableTeamLogoUrl(l) ? { uri: getStableTeamLogoUrl(l) } : require('../../../assets/wnba.png')} style={styles.careerLogo} defaultSource={getStableTeamFallbackUrl(l)} onError={() => handleLogoError(l, isDarkMode)} />
                     ))}
                   </View>
                   <Text allowFontScaling={false} style={[styles.careerTeamsText, { color: theme.textSecondary }]}>{displayLabel}</Text>
@@ -1492,7 +1484,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
               <View style={[styles.modalSeasonHeader, { backgroundColor: theme.surface, marginHorizontal: 15, marginTop: 10 }]}>
                 <View style={styles.modalSeasonInfo}>
                   <Text allowFontScaling={false} style={[styles.modalSeasonYear, { color: theme.text }]}>{item.season}</Text>
-                  <Text allowFontScaling={false} style={[styles.modalLeagueName, { color: theme.textSecondary }]}>NBA</Text>
+                  <Text allowFontScaling={false} style={[styles.modalLeagueName, { color: theme.textSecondary }]}>WNBA</Text>
                 </View>
                 <View style={styles.modalTeamContainer}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
@@ -1501,7 +1493,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
                       return (
                         <Image 
                           key={`modal-season-team-logo-${selectedSeasonStats?.season}-${index}-${token}`}
-                          source={getStableTeamLogoUrl(token) ? { uri: getStableTeamLogoUrl(token) } : require('../../../assets/nba.png')} 
+                          source={getStableTeamLogoUrl(token) ? { uri: getStableTeamLogoUrl(token) } : require('../../../assets/wnba.png')} 
                           style={[styles.modalSeasonTeamLogo, { width: 40, height: 40, marginHorizontal: 4 }]} 
                           defaultSource={getStableTeamFallbackUrl(token)} 
                           onError={() => handleLogoError(token, isDarkMode)} 
@@ -1859,4 +1851,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default NBAPlayerPageScreen;
+export default WNBAPlayerPageScreen;

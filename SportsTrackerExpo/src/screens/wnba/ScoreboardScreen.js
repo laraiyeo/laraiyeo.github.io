@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { NBAService } from '../../services/NBAService';
+import { WNBAService } from '../../services/WNBAService';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 
@@ -20,7 +20,7 @@ const TeamLogo = ({ teamAbbreviation, size, style, iconStyle }) => {
   const { colors, getTeamLogoUrl } = useTheme();
   const [imageError, setImageError] = useState(false);
   
-  const logoUri = getTeamLogoUrl('nba', teamAbbreviation);
+  const logoUri = getTeamLogoUrl('wnba', teamAbbreviation);
   
   if (!logoUri || imageError) {
     return (
@@ -42,7 +42,7 @@ const TeamLogo = ({ teamAbbreviation, size, style, iconStyle }) => {
   );
 };
 
-const NBAScoreboardScreen = ({ navigation }) => {
+const WNBAScoreboardScreen = ({ navigation }) => {
   const { theme, colors, getTeamLogoUrl } = useTheme();
   const { isFavorite } = useFavorites();
   const [games, setGames] = useState([]);
@@ -66,7 +66,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
-    return `${year}${month}${day}`; // ESPN NBA expects YYYYMMDD
+    return `${year}${month}${day}`; // ESPN WNBA expects YYYYMMDD
   };
 
   const getDateRange = (dateFilter) => {
@@ -131,13 +131,13 @@ const NBAScoreboardScreen = ({ navigation }) => {
       const { startDate, endDate } = getDateRange(dateFilter);
       const formattedStart = formatDateForAPI(startDate);
       const formattedEnd = formatDateForAPI(endDate);
-      const data = await NBAService.getScoreboard(formattedStart, formattedEnd);
+      const data = await WNBAService.getScoreboard(formattedStart, formattedEnd);
 
       let processed;
       if (!data || !data.events || data.events.length === 0) {
         processed = [{ type: 'no-games', message: getNoGamesMessage(dateFilter) }];
       } else {
-        const grouped = groupGamesByDate(data.events.map(e => NBAService.formatGameForMobile(e)).filter(Boolean));
+        const grouped = groupGamesByDate(data.events.map(e => WNBAService.formatGameForMobile(e)).filter(Boolean));
         processed = [];
         Object.keys(grouped).sort((a,b) => new Date(a) - new Date(b)).forEach(date => {
           processed.push({ type: 'header', date: formatDateHeader(date) });
@@ -159,7 +159,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
       setCacheTimestamps(prev => ({ ...prev, [dateFilter]: Date.now() }));
       if (dateFilter === selectedDateFilter) setGames(processed);
     } catch (e) {
-      if (!silent) { Alert.alert('Error', 'Failed to load NBA games'); console.error(e); }
+      if (!silent) { Alert.alert('Error', 'Failed to load WNBA games'); console.error(e); }
     } finally {
       if (!silent) { setLoading(false); setRefreshing(false); }
     }
@@ -220,7 +220,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
 
   const isLiveGame = (item) => {
     if (item.gameStatus !== 'live') return false;
-    // NBA games show quarter info and halftime
+    // WNBA games show quarter info and halftime
     const statusText = (item.status || '').toString();
     const isHalftime = /halftime/i.test(statusText);
     const isEndOf = /end of/i.test(statusText);
@@ -269,7 +269,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
     if (item.type === 'no-games' || item.type === 'header') return;
     navigation.navigate('GameDetails', { 
       gameId: item.id, 
-      sport: 'nba',
+      sport: 'wnba',
       homeTeam: item.homeTeam,
       awayTeam: item.awayTeam
     });
@@ -278,22 +278,10 @@ const NBAScoreboardScreen = ({ navigation }) => {
   const handleTeamPress = (team) => {
     navigation.navigate('TeamPage', { 
       teamId: team.id, 
-      sport: 'nba',
+      sport: 'wnba',
       teamName: team.displayName,
       teamAbbreviation: team.abbreviation
     });
-  };
-
-  // Helper function to get NBA team ID for favorites
-  const getNBATeamId = (team) => {
-    const abbrToIdMap = {
-      'atl': '1', 'bos': '2', 'bkn': '17', 'cha': '30', 'chi': '4', 'cle': '5',
-      'dal': '6', 'den': '7', 'det': '8', 'gs': '9', 'hou': '10', 'ind': '11',
-      'lac': '12', 'lal': '13', 'mem': '29', 'mia': '14', 'mil': '15', 'min': '16',
-      'no': '3', 'nyk': '18', 'okc': '25', 'orl': '19', 'phi': '20', 'phx': '21',
-      'por': '22', 'sac': '23', 'sa': '24', 'tor': '28', 'uta': '26', 'wsh': '27'
-    };
-    return team?.id || abbrToIdMap[String(team?.abbreviation).toLowerCase()] || null;
   };
 
   const renderDateFilter = () => (
@@ -385,10 +373,10 @@ const NBAScoreboardScreen = ({ navigation }) => {
               />
               <View style={styles.teamDetails}>
                 <View style={styles.teamNameContainer}>
-                  {isFavorite(item.awayTeam.id, 'nba') && (
+                  {isFavorite(item.awayTeam.id, 'wnba') && (
                     <Ionicons name="star" size={14} color={colors.primary} style={styles.favoriteIcon} />
                   )}
-                  <Text allowFontScaling={false} style={[styles.teamName, { color: isFavorite(item.awayTeam.id, 'nba') ? colors.primary : theme.text }]}>
+                  <Text allowFontScaling={false} style={[styles.teamName, { color: isFavorite(item.awayTeam.id, 'wnba') ? colors.primary : theme.text }]}>
                     {item.awayTeam.displayName}
                   </Text>
                 </View>
@@ -419,10 +407,10 @@ const NBAScoreboardScreen = ({ navigation }) => {
               />
               <View style={styles.teamDetails}>
                 <View style={styles.teamNameContainer}>
-                  {isFavorite(item.homeTeam.id, 'nba') && (
+                  {isFavorite(item.homeTeam.id, 'wnba') && (
                     <Ionicons name="star" size={14} color={colors.primary} style={styles.favoriteIcon} />
                   )}
-                  <Text allowFontScaling={false} style={[styles.teamName, { color: isFavorite(item.homeTeam.id, 'nba') ? colors.primary : theme.text }]}>
+                  <Text allowFontScaling={false} style={[styles.teamName, { color: isFavorite(item.homeTeam.id, 'wnba') ? colors.primary : theme.text }]}>
                     {item.homeTeam.displayName}
                   </Text>
                 </View>
@@ -463,7 +451,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>
-          Loading NBA games...
+          Loading WNBA games...
         </Text>
       </View>
     );
@@ -639,4 +627,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default NBAScoreboardScreen;
+export default WNBAScoreboardScreen;

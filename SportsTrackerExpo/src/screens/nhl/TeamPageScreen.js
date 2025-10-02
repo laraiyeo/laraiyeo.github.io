@@ -94,6 +94,32 @@ const TeamPageScreen = ({ route, navigation }) => {
   const [teamStats, setTeamStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(false);
 
+  // Configuration for which stats to show for each category
+  // You can customize this object to show different stats for each category
+  const statsConfiguration = {
+    // Default configuration - show first 6 stats for any category not specified
+    default: { limit: 6, statNames: null }, // null means show first N stats
+    
+    // Example category-specific configurations
+    // You can add specific categories here with custom stat selections
+    'Offensive': { 
+      limit: 6, 
+      statNames: ['goals', 'assists', 'avgShots', 'pointsPerGame', 'powerPlayOpportunities', 'faceoffPercent'] 
+    },
+    'Defensive': { 
+      limit: 6, 
+      statNames: ['avgGoalsAgainst', 'avgShotsAgainst', 'powerPlayGoalsAgainst', 'shutouts', 'saves', 'hits'] 
+    },
+    'General': { 
+      limit: 6, 
+      statNames: ['games', 'timeOnIcePerGame', 'shiftsPerGame', 'shotDifferential', 'goalDifferential', 'PIMDifferential']
+    },
+    'Penalties': {
+      limit: 6,
+      statNames: ['penalties', 'penaltyMinutes', 'majorPenalties', 'minorPenalties', 'avgFights', 'holdingPenalties']
+    }
+  };
+
   const liveUpdateInterval = useRef(null);
   // Simple in-memory cache for this screen instance
   const cachedStandings = useRef(null);
@@ -1661,10 +1687,45 @@ const TeamPageScreen = ({ route, navigation }) => {
     // We'll render every category but only the top 6 stats per category (by presence order)
     const categories = teamStats?.results?.stats?.categories || teamStats?.categories || teamStats?.groups || [];
 
-    const pickTopStats = (statsArr, limit = 6) => {
+    const pickTopStats = (statsArr, categoryName = '') => {
       if (!Array.isArray(statsArr)) return [];
-      // Prefer stats that have a numeric value; keep original order, take first `limit`
+      
+      // Get configuration for this category, fallback to default
+      const config = statsConfiguration[categoryName] || statsConfiguration.default;
+      const { limit, statNames } = config;
+      
+      // Filter out stats without values
       const filtered = statsArr.filter(s => s && (s.value !== undefined || s.displayValue !== undefined));
+      
+      // If specific stat names are configured, try to find them
+      if (statNames && Array.isArray(statNames)) {
+        const selectedStats = [];
+        
+        // First, try to find stats by the configured names
+        statNames.forEach(statName => {
+          const foundStat = filtered.find(s => 
+            s.name === statName || 
+            s.displayName === statName || 
+            s.abbreviation === statName ||
+            s.name?.toLowerCase() === statName.toLowerCase() ||
+            s.displayName?.toLowerCase() === statName.toLowerCase()
+          );
+          if (foundStat && !selectedStats.includes(foundStat)) {
+            selectedStats.push(foundStat);
+          }
+        });
+        
+        // If we found fewer stats than requested, fill with remaining stats
+        if (selectedStats.length < limit) {
+          const remaining = filtered.filter(s => !selectedStats.includes(s));
+          const needed = limit - selectedStats.length;
+          selectedStats.push(...remaining.slice(0, needed));
+        }
+        
+        return selectedStats.slice(0, limit);
+      }
+      
+      // If no specific stat names configured, just take first N stats
       return filtered.slice(0, limit);
     };
 
@@ -1699,8 +1760,9 @@ const TeamPageScreen = ({ route, navigation }) => {
         <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: theme.text }]}>Team Statistics</Text>
         {/* Render each category */}
         {categories.map((cat, idx) => {
+          const categoryName = cat.displayName || cat.name || '';
           const statsArr = cat.stats || cat.items || cat.values || [];
-          const top = pickTopStats(statsArr, 6);
+          const top = pickTopStats(statsArr, categoryName);
           const statCards = top.map((s, si) => <StatCard key={`${s.name || s.displayName || si}`} stat={s} />);
           return (
             <View key={`${cat.name || cat.displayName || idx}`} style={styles.statsSection}>

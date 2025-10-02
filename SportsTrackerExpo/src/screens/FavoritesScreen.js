@@ -1888,8 +1888,78 @@ const FavoritesScreen = ({ navigation }) => {
                 console.log(`Error updating NHL game ${game.id}:`, nhlUpdateError.message);
               }
               return game; // Return game object even if update failed
-            } else if (game.actualLeagueCode && game.actualLeagueCode !== 'nfl' && game.actualLeagueCode !== 'nhl') {
-              // Handle domestic leagues using the actualLeagueCode (skip NFL and NHL as they're not soccer)
+            } else if (game.actualLeagueCode === 'nba') {
+              // Handle NBA games with proper basketball URLs
+              try {
+                console.log(`[NBA UPDATE] Starting update for NBA game ${game.id}`);
+                const nbaSummaryUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${game.id}`;
+                console.log(`[NBA UPDATE] Fetching from: ${nbaSummaryUrl}`);
+                const statusJson = await fetchJsonWithCache(nbaSummaryUrl);
+                
+                if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
+                  extraStatusForMerge = statusJson.header.competitions[0];
+                  console.log(`[NBA UPDATE] Fetched Site API status for NBA game ${game.id}`);
+                  
+                  // Also try to get plays data for live games
+                  const competition = statusJson.header.competitions[0];
+                  const isLive = competition?.status?.type?.state === 'in';
+                  if (isLive) {
+                    try {
+                      const playsUrl = `${nbaSummaryUrl}&enable=plays`;
+                      console.log(`[NBA UPDATE] Fetching plays from: ${playsUrl}`);
+                      const playsResponse = await fetchJsonWithCache(playsUrl);
+                      if (playsResponse?.plays && playsResponse.plays.length > 0) {
+                        playsData = [...playsResponse.plays].reverse();
+                        console.log(`[NBA UPDATE] Got ${playsData.length} plays for NBA game ${game.id}`);
+                      }
+                    } catch (playsError) {
+                      console.log(`[NBA UPDATE] Could not fetch plays for NBA game ${game.id}:`, playsError?.message);
+                    }
+                  }
+                } else {
+                  console.log(`[NBA UPDATE] No valid status data in response for NBA game ${game.id}`);
+                }
+              } catch (nbaUpdateError) {
+                console.log(`Error updating NBA game ${game.id}:`, nbaUpdateError.message);
+              }
+              return game; // Return game object even if update failed
+            } else if (game.actualLeagueCode === 'wnba') {
+              // Handle WNBA games with proper basketball URLs
+              try {
+                console.log(`[WNBA UPDATE] Starting update for WNBA game ${game.id}`);
+                const wnbaSummaryUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/summary?event=${game.id}`;
+                console.log(`[WNBA UPDATE] Fetching from: ${wnbaSummaryUrl}`);
+                const statusJson = await fetchJsonWithCache(wnbaSummaryUrl);
+                
+                if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
+                  extraStatusForMerge = statusJson.header.competitions[0];
+                  console.log(`[WNBA UPDATE] Fetched Site API status for WNBA game ${game.id}`);
+                  
+                  // Also try to get plays data for live games
+                  const competition = statusJson.header.competitions[0];
+                  const isLive = competition?.status?.type?.state === 'in';
+                  if (isLive) {
+                    try {
+                      const playsUrl = `${wnbaSummaryUrl}&enable=plays`;
+                      console.log(`[WNBA UPDATE] Fetching plays from: ${playsUrl}`);
+                      const playsResponse = await fetchJsonWithCache(playsUrl);
+                      if (playsResponse?.plays && playsResponse.plays.length > 0) {
+                        playsData = [...playsResponse.plays].reverse();
+                        console.log(`[WNBA UPDATE] Got ${playsData.length} plays for WNBA game ${game.id}`);
+                      }
+                    } catch (playsError) {
+                      console.log(`[WNBA UPDATE] Could not fetch plays for WNBA game ${game.id}:`, playsError?.message);
+                    }
+                  }
+                } else {
+                  console.log(`[WNBA UPDATE] No valid status data in response for WNBA game ${game.id}`);
+                }
+              } catch (wnbaUpdateError) {
+                console.log(`Error updating WNBA game ${game.id}:`, wnbaUpdateError.message);
+              }
+              return game; // Return game object even if update failed
+            } else if (game.actualLeagueCode && game.actualLeagueCode !== 'nfl' && game.actualLeagueCode !== 'nhl' && game.actualLeagueCode !== 'nba' && game.actualLeagueCode !== 'wnba') {
+              // Handle domestic leagues using the actualLeagueCode (skip NFL, NHL, NBA, WNBA as they're not soccer)
               console.log(`[BRANCH DEBUG] Using generic actualLeagueCode branch for game ${game.id}`);
               console.log(`[LIVE UPDATE] Starting update for ${game.actualLeagueCode} game ${game.id}`);
               const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${game.actualLeagueCode}/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`);
@@ -2623,7 +2693,155 @@ const FavoritesScreen = ({ navigation }) => {
         }
       }
       
-  // For non-MLB/NFL/NHL games (soccer, etc.), use the existing helper which caches and is null-safe
+      // Handle NBA games differently - use ESPN API format for proper basketball data
+      const isNBA = teamSport === 'nba' || currentGameData.competition === 'nba';
+      if (isNBA && currentGameData.eventId) {
+        console.log(`Fetching NBA game using ESPN API for ${teamName} with eventId: ${currentGameData.eventId}`);
+        const nbaUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${currentGameData.eventId}`;
+        
+        try {
+          // Use longer timeout for NBA API calls and bypass poll gating
+          const eventData = await fetchJsonWithCache(nbaUrl, { timeout: 8000, bypassGating: true });
+          
+          if (!eventData) {
+            console.log(`Failed to fetch NBA game data for ${teamName} - no data returned`);
+            return null;
+          }
+          
+          console.log(`[DEBUG] NBA API response structure for ${teamName}:`, {
+            hasHeader: !!eventData.header,
+            hasCompetitions: !!eventData.header?.competitions,
+            competitionsLength: eventData.header?.competitions?.length,
+            topLevelKeys: Object.keys(eventData).slice(0, 10)
+          });
+          
+          // The ESPN summary API has a different structure than the scoreboard API
+          // Extract the competition data from the header
+          const competition = eventData.header?.competitions?.[0];
+          if (!competition) {
+            console.log(`No competition data found in NBA API response for ${teamName}`);
+            return null;
+          }
+
+          // Extract home/away teams from NBA Site API structure
+          const competitors = competition.competitors || [];
+          const homeCompetitor = competitors.find(c => c.homeAway === 'home');
+          const awayCompetitor = competitors.find(c => c.homeAway === 'away');
+
+          // Convert NBA data to standard format
+          const convertedGame = {
+            ...eventData,
+            id: eventData.header?.id || currentGameData.eventId,
+            date: competition.date || eventData.header?.competitions?.[0]?.date || currentGameData.gameDate,
+            venue: competition.venue?.fullName || competition.venue?.displayName || eventData.header?.competitions?.[0]?.venue?.fullName || 'TBD Arena',
+            competitions: eventData.header?.competitions || [competition],
+            homeTeam: homeCompetitor ? {
+              team: homeCompetitor.team,
+              abbreviation: homeCompetitor.team?.abbreviation || homeCompetitor.team?.displayName || 'HOME',
+              displayName: homeCompetitor.team?.displayName || homeCompetitor.team?.abbreviation || 'Home Team',
+              score: homeCompetitor.score || '0'
+            } : null,
+            awayTeam: awayCompetitor ? {
+              team: awayCompetitor.team,
+              abbreviation: awayCompetitor.team?.abbreviation || awayCompetitor.team?.displayName || 'AWAY', 
+              displayName: awayCompetitor.team?.displayName || awayCompetitor.team?.abbreviation || 'Away Team',
+              score: awayCompetitor.score || '0'
+            } : null,
+            favoriteTeam: team,
+            sport: 'NBA',
+            actualLeagueCode: 'nba',
+            fromDirectLink: true,
+            eventLink: nbaUrl
+          };
+          
+          console.log(`Successfully converted NBA game ${convertedGame.id} for ${teamName}`, {
+            hasHeader: !!convertedGame.header,
+            hasCompetitions: !!convertedGame.header?.competitions,
+            status: convertedGame.header?.competitions?.[0]?.status?.type?.description
+          });
+          return convertedGame;
+        } catch (nbaError) {
+          console.log(`Error fetching NBA game data for ${teamName}:`, nbaError.message || nbaError);
+          console.log(`Error stack:`, nbaError.stack);
+          return null;
+        }
+      }
+      
+      // Handle WNBA games differently - use ESPN API format for proper basketball data
+      const isWNBA = teamSport === 'wnba' || currentGameData.competition === 'wnba';
+      if (isWNBA && currentGameData.eventId) {
+        console.log(`Fetching WNBA game using ESPN API for ${teamName} with eventId: ${currentGameData.eventId}`);
+        const wnbaUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/summary?event=${currentGameData.eventId}`;
+        
+        try {
+          // Use longer timeout for WNBA API calls and bypass poll gating
+          const eventData = await fetchJsonWithCache(wnbaUrl, { timeout: 8000, bypassGating: true });
+          
+          if (!eventData) {
+            console.log(`Failed to fetch WNBA game data for ${teamName} - no data returned`);
+            return null;
+          }
+          
+          console.log(`[DEBUG] WNBA API response structure for ${teamName}:`, {
+            hasHeader: !!eventData.header,
+            hasCompetitions: !!eventData.header?.competitions,
+            competitionsLength: eventData.header?.competitions?.length,
+            topLevelKeys: Object.keys(eventData).slice(0, 10)
+          });
+          
+          // The ESPN summary API has a different structure than the scoreboard API
+          // Extract the competition data from the header
+          const competition = eventData.header?.competitions?.[0];
+          if (!competition) {
+            console.log(`No competition data found in WNBA API response for ${teamName}`);
+            return null;
+          }
+
+          // Extract home/away teams from WNBA Site API structure
+          const competitors = competition.competitors || [];
+          const homeCompetitor = competitors.find(c => c.homeAway === 'home');
+          const awayCompetitor = competitors.find(c => c.homeAway === 'away');
+
+          // Convert WNBA data to standard format
+          const convertedGame = {
+            ...eventData,
+            id: eventData.header?.id || currentGameData.eventId,
+            date: competition.date || eventData.header?.competitions?.[0]?.date || currentGameData.gameDate,
+            venue: competition.venue?.fullName || competition.venue?.displayName || eventData.header?.competitions?.[0]?.venue?.fullName || 'TBD Arena',
+            competitions: eventData.header?.competitions || [competition],
+            homeTeam: homeCompetitor ? {
+              team: homeCompetitor.team,
+              abbreviation: homeCompetitor.team?.abbreviation || homeCompetitor.team?.displayName || 'HOME',
+              displayName: homeCompetitor.team?.displayName || homeCompetitor.team?.abbreviation || 'Home Team',
+              score: homeCompetitor.score || '0'
+            } : null,
+            awayTeam: awayCompetitor ? {
+              team: awayCompetitor.team,
+              abbreviation: awayCompetitor.team?.abbreviation || awayCompetitor.team?.displayName || 'AWAY', 
+              displayName: awayCompetitor.team?.displayName || awayCompetitor.team?.abbreviation || 'Away Team',
+              score: awayCompetitor.score || '0'
+            } : null,
+            favoriteTeam: team,
+            sport: 'WNBA',
+            actualLeagueCode: 'wnba',
+            fromDirectLink: true,
+            eventLink: wnbaUrl
+          };
+          
+          console.log(`Successfully converted WNBA game ${convertedGame.id} for ${teamName}`, {
+            hasHeader: !!convertedGame.header,
+            hasCompetitions: !!convertedGame.header?.competitions,
+            status: convertedGame.header?.competitions?.[0]?.status?.type?.description
+          });
+          return convertedGame;
+        } catch (wnbaError) {
+          console.log(`Error fetching WNBA game data for ${teamName}:`, wnbaError.message || wnbaError);
+          console.log(`Error stack:`, wnbaError.stack);
+          return null;
+        }
+      }
+      
+  // For soccer games only, use the existing helper which caches and is null-safe
       // Resolve the URL first so we can save it in the return object
       let resolvedEventLink = currentGameData.eventLink;
       try {
@@ -3725,6 +3943,18 @@ const FavoritesScreen = ({ navigation }) => {
         gameId: game.id,
         sport: 'nhl',
       });
+    } else if (actualCompetition === 'nba' || game.sport === 'NBA' || game.sport === 'nba') {
+      // NBA uses the generic GameDetails screen in the app stack - pass sport 'nba'
+      navigation.navigate('GameDetails', {
+        gameId: game.id,
+        sport: 'nba',
+      });
+    } else if (actualCompetition === 'wnba' || game.sport === 'WNBA' || game.sport === 'wnba') {
+      // WNBA uses the generic GameDetails screen in the app stack - pass sport 'wnba'
+      navigation.navigate('GameDetails', {
+        gameId: game.id,
+        sport: 'wnba',
+      });
     }
   };
 
@@ -4624,6 +4854,491 @@ const FavoritesScreen = ({ navigation }) => {
     );
   };
 
+  const renderNBAGameCard = (game) => {
+    const homeTeam = game.homeTeam;
+    const awayTeam = game.awayTeam;
+    const homeScore = homeTeam?.score || '0';
+    const awayScore = awayTeam?.score || '0';
+
+    // NBA-specific status detection
+    const getMatchStatusForNBA = (g) => {
+      const competition = g.competitions?.[0];
+      const statusFromCompetition = competition?.status;
+      const statusFromSiteAPI = g.gameDataWithStatus?.header?.competitions?.[0]?.status || statusFromCompetition;
+
+      let state = statusFromSiteAPI?.type?.state || statusFromCompetition?.type?.state;
+      
+      // Normalize some common strings
+      if (!state && typeof g.status === 'string') {
+        const s = String(g.status).toLowerCase();
+        if (s.includes('final') || s.includes('post')) state = 'post';
+        else if (s.includes('in') || s.includes('progress') || s.includes('live')) state = 'in';
+        else state = 'pre';
+      }
+
+      // Fallback to computeMatchFlags if the site API doesn't indicate live
+      const fallback = computeMatchFlags(g);
+      const isLive = (state === 'in') || fallback.isLive;
+      const isPost = (state === 'post') || fallback.isPost || fallback.isFinished;
+      const isPre = !isLive && !isPost;
+
+      let text = 'Scheduled';
+      let time = '';
+      let detail = '';
+
+      if (isLive) {
+        text = statusFromSiteAPI?.type?.description || statusFromCompetition?.type?.description || 'Live';
+        time = statusFromSiteAPI?.displayClock || statusFromCompetition?.displayClock || 'Live';
+        detail = statusFromSiteAPI?.type?.detail || statusFromCompetition?.type?.detail || '';
+      } else if (isPost) {
+        text = 'Final';
+        time = '';
+        detail = statusFromSiteAPI?.type?.detail || statusFromCompetition?.type?.detail || 'Final';
+      } else {
+        text = 'Scheduled';
+        const gameDate = new Date(g.date);
+        time = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        detail = gameDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
+
+      return { isLive, isPre, isPost, text, time, detail };
+    };
+
+    const matchStatus = getMatchStatusForNBA(game);
+    const isLive = Boolean(matchStatus?.isLive);
+    const isScheduled = Boolean(matchStatus?.isPre);
+    const isFinished = Boolean(matchStatus?.isPost);
+
+    // Get the most recent play for live games and determine border styling
+    let recentPlayText = '';
+    let cardBorderStyle = {};
+    
+    if (isLive && (game.plays || game.boxscore?.playByPlay)) {
+      const rawPlaysSource = game.plays || game.boxscore?.playByPlay || [];
+      let playsArray = [];
+      
+      if (Array.isArray(rawPlaysSource)) {
+        playsArray = rawPlaysSource.slice();
+      } else if (rawPlaysSource?.items && Array.isArray(rawPlaysSource.items)) {
+        playsArray = rawPlaysSource.items.slice();
+      }
+
+      if (playsArray.length > 0) {
+        const mostRecent = playsArray[0];
+        if (mostRecent) {
+          recentPlayText = mostRecent.text || mostRecent.description || mostRecent.displayText || '';
+          recentPlayText = recentPlayText.replace(/\s+/g, ' ').trim();
+          
+          // Add border styling for live games
+          cardBorderStyle = {
+            borderTopWidth: 3,
+            borderTopColor: colors.primary
+          };
+        }
+      }
+    }
+
+    // Game date formatting
+    const gameDate = new Date(game.date);
+    const formatGameDate = (date) => {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+    const formatGameTime = (date) => {
+      return date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        hour12: true 
+      });
+    };
+
+    // Determine winners/losers for styling
+    const homeScoreNum = parseInt(homeScore) || 0;
+    const awayScoreNum = parseInt(awayScore) || 0;
+    const homeIsWinner = isFinished && homeScoreNum > awayScoreNum;
+    const awayIsWinner = isFinished && awayScoreNum > homeScoreNum;
+    const homeIsLoser = isFinished && homeScoreNum < awayScoreNum;
+    const awayIsLoser = isFinished && awayScoreNum < homeScoreNum;
+
+    // Status text for display
+    let gameStatusText = matchStatus.text;
+    if (isLive && matchStatus.detail) {
+      gameStatusText = `${matchStatus.text} - ${matchStatus.detail}`;
+    } else if (isLive && matchStatus.time) {
+      gameStatusText = matchStatus.time;
+    }
+
+    // Helper function to get NBA team ID for favorites
+    const getNBATeamId = (team) => {
+      return team?.team?.id || team?.id;
+    };
+
+    return (
+      <TouchableOpacity 
+        key={game.id}
+        style={[styles.gameCard, { 
+          backgroundColor: theme.surface, 
+          borderColor: theme.border,
+          borderTopColor: theme.border,
+          borderBottomColor: theme.border,
+        }, cardBorderStyle]}
+        onPress={() => handleGamePress(game)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.leagueHeader, { 
+          backgroundColor: theme.surfaceSecondary 
+        }]}>
+          <Text allowFontScaling={false} style={[styles.leagueText, { 
+            color: colors.primary 
+          }]}>
+            NBA
+          </Text>
+        </View>
+        
+        <View style={styles.matchContent}>
+          <View style={styles.teamSection}>
+            <View style={styles.teamLogoRow}>
+              <Image
+                style={[styles.teamLogo, awayIsLoser && styles.losingTeamLogo]}
+                source={{
+                  uri: isDarkMode
+                    ? `https://a.espncdn.com/i/teamlogos/nba/500-dark/${awayTeam?.abbreviation?.toLowerCase()}.png`
+                    : `https://a.espncdn.com/i/teamlogos/nba/500/${awayTeam?.abbreviation?.toLowerCase()}.png`
+                }}
+                onError={() => {
+                  // Fallback handled by source
+                }}
+              />
+              {!isScheduled && (
+                <View style={styles.scoreContainer}>
+                  <Text allowFontScaling={false} style={[styles.teamScore, {
+                    color: isFinished ? (awayIsWinner ? colors.primary : (awayIsLoser ? '#999' : theme.text)) : theme.text
+                  }]}>
+                    {awayScore}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text allowFontScaling={false} style={[styles.teamAbbreviation, {
+              color: isFavorite(getNBATeamId(awayTeam), 'nba') ? colors.primary : (awayIsLoser ? '#999' : theme.text)
+            }]}>
+              {isFavorite(getNBATeamId(awayTeam), 'nba') ? '★ ' : ''}{awayTeam?.abbreviation}
+            </Text>
+          </View>
+          
+          <View style={styles.statusSection}>
+            <Text allowFontScaling={false} style={[styles.gameStatus, {
+              color: colors.primary
+            }]}>
+              {gameStatusText}
+            </Text>
+            
+            {isLive ? (
+              <View style={{ alignItems: 'center', marginTop: 4 }}>
+                {matchStatus.time && (
+                  <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary, fontWeight: '600' }]}>
+                    {matchStatus.time}
+                  </Text>
+                )}
+              </View>
+            ) : (
+              <View style={{ alignItems: 'center', marginTop: 4 }}>
+                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                  {formatGameDate(gameDate)}
+                </Text>
+                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                  {formatGameTime(gameDate)} EST
+                </Text>
+              </View>
+            )}
+          </View>
+          
+          <View style={styles.teamSection}>
+            <View style={styles.teamLogoRow}>
+              {!isScheduled && (
+                <View style={styles.scoreContainer}>
+                  <Text allowFontScaling={false} style={[styles.teamScore, {
+                    color: isFinished ? (homeIsWinner ? colors.primary : (homeIsLoser ? '#999' : theme.text)) : theme.text
+                  }]}>
+                    {homeScore}
+                  </Text>
+                </View>
+              )}
+              <Image
+                style={[styles.teamLogo, homeIsLoser && styles.losingTeamLogo]}
+                source={{
+                  uri: isDarkMode
+                    ? `https://a.espncdn.com/i/teamlogos/nba/500-dark/${homeTeam?.abbreviation?.toLowerCase()}.png`
+                    : `https://a.espncdn.com/i/teamlogos/nba/500/${homeTeam?.abbreviation?.toLowerCase()}.png`
+                }}
+                onError={() => {
+                  // Fallback handled by source
+                }}
+              />
+            </View>
+            <Text allowFontScaling={false} style={[styles.teamAbbreviation, {
+              color: isFavorite(getNBATeamId(homeTeam), 'nba') ? colors.primary : (homeIsLoser ? '#999' : theme.text)
+            }]}>
+              {isFavorite(getNBATeamId(homeTeam), 'nba') ? '★ ' : ''}{homeTeam?.abbreviation}
+            </Text>
+          </View>
+        </View>
+        
+        <View style={styles.venueSection}>
+          {isLive && recentPlayText ? (
+            <Text allowFontScaling={false} style={[styles.livePlayText, { color: theme.text }]} numberOfLines={2}>
+              {recentPlayText}
+            </Text>
+          ) : (
+            <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>
+              {game.gameInfo.venue.fullName || 'TBD Arena'}
+            </Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderWNBAGameCard = (game) => {
+    const homeTeam = game.homeTeam;
+    const awayTeam = game.awayTeam;
+    const homeScore = homeTeam?.score || '0';
+    const awayScore = awayTeam?.score || '0';
+
+    // WNBA-specific status detection (same as NBA)
+    const getMatchStatusForWNBA = (g) => {
+      const competition = g.competitions?.[0];
+      const statusFromCompetition = competition?.status;
+      const statusFromSiteAPI = g.gameDataWithStatus?.header?.competitions?.[0]?.status || statusFromCompetition;
+
+      let state = statusFromSiteAPI?.type?.state || statusFromCompetition?.type?.state;
+      
+      if (!state && typeof g.status === 'string') {
+        const s = String(g.status).toLowerCase();
+        if (s.includes('final') || s.includes('post')) state = 'post';
+        else if (s.includes('in') || s.includes('progress') || s.includes('live')) state = 'in';
+        else state = 'pre';
+      }
+
+      const fallback = computeMatchFlags(g);
+      const isLive = (state === 'in') || fallback.isLive;
+      const isPost = (state === 'post') || fallback.isPost || fallback.isFinished;
+      const isPre = !isLive && !isPost;
+
+      let text = 'Scheduled';
+      let time = '';
+      let detail = '';
+
+      if (isLive) {
+        text = statusFromSiteAPI?.type?.description || statusFromCompetition?.type?.description || 'Live';
+        time = statusFromSiteAPI?.displayClock || statusFromCompetition?.displayClock || 'Live';
+        detail = statusFromSiteAPI?.type?.detail || statusFromCompetition?.type?.detail || '';
+      } else if (isPost) {
+        text = 'Final';
+        time = '';
+        detail = statusFromSiteAPI?.type?.detail || statusFromCompetition?.type?.detail || 'Final';
+      } else {
+        text = 'Scheduled';
+        const gameDate = new Date(g.date);
+        time = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        detail = gameDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
+
+      return { isLive, isPre, isPost, text, time, detail };
+    };
+
+    const matchStatus = getMatchStatusForWNBA(game);
+    const isLive = Boolean(matchStatus?.isLive);
+    const isScheduled = Boolean(matchStatus?.isPre);
+    const isFinished = Boolean(matchStatus?.isPost);
+
+    // Get the most recent play for live games and determine border styling
+    let recentPlayText = '';
+    let cardBorderStyle = {};
+    
+    if (isLive && (game.plays || game.boxscore?.playByPlay)) {
+      const rawPlaysSource = game.plays || game.boxscore?.playByPlay || [];
+      let playsArray = [];
+      
+      if (Array.isArray(rawPlaysSource)) {
+        playsArray = rawPlaysSource.slice();
+      } else if (rawPlaysSource?.items && Array.isArray(rawPlaysSource.items)) {
+        playsArray = rawPlaysSource.items.slice();
+      }
+
+      if (playsArray.length > 0) {
+        const mostRecent = playsArray[0];
+        if (mostRecent) {
+          recentPlayText = mostRecent.text || mostRecent.description || mostRecent.displayText || '';
+          recentPlayText = recentPlayText.replace(/\s+/g, ' ').trim();
+          
+          cardBorderStyle = {
+            borderTopWidth: 3,
+            borderTopColor: colors.primary
+          };
+        }
+      }
+    }
+
+    // Game date formatting
+    const gameDate = new Date(game.date);
+    const formatGameDate = (date) => {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+    const formatGameTime = (date) => {
+      return date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        hour12: true 
+      });
+    };
+
+    // Determine winners/losers for styling
+    const homeScoreNum = parseInt(homeScore) || 0;
+    const awayScoreNum = parseInt(awayScore) || 0;
+    const homeIsWinner = isFinished && homeScoreNum > awayScoreNum;
+    const awayIsWinner = isFinished && awayScoreNum > homeScoreNum;
+    const homeIsLoser = isFinished && homeScoreNum < awayScoreNum;
+    const awayIsLoser = isFinished && awayScoreNum < homeScoreNum;
+
+    // Status text for display
+    let gameStatusText = matchStatus.text;
+    if (isLive && matchStatus.detail) {
+      gameStatusText = `${matchStatus.text} - ${matchStatus.detail}`;
+    } else if (isLive && matchStatus.time) {
+      gameStatusText = matchStatus.time;
+    }
+
+    // Helper function to get WNBA team ID for favorites
+    const getWNBATeamId = (team) => {
+      return team?.team?.id || team?.id;
+    };
+
+    return (
+      <TouchableOpacity 
+        key={game.id}
+        style={[styles.gameCard, { 
+          backgroundColor: theme.surface, 
+          borderColor: theme.border,
+          borderTopColor: theme.border,
+          borderBottomColor: theme.border,
+        }, cardBorderStyle]}
+        onPress={() => handleGamePress(game)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.leagueHeader, { 
+          backgroundColor: theme.surfaceSecondary 
+        }]}>
+          <Text allowFontScaling={false} style={[styles.leagueText, { 
+            color: colors.primary 
+          }]}>
+            WNBA
+          </Text>
+        </View>
+        
+        <View style={styles.matchContent}>
+          <View style={styles.teamSection}>
+            <View style={styles.teamLogoRow}>
+              <Image
+                style={[styles.teamLogo, awayIsLoser && styles.losingTeamLogo]}
+                source={{
+                  uri: isDarkMode
+                    ? `https://a.espncdn.com/i/teamlogos/wnba/500-dark/${awayTeam?.abbreviation?.toLowerCase()}.png`
+                    : `https://a.espncdn.com/i/teamlogos/wnba/500/${awayTeam?.abbreviation?.toLowerCase()}.png`
+                }}
+                onError={() => {
+                  // Fallback handled by source
+                }}
+              />
+              {!isScheduled && (
+                <View style={styles.scoreContainer}>
+                  <Text allowFontScaling={false} style={[styles.teamScore, {
+                    color: isFinished ? (awayIsWinner ? colors.primary : (awayIsLoser ? '#999' : theme.text)) : theme.text
+                  }]}>
+                    {awayScore}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text allowFontScaling={false} style={[styles.teamAbbreviation, {
+              color: isFavorite(getWNBATeamId(awayTeam), 'wnba') ? colors.primary : (awayIsLoser ? '#999' : theme.text)
+            }]}>
+              {isFavorite(getWNBATeamId(awayTeam), 'wnba') ? '★ ' : ''}{awayTeam?.abbreviation}
+            </Text>
+          </View>
+          
+          <View style={styles.statusSection}>
+            <Text allowFontScaling={false} style={[styles.gameStatus, {
+              color: colors.primary
+            }]}>
+              {gameStatusText}
+            </Text>
+            
+            {isLive ? (
+              <View style={{ alignItems: 'center', marginTop: 4 }}>
+                {matchStatus.time && (
+                  <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary, fontWeight: '600' }]}>
+                    {matchStatus.time}
+                  </Text>
+                )}
+              </View>
+            ) : (
+              <View style={{ alignItems: 'center', marginTop: 4 }}>
+                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                  {formatGameDate(gameDate)}
+                </Text>
+                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                  {formatGameTime(gameDate)} EST
+                </Text>
+              </View>
+            )}
+          </View>
+          
+          <View style={styles.teamSection}>
+            <View style={styles.teamLogoRow}>
+              {!isScheduled && (
+                <View style={styles.scoreContainer}>
+                  <Text allowFontScaling={false} style={[styles.teamScore, {
+                    color: isFinished ? (homeIsWinner ? colors.primary : (homeIsLoser ? '#999' : theme.text)) : theme.text
+                  }]}>
+                    {homeScore}
+                  </Text>
+                </View>
+              )}
+              <Image
+                style={[styles.teamLogo, homeIsLoser && styles.losingTeamLogo]}
+                source={{
+                  uri: isDarkMode
+                    ? `https://a.espncdn.com/i/teamlogos/wnba/500-dark/${homeTeam?.abbreviation?.toLowerCase()}.png`
+                    : `https://a.espncdn.com/i/teamlogos/wnba/500/${homeTeam?.abbreviation?.toLowerCase()}.png`
+                }}
+                onError={() => {
+                  // Fallback handled by source
+                }}
+              />
+            </View>
+            <Text allowFontScaling={false} style={[styles.teamAbbreviation, {
+              color: isFavorite(getWNBATeamId(homeTeam), 'wnba') ? colors.primary : (homeIsLoser ? '#999' : theme.text)
+            }]}>
+              {isFavorite(getWNBATeamId(homeTeam), 'wnba') ? '★ ' : ''}{homeTeam?.abbreviation}
+            </Text>
+          </View>
+        </View>
+        
+        <View style={styles.venueSection}>
+          {isLive && recentPlayText ? (
+            <Text allowFontScaling={false} style={[styles.livePlayText, { color: theme.text }]} numberOfLines={2}>
+              {recentPlayText}
+            </Text>
+          ) : (
+            <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>
+              {game.venue || 'TBD Arena'}
+            </Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   const renderNHLGameCard = (game) => {
     const homeTeam = game.homeTeam;
     const awayTeam = game.awayTeam;
@@ -4714,9 +5429,10 @@ const FavoritesScreen = ({ navigation }) => {
           // Clean up the play text - remove excessive whitespace and format nicely
           recentPlayText = recentPlayText.replace(/\s+/g, ' ').trim();
           
-          // Get team colors for border styling (like NFL implementation)
+          // Get team colors for border styling and determine which team made the play
           let homeColor = colors.primary;
           let awayColor = colors.primary;
+          let isHomeTeamPlay = null;
           
           try {
             // Extract team colors from competition data
@@ -4734,16 +5450,46 @@ const FavoritesScreen = ({ navigation }) => {
               if (awayColorRaw) {
                 awayColor = awayColorRaw.startsWith('#') ? awayColorRaw : `#${awayColorRaw}`;
               }
+
+              // Determine which team made the play by checking team IDs in the play
+              const homeTeamId = homeCompetitor?.team?.id || homeCompetitor?.id;
+              const awayTeamId = awayCompetitor?.team?.id || awayCompetitor?.id;
+              const playTeamId = mostRecent.team?.id || mostRecent.teamId;
+              
+              if (playTeamId && homeTeamId && String(playTeamId) === String(homeTeamId)) {
+                isHomeTeamPlay = true;
+              } else if (playTeamId && awayTeamId && String(playTeamId) === String(awayTeamId)) {
+                isHomeTeamPlay = false;
+              }
             }
             
-            // For NHL: Away team color on left, Home team color on right (opposite of NFL)
-            // This follows hockey convention where away team is typically on the left
-            cardBorderStyle = {
-              borderLeftColor: awayColor,
-              borderLeftWidth: 8,
-              borderRightColor: homeColor, 
-              borderRightWidth: 8,
-            };
+            // For NHL: Only show border on the side corresponding to the team that made the play
+            // Away team on left, Home team on right (hockey convention)
+            if (isHomeTeamPlay === true) {
+              // Home team play - show right border only
+              cardBorderStyle = {
+                borderLeftColor: theme?.border || '#333333',
+                borderLeftWidth: 0,
+                borderRightColor: homeColor, 
+                borderRightWidth: 8,
+              };
+            } else if (isHomeTeamPlay === false) {
+              // Away team play - show left border only
+              cardBorderStyle = {
+                borderLeftColor: awayColor,
+                borderLeftWidth: 8,
+                borderRightColor: theme?.border || '#333333', 
+                borderRightWidth: 0,
+              };
+            } else {
+              // Can't determine which team made the play - show no thick borders
+              cardBorderStyle = {
+                borderLeftColor: theme?.border || '#333333',
+                borderLeftWidth: 1,
+                borderRightColor: theme?.border || '#333333', 
+                borderRightWidth: 1,
+              };
+            }
             
           } catch (e) {
             console.log(`[NHL COLOR DEBUG] Error extracting colors:`, e);
@@ -6166,6 +6912,16 @@ const FavoritesScreen = ({ navigation }) => {
     // Check if this is an NHL game and render it with special styling
     if (game.sport === 'NHL' || game.actualLeagueCode === 'nhl') {
       return renderNHLGameCard(game);
+    }
+
+    // Check if this is an NBA game and render it with special styling
+    if (game.sport === 'NBA' || game.actualLeagueCode === 'nba') {
+      return renderNBAGameCard(game);
+    }
+
+    // Check if this is a WNBA game and render it with special styling
+    if (game.sport === 'WNBA' || game.actualLeagueCode === 'wnba') {
+      return renderWNBAGameCard(game);
     }
 
     return (

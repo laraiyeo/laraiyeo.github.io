@@ -12,7 +12,7 @@ import {
   StyleSheet 
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import NBADataService from '../../services/NBADataService';
+import WNBADataService from '../../services/WNBADataService';
 
 const CompareScreen = ({ route }) => {
   const { sport } = route.params;
@@ -37,9 +37,9 @@ const CompareScreen = ({ route }) => {
   const [showYear1Picker, setShowYear1Picker] = useState(false);
   const [showYear2Picker, setShowYear2Picker] = useState(false);
   
-  // NBA data loading state
-  const [nbaDataLoading, setNbaDataLoading] = useState(true);
-  const [allNBAPlayers, setAllNBAPlayers] = useState([]);
+  // WNBA data loading state
+  const [wnbaDataLoading, setWnbaDataLoading] = useState(true);
+  const [allWNBAPlayers, setAllWNBAPlayers] = useState([]);
 
   // Generate year options
   const currentYear = new Date().getFullYear();
@@ -47,7 +47,7 @@ const CompareScreen = ({ route }) => {
   const yearOptions = Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i);
 
   useEffect(() => {
-    initializeNBAData();
+    initializeWNBAData();
   }, []);
 
   useEffect(() => {
@@ -56,14 +56,14 @@ const CompareScreen = ({ route }) => {
     }
   }, [player1, player2, player1Year, player2Year]);
 
-  const initializeNBAData = async () => {
+  const initializeWNBAData = async () => {
     try {
-      await NBADataService.initializeData();
-      setAllNBAPlayers(NBADataService.getAllPlayers());
+      await WNBADataService.initializeData();
+      setAllWNBAPlayers(WNBADataService.getAllPlayers());
     } catch (error) {
-      console.error('Error initializing NBA data:', error);
+      console.error('Error initializing WNBA data:', error);
     } finally {
-      setNbaDataLoading(false);
+      setWnbaDataLoading(false);
     }
   };
 
@@ -73,7 +73,7 @@ const CompareScreen = ({ route }) => {
       return;
     }
 
-    const results = allNBAPlayers.filter(player =>
+    const results = allWNBAPlayers.filter(player =>
       player.displayName && 
       player.displayName.toLowerCase().includes(query.toLowerCase())
     );
@@ -83,10 +83,10 @@ const CompareScreen = ({ route }) => {
   const selectPlayer = (player, playerNumber) => {
     const otherPlayer = playerNumber === 1 ? player2 : player1;
     
-    // In NBA, all players can be compared with each other
-    if (otherPlayer && !NBADataService.canCompare(player, otherPlayer)) {
-      // This should never happen in NBA since canCompare always returns true
-      console.warn('Players cannot be compared, but this should not happen in NBA');
+    // In WNBA, all players can be compared with each other
+    if (otherPlayer && !WNBADataService.canCompare(player, otherPlayer)) {
+      // This should never happen in WNBA since canCompare always returns true
+      console.warn('Players cannot be compared, but this should not happen in WNBA');
     }
     
     if (playerNumber === 1) {
@@ -136,7 +136,7 @@ const CompareScreen = ({ route }) => {
 
   const fetchPlayerStats = async (playerId, year) => {
     try {
-      const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${year}/types/2/athletes/${playerId}/statistics?lang=en&region=us`);
+      const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/${year}/types/2/athletes/${playerId}/statistics?lang=en&region=us`);
       const data = await response.json();
       
       if (data.splits && data.splits.categories) {
@@ -171,12 +171,12 @@ const CompareScreen = ({ route }) => {
     }
   };
 
-  // NBA Position Groupings - all can compare
+  // WNBA Position Groupings - all can compare
   const getPositionGroup = (position) => {
-    return NBADataService.getPositionGroup(position);
+    return WNBADataService.getPositionGroup(position);
   };
 
-  // Get relevant stats for NBA players
+  // Get relevant stats for WNBA players
   const getPositionStats = (positionGroup, categories) => {
     const statMappings = {
       player: {
@@ -196,13 +196,10 @@ const CompareScreen = ({ route }) => {
     return lowerIsBetterStats.includes(statName);
   };
 
-  const getNBATeamAbbreviation = (team) => {
+  const getWNBATeamAbbreviation = (team) => {
     const teamMapping = {
-      '1': 'ATL', '2': 'BOS', '3': 'BKN', '4': 'CHA', '5': 'CHI', '6': 'CLE',
-      '7': 'DAL', '8': 'DEN', '9': 'DET', '10': 'GSW', '11': 'HOU', '12': 'IND',
-      '13': 'LAC', '14': 'LAL', '15': 'MEM', '16': 'MIA', '17': 'MIL', '18': 'MIN',
-      '19': 'NOP', '20': 'NYK', '21': 'OKC', '22': 'ORL', '23': 'PHI', '24': 'PHX',
-      '25': 'POR', '26': 'SAC', '27': 'SAS', '28': 'TOR', '29': 'UTA', '30': 'WAS'
+      '3' : 'DAL', '5' : 'IND', '6' : 'LA', '8' : 'MIN', '9' : 'NY', '11' : 'PHX', '14' : 'SEA', 
+      '16' : 'WSH', '17' : 'LV', '18' : 'CON', '19' : 'CHI', '20' : 'ATL', '129689' : 'GS'
     };
 
     if (team?.abbreviation) {
@@ -214,12 +211,12 @@ const CompareScreen = ({ route }) => {
       return abbr;
     }
     
-    return team?.name?.substring(0, 3)?.toUpperCase() || 'NBA';
+    return team?.name?.substring(0, 3)?.toUpperCase() || 'WNBA';
   };
 
   const getTeamLogo = (player) => {
     const teamLogoUrl = isDarkMode ? player.team?.logos?.[1]?.href : player.team?.logos?.[0]?.href;
-    return teamLogoUrl || getTeamLogoUrl('nba', getNBATeamAbbreviation(player.team));
+    return teamLogoUrl || getTeamLogoUrl('wnba', getWNBATeamAbbreviation(player.team));
   };
 
   const renderPlayerCard = (player, playerNumber) => {
@@ -263,14 +260,14 @@ const CompareScreen = ({ route }) => {
             style={styles.teamLogo}
           />
           <Text style={[styles.teamName, { color: theme.textSecondary }]}>
-            {getNBATeamAbbreviation(player.team)}
+            {getWNBATeamAbbreviation(player.team)}
           </Text>
         </View>
 
         <View style={styles.playerImageContainer}>
           <Image
             source={{ 
-              uri: player.headshot?.href || `https://a.espncdn.com/i/headshots/nba/players/full/${player.id}.png`
+              uri: player.headshot?.href || `https://a.espncdn.com/i/headshots/wnba/players/full/${player.id}.png`
             }}
             style={styles.playerImage}
           />
@@ -442,13 +439,13 @@ const CompareScreen = ({ route }) => {
     );
   };
 
-  if (nbaDataLoading) {
+  if (wnbaDataLoading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
-            Loading NBA data...
+            Loading WNBA data...
           </Text>
         </View>
       </View>
@@ -461,7 +458,7 @@ const CompareScreen = ({ route }) => {
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.primary }]}>Compare Players</Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-            Compare NBA players - all positions can be compared
+            Compare WNBA players - all positions can be compared
           </Text>
         </View>
 
@@ -545,7 +542,7 @@ const CompareScreen = ({ route }) => {
                   <View style={[styles.searchResultImage, { backgroundColor: theme.background }]}>
                     <Image
                       source={{ 
-                        uri: item.headshot?.href || `https://a.espncdn.com/i/headshots/nba/players/full/${item.id}.png`
+                        uri: item.headshot?.href || `https://a.espncdn.com/i/headshots/wnba/players/full/${item.id}.png`
                       }}
                       style={styles.playerHeadshot}
                     />
@@ -558,7 +555,7 @@ const CompareScreen = ({ route }) => {
                       {item.position?.displayName || 'Player'} • #{item.jersey || '00'}
                     </Text>
                     <Text style={[styles.searchResultTeam, { color: theme.textTertiary }]}>
-                      {getNBATeamAbbreviation(item.team)}
+                      {getWNBATeamAbbreviation(item.team)}
                     </Text>
                   </View>
                   <Image

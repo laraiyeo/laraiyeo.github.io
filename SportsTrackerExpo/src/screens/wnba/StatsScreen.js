@@ -68,7 +68,7 @@ const StatsScreen = ({ route }) => {
 
   const fetchPlayerStats = async () => {
     try {
-      const response = await fetch('https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2025/types/2/leaders?limit=10');
+      const response = await fetch('https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/2025/types/2/leaders?limit=10');
       const data = await response.json();
       
       if (data.categories) {
@@ -138,7 +138,7 @@ const StatsScreen = ({ route }) => {
 
   const fetchTeamStats = async () => {
     try {
-      const response = await fetch('https://site.web.api.espn.com/apis/site/v3/sports/basketball/nba/teamleaders');
+      const response = await fetch('https://site.web.api.espn.com/apis/site/v3/sports/basketball/wnba/teamleaders');
       const data = await response.json();
       
       if (data.teamLeaders && data.teamLeaders.categories) {
@@ -155,9 +155,8 @@ const StatsScreen = ({ route }) => {
 
   const getNHLTeamAbbreviation = (team) => {
     const teamMapping = {
-      1: 'ATL', 2: 'BOS', 3: 'NOP', 4: 'CHI', 5: 'CLE', 6: 'DAL', 7: 'DEN', 8: 'DET', 9: 'GSW', 10: 'HOU',
-      11: 'IND', 12: 'LAC', 13: 'LAL', 14: 'MIA', 15: 'MIL', 16: 'MIN', 17: 'BKN', 18: 'NY', 19: 'ORL', 20: 'PHI',
-      21: 'PHX', 22: 'POR', 23: 'SAC', 24: 'SA', 25: 'OKC', 26: 'UTAH', 27: 'WSH', 28: 'TOR', 29: 'MEM', 30: 'CHA',
+      3 : 'DAL', 5 : 'IND', 6 : 'LA', 8 : 'MIN', 9 : 'NY', 11 : 'PHX', 14 : 'SEA', 
+      16 : 'WSH', 17 : 'LV', 18 : 'CON', 19 : 'CHI', 20 : 'ATL', 129689 : 'GS'
     };
 
     if (team?.abbreviation) {
@@ -169,7 +168,7 @@ const StatsScreen = ({ route }) => {
       return abbr;
     }
     
-    return team?.displayName?.substring(0, 3)?.toUpperCase() || 'NBA';
+    return team?.displayName?.substring(0, 3)?.toUpperCase() || 'WNBA';
   };
 
   const openModal = (leaders, categoryName) => {
@@ -206,14 +205,14 @@ const StatsScreen = ({ route }) => {
           {selectedType === 'ATHLETES' ? (
             <Image
               source={{ 
-                uri: `https://a.espncdn.com/i/headshots/nba/players/full/${playerId}.png`
+                uri: `https://a.espncdn.com/i/headshots/wnba/players/full/${playerId}.png`
               }}
               style={styles.playerHeadshot}
-              defaultSource={{ uri: 'https://via.placeholder.com/50x50?text=NBA' }}
+              defaultSource={{ uri: 'https://via.placeholder.com/50x50?text=WNBA' }}
             />
           ) : (
             <Image
-              source={{ uri: getTeamLogoUrl('nba', teamAbbr) }}
+              source={{ uri: getTeamLogoUrl('wnba', teamAbbr) }}
               style={styles.teamLogoLarge}
             />
           )}
@@ -221,7 +220,7 @@ const StatsScreen = ({ route }) => {
             <View style={styles.playerNameRow}>
               {selectedType === 'ATHLETES' && (
                 <Image
-                  source={{ uri: getTeamLogoUrl('nba', teamAbbr) }}
+                  source={{ uri: getTeamLogoUrl('wnba', teamAbbr) }}
                   style={styles.teamLogoSmall}
                 />
               )}
@@ -248,7 +247,7 @@ const StatsScreen = ({ route }) => {
           </Text>
           {selectedType === 'ATHLETES' && (
             <Image
-              source={{ uri: getTeamLogoUrl('nba', teamAbbr) }}
+              source={{ uri: getTeamLogoUrl('wnba', teamAbbr) }}
               style={styles.teamLogoSmall}
             />
           )}
@@ -318,13 +317,13 @@ const StatsScreen = ({ route }) => {
           if (selectedType === 'ATHLETES') {
             navigation.navigate('PlayerPage', { 
               playerId: playerId, 
-              sport: 'nba' 
+              sport: 'wnba' 
             });
           } else {
             navigation.navigate('TeamPage', { 
               teamId: teamData?.id, 
               teamName: displayName,
-              sport: 'nba' 
+              sport: 'wnba' 
             });
           }
         }}
@@ -335,14 +334,14 @@ const StatsScreen = ({ route }) => {
         {selectedType === 'ATHLETES' ? (
           <Image
             source={{ 
-              uri: `https://a.espncdn.com/i/headshots/nba/players/full/${playerId}.png`
+              uri: `https://a.espncdn.com/i/headshots/wnba/players/full/${playerId}.png`
             }}
             style={styles.modalHeadshot}
-            defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=NBA' }}
+            defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=WNBA' }}
           />
         ) : (
           <Image
-            source={{ uri: getTeamLogoUrl('nba', teamAbbr) }}
+            source={{ uri: getTeamLogoUrl('wnba', teamAbbr) }}
             style={styles.modalHeadshot}
           />
         )}
@@ -350,7 +349,7 @@ const StatsScreen = ({ route }) => {
           <View style={styles.modalNameRow}>
             {selectedType === 'ATHLETES' && (
               <Image
-                source={{ uri: getTeamLogoUrl('nba', teamAbbr) }}
+                source={{ uri: getTeamLogoUrl('wnba', teamAbbr) }}
                 style={styles.modalTeamLogo}
               />
             )}
@@ -409,7 +408,7 @@ const StatsScreen = ({ route }) => {
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* NBA Statistics */}
+        {/* WNBA Statistics */}
         <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>
           {selectedType === 'ATHLETES' ? 'Player Leaders' : 'Team Leaders'}
         </Text>
