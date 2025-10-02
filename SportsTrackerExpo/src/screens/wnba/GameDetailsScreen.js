@@ -9,6 +9,62 @@ import { useNavigation } from '@react-navigation/native';
 import { WNBAService } from '../../services/WNBAService';
 import ChatComponent from '../../components/ChatComponent';
 
+// Color similarity detection utility
+const calculateColorSimilarity = (color1, color2) => {
+  // Convert hex colors to RGB
+  const hexToRgb = (hex) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : null;
+  };
+
+  const rgb1 = hexToRgb(color1);
+  const rgb2 = hexToRgb(color2);
+  
+  if (!rgb1 || !rgb2) return false;
+  
+  // Calculate Euclidean distance in RGB space
+  const distance = Math.sqrt(
+    Math.pow(rgb1.r - rgb2.r, 2) +
+    Math.pow(rgb1.g - rgb2.g, 2) +
+    Math.pow(rgb1.b - rgb2.b, 2)
+  );
+  
+  // Normalize distance (max distance is sqrt(3 * 255^2) ≈ 441)
+  const normalizedDistance = distance / 441;
+  
+  // Consider colors similar if distance is less than 0.3 (30% of max distance)
+  return normalizedDistance < 0.3;
+};
+
+// Smart color selection utility - returns appropriate colors for teams
+const getSmartTeamColors = (homeTeam, awayTeam, colors) => {
+  let homeColor = homeTeam?.team?.color ? `#${homeTeam.team.color}` : colors.primary;
+  let awayColor = awayTeam?.team?.color ? `#${awayTeam.team.color}` : colors.secondary || '#666';
+  
+  // Check if colors are similar
+  if (calculateColorSimilarity(homeColor, awayColor)) {
+    // Use alternate color for away team if available
+    const awayAlternate = awayTeam?.team?.alternateColor;
+    if (awayAlternate) {
+      awayColor = awayAlternate.startsWith('#') ? awayAlternate : `#${awayAlternate}`;
+      
+      // If alternate is still similar, try home team's alternate
+      if (calculateColorSimilarity(homeColor, awayColor)) {
+        const homeAlternate = homeTeam?.team?.alternateColor;
+        if (homeAlternate) {
+          homeColor = homeAlternate.startsWith('#') ? homeAlternate : `#${homeAlternate}`;
+        }
+      }
+    }
+  }
+  
+  return { homeColor, awayColor };
+};
+
 // Stable TeamLogo component outside main component to prevent recreation and state loss
 const TeamLogo = ({ teamAbbreviation, logoUri, size = 32, style, iconStyle, colors, getTeamLogoUrl }) => {
   const [imageError, setImageError] = useState(false);
@@ -644,12 +700,15 @@ const WNBAGameDetailsScreen = ({ route }) => {
       let playTeamColor = null;
       
       if (playTeamId) {
+        // Get smart colors that avoid similarity
+        const smartColors = getSmartTeamColors(home, away, colors);
+        
         if (away?.team?.id === playTeamId) {
-          playTeamColor = away?.team?.color ? `#${away.team.color}` : colors.secondary;
+          playTeamColor = smartColors.awayColor;
           borderColor = playTeamColor;
           borderWidth = 4;
         } else if (home?.team?.id === playTeamId) {
-          playTeamColor = home?.team?.color ? `#${home.team.color}` : colors.primary;
+          playTeamColor = smartColors.homeColor;
           borderColor = playTeamColor;
           borderWidth = 4;
         }
@@ -793,11 +852,11 @@ const WNBAGameDetailsScreen = ({ route }) => {
     } else if (state === 'in') {
       // Game in progress - show period and clock
       const statusDesc = status?.type?.description || '';
-      
-      // Check for intermission
-      if (statusDesc.toLowerCase().includes('intermission')) {
+
+      // Check for halftime
+      if (statusDesc.toLowerCase().includes('halftime')) {
         return {
-          text: 'INT',
+          text: 'HALF',
           detail: `${statusDesc}`,
           isLive: true,
           isPre: false,
@@ -810,11 +869,12 @@ const WNBAGameDetailsScreen = ({ route }) => {
       if (period === 1) periodText = '1st';
       else if (period === 2) periodText = '2nd'; 
       else if (period === 3) periodText = '3rd';
-      else if (period > 3) periodText = 'OT';
-      
+      else if (period === 4) periodText = '4th';
+      else if (period > 4) periodText = 'OT';
+
       return {
         text: clock || '0:00',
-        detail: `${periodText} Period`,
+        detail: `${periodText} Quarter`,
         isLive: true,
         isPre: false,
         isPost: false
@@ -995,9 +1055,8 @@ const WNBAGameDetailsScreen = ({ route }) => {
       ];
     }
     
-    // Get team colors
-    const homeColor = homeTeam?.team?.color ? `#${homeTeam.team.color}` : colors.primary;
-    const awayColor = awayTeam?.team?.color ? `#${awayTeam.team.color}` : colors.secondary || '#666';
+    // Get team colors with smart color selection to avoid similar colors
+    const { homeColor, awayColor } = getSmartTeamColors(homeTeam, awayTeam, colors);
     
     return (
       <View style={styles.teamStatsContainer}>
@@ -1146,13 +1205,12 @@ const WNBAGameDetailsScreen = ({ route }) => {
     const playsData = details.plays;
     if (winProbData.length === 0) return null;
 
-    // Get team colors
+    // Get team colors with smart color selection to avoid similar colors
     const competitors = details?.header?.competitions?.[0]?.competitors || [];
     const awayTeam = competitors.find(c => c.homeAway === 'away');
     const homeTeam = competitors.find(c => c.homeAway === 'home');
     
-    const homeColor = homeTeam?.team?.color ? `#${homeTeam.team.color}` : colors.primary;
-    const awayColor = awayTeam?.team?.color ? `#${awayTeam.team.color}` : colors.secondary;
+    const { homeColor, awayColor } = getSmartTeamColors(homeTeam, awayTeam, colors);
 
     // Create a map of playId to period info
     const playPeriodMap = {};
@@ -1452,7 +1510,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                 <Text style={[styles.gameEventScore, { 
                   color: awayWon ? (colors.primary || '#4CAF50') : (homeWon ? theme.textSecondary : theme.text)
                 }]}>
-                  {event.statusType?.completed ? (awayTeam?.score || '0') : '-'}
+                  {event.statusType?.completed ? (awayTeam?.score || '0') : ''}
                 </Text>
               </View>
               <Text style={[styles.gameEventTeamAbbr, { 
@@ -1482,7 +1540,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                 <Text style={[styles.gameEventScore, { 
                   color: homeWon ? (colors.primary || '#4CAF50') : (awayWon ? theme.textSecondary : theme.text)
                 }]}>
-                  {event.statusType?.completed ? (homeTeam?.score || '0') : '-'}
+                  {event.statusType?.completed ? (homeTeam?.score || '0') : ''}
                 </Text>
                 <TeamLogoWithTheme
                   colors={colors}

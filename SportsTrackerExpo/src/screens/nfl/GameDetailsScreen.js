@@ -20,6 +20,62 @@ import { useFavorites } from '../../context/FavoritesContext';
 import ChatComponent from '../../components/ChatComponent';
 import { Ionicons } from '@expo/vector-icons';
 
+// Color similarity detection utility
+const calculateColorSimilarity = (color1, color2) => {
+  // Convert hex colors to RGB
+  const hexToRgb = (hex) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : null;
+  };
+
+  const rgb1 = hexToRgb(color1);
+  const rgb2 = hexToRgb(color2);
+  
+  if (!rgb1 || !rgb2) return false;
+  
+  // Calculate Euclidean distance in RGB space
+  const distance = Math.sqrt(
+    Math.pow(rgb1.r - rgb2.r, 2) +
+    Math.pow(rgb1.g - rgb2.g, 2) +
+    Math.pow(rgb1.b - rgb2.b, 2)
+  );
+  
+  // Normalize distance (max distance is sqrt(3 * 255^2) ≈ 441)
+  const normalizedDistance = distance / 441;
+  
+  // Consider colors similar if distance is less than 0.3 (30% of max distance)
+  return normalizedDistance < 0.3;
+};
+
+// Smart color selection utility - returns appropriate colors for teams
+const getSmartTeamColors = (homeTeam, awayTeam, colors) => {
+  let homeColor = homeTeam?.team?.color ? `#${homeTeam.team.color}` : colors.primary;
+  let awayColor = awayTeam?.team?.color ? `#${awayTeam.team.color}` : colors.secondary || '#666';
+  
+  // Check if colors are similar
+  if (calculateColorSimilarity(homeColor, awayColor)) {
+    // Use alternate color for away team if available
+    const awayAlternate = awayTeam?.team?.alternateColor;
+    if (awayAlternate) {
+      awayColor = awayAlternate.startsWith('#') ? awayAlternate : `#${awayAlternate}`;
+      
+      // If alternate is still similar, try home team's alternate
+      if (calculateColorSimilarity(homeColor, awayColor)) {
+        const homeAlternate = homeTeam?.team?.alternateColor;
+        if (homeAlternate) {
+          homeColor = homeAlternate.startsWith('#') ? homeAlternate : `#${homeAlternate}`;
+        }
+      }
+    }
+  }
+  
+  return { homeColor, awayColor };
+};
+
 // Component to display play probability like scoreboard copy card
 const PlayProbability = ({ probabilityRef, driveTeam, homeTeam, awayTeam }) => {
   const [probabilityData, setProbabilityData] = useState(null);
@@ -952,8 +1008,20 @@ const GameDetailsScreen = ({ route }) => {
   const renderDriveYardLine = (drive, awayTeam, homeTeam) => {
     if (!drive.start) return null;
 
-    // Get team color
-    const teamColor = drive.team?.color ? `#${drive.team.color}` : '#666';
+    // Get smart team colors to handle color conflicts
+    let teamColor = drive.team?.color ? `#${drive.team.color}` : '#666';
+    
+    // Use smart colors if we have both teams to compare
+    if (awayTeam && homeTeam && drive.team) {
+      const smartColors = getSmartTeamColors(awayTeam.team, homeTeam.team);
+      
+      // Apply smart color based on which team this drive belongs to
+      if (drive.team.abbreviation === awayTeam.team.abbreviation) {
+        teamColor = smartColors.awayColor;
+      } else if (drive.team.abbreviation === homeTeam.team.abbreviation) {
+        teamColor = smartColors.homeColor;
+      }
+    }
     
     // Determine positions based on drive status (following scoreboard.js logic)
     let startYard, currentYard, driveIsInProgress = false;

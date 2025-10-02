@@ -219,7 +219,8 @@ const NBAScoreboardScreen = ({ navigation }) => {
   };
 
   const isLiveGame = (item) => {
-    if (item.gameStatus !== 'live') return false;
+    // Check for various live game status values
+    if (item.gameStatus !== 'live' && item.gameStatus !== 'in') return false;
     // NBA games show quarter info and halftime
     const statusText = (item.status || '').toString();
     const isHalftime = /halftime/i.test(statusText);
@@ -251,16 +252,44 @@ const NBAScoreboardScreen = ({ navigation }) => {
 
   const getStatusColor = (item) => {
     if (item.isCompleted) return theme.success;
-    if (isLiveGame(item)) return theme.error;
+    if (isLiveGame(item)) return colors.primary;
     return theme.textSecondary;
   };
 
   const getStatusText = (item) => {
     if (item.isCompleted) return 'Final';
-    if (isLiveGame(item)) {
-      const period = item.period;
-      if (period <= 4) return `Q${period}`;
-      return `OT${period - 4}`;
+    
+    const isLive = isLiveGame(item);
+    console.log('getStatusText debug:', {
+      gameId: item.id,
+      gameStatus: item.gameStatus,
+      status: item.status,
+      isCompleted: item.isCompleted,
+      isLive: isLive,
+      displayClock: item.displayClock
+    });
+    
+    if (isLive) {
+      // Construct live status from available fields
+      const clock = item.displayClock || '';
+      const period = item.period || 1;
+      
+      let periodText;
+      if (period === 1) periodText = '1st';
+      else if (period === 2) periodText = '2nd';
+      else if (period === 3) periodText = '3rd';
+      else if (period === 4) periodText = '4th';
+      else if (period === 5) periodText = 'OT';
+      else periodText = `${period - 4}OT`;
+      
+      if (item.status && /halftime/i.test(item.status)) {
+        return 'Halftime';
+      }
+
+      if (clock) {
+        return `${clock} - ${periodText}`;
+      }
+      return `Q${period}`;
     }
     return getGameTimeText(item);
   };
@@ -365,7 +394,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
             >
               {statusText}
             </Text>
-            {isLive && <View style={[styles.liveDot, { backgroundColor: theme.error }]} />}
+            {isLive && <View style={[styles.liveDot, { backgroundColor: colors.primary }]} />}
           </View>
         </View>
 

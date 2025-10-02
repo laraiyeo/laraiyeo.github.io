@@ -12,6 +12,66 @@ import { getAPITeamId, convertMLBIdToESPNId, normalizeTeamIdForStorage } from '.
 import { NFLService } from '../services/NFLService';
 import { getCurrentGameDay, getTodayDateRange } from '../utils/DateUtils';
 
+// Color similarity detection utility
+const calculateColorSimilarity = (color1, color2) => {
+  // Convert hex colors to RGB
+  const hexToRgb = (hex) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : null;
+  };
+
+  const rgb1 = hexToRgb(color1);
+  const rgb2 = hexToRgb(color2);
+  
+  if (!rgb1 || !rgb2) return false;
+  
+  // Calculate Euclidean distance in RGB space
+  const distance = Math.sqrt(
+    Math.pow(rgb1.r - rgb2.r, 2) +
+    Math.pow(rgb1.g - rgb2.g, 2) +
+    Math.pow(rgb1.b - rgb2.b, 2)
+  );
+  
+  // Normalize distance (max distance is sqrt(3 * 255^2) ≈ 441)
+  const normalizedDistance = distance / 441;
+  
+  // Consider colors similar if distance is less than 0.3 (30% of max distance)
+  return normalizedDistance < 0.3;
+};
+
+// Smart color selection utility - returns appropriate colors for teams
+const getSmartTeamColors = (homeTeam, awayTeam, colors) => {
+  let homeColor = homeTeam?.team?.color || homeTeam?.color || colors.primary;
+  let awayColor = awayTeam?.team?.color || awayTeam?.color || colors.secondary;
+  
+  // Ensure colors have # prefix
+  if (homeColor && !homeColor.startsWith('#')) homeColor = `#${homeColor}`;
+  if (awayColor && !awayColor.startsWith('#')) awayColor = `#${awayColor}`;
+  
+  // Check if colors are similar
+  if (calculateColorSimilarity(homeColor, awayColor)) {
+    // Use alternate color for away team if available
+    const awayAlternate = awayTeam?.team?.alternateColor || awayTeam?.alternateColor;
+    if (awayAlternate) {
+      awayColor = awayAlternate.startsWith('#') ? awayAlternate : `#${awayAlternate}`;
+      
+      // If alternate is still similar, try home team's alternate
+      if (calculateColorSimilarity(homeColor, awayColor)) {
+        const homeAlternate = homeTeam?.team?.alternateColor || homeTeam?.alternateColor;
+        if (homeAlternate) {
+          homeColor = homeAlternate.startsWith('#') ? homeAlternate : `#${homeAlternate}`;
+        }
+      }
+    }
+  }
+  
+  return { homeColor, awayColor };
+};
+
 // Module-level helpers so any function in the file can use them reliably
 const promiseWithTimeout = (p, ms = 3000) => {
   return new Promise(resolve => {
@@ -4924,16 +4984,47 @@ const FavoritesScreen = ({ navigation }) => {
       }
 
       if (playsArray.length > 0) {
-        const mostRecent = playsArray[0];
+        // Get the MOST RECENT play (last index, not first)
+        const mostRecent = playsArray[playsArray.length - 1];
         if (mostRecent) {
           recentPlayText = mostRecent.text || mostRecent.description || mostRecent.displayText || '';
           recentPlayText = recentPlayText.replace(/\s+/g, ' ').trim();
           
-          // Add border styling for live games
-          cardBorderStyle = {
-            borderTopWidth: 3,
-            borderTopColor: colors.primary
-          };
+          // Determine which team made the play and set border colors accordingly
+          const playTeamId = mostRecent.team?.id || mostRecent.teamId;
+          const homeTeamId = homeTeam?.team?.id || homeTeam?.id;
+          const awayTeamId = awayTeam?.team?.id || awayTeam?.id;
+          
+          // Use smart color selection to avoid similar colors
+          const { homeColor, awayColor } = getSmartTeamColors(homeTeam, awayTeam, colors);
+          
+          // For NBA: Only show border on the side corresponding to the team that made the play
+          // Away team on left, Home team on right
+          if (playTeamId && homeTeamId && String(playTeamId) === String(homeTeamId)) {
+            // Home team play - show right border only
+            cardBorderStyle = {
+              borderLeftColor: theme?.border || '#333333',
+              borderLeftWidth: 0,
+              borderRightColor: homeColor, 
+              borderRightWidth: 8,
+            };
+          } else if (playTeamId && awayTeamId && String(playTeamId) === String(awayTeamId)) {
+            // Away team play - show left border only
+            cardBorderStyle = {
+              borderLeftColor: awayColor,
+              borderLeftWidth: 8,
+              borderRightColor: theme?.border || '#333333', 
+              borderRightWidth: 0,
+            };
+          } else {
+            // Can't determine which team made the play - show no thick borders
+            cardBorderStyle = {
+              borderLeftColor: theme?.border || '#333333',
+              borderLeftWidth: 1,
+              borderRightColor: theme?.border || '#333333', 
+              borderRightWidth: 1,
+            };
+          }
         }
       }
     }
@@ -4962,7 +5053,7 @@ const FavoritesScreen = ({ navigation }) => {
     // Status text for display
     let gameStatusText = matchStatus.text;
     if (isLive && matchStatus.detail) {
-      gameStatusText = `${matchStatus.text} - ${matchStatus.detail}`;
+      gameStatusText = (matchStatus.detail && matchStatus.detail.split("-")[1]?.trim()) || matchStatus.detail;
     } else if (isLive && matchStatus.time) {
       gameStatusText = matchStatus.time;
     }
@@ -5034,7 +5125,7 @@ const FavoritesScreen = ({ navigation }) => {
             
             {isLive ? (
               <View style={{ alignItems: 'center', marginTop: 4 }}>
-                {matchStatus.time && (
+                {matchStatus.time && matchStatus.detail !== 'Halftime' && (
                   <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary, fontWeight: '600' }]}>
                     {matchStatus.time}
                   </Text>
@@ -5166,15 +5257,47 @@ const FavoritesScreen = ({ navigation }) => {
       }
 
       if (playsArray.length > 0) {
-        const mostRecent = playsArray[0];
+        // Get the MOST RECENT play (last index, not first)
+        const mostRecent = playsArray[playsArray.length - 1];
         if (mostRecent) {
           recentPlayText = mostRecent.text || mostRecent.description || mostRecent.displayText || '';
           recentPlayText = recentPlayText.replace(/\s+/g, ' ').trim();
           
-          cardBorderStyle = {
-            borderTopWidth: 3,
-            borderTopColor: colors.primary
-          };
+          // Determine which team made the play and set border colors accordingly
+          const playTeamId = mostRecent.team?.id || mostRecent.teamId;
+          const homeTeamId = homeTeam?.team?.id || homeTeam?.id;
+          const awayTeamId = awayTeam?.team?.id || awayTeam?.id;
+          
+          // Use smart color selection to avoid similar colors
+          const { homeColor, awayColor } = getSmartTeamColors(homeTeam, awayTeam, colors);
+          
+          // For WNBA: Only show border on the side corresponding to the team that made the play
+          // Away team on left, Home team on right
+          if (playTeamId && homeTeamId && String(playTeamId) === String(homeTeamId)) {
+            // Home team play - show right border only
+            cardBorderStyle = {
+              borderLeftColor: theme?.border || '#333333',
+              borderLeftWidth: 0,
+              borderRightColor: homeColor, 
+              borderRightWidth: 8,
+            };
+          } else if (playTeamId && awayTeamId && String(playTeamId) === String(awayTeamId)) {
+            // Away team play - show left border only
+            cardBorderStyle = {
+              borderLeftColor: awayColor,
+              borderLeftWidth: 8,
+              borderRightColor: theme?.border || '#333333', 
+              borderRightWidth: 0,
+            };
+          } else {
+            // Can't determine which team made the play - show no thick borders
+            cardBorderStyle = {
+              borderLeftColor: theme?.border || '#333333',
+              borderLeftWidth: 1,
+              borderRightColor: theme?.border || '#333333', 
+              borderRightWidth: 1,
+            };
+          }
         }
       }
     }
@@ -5203,7 +5326,7 @@ const FavoritesScreen = ({ navigation }) => {
     // Status text for display
     let gameStatusText = matchStatus.text;
     if (isLive && matchStatus.detail) {
-      gameStatusText = `${matchStatus.text} - ${matchStatus.detail}`;
+      gameStatusText = (matchStatus.detail && matchStatus.detail.split("-")[1]?.trim()) || matchStatus.detail;
     } else if (isLive && matchStatus.time) {
       gameStatusText = matchStatus.time;
     }
@@ -5275,7 +5398,7 @@ const FavoritesScreen = ({ navigation }) => {
             
             {isLive ? (
               <View style={{ alignItems: 'center', marginTop: 4 }}>
-                {matchStatus.time && (
+                {matchStatus.time && matchStatus.detail !== 'Halftime' && (
                   <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary, fontWeight: '600' }]}>
                     {matchStatus.time}
                   </Text>
@@ -5429,7 +5552,7 @@ const FavoritesScreen = ({ navigation }) => {
           // Clean up the play text - remove excessive whitespace and format nicely
           recentPlayText = recentPlayText.replace(/\s+/g, ' ').trim();
           
-          // Get team colors for border styling and determine which team made the play
+          // Get smart team colors for border styling and determine which team made the play
           let homeColor = colors.primary;
           let awayColor = colors.primary;
           let isHomeTeamPlay = null;
@@ -5441,14 +5564,22 @@ const FavoritesScreen = ({ navigation }) => {
               const homeCompetitor = competition.competitors.find(c => c.homeAway === 'home');
               const awayCompetitor = competition.competitors.find(c => c.homeAway === 'away');
               
-              const homeColorRaw = homeCompetitor?.team?.color || homeCompetitor?.color;
-              const awayColorRaw = awayCompetitor?.team?.color || awayCompetitor?.color;
-              
-              if (homeColorRaw) {
-                homeColor = homeColorRaw.startsWith('#') ? homeColorRaw : `#${homeColorRaw}`;
-              }
-              if (awayColorRaw) {
-                awayColor = awayColorRaw.startsWith('#') ? awayColorRaw : `#${awayColorRaw}`;
+              // Use smart colors to handle similar team colors
+              if (homeCompetitor?.team && awayCompetitor?.team) {
+                const smartColors = getSmartTeamColors(awayCompetitor.team, homeCompetitor.team);
+                homeColor = smartColors.homeColor;
+                awayColor = smartColors.awayColor;
+              } else {
+                // Fallback to original color logic if smart colors can't be used
+                const homeColorRaw = homeCompetitor?.team?.color || homeCompetitor?.color;
+                const awayColorRaw = awayCompetitor?.team?.color || awayCompetitor?.color;
+                
+                if (homeColorRaw) {
+                  homeColor = homeColorRaw.startsWith('#') ? homeColorRaw : `#${homeColorRaw}`;
+                }
+                if (awayColorRaw) {
+                  awayColor = awayColorRaw.startsWith('#') ? awayColorRaw : `#${awayColorRaw}`;
+                }
               }
 
               // Determine which team made the play by checking team IDs in the play
@@ -6098,19 +6229,30 @@ const FavoritesScreen = ({ navigation }) => {
         isHomeTeamPlay = String(playTeamId) === String(homeTeam?.id) || String(playTeamId) === String(homeTeam?.team?.id);
       }
 
-      // Get team colors for border styling
+      // Get smart team colors for border styling to handle color conflicts
       let homeColor = theme.surface;
       let awayColor = theme.surface;
       try {
-        // Try multiple possible paths for team colors
-        const homeColorValue = homeTeam?.team?.color || homeTeam?.color || game.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home')?.team?.color;
-        const awayColorValue = awayTeam?.team?.color || awayTeam?.color || game.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away')?.team?.color;
+        // Try multiple possible paths for team data
+        const homeTeamData = homeTeam?.team || homeTeam || game.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home')?.team;
+        const awayTeamData = awayTeam?.team || awayTeam || game.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away')?.team;
         
-        if (homeColorValue) {
-          homeColor = homeColorValue.startsWith('#') ? homeColorValue : `#${homeColorValue}`;
-        }
-        if (awayColorValue) {
-          awayColor = awayColorValue.startsWith('#') ? awayColorValue : `#${awayColorValue}`;
+        // Use smart colors to handle similar team colors
+        if (homeTeamData && awayTeamData) {
+          const smartColors = getSmartTeamColors(awayTeamData, homeTeamData);
+          homeColor = smartColors.homeColor;
+          awayColor = smartColors.awayColor;
+        } else {
+          // Fallback to original color logic if smart colors can't be used
+          const homeColorValue = homeTeam?.team?.color || homeTeam?.color || game.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home')?.team?.color;
+          const awayColorValue = awayTeam?.team?.color || awayTeam?.color || game.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away')?.team?.color;
+          
+          if (homeColorValue) {
+            homeColor = homeColorValue.startsWith('#') ? homeColorValue : `#${homeColorValue}`;
+          }
+          if (awayColorValue) {
+            awayColor = awayColorValue.startsWith('#') ? awayColorValue : `#${awayColorValue}`;
+          }
         }
         
         console.log(`[NFL COLOR DEBUG] Game ${game.id} colors: home=${homeColor}, away=${awayColor}, homeColorValue=${homeColorValue}, awayColorValue=${awayColorValue}`);

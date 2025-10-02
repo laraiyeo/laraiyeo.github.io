@@ -20,6 +20,75 @@ import { useFavorites } from '../../context/FavoritesContext';
 import { convertMLBIdToESPNId } from '../../utils/TeamIdMapping';
 import ChatComponent from '../../components/ChatComponent';
 
+// Color similarity detection utility
+const calculateColorSimilarity = (color1, color2) => {
+  // Convert hex colors to RGB
+  const hexToRgb = (hex) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : null;
+  };
+
+  const rgb1 = hexToRgb(color1);
+  const rgb2 = hexToRgb(color2);
+  
+  if (!rgb1 || !rgb2) return false;
+  
+  // Calculate Euclidean distance in RGB space
+  const distance = Math.sqrt(
+    Math.pow(rgb1.r - rgb2.r, 2) +
+    Math.pow(rgb1.g - rgb2.g, 2) +
+    Math.pow(rgb1.b - rgb2.b, 2)
+  );
+  
+  // Normalize distance (max distance is sqrt(3 * 255^2) ≈ 441)
+  const normalizedDistance = distance / 441;
+  
+  // Consider colors similar if distance is less than 0.3 (30% of max distance)
+  return normalizedDistance < 0.3;
+};
+
+// Smart color selection utility for MLB - works with MLBService
+const getSmartMLBTeamColors = (homeTeam, awayTeam, colors) => {
+  const homeTeamName = homeTeam?.name || homeTeam?.teamName;
+  const awayTeamName = awayTeam?.name || awayTeam?.teamName;
+  
+  let homeColor = MLBService.getTeamColor(homeTeamName) || colors.primary;
+  let awayColor = MLBService.getTeamColor(awayTeamName) || colors.secondary;
+  
+  // Ensure colors have # prefix
+  if (homeColor && !homeColor.startsWith('#')) homeColor = `#${homeColor}`;
+  if (awayColor && !awayColor.startsWith('#')) awayColor = `#${awayColor}`;
+  
+  // Check if colors are similar
+  if (calculateColorSimilarity(homeColor, awayColor)) {
+    // For MLB, try getting alternate colors from MLBService or use fallbacks
+    const awayAlternate = MLBService.getTeamAlternateColor?.(awayTeamName);
+    if (awayAlternate) {
+      awayColor = awayAlternate.startsWith('#') ? awayAlternate : `#${awayAlternate}`;
+      
+      // If still similar, try home team alternate
+      if (calculateColorSimilarity(homeColor, awayColor)) {
+        const homeAlternate = MLBService.getTeamAlternateColor?.(homeTeamName);
+        if (homeAlternate) {
+          homeColor = homeAlternate.startsWith('#') ? homeAlternate : `#${homeAlternate}`;
+        }
+      }
+    } else {
+      // Fallback: use generic contrasting colors
+      awayColor = colors.secondary || '#666';
+      if (calculateColorSimilarity(homeColor, awayColor)) {
+        homeColor = colors.primary;
+      }
+    }
+  }
+  
+  return { homeColor, awayColor };
+};
+
 const MLBGameDetailsScreen = ({ route, navigation }) => {
   const { gameId, sport } = route?.params || {};
   const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();

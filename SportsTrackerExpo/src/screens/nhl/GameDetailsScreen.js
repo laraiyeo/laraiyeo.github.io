@@ -9,6 +9,63 @@ import { useNavigation } from '@react-navigation/native';
 import { NHLService } from '../../services/NHLService';
 import ChatComponent from '../../components/ChatComponent';
 
+// Smart color detection utility functions
+const calculateColorSimilarity = (color1, color2) => {
+  if (!color1 || !color2) return 0;
+  
+  const hex1 = color1.replace('#', '');
+  const hex2 = color2.replace('#', '');
+  
+  if (hex1.length !== 6 || hex2.length !== 6) return 0;
+  
+  const r1 = parseInt(hex1.substr(0, 2), 16);
+  const g1 = parseInt(hex1.substr(2, 2), 16);
+  const b1 = parseInt(hex1.substr(4, 2), 16);
+  
+  const r2 = parseInt(hex2.substr(0, 2), 16);
+  const g2 = parseInt(hex2.substr(2, 2), 16);
+  const b2 = parseInt(hex2.substr(4, 2), 16);
+  
+  const distance = Math.sqrt(
+    Math.pow(r2 - r1, 2) + Math.pow(g2 - g1, 2) + Math.pow(b2 - b1, 2)
+  );
+  
+  const maxDistance = Math.sqrt(3 * Math.pow(255, 2));
+  const similarity = 1 - (distance / maxDistance);
+  
+  return similarity;
+};
+
+const getSmartTeamColors = (awayTeam, homeTeam) => {
+  if (!awayTeam || !homeTeam) {
+    return {
+      awayColor: awayTeam?.color ? `#${awayTeam.color}` : '#666',
+      homeColor: homeTeam?.color ? `#${homeTeam.color}` : '#333'
+    };
+  }
+  
+  const awayPrimary = awayTeam.color ? `#${awayTeam.color}` : '#666';
+  const homePrimary = homeTeam.color ? `#${homeTeam.color}` : '#333';
+  const awayAlternate = awayTeam.alternateColor ? `#${awayTeam.alternateColor}` : awayPrimary;
+  const homeAlternate = homeTeam.alternateColor ? `#${homeTeam.alternateColor}` : homePrimary;
+  
+  const similarity = calculateColorSimilarity(awayPrimary, homePrimary);
+  const conflictThreshold = 0.3;
+  
+  if (similarity > conflictThreshold) {
+    console.log(`Color conflict detected: ${awayTeam.displayName} (${awayPrimary}) vs ${homeTeam.displayName} (${homePrimary}), similarity: ${similarity.toFixed(3)}`);
+    return {
+      awayColor: awayAlternate,
+      homeColor: homePrimary
+    };
+  }
+  
+  return {
+    awayColor: awayPrimary,
+    homeColor: homePrimary
+  };
+};
+
 const NHLGameDetailsScreen = ({ route }) => {
   const { gameId } = route.params || {};
   const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
@@ -520,6 +577,9 @@ const NHLGameDetailsScreen = ({ route }) => {
         };
 
         // Process plays in smaller chunks to avoid blocking the UI
+        // Get smart team colors to handle color conflicts in play-by-play
+        const smartColors = getSmartTeamColors(awayLocal?.team, homeLocal?.team);
+        
         const fully = [];
         const chunkSize = 10; // Process 10 plays at a time
         
@@ -537,8 +597,24 @@ const NHLGameDetailsScreen = ({ route }) => {
             if (playTeamId && competitionObjLocal?.competitors) {
               playTeamSummary = competitionObjLocal.competitors.find(c => String(c.team?.id || c.id) === String(playTeamId) || String(c.id) === String(playTeamId));
             }
-            const playTeamColorRaw = playTeamSummary?.team?.color || playTeamSummary?.color || null;
-            const playTeamColor = playTeamColorRaw ? (playTeamColorRaw.startsWith('#') ? playTeamColorRaw : `#${playTeamColorRaw}`) : null;
+            // Use smart colors for play team color to handle similar team colors
+            let playTeamColor = null;
+            if (playTeamSummary?.team) {
+              // Determine if this play's team is away or home team
+              const playTeamAbbrev = playTeamSummary.team.abbreviation;
+              const awayTeamAbbrev = awayLocal?.team?.abbreviation;
+              const homeTeamAbbrev = homeLocal?.team?.abbreviation;
+              
+              if (playTeamAbbrev === awayTeamAbbrev) {
+                playTeamColor = smartColors.awayColor;
+              } else if (playTeamAbbrev === homeTeamAbbrev) {
+                playTeamColor = smartColors.homeColor;
+              } else {
+                // Fallback to original color logic if team doesn't match
+                const playTeamColorRaw = playTeamSummary?.team?.color || playTeamSummary?.color || null;
+                playTeamColor = playTeamColorRaw ? (playTeamColorRaw.startsWith('#') ? playTeamColorRaw : `#${playTeamColorRaw}`) : null;
+              }
+            }
             const isScoring = !!play?.scoringPlay;
             const coordXRaw = play?.coordinate?.x ?? play?.x ?? null;
             const coordYRaw = play?.coordinate?.y ?? play?.y ?? null;
@@ -1151,9 +1227,10 @@ const NHLGameDetailsScreen = ({ route }) => {
       ];
     }
     
-    // Get team colors
-    const homeColor = homeTeam?.team?.color ? `#${homeTeam.team.color}` : colors.primary;
-    const awayColor = awayTeam?.team?.color ? `#${awayTeam.team.color}` : colors.secondary || '#666';
+    // Get smart team colors to handle color conflicts
+    const smartColors = getSmartTeamColors(awayTeam?.team, homeTeam?.team);
+    const homeColor = smartColors.homeColor;
+    const awayColor = smartColors.awayColor;
     
     return (
       <View style={styles.teamStatsContainer}>
