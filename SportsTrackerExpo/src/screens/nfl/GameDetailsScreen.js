@@ -51,30 +51,7 @@ const calculateColorSimilarity = (color1, color2) => {
   return normalizedDistance < 0.3;
 };
 
-// Smart color selection utility - returns appropriate colors for teams
-const getSmartTeamColors = (homeTeam, awayTeam, colors) => {
-  let homeColor = homeTeam?.team?.color ? `#${homeTeam.team.color}` : colors.primary;
-  let awayColor = awayTeam?.team?.color ? `#${awayTeam.team.color}` : colors.secondary || '#666';
-  
-  // Check if colors are similar
-  if (calculateColorSimilarity(homeColor, awayColor)) {
-    // Use alternate color for away team if available
-    const awayAlternate = awayTeam?.team?.alternateColor;
-    if (awayAlternate) {
-      awayColor = awayAlternate.startsWith('#') ? awayAlternate : `#${awayAlternate}`;
-      
-      // If alternate is still similar, try home team's alternate
-      if (calculateColorSimilarity(homeColor, awayColor)) {
-        const homeAlternate = homeTeam?.team?.alternateColor;
-        if (homeAlternate) {
-          homeColor = homeAlternate.startsWith('#') ? homeAlternate : `#${homeAlternate}`;
-        }
-      }
-    }
-  }
-  
-  return { homeColor, awayColor };
-};
+
 
 // Component to display play probability like scoreboard copy card
 const PlayProbability = ({ probabilityRef, driveTeam, homeTeam, awayTeam }) => {
@@ -1008,20 +985,8 @@ const GameDetailsScreen = ({ route }) => {
   const renderDriveYardLine = (drive, awayTeam, homeTeam) => {
     if (!drive.start) return null;
 
-    // Get smart team colors to handle color conflicts
-    let teamColor = drive.team?.color ? `#${drive.team.color}` : '#666';
-    
-    // Use smart colors if we have both teams to compare
-    if (awayTeam && homeTeam && drive.team) {
-      const smartColors = getSmartTeamColors(awayTeam.team, homeTeam.team);
-      
-      // Apply smart color based on which team this drive belongs to
-      if (drive.team.abbreviation === awayTeam.team.abbreviation) {
-        teamColor = smartColors.awayColor;
-      } else if (drive.team.abbreviation === homeTeam.team.abbreviation) {
-        teamColor = smartColors.homeColor;
-      }
-    }
+    // Use team color directly
+    let teamColor = drive.team?.color ? `#${drive.team.color}` : colors.primary;
     
     // Determine positions based on drive status (following scoreboard.js logic)
     let startYard, currentYard, driveIsInProgress = false;

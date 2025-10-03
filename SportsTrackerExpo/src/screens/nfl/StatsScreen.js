@@ -13,6 +13,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import NFLDataService from '../../services/NFLDataService';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const StatsScreen = ({ route }) => {
   const { sport } = route.params;
@@ -68,7 +69,8 @@ const StatsScreen = ({ route }) => {
 
   const fetchPlayerStats = async () => {
     try {
-      const response = await fetch('https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/types/2/leaders?limit=10');
+      const preferredYear = YearFallbackUtils.getPreferredYear();
+      const response = await fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${preferredYear}/types/2/leaders?limit=10`);
       const data = await response.json();
       
       if (data.categories) {

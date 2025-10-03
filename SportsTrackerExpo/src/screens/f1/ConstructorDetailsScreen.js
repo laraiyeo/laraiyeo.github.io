@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { useWindowDimensions } from 'react-native';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const ConstructorDetailsScreen = ({ route }) => {
   const { constructorId, constructorName, constructorColor } = route.params || {};
@@ -165,30 +166,40 @@ const ConstructorDetailsScreen = ({ route }) => {
       // If we have a constructorId, try the manufacturer records endpoint (preferred)
       if (constructorId) {
         try {
-          const year = new Date().getFullYear();
-          let manufUrl = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/manufacturers/${constructorId}/records/1?lang=en&region=us`;
-          let manufResp = await fetch(manufUrl);
-          if (!manufResp.ok) {
-            // try 2024 as fallback
-            manufUrl = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2024/types/2/manufacturers/${constructorId}/records/1?lang=en&region=us`;
-            manufResp = await fetch(manufUrl);
-          }
+          const manufData = await YearFallbackUtils.fetchWithYearFallback(
+            async (year) => {
+              const manufUrl = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/manufacturers/${constructorId}/records/1?lang=en&region=us`;
+              const response = await fetch(manufUrl);
+              
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+              }
+              
+              return await response.json();
+            },
+            (data) => {
+              console.log('Validating F1 manufacturer records data:', data);
+              return data && (data.stats || data.records);
+            }
+          );
 
-          if (manufResp.ok) {
-            const manufData = await manufResp.json();
+          if (manufData) {
             console.log('Manufacturer records response:', JSON.stringify(manufData, null, 2));
+            
+            const actualManufData = manufData?.data || manufData;
+            console.log('Actual manufacturer data:', JSON.stringify(actualManufData, null, 2));
 
-            // manufData has a stats array (see c1.txt)
-            const statsArr = manufData.stats || manufData?.records?.[0]?.stats || [];
+            // actualManufData has a stats array (see c1.txt)
+            const statsArr = actualManufData.stats || actualManufData?.records?.[0]?.stats || [];
             const statsMap = {};
             statsArr.forEach(s => {
               statsMap[s.name] = s;
             });
 
             const statsData = {
-              name: constructorName || manufData.displayName || manufData.name,
+              name: constructorName || actualManufData.displayName || actualManufData.name,
               color: constructorColor,
-              logo: getConstructorLogo(constructorName || manufData.displayName || manufData.name),
+              logo: getConstructorLogo(constructorName || actualManufData.displayName || actualManufData.name),
               points: statsMap.points?.displayValue || statsMap.championshipPts?.displayValue || '0',
               wins: statsMap.wins?.displayValue || '0',
               polePositions: statsMap.poles?.displayValue || statsMap.polePositions?.displayValue || '0',
@@ -209,16 +220,26 @@ const ConstructorDetailsScreen = ({ route }) => {
       }
 
       // Try the current season standings as a fallback
-      const currentYear = new Date().getFullYear();
-      let response = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/standings/1`);
-      
-      if (!response.ok) {
-        console.log(`Current year (${currentYear}) failed, trying 2024...`);
-        response = await fetch('https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2024/types/2/standings/1');
-      }
-      
-      const data = await response.json();
+      const response = await YearFallbackUtils.fetchWithYearFallback(
+        async (year) => {
+          const apiResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/standings/1`);
+          
+          if (!apiResponse.ok) {
+            throw new Error(`HTTP ${apiResponse.status}`);
+          }
+          
+          return await apiResponse.json();
+        },
+        (data) => {
+          console.log('Validating F1 constructor standings data:', data);
+          return data && data.standings && data.standings.length > 0;
+        }
+      );
       console.log('=== CONSTRUCTOR STANDINGS RESPONSE ===');
+      console.log(JSON.stringify(response, null, 2));
+      
+      const data = response?.data || response;
+      console.log('=== PARSED CONSTRUCTOR STANDINGS DATA ===');
       console.log(JSON.stringify(data, null, 2));
 
       if (data?.standings) {
@@ -340,7 +361,7 @@ const ConstructorDetailsScreen = ({ route }) => {
     try {
       const nowMs = Date.now();
 
-      // Fetch calendar first (same approach as ResultsScreen)
+      // Fetch calendar first (calendar endpoint doesn't use year parameter)
       const calUrl = 'https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/calendar/ondays?lang=en&region=us';
       const calResp = await fetch(calUrl);
       const calJson = await calResp.json();
@@ -644,15 +665,30 @@ const ConstructorDetailsScreen = ({ route }) => {
   const fetchConstructorRacers = async () => {
     try {
       // Fetch current driver standings and filter by constructor
-      const response = await fetch('https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/types/2/standings/0');
-      const data = await response.json();
+      const data = await YearFallbackUtils.fetchWithYearFallback(
+        async (year) => {
+          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/standings/0`);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          
+          return await response.json();
+        },
+        (data) => {
+          console.log('Validating F1 driver standings data:', data);
+          return data && data.standings && data.standings.length > 0;
+        }
+      );
       
-      console.log('Driver standings data:', data);
+      console.log('Driver standings response:', data);
+      const standingsData = data?.data || data;
+      console.log('Driver standings data:', standingsData);
       
-      if (data?.standings) {
+      if (standingsData?.standings) {
         const constructorDrivers = [];
         
-        for (const standing of data.standings) {
+        for (const standing of standingsData.standings) {
           try {
             const athleteUrl = normalizeUrl(standing.athlete.$ref);
             const athleteResponse = await fetch(athleteUrl);
@@ -762,7 +798,8 @@ const ConstructorDetailsScreen = ({ route }) => {
     const logoColor = (forceWhite || !blackLogoConstructors.includes(constructorName)) ? 'logowhite' : 'logoblack';
 
     const logoName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
-    return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/2025/${logoName}/2025${logoName}${logoColor}.webp`;
+    const currentYear = YearFallbackUtils.getCurrentYear(); // Use current year for logos
+    return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${currentYear}/${logoName}/${currentYear}${logoName}${logoColor}.webp`;
   };
 
   // Build ESPN headshot URL
@@ -1033,7 +1070,7 @@ const ConstructorDetailsScreen = ({ route }) => {
             <TouchableOpacity
               style={[styles.racerItem, { backgroundColor: theme.surface, borderColor: theme.border }]}
               onPress={() => {
-                navigation.navigate('RacerDetailsScreen', {
+                navigation.navigate('F1RacerDetails', {
                   racerId: item.id,
                   racerName: item.name,
                   teamColor: constructorColor

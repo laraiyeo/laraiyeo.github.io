@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchAllFavoriteTeamCurrentGames } from '../utils/TeamPageUtils';
 import { normalizeTeamIdForStorage, migrateFavoritesToESPNIds, stripSportSuffix, addSportSuffix } from '../utils/TeamIdMapping';
+import YearFallbackUtils from '../utils/YearFallbackUtils';
 
 const FavoritesContext = createContext();
 
@@ -236,7 +237,7 @@ export const FavoritesProvider = ({ children }) => {
       // Helper to check a single soccer competition
       const checkCompetition = async (leagueCode) => {
         try {
-          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/2025/teams/${id}/events?lang=en&region=us&limit=10`;
+          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${id}/events?lang=en&region=us&limit=10`;
           const resp = await fetch(eventsUrl);
           if (!resp.ok) return null;
           const data = await resp.json();

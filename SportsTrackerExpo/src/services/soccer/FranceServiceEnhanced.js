@@ -2,7 +2,11 @@
 // Handles API calls for French football leagues (Ligue 1, Coupe de France, Trophée des Champions)
 // Combines soccer web logic with React Native patterns
 
-const FRANCE_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fra.1';
+import React from 'react';
+import { normalizeLeagueCodeForStorage } from '../../utils/TeamIdMapping';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
+
+const FRANCE_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fra';
 
 // Competition configurations
 const FRANCE_COMPETITIONS = {
@@ -395,7 +399,7 @@ export const FranceServiceEnhanced = {
       const teamPromises = teams.map(async (team) => {
         try {
           const teamId = team.team.id;
-          const rosterResponse = await fetch(`${FRANCE_BASE_URL}/teams/${teamId}/roster?season=2025`);
+          const rosterResponse = await fetch(`${FRANCE_BASE_URL}/teams/${teamId}/roster?season=${YearFallbackUtils.getPreferredYear()}`);
           const rosterData = await rosterResponse.json();
           
           if (rosterData.athletes) {

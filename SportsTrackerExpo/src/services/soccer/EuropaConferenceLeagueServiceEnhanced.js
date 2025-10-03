@@ -2,7 +2,11 @@
 // Handles API calls for UEFA Europa Conference League (Europa Conference League, Europa Conference League Qualifying)
 // Combines soccer web logic with React Native patterns
 
-const EUROPA_CONFERENCE_LEAGUE_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf';
+import React from 'react';
+import { normalizeLeagueCodeForStorage } from '../../utils/TeamIdMapping';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
+
+const EUROPA_CONFERENCE_LEAGUE_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa_conf';
 
 // Competition configurations
 const EUROPA_CONFERENCE_LEAGUE_COMPETITIONS = {
@@ -394,7 +398,7 @@ export const EuropaConferenceLeagueServiceEnhanced = {
       const teamPromises = teams.map(async (team) => {
         try {
           const teamId = team.team.id;
-          const rosterResponse = await fetch(`${EUROPA_CONFERENCE_LEAGUE_BASE_URL}/teams/${teamId}/roster?season=2025`);
+          const rosterResponse = await fetch(`${EUROPA_CONFERENCE_LEAGUE_BASE_URL}/teams/${teamId}/roster?season=${YearFallbackUtils.getPreferredYear()}`);
           const rosterData = await rosterResponse.json();
           
           if (rosterData.athletes) {

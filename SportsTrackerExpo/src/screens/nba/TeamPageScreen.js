@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { NBAService } from '../../services/NBAService';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 // Normalize abbreviations for logo lookup consistency
 const normalizeAbbreviation = (abbrev) => {
@@ -160,11 +161,24 @@ const TeamPageScreen = ({ route, navigation }) => {
       recordDisplay = `${teamRecord.wins}-${teamRecord.losses}-${teamRecord.otLosses || 0}`;
     }
 
-    // Get points - prefer from /teams stats, then fallback to teamRecord
-    let points = getStat('points');
-    if (points === null && teamData?.points !== undefined) points = teamData.points;
-    if (points === null && teamData?.team?.points !== undefined) points = teamData.team.points;
-    if (points === null && teamRecord?.points !== undefined) points = teamRecord.points;
+    // Get differential - prefer from /teams stats, then fallback to teamRecord
+    let differential = getStat('differential');
+    if (differential === null && teamData?.differential !== undefined) differential = teamData.differential;
+    if (differential === null && teamData?.team?.differential !== undefined) differential = teamData.team.differential;
+    if (differential === null && teamRecord?.differential !== undefined) differential = teamRecord.differential;
+    let diffKind = null;
+    if (differential !== null && differential !== undefined) {
+      const s = String(differential).trim();
+      if (s === '') {
+        differential = '--';
+      } else {
+        const first = s.charAt(0);
+        if (first === '-') { differential = '' + s; diffKind = '-'; }
+        else if (first <= '1') { differential = '+' + s; diffKind = '+'; }
+        else if (first === '0') { differential = '' + s; diffKind = 'N'; }
+        else { differential = s; }
+      }
+    }
 
     // Get streak - prefer from /teams stats, then other locations
     let rawStreak = getStat('streak');
@@ -191,14 +205,15 @@ const TeamPageScreen = ({ route, navigation }) => {
     // Debug: log the exact values extracted for header
     console.log('NBA deriveHeaderStats extracted:', {
       recordDisplay,
-      points,
+      differential,
+      diffKind,
       streakDisplay,
       streakKind,
       standingSummary,
       totalRecordFound: !!totalRecord,
       totalRecordSummary: totalRecord?.summary,
       extractedStats: {
-        points: getStat('points'),
+        differential: getStat('differential'),
         wins: getStat('wins'),
         losses: getStat('losses'),
         otLosses: getStat('otLosses'),
@@ -206,7 +221,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       }
     });
     
-    return { recordDisplay, points, streakDisplay, streakKind, standingSummary };
+    return { recordDisplay, differential, diffKind, streakDisplay, streakKind, standingSummary };
   };
 
   // Debug: log the exact teams link and the header stats used for display whenever relevant data changes
@@ -295,12 +310,12 @@ const TeamPageScreen = ({ route, navigation }) => {
       const res = await fetch(espnUrl);
       const data = await res.json();
       // Debug: print the exact places we look for header numbers so we can trace where
-      // values like points, record, and streak are coming from in the teams payload.
+      // values like differential, record, and streak are coming from in the teams payload.
       try {
         console.log('NBA /teams payload debug:', {
           raw: data,
           teamTopLevel: data?.team,
-          points_direct: data?.team?.points,
+          differential_direct: data?.team?.differential,
           recordSummary: data?.team?.recordSummary,
           record_obj: data?.team?.record,
           nested_team_obj: data?.team?.team,
@@ -312,7 +327,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       if (data && data.team) {
         setTeamData(data.team);
         // try to fetch standings/record and season schedules (seasontype 1,2,3)
-        const year = new Date().getFullYear();
+        const year = YearFallbackUtils.getPreferredYear();
         const recordPromise = fetchTeamRecord(data.team.id);
 
         // Fetch schedule types 1,2,3 and pick the last non-empty type for updates
@@ -606,7 +621,7 @@ const TeamPageScreen = ({ route, navigation }) => {
             wins: teamRecord.wins || teamRecord.gamesPlayed - teamRecord.losses - teamRecord.otLosses || 0,
             losses: teamRecord.losses || 0,
             otLosses: teamRecord.otLosses || 0,
-            points: teamRecord.points || 0
+            differential: teamRecord.differential || 0
           });
         }
       }
@@ -676,15 +691,18 @@ const TeamPageScreen = ({ route, navigation }) => {
       console.log('NBA TeamPage: teamData:', teamData);
       console.log('NBA TeamPage: resolvedParam:', resolvedParam);
 
-      // Try types 2, then 1
+      // Try types 2, then 1 with year fallback
       const typesToTry = [2, 1];
+      const yearsToTry = YearFallbackUtils.getYearFallbackSequence();
       let v2data = null;
-      for (const t of typesToTry) {
-        try {
-          const statsUrl = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/types/${t}/teams/${currentTeamId}/statistics?lang=en&region=us`;
-          // eslint-disable-next-line no-console
-          console.log('NBA TeamPage: trying stats type', t, statsUrl);
-          const resp = await fetch(statsUrl);
+      
+      outerLoop: for (const t of typesToTry) {
+        for (const year of yearsToTry) {
+          try {
+            const statsUrl = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${year}/types/${t}/teams/${currentTeamId}/statistics?lang=en&region=us`;
+            // eslint-disable-next-line no-console
+            console.log('NBA TeamPage: trying stats type', t, 'year', year, statsUrl);
+            const resp = await fetch(statsUrl);
           if (!resp.ok) {
             console.log('NBA TeamPage: stats v2 request failed for type', t, 'status', resp.status);
             continue;
@@ -696,23 +714,22 @@ const TeamPageScreen = ({ route, navigation }) => {
           const hasStatistics = json.statistics && Object.keys(json.statistics).length > 0;
           const hasResultsCategories = json.results && json.results.stats && Array.isArray(json.results.stats.categories) && json.results.stats.categories.length > 0;
           const hasSplitsCategories = json.splits && ((Array.isArray(json.splits) && json.splits.some(s => Array.isArray(s.categories) && s.categories.length > 0)) || (json.splits.categories && Array.isArray(json.splits.categories) && json.splits.categories.length > 0));
-          if (json && (hasGroups || hasCategories || hasStatistics || hasResultsCategories || hasSplitsCategories)) {
-            v2data = json;
-            console.log('NBA TeamPage: got v2 stats for type', t);
-            break;
-          } else {
-            console.log('NBA TeamPage: v2 type', t, 'returned HTTP 200 but no usable data. keys:', Object.keys(json), 'hasGroups:', hasGroups, 'hasCategories:', hasCategories, 'hasStatistics:', hasStatistics, 'hasResultsCategories:', hasResultsCategories, 'hasSplitsCategories:', hasSplitsCategories);
-            // for debugging, log a small sample if there is content
-            try { console.log('NBA TeamPage: v2 sample:', JSON.stringify(json && (json.groups || json.categories || json.results || json.statistics || json.splits) || json).slice(0, 2000)); } catch (e) { /* ignore */ }
+            if (json && (hasGroups || hasCategories || hasStatistics || hasResultsCategories || hasSplitsCategories)) {
+              v2data = json;
+              console.log('NBA TeamPage: got v2 stats for type', t, 'year', year);
+              break outerLoop;
+            } else {
+              console.log('NBA TeamPage: v2 type', t, 'year', year, 'returned HTTP 200 but no usable data. keys:', Object.keys(json), 'hasGroups:', hasGroups, 'hasCategories:', hasCategories, 'hasStatistics:', hasStatistics, 'hasResultsCategories:', hasResultsCategories, 'hasSplitsCategories:', hasSplitsCategories);
+              // for debugging, log a small sample if there is content
+              try { console.log('NBA TeamPage: v2 sample:', JSON.stringify(json && (json.groups || json.categories || json.results || json.statistics || json.splits) || json).slice(0, 2000)); } catch (e) { /* ignore */ }
+            }
+          } catch (e) {
+            // don't fail fast; try next year/type
+            // eslint-disable-next-line no-console
+            console.log('NBA TeamPage: error fetching v2 stats for type', t, 'year', year, e);
           }
-        } catch (e) {
-          // don't fail fast; try next type
-          // eslint-disable-next-line no-console
-          console.log('NBA TeamPage: error fetching v2 stats for type', t, e);
         }
-      }
-
-      if (v2data) {
+      }      if (v2data) {
         // Normalize possible shapes into teamStats.categories where each category has displayName and stats array
         const categories = [];
 
@@ -1193,15 +1210,19 @@ const TeamPageScreen = ({ route, navigation }) => {
           <Text style={[styles.teamDivision, { color: theme.textSecondary }]}> 
             {headerStats.standingSummary || 'Loading record...'}
           </Text>
-          {/* Header summary row: record, points, streak */}
-          {(headerStats.recordDisplay || headerStats.points || headerStats.streakDisplay !== '--') && (
+          {/* Header summary row: record, differential, streak */}
+          {(headerStats.recordDisplay || headerStats.differential || headerStats.streakDisplay !== '--') && (
             <View style={styles.recordContainer}>
               <View style={styles.recordRow}>
                 <Text style={[styles.recordValue, { color: theme.text }]}>
                   {headerStats.recordDisplay || '--'}
                 </Text>
-                <Text style={[styles.recordValue, { color: theme.text }]}>
-                  {headerStats.points || '--'}
+                <Text style={[styles.recordValue, { color: (() => {
+                  if (headerStats.diffKind === '-') return theme.error;
+                  if (headerStats.diffKind === '+') return theme.success;
+                  return theme.text;
+                })() }]}>
+                  {headerStats.differential || '--'}
                 </Text>
                 <Text style={[styles.recordValue, { color: (() => {
                   if (headerStats.streakKind === 'L') return theme.error;
@@ -1213,7 +1234,7 @@ const TeamPageScreen = ({ route, navigation }) => {
               </View>
               <View style={styles.recordRow}>
                 <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>Record</Text>
-                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>Points</Text>
+                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>Differential</Text>
                 <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>Streak</Text>
               </View>
             </View>

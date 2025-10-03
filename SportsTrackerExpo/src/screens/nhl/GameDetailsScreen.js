@@ -50,16 +50,19 @@ const getSmartTeamColors = (awayTeam, homeTeam) => {
   const homeAlternate = homeTeam.alternateColor ? `#${homeTeam.alternateColor}` : homePrimary;
   
   const similarity = calculateColorSimilarity(awayPrimary, homePrimary);
-  const conflictThreshold = 0.3;
+  const conflictThreshold = 0.475; // More sensitive to color conflicts
+  
+  console.log(`NHL Color Debug: ${awayTeam.displayName} (${awayPrimary}, alt: ${awayAlternate}) vs ${homeTeam.displayName} (${homePrimary}, alt: ${homeAlternate}), similarity: ${similarity.toFixed(3)}`);
   
   if (similarity > conflictThreshold) {
-    console.log(`Color conflict detected: ${awayTeam.displayName} (${awayPrimary}) vs ${homeTeam.displayName} (${homePrimary}), similarity: ${similarity.toFixed(3)}`);
+    console.log(`Color conflict detected: Using away alternate (${awayAlternate}) vs home primary (${homePrimary})`);
     return {
       awayColor: awayAlternate,
       homeColor: homePrimary
     };
   }
   
+  console.log(`No color conflict detected: Using away primary (${awayPrimary}) vs home primary (${homePrimary})`);
   return {
     awayColor: awayPrimary,
     homeColor: homePrimary
@@ -860,7 +863,7 @@ const NHLGameDetailsScreen = ({ route }) => {
       const statusDesc = status?.type?.description || '';
       
       // Check for intermission
-      if (statusDesc.toLowerCase().includes('intermission')) {
+      if (statusDesc.toLowerCase().includes('end')) {
         return {
           text: 'INT',
           detail: `${statusDesc}`,
@@ -1066,9 +1069,10 @@ const NHLGameDetailsScreen = ({ route }) => {
     
     if (awayFaceoffPct === 0 && homeFaceoffPct === 0) return null;
 
-    // Colors
-    const awayColor = ensureHexColor(awayTeam?.team?.color) || colors.primary;
-    const homeColor = ensureHexColor(homeTeam?.team?.color) || '#666';
+    // Get smart team colors to handle color conflicts (same as team stats)
+    const smartColors = getSmartTeamColors(awayTeam?.team, homeTeam?.team);
+    const awayColor = smartColors.awayColor;
+    const homeColor = smartColors.homeColor;
 
     return (
       <View style={styles.faceoffContainer}>
@@ -1169,14 +1173,14 @@ const NHLGameDetailsScreen = ({ route }) => {
               style={[
                 styles.statsBarFill, 
                 styles.statsBarFillAway,
-                { width: `${awayPercent}%`, backgroundColor: awayColor }
+                { width: `${awayPercent}%`, backgroundColor: ensureHexColor(awayColor) }
               ]} 
             />
             <View 
               style={[
                 styles.statsBarFill, 
                 styles.statsBarFillHome,
-                { width: `${homePercent}%`, backgroundColor: homeColor }
+                { width: `${homePercent}%`, backgroundColor: ensureHexColor(homeColor) }
               ]} 
             />
           </View>

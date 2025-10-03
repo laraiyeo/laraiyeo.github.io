@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
-import NHLDataService from '../../services/NHLDataService';
+import WNBADataService from '../../services/WNBADataService';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const StatsScreen = ({ route }) => {
   const { sport } = route.params;
@@ -68,7 +69,7 @@ const StatsScreen = ({ route }) => {
 
   const fetchPlayerStats = async () => {
     try {
-      const response = await fetch('https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/2025/types/2/leaders?limit=10');
+      const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/${YearFallbackUtils.getPreferredYear()}/types/2/leaders?limit=10`);
       const data = await response.json();
       
       if (data.categories) {

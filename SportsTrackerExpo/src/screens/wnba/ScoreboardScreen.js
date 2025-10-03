@@ -363,6 +363,10 @@ const WNBAScoreboardScreen = ({ navigation }) => {
     const statusText = getStatusText(item);
     const statusColor = getStatusColor(item);
     const isLive = isLiveGame(item);
+    const isScheduled = item.status === 'Scheduled';
+
+    const awayWinner = item.isCompleted && !isLive && item.awayTeam.score > item.homeTeam.score;
+    const homeWinner = item.isCompleted && !isLive && item.homeTeam.score > item.awayTeam.score;
 
     return (
       <TouchableOpacity
@@ -397,7 +401,7 @@ const WNBAScoreboardScreen = ({ navigation }) => {
               <TeamLogo 
                 teamAbbreviation={normalizeAbbreviation(item.awayTeam.abbreviation)}
                 size={32}
-                style={styles.teamLogo}
+                style={[styles.teamLogo, { opacity : (isLive || isScheduled) ? 1 : (awayWinner ? 1 : 0.6) }]}
                 iconStyle={{ marginRight: 12 }}
               />
               <View style={styles.teamDetails}>
@@ -405,7 +409,7 @@ const WNBAScoreboardScreen = ({ navigation }) => {
                   {isFavorite(item.awayTeam.id, 'wnba') && (
                     <Ionicons name="star" size={14} color={colors.primary} style={styles.favoriteIcon} />
                   )}
-                  <Text allowFontScaling={false} style={[styles.teamName, { color: isFavorite(item.awayTeam.id, 'wnba') ? colors.primary : theme.text }]}>
+                  <Text allowFontScaling={false} style={[styles.teamName, { color: (isLive || isScheduled) ? (isFavorite(item.awayTeam.id, 'wnba') ? colors.primary : theme.text) : (awayWinner ? colors.primary : theme.textSecondary) }]}>
                     {item.awayTeam.displayName}
                   </Text>
                 </View>
@@ -416,7 +420,7 @@ const WNBAScoreboardScreen = ({ navigation }) => {
                 </Text>
               </View>
             </View>
-            <Text allowFontScaling={false} style={[styles.teamScore, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.teamScore, { color: (isLive || isScheduled) ? theme.text : (awayWinner ? colors.primary : theme.textSecondary) }]}>
               {item.status === 'Scheduled' ? '' : item.awayTeam.score || '-'}
             </Text>
           </TouchableOpacity>
@@ -431,7 +435,7 @@ const WNBAScoreboardScreen = ({ navigation }) => {
               <TeamLogo 
                 teamAbbreviation={normalizeAbbreviation(item.homeTeam.abbreviation)}
                 size={32}
-                style={styles.teamLogo}
+                style={[styles.teamLogo, { opacity : (isLive || isScheduled) ? 1 : (homeWinner ? 1 : 0.6) }]}
                 iconStyle={{ marginRight: 12 }}
               />
               <View style={styles.teamDetails}>
@@ -439,7 +443,7 @@ const WNBAScoreboardScreen = ({ navigation }) => {
                   {isFavorite(item.homeTeam.id, 'wnba') && (
                     <Ionicons name="star" size={14} color={colors.primary} style={styles.favoriteIcon} />
                   )}
-                  <Text allowFontScaling={false} style={[styles.teamName, { color: isFavorite(item.homeTeam.id, 'wnba') ? colors.primary : theme.text }]}>
+                  <Text allowFontScaling={false} style={[styles.teamName, { color: (isLive || isScheduled) ? (isFavorite(item.homeTeam.id, 'wnba') ? colors.primary : theme.text) : (homeWinner ? colors.primary : theme.textSecondary) }]}>
                     {item.homeTeam.displayName}
                   </Text>
                 </View>
@@ -450,7 +454,7 @@ const WNBAScoreboardScreen = ({ navigation }) => {
                 </Text>
               </View>
             </View>
-            <Text allowFontScaling={false} style={[styles.teamScore, { color: theme.text }]}>
+            <Text allowFontScaling={false} style={[styles.teamScore, { color: (isLive || isScheduled) ? theme.text : (homeWinner ? colors.primary : theme.textSecondary) }]}>
               {item.status === 'Scheduled' ? '' : item.homeTeam.score || '-'}
             </Text>
           </TouchableOpacity>

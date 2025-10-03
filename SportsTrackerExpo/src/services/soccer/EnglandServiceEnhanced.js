@@ -2,7 +2,11 @@
 // Handles API calls for English football leagues (Premier League, FA Cup, EFL Cup)
 // Combines soccer web logic with React Native patterns
 
-const ENGLAND_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1';
+import React from 'react';
+import { normalizeLeagueCodeForStorage } from '../../utils/TeamIdMapping';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
+
+const ENGLAND_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/eng';
 
 // Competition configurations
 const ENGLAND_COMPETITIONS = {
@@ -395,7 +399,7 @@ export const EnglandServiceEnhanced = {
       const teamPromises = teams.map(async (team) => {
         try {
           const teamId = team.team.id;
-          const rosterResponse = await fetch(`${ENGLAND_BASE_URL}/teams/${teamId}/roster?season=2025`);
+          const rosterResponse = await fetch(`${ENGLAND_BASE_URL}/teams/${teamId}/roster?season=${YearFallbackUtils.getPreferredYear()}`);
           const rosterData = await rosterResponse.json();
           
           if (rosterData.athletes) {

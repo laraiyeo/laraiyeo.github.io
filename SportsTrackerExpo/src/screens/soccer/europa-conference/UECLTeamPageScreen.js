@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Scr
 import { useTheme } from '../../../context/ThemeContext';
 import { useFavorites } from '../../../context/FavoritesContext';
 import { EuropaConferenceLeagueServiceEnhanced } from '../../../services/soccer/EuropaConferenceLeagueServiceEnhanced';
+import YearFallbackUtils from '../../../utils/YearFallbackUtils';
 
 const UECLTeamPageScreen = ({ route, navigation }) => {
   const { teamId, teamName } = route.params;
@@ -221,7 +222,7 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
       const competitionPromises = UECLCompetitions.map(async (leagueCode) => {
         try {
           // Get team events from ESPN Core API for each competition
-          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/2025/teams/${teamId}/events?lang=en&region=us&limit=100`;
+          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${teamId}/events?lang=en&region=us&limit=100`;
           console.log(`Fetching team events from ${leagueCode}:`, eventsUrl);
           
           const eventsResponse = await fetch(convertToHttps(eventsUrl));
@@ -424,26 +425,32 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
     
     setLoadingRoster(true);
     try {
-      const currentYear = new Date().getFullYear();
-      const response = await fetch(
-        `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/teams/${teamId}/roster?season=${currentYear}`
-      );
-      const data = await response.json();
-      
-      if (data.athletes && data.athletes.length > 0) {
-        setRoster(data.athletes);
-      } else {
-        // Try previous year if current year has no data
-        const prevResponse = await fetch(
-          `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/teams/${teamId}/roster?season=${currentYear - 1}`
-        );
-        const prevData = await prevResponse.json();
-        if (prevData.athletes) {
-          setRoster(prevData.athletes);
+      const rosterData = await YearFallbackUtils.fetchWithYearFallback(
+        async (year) => {
+          const response = await fetch(
+            `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/teams/${teamId}/roster?season=${year}`
+          );
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          
+          return await response.json();
+        },
+        (data) => {
+          console.log('Validating UECL roster data:', data);
+          return data && data.athletes && data.athletes.length > 0;
         }
+      );
+      
+      if (rosterData && rosterData.athletes) {
+        setRoster(rosterData.athletes);
+      } else {
+        setRoster([]);
       }
     } catch (error) {
       console.error('Error fetching roster:', error);
+      setRoster([]);
     } finally {
       setLoadingRoster(false);
     }
@@ -464,26 +471,35 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
       
       const allStats = {};
       
-      // Fetch stats for each season type in parallel
+      // Fetch stats for each season type in parallel with year fallback
       const statsPromises = seasonTypes.map(async (seasonType) => {
         try {
-          const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${seasonType.leagueCode}/seasons/2025/types/1/teams/${teamId}/statistics?lang=en&region=us`;
-          console.log(`Fetching ${seasonType.name} stats from:`, statsUrl);
+          const statsData = await YearFallbackUtils.fetchWithYearFallback(
+            async (year) => {
+              const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${seasonType.leagueCode}/seasons/${year}/types/1/teams/${teamId}/statistics/0?lang=en&region=us`;
+              const response = await fetch(convertToHttps(statsUrl));
+              
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+              }
+              
+              return await response.json();
+            },
+            (data) => {
+              console.log(`Validating UECL team stats data for ${seasonType.name}:`, data);
+              return data && data.splits && data.splits.categories && data.splits.categories.length > 0;
+            }
+          );
           
-          const response = await fetch(convertToHttps(statsUrl));
-          if (!response.ok) {
-            console.warn(`Failed to fetch ${seasonType.name} stats: ${response.status}`);
-            return null;
-          }
-          
-          const data = await response.json();
-          
-          // Check if there are stats available
-          if (data.splits?.categories && data.splits.categories.length > 0) {
-            console.log(`Found ${seasonType.name} stats with ${data.splits.categories.length} categories`);
+          if (statsData) {
+            console.log(`Found ${seasonType.name} stats with ${statsData.splits.categories.length} categories`);
+            
+            // Handle the case where data might be wrapped in a data property
+            const actualData = statsData.data || statsData;
+            
             return {
               seasonType: seasonType.name,
-              data: data
+              data: actualData
             };
           } else {
             console.log(`No stats found for ${seasonType.name}`);

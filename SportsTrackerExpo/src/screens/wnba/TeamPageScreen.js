@@ -157,11 +157,24 @@ const TeamPageScreen = ({ route, navigation }) => {
       recordDisplay = `${teamRecord.wins}-${teamRecord.losses}-${teamRecord.otLosses || 0}`;
     }
 
-    // Get points - prefer from /teams stats, then fallback to teamRecord
-    let points = getStat('points');
-    if (points === null && teamData?.points !== undefined) points = teamData.points;
-    if (points === null && teamData?.team?.points !== undefined) points = teamData.team.points;
-    if (points === null && teamRecord?.points !== undefined) points = teamRecord.points;
+    // Get differential - prefer from /teams stats, then fallback to teamRecord
+    let differential = getStat('differential');
+    if (differential === null && teamData?.differential !== undefined) differential = teamData.differential;
+    if (differential === null && teamData?.team?.differential !== undefined) differential = teamData.team.differential;
+    if (differential === null && teamRecord?.differential !== undefined) differential = teamRecord.differential;
+    let diffKind = null;
+    if (differential !== null && differential !== undefined) {
+      const s = String(differential).trim();
+      if (s === '') {
+        differential = '--';
+      } else {
+        const first = s.charAt(0);
+        if (first === '-') { differential = '' + s; diffKind = '-'; }
+        else if (first <= '1') { differential = '+' + s; diffKind = '+'; }
+        else if (first === '0') { differential = '' + s; diffKind = 'N'; }
+        else { differential = s; }
+      }
+    }
 
     // Get streak - prefer from /teams stats, then other locations
     let rawStreak = getStat('streak');
@@ -188,14 +201,15 @@ const TeamPageScreen = ({ route, navigation }) => {
     // Debug: log the exact values extracted for header
     console.log('WNBA deriveHeaderStats extracted:', {
       recordDisplay,
-      points,
+      differential,
+      diffKind,
       streakDisplay,
       streakKind,
       standingSummary,
       totalRecordFound: !!totalRecord,
       totalRecordSummary: totalRecord?.summary,
       extractedStats: {
-        points: getStat('points'),
+        differential: getStat('differential'),
         wins: getStat('wins'),
         losses: getStat('losses'),
         otLosses: getStat('otLosses'),
@@ -203,7 +217,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       }
     });
     
-    return { recordDisplay, points, streakDisplay, streakKind, standingSummary };
+    return { recordDisplay, differential, diffKind, streakDisplay, streakKind, standingSummary };
   };
 
   // Debug: log the exact teams link and the header stats used for display whenever relevant data changes
@@ -292,12 +306,12 @@ const TeamPageScreen = ({ route, navigation }) => {
       const res = await fetch(espnUrl);
       const data = await res.json();
       // Debug: print the exact places we look for header numbers so we can trace where
-      // values like points, record, and streak are coming from in the teams payload.
+      // values like differential, record, and streak are coming from in the teams payload.
       try {
         console.log('WNBA /teams payload debug:', {
           raw: data,
           teamTopLevel: data?.team,
-          points_direct: data?.team?.points,
+          points_direct: data?.team?.differential,
           recordSummary: data?.team?.recordSummary,
           record_obj: data?.team?.record,
           nested_team_obj: data?.team?.team,
@@ -603,7 +617,7 @@ const TeamPageScreen = ({ route, navigation }) => {
             wins: teamRecord.wins || teamRecord.gamesPlayed - teamRecord.losses - teamRecord.otLosses || 0,
             losses: teamRecord.losses || 0,
             otLosses: teamRecord.otLosses || 0,
-            points: teamRecord.points || 0
+            differential: teamRecord.differential || 0
           });
         }
       }
@@ -678,7 +692,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       let v2data = null;
       for (const t of typesToTry) {
         try {
-          const statsUrl = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/2025/types/${t}/teams/${currentTeamId}/statistics?lang=en&region=us`;
+          const statsUrl = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/${YearFallbackUtils.getPreferredYear()}/types/${t}/teams/${currentTeamId}/statistics?lang=en&region=us`;
           // eslint-disable-next-line no-console
           console.log('WNBA TeamPage: trying stats type', t, statsUrl);
           const resp = await fetch(statsUrl);
@@ -1190,15 +1204,19 @@ const TeamPageScreen = ({ route, navigation }) => {
           <Text style={[styles.teamDivision, { color: theme.textSecondary }]}> 
             {headerStats.standingSummary || 'Loading record...'}
           </Text>
-          {/* Header summary row: record, points, streak */}
-          {(headerStats.recordDisplay || headerStats.points || headerStats.streakDisplay !== '--') && (
+          {/* Header summary row: record, differential, streak */}
+          {(headerStats.recordDisplay || headerStats.differential || headerStats.streakDisplay !== '--') && (
             <View style={styles.recordContainer}>
               <View style={styles.recordRow}>
                 <Text style={[styles.recordValue, { color: theme.text }]}>
                   {headerStats.recordDisplay || '--'}
                 </Text>
-                <Text style={[styles.recordValue, { color: theme.text }]}>
-                  {headerStats.points || '--'}
+                <Text style={[styles.recordValue, { color: (() => {
+                  if (headerStats.diffKind === '-') return theme.error;
+                  if (headerStats.diffKind === '+') return theme.success;
+                  return theme.text;
+                })() }]}>
+                  {headerStats.differential || '--'}
                 </Text>
                 <Text style={[styles.recordValue, { color: (() => {
                   if (headerStats.streakKind === 'L') return theme.error;
@@ -1210,7 +1228,7 @@ const TeamPageScreen = ({ route, navigation }) => {
               </View>
               <View style={styles.recordRow}>
                 <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>Record</Text>
-                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>Points</Text>
+                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>Differential</Text>
                 <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>Streak</Text>
               </View>
             </View>

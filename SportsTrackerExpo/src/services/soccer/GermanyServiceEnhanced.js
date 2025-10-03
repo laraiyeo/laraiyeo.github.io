@@ -2,7 +2,11 @@
 // Handles API calls for German football leagues (Bundesliga, DFB Pokal, German Super Cup)
 // Combines soccer web logic with React Native patterns
 
-const GERMANY_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1';
+import React from 'react';
+import { normalizeLeagueCodeForStorage } from '../../utils/TeamIdMapping';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
+
+const GERMANY_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/ger';
 
 // Competition configurations
 const GERMANY_COMPETITIONS = {
@@ -395,7 +399,7 @@ export const GermanyServiceEnhanced = {
       const teamPromises = teams.map(async (team) => {
         try {
           const teamId = team.team.id;
-          const rosterResponse = await fetch(`${GERMANY_BASE_URL}/teams/${teamId}/roster?season=2025`);
+          const rosterResponse = await fetch(`${GERMANY_BASE_URL}/teams/${teamId}/roster?season=${YearFallbackUtils.getPreferredYear()}`);
           const rosterData = await rosterResponse.json();
           
           if (rosterData.athletes) {

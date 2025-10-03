@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const StatsScreen = ({ route }) => {
   const { sport } = route.params;
@@ -57,17 +58,30 @@ const StatsScreen = ({ route }) => {
     try {
       const leagueParam = selectedLeague === 'ALL' ? '' : `&leagueId=${leagues.find(l => l.key === selectedLeague).id}`;
       
-      // Fetch hitting stats
-      const hittingResponse = await fetch(
-        `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=battingAverage,homeRuns,rbi,hits,runs,stolenBases&leaderGameTypes=R&season=2025&limit=10${leagueParam}&statGroup=hitting`
-      );
-      const hittingData = await hittingResponse.json();
+      // Use fallback mechanism for API calls
+      const [hittingResult, pitchingResult] = await Promise.all([
+        YearFallbackUtils.fetchWithYearFallback(
+          async (year) => {
+            const response = await fetch(
+              `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=battingAverage,homeRuns,rbi,hits,runs,stolenBases&leaderGameTypes=R&season=${year}&limit=10${leagueParam}&statGroup=hitting`
+            );
+            return await response.json();
+          },
+          (data) => data && data.leagueLeaders && data.leagueLeaders.length > 0
+        ),
+        YearFallbackUtils.fetchWithYearFallback(
+          async (year) => {
+            const response = await fetch(
+              `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=era,strikeouts,wins,saves&leaderGameTypes=R&season=${year}&limit=10${leagueParam}&statGroup=pitching`
+            );
+            return await response.json();
+          },
+          (data) => data && data.leagueLeaders && data.leagueLeaders.length > 0
+        )
+      ]);
       
-      // Fetch pitching stats
-      const pitchingResponse = await fetch(
-        `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=era,strikeouts,wins,saves&leaderGameTypes=R&season=2025&limit=10${leagueParam}&statGroup=pitching`
-      );
-      const pitchingData = await pitchingResponse.json();
+      const hittingData = hittingResult.data;
+      const pitchingData = pitchingResult.data;
       
       // Process hitting stats
       const processedHitting = {};

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView, Modal } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { ItalyServiceEnhanced } from '../../../services/soccer/ItalyServiceEnhanced';
+import { YearFallbackUtils } from '../../../utils/YearFallbackUtils';
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
 const convertToHttps = (url) => {
@@ -472,9 +473,6 @@ const ItalyPlayerPageScreen = ({ route, navigation }) => {
     try {
       console.log('Fetching player stats for playerId:', playerId);
       
-      // Get current year for stats
-      const currentYear = new Date().getFullYear();
-      
       // Define competitions - all use types/0/ as you specified
       const competitions = [
         { code: 'ita.1', name: 'Serie A', seasonType: '0' },
@@ -484,26 +482,35 @@ const ItalyPlayerPageScreen = ({ route, navigation }) => {
       
       const allStats = {};
       
-      // Fetch stats for each competition in parallel
+      // Fetch stats for each competition in parallel with year fallback
       const statsPromises = competitions.map(async (competition) => {
         try {
-          const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition.code}/seasons/${currentYear}/types/${competition.seasonType}/athletes/${playerId}/statistics?lang=en&region=us`;
-          console.log(`Fetching ${competition.name} stats from:`, statsUrl);
+          const statsData = await YearFallbackUtils.fetchWithYearFallback(
+            async (year) => {
+              const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition.code}/seasons/${year}/types/${competition.seasonType}/athletes/${playerId}/statistics?lang=en&region=us`;
+              const response = await fetch(convertToHttps(statsUrl));
+              
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+              }
+              
+              return await response.json();
+            },
+            (data) => {
+              console.log(`Validating Italy player stats data for ${competition.name}:`, data);
+              return data && data.splits && data.splits.categories && data.splits.categories.length > 0;
+            }
+          );
           
-          const response = await fetch(convertToHttps(statsUrl));
-          if (!response.ok) {
-            console.warn(`Failed to fetch ${competition.name} stats: ${response.status}`);
-            return null;
-          }
-          
-          const data = await response.json();
-          
-          // Check if there are stats available
-          if (data.splits?.categories && data.splits.categories.length > 0) {
-            console.log(`Found ${competition.name} stats with ${data.splits.categories.length} categories`);
+          if (statsData) {
+            console.log(`Found ${competition.name} stats with ${statsData.splits.categories.length} categories`);
+            
+            // Handle the case where data might be wrapped in a data property
+            const actualData = statsData.data || statsData;
+            
             return {
               competition: competition.name,
-              data: data
+              data: actualData
             };
           } else {
             console.log(`No stats found for ${competition.name}`);
@@ -558,37 +565,47 @@ const ItalyPlayerPageScreen = ({ route, navigation }) => {
     try {
       console.log('Fetching game log for playerId:', playerId);
       
-      // Get current year for eventlog (following fantasy.js pattern exactly)
-      const currentYear = new Date().getFullYear();
-      
       // Italy competitions to fetch game logs from
       const competitions = ['ita.1', 'ita.coppa_italia', 'ita.super_cup'];
       
-      // Fetch game logs from all Italy competitions in parallel
+      // Fetch game logs from all Italy competitions with year fallback
       const fetchPromises = competitions.map(async (competition) => {
         try {
-          const gameLogUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/seasons/${currentYear}/athletes/${playerId}/eventlog?lang=en&region=us&played=true`;
+          const gameLogData = await YearFallbackUtils.fetchWithYearFallback(
+            async (year) => {
+              const gameLogUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/seasons/${year}/athletes/${playerId}/eventlog?lang=en&region=us&played=true`;
+              const response = await fetch(convertToHttps(gameLogUrl));
+              
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+              }
+              
+              return await response.json();
+            },
+            (data) => {
+              console.log(`Validating Italy game log data for ${competition}:`, data);
+              return data && ((data.events && data.events.length > 0) || (data.events && data.events.items && data.events.items.length > 0));
+            }
+          );
           
-          console.log(`Fetching ${competition} game log from:`, gameLogUrl);
-          
-          const gameLogResponse = await fetch(convertToHttps(gameLogUrl));
-          
-          if (gameLogResponse.ok) {
-            const gameLogData = await gameLogResponse.json();
+          if (gameLogData) {
             console.log(`${competition} game log API response:`, gameLogData);
+            
+            // Handle the case where data might be wrapped in a data property
+            const actualData = gameLogData.data || gameLogData;
             
             let eventsToProcess = null;
             
             // Handle different possible data structures
-            if (gameLogData && gameLogData.events && gameLogData.events.items) {
-              eventsToProcess = gameLogData.events.items;
-              console.log(`Found events.items array for ${competition} with`, gameLogData.events.count, 'total events');
-            } else if (gameLogData && gameLogData.events && Array.isArray(gameLogData.events)) {
-              eventsToProcess = gameLogData.events;
-            } else if (gameLogData && gameLogData.items) {
-              eventsToProcess = gameLogData.items;
-            } else if (Array.isArray(gameLogData)) {
-              eventsToProcess = gameLogData;
+            if (actualData && actualData.events && actualData.events.items) {
+              eventsToProcess = actualData.events.items;
+              console.log(`Found events.items array for ${competition} with`, actualData.events.count, 'total events');
+            } else if (actualData && actualData.events && Array.isArray(actualData.events)) {
+              eventsToProcess = actualData.events;
+            } else if (actualData && actualData.items) {
+              eventsToProcess = actualData.items;
+            } else if (Array.isArray(actualData)) {
+              eventsToProcess = actualData;
             }
             
             if (eventsToProcess && Array.isArray(eventsToProcess)) {
@@ -596,7 +613,7 @@ const ItalyPlayerPageScreen = ({ route, navigation }) => {
               return eventsToProcess;
             }
           } else {
-            console.log(`${competition} game log API failed with status:`, gameLogResponse.status);
+            console.log(`No game log data found for ${competition} player ${playerId} in any year`);
           }
         } catch (error) {
           console.error(`Error fetching ${competition} game log:`, error);

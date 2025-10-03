@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { useFavorites } from '../context/FavoritesContext';
+import YearFallbackUtils from '../utils/YearFallbackUtils';
 import { ChampionsLeagueServiceEnhanced } from '../services/soccer/ChampionsLeagueServiceEnhanced';
 import { MLBService } from '../services/MLBService';
 import { getAPITeamId, convertMLBIdToESPNId, normalizeTeamIdForStorage } from '../utils/TeamIdMapping';
@@ -379,7 +380,6 @@ const LEAGUE_COMPETITIONS = {
     { code: "fra.super_cup", name: "Trophee des Champions", logo: "2345" }
   ]
 };
-
 // Function to determine if a game should be fetched based on timing restrictions and status
 const shouldFetchGame = (game, teamName = 'Unknown') => {
   if (!game) return false;
@@ -3091,7 +3091,7 @@ const FavoritesScreen = ({ navigation }) => {
       }
       console.log(`Fetching UCL games for team: ${team.displayName} (${team.teamId})`);
       // Fetch team events from ESPN Core API
-      const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.champions/seasons/2025/teams/${team.teamId}/events?lang=en&region=us&limit=10`;
+      const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.champions/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${team.teamId}/events?lang=en&region=us&limit=10`;
       const eventsData = await fetchJsonWithCache(eventsUrl);
 
       if (eventsData.items && eventsData.items.length > 0) {
@@ -3190,7 +3190,7 @@ const FavoritesScreen = ({ navigation }) => {
         return null;
       }
       // Use Europa League API endpoint
-      const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/seasons/2025/teams/${team.teamId}/events?lang=en&region=us&limit=10`;
+      const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${team.teamId}/events?lang=en&region=us&limit=10`;
       const eventsData = await fetchJsonWithCache(eventsUrl);
 
       if (eventsData.items && eventsData.items.length > 0) {
@@ -3282,7 +3282,7 @@ const FavoritesScreen = ({ navigation }) => {
         return null;
       }
       // Use Europa Conference League API endpoint
-      const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/seasons/2025/teams/${team.teamId}/events?lang=en&region=us&limit=10`;
+      const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${team.teamId}/events?lang=en&region=us&limit=10`;
       const eventsData = await fetchJsonWithCache(eventsUrl);
 
       if (eventsData.items && eventsData.items.length > 0) {
@@ -3382,7 +3382,7 @@ const FavoritesScreen = ({ navigation }) => {
 
       for (const leagueCode of competitions) {
         try {
-          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/2025/teams/${team.teamId}/events?lang=en&region=us&limit=20`;
+          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${team.teamId}/events?lang=en&region=us&limit=20`;
           const eventsData = await fetchJsonWithCache(eventsUrl);
 
           if (eventsData.items && eventsData.items.length > 0) {
@@ -3478,7 +3478,7 @@ const FavoritesScreen = ({ navigation }) => {
 
       for (const leagueCode of competitions) {
         try {
-          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/2025/teams/${team.teamId}/events?lang=en&region=us&limit=20`;
+          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${team.teamId}/events?lang=en&region=us&limit=20`;
           const eventsData = await fetchJsonWithCache(eventsUrl);
 
           if (eventsData.items && eventsData.items.length > 0) {
@@ -3574,7 +3574,7 @@ const FavoritesScreen = ({ navigation }) => {
 
       for (const leagueCode of competitions) {
         try {
-          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/2025/teams/${team.teamId}/events?lang=en&region=us&limit=20`;
+          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${team.teamId}/events?lang=en&region=us&limit=20`;
           const eventsData = await fetchJsonWithCache(eventsUrl);
 
           if (eventsData.items && eventsData.items.length > 0) {
@@ -3671,7 +3671,7 @@ const FavoritesScreen = ({ navigation }) => {
 
       for (const leagueCode of competitions) {
         try {
-          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/2025/teams/${team.teamId}/events?lang=en&region=us&limit=20`;
+          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${team.teamId}/events?lang=en&region=us&limit=20`;
           console.log(`Fetching from ${leagueCode}:`, eventsUrl);
           const eventsData = await fetchJsonWithCache(eventsUrl);
 
@@ -3780,7 +3780,7 @@ const FavoritesScreen = ({ navigation }) => {
 
       for (const leagueCode of competitions) {
         try {
-          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/2025/teams/${team.teamId}/events?lang=en&region=us&limit=20`;
+          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${team.teamId}/events?lang=en&region=us&limit=20`;
           const eventsData = await fetchJsonWithCache(eventsUrl);
 
           if (eventsData.items && eventsData.items.length > 0) {
@@ -4698,8 +4698,8 @@ const FavoritesScreen = ({ navigation }) => {
         playBorderStyle = {
           borderLeftColor: isHomeTeamPlay ? (theme?.border || '#333333') : (formattedAway || colors.primary),
           borderRightColor: isHomeTeamPlay ? (formattedHome || colors.primary) : (theme?.border || '#333333'),
-          borderLeftWidth: isHomeTeamPlay ? 0 : 8,
-          borderRightWidth: isHomeTeamPlay ? 8 : 0,
+          borderLeftWidth: isHomeTeamPlay ? 1 : 8,
+          borderRightWidth: isHomeTeamPlay ? 8 : 1,
           borderTopWidth: 1,
           borderBottomWidth: 1,
         };
@@ -5004,7 +5004,7 @@ const FavoritesScreen = ({ navigation }) => {
             // Home team play - show right border only
             cardBorderStyle = {
               borderLeftColor: theme?.border || '#333333',
-              borderLeftWidth: 0,
+              borderLeftWidth: 1,
               borderRightColor: homeColor, 
               borderRightWidth: 8,
             };
@@ -5014,7 +5014,7 @@ const FavoritesScreen = ({ navigation }) => {
               borderLeftColor: awayColor,
               borderLeftWidth: 8,
               borderRightColor: theme?.border || '#333333', 
-              borderRightWidth: 0,
+              borderRightWidth: 1,
             };
           } else {
             // Can't determine which team made the play - show no thick borders
@@ -5277,7 +5277,7 @@ const FavoritesScreen = ({ navigation }) => {
             // Home team play - show right border only
             cardBorderStyle = {
               borderLeftColor: theme?.border || '#333333',
-              borderLeftWidth: 0,
+              borderLeftWidth: 1,
               borderRightColor: homeColor, 
               borderRightWidth: 8,
             };
@@ -5287,7 +5287,7 @@ const FavoritesScreen = ({ navigation }) => {
               borderLeftColor: awayColor,
               borderLeftWidth: 8,
               borderRightColor: theme?.border || '#333333', 
-              borderRightWidth: 0,
+              borderRightWidth: 1,
             };
           } else {
             // Can't determine which team made the play - show no thick borders
@@ -5514,7 +5514,7 @@ const FavoritesScreen = ({ navigation }) => {
         isPre,
         isPost,
         text: isLive ? 'Live' : (isPost ? 'Final' : 'Scheduled'),
-        time: displayClock || '',
+        time: displayClock === '0:00' ? 'INT' : displayClock,
         detail
       };
     };
@@ -5600,17 +5600,17 @@ const FavoritesScreen = ({ navigation }) => {
               // Home team play - show right border only
               cardBorderStyle = {
                 borderLeftColor: theme?.border || '#333333',
-                borderLeftWidth: 0,
-                borderRightColor: homeColor, 
+                borderLeftWidth: 1,
+                borderRightColor: awayColor, 
                 borderRightWidth: 8,
               };
             } else if (isHomeTeamPlay === false) {
               // Away team play - show left border only
               cardBorderStyle = {
-                borderLeftColor: awayColor,
+                borderLeftColor: homeColor,
                 borderLeftWidth: 8,
                 borderRightColor: theme?.border || '#333333', 
-                borderRightWidth: 0,
+                borderRightWidth: 1,
               };
             } else {
               // Can't determine which team made the play - show no thick borders
@@ -5838,6 +5838,7 @@ const FavoritesScreen = ({ navigation }) => {
       const isLive = (state === 'in') || fallback.isLive;
       const isPost = (state === 'post') || fallback.isPost || fallback.isFinished;
       const isPre = !isLive && !isPost;
+      const description = statusFromSiteAPI?.type?.description || statusFromCompetition?.type?.description || '';
 
       // displayClock/period extraction
       const displayClock = statusFromSiteAPI?.displayClock || statusFromCompetition?.displayClock || g.displayClock || competition?.displayClock || '';
@@ -5860,6 +5861,7 @@ const FavoritesScreen = ({ navigation }) => {
         isLive,
         isPre,
         isPost,
+        description,
         text: isLive ? 'Live' : (isPost ? 'Final' : 'Scheduled'),
         time: displayClock || '',
         detail
@@ -5871,6 +5873,7 @@ const FavoritesScreen = ({ navigation }) => {
   const isLive = Boolean(matchStatus?.isLive);
   const isScheduled = Boolean(matchStatus?.isPre);
   const isFinished = Boolean(matchStatus?.isPost);
+  const description = matchStatus?.description || '';
   const gameStatus = matchStatus; // keep a reference named gameStatus for existing usages
 
     // Helper function to get ordinal numbers
@@ -6169,7 +6172,7 @@ const FavoritesScreen = ({ navigation }) => {
     if (isLive) {
       gameStatusText = 'Live';
       if (game.displayClock) {
-        gameStatusText = `${game.displayClock}`;
+        gameStatusText = game.displayClock === '0:00' ? 'End' : `${game.displayClock}`;
         if (game.period) {
           const quarters = ['1st', '2nd', '3rd', '4th'];
           if (game.period <= 4) {
@@ -6232,6 +6235,8 @@ const FavoritesScreen = ({ navigation }) => {
       // Get smart team colors for border styling to handle color conflicts
       let homeColor = theme.surface;
       let awayColor = theme.surface;
+      let homeColorValue = null;
+      let awayColorValue = null;
       try {
         // Try multiple possible paths for team data
         const homeTeamData = homeTeam?.team || homeTeam || game.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home')?.team;
@@ -6264,14 +6269,14 @@ const FavoritesScreen = ({ navigation }) => {
       const useHome = possessionIsHome !== null ? possessionIsHome : (isHomeTeamPlay === true);
       if (useHome === true) {
         cardBorderStyle = {
-          borderRightColor: homeColor,
+          borderRightColor: awayColor,
           borderRightWidth: 8,
           borderLeftColor: theme.border,
           borderLeftWidth: 1,
         };
       } else if (useHome === false) {
         cardBorderStyle = {
-          borderLeftColor: awayColor,
+          borderLeftColor: homeColor,
           borderLeftWidth: 8,
           borderRightColor: theme.border,
           borderRightWidth: 1,
@@ -6279,14 +6284,14 @@ const FavoritesScreen = ({ navigation }) => {
       } else if (isHomeTeamPlay === true) {
         // Last-resort: if we had a play team but couldn't map possession, use play team
         cardBorderStyle = {
-          borderRightColor: homeColor,
+          borderRightColor: awayColor,
           borderRightWidth: 8,
           borderLeftColor: theme.border,
           borderLeftWidth: 1,
         };
       } else if (isHomeTeamPlay === false) {
         cardBorderStyle = {
-          borderLeftColor: awayColor,
+          borderLeftColor: homeColor,
           borderLeftWidth: 8,
           borderRightColor: theme.border,
           borderRightWidth: 1,
@@ -6365,7 +6370,7 @@ const FavoritesScreen = ({ navigation }) => {
                 {/* Primary line: down & distance (like "1st & 10") - only show if valid */}
                 {possessionInfo?.downAndDistance ? (
                   <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary, fontWeight: '600' }]}>
-                    {possessionInfo.downAndDistance}
+                    {description === 'Halftime' ? 'Halftime' : `${possessionInfo.downAndDistance}`}
                   </Text>
                 ) : (
                   <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary, fontWeight: '600' }]}>

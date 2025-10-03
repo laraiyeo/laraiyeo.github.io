@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView, Modal } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { NHLService } from '../../services/NHLService';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
 const convertToHttps = (url) => {
@@ -399,7 +400,7 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
   // Fetch eventlog teams for the past 6 seasons (simple, limited) and store them
   const fetchEventlogTeams = async () => {
     try {
-      const thisYear = new Date().getFullYear();
+      const thisYear = YearFallbackUtils.getPreferredYear();
       const seasons = [];
       for (let i = 0; i < 6; i++) seasons.push(String(thisYear - i));
 
@@ -440,7 +441,7 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
       }
       // If no seasons found, generate a recent seasons list (last 6 years)
       if (seasons.length === 0) {
-        const thisYear = new Date().getFullYear();
+        const thisYear = YearFallbackUtils.getPreferredYear();
         for (let i = 0; i < 6; i++) seasons.push(String(thisYear - i));
       }
 
@@ -569,7 +570,7 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
 
       // Simple approach: just show recent seasons 2020-2025 regardless of team data
       // Let the UI handle missing data by showing "-" for missing stats
-      const currentYear = new Date().getFullYear();
+      const currentYear = YearFallbackUtils.getPreferredYear();
       const fixedSeasons = [];
       for (let year = currentYear; year >= 2020; year--) {
         fixedSeasons.push(String(year));
@@ -659,7 +660,7 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
         headshot: { href: `https://a.espncdn.com/i/headshots/nhl/players/full/${playerId}.png` }
       };
 
-      const seasonYear = new Date().getFullYear();
+      const seasonYear = YearFallbackUtils.getPreferredYear();
       const siteUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/athletes/${playerId}`;
       const splitsUrl = `https://site.web.api.espn.com/apis/common/v3/sports/hockey/nhl/athletes/${playerId}/splits`;
       const statsUrl = `https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${seasonYear}/types/2/athletes/${playerId}/statistics?lang=en&region=us`;

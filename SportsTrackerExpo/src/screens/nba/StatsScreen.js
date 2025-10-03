@@ -13,6 +13,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import NHLDataService from '../../services/NHLDataService';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const StatsScreen = ({ route }) => {
   const { sport } = route.params;
@@ -68,8 +69,13 @@ const StatsScreen = ({ route }) => {
 
   const fetchPlayerStats = async () => {
     try {
-      const response = await fetch('https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2025/types/2/leaders?limit=10');
-      const data = await response.json();
+      const { data } = await YearFallbackUtils.fetchWithYearFallback(
+        async (year) => {
+          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${year}/types/2/leaders?limit=10`);
+          return await response.json();
+        },
+        (data) => data && data.categories && data.categories.length > 0
+      );
       
       if (data.categories) {
         // First, collect all unique athlete and team refs

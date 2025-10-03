@@ -14,6 +14,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useWindowDimensions } from 'react-native';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const RacerDetailsScreen = ({ route }) => {
   const { racerId, racerName, teamColor } = route.params || {};
@@ -70,16 +71,34 @@ const RacerDetailsScreen = ({ route }) => {
   const fetchRacerStats = async () => {
     try {
       // Prefer the athlete records endpoint which contains headshot, team, and stats
-      const recordsUrl = `http://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/types/2/athletes/${racerId}/records/0?lang=en&region=us`;
-      const response = await fetch(recordsUrl);
-      const records = await response.json();
+      const response = await YearFallbackUtils.fetchWithYearFallback(
+        async (year) => {
+          const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/athletes/${racerId}/records/0?lang=en&region=us`;
+          const apiResponse = await fetch(url);
+          
+          if (!apiResponse.ok) {
+            throw new Error(`HTTP ${apiResponse.status}`);
+          }
+          
+          return await apiResponse.json();
+        },
+        (data) => {
+          console.log('Validating F1 racer records data:', data);
+          return data && (data.records || data.athlete || data.stats);
+        }
+      );
+      
+      const records = response?.data || response;
 
       // Debug logging to see response structure
       console.log(`[RacerDetails] ESPN records for ${racerId}:`, JSON.stringify(records, null, 2));
 
-      // records may include an athlete object and records[0] with stats
+      // records may include an athlete object and records[0] with stats, or stats directly
       const recordItem = records?.records?.[0] || records;
       const athlete = records?.athlete || recordItem?.athlete || { id: racerId, displayName: racerName };
+      
+      // If records has stats directly, use those
+      const statsArray = records?.stats || recordItem?.stats || recordItem?.statistics || [];
 
       // Extract team info from recordItem or fallback to provided teamColor
       let teamName = 'Unknown Team';
@@ -137,9 +156,10 @@ const RacerDetailsScreen = ({ route }) => {
         if (img?.url) headshotUrl = img.url;
       }
 
-      // Helper to extract a named stat from the record item
+      // Helper to extract a named stat from the stats array
       const statValue = (name) => {
-        return recordItem?.stats?.find(s => s.name === name)?.displayValue
+        return statsArray?.find(s => s.name === name)?.displayValue
+          || recordItem?.stats?.find(s => s.name === name)?.displayValue
           || recordItem?.statistics?.find(s => s.name === name)?.displayValue
           || '0';
       };
@@ -174,8 +194,24 @@ const RacerDetailsScreen = ({ route }) => {
       console.error('Error fetching racer stats (records endpoint):', error);
       // Fallback: attempt previous approach via standings endpoint
       try {
-        const response2 = await fetch('https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/types/2/standings/0');
-        const data = await response2.json();
+        const response = await YearFallbackUtils.fetchWithYearFallback(
+          async (year) => {
+            const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/standings/0`;
+            const apiResponse = await fetch(url);
+            
+            if (!apiResponse.ok) {
+              throw new Error(`HTTP ${apiResponse.status}`);
+            }
+            
+            return await apiResponse.json();
+          },
+          (data) => {
+            console.log('Validating F1 driver standings data:', data);
+            return data.standings && data.standings.length > 0;
+          }
+        );
+        
+        const data = response?.data || response;
         if (data?.standings) {
           const driverStanding = data.standings.find(standing => {
             return standing.athlete?.id === racerId || 
@@ -219,9 +255,24 @@ const RacerDetailsScreen = ({ route }) => {
   const fetchRacerRaceLog = async () => {
     try {
       // First fetch the athlete data to get the eventLog $ref
-      const athleteUrl = `http://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/athletes/${racerId}?lang=en&region=us`;
-      const athleteResponse = await fetch(athleteUrl);
-      const athleteData = await athleteResponse.json();
+      const athleteResponse = await YearFallbackUtils.fetchWithYearFallback(
+        async (year) => {
+          const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/athletes/${racerId}?lang=en&region=us`;
+          const apiResponse = await fetch(url);
+          
+          if (!apiResponse.ok) {
+            throw new Error(`HTTP ${apiResponse.status}`);
+          }
+          
+          return await apiResponse.json();
+        },
+        (data) => {
+          console.log('Validating F1 athlete data:', data);
+          return data && data.id;
+        }
+      );
+      
+      const athleteData = athleteResponse?.data || athleteResponse;
       
       console.log(`[RacerDetails] Athlete data for ${racerId}:`, JSON.stringify(athleteData, null, 2));
       
@@ -400,7 +451,8 @@ const RacerDetailsScreen = ({ route }) => {
 
     const logoName = nameMap[teamName] || teamName.toLowerCase().replace(/\s+/g, '');
     const variant = isDarkMode ? 'logowhite' : 'logoblack';
-    return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/2025/${logoName}/2025${logoName}${variant}.webp`;
+    const currentYear = YearFallbackUtils.getCurrentYear(); // Use current year for logos
+    return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${currentYear}/${logoName}/${currentYear}${logoName}${variant}.webp`;
   };
 
   const onRefresh = React.useCallback(() => {

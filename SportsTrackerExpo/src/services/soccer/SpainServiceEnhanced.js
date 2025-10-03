@@ -2,7 +2,11 @@
 // Handles API calls for Spanish football leagues (La Liga, Copa del Rey, Supercopa de España)
 // Combines soccer web logic with React Native patterns
 
-const SPAIN_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1';
+import React from 'react';
+import { normalizeLeagueCodeForStorage } from '../../utils/TeamIdMapping';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
+
+const SPAIN_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/esp';
 
 // Competition configurations
 const SPAIN_COMPETITIONS = {
@@ -289,19 +293,24 @@ export const SpainServiceEnhanced = {
   // Fetch league standings using the same CDN endpoint as soccer web app
   async getStandings() {
     try {
-      const currentSeason = new Date().getFullYear().toString();
       const leagueCode = 'esp.1'; // La Liga
       
-      // Use the same CDN endpoint that works in soccer web app
-      const STANDINGS_URL = `https://cdn.espn.com/core/soccer/table?xhr=1&league=${leagueCode}&season=${currentSeason}`;
+      // Use fetchWithYearFallback to find standings data that exists
+      const { data: standingsData } = await YearFallbackUtils.fetchWithYearFallback(
+        async (year) => {
+          const response = await fetch(`https://cdn.espn.com/core/soccer/table?xhr=1&league=${leagueCode}&season=${year}`);
+          return await response.json();
+        },
+        (data) => data && data.content && data.content.standings && data.content.standings.groups && data.content.standings.groups[0] && data.content.standings.groups[0].standings && data.content.standings.groups[0].standings.entries && data.content.standings.groups[0].standings.entries.length > 0
+      );
       
-      console.log('Fetching standings from:', STANDINGS_URL);
-      const response = await fetch(STANDINGS_URL);
-      const standingsText = await response.text();
+      if (!standingsData) {
+        console.log('No standings data found for any year');
+        throw new Error('No standings data available');
+      }
       
-      console.log('Raw standings response:', standingsText.substring(0, 200) + '...');
-      
-      const data = JSON.parse(standingsText);
+      console.log('Found standings data with year fallback');
+      const data = standingsData;
       
       // Check if we have the expected structure
       if (data.content && data.content.standings && data.content.standings.groups && data.content.standings.groups[0]) {
@@ -395,8 +404,18 @@ export const SpainServiceEnhanced = {
       const teamPromises = teams.map(async (team) => {
         try {
           const teamId = team.team.id;
-          const rosterResponse = await fetch(`${SPAIN_BASE_URL}/teams/${teamId}/roster?season=2025`);
-          const rosterData = await rosterResponse.json();
+          // Use fetchWithYearFallback to find roster data that exists
+          const { data: rosterData } = await YearFallbackUtils.fetchWithYearFallback(
+            async (year) => {
+              const response = await fetch(`${SPAIN_BASE_URL}/teams/${teamId}/roster?season=${year}`);
+              return await response.json();
+            },
+            (data) => data && data.athletes && data.athletes.length > 0
+          );
+          
+          if (!rosterData) {
+            return [];
+          }
           
           if (rosterData.athletes) {
             return rosterData.athletes.map(athlete => {

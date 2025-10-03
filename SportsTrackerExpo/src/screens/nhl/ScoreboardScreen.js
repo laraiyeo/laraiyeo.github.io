@@ -186,6 +186,7 @@ const NHLScoreboardScreen = ({ navigation }) => {
 
   const getGameTimeText = (item) => {
     const isLive = isLiveGame(item);
+    if (isLive && item.displayClock === '0:00') return 'INT';
     if (isLive) return item.displayClock;
     // For scheduled or finished games show the start time
     if (item.date) {

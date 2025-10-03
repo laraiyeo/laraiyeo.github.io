@@ -11,6 +11,7 @@ import {
   Alert 
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const SearchScreen = ({ route, navigation }) => {
   const { sport } = route.params;
@@ -105,7 +106,7 @@ const SearchScreen = ({ route, navigation }) => {
           activePlayers.map(async (player) => {
             try {
               // Try to get current team info from player stats
-              const currentYear = new Date().getFullYear();
+              const currentYear = YearFallbackUtils.getPreferredYear();
               const statsResponse = await fetch(`https://statsapi.mlb.com/api/v1/people/${player.id}/stats?stats=season&season=${currentYear}`);
               const statsData = await statsResponse.json();
               

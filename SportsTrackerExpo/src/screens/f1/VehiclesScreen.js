@@ -9,11 +9,14 @@ import {
   Alert,
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const VehiclesScreen = () => {
   const { theme, colors } = useTheme();
   const [constructors, setConstructors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [logoUrls, setLogoUrls] = useState({});
+  const [carUrls, setCarUrls] = useState({});
 
   // Team color mapping (same as teams.js)
   const getTeamColor = (constructorName) => {
@@ -57,7 +60,13 @@ const VehiclesScreen = () => {
     const logoColor = (forceWhite || !blackLogoConstructors.includes(constructorName)) ? 'logowhite' : 'logoblack';
 
     const logoName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
-    return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/2025/${logoName}/2025${logoName}${logoColor}.webp`;
+    
+    // Try preferred year first (2026), then fallback to current year (2025)
+    const preferredYear = YearFallbackUtils.getPreferredYear();
+    const currentYear = new Date().getFullYear();
+    
+    // Return preferred year URL - browser will handle 404 fallback via onError
+    return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${preferredYear}/${logoName}/${preferredYear}${logoName}${logoColor}.webp`;
   };
 
   // Get constructor car (same as teams.js)
@@ -81,19 +90,44 @@ const VehiclesScreen = () => {
     };
     
     const carName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
-    return `https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000000/common/f1/2025/${carName}/2025${carName}carright.webp`;
+    
+    // Try preferred year first (2026), then fallback to current year (2025)
+    const preferredYear = YearFallbackUtils.getPreferredYear();
+    
+    // Return preferred year URL - browser will handle 404 fallback via onError
+    return `https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000000/common/f1/${preferredYear}/${carName}/${preferredYear}${carName}carright.webp`;
   };
 
   // Fetch constructors data
   const fetchConstructors = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/types/2/standings/1');
-      const data = await response.json();
+      const data = await YearFallbackUtils.fetchWithYearFallback(
+        async (year) => {
+          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/standings/1`);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          
+          return await response.json();
+        },
+        (data) => {
+          console.log('Validating F1 constructor standings data for vehicles:', data);
+          // Handle both possible structures: data.standings or data.data.standings
+          const standings = data?.standings || data?.data?.standings;
+          return standings && standings.length > 0;
+        }
+      );
       
-      if (data.standings && data.standings.length > 0) {
+      console.log('[VehiclesScreen] data:', data ? 'exists' : 'null');
+      const standingsData = data?.standings || data?.data?.standings;
+      console.log('[VehiclesScreen] standingsData:', standingsData ? `array with ${standingsData.length} items` : 'null/undefined');
+      
+      if (standingsData && standingsData.length > 0) {
+        console.log(`[VehiclesScreen] Processing ${standingsData.length} constructors`);
         // Process each constructor
-        const constructorPromises = data.standings.map(async (standing, index) => {
+        const constructorPromises = standingsData.map(async (standing, index) => {
           try {
             // Use the same approach as StandingsScreen - fetch manufacturer details from $ref
             if (standing.manufacturer && standing.manufacturer.$ref) {
@@ -132,8 +166,11 @@ const VehiclesScreen = () => {
         const constructorResults = await Promise.all(constructorPromises);
         const validConstructors = constructorResults.filter(c => c !== null);
         
+        console.log(`[VehiclesScreen] Successfully processed ${validConstructors.length} valid constructors`);
+        console.log('[VehiclesScreen] Sample constructor data:', validConstructors[0]);
         // Already sorted by API standings order, no need to re-sort
         setConstructors(validConstructors);
+        console.log('[VehiclesScreen] Set constructors in state');
       }
     } catch (error) {
       console.error('Error fetching constructors:', error);
@@ -147,10 +184,66 @@ const VehiclesScreen = () => {
     fetchConstructors();
   }, []);
 
+  const getLogoUrl = (constructorName) => {
+    return logoUrls[constructorName] || getConstructorLogo(constructorName);
+  };
+
+  const getCarUrlForConstructor = (constructorName) => {
+    return carUrls[constructorName] || getConstructorCar(constructorName);
+  };
+
+  const handleLogoError = (constructorName) => {
+    const currentYear = new Date().getFullYear();
+    const nameMap = {
+      'McLaren': 'mclaren',
+      'Ferrari': 'ferrari', 
+      'Red Bull': 'redbullracing',
+      'Mercedes': 'mercedes',
+      'Aston Martin': 'astonmartin',
+      'Alpine': 'alpine',
+      'Williams': 'williams',
+      'RB': 'rb',
+      'Haas': 'haas',
+      'Sauber': 'kicksauber'
+    };
+    const blackLogoConstructors = ['Williams', 'Alpine', 'Mercedes', 'Sauber'];
+    const logoColor = !blackLogoConstructors.includes(constructorName) ? 'logowhite' : 'logoblack';
+    const logoName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
+    const fallbackUrl = `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${currentYear}/${logoName}/${currentYear}${logoName}${logoColor}.webp`;
+    
+    setLogoUrls(prev => ({
+      ...prev,
+      [constructorName]: fallbackUrl
+    }));
+  };
+
+  const handleCarError = (constructorName) => {
+    const currentYear = new Date().getFullYear();
+    const nameMap = {
+      'McLaren': 'mclaren',
+      'Ferrari': 'ferrari', 
+      'Red Bull': 'redbullracing',
+      'Mercedes': 'mercedes',
+      'Aston Martin': 'astonmartin',
+      'Alpine': 'alpine',
+      'Williams': 'williams',
+      'RB': 'rb',
+      'Haas': 'haas',
+      'Sauber': 'kicksauber'
+    };
+    const carName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
+    const fallbackUrl = `https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000000/common/f1/${currentYear}/${carName}/${currentYear}${carName}carright.webp`;
+    
+    setCarUrls(prev => ({
+      ...prev,
+      [constructorName]: fallbackUrl
+    }));
+  };
+
   const renderConstructorCard = (constructor) => {
     const teamColor = getTeamColor(constructor.name);
-    const logoUrl = getConstructorLogo(constructor.name);
-    const carUrl = getConstructorCar(constructor.name);
+    const logoUrl = getLogoUrl(constructor.name);
+    const carUrl = getCarUrlForConstructor(constructor.name);
 
     const blackTextConstructors = ['Williams', 'Alpine', 'Mercedes', 'Sauber', 'Haas'];
     const needsBlackText = blackTextConstructors.includes(constructor.name);
@@ -162,6 +255,7 @@ const VehiclesScreen = () => {
             source={{ uri: logoUrl }} 
             style={styles.teamLogo}
             resizeMode="contain"
+            onError={() => handleLogoError(constructor.name)}
           />
           <View style={styles.teamInfo}>
             <Text style={[styles.teamName, {color: needsBlackText ? '#000' : '#fff'}]}>{constructor.name}</Text>
@@ -178,6 +272,7 @@ const VehiclesScreen = () => {
             source={{ uri: carUrl }} 
             style={styles.carImage}
             resizeMode="contain"
+            onError={() => handleCarError(constructor.name)}
           />
         </View>
       </View>
@@ -193,6 +288,9 @@ const VehiclesScreen = () => {
     );
   }
 
+  console.log(`[VehiclesScreen] Render - constructors.length: ${constructors.length}`);
+  console.log('[VehiclesScreen] Render - loading:', loading);
+  
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView 
@@ -200,7 +298,7 @@ const VehiclesScreen = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.headerText, { color: theme.text }]}>2025 Formula 1 Vehicles</Text>
+        <Text style={[styles.headerText, { color: theme.text }]}>Formula 1 Vehicles</Text>
         
         {constructors.map(renderConstructorCard)}
       </ScrollView>

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Scr
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { getAPITeamId, convertMLBIdToESPNId } from '../../utils/TeamIdMapping';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 // Keep a reference to the original console.log so important diagnostics remain visible
 const __orig_console_log = (typeof console !== 'undefined' && console.log) ? console.log.bind(console) : () => {};
@@ -314,7 +315,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       // Convert ESPN ID to MLB ID for API calls
       const mlbApiId = getAPITeamId(teamId, sport);
       // Get current year season games
-      const currentYear = new Date().getFullYear();
+      const currentYear = YearFallbackUtils.getPreferredYear();
       const response = await fetch(
         `https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${mlbApiId}&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&hydrate=team,linescore,decisions`
       );

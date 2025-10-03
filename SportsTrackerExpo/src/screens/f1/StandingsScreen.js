@@ -13,6 +13,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const StandingsScreen = ({ route }) => {
   const { theme, colors, isDarkMode } = useTheme();
@@ -24,6 +25,7 @@ const StandingsScreen = ({ route }) => {
   const [constructorStandings, setConstructorStandings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [logoUrls, setLogoUrls] = useState({});
 
   const standingTypes = [
     { key: 'DRIVERS', name: 'Drivers' },
@@ -80,26 +82,56 @@ const StandingsScreen = ({ route }) => {
 
   const fetchStandings = async () => {
     try {
+      console.log('[StandingsScreen] Starting fetchStandings');
       setLoading(true);
       
-      // Fetch both driver and constructor standings in parallel
-      const [driversResponse, constructorsResponse] = await Promise.all([
-        fetch('https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/types/2/standings/0'),
-        fetch('https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/2025/types/2/standings/1')
-      ]);
-      
+      // Fetch both driver and constructor standings with year fallback
       const [driversData, constructorsData] = await Promise.all([
-        driversResponse.json(),
-        constructorsResponse.json()
+        YearFallbackUtils.fetchWithYearFallback(
+          async (year) => {
+            const response = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/standings/0`);
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+            return await response.json();
+          },
+          (data) => {
+            console.log('Validating F1 driver standings data:', data);
+            // Handle both possible structures: data.standings or data.data.standings
+            const standings = data?.standings || data?.data?.standings;
+            return standings && standings.length > 0;
+          }
+        ),
+        YearFallbackUtils.fetchWithYearFallback(
+          async (year) => {
+            const response = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/standings/1`);
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+            return await response.json();
+          },
+          (data) => {
+            console.log('Validating F1 constructor standings data:', data);
+            // Handle both possible structures: data.standings or data.data.standings
+            const standings = data?.standings || data?.data?.standings;
+            return standings && standings.length > 0;
+          }
+        )
       ]);
       
       // Prepare driversWithDetails so constructors can reference it later
       let driversWithDetails = [];
-      if (driversData && driversData.standings) {
+      console.log('[StandingsScreen] driversData:', driversData ? 'exists' : 'null');
+      const driverStandingsData = driversData?.standings || driversData?.data?.standings;
+      console.log('[StandingsScreen] driverStandingsData:', driverStandingsData ? `array with ${driverStandingsData.length} items` : 'null/undefined');
+      
+      if (driverStandingsData && driverStandingsData.length > 0) {
+        console.log(`[StandingsScreen] Processing ${driverStandingsData.length} driver standings`);
         // Process driver standings with team information
         driversWithDetails = await Promise.all(
-          driversData.standings.map(async (standing, index) => {
+          driverStandingsData.map(async (standing, index) => {
             try {
+              console.log(`[StandingsScreen] Processing driver ${index + 1}/${driverStandingsData.length}`);
               // Get athlete details first
               const athleteResponse = await fetch(convertToHttps(standing.athlete.$ref));
               const athleteData = await athleteResponse.json();
@@ -171,7 +203,7 @@ const StandingsScreen = ({ route }) => {
                 podiums: standing.records?.[0]?.stats?.find(stat => stat.name === 'top5')?.displayValue || '0'
               };
             } catch (error) {
-              console.error('Error processing driver standing:', error);
+              console.error(`Error processing driver standing ${index + 1}:`, error);
               return {
                 position: index + 1,
                 driver: { name: 'Unknown Driver', id: null },
@@ -184,14 +216,23 @@ const StandingsScreen = ({ route }) => {
           })
         );
         
+        console.log(`[StandingsScreen] Successfully processed ${driversWithDetails.length} drivers`);
+        console.log('[StandingsScreen] Sample driver data:', driversWithDetails[0]);
         setDriverStandings(driversWithDetails);
+        console.log('[StandingsScreen] Set driver standings in state');
       }
         
       // Process constructor standings using already-fetched data
-      if (constructorsData && constructorsData.standings) {
+      console.log('[StandingsScreen] constructorsData:', constructorsData ? 'exists' : 'null');
+      const constructorStandingsData = constructorsData?.standings || constructorsData?.data?.standings;
+      console.log('[StandingsScreen] constructorStandingsData:', constructorStandingsData ? `array with ${constructorStandingsData.length} items` : 'null/undefined');
+      
+      if (constructorStandingsData && constructorStandingsData.length > 0) {
+          console.log(`[StandingsScreen] Processing ${constructorStandingsData.length} constructor standings`);
           const constructorsWithDetails = await Promise.all(
-            constructorsData.standings.map(async (standing, index) => {
+            constructorStandingsData.map(async (standing, index) => {
               try {
+                console.log(`[StandingsScreen] Processing constructor ${index + 1}/${constructorStandingsData.length}`);
                 // Get manufacturer details
                 const manufacturerResponse = await fetch(convertToHttps(standing.manufacturer.$ref));
                 const manufacturerData = await manufacturerResponse.json();
@@ -208,7 +249,7 @@ const StandingsScreen = ({ route }) => {
                   drivers: [] // Will be populated below
                 };
               } catch (error) {
-                console.error('Error processing constructor standing:', error);
+                console.error(`Error processing constructor standing ${index + 1}:`, error);
                 return {
                   position: index + 1,
                   name: 'Unknown Constructor',
@@ -228,12 +269,17 @@ const StandingsScreen = ({ route }) => {
               .map(driver => driver.driver.name);
           });
           
+          console.log(`[StandingsScreen] Successfully processed ${constructorsWithDetails.length} constructors`);
+          console.log('[StandingsScreen] Sample constructor data:', constructorsWithDetails[0]);
           setConstructorStandings(constructorsWithDetails);
+          console.log('[StandingsScreen] Set constructor standings in state');
         }
+        console.log('[StandingsScreen] Finished processing all standings data');
     } catch (error) {
       console.error('Error fetching F1 standings:', error);
       Alert.alert('Error', 'Failed to fetch F1 standings');
     } finally {
+      console.log('[StandingsScreen] fetchStandings completed');
       setLoading(false);
       setRefreshing(false);
     }
@@ -445,11 +491,40 @@ const StandingsScreen = ({ route }) => {
 
     const logoName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
     const variant = isDarkMode ? 'logowhite' : 'logoblack';
-    return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/2025/${logoName}/2025${logoName}${variant}.webp`;
+    const preferredYear = YearFallbackUtils.getPreferredYear();
+    return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${preferredYear}/${logoName}/${preferredYear}${logoName}${variant}.webp`;
+  };
+
+  const getLogoUrl = (constructorName) => {
+    return logoUrls[constructorName] || getConstructorLogo(constructorName);
+  };
+
+  const handleLogoError = (constructorName) => {
+    const currentYear = new Date().getFullYear();
+    const nameMap = {
+      'McLaren': 'mclaren',
+      'Ferrari': 'ferrari',
+      'Red Bull': 'redbullracing',
+      'Mercedes': 'mercedes',
+      'Aston Martin': 'astonmartin',
+      'Alpine': 'alpine',
+      'Williams': 'williams',
+      'RB': 'rb',
+      'Haas': 'haas',
+      'Sauber': 'kicksauber'
+    };
+    const variant = isDarkMode ? 'logowhite' : 'logoblack';
+    const logoName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
+    const fallbackUrl = `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${currentYear}/${logoName}/${currentYear}${logoName}${variant}.webp`;
+    
+    setLogoUrls(prev => ({
+      ...prev,
+      [constructorName]: fallbackUrl
+    }));
   };
 
   const ConstructorLogo = ({ name, color }) => {
-    const uri = getConstructorLogo(name);
+    const uri = getLogoUrl(name);
     if (!uri) {
       return (
         <View style={[styles.constructorInitialsContainer, { backgroundColor: color }]}>
@@ -461,7 +536,12 @@ const StandingsScreen = ({ route }) => {
     }
 
     return (
-      <Image source={{ uri }} style={styles.constructorLogoImage} resizeMode="contain" />
+      <Image 
+        source={{ uri }} 
+        style={styles.constructorLogoImage} 
+        resizeMode="contain"
+        onError={() => handleLogoError(name)}
+      />
     );
   };
 
@@ -715,6 +795,11 @@ const StandingsScreen = ({ route }) => {
   }
 
   const currentStandings = selectedType === 'DRIVERS' ? driverStandings : constructorStandings;
+  
+  console.log(`[StandingsScreen] Render - selectedType: ${selectedType}`);
+  console.log(`[StandingsScreen] Render - driverStandings.length: ${driverStandings.length}`);
+  console.log(`[StandingsScreen] Render - constructorStandings.length: ${constructorStandings.length}`);
+  console.log(`[StandingsScreen] Render - currentStandings.length: ${currentStandings.length}`);
 
   return (
     <View style={styles.container}>

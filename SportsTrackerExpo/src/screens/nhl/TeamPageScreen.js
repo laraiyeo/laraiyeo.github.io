@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { NHLService } from '../../services/NHLService';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 // Normalize abbreviations for logo lookup consistency
 const normalizeAbbreviation = (abbrev) => {
@@ -315,7 +316,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       if (data && data.team) {
         setTeamData(data.team);
         // try to fetch standings/record and season schedules (seasontype 1,2,3)
-        const year = new Date().getFullYear();
+        const year = YearFallbackUtils.getPreferredYear();
         const recordPromise = fetchTeamRecord(data.team.id);
 
         // Fetch schedule types 1,2,3 and pick the last non-empty type for updates
@@ -686,7 +687,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       let v2data = null;
       for (const t of typesToTry) {
         try {
-          const statsUrl = `https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/2026/types/${t}/teams/${currentTeamId}/statistics?lang=en&region=us`;
+          const statsUrl = `https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${YearFallbackUtils.getPreferredYear()}/types/${t}/teams/${currentTeamId}/statistics?lang=en&region=us`;
           // eslint-disable-next-line no-console
           console.log('NHL TeamPage: trying stats type', t, statsUrl);
           const resp = await fetch(statsUrl);
@@ -894,6 +895,7 @@ const TeamPageScreen = ({ route, navigation }) => {
     if (!s) return '';
     if (typeof s === 'string') return s;
     // prefer displayClock if provided
+    if (s.displayClock && typeof s.displayClock === 'string' && s.displayClock === '0:00') return 'INT';
     if (s.displayClock && typeof s.displayClock === 'string') return s.displayClock;
     // fallback to type.shortDetail / description / state
     if (s.type) {

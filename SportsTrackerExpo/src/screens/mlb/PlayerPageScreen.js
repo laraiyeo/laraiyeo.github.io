@@ -10,6 +10,7 @@ import {
   Modal
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
+import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const PlayerPageScreen = ({ route, navigation }) => {
   const { playerId, playerName, teamId, sport } = route.params;
@@ -103,13 +104,14 @@ const PlayerPageScreen = ({ route, navigation }) => {
       console.log('Player position:', position, 'isPitcher:', isPitcher, 'isTwoWay:', isTwoWay);
       
       let statsUrl;
+      const preferredYear = YearFallbackUtils.getPreferredYear();
       if (isPitcher) {
-        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=2025`;
+        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${preferredYear}`;
       } else if (isTwoWay) {
         // For two-way players, we'll fetch hitting stats first, then pitching if needed
-        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=2025`;
+        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${preferredYear}`;
       } else {
-        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=2025`;
+        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${preferredYear}`;
       }
       
       console.log('Fetching player stats from:', statsUrl);
@@ -133,7 +135,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       
       // If no team found and it's a two-way player, try pitching stats
       if (!player.currentTeam && isTwoWay) {
-        const pitchingStatsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=2025`;
+        const pitchingStatsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${preferredYear}`;
         console.log('Fetching two-way player pitching stats from:', pitchingStatsUrl);
         
         const pitchingResponse = await fetch(pitchingStatsUrl);
@@ -161,7 +163,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     
     setLoadingGameLog(true);
     try {
-      const currentYear = new Date().getFullYear();
+      const currentYear = YearFallbackUtils.getPreferredYear();
       const position = playerData.primaryPosition?.name || '';
       const isPitcher = position.toLowerCase().includes('pitcher');
       const isTwoWay = position.toLowerCase().includes('two-way');
@@ -278,7 +280,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     
     setLoadingVsTeam(true);
     try {
-      const currentYear = new Date().getFullYear();
+      const currentYear = YearFallbackUtils.getPreferredYear();
       const position = playerData.primaryPosition?.name || '';
       const isPitcher = position.toLowerCase().includes('pitcher');
       const isTwoWay = position.toLowerCase().includes('two-way');
@@ -349,7 +351,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     
     setLoadingStats(true);
     try {
-      const currentYear = new Date().getFullYear();
+      const currentYear = YearFallbackUtils.getPreferredYear();
       const position = playerData.primaryPosition?.name || '';
       const isPitcher = position.toLowerCase().includes('pitcher');
       const isTwoWay = position.toLowerCase().includes('two-way');
