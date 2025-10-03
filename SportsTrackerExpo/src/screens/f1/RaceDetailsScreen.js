@@ -115,6 +115,10 @@ const RaceDetailsScreen = ({ route }) => {
   const [selectedDriverDetails, setSelectedDriverDetails] = useState(null);
   const { width: windowWidth } = useWindowDimensions();
 
+  // Streaming state
+  const [streamModalVisible, setStreamModalVisible] = useState(false);
+  const [isStreamLoading, setIsStreamLoading] = useState(true);
+
   // Live race tracking state
   const [isLiveRace, setIsLiveRace] = useState(false);
   const [liveUpdateInterval, setLiveUpdateInterval] = useState(null);
@@ -275,6 +279,54 @@ const RaceDetailsScreen = ({ route }) => {
     } catch (e) {
       console.error('Error toggling favorite from RaceDetailsScreen', e);
     }
+  };
+
+  // Helper to determine if streaming should be available
+  const isStreamingAvailable = () => {
+    if (!raceData) {
+      console.log('No race data available');
+      return false;
+    }
+
+    // Get current time in EST
+    const now = new Date();
+    const estOffset = -5 * 60; // EST is UTC-5 (in minutes)
+    const nowEST = new Date(now.getTime() + (estOffset * 60 * 1000));
+    
+    // Get race weekend start and end dates
+    const raceStartDate = raceData.date ? new Date(raceData.date) : null;
+    const raceEndDate = raceData.endDate ? new Date(raceData.endDate) : null;
+    
+    console.log('Stream availability check:', {
+      nowEST: nowEST.toISOString(),
+      raceStartDate: raceStartDate?.toISOString(),
+      raceEndDate: raceEndDate?.toISOString(),
+    });
+
+    if (!raceStartDate || !raceEndDate) {
+      console.log('Race dates not available');
+      return false;
+    }
+
+    // Convert race dates to EST for comparison
+    const raceStartEST = new Date(raceStartDate.getTime() + (estOffset * 60 * 1000));
+    const raceEndEST = new Date(raceEndDate.getTime() + (estOffset * 60 * 1000));
+    
+    // Check if current EST date is within race weekend
+    const currentESTDateOnly = new Date(nowEST.getFullYear(), nowEST.getMonth(), nowEST.getDate());
+    const raceStartDateOnly = new Date(raceStartEST.getFullYear(), raceStartEST.getMonth(), raceStartEST.getDate());
+    const raceEndDateOnly = new Date(raceEndEST.getFullYear(), raceEndEST.getMonth(), raceEndEST.getDate());
+    
+    const isWithinRaceWeekend = currentESTDateOnly >= raceStartDateOnly && currentESTDateOnly <= raceEndDateOnly;
+    
+    console.log('Date comparison:', {
+      currentESTDateOnly: currentESTDateOnly.toDateString(),
+      raceStartDateOnly: raceStartDateOnly.toDateString(),
+      raceEndDateOnly: raceEndDateOnly.toDateString(),
+      isWithinRaceWeekend
+    });
+
+    return isWithinRaceWeekend;
   };
 
   useEffect(() => {
@@ -1275,6 +1327,31 @@ const RaceDetailsScreen = ({ route }) => {
     }
   };
 
+  // Stream modal functions
+  const openStreamModal = async () => {
+    console.log('Header clicked! Opening stream modal...');
+    
+    if (!isStreamingAvailable()) {
+      console.log('Stream not available, showing alert');
+      Alert.alert('Stream Unavailable', 'Streaming is only available during the race weekend (Oct 3-5, 2025 EST).');
+      return;
+    }
+
+    console.log('Stream available, opening modal');
+    setStreamModalVisible(true);
+    setIsStreamLoading(true);
+    
+    // Simulate loading time for stream
+    setTimeout(() => {
+      setIsStreamLoading(false);
+    }, 2000);
+  };
+
+  const closeStreamModal = () => {
+    setStreamModalVisible(false);
+    setIsStreamLoading(true);
+  };
+
   const fetchRaceWinner = async (eventData) => {
     try {
       // Look for the Race competition in the competitions array
@@ -1870,7 +1947,16 @@ const RaceDetailsScreen = ({ route }) => {
     return (
       <View style={styles.headerContainer}>
         
-        <View style={[styles.headerCard, { backgroundColor: theme.surface, borderColor: 'transparent' }]}>
+        <TouchableOpacity 
+          style={[styles.headerCard, { 
+            backgroundColor: theme.surface, 
+            borderColor: 'transparent',
+            opacity: isStreamingAvailable() ? 1 : 0.8
+          }]}
+          onPress={openStreamModal}
+          activeOpacity={isStreamingAvailable() ? 0.7 : 1}
+          disabled={!isStreamingAvailable()}
+        >
           <View style={styles.headerCardContent}>
           <View style={styles.headerCardLeft}>
             <Text allowFontScaling={false} style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
@@ -1944,7 +2030,7 @@ const RaceDetailsScreen = ({ route }) => {
             </View>
           ) : null}
         </View>
-      </View>
+      </TouchableOpacity>
     </View>
     );
   };
@@ -3718,6 +3804,81 @@ const RaceDetailsScreen = ({ route }) => {
     stripe: {
       flex: 1,
     },
+    // Stream Modal Styles
+    streamModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    streamModalContainer: {
+      backgroundColor: '#fff',
+      borderRadius: 12,
+      width: '95%',
+      maxWidth: 800,
+      height: '85%',
+      maxHeight: 600,
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 10,
+      },
+      shadowOpacity: 0.5,
+      shadowRadius: 20,
+      elevation: 20,
+    },
+    streamModalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 15,
+      backgroundColor: '#f8f9fa',
+      borderBottomWidth: 1,
+      borderBottomColor: '#dee2e6',
+    },
+    streamModalTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: '#FF1E00',
+    },
+    streamCloseButton: {
+      width: 35,
+      height: 35,
+      borderRadius: 17.5,
+      backgroundColor: '#e9ecef',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    streamCloseText: {
+      fontSize: 20,
+      color: '#FF1E00',
+      fontWeight: 'bold',
+    },
+    streamContent: {
+      flex: 1,
+      position: 'relative',
+    },
+    streamLoadingContainer: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.8)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 1000,
+    },
+    streamLoadingText: {
+      color: '#fff',
+      marginTop: 10,
+      fontSize: 16,
+    },
+    streamWebView: {
+      flex: 1,
+    },
   });
 
   if (loading) {
@@ -3917,8 +4078,171 @@ const RaceDetailsScreen = ({ route }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Stream Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={streamModalVisible}
+        onRequestClose={closeStreamModal}
+      >
+        <View style={styles.streamModalOverlay}>
+          <View style={[styles.streamModalContainer, { backgroundColor: theme.surface }]}>
+            {/* Modal Header */}
+            <View style={[styles.streamModalHeader, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]}>
+              <Text allowFontScaling={false} style={[styles.streamModalTitle, { color: colors.primary }]}>F1 Live Stream</Text>
+              <TouchableOpacity style={[styles.streamCloseButton, { backgroundColor: theme.surfaceSecondary }]} onPress={closeStreamModal}>
+                <Text allowFontScaling={false} style={[styles.streamCloseText, { color: colors.primary }]}>×</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Stream Content */}
+            <View style={styles.streamContent}>
+              {isStreamLoading && (
+                <View style={styles.streamLoadingContainer}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text allowFontScaling={false} style={[styles.streamLoadingText, { color: theme.text }]}>
+                    Loading F1 Stream...
+                  </Text>
+                </View>
+              )}
+
+              {/* F1 Stream WebView */}
+              <WebView
+                source={{
+                  html: `
+                    <!DOCTYPE html>
+                    <html>
+                      <head>
+                        <meta charset="utf-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <style>
+                          body { margin: 0; padding: 0; background: #000; overflow: hidden; }
+                          iframe { width: 100%; height: 100vh; border: none; display: block; }
+                          /* Hide any potential overlay elements */
+                          .overlay, .popup, .ad, .banner, [class*="ad"], [id*="ad"] { display: none !important; }
+                        </style>
+                        <script>
+                          // Enhanced ad blocking and popup prevention
+                          (function() {
+                            // More comprehensive popup blocking
+                            const originalOpen = window.open;
+                            window.open = function() { 
+                              console.log('Popup blocked');
+                              return null; 
+                            };
+                            
+                            // Block all forms of navigation
+                            const originalAssign = window.location.assign;
+                            const originalReplace = window.location.replace;
+                            
+                            window.location.assign = function() { console.log('Navigation blocked'); };
+                            window.location.replace = function() { console.log('Navigation blocked'); };
+                            
+                            // Override window creation methods
+                            window.showModalDialog = function() { return null; };
+                            
+                            // Block alerts and confirms
+                            window.alert = function() {};
+                            window.confirm = function() { return false; };
+                            window.prompt = function() { return null; };
+                            
+                            // Prevent focus changes that might trigger popups
+                            document.addEventListener('focus', function(e) {
+                              if (e.target.tagName === 'A' && e.target.target === '_blank') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }
+                            }, true);
+                            
+                            // Block click events on links that try to open new windows
+                            document.addEventListener('click', function(e) {
+                              if (e.target.tagName === 'A' && (e.target.target === '_blank' || e.target.href.includes('popup'))) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log('Link click blocked');
+                              }
+                            }, true);
+                            
+                            // Enhanced ad blocking with mutation observer
+                            const blockList = [
+                              'script[src*="ads"]', 'script[src*="doubleclick"]', 'script[src*="googlesyndication"]',
+                              'script[src*="amazon-adsystem"]', 'script[src*="facebook.com/tr"]',
+                              'iframe[src*="ads"]', 'iframe[src*="doubleclick"]', 'iframe[src*="googlesyndication"]',
+                              'div[class*="ad"]', 'div[id*="ad"]', 'div[class*="banner"]',
+                              'div[class*="popup"]', 'div[class*="overlay"]', '.overlay', '.popup', '.ad'
+                            ];
+
+                            function removeAds() {
+                              blockList.forEach(selector => {
+                                try {
+                                  document.querySelectorAll(selector).forEach(el => {
+                                    el.remove();
+                                    console.log('Removed ad element:', selector);
+                                  });
+                                } catch (e) {}
+                              });
+                            }
+
+                            // Run ad removal immediately and on mutations
+                            removeAds();
+                            
+                            const observer = new MutationObserver(function(mutations) {
+                              removeAds();
+                            });
+
+                            observer.observe(document, { 
+                              childList: true, 
+                              subtree: true, 
+                              attributes: true, 
+                              attributeFilter: ['class', 'id', 'src'] 
+                            });
+                          })();
+                        </script>
+                      </head>
+                      <body>
+                        <iframe
+                          title="Sky Sports F1 | Sky F1 Player"
+                          src="https://embedsports.top/embed/alpha/sky-sports-f1-sky-f1/1"
+                          allowfullscreen="yes"
+                          allow="encrypted-media; picture-in-picture; autoplay; fullscreen"
+                          scrolling="no"
+                          frameborder="0"
+                          sandbox="allow-scripts allow-same-origin allow-presentation allow-forms">
+                        </iframe>
+                      </body>
+                    </html>
+                  `
+                }}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+                allowsInlineMediaPlayback={true}
+                mediaPlaybackRequiresUserAction={false}
+                style={[styles.streamWebView, { opacity: isStreamLoading ? 0 : 1 }]}
+                onLoadEnd={() => setIsStreamLoading(false)}
+                onError={(syntheticEvent) => {
+                  const { nativeEvent } = syntheticEvent;
+                  console.warn('WebView error: ', nativeEvent);
+                  setIsStreamLoading(false);
+                }}
+                onShouldStartLoadWithRequest={(request) => {
+                  // Block any navigation that tries to open new windows or popups
+                  if (request.url.includes('popup') || request.url.includes('ads') || request.url.includes('doubleclick')) {
+                    console.log('Blocked navigation to:', request.url);
+                    return false;
+                  }
+                  return true;
+                }}
+                userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
+
+
 
 export default RaceDetailsScreen;

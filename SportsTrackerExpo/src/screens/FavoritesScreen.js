@@ -628,6 +628,79 @@ const getGamesBeingTrackedForUpdates = () => {
   return Array.from(gamesToUpdate);
 };
 
+// F1 Constructor colors mapping - EXACT same as StandingsScreen  
+const constructorColors = {
+  'Mercedes': '#27F4D2',
+  'Red Bull': '#3671C6', 
+  'Ferrari': '#E8002D',
+  'McLaren': '#FF8000',
+  'Alpine': '#FF87BC',
+  'Racing Bulls': '#6692FF',
+  'Aston Martin': '#229971',
+  'Williams': '#64C4FF',
+  'Sauber': '#52E252',
+  'Haas': '#B6BABD'
+};
+
+// Helper to format F1 constructor color (adds # if missing) - EXACT same as StandingsScreen
+const formatF1Color = (color) => {
+  if (!color) return '#000000';
+  return color.startsWith('#') ? color : `#${color}`;
+};
+
+// F1 time selection logic with priority order - extracts from statistics array
+const selectBestF1Time = (driver) => {
+  if (!driver) return '---';
+  
+  // Extract stats from the statistics array (same as in console output)
+  const stats = driver.statistics || [];
+  let totalTime = null;
+  let behindTime = null;
+  let behindLaps = null;
+  
+  // Try result fields first
+  if (driver.result) {
+    if (driver.result.time) {
+      totalTime = driver.result.time.displayValue || driver.result.time.text || null;
+    }
+    if (driver.result.behindLaps != null) behindLaps = driver.result.behindLaps;
+  }
+  
+  // Extract from statistics array (prioritize displayValue for formatted strings)
+  if (Array.isArray(stats)) {
+    for (const s of stats) {
+      const key = (s.name || s.displayName || '').toString().toLowerCase();
+      const val = s.displayValue ?? s.value ?? s.text ?? s.rank ?? null;
+      if (!totalTime && key === 'totaltime') totalTime = val;
+      if (!behindTime && key === 'behindtime') behindTime = val;
+      if (!behindLaps && key === 'behindlaps') behindLaps = val;
+    }
+  }
+  
+  // Also check top-level driver properties as fallback
+  const timeOptions = [
+    driver.gapToLeader,
+    totalTime,
+    driver.totalTime,
+    driver.qual3,
+    driver.qual2, 
+    driver.qual1,
+    behindTime,
+    driver.behindTime,
+    behindLaps ? `+${behindLaps} Laps` : null,
+    driver.behindLaps ? `+${driver.behindLaps} Laps` : null
+  ];
+  
+  // Find first non-null, non-zero time
+  for (const time of timeOptions) {
+    if (time && time !== '0.000' && time !== '0:00.000' && time !== '--:--:---' && time !== 0) {
+      return time.toString();
+    }
+  }
+  
+  return '---';
+};
+
 const FavoritesScreen = ({ navigation }) => {
   const { theme, colors, isDarkMode, getTeamLogoUrl } = useTheme();
   const { getFavoriteTeams, isFavorite, favorites, getTeamCurrentGame, updateTeamCurrentGame, clearTeamCurrentGame, refreshAllCurrentGames, autoPopulating } = useFavorites();
@@ -863,7 +936,7 @@ const FavoritesScreen = ({ navigation }) => {
   }, [currentGameDay]); // Include currentGameDay to properly track changes
 
   // Default section order if none present
-  const DEFAULT_SECTION_ORDER = ['MLB', 'NFL', 'NBA', 'NHL', 'Soccer'];
+  const DEFAULT_SECTION_ORDER = ['MLB', 'NFL', 'NBA', 'NHL', 'WNBA', 'Soccer', 'F1'];
 
   const saveSectionOrder = async (order) => {
     try {
@@ -1217,14 +1290,25 @@ const FavoritesScreen = ({ navigation }) => {
       console.log('Fetching games for teams:', favoriteTeams.map(t => `${t.displayName || t.teamName || 'Unknown'} (${t.sport})`));
       
       // Debug: Check if favorites already have currentGame data
-      favoriteTeams.forEach(team => {
+      // Also migrate old F1 eventLinks to use Core API
+      for (const team of favoriteTeams) {
         const teamName = team.displayName || team.teamName || 'Unknown';
         if (team.currentGame) {
-          console.log(`[STORED GAME] ${teamName} already has currentGame:`, team.currentGame);
+          // Check for old F1 summary URL and clear it
+          if (team.currentGame.competition === 'f1' && 
+              team.currentGame.eventLink && 
+              team.currentGame.eventLink.includes('site.api.espn.com') && 
+              team.currentGame.eventLink.includes('/summary')) {
+            console.log(`[MIGRATION] Clearing old F1 summary URL for ${teamName}, teamId: ${team.teamId}`);
+            await clearTeamCurrentGame(team.teamId); // Clear from AsyncStorage
+            team.currentGame = null; // Clear from memory
+          } else {
+            console.log(`[STORED GAME] ${teamName} already has currentGame:`, team.currentGame);
+          }
         } else {
           console.log(`[NO STORED GAME] ${teamName} has no currentGame stored`);
         }
-      });
+      }
       
       // Get unique teams by normalized key to avoid duplicates and malformed team objects
       // Prefer deduplication by teamId when present. If teamId is missing, fall back to displayName|sport.
@@ -1257,7 +1341,26 @@ const FavoritesScreen = ({ navigation }) => {
         const phaseTimes = {};
         
         // Use currentGame data from the team object (populated by FavoritesContext auto-population)
-        const currentGameData = team.currentGame || null;
+        let currentGameData = team.currentGame || null;
+        
+        // If no currentGame and it's an F1 team, fetch it immediately
+        if (!currentGameData && (team.sport === 'f1' || team.sport === 'F1')) {
+          console.log(`[F1 IMMEDIATE FETCH] Fetching F1 current race for ${teamName} (teamId: ${team.teamId})`);
+          try {
+            const { fetchF1DriverCurrentRace } = require('../utils/TeamPageUtils');
+            const result = await fetchF1DriverCurrentRace(team.teamId, updateTeamCurrentGame);
+            if (result && result.success) {
+              // Get the updated team data
+              const updatedTeam = getFavoriteTeams().find(t => t.teamId === team.teamId);
+              currentGameData = updatedTeam?.currentGame || null;
+              console.log(`[F1 IMMEDIATE FETCH] Successfully fetched F1 data for ${teamName}:`, currentGameData);
+            } else {
+              console.log(`[F1 IMMEDIATE FETCH] No F1 data found for ${teamName}:`, result?.reason);
+            }
+          } catch (err) {
+            console.error(`[F1 IMMEDIATE FETCH] Error fetching F1 data for ${teamName}:`, err);
+          }
+        }
         
         if (!currentGameData) {
           console.log(`[NO CURRENT GAME] ${teamName} has no currentGame - team page utils will handle this in the background`);
@@ -1365,17 +1468,34 @@ const FavoritesScreen = ({ navigation }) => {
       const validGames = allGames.filter(game => game !== null);
 
       // Remove duplicate games (when both teams in a match are favorited)
+      // Exception: F1 games should NOT be deduplicated as each constructor gets their own personalized card
       const uniqueGames = validGames.reduce((acc, game) => {
         if (!game || !game.id) {
           console.warn('Game without ID found, skipping:', game);
           return acc;
         }
-        // Use game ID as unique identifier
-        const existingGame = acc.find(g => g.id === game.id);
-        if (!existingGame) {
-          acc.push(game);
+        
+        // For F1 games, use a compound key: gameId + constructorName to allow multiple constructor cards per race
+        if (game.sport === 'F1' || game.actualLeagueCode === 'f1' || game.sport === 'f1') {
+          const constructorName = game.constructorName || 'unknown';
+          const uniqueKey = `${game.id}_${constructorName}`;
+          const existingF1Game = acc.find(g => 
+            (g.sport === 'F1' || g.actualLeagueCode === 'f1' || g.sport === 'f1') && 
+            `${g.id}_${g.constructorName || 'unknown'}` === uniqueKey
+          );
+          if (!existingF1Game) {
+            acc.push(game);
+          } else {
+            console.log(`Duplicate F1 constructor game removed: ${game.id} (${constructorName})`);
+          }
         } else {
-          console.log(`Duplicate game removed: ${game.id} (${game.sport})`);
+          // Regular deduplication for non-F1 games
+          const existingGame = acc.find(g => g.id === game.id);
+          if (!existingGame) {
+            acc.push(game);
+          } else {
+            console.log(`Duplicate game removed: ${game.id} (${game.sport})`);
+          }
         }
         return acc;
       }, []);
@@ -2018,8 +2138,8 @@ const FavoritesScreen = ({ navigation }) => {
                 console.log(`Error updating WNBA game ${game.id}:`, wnbaUpdateError.message);
               }
               return game; // Return game object even if update failed
-            } else if (game.actualLeagueCode && game.actualLeagueCode !== 'nfl' && game.actualLeagueCode !== 'nhl' && game.actualLeagueCode !== 'nba' && game.actualLeagueCode !== 'wnba') {
-              // Handle domestic leagues using the actualLeagueCode (skip NFL, NHL, NBA, WNBA as they're not soccer)
+            } else if (game.actualLeagueCode && game.actualLeagueCode !== 'nfl' && game.actualLeagueCode !== 'nhl' && game.actualLeagueCode !== 'nba' && game.actualLeagueCode !== 'wnba' && game.actualLeagueCode !== 'f1') {
+              // Handle domestic leagues using the actualLeagueCode (skip NFL, NHL, NBA, WNBA, F1 as they're not soccer)
               console.log(`[BRANCH DEBUG] Using generic actualLeagueCode branch for game ${game.id}`);
               console.log(`[LIVE UPDATE] Starting update for ${game.actualLeagueCode} game ${game.id}`);
               const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${game.actualLeagueCode}/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`);
@@ -2900,6 +3020,329 @@ const FavoritesScreen = ({ navigation }) => {
           return null;
         }
       }
+
+      // Handle F1 fetching
+      if (team.sport === 'f1' || team.sport === 'F1' || currentGameData.competition === 'f1') {
+        try {
+          console.log(`[F1 FETCH] Fetching F1 data for driver: ${teamName} from ${currentGameData.eventLink}`);
+          
+          // For F1, use the Core API endpoint like ConstructorDetailsScreen does
+          const f1Response = await fetch(currentGameData.eventLink, { timeout: 15000 });
+          if (!f1Response.ok) {
+            console.log(`F1 API request failed with status ${f1Response.status} for ${teamName}`);
+            return null;
+          }
+          
+          const f1Data = await f1Response.json();
+          console.log(`F1 API response structure for ${teamName}:`, {
+            hasCompetitions: !!f1Data.competitions,
+            competitionsLength: f1Data.competitions?.length,
+            hasDrivers: !!f1Data.competitions?.[0]?.competitors,
+            topLevelKeys: Object.keys(f1Data).slice(0, 10)
+          });
+
+          if (!f1Data.competitions || f1Data.competitions.length === 0) {
+            console.log(`No F1 competitions found for ${teamName}`);
+            return null;            
+          }
+
+          // Find the most recent or currently active competition
+          // Priority: in-progress > most recent completed > upcoming (by date)
+          let selectedCompetition = null;
+          const now = new Date();
+          
+          console.log(`[F1] Found ${f1Data.competitions.length} competitions, selecting most relevant one`);
+          
+          for (const comp of f1Data.competitions) {
+            const compDate = new Date(comp.date);
+            const isRecent = comp.recent === true;
+            
+            // Fetch status to check if in progress
+            let isInProgress = false;
+            if (comp.status?.$ref) {
+              try {
+                const statusResp = await fetch(comp.status.$ref, { timeout: 5000 });
+                if (statusResp.ok) {
+                  const statusData = await statusResp.json();
+                  isInProgress = statusData.type?.state === 'in';
+                  console.log(`[F1] Competition ${comp.type?.abbreviation} (${comp.id}): date=${compDate.toISOString()}, recent=${isRecent}, inProgress=${isInProgress}, status=${statusData.type?.description}`);
+                }
+              } catch (err) {
+                console.warn(`[F1] Error checking status for ${comp.type?.abbreviation}:`, err);
+              }
+            }
+            
+            // Priority 1: In-progress competition
+            if (isInProgress) {
+              selectedCompetition = comp;
+              console.log(`[F1] Selected IN-PROGRESS competition: ${comp.type?.abbreviation}`);
+              break;
+            }
+            
+            // Priority 2: Most recent competition (marked as recent=true)
+            if (isRecent && (!selectedCompetition || new Date(selectedCompetition.date) < compDate)) {
+              selectedCompetition = comp;
+              console.log(`[F1] Selected RECENT competition: ${comp.type?.abbreviation}`);
+            }
+            
+            // Priority 3: Most recent past competition by date
+            if (!selectedCompetition && compDate <= now) {
+              if (!selectedCompetition || new Date(selectedCompetition.date) < compDate) {
+                selectedCompetition = comp;
+                console.log(`[F1] Selected most recent PAST competition: ${comp.type?.abbreviation}`);
+              }
+            }
+          }
+          
+          // Fallback to first competition if none selected
+          if (!selectedCompetition) {
+            selectedCompetition = f1Data.competitions[0];
+            console.log(`[F1] Fallback to first competition: ${selectedCompetition.type?.abbreviation}`);
+          }
+          
+          const competition = selectedCompetition;
+          const competitors = competition.competitors || [];
+          
+          // Find drivers from the favorite team's constructor
+          // Extract constructor name from teamId (f1_mclaren -> mclaren) 
+          // Use displayName from team object if available (more reliable)
+          const rawConstructorName = team.displayName || team.teamName || team.teamId?.replace('f1_', '').replace(/_/g, ' ');
+          const constructorName = rawConstructorName;
+          
+          console.log(`[F1 FILTER] Looking for constructor: "${constructorName}" (teamId: ${team.teamId})`);
+          
+          // Filter drivers by constructor - match like ConstructorDetailsScreen does
+          const constructorDrivers = competitors.filter(competitor => {
+            const teamNameRaw = competitor.team?.displayName || competitor.team?.name || '';
+            const vehicleManufacturer = competitor.vehicle?.manufacturer || '';
+            const teamName = (teamNameRaw || vehicleManufacturer || '').toString().trim().toLowerCase();
+            const ctorName = (constructorName || '').toString().trim().toLowerCase();
+            
+            console.log(`[F1 FILTER] Checking competitor: team="${teamNameRaw}", vehicle="${vehicleManufacturer}" vs constructor="${constructorName}"`);
+            
+            return teamName === ctorName || 
+                   teamName.includes(ctorName) || 
+                   ctorName.includes(teamName) ||
+                   vehicleManufacturer.toString().trim().toLowerCase() === ctorName;
+          });
+
+          console.log(`[F1 FILTER] Found ${constructorDrivers.length} drivers for constructor ${constructorName}`);
+
+          if (!constructorDrivers || constructorDrivers.length === 0) {
+            console.log(`No drivers found for constructor ${constructorName} in F1 competition data`);
+            return null;
+          }
+
+          // Convert F1 data to standard format (similar to ConstructorDetailsScreen race log)
+          // Extract constructor info from first driver
+          const firstDriver = constructorDrivers[0];
+          const constructorTeamName = firstDriver?.team?.displayName || firstDriver?.vehicle?.manufacturer || constructorName;
+          const constructorTeamColor = firstDriver?.team?.color || team.color;
+          
+          // Fetch venue reference to get circuit name and flag
+          let circuitName = 'TBD Circuit';
+          let circuitFlag = null;
+          if (f1Data.venues?.[0]?.$ref) {
+            try {
+              console.log(`[F1] Fetching venue ref: ${f1Data.venues[0].$ref}`);
+              const venueResp = await fetch(f1Data.venues[0].$ref, { timeout: 10000 });
+              if (venueResp.ok) {
+                const venueData = await venueResp.json();
+                circuitName = venueData.fullName || circuitName;
+                circuitFlag = venueData.countryFlag?.href || null;
+              }
+            } catch (err) {
+              console.warn(`[F1] Error fetching venue:`, err);
+            }
+          }
+          
+          // Fetch status reference to get actual status
+          let statusObject = null;
+          if (competition.status?.$ref) {
+            try {
+              console.log(`[F1] Fetching status ref: ${competition.status.$ref}`);
+              const statusResp = await fetch(competition.status.$ref, { timeout: 10000 });
+              if (statusResp.ok) {
+                statusObject = await statusResp.json();
+              }
+            } catch (err) {
+              console.warn(`[F1] Error fetching status:`, err);
+            }
+          }
+          
+          // Fetch athlete and statistics references for each driver (like ConstructorDetailsScreen does)
+          const driversWithData = await Promise.all(constructorDrivers.map(async (driver) => {
+            try {
+              // Fetch athlete reference if it's a $ref
+              let athlete = driver.athlete || {};
+              if (athlete.$ref) {
+                console.log(`[F1] Fetching athlete ref: ${athlete.$ref}`);
+                const athleteResp = await fetch(athlete.$ref, { timeout: 10000 });
+                if (athleteResp.ok) {
+                  athlete = await athleteResp.json();
+                }
+              }
+              
+              // Fetch statistics reference if it's a $ref
+              let statistics = driver.statistics || [];
+              if (statistics.$ref) {
+                console.log(`[F1] Fetching statistics ref: ${statistics.$ref}`);
+                const statsResp = await fetch(statistics.$ref, { timeout: 10000 });
+                if (statsResp.ok) {
+                  const statsData = await statsResp.json();
+                  // Extract stats from the splits.categories structure
+                  statistics = [];
+                  if (statsData.splits?.categories) {
+                    for (const cat of statsData.splits.categories) {
+                      if (cat.stats) {
+                        statistics.push(...cat.stats);
+                      }
+                    }
+                  }
+                }
+              }
+              
+              const driverName = driver.displayName || driver.name || athlete.displayName || athlete.shortName || 'Unknown Driver';
+              
+              return {
+                id: driver.id,
+                name: driverName,
+                displayName: driverName,
+                position: driver.order || driver.rank,
+                // Store fetched statistics array
+                statistics: Array.isArray(statistics) ? statistics : [],
+                result: driver.result || null,
+                athlete: athlete,
+                team: driver.team,
+                vehicle: driver.vehicle
+              };
+            } catch (err) {
+              console.warn(`[F1] Error fetching driver data:`, err);
+              return {
+                id: driver.id,
+                name: 'Unknown Driver',
+                displayName: 'Unknown Driver',
+                position: driver.order || driver.rank,
+                statistics: [],
+                result: driver.result || null,
+                athlete: driver.athlete || {},
+                team: driver.team,
+                vehicle: driver.vehicle
+              };
+            }
+          }));
+          
+          const convertedGame = {
+            id: `${f1Data.id || currentGameData.eventId}_${constructorTeamName}`, // Unique ID per constructor for React keys
+            originalEventId: f1Data.id || currentGameData.eventId, // Store original event ID for reference
+            date: competition.date || f1Data.date || currentGameData.gameDate, // USE SELECTED COMPETITION DATE, not overall event date
+            venue: circuitName,
+            competitions: [competition],
+            // Store drivers with fetched athlete and statistics data
+            drivers: driversWithData,
+            // Store constructor info
+            constructorName: constructorTeamName,
+            constructorColor: constructorTeamColor,
+            favoriteTeam: team,
+            sport: 'F1',
+            actualLeagueCode: 'f1',
+            fromDirectLink: true,
+            eventLink: currentGameData.eventLink,
+            // Race session info
+            session: {
+              id: f1Data.id,
+              name: f1Data.name || competition.type?.abbreviation,
+              venue: circuitName,
+              circuitFlag: circuitFlag,
+              date: competition.date, // USE SELECTED COMPETITION DATE for display
+              status: statusObject, // Store full status object with type.state
+              competitionType: competition.type?.abbreviation
+            }
+          };
+          
+          console.log(`Successfully converted F1 race data for ${constructorName}`, {
+            hasDrivers: !!convertedGame.drivers,
+            driversCount: convertedGame.drivers?.length,
+            sessionName: convertedGame.session?.name,
+            constructor: convertedGame.constructorName
+          });
+
+          // ==================== TEXT CARD RENDERING ====================
+          console.log('\n========================================');
+          console.log('F1 CARD DATA (TEXT VERSION)');
+          console.log('========================================');
+          console.log(`EVENT: ${convertedGame.session?.name || f1Data.name}`);
+          console.log(`COMPETITION: ${competition.type?.text} || ${competition.type?.abbreviation || 'Unknown'}`);
+          console.log(`CIRCUIT: ${convertedGame.venue}`);
+          console.log(`DATE: ${convertedGame.date}`);
+          console.log(`CONSTRUCTOR: ${convertedGame.constructorName}`);
+          console.log(`STATUS: ${convertedGame.session?.status}`);
+          console.log('----------------------------------------');
+          
+          // Display drivers with their times
+          if (convertedGame.drivers && convertedGame.drivers.length > 0) {
+            console.log(`DRIVERS (${convertedGame.drivers.length}):`);
+            convertedGame.drivers.forEach((driver, index) => {
+              console.log(`\nDriver ${index + 1}: ${driver.name || driver.displayName || 'Unknown'}`);
+              console.log(`  Position: ${driver.position || '--'}`);
+              
+              // Get timing data from statistics (using same logic as ConstructorDetailsScreen)
+              let totalTime = null;
+              let laps = null;
+              let behindLaps = null;
+              
+              // Try result fields first
+              if (driver.result) {
+                if (driver.result.time) {
+                  totalTime = driver.result.time.displayValue || driver.result.time.text || null;
+                }
+                if (driver.result.laps != null) laps = driver.result.laps;
+                if (driver.result.behindLaps != null) behindLaps = driver.result.behindLaps;
+              }
+              
+              // Try competitor statistics array
+              const stats = driver.statistics || [];
+              if (Array.isArray(stats)) {
+                for (const s of stats) {
+                  const key = (s.name || s.displayName || '').toString().toLowerCase();
+                  // Prioritize displayValue (formatted) over value (raw number)
+                  const val = s.displayValue ?? s.value ?? s.text ?? s.rank ?? null;
+                  if (!totalTime && key === 'totaltime') totalTime = val;
+                  if (!laps && key === 'lapscompleted') laps = val;
+                  if (!behindLaps && key === 'behindlaps') behindLaps = val;
+                }
+              }
+              
+              // Display what we found
+              if (totalTime) {
+                console.log(`  Total Time: ${totalTime}`);
+              } else if (behindLaps) {
+                console.log(`  Behind: +${behindLaps} Laps`);
+              } else {
+                console.log(`  Time: Not available`);
+              }
+              
+              if (laps) {
+                console.log(`  Laps: ${laps}`);
+              }
+              
+              // Show all available statistics for debugging
+              console.log(`  Available stats (${stats.length}):`, stats.map(s => s.name || s.displayName).join(', '));
+            });
+          } else {
+            console.log('NO DRIVERS DATA');
+          }
+          
+          console.log('========================================\n');
+          // ==================== END TEXT CARD ====================
+          
+          return convertedGame;
+        } catch (f1Error) {
+          console.log(`Error fetching F1 data for ${teamName}:`, f1Error.message || f1Error);
+          console.log(`Error stack:`, f1Error.stack);
+          return null;
+        }
+      }
       
   // For soccer games only, use the existing helper which caches and is null-safe
       // Resolve the URL first so we can save it in the return object
@@ -2972,37 +3415,42 @@ const FavoritesScreen = ({ navigation }) => {
 
       // Get status data if needed
       let gameDataWithStatus = null;
-      try {
-        // Try multiple competitions to find the right one (like ChampionsLeagueServiceEnhanced)
-        // Only include soccer competitions - exclude NFL, NHL, NBA, etc.
-        const soccerCompetitions = [
-          'uefa.champions_qual',       // Champions League Qualifying
-          'uefa.champions',            // Champions League
-          'uefa.europa',               // Europa League  
-          'uefa.europa.conf',          // Europa Conference League
-          'esp.1',                     // La Liga
-          'ita.1',                     // Serie A
-          'ger.1',                     // Bundesliga
-          'eng.1',                     // Premier League
-          'fra.1'                      // Ligue 1
-        ];
+      
+      // Skip status fetch for F1 - F1 Core API data already has status in competitions array
+      const isF1 = currentGameData.competition === 'f1' || team.sport === 'f1' || team.sport === 'F1';
+      
+      if (!isF1) {
+        try {
+          // Try multiple competitions to find the right one (like ChampionsLeagueServiceEnhanced)
+          // Only include soccer competitions - exclude NFL, NHL, NBA, etc.
+          const soccerCompetitions = [
+            'uefa.champions_qual',       // Champions League Qualifying
+            'uefa.champions',            // Champions League
+            'uefa.europa',               // Europa League  
+            'uefa.europa.conf',          // Europa Conference League
+            'esp.1',                     // La Liga
+            'ita.1',                     // Serie A
+            'ger.1',                     // Bundesliga
+            'eng.1',                     // Premier League
+            'fra.1'                      // Ligue 1
+          ];
 
-        const competitionsToTry = [];
-        // Only add currentGameData.competition if it's a soccer competition
-        if (currentGameData.competition && soccerCompetitions.includes(currentGameData.competition)) {
-          competitionsToTry.push(currentGameData.competition);
-        }
-        // If we inferred a league code that's soccer, try it first
-        if (inferredLeagueCode && soccerCompetitions.includes(inferredLeagueCode) && !competitionsToTry.includes(inferredLeagueCode)) {
-          competitionsToTry.unshift(inferredLeagueCode);
-        }
-        // Add the standard soccer competitions
-        competitionsToTry.push(...soccerCompetitions.filter(comp => comp !== currentGameData.competition && comp !== inferredLeagueCode));
+          const competitionsToTry = [];
+          // Only add currentGameData.competition if it's a soccer competition
+          if (currentGameData.competition && soccerCompetitions.includes(currentGameData.competition)) {
+            competitionsToTry.push(currentGameData.competition);
+          }
+          // If we inferred a league code that's soccer, try it first
+          if (inferredLeagueCode && soccerCompetitions.includes(inferredLeagueCode) && !competitionsToTry.includes(inferredLeagueCode)) {
+            competitionsToTry.unshift(inferredLeagueCode);
+          }
+          // Add the standard soccer competitions
+          competitionsToTry.push(...soccerCompetitions.filter(comp => comp !== currentGameData.competition && comp !== inferredLeagueCode));
 
-        // Remove duplicates and null/undefined values
-        const uniqueCompetitions = [...new Set(competitionsToTry)].filter(Boolean);
+          // Remove duplicates and null/undefined values
+          const uniqueCompetitions = [...new Set(competitionsToTry)].filter(Boolean);
 
-        console.log(`Trying to fetch Site API status for game ${eventIdFallback} from competitions:`, uniqueCompetitions);
+          console.log(`Trying to fetch Site API status for game ${eventIdFallback} from competitions:`, uniqueCompetitions);
 
         // If we don't have a usable event id, skip attempting status fetches to avoid event=undefined
         if (!eventIdFallback) {
@@ -3031,8 +3479,11 @@ const FavoritesScreen = ({ navigation }) => {
             console.log(`Could not fetch Site API status for game ${eventIdFallback} from any competition`);
           }
         }
-      } catch (statusError) {
-        console.log('Could not fetch status data for direct game:', statusError?.message || statusError);
+        } catch (statusError) {
+          console.log('Could not fetch status data for direct game:', statusError?.message || statusError);
+        }
+      } else {
+        console.log(`[F1] Skipping soccer status fetch for F1 game ${eventIdFallback} - using Core API data directly`);
       }
 
       // Fetch plays data for live games
@@ -4451,6 +4902,301 @@ const FavoritesScreen = ({ navigation }) => {
     }
   };
 
+  const renderF1GameCard = (game) => {
+    console.log('[F1 CARD RENDER] Checking F1 game:', {
+      hasDriver: !!game?.driver,
+      hasDrivers: !!game?.drivers,
+      driversLength: game?.drivers?.length,
+      hasCompetitions: !!game?.competitions,
+      competitionsLength: game?.competitions?.length
+    });
+    
+    // Check for either driver (singular for old data) or drivers (plural array for constructor-based data) or competitions
+    if (!game?.driver && !game?.drivers && !game?.competitions) {
+      console.log('[F1 CARD RENDER] Returning null - no driver/drivers/competitions found');
+      return null;
+    }
+    
+    // Extract data from the F1 game structure
+    const competition = game.competitions?.[0];
+    const venue = game.venue || competition?.venue?.fullName || 'TBD Circuit';
+    const eventName = competition?.name || game.session?.name || game.name || 'F1 Session';
+    const eventDate = game.date || competition?.date || game.session?.date;
+    
+    // Handle both singular driver and plural drivers array
+    const drivers = game.drivers || (game.driver ? [game.driver] : []);
+    const driver = drivers[0]; // Use first driver for display
+    const constructor = game.constructorName ? { displayName: game.constructorName, color: game.constructorColor } : driver?.constructor;
+    
+    // Get constructor color - prioritize hardcoded colors over API colors
+    const constructorName = constructor?.displayName || constructor?.name;
+    const hardcodedColor = constructorColors[constructorName];
+    const constructorColorHex = hardcodedColor || formatF1Color(constructor?.color);
+    
+    // Check if team is favorited
+    const teamId = game.favoriteTeam?.teamId || `f1_${constructor?.displayName?.toLowerCase().replace(/\s+/g, '_')}`;
+    const isTeamFavorited = isFavorite(teamId, 'f1');
+    
+    // Get constructor logo - EXACT same function as ConstructorDetailsScreen
+    const getConstructorLogo = (constructorName) => {
+      if (!constructorName) return '';
+      
+      const nameMap = {
+        'McLaren': 'mclaren',
+        'Ferrari': 'ferrari', 
+        'Red Bull': 'redbullracing',
+        'Mercedes': 'mercedes',
+        'Aston Martin': 'astonmartin',
+        'Alpine': 'alpine',
+        'Williams': 'williams',
+        'RB': 'rb',
+        'Haas': 'haas',
+        'Sauber': 'kicksauber'
+      };
+      
+      const logoName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
+      const currentYear = new Date().getFullYear(); // This will be 2025
+      return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${currentYear}/${logoName}/${currentYear}${logoName}logowhite.webp`;
+    };
+
+    // Format date and time display (like ConstructorDetailsScreen)
+    const formatEventDateTime = (dateStr) => {
+      if (!dateStr) return '';
+      try {
+        const date = new Date(dateStr);
+        const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
+        const month = date.toLocaleDateString('en-US', { month: 'short' });
+        const day = date.getDate();
+        const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        return `${dayOfWeek}, ${month} ${day}, ${time}`;
+      } catch (e) {
+        return dateStr;
+      }
+    };
+
+    // Get competition status from fetched session data (status.$ref was already resolved)
+    const statusState = game.session?.status?.type?.state || 'pre';
+    const isLive = statusState === 'in';
+    const isFinished = statusState === 'post';
+    const isScheduled = statusState === 'pre';
+
+    const compNum = competition?.type?.abbreviation === 'FP1' ? '1' :
+                    competition?.type?.abbreviation === 'FP2' ? '2' :
+                    competition?.type?.abbreviation === 'FP3' ? '3' : '';
+
+    let competitionStatus = 'Scheduled';
+    if (isLive) competitionStatus = 'In Progress';
+    else if (isFinished) competitionStatus = 'Final';
+    else if (isScheduled) competitionStatus = 'Scheduled';
+    
+    return (
+      <TouchableOpacity 
+        style={[styles.gameCard, { 
+          backgroundColor: theme.surface, 
+          borderColor: constructorColorHex,
+          borderWidth: 2
+        }]}
+        onPress={() => navigation.navigate('F1RaceDetails', { 
+          raceId: competition?.id || game.originalEventId || game.id,
+          eventId: game.originalEventId || game.id,
+          raceName: eventName,
+          raceDate: eventDate,
+          sport: 'f1'
+        })}
+      >
+        {/* Header stripe with event name - EXACT match to ConstructorDetailsScreen */}
+        <View style={[styles.leagueHeader, { backgroundColor: theme.surfaceSecondary }]}>
+          <Text allowFontScaling={false} style={[styles.leagueText, { color: theme.text }]} numberOfLines={1}>
+            {eventName}
+          </Text>
+        </View>
+
+        {/* Circuit and Date/Time row - EXACT match to ConstructorDetailsScreen */}
+        <View style={styles.matchContent}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            {/* Circuit flag icon (like ConstructorDetailsScreen) */}
+            {game.session?.circuitFlag && (
+              <Image 
+                source={{ uri: game.session.circuitFlag }} 
+                style={{ width: 16, height: 12, marginRight: 6, borderRadius: 2 }}
+                resizeMode="cover"
+              />
+            )}
+            <Text allowFontScaling={false} style={[{ color: theme.textSecondary, fontSize: 13, flex: 1 }]} numberOfLines={1}>
+              {venue}
+            </Text>
+          </View>
+          <Text allowFontScaling={false} style={[{ color: theme.textSecondary, fontSize: 12 }]}>
+            {formatEventDateTime(eventDate)}
+          </Text>
+        </View>
+
+        {/* Constructor name with logo and favorite star - EXACT match to ConstructorDetailsScreen */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8 }}>
+          {/* Favorite Star */}
+          {isTeamFavorited && (
+            <Text allowFontScaling={false} style={{ fontSize: 16, fontWeight: '700', marginRight: 8, color: colors.primary }}>
+              ★
+            </Text>
+          )}
+          
+          {/* Constructor Logo */}
+          {constructor?.displayName && getConstructorLogo(constructor.displayName) ? (
+            <View style={{ width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 8, padding: 2, backgroundColor: constructorColorHex }}>
+              <Image 
+                source={{ uri: getConstructorLogo(constructor.displayName) }} 
+                style={{ width: 22, height: 22 }}
+                resizeMode="contain"
+              />
+            </View>
+          ) : (
+            <View style={{ width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 8, backgroundColor: constructorColorHex }}>
+              <Text allowFontScaling={false} style={{ fontSize: 10, fontWeight: 'bold', color: '#fff' }}>
+                {constructor?.displayName ? constructor.displayName.split(' ').map(word => word[0]).join('').substring(0, 2).toUpperCase() : 'F1'}
+              </Text>
+            </View>
+          )}
+          
+          {/* Constructor Name with Primary Color if Favorited */}
+          <Text allowFontScaling={false} style={[{ fontSize: 14, fontWeight: '600', textAlign: 'center', color: isTeamFavorited ? colors.primary : theme.text }]} numberOfLines={1}>
+            {constructor?.displayName || 'Unknown Constructor'}
+          </Text>
+        </View>
+
+        {/* Driver Results - EXACT match to ConstructorDetailsScreen layout showing both drivers */}
+        {drivers && drivers.length > 0 && (
+          <View style={{ marginTop: 8, paddingTop: 8, paddingHorizontal: 12, paddingBottom: 8, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              {/* Left Driver */}
+              <View style={{ flex: 1, alignItems: 'center', paddingVertical: 8 }}>
+                {drivers[0] && (() => {
+                  // Extract driver data from statistics
+                  const stats = drivers[0].statistics || [];
+                  let lapsCompleted = null;
+                  
+                  // Extract laps from statistics array
+                  if (Array.isArray(stats)) {
+                    for (const s of stats) {
+                      const key = (s.name || s.displayName || '').toString().toLowerCase();
+                      if (key === 'lapscompleted') {
+                        lapsCompleted = s.displayValue ?? s.value ?? null;
+                      }
+                    }
+                  }
+                  
+                  // Fallback to result or top-level
+                  if (!lapsCompleted && drivers[0].result?.laps != null) lapsCompleted = drivers[0].result.laps;
+                  if (!lapsCompleted && drivers[0].laps != null) lapsCompleted = drivers[0].laps;
+                  
+                  // Get driver name - prioritize name from fetched athlete data
+                  const driverName = drivers[0].name || drivers[0].displayName || drivers[0].shortName || 'Driver 1';
+                  // Split name to get first name and initial of last name (e.g., "Oscar Piastri" -> "Oscar P")
+                  const nameParts = driverName.split(' ');
+                  const displayName = nameParts.length > 1 
+                    ? `${nameParts[0]} ${nameParts[nameParts.length - 1].charAt(0)}` 
+                    : driverName;
+                  
+                  // Get position with ordinal suffix
+                  const position = drivers[0].position || drivers[0].order || drivers[0].rank;
+                  const getOrdinalSuffix = (n) => {
+                    if (!n) return '';
+                    const num = parseInt(n);
+                    if (isNaN(num)) return n;
+                    const suffix = ['th', 'st', 'nd', 'rd'];
+                    const v = num % 100;
+                    return num + (suffix[(v - 20) % 10] || suffix[v] || suffix[0]);
+                  };
+                  
+                  return (
+                    <>
+                      <Text allowFontScaling={false} style={[{ fontSize: 14, fontWeight: '600', marginBottom: 4, textAlign: 'center', color: theme.text }]} numberOfLines={1}>
+                        {displayName} - {position ? getOrdinalSuffix(position) : '--'}
+                      </Text>
+                      <Text allowFontScaling={false} style={[{ fontSize: 16, fontWeight: '700', marginBottom: 2, textAlign: 'center', color: theme.text }]}>
+                        {selectBestF1Time(drivers[0])}
+                      </Text>
+                      <Text allowFontScaling={false} style={[{ fontSize: 12, textAlign: 'center', color: theme.textSecondary }]}>
+                        Laps: {lapsCompleted || '---'}
+                      </Text>
+                    </>
+                  );
+                })()}
+              </View>
+
+              {/* Divider Line */}
+              {drivers.length > 1 && <View style={{ width: 2, height: 40, marginHorizontal: 8, backgroundColor: theme.border }} />}
+
+              {/* Right Driver */}
+              {drivers.length > 1 && (
+                <View style={{ flex: 1, alignItems: 'center', paddingVertical: 8 }}>
+                  {drivers[1] && (() => {
+                    // Extract driver data from statistics
+                    const stats = drivers[1].statistics || [];
+                    let lapsCompleted = null;
+                    
+                    // Extract laps from statistics array
+                    if (Array.isArray(stats)) {
+                      for (const s of stats) {
+                        const key = (s.name || s.displayName || '').toString().toLowerCase();
+                        if (key === 'lapscompleted') {
+                          lapsCompleted = s.displayValue ?? s.value ?? null;
+                        }
+                      }
+                    }
+                    
+                    // Fallback to result or top-level
+                    if (!lapsCompleted && drivers[1].result?.laps != null) lapsCompleted = drivers[1].result.laps;
+                    if (!lapsCompleted && drivers[1].laps != null) lapsCompleted = drivers[1].laps;
+                    
+                    // Get driver name - prioritize name from fetched athlete data
+                    const driverName = drivers[1].name || drivers[1].displayName || drivers[1].shortName || 'Driver 2';
+                    // Split name to get first name and initial of last name
+                    const nameParts = driverName.split(' ');
+                    const displayName = nameParts.length > 1 
+                      ? `${nameParts[0]} ${nameParts[nameParts.length - 1].charAt(0)}` 
+                      : driverName;
+                    
+                    // Get position with ordinal suffix
+                    const position = drivers[1].position || drivers[1].order || drivers[1].rank;
+                    const getOrdinalSuffix = (n) => {
+                      if (!n) return '';
+                      const num = parseInt(n);
+                      if (isNaN(num)) return n;
+                      const suffix = ['th', 'st', 'nd', 'rd'];
+                      const v = num % 100;
+                      return num + (suffix[(v - 20) % 10] || suffix[v] || suffix[0]);
+                    };
+                    
+                    return (
+                      <>
+                        <Text allowFontScaling={false} style={[{ fontSize: 14, fontWeight: '600', marginBottom: 4, textAlign: 'center', color: theme.text }]} numberOfLines={1}>
+                          {displayName} - {position ? getOrdinalSuffix(position) : '--'}
+                        </Text>
+                        <Text allowFontScaling={false} style={[{ fontSize: 16, fontWeight: '700', marginBottom: 2, textAlign: 'center', color: theme.text }]}>
+                          {selectBestF1Time(drivers[1])}
+                        </Text>
+                        <Text allowFontScaling={false} style={[{ fontSize: 12, textAlign: 'center', color: theme.textSecondary }]}>
+                          Laps: {lapsCompleted || '---'}
+                        </Text>
+                      </>
+                    );
+                  })()}
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Status Footer - EXACT match to ConstructorDetailsScreen */}
+        <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, alignItems: 'center', borderTopColor: theme.border, backgroundColor: theme.surfaceSecondary }}>
+          <Text allowFontScaling={false} style={[{ fontSize: 12, fontWeight: '500', color: theme.textSecondary }]}>
+            {isLive ? 'In Progress' : competitionStatus} - {competition?.type?.text || competition?.type?.abbreviation || 'F1'} {compNum}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   const renderMLBGameCard = (game) => {
     if (!game?.competitions?.[0]) return null;
 
@@ -5454,7 +6200,7 @@ const FavoritesScreen = ({ navigation }) => {
             </Text>
           ) : (
             <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>
-              {game.venue || 'TBD Arena'}
+              {game.gameInfo.venue.fullName || 'TBD Arena'}
             </Text>
           )}
         </View>
@@ -6454,7 +7200,10 @@ const FavoritesScreen = ({ navigation }) => {
   };
 
   const renderGameCard = (game) => {
-    if (!game?.competitions?.[0]) return null;
+    if (!game?.competitions?.[0]) {
+      console.log(`[RENDER] Game ${game.id} returning null - no competitions[0]`);
+      return null;
+    }
 
     // Debug logging to understand how this game was fetched
     console.log(`Rendering game card for ${game.id}:`, {
@@ -6471,7 +7220,17 @@ const FavoritesScreen = ({ navigation }) => {
     const homeTeam = competitors.find(c => c.homeAway === "home");
     const awayTeam = competitors.find(c => c.homeAway === "away");
 
-    if (!homeTeam || !awayTeam) return null;
+    console.log(`[RENDER] Game ${game.id} - homeTeam:`, !!homeTeam, 'awayTeam:', !!awayTeam, 'sport:', game.sport);
+    
+    if (!homeTeam || !awayTeam) {
+      console.log(`[RENDER] Game ${game.id} returning null - no homeTeam or awayTeam (this might be F1!)`);
+      // F1 games don't have home/away teams, so check for F1 before returning null
+      if (game.sport === 'F1' || game.actualLeagueCode === 'f1' || game.sport === 'f1') {
+        console.log('[F1 EARLY ROUTING] Detected F1 before home/away check - routing to renderF1GameCard');
+        return renderF1GameCard(game);
+      }
+      return null;
+    }
 
     // Map league code to sport name for favorites
     const getSportFromLeagueCode = (leagueCode) => {
@@ -7071,6 +7830,13 @@ const FavoritesScreen = ({ navigation }) => {
       return renderWNBAGameCard(game);
     }
 
+    // Check if this is an F1 session and render it with special styling
+    if (game.sport === 'F1' || game.actualLeagueCode === 'f1' || game.sport === 'f1') {
+      console.log('[F1 ROUTING] Routing to renderF1GameCard, game keys:', Object.keys(game));
+      console.log('[F1 ROUTING] Game drivers:', game.drivers?.length, 'competitions:', game.competitions?.length);
+      return renderF1GameCard(game);
+    }
+
     return (
       <TouchableOpacity 
         style={[
@@ -7282,11 +8048,18 @@ const FavoritesScreen = ({ navigation }) => {
         'Football': 'NFL',
         'nfl': 'NFL',
         // Basketball/NBA mappings
-        'Basketball': 'NBA',
+        'NBA': 'NBA',
         'nba': 'NBA',
         // Hockey/NHL mappings
         'Hockey': 'NHL',
-        'nhl': 'NHL'
+        'nhl': 'NHL',
+        // WNBA mappings
+        'WNBA': 'WNBA',
+        'wnba': 'WNBA',
+        // F1 mappings
+        'F1': 'F1',
+        'f1': 'F1',
+        'Formula 1': 'F1'
       };
       
       const groupName = groupNames[competitionName];
@@ -7313,6 +8086,16 @@ const FavoritesScreen = ({ navigation }) => {
       if (fallbackSport === 'Hockey' || fallbackSport === 'hockey' || 
           actualLeagueCode === 'nhl' || actualLeagueCode === 'NHL') {
         return 'NHL';
+      }
+      
+      if (fallbackSport === 'WNBA' || fallbackSport === 'wnba' || 
+          actualLeagueCode === 'wnba' || actualLeagueCode === 'WNBA') {
+        return 'WNBA';
+      }
+      
+      if (fallbackSport === 'F1' || fallbackSport === 'f1' || 
+          actualLeagueCode === 'f1' || actualLeagueCode === 'F1') {
+        return 'F1';
       }
       
       // Check if it's any soccer-related sport

@@ -162,7 +162,7 @@ const TeamPageScreen = ({ route, navigation }) => {
     }
 
     // Get differential - prefer from /teams stats, then fallback to teamRecord
-    let differential = getStat('differential');
+    let differential = getStat('pointDifferential');
     if (differential === null && teamData?.differential !== undefined) differential = teamData.differential;
     if (differential === null && teamData?.team?.differential !== undefined) differential = teamData.team.differential;
     if (differential === null && teamRecord?.differential !== undefined) differential = teamRecord.differential;
@@ -213,7 +213,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       totalRecordFound: !!totalRecord,
       totalRecordSummary: totalRecord?.summary,
       extractedStats: {
-        differential: getStat('differential'),
+        differential: getStat('pointDifferential'),
         wins: getStat('wins'),
         losses: getStat('losses'),
         otLosses: getStat('otLosses'),
@@ -1234,7 +1234,7 @@ const TeamPageScreen = ({ route, navigation }) => {
               </View>
               <View style={styles.recordRow}>
                 <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>Record</Text>
-                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>Differential</Text>
+                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>DIFF</Text>
                 <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>Streak</Text>
               </View>
             </View>

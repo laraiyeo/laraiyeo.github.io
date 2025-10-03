@@ -210,7 +210,8 @@ const ResultsScreen = ({ route }) => {
                         compType,
                         compName,
                         compDate: compData?.date,
-                        compTypeText: compType.text || compType.displayName || compType.abbreviation || compName
+                        compTypeText: compType.text || compType.displayName || compType.abbreviation || compName,
+                        compTypeAbbreviation: compType.abbreviation || compName
                       };
                       nextCompetitionMs = compStartMs;
                     }
@@ -356,6 +357,7 @@ const ResultsScreen = ({ route }) => {
                   enriched.eventDate = new Date(nextCompetition.compDate);
                   enriched.date = nextCompetition.compDate;
                   enriched.nextCompetitionType = nextCompetition.compTypeText;
+                  enriched.nextCompetitionAbbr = nextCompetition.compTypeAbbreviation;
                   // Don't update isUpcoming - keep the event classified as in-progress
                   // since it's based on the overall event timeframe, not individual competition time
                 } catch (dateSetErr) {
@@ -539,12 +541,14 @@ const ResultsScreen = ({ route }) => {
           raceId: event.id,
           eventId: event.id, // pass explicit eventId for clarity
           nextCompetitionType: event.nextCompetitionType || null,
+          nextCompetitionAbbr: event.nextCompetitionAbbr || null,
           raceName: event.name,
           raceDate: event.date,
           sport: 'f1'
         });
       }}
     >
+      
       <View style={styles.resultHeader}>
         <Text allowFontScaling={false} style={[styles.raceName, { color: theme.text }]} numberOfLines={1}>
           {event.name}
@@ -570,7 +574,9 @@ const ResultsScreen = ({ route }) => {
             </Text>
             {selectedType === 'CURRENT' && event.nextCompetitionType ? (
               <Text allowFontScaling={false} style={[styles.competitionType, { color: theme.textSecondary }]} numberOfLines={1}>
-                {event.nextCompetitionType}
+                {event.nextCompetitionType}{event.nextCompetitionAbbr === 'FP1' ? ' 1' :
+                                           event.nextCompetitionAbbr === 'FP2' ? ' 2' :
+                                           event.nextCompetitionAbbr === 'FP3' ? ' 3' : ''}
               </Text>
             ) : null}
           </View>

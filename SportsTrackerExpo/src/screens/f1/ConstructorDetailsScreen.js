@@ -625,6 +625,7 @@ const ConstructorDetailsScreen = ({ route }) => {
           // Determine competition type and status
           const status = isCompleted ? 'Final' : (isInProgress ? 'In Progress' : 'Scheduled');
           const competitionType = usedCompetition?.type?.text || usedCompetition?.type?.abbreviation || 'Race';
+          const compNum = usedCompetition?.type?.abbreviation === 'FP1' ? '1' : usedCompetition?.type?.abbreviation === 'FP2' ? '2' : usedCompetition?.type?.abbreviation === 'FP3' ? '3' : '';
 
           return {
             id: eventData.id || eventData.uid || `${eventData.name}_${eventData.date}`,
@@ -636,6 +637,7 @@ const ConstructorDetailsScreen = ({ route }) => {
             countryFlag,
             status,
             competitionType,
+            compNum,
             isCompleted,
             isInProgress,
             drivers: driverResults
@@ -1044,7 +1046,7 @@ const ConstructorDetailsScreen = ({ route }) => {
                 {/* Status Footer */}
                 <View style={[styles.statusFooter, { borderTopColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
                   <Text allowFontScaling={false} style={[styles.statusText, { color: theme.textSecondary }]}>
-                    {item.status} - {item.competitionType}
+                    {item.status} - {item.competitionType} {item.compNum}
                   </Text>
                 </View>
               </TouchableOpacity>

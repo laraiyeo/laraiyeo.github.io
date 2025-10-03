@@ -20,6 +20,9 @@ const shouldFetchFinishedGame = (gameDate, sport) => {
   } else if (sport === 'nfl') {
     // NFL: Stop fetching finished games after 5 minutes
     return timeDiff < (5 * 60 * 1000);
+  } else if (sport === 'f1') {
+    // F1: Stop fetching finished sessions after 24 hours (F1 races are much less frequent)
+    return timeDiff < (24 * 60 * 60 * 1000);
   }
   
   // Default: Stop fetching finished games after 5 minutes
@@ -559,6 +562,131 @@ export const fetchNHLTeamCurrentGame = async (teamId, updateTeamCurrentGameFunc)
 };
 
 /**
+ * Fetch current race/session for F1 driver using ESPN F1 Calendar API (same as ConstructorDetailsScreen)
+ */
+export const fetchF1DriverCurrentRace = async (teamId, updateTeamCurrentGameFunc) => {
+  try {
+    console.log(`[TEAM PAGE UTILS] Fetching F1 current race for driver ${teamId}`);
+    
+    const currentTime = new Date();
+    const nowMs = Date.now();
+    
+    // Use F1 calendar endpoint like ConstructorDetailsScreen
+    const calUrl = 'https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/calendar/ondays?lang=en&region=us';
+    const calResp = await fetch(calUrl);
+    const calJson = await calResp.json();
+    
+    if (!calJson || !Array.isArray(calJson.sections)) {
+      console.log(`[TEAM PAGE UTILS] Invalid F1 calendar data`);
+      return { success: false, reason: 'Invalid F1 calendar data' };
+    }
+    
+    console.log(`[TEAM PAGE UTILS] Found ${calJson.sections.length} F1 calendar sections`);
+    
+    // Helper to fetch event references
+    const fetchRef = async (refUrl) => {
+      if (!refUrl) return null;
+      try {
+        const resp = await fetch(refUrl);
+        return await resp.json();
+      } catch (err) {
+        console.warn('[TEAM PAGE UTILS] Failed to fetch ref', refUrl, err);
+        return null;
+      }
+    };
+    
+    // Find current or recent F1 events
+    let bestEvent = null;
+    let bestEventData = null;
+    
+    for (const section of calJson.sections) {
+      try {
+        const startDate = section.startDate || section.event?.startDate || section.event?.date;
+        const endDate = section.endDate || section.event?.endDate || section.event?.date;
+        const eventRef = section.event?.$ref;
+        
+        if (!eventRef) continue;
+        
+        const eventData = await fetchRef(eventRef);
+        if (!eventData) continue;
+        
+        // Determine event status (same logic as ConstructorDetailsScreen)
+        const startMs = startDate ? Date.parse(startDate) : (eventData.date ? Date.parse(eventData.date) : null);
+        const endMs = endDate ? Date.parse(endDate) : (eventData.endDate ? Date.parse(eventData.endDate) : null);
+        const endPlusOne = endMs ? (endMs + 24 * 60 * 60 * 1000) : null;
+        
+        const isCompleted = endPlusOne ? nowMs > endPlusOne : false;
+        const isUpcoming = startMs ? nowMs < startMs : false;
+        const isInProgress = !isCompleted && !isUpcoming;
+        
+        console.log(`[TEAM PAGE UTILS] F1 event ${eventData.id}: ${eventData.name} - completed: ${isCompleted}, inProgress: ${isInProgress}, upcoming: ${isUpcoming}`);
+        
+        // Prioritize in-progress events
+        if (isInProgress) {
+          console.log(`[TEAM PAGE UTILS] Found in-progress F1 event: ${eventData.id}`);
+          bestEvent = section;
+          bestEventData = eventData;
+          break;
+        }
+        
+        // Then recent completed events (within 24 hours)
+        if (isCompleted && shouldFetchFinishedGame(eventData.date, 'f1')) {
+          if (!bestEvent || (startMs && (!bestEvent.startMs || startMs > bestEvent.startMs))) {
+            console.log(`[TEAM PAGE UTILS] Found recent completed F1 event: ${eventData.id}`);
+            bestEvent = section;
+            bestEvent.startMs = startMs;
+            bestEventData = eventData;
+          }
+        }
+        
+        // Finally upcoming events
+        if (!bestEvent && isUpcoming) {
+          console.log(`[TEAM PAGE UTILS] Found upcoming F1 event: ${eventData.id}`);
+          bestEvent = section;
+          bestEventData = eventData;
+        }
+      } catch (sectionErr) {
+        console.warn('[TEAM PAGE UTILS] Error processing F1 calendar section:', sectionErr);
+      }
+    }
+    
+    if (!bestEvent || !bestEventData) {
+      console.log(`[TEAM PAGE UTILS] No current/recent F1 events found`);
+      return { success: false, reason: 'No current F1 events' };
+    }
+    
+    console.log(`[TEAM PAGE UTILS] Found F1 event for driver ${teamId}: ${bestEventData.id} - ${bestEventData.name}`);
+    
+    // Store using Core API event endpoint (same as ConstructorDetailsScreen)
+    if (updateTeamCurrentGameFunc) {
+      await updateTeamCurrentGameFunc(teamId, {
+        eventId: bestEventData.id,
+        eventLink: `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/events/${bestEventData.id}?lang=en&region=us`,
+        gameDate: bestEventData.date,
+        competition: 'f1',
+        updatedAt: new Date().toISOString()
+      });
+    }
+    
+    const currentRaceData = {
+      eventId: bestEventData.id,
+      status: 'F1 Event',
+      raceName: bestEventData.name,
+      venue: bestEventData.venue?.fullName || 'F1 Circuit',
+      date: bestEventData.date,
+      lastUpdated: new Date().toISOString(),
+      sport: 'f1'
+    };
+    
+    return { success: true, game: currentRaceData };
+    
+  } catch (error) {
+    console.error(`[TEAM PAGE UTILS] Error fetching F1 race for driver ${teamId}:`, error);
+    return { success: false, reason: error.message };
+  }
+};
+
+/**
  * Master function to fetch current game for any team based on sport
  */
 export const fetchTeamCurrentGame = async (teamId, sport, updateTeamCurrentGameFunc) => {
@@ -574,6 +702,10 @@ export const fetchTeamCurrentGame = async (teamId, sport, updateTeamCurrentGameF
   
   if (sportLower === 'nhl' || sportLower === 'hockey') {
     return await fetchNHLTeamCurrentGame(teamId, updateTeamCurrentGameFunc);
+  }
+  
+  if (sportLower === 'f1' || sportLower === 'formula 1' || sportLower === 'formula1') {
+    return await fetchF1DriverCurrentRace(teamId, updateTeamCurrentGameFunc);
   }
   
   if (sportLower === 'soccer' || 
