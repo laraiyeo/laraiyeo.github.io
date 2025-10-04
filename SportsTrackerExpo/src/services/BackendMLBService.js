@@ -156,22 +156,25 @@ export class BackendMLBService {
         dataSize: data.data ? (data.data.events ? data.data.events.length : 'no events') : 'no data'
       });
 
-      if (data.hasChanges && data.data) {
-        // Store the new sync time
+      // Always update sync time if we got a response
+      if (data.currentSync) {
         await AsyncStorage.setItem(`${this.GAMES_SYNC_KEY}_${cacheKey}`, data.currentSync);
-        
-        // Cache the data locally
+      }
+
+      if (data.hasChanges && data.data && data.data.events) {
+        // Cache the new data locally
         await AsyncStorage.setItem(`${this.GAMES_CACHE_KEY}_${cacheKey}`, JSON.stringify(data.data));
-        
         return data.data;
-      } else if (!data.hasChanges) {
-        // No changes, return cached data
+      } else {
+        // No changes or no data in response, return cached data
         const cachedData = await AsyncStorage.getItem(`${this.GAMES_CACHE_KEY}_${cacheKey}`);
         if (cachedData) {
+          console.log('BackendMLBService: No new data, returning cached data');
           return JSON.parse(cachedData);
         }
       }
 
+      // Fallback - return whatever data we got or empty
       return data.data || { events: [] };
       
     } catch (error) {

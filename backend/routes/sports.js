@@ -51,7 +51,7 @@ router.get('/:sport/games', async (req, res) => {
     }
 
     // Generate delta
-    const delta = deltaService.generateGamesDelta(previousData, currentData);
+    const delta = deltaService.generateGamesDelta(currentData.events || currentData, lastSync, previousData.events || previousData);
     
     // Cache current data for next delta comparison
     await cacheService.setCachedData(`delta_${cacheKey}`, currentData, 300);
@@ -71,8 +71,12 @@ router.get('/:sport/games', async (req, res) => {
       deltaType: 'partial',
       lastSync,
       currentSync: new Date().toISOString(),
-      data: delta.changes,
-      summary: delta.summary
+      data: {
+        events: delta.games || [],
+        lastUpdate: delta.lastUpdate || new Date().toISOString()
+      },
+      changes: delta.changes,
+      summary: delta.changesSummary
     });
 
   } catch (error) {
