@@ -80,8 +80,11 @@ class BackgroundJobsService {
       // Get all unique teams from user favorites
       const trackedTeams = await this.getTrackedTeams();
       if (!trackedTeams.length) {
+        console.log('No teams to track, skipping live games fetch');
         return;
       }
+
+      console.log(`Fetching live data for ${trackedTeams.length} tracked teams`);
 
       // Group teams by sport for efficient batch processing
       const teamsBySport = trackedTeams.reduce((groups, team) => {
@@ -91,13 +94,34 @@ class BackgroundJobsService {
         return groups;
       }, {});
 
-      // Fetch data for each sport
-      const fetchPromises = Object.entries(teamsBySport).map(([sport, teams]) =>
-        this.fetchSportLiveData(sport, teams)
-      );
+      // Fetch data for each sport using the sports data service
+      const fetchPromises = Object.entries(teamsBySport).map(async ([sport, teams]) => {
+        try {
+          const data = await sportsDataService.fetchSportData(sport, teams);
+          console.log(`Fetched ${data.length} ${sport} games`);
+          
+          // Cache the fetched data globally (not just for specific users)
+          const globalCacheKey = generateCacheKey('global_live_games', sport);
+          await setCachedData(globalCacheKey, {
+            sport,
+            games: data,
+            teams: teams.map(t => ({ id: t.teamId, sport: t.sport, name: t.teamName })),
+            lastUpdate: new Date().toISOString()
+          }, 60); // Cache for 1 minute
+          
+          return data;
+        } catch (error) {
+          console.error(`Error fetching ${sport} data:`, error.message);
+          return [];
+        }
+      });
 
-      await Promise.allSettled(fetchPromises);
-      console.log('Live games data fetch completed');
+      const results = await Promise.allSettled(fetchPromises);
+      const totalGames = results
+        .filter(r => r.status === 'fulfilled')
+        .reduce((sum, r) => sum + (r.value?.length || 0), 0);
+        
+      console.log(`Live games data fetch completed - ${totalGames} total games found`);
     } catch (error) {
       console.error('Error fetching live games data:', error);
     }
@@ -112,12 +136,57 @@ class BackgroundJobsService {
       
       const trackedTeams = await this.getTrackedTeams();
       if (!trackedTeams.length) {
+        console.log('No teams to track, skipping upcoming games fetch');
         return;
       }
 
-      // Similar to live games but for upcoming games
-      // Implementation would vary based on specific requirements
-      console.log('Upcoming games data fetch completed');
+      // Group teams by sport
+      const teamsBySport = trackedTeams.reduce((groups, team) => {
+        const sport = team.sport.toLowerCase();
+        if (!groups[sport]) groups[sport] = [];
+        groups[sport].push(team);
+        return groups;
+      }, {});
+
+      // Fetch scheduled games for each sport (next 7 days)
+      const fetchPromises = Object.entries(teamsBySport).map(async ([sport, teams]) => {
+        try {
+          // Use sports data service to fetch scheduled games
+          const scheduledData = await sportsDataService.fetchSportData(sport, teams);
+          
+          // Filter for upcoming games only
+          const upcomingGames = scheduledData.filter(game => {
+            const gameDate = new Date(game.startTime);
+            const now = new Date();
+            const sevenDaysFromNow = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
+            return gameDate > now && gameDate <= sevenDaysFromNow && !game.completed;
+          });
+
+          console.log(`Found ${upcomingGames.length} upcoming ${sport} games`);
+          
+          // Cache upcoming games
+          const upcomingCacheKey = generateCacheKey('global_upcoming_games', sport);
+          await setCachedData(upcomingCacheKey, {
+            sport,
+            games: upcomingGames,
+            teams: teams.map(t => ({ id: t.teamId, sport: t.sport, name: t.teamName })),
+            lastUpdate: new Date().toISOString(),
+            daysAhead: 7
+          }, 300); // Cache for 5 minutes
+          
+          return upcomingGames;
+        } catch (error) {
+          console.error(`Error fetching upcoming ${sport} games:`, error.message);
+          return [];
+        }
+      });
+
+      const results = await Promise.allSettled(fetchPromises);
+      const totalUpcoming = results
+        .filter(r => r.status === 'fulfilled')
+        .reduce((sum, r) => sum + (r.value?.length || 0), 0);
+        
+      console.log(`Upcoming games data fetch completed - ${totalUpcoming} total upcoming games`);
     } catch (error) {
       console.error('Error fetching upcoming games data:', error);
     }
@@ -255,13 +324,25 @@ class BackgroundJobsService {
       
       const users = await this.getAllUsers();
       
+      if (!users.length) {
+        console.log('No users found, skipping summary generation');
+        return;
+      }
+
+      let successCount = 0;
+      
       for (const userId of users) {
-        const summary = await sportsDataService.generateUserSummary(userId);
-        const cacheKey = generateCacheKey('user_summary', userId);
-        await setCachedData(cacheKey, summary, 300); // 5 minutes cache
+        try {
+          const summary = await sportsDataService.generateUserSummary(userId);
+          const cacheKey = generateCacheKey('user_summary', userId);
+          await setCachedData(cacheKey, summary, 300); // 5 minutes cache
+          successCount++;
+        } catch (error) {
+          console.error(`Error generating summary for user ${userId}:`, error.message);
+        }
       }
       
-      console.log('User summaries generation completed');
+      console.log(`User summaries generation completed - ${successCount}/${users.length} successful`);
     } catch (error) {
       console.error('Error generating user summaries:', error);
     }
@@ -289,9 +370,73 @@ class BackgroundJobsService {
    * Get all tracked teams across all users
    */
   async getTrackedTeams() {
-    // This would query Redis for all user favorites and extract unique teams
-    // For now, return empty array as placeholder
-    return [];
+    try {
+      // Get all user favorites cache keys
+      const userFavoritesPattern = 'user_favorites:*';
+      const keys = await this.getCacheKeysPattern(userFavoritesPattern);
+      
+      if (!keys || keys.length === 0) {
+        return [];
+      }
+
+      const allTeams = new Set();
+      const teamDetails = [];
+
+      // Fetch all user favorites
+      for (const key of keys) {
+        try {
+          const userFavorites = await getCachedData(key);
+          if (userFavorites && userFavorites.teams) {
+            for (const team of userFavorites.teams) {
+              const teamKey = `${team.sport}:${team.teamId}`;
+              if (!allTeams.has(teamKey)) {
+                allTeams.add(teamKey);
+                teamDetails.push({
+                  teamId: team.teamId,
+                  sport: team.sport.toLowerCase(),
+                  teamName: team.teamName || team.displayName,
+                  displayName: team.displayName
+                });
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Error reading favorites from key ${key}:`, error.message);
+        }
+      }
+
+      console.log(`Found ${teamDetails.length} unique teams to track across all users`);
+      return teamDetails;
+    } catch (error) {
+      console.error('Error getting tracked teams:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get cache keys matching a pattern (simplified implementation)
+   * In production, you'd use Redis SCAN command for efficiency
+   */
+  async getCacheKeysPattern(pattern) {
+    try {
+      // For now, we'll return a few common user IDs as examples
+      // In a real implementation, you'd track active user IDs or use Redis SCAN
+      const commonUserIds = ['user1', 'user2', 'test_user', 'demo_user'];
+      const keys = [];
+      
+      for (const userId of commonUserIds) {
+        const key = generateCacheKey('user_favorites', userId);
+        const exists = await getCachedData(key);
+        if (exists) {
+          keys.push(key);
+        }
+      }
+      
+      return keys;
+    } catch (error) {
+      console.error('Error getting cache keys pattern:', error);
+      return [];
+    }
   }
 
   /**
@@ -307,9 +452,23 @@ class BackgroundJobsService {
    * Get all users (for summary generation)
    */
   async getAllUsers() {
-    // This would query Redis for all user IDs
-    // For now, return empty array as placeholder
-    return [];
+    try {
+      // Get all user IDs that have favorites configured
+      const userFavoritesPattern = 'user_favorites:*';
+      const keys = await this.getCacheKeysPattern(userFavoritesPattern);
+      
+      const userIds = keys.map(key => {
+        // Extract user ID from cache key like "user_favorites:user123"
+        const match = key.match(/user_favorites:(.+)/);
+        return match ? match[1] : null;
+      }).filter(Boolean);
+
+      console.log(`Found ${userIds.length} users with configured favorites`);
+      return userIds;
+    } catch (error) {
+      console.error('Error getting all users:', error);
+      return [];
+    }
   }
 
   /**
