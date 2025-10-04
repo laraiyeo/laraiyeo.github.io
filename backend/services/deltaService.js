@@ -285,11 +285,170 @@ function optimizePayload(data, fields = null) {
   return optimized;
 }
 
+/**
+ * Generate standings delta by comparing team standings
+ */
+function generateStandingsDelta(previousData, currentData) {
+  const now = new Date();
+
+  if (!previousData || !currentData) {
+    return {
+      hasChanges: true,
+      deltaType: 'full',
+      lastUpdate: now.toISOString(),
+      changes: currentData,
+      summary: 'Full standings data'
+    };
+  }
+
+  // Convert to maps for efficient comparison
+  const previousMap = new Map();
+  const currentMap = new Map();
+
+  // Process previous standings
+  if (previousData.records) {
+    previousData.records.forEach(division => {
+      if (division.teamRecords) {
+        division.teamRecords.forEach(team => {
+          previousMap.set(team.team.id, team);
+        });
+      }
+    });
+  }
+
+  // Process current standings  
+  if (currentData.records) {
+    currentData.records.forEach(division => {
+      if (division.teamRecords) {
+        division.teamRecords.forEach(team => {
+          currentMap.set(team.team.id, team);
+        });
+      }
+    });
+  }
+
+  const changes = {
+    updated: [],
+    added: [],
+    removed: []
+  };
+
+  // Find updated teams
+  for (const [teamId, currentTeam] of currentMap) {
+    const previousTeam = previousMap.get(teamId);
+    
+    if (previousTeam) {
+      if (hasStandingsChanged(currentTeam, previousTeam)) {
+        changes.updated.push({
+          id: teamId,
+          team: currentTeam,
+          changes: getStandingsChanges(currentTeam, previousTeam)
+        });
+      }
+    } else {
+      // New team
+      changes.added.push({
+        id: teamId,
+        team: currentTeam
+      });
+    }
+  }
+
+  // Find removed teams
+  for (const [teamId, previousTeam] of previousMap) {
+    if (!currentMap.has(teamId)) {
+      changes.removed.push({
+        id: teamId,
+        team: previousTeam
+      });
+    }
+  }
+
+  const hasChanges = changes.added.length > 0 || changes.updated.length > 0 || changes.removed.length > 0;
+
+  if (!hasChanges) {
+    return {
+      hasChanges: false,
+      deltaType: 'none',
+      lastUpdate: now.toISOString(),
+      summary: {
+        added: 0,
+        updated: 0,
+        removed: 0
+      }
+    };
+  }
+
+  return {
+    hasChanges: true,
+    deltaType: 'delta',
+    lastUpdate: now.toISOString(),
+    changes: currentData, // For now, return full data since standings change less frequently
+    summary: {
+      added: changes.added.length,
+      updated: changes.updated.length,
+      removed: changes.removed.length,
+      details: changes
+    }
+  };
+}
+
+/**
+ * Check if standings data changed between two states
+ */
+function hasStandingsChanged(currentTeam, previousTeam) {
+  const keyFields = [
+    'wins',
+    'losses',
+    'winningPercentage',
+    'gamesBehind',
+    'divisionRank',
+    'leagueRank'
+  ];
+
+  for (const field of keyFields) {
+    if (currentTeam[field] !== previousTeam[field]) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Get specific changes in standings data
+ */
+function getStandingsChanges(currentTeam, previousTeam) {
+  const changes = {};
+  const keyFields = [
+    'wins',
+    'losses', 
+    'winningPercentage',
+    'gamesBehind',
+    'divisionRank',
+    'leagueRank'
+  ];
+
+  for (const field of keyFields) {
+    if (currentTeam[field] !== previousTeam[field]) {
+      changes[field] = {
+        from: previousTeam[field],
+        to: currentTeam[field]
+      };
+    }
+  }
+
+  return changes;
+}
+
 module.exports = {
   generateDelta,
   generateGamesDelta,
   generateSummaryDelta,
+  generateStandingsDelta,
   hasGameChanged,
   getGameChanges,
+  hasStandingsChanged,
+  getStandingsChanges,
   optimizePayload
 };

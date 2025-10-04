@@ -447,6 +447,351 @@ class SportsDataService {
   }
 
   /**
+   * Get optimized games data for a specific sport (corrected signature)
+   */
+  async getOptimizedGamesData(sport, options = {}) {
+    try {
+      const { startDate, endDate } = options;
+      console.log(`[SportsDataService] Fetching ${sport} games:`, { startDate, endDate });
+
+      const gamesData = {
+        events: [],
+        lastUpdate: new Date().toISOString()
+      };
+
+      switch (sport.toLowerCase()) {
+        case 'mlb':
+          gamesData.events = await this.fetchMLBGames(startDate, endDate);
+          break;
+        case 'nfl':
+          gamesData.events = await this.fetchNFLGames(startDate, endDate);
+          break;
+        case 'nba':
+          gamesData.events = await this.fetchNBAGames(startDate, endDate);
+          break;
+        case 'nhl':
+          gamesData.events = await this.fetchNHLGames(startDate, endDate);
+          break;
+        case 'f1':
+          gamesData.events = await this.fetchF1Races(startDate, endDate);
+          break;
+        case 'soccer':
+          gamesData.events = await this.fetchSoccerGames(startDate, endDate);
+          break;
+        default:
+          throw new Error(`Unsupported sport: ${sport}`);
+      }
+
+      return gamesData;
+    } catch (error) {
+      console.error(`Error getting ${sport} games data:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get standings data for a specific sport
+   */
+  async getStandings(sport) {
+    try {
+      console.log(`[SportsDataService] Fetching ${sport} standings`);
+
+      const cacheKey = generateCacheKey('standings', sport);
+      const cachedData = await getCachedData(cacheKey);
+
+      if (cachedData) {
+        return cachedData;
+      }
+
+      let standingsData = {};
+
+      switch (sport.toLowerCase()) {
+        case 'mlb':
+          standingsData = await this.fetchMLBStandings();
+          break;
+        case 'nfl':
+          standingsData = await this.fetchNFLStandings();
+          break;
+        case 'nba':
+          standingsData = await this.fetchNBAStandings();
+          break;
+        case 'nhl':
+          standingsData = await this.fetchNHLStandings();
+          break;
+        default:
+          throw new Error(`Standings not supported for sport: ${sport}`);
+      }
+
+      // Cache standings data
+      await setCachedData(cacheKey, standingsData, this.longCacheTTL);
+      return standingsData;
+    } catch (error) {
+      console.error(`Error getting ${sport} standings:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get team data for a specific sport and team
+   */
+  async getTeamData(sport, teamId) {
+    try {
+      console.log(`[SportsDataService] Fetching ${sport} team ${teamId} data`);
+
+      const cacheKey = generateCacheKey('team_data', sport, teamId);
+      const cachedData = await getCachedData(cacheKey);
+
+      if (cachedData) {
+        return cachedData;
+      }
+
+      let teamData = {};
+
+      switch (sport.toLowerCase()) {
+        case 'mlb':
+          teamData = await this.fetchMLBTeamData(teamId);
+          break;
+        case 'nfl':
+          teamData = await this.fetchNFLTeamData(teamId);
+          break;
+        case 'nba':
+          teamData = await this.fetchNBATeamData(teamId);
+          break;
+        case 'nhl':
+          teamData = await this.fetchNHLTeamData(teamId);
+          break;
+        default:
+          throw new Error(`Team data not supported for sport: ${sport}`);
+      }
+
+      // Cache team data
+      await setCachedData(cacheKey, teamData, this.longCacheTTL);
+      return teamData;
+    } catch (error) {
+      console.error(`Error getting ${sport} team ${teamId} data:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch MLB games for date range
+   */
+  async fetchMLBGames(startDate, endDate) {
+    try {
+      let url = `${this.mlbBaseUrl}/api/v1/schedule/games/?sportId=1`;
+      
+      if (startDate) {
+        if (endDate && endDate !== startDate) {
+          url += `&startDate=${startDate}&endDate=${endDate}`;
+        } else {
+          url += `&startDate=${startDate}&endDate=${startDate}`;
+        }
+      } else {
+        // Use today's date adjusted for MLB
+        const today = this.getAdjustedDateForMLB();
+        url += `&startDate=${today}&endDate=${today}`;
+      }
+
+      console.log('[SportsDataService] Fetching MLB games from:', url);
+      const response = await this.makeRequest(url);
+      return this.normalizeMLBGames(response.data);
+    } catch (error) {
+      console.error('Error fetching MLB games:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch MLB standings
+   */
+  async fetchMLBStandings() {
+    try {
+      const url = `${this.mlbBaseUrl}/api/v1/standings?leagueId=103,104&season=2024&standingsTypes=regularSeason`;
+      console.log('[SportsDataService] Fetching MLB standings from:', url);
+      const response = await this.makeRequest(url);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching MLB standings:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch MLB team data
+   */
+  async fetchMLBTeamData(teamId) {
+    try {
+      const url = `${this.mlbBaseUrl}/api/v1/teams/${teamId}`;
+      console.log('[SportsDataService] Fetching MLB team data from:', url);
+      const response = await this.makeRequest(url);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching MLB team data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Normalize MLB games data to common format
+   */
+  normalizeMLBGames(data) {
+    const events = [];
+
+    if (data.dates && data.dates.length > 0) {
+      data.dates.forEach(dateObj => {
+        if (dateObj.games && dateObj.games.length > 0) {
+          dateObj.games.forEach(game => {
+            events.push(this.normalizeMLBGame(game));
+          });
+        }
+      });
+    }
+
+    return events;
+  }
+
+  /**
+   * Normalize single MLB game
+   */
+  normalizeMLBGame(game) {
+    const awayTeam = game.teams?.away;
+    const homeTeam = game.teams?.home;
+    
+    return {
+      id: game.gamePk?.toString(),
+      date: game.gameDate,
+      status: game.status?.detailedState || 'Unknown',
+      statusType: game.status?.statusCode || 'U',
+      isCompleted: game.status?.statusCode === 'F',
+      isLive: game.status?.statusCode === 'I' || 
+               game.status?.detailedState === 'In Progress' ||
+               game.status?.detailedState === 'Manager challenge' ||
+               game.status?.codedGameState === 'M',
+      displayClock: this.getMLBGameTimeDisplay(game),
+      venue: game.venue?.name || '',
+      awayTeam: {
+        id: awayTeam?.team?.id?.toString(),
+        displayName: awayTeam?.team?.name || '',
+        abbreviation: awayTeam?.team?.abbreviation || '',
+        score: awayTeam?.score?.toString() || '0',
+        record: this.formatMLBRecord(awayTeam?.leagueRecord)
+      },
+      homeTeam: {
+        id: homeTeam?.team?.id?.toString(),
+        displayName: homeTeam?.team?.name || '',
+        abbreviation: homeTeam?.team?.abbreviation || '',
+        score: homeTeam?.score?.toString() || '0',
+        record: this.formatMLBRecord(homeTeam?.leagueRecord)
+      },
+      // MLB-specific data
+      inning: game.linescore?.currentInning || 0,
+      inningState: game.linescore?.inningState || '',
+      situation: this.getMLBGameSituation(game)
+    };
+  }
+
+  /**
+   * Get adjusted date for MLB (accounting for late games)
+   */
+  getAdjustedDateForMLB() {
+    const now = new Date();
+    const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+    
+    // If before 2 AM EST, use previous day
+    if (estNow.getHours() < 2) {
+      estNow.setDate(estNow.getDate() - 1);
+    }
+
+    return estNow.getFullYear() + "-" +
+           String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
+           String(estNow.getDate()).padStart(2, "0");
+  }
+
+  /**
+   * Get MLB game time display
+   */
+  getMLBGameTimeDisplay(game) {
+    if (game.status?.statusCode === 'F') {
+      return 'Final';
+    }
+    
+    if (game.status?.statusCode === 'I' || 
+        game.status?.detailedState === 'In Progress' ||
+        game.status?.detailedState === 'Manager challenge' ||
+        game.status?.codedGameState === 'M') {
+      const inning = game.linescore?.currentInning || 0;
+      const inningState = game.linescore?.inningState || '';
+      const ordinal = this.getOrdinalSuffix(inning);
+      return inningState === 'Top' ? `Top ${ordinal}` : `Bot ${ordinal}`;
+    }
+    
+    if (game.status?.statusCode === 'S' || game.status?.statusCode === 'P') {
+      const gameDate = new Date(game.gameDate);
+      return gameDate.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        timeZone: 'America/New_York'
+      });
+    }
+    
+    return game.status?.detailedState || 'Unknown';
+  }
+
+  /**
+   * Format MLB team record
+   */
+  formatMLBRecord(record) {
+    if (!record) return '';
+    return `${record.wins}-${record.losses}`;
+  }
+
+  /**
+   * Get MLB game situation
+   */
+  getMLBGameSituation(game) {
+    if (!game.linescore) return {};
+    
+    return {
+      balls: game.linescore.balls || 0,
+      strikes: game.linescore.strikes || 0,
+      outs: game.linescore.outs || 0,
+      bases: {
+        first: !!game.linescore.offense?.first,
+        second: !!game.linescore.offense?.second,
+        third: !!game.linescore.offense?.third
+      }
+    };
+  }
+
+  /**
+   * Get ordinal suffix for inning numbers
+   */
+  getOrdinalSuffix(num) {
+    if (num % 100 >= 11 && num % 100 <= 13) return `${num}th`;
+    switch (num % 10) {
+      case 1: return `${num}st`;
+      case 2: return `${num}nd`;
+      case 3: return `${num}rd`;
+      default: return `${num}th`;
+    }
+  }
+
+  // Placeholder methods for other sports - can be implemented later
+  async fetchNFLGames(startDate, endDate) { return []; }
+  async fetchNBAGames(startDate, endDate) { return []; }
+  async fetchNHLGames(startDate, endDate) { return []; }
+  async fetchF1Races(startDate, endDate) { return []; }
+  async fetchSoccerGames(startDate, endDate) { return []; }
+  
+  async fetchNFLStandings() { return {}; }
+  async fetchNBAStandings() { return {}; }
+  async fetchNHLStandings() { return {}; }
+  
+  async fetchNFLTeamData(teamId) { return {}; }
+  async fetchNBATeamData(teamId) { return {}; }
+  async fetchNHLTeamData(teamId) { return {}; }
+
+  /**
    * Helper methods
    */
   groupTeamsBySport(teams) {
