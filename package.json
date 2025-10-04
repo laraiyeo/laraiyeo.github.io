@@ -1,0 +1,14 @@
+{
+  "name": "live-sports-tracker-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Live Sports Tracker",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "cd backend && npm start",
+    "dev": "cd backend && npm run dev",
+    "install-backend": "cd backend && npm install"
+  },
+  "keywords": ["sports", "api", "backend"],
+  "author": "",
+  "license": "ISC"
+}
