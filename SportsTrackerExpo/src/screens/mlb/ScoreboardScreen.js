@@ -262,13 +262,19 @@ const MLBScoreboardScreen = ({ navigation }) => {
       if (usingBackend) {
         console.log('MLBScoreboardScreen: Using backend service for', dateFilter);
         
-        // Configure options based on date filter
+        // Get date range for the filter
+        const { startDate, endDate } = getDateRange(dateFilter);
+        const formattedStartDate = formatDateForAPI(startDate);
+        const formattedEndDate = formatDateForAPI(endDate);
+        
+        // Configure options with proper date range
         const options = {
-          silentUpdate,
-          includeUpcoming: dateFilter === 'upcoming',
-          includeCompleted: dateFilter === 'yesterday'
+          startDate: formattedStartDate,
+          endDate: formattedEndDate,
+          forceRefresh: !silentUpdate && !isCacheValid
         };
         
+        console.log('MLBScoreboardScreen: Backend request options:', options);
         scoreboardData = await BackendMLBService.getGames(options);
         
         // Log delta information if available
@@ -301,34 +307,9 @@ const MLBScoreboardScreen = ({ navigation }) => {
           message: getNoGamesMessage(dateFilter)
         }];
       } else {
-        // Filter games based on date filter (when using backend)
-        let filteredEvents = scoreboardData.events;
-        
-        if (usingBackend) {
-          const now = new Date();
-          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-          const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-          
-          filteredEvents = scoreboardData.events.filter(game => {
-            const gameDate = new Date(game.date);
-            const gameDateOnly = new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate());
-            
-            switch (dateFilter) {
-              case 'yesterday':
-                return gameDateOnly.getTime() === yesterday.getTime();
-              case 'today':
-                return gameDateOnly.getTime() === today.getTime();
-              case 'upcoming':
-                return gameDateOnly.getTime() > today.getTime();
-              default:
-                return true;
-            }
-          });
-        }
-        
+        // Backend already returns games for the correct date range, no need to filter
         // Group games by date and add headers
-        const gamesByDate = groupGamesByDate(filteredEvents);
+        const gamesByDate = groupGamesByDate(scoreboardData.events);
         processedGames = [];
         
         // Sort dates chronologically (not alphabetically)
