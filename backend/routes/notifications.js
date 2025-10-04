@@ -3,12 +3,24 @@ const router = express.Router();
 const webpush = require('web-push');
 const { getCachedData, setCachedData, generateCacheKey } = require('../services/cacheService');
 
-// Configure web-push with VAPID keys
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT,
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-);
+// Configure web-push with VAPID keys if available. If VAPID vars are missing,
+// skip initialization so the app can still start (push endpoints will return 503).
+let webpushEnabled = true;
+const vapidPublic = process.env.VAPID_PUBLIC_KEY;
+const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
+const vapidSubject = process.env.VAPID_SUBJECT || process.env.VAPID_EMAIL;
+
+if (vapidPublic && vapidPrivate && vapidSubject) {
+  try {
+    webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
+  } catch (err) {
+    console.error('Error configuring web-push VAPID keys:', err);
+    webpushEnabled = false;
+  }
+} else {
+  webpushEnabled = false;
+  console.warn('web-push not configured: missing VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY or VAPID_SUBJECT/VAPID_EMAIL');
+}
 
 /**
  * POST /api/notifications/subscribe/:userId
@@ -84,6 +96,9 @@ router.put('/preferences/:userId', async (req, res) => {
  */
 router.post('/send/:userId', async (req, res) => {
   try {
+    if (!webpushEnabled) {
+      return res.status(503).json({ error: 'Push notifications not configured on server' });
+    }
     const { userId } = req.params;
     const { title, body, data } = req.body;
 
@@ -147,6 +162,9 @@ router.delete('/unsubscribe/:userId', async (req, res) => {
  * Get VAPID public key for client-side subscription
  */
 router.get('/vapid-public-key', (req, res) => {
+  if (!webpushEnabled) {
+    return res.status(503).json({ error: 'VAPID keys not configured' });
+  }
   res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
 });
 
