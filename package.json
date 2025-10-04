@@ -6,7 +6,8 @@
   "scripts": {
     "start": "cd backend && npm start",
     "dev": "cd backend && npm run dev",
-    "install-backend": "cd backend && npm install"
+    "install-backend": "cd backend && npm install",
+    "postinstall": "cd backend && npm ci --production"
   },
   "keywords": ["sports", "api", "backend"],
   "author": "",
