@@ -35,11 +35,11 @@ router.get('/:sport/games', async (req, res) => {
 
     // Get cached previous data for delta comparison
     const cacheKey = `${sport}_games_${startDate || 'today'}_${endDate || startDate || 'today'}`;
-    const previousData = await cacheService.get(`delta_${cacheKey}`);
+    const previousData = await cacheService.getCachedData(`delta_${cacheKey}`);
 
     if (!previousData) {
       // No previous data found, return full data
-      await cacheService.set(`delta_${cacheKey}`, currentData, 300); // Cache for 5 minutes
+      await cacheService.setCachedData(`delta_${cacheKey}`, currentData, 300); // Cache for 5 minutes
       return res.json({
         hasChanges: true,
         deltaType: 'full',
@@ -54,7 +54,7 @@ router.get('/:sport/games', async (req, res) => {
     const delta = deltaService.generateGamesDelta(previousData, currentData);
     
     // Cache current data for next delta comparison
-    await cacheService.set(`delta_${cacheKey}`, currentData, 300);
+    await cacheService.setCachedData(`delta_${cacheKey}`, currentData, 300);
 
     if (!delta.hasChanges) {
       return res.json({
@@ -115,11 +115,11 @@ router.get('/:sport/standings', async (req, res) => {
 
     // Get cached previous data for delta comparison
     const cacheKey = `${sport}_standings`;
-    const previousData = await cacheService.get(`delta_${cacheKey}`);
+    const previousData = await cacheService.getCachedData(`delta_${cacheKey}`);
 
     if (!previousData) {
       // No previous data found, return full data
-      await cacheService.set(`delta_${cacheKey}`, currentData, 600); // Cache for 10 minutes
+      await cacheService.setCachedData(`delta_${cacheKey}`, currentData, 600); // Cache for 10 minutes
       return res.json({
         hasChanges: true,
         deltaType: 'full',
@@ -134,7 +134,7 @@ router.get('/:sport/standings', async (req, res) => {
     const delta = deltaService.generateStandingsDelta(previousData, currentData);
     
     // Cache current data for next delta comparison
-    await cacheService.set(`delta_${cacheKey}`, currentData, 600);
+    await cacheService.setCachedData(`delta_${cacheKey}`, currentData, 600);
 
     if (!delta.hasChanges) {
       return res.json({
