@@ -11,7 +11,8 @@ import {
   Alert
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { MLBService } from '../../services/MLBService';
+import { BackendMLBService } from '../../services/BackendMLBService';
+import { MLBService } from '../../services/MLBService'; // Keep for fallback
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { convertMLBIdToESPNId } from '../../utils/TeamIdMapping';
@@ -26,6 +27,8 @@ const MLBScoreboardScreen = ({ navigation }) => {
   const [updateInterval, setUpdateInterval] = useState(null);
   const [selectedDateFilter, setSelectedDateFilter] = useState('today'); // 'yesterday', 'today', 'upcoming'
   const [isScreenFocused, setIsScreenFocused] = useState(true);
+  const [backendError, setBackendError] = useState(null);
+  const [usingBackend, setUsingBackend] = useState(true);
   
   // Cache for each date filter
   const [gameCache, setGameCache] = useState({
@@ -43,6 +46,9 @@ const MLBScoreboardScreen = ({ navigation }) => {
 
   // Track if preloading has been done to prevent multiple calls
   const hasPreloadedRef = useRef(false);
+  
+  // Track initialization
+  const [isInitialized, setIsInitialized] = useState(false);
   
   // Cache duration: 30 seconds for today and upcoming (live/soon-to-be-live games), 5 minutes for others
   const getCacheDuration = (filter) => {
@@ -117,6 +123,31 @@ const MLBScoreboardScreen = ({ navigation }) => {
     }
   };
 
+  // Initialize backend service with user's favorites
+  useEffect(() => {
+    const initializeBackend = async () => {
+      try {
+        console.log('MLBScoreboardScreen: Initializing backend service...');
+        
+        // Get user's favorite MLB teams (you can customize this logic)
+        // For now, we'll initialize with empty array - the user will add favorites through the app
+        await BackendMLBService.initialize([]);
+        
+        console.log('MLBScoreboardScreen: Backend service initialized successfully');
+        setIsInitialized(true);
+        setBackendError(null);
+        setUsingBackend(true);
+      } catch (error) {
+        console.error('MLBScoreboardScreen: Backend initialization failed:', error);
+        setBackendError(error.message);
+        setUsingBackend(false);
+        setIsInitialized(true); // Still allow the screen to work with fallback
+      }
+    };
+
+    initializeBackend();
+  }, []);
+
   // Track screen focus to pause/resume updates
   useFocusEffect(
     React.useCallback(() => {
@@ -136,6 +167,11 @@ const MLBScoreboardScreen = ({ navigation }) => {
   );
 
   useEffect(() => {
+    if (!isInitialized) {
+      console.log('MLBScoreboardScreen: Waiting for initialization...');
+      return;
+    }
+
     console.log('MLBScoreboardScreen: Main useEffect triggered for filter:', selectedDateFilter, 'focused:', isScreenFocused);
     // Load the current filter first
     loadScoreboard();
@@ -144,7 +180,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
     if ((selectedDateFilter === 'today' || selectedDateFilter === 'upcoming') && isScreenFocused) {
       const interval = setInterval(() => {
         loadScoreboard(true, selectedDateFilter);
-      }, 2000);
+      }, usingBackend ? 30000 : 2000); // Use 30s for backend (delta updates), 2s for fallback
       
       setUpdateInterval(interval);
       
@@ -158,7 +194,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
         setUpdateInterval(null);
       }
     }
-  }, [selectedDateFilter, isScreenFocused]);
+  }, [selectedDateFilter, isScreenFocused, isInitialized, usingBackend]);
 
   // Separate effect for initial preloading - only runs once on mount
   useEffect(() => {
@@ -189,14 +225,20 @@ const MLBScoreboardScreen = ({ navigation }) => {
   }, []); // Empty dependency array - only run once on mount
 
   const loadScoreboard = async (silentUpdate = false, dateFilter = selectedDateFilter) => {
-    console.log('MLBScoreboardScreen: loadScoreboard called - silentUpdate:', silentUpdate, 'dateFilter:', dateFilter);
+    console.log('MLBScoreboardScreen: loadScoreboard called - silentUpdate:', silentUpdate, 'dateFilter:', dateFilter, 'usingBackend:', usingBackend);
+    
+    if (!isInitialized) {
+      console.log('MLBScoreboardScreen: Not initialized yet, skipping load');
+      return;
+    }
+
     const now = Date.now();
     const cachedData = gameCache[dateFilter];
     const cacheTime = cacheTimestamps[dateFilter];
     const cacheDuration = getCacheDuration(dateFilter);
     const isCacheValid = cachedData && (now - cacheTime) < cacheDuration;
     
-    // If we have valid cached data, show it immediately
+    // If we have valid cached data, show it immediately (for both backend and fallback)
     if (isCacheValid && !silentUpdate) {
       console.log('MLBScoreboardScreen: Using cached data for', dateFilter);
       setGames(cachedData);
@@ -215,15 +257,41 @@ const MLBScoreboardScreen = ({ navigation }) => {
     }
     
     try {
-      const { startDate, endDate } = getDateRange(dateFilter);
-      const formattedStartDate = formatDateForAPI(startDate);
-      const formattedEndDate = formatDateForAPI(endDate);
-      console.log('MLBScoreboardScreen: Making API call for', dateFilter);
-      console.log('MLBScoreboardScreen: startDate object:', startDate);
-      console.log('MLBScoreboardScreen: endDate object:', endDate);
-      console.log('MLBScoreboardScreen: formatted startDate:', formattedStartDate);
-      console.log('MLBScoreboardScreen: formatted endDate:', formattedEndDate);
-      const scoreboardData = await MLBService.getScoreboard(formattedStartDate, formattedEndDate);
+      let scoreboardData;
+      
+      if (usingBackend) {
+        console.log('MLBScoreboardScreen: Using backend service for', dateFilter);
+        
+        // Configure options based on date filter
+        const options = {
+          silentUpdate,
+          includeUpcoming: dateFilter === 'upcoming',
+          includeCompleted: dateFilter === 'yesterday'
+        };
+        
+        scoreboardData = await BackendMLBService.getGames(options);
+        
+        // Log delta information if available
+        if (scoreboardData.hasChanges !== undefined) {
+          console.log('MLBScoreboardScreen: Backend delta response - hasChanges:', scoreboardData.hasChanges);
+          if (scoreboardData.deltas) {
+            console.log('MLBScoreboardScreen: Delta summary:', {
+              added: scoreboardData.deltas.added?.length || 0,
+              updated: scoreboardData.deltas.updated?.length || 0,
+              removed: scoreboardData.deltas.removed?.length || 0
+            });
+          }
+        }
+      } else {
+        console.log('MLBScoreboardScreen: Falling back to direct API for', dateFilter);
+        
+        // Fallback to original API logic
+        const { startDate, endDate } = getDateRange(dateFilter);
+        const formattedStartDate = formatDateForAPI(startDate);
+        const formattedEndDate = formatDateForAPI(endDate);
+        
+        scoreboardData = await MLBService.getScoreboard(formattedStartDate, formattedEndDate);
+      }
       
       let processedGames;
       
@@ -233,8 +301,34 @@ const MLBScoreboardScreen = ({ navigation }) => {
           message: getNoGamesMessage(dateFilter)
         }];
       } else {
+        // Filter games based on date filter (when using backend)
+        let filteredEvents = scoreboardData.events;
+        
+        if (usingBackend) {
+          const now = new Date();
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+          const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+          
+          filteredEvents = scoreboardData.events.filter(game => {
+            const gameDate = new Date(game.date);
+            const gameDateOnly = new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate());
+            
+            switch (dateFilter) {
+              case 'yesterday':
+                return gameDateOnly.getTime() === yesterday.getTime();
+              case 'today':
+                return gameDateOnly.getTime() === today.getTime();
+              case 'upcoming':
+                return gameDateOnly.getTime() > today.getTime();
+              default:
+                return true;
+            }
+          });
+        }
+        
         // Group games by date and add headers
-        const gamesByDate = groupGamesByDate(scoreboardData.events);
+        const gamesByDate = groupGamesByDate(filteredEvents);
         processedGames = [];
         
         // Sort dates chronologically (not alphabetically)
@@ -269,9 +363,87 @@ const MLBScoreboardScreen = ({ navigation }) => {
       }
       
     } catch (error) {
-      if (!silentUpdate) {
-        Alert.alert('Error', 'Failed to load games');
-        console.error('Error loading games:', error);
+      console.error('MLBScoreboardScreen: Error loading games:', error);
+      
+      if (usingBackend) {
+        console.log('MLBScoreboardScreen: Backend failed, attempting fallback to direct API');
+        
+        try {
+          // Fallback to direct API
+          const { startDate, endDate } = getDateRange(dateFilter);
+          const formattedStartDate = formatDateForAPI(startDate);
+          const formattedEndDate = formatDateForAPI(endDate);
+          
+          const fallbackData = await MLBService.getScoreboard(formattedStartDate, formattedEndDate);
+          
+          let processedGames;
+          if (!fallbackData || !fallbackData.events || fallbackData.events.length === 0) {
+            processedGames = [{
+              type: 'no-games',
+              message: getNoGamesMessage(dateFilter) + ' (Backend unavailable - using direct API)'
+            }];
+          } else {
+            const gamesByDate = groupGamesByDate(fallbackData.events);
+            processedGames = [];
+            
+            Object.keys(gamesByDate)
+              .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+              .forEach(date => {
+                processedGames.push({
+                  type: 'header',
+                  date: formatDateHeader(date)
+                });
+                processedGames.push(...gamesByDate[date]);
+              });
+          }
+          
+          // Update cache and display
+          setGameCache(prev => ({
+            ...prev,
+            [dateFilter]: processedGames
+          }));
+          
+          setCacheTimestamps(prev => ({
+            ...prev,
+            [dateFilter]: Date.now()
+          }));
+          
+          if (dateFilter === selectedDateFilter) {
+            setGames(processedGames);
+          }
+          
+          // Set temporary fallback mode
+          setUsingBackend(false);
+          setBackendError(error.message);
+          
+          console.log('MLBScoreboardScreen: Fallback successful');
+          
+        } catch (fallbackError) {
+          console.error('MLBScoreboardScreen: Both backend and fallback failed:', fallbackError);
+          
+          if (!silentUpdate) {
+            Alert.alert(
+              'Connection Error', 
+              'Unable to load games. Please check your internet connection and try again.',
+              [
+                { text: 'Retry', onPress: () => loadScoreboard(false, dateFilter) },
+                { text: 'OK' }
+              ]
+            );
+          }
+        }
+      } else {
+        // Direct API failed
+        if (!silentUpdate) {
+          Alert.alert(
+            'Error', 
+            'Failed to load games. Please try again.',
+            [
+              { text: 'Retry', onPress: () => loadScoreboard(false, dateFilter) },
+              { text: 'OK' }
+            ]
+          );
+        }
       }
     } finally {
       if (!silentUpdate) {
@@ -718,6 +890,23 @@ const MLBScoreboardScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
+      {/* Backend Status Banner */}
+      {backendError && (
+        <View style={[styles.statusBanner, { backgroundColor: '#ff9800' }]}>
+          <Text style={[styles.statusText, { color: '#fff' }]}>
+            ⚠️ Using direct API (Backend: {backendError})
+          </Text>
+        </View>
+      )}
+
+      {usingBackend && !backendError && (
+        <View style={[styles.statusBanner, { backgroundColor: '#4caf50' }]}>
+          <Text style={[styles.statusText, { color: '#fff' }]}>
+            ✅ Delta updates active - reduced data usage
+          </Text>
+        </View>
+      )}
+
       <FlatList
         data={games}
         renderItem={renderGameCard}
@@ -903,6 +1092,18 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     textAlign: 'center',
+  },
+  statusBanner: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginVertical: 4,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });
 

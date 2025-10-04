@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { BackendMLBService } from '../../services/BackendMLBService';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { convertMLBIdToESPNId, ESPN_ABBREVIATION_TO_MLB_ID, ESPN_ABBREVIATION_TO_ESPN_ID } from '../../utils/TeamIdMapping';
@@ -12,16 +13,42 @@ const StandingsScreen = ({ route }) => {
   const [standings, setStandings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [intervalId, setIntervalId] = useState(null);
+  const [usingBackend, setUsingBackend] = useState(true);
+  const [backendError, setBackendError] = useState(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   const navigation = useNavigation();
 
+  // Initialize backend service
   useEffect(() => {
+    const initializeBackend = async () => {
+      try {
+        console.log('StandingsScreen: Initializing backend service...');
+        await BackendMLBService.initialize([]);
+        console.log('StandingsScreen: Backend service initialized successfully');
+        setIsInitialized(true);
+        setBackendError(null);
+        setUsingBackend(true);
+      } catch (error) {
+        console.error('StandingsScreen: Backend initialization failed:', error);
+        setBackendError(error.message);
+        setUsingBackend(false);
+        setIsInitialized(true);
+      }
+    };
+
+    initializeBackend();
+  }, []);
+
+  useEffect(() => {
+    if (!isInitialized) return;
+
     fetchStandings();
     
     // Focus listener to start updates when screen becomes active
     const unsubscribeFocus = navigation.addListener('focus', () => {
       console.log('Standings screen focused - starting updates');
       fetchStandings();
-      const interval = setInterval(fetchStandings, 30000);
+      const interval = setInterval(fetchStandings, usingBackend ? 60000 : 30000); // 1min for backend, 30s for fallback
       setIntervalId(interval);
     });
     
@@ -42,16 +69,62 @@ const StandingsScreen = ({ route }) => {
       unsubscribeFocus();
       unsubscribeBlur();
     };
-  }, [navigation, intervalId]);
+  }, [navigation, intervalId, isInitialized, usingBackend]);
 
   const fetchStandings = async () => {
+    if (!isInitialized) {
+      console.log('StandingsScreen: Not initialized yet, skipping fetch');
+      return;
+    }
+
     try {
+      console.log('StandingsScreen: Fetching standings, usingBackend:', usingBackend);
+
+      if (usingBackend) {
+        // Try to get standings from backend first
+        try {
+          const backendStandings = await BackendMLBService.getStandings();
+          console.log('StandingsScreen: Got standings from backend:', backendStandings?.length || 0);
+          
+          if (backendStandings && backendStandings.length > 0) {
+            // Transform backend data to expected format if needed
+            setStandings({ content: { standings: { groups: backendStandings } } });
+            setBackendError(null);
+            return;
+          } else {
+            console.log('StandingsScreen: Backend returned empty standings, falling back to direct API');
+          }
+        } catch (backendError) {
+          console.error('StandingsScreen: Backend standings failed:', backendError);
+          setBackendError(backendError.message);
+          setUsingBackend(false);
+        }
+      }
+
+      // Fallback to direct ESPN API
+      console.log('StandingsScreen: Using direct ESPN API fallback');
       const response = await fetch('https://cdn.espn.com/core/mlb/standings?xhr=1');
-      const data = await response.json();
       
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
       setStandings(data);
+      
+      console.log('StandingsScreen: Successfully fetched from ESPN API');
+      
     } catch (error) {
-      console.error('Error fetching standings:', error);
+      console.error('StandingsScreen: Error fetching standings:', error);
+      
+      Alert.alert(
+        'Error',
+        'Failed to load standings. Please check your connection and try again.',
+        [
+          { text: 'Retry', onPress: fetchStandings },
+          { text: 'OK' }
+        ]
+      );
     } finally {
       setLoading(false);
     }
@@ -212,7 +285,28 @@ const StandingsScreen = ({ route }) => {
     );
   }
 
-  return renderMLBStandings();
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+      {/* Backend Status Banner */}
+      {backendError && (
+        <View style={[styles.statusBanner, { backgroundColor: '#ff9800' }]}>
+          <Text style={[styles.statusText, { color: '#fff' }]}>
+            ⚠️ Using direct API (Backend: {backendError})
+          </Text>
+        </View>
+      )}
+
+      {usingBackend && !backendError && (
+        <View style={[styles.statusBanner, { backgroundColor: '#4caf50' }]}>
+          <Text style={[styles.statusText, { color: '#fff' }]}>
+            ✅ Delta updates active - reduced data usage
+          </Text>
+        </View>
+      )}
+
+      {renderMLBStandings()}
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
@@ -343,6 +437,18 @@ const styles = StyleSheet.create({
   },
   legendLabel: {
     fontSize: 12,
+  },
+  statusBanner: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginVertical: 4,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });
 
