@@ -703,7 +703,7 @@ const selectBestF1Time = (driver) => {
 
 const FavoritesScreen = ({ navigation }) => {
   const { theme, colors, isDarkMode, getTeamLogoUrl } = useTheme();
-  const { getFavoriteTeams, isFavorite, favorites, getTeamCurrentGame, updateTeamCurrentGame, clearTeamCurrentGame, refreshAllCurrentGames, autoPopulating } = useFavorites();
+  const { getFavoriteTeams, isFavorite, favorites, getTeamCurrentGame, updateTeamCurrentGame, clearTeamCurrentGame, refreshAllCurrentGames, autoPopulating, clearCorruptedCurrentGames } = useFavorites();
   const [favoriteGames, setFavoriteGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -901,6 +901,28 @@ const FavoritesScreen = ({ navigation }) => {
     
     setFavoritesHash(newHash);
   }, [favorites]); // React to any change in favorites (including currentGame updates)
+
+  // One-time cleanup of corrupted NBA/WNBA currentGame data
+  useEffect(() => {
+    const performCleanup = async () => {
+      try {
+        // Check if we have NBA/WNBA teams with potentially corrupted data
+        const hasNbaWnbaTeams = favorites.some(fav => {
+          const sport = String(fav.sport || '').toLowerCase();
+          return (sport === 'nba' || sport === 'wnba') && fav.currentGame;
+        });
+        
+        if (hasNbaWnbaTeams && clearCorruptedCurrentGames) {
+          console.log('FavoritesScreen: Performing one-time cleanup of corrupted NBA/WNBA data');
+          await clearCorruptedCurrentGames(['nba', 'wnba']);
+        }
+      } catch (error) {
+        console.error('FavoritesScreen: Error during corrupted data cleanup:', error);
+      }
+    };
+    
+    performCleanup();
+  }, []); // Run once on mount
 
   // Daily cleanup effect - monitor for 2 AM EST rollover and clear old games
   useEffect(() => {
@@ -2395,15 +2417,24 @@ const FavoritesScreen = ({ navigation }) => {
       // For favorited teams we want to include games within the standard 2AM NY -> 2AM NY window.
       // Previously this incorrectly added 24 hours to the end which caused tomorrow's games to be
       // included. Keep the range bounded to todayEnd to avoid pulling in games for the following day.
-      const extendedTodayEnd = new Date(todayEnd.getTime()); // don't expand beyond next 2AM NY
+      let extendedTodayEnd = new Date(todayEnd.getTime()); // don't expand beyond next 2AM NY
+      let extendedTodayStart = new Date(todayStart.getTime());
+      
+      // F1 races are infrequent (24 per year), so extend the window to show recent race results
+      const teamSport = String(team?.sport || '').toLowerCase();
+      if (teamSport === 'f1' || teamSport === 'formula 1' || teamSport === 'formula1') {
+        // Allow F1 races from up to 3 days ago to be shown (covers weekend race results)
+        extendedTodayStart = new Date(todayStart.getTime() - (3 * 24 * 60 * 60 * 1000));
+        // Also extend forward for upcoming races within next 3 days
+        extendedTodayEnd = new Date(todayEnd.getTime() + (3 * 24 * 60 * 60 * 1000));
+      }
 
-      if (gameDate < todayStart || gameDate > extendedTodayEnd) {
-        console.log(`[DATE FILTER] Game for ${teamName} excluded - gameDate: ${gameDate.toISOString()}, todayStart: ${todayStart.toISOString()}, extendedTodayEnd: ${extendedTodayEnd.toISOString()}`);
+      if (gameDate < extendedTodayStart || gameDate > extendedTodayEnd) {
+        console.log(`[DATE FILTER] Game for ${teamName} excluded - gameDate: ${gameDate.toISOString()}, todayStart: ${extendedTodayStart.toISOString()}, extendedTodayEnd: ${extendedTodayEnd.toISOString()}`);
         return null;
       }
       
       // Handle MLB games differently - prefer the proper MLB API format (case-insensitive)
-      const teamSport = String(team?.sport || '').toLowerCase();
       if (teamSport === 'mlb' && currentGameData.eventId) {
         console.log(`Fetching MLB game using statsapi.mlb.com for ${teamName} with gamePk: ${currentGameData.eventId}`);
         const mlbUrl = `https://statsapi.mlb.com/api/v1.1/game/${currentGameData.eventId}/feed/live`;

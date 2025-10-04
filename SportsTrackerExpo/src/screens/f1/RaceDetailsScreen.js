@@ -118,6 +118,7 @@ const RaceDetailsScreen = ({ route }) => {
   // Streaming state
   const [streamModalVisible, setStreamModalVisible] = useState(false);
   const [isStreamLoading, setIsStreamLoading] = useState(true);
+  const [selectedStream, setSelectedStream] = useState(1); // 1 for Test 1, 2 for Test 2
 
   // Live race tracking state
   const [isLiveRace, setIsLiveRace] = useState(false);
@@ -3879,6 +3880,25 @@ const RaceDetailsScreen = ({ route }) => {
     streamWebView: {
       flex: 1,
     },
+    streamSelectorContainer: {
+      flexDirection: 'row',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      justifyContent: 'center',
+      borderBottomWidth: 1,
+    },
+    streamSelectorButton: {
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 8,
+      marginHorizontal: 8,
+      minWidth: 80,
+      alignItems: 'center',
+    },
+    streamSelectorText: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
   });
 
   if (loading) {
@@ -4096,6 +4116,39 @@ const RaceDetailsScreen = ({ route }) => {
               </TouchableOpacity>
             </View>
 
+            {/* Stream Selection Buttons */}
+            <View style={[styles.streamSelectorContainer, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]}>
+              <TouchableOpacity 
+                style={[
+                  styles.streamSelectorButton, 
+                  { backgroundColor: selectedStream === 1 ? colors.primary : theme.surface }
+                ]} 
+                onPress={() => setSelectedStream(1)}
+              >
+                <Text allowFontScaling={false} style={[
+                  styles.streamSelectorText, 
+                  { color: selectedStream === 1 ? '#fff' : theme.text }
+                ]}>
+                  Test 1
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[
+                  styles.streamSelectorButton, 
+                  { backgroundColor: selectedStream === 2 ? colors.primary : theme.surface }
+                ]} 
+                onPress={() => setSelectedStream(2)}
+              >
+                <Text allowFontScaling={false} style={[
+                  styles.streamSelectorText, 
+                  { color: selectedStream === 2 ? '#fff' : theme.text }
+                ]}>
+                  Test 2
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             {/* Stream Content */}
             <View style={styles.streamContent}>
               {isStreamLoading && (
@@ -4107,133 +4160,148 @@ const RaceDetailsScreen = ({ route }) => {
                 </View>
               )}
 
-              {/* F1 Stream WebView */}
+              {/* F1 Stream WebView - Using NBA's proven approach */}
               <WebView
-                source={{
-                  html: `
-                    <!DOCTYPE html>
-                    <html>
-                      <head>
-                        <meta charset="utf-8">
-                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                        <style>
-                          body { margin: 0; padding: 0; background: #000; overflow: hidden; }
-                          iframe { width: 100%; height: 100vh; border: none; display: block; }
-                          /* Hide any potential overlay elements */
-                          .overlay, .popup, .ad, .banner, [class*="ad"], [id*="ad"] { display: none !important; }
-                        </style>
-                        <script>
-                          // Enhanced ad blocking and popup prevention
-                          (function() {
-                            // More comprehensive popup blocking
-                            const originalOpen = window.open;
-                            window.open = function() { 
-                              console.log('Popup blocked');
-                              return null; 
-                            };
-                            
-                            // Block all forms of navigation
-                            const originalAssign = window.location.assign;
-                            const originalReplace = window.location.replace;
-                            
-                            window.location.assign = function() { console.log('Navigation blocked'); };
-                            window.location.replace = function() { console.log('Navigation blocked'); };
-                            
-                            // Override window creation methods
-                            window.showModalDialog = function() { return null; };
-                            
-                            // Block alerts and confirms
-                            window.alert = function() {};
-                            window.confirm = function() { return false; };
-                            window.prompt = function() { return null; };
-                            
-                            // Prevent focus changes that might trigger popups
-                            document.addEventListener('focus', function(e) {
-                              if (e.target.tagName === 'A' && e.target.target === '_blank') {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }
-                            }, true);
-                            
-                            // Block click events on links that try to open new windows
-                            document.addEventListener('click', function(e) {
-                              if (e.target.tagName === 'A' && (e.target.target === '_blank' || e.target.href.includes('popup'))) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                console.log('Link click blocked');
-                              }
-                            }, true);
-                            
-                            // Enhanced ad blocking with mutation observer
-                            const blockList = [
-                              'script[src*="ads"]', 'script[src*="doubleclick"]', 'script[src*="googlesyndication"]',
-                              'script[src*="amazon-adsystem"]', 'script[src*="facebook.com/tr"]',
-                              'iframe[src*="ads"]', 'iframe[src*="doubleclick"]', 'iframe[src*="googlesyndication"]',
-                              'div[class*="ad"]', 'div[id*="ad"]', 'div[class*="banner"]',
-                              'div[class*="popup"]', 'div[class*="overlay"]', '.overlay', '.popup', '.ad'
-                            ];
-
-                            function removeAds() {
-                              blockList.forEach(selector => {
-                                try {
-                                  document.querySelectorAll(selector).forEach(el => {
-                                    el.remove();
-                                    console.log('Removed ad element:', selector);
-                                  });
-                                } catch (e) {}
-                              });
-                            }
-
-                            // Run ad removal immediately and on mutations
-                            removeAds();
-                            
-                            const observer = new MutationObserver(function(mutations) {
-                              removeAds();
-                            });
-
-                            observer.observe(document, { 
-                              childList: true, 
-                              subtree: true, 
-                              attributes: true, 
-                              attributeFilter: ['class', 'id', 'src'] 
-                            });
-                          })();
-                        </script>
-                      </head>
-                      <body>
-                        <iframe
-                          title="Sky Sports F1 | Sky F1 Player"
-                          src="https://embedsports.top/embed/alpha/sky-sports-f1-sky-f1/1"
-                          allowfullscreen="yes"
-                          allow="encrypted-media; picture-in-picture; autoplay; fullscreen"
-                          scrolling="no"
-                          frameborder="0"
-                          sandbox="allow-scripts allow-same-origin allow-presentation allow-forms">
-                        </iframe>
-                      </body>
-                    </html>
-                  `
-                }}
+                source={{ uri: `https://embedsports.top/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}` }}
+                style={[styles.streamWebView, { opacity: isStreamLoading ? 0 : 1 }]}
                 javaScriptEnabled={true}
                 domStorageEnabled={true}
+                startInLoadingState={true}
+                scalesPageToFit={true}
+                mixedContentMode="compatibility"
                 allowsInlineMediaPlayback={true}
                 mediaPlaybackRequiresUserAction={false}
-                style={[styles.streamWebView, { opacity: isStreamLoading ? 0 : 1 }]}
+                onLoadStart={() => setIsStreamLoading(true)}
                 onLoadEnd={() => setIsStreamLoading(false)}
-                onError={(syntheticEvent) => {
-                  const { nativeEvent } = syntheticEvent;
-                  console.warn('WebView error: ', nativeEvent);
+                onError={(error) => {
+                  console.error('F1 WebView error:', error);
                   setIsStreamLoading(false);
                 }}
+                userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
+                injectedJavaScript={`
+                  (function() {
+                    console.log('F1 stream ad blocker initializing...');
+                    
+                    // Block all popup methods
+                    const originalOpen = window.open;
+                    window.open = function() {
+                      console.log('Blocked F1 window.open popup');
+                      return null;
+                    };
+                    
+                    // Block alert, confirm, prompt
+                    window.alert = function() { console.log('Blocked F1 alert'); };
+                    window.confirm = function() { console.log('Blocked F1 confirm'); return false; };
+                    window.prompt = function() { console.log('Blocked F1 prompt'); return null; };
+                    
+                    // Override addEventListener to block popup events
+                    const originalAddEventListener = EventTarget.prototype.addEventListener;
+                    EventTarget.prototype.addEventListener = function(type, listener, options) {
+                      const blockedEvents = ['beforeunload', 'unload', 'popstate'];
+                      if (blockedEvents.includes(type)) {
+                        console.log('Blocked F1 event listener for:', type);
+                        return;
+                      }
+                      return originalAddEventListener.call(this, type, listener, options);
+                    };
+                    
+                    // Block navigation attempts
+                    const originalAssign = Location.prototype.assign;
+                    const originalReplace = Location.prototype.replace;
+                    
+                    Location.prototype.assign = function(url) {
+                      console.log('Blocked F1 location.assign to:', url);
+                    };
+                    
+                    Location.prototype.replace = function(url) {
+                      console.log('Blocked F1 location.replace to:', url);
+                    };
+                    
+                    // Block href changes
+                    Object.defineProperty(Location.prototype, 'href', {
+                      set: function(url) {
+                        console.log('Blocked F1 href change to:', url);
+                      },
+                      get: function() {
+                        return window.location.href;
+                      }
+                    });
+                    
+                    // Remove ads and overlays
+                    const removeAds = () => {
+                      const selectors = [
+                        'iframe[src*="ads"]',
+                        'div[class*="ad"]',
+                        'div[id*="ad"]',
+                        'div[class*="popup"]',
+                        'div[id*="popup"]',
+                        '[onclick*="window.open"]',
+                        '[onclick*="popup"]',
+                        '.overlay',
+                        '.modal'
+                      ];
+                      
+                      selectors.forEach(selector => {
+                        const elements = document.querySelectorAll(selector);
+                        elements.forEach(el => {
+                          el.remove();
+                        });
+                      });
+                    };
+                    
+                    // Run ad removal on load and periodically
+                    document.addEventListener('DOMContentLoaded', removeAds);
+                    setInterval(removeAds, 2000);
+                    
+                    console.log('F1 stream ad blocker fully loaded');
+                    true;
+                  })();
+                `}
+                onMessage={(event) => {
+                  // Handle messages from injected JavaScript if needed
+                  console.log('F1 WebView message:', event.nativeEvent.data);
+                }}
+                // Block popup navigation within the WebView
                 onShouldStartLoadWithRequest={(request) => {
-                  // Block any navigation that tries to open new windows or popups
-                  if (request.url.includes('popup') || request.url.includes('ads') || request.url.includes('doubleclick')) {
-                    console.log('Blocked navigation to:', request.url);
+                  console.log('F1 WebView navigation request:', request.url);
+                  
+                  // Allow the initial stream URL to load
+                  const streamUrl = `https://embedsports.top/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}`;
+                  if (request.url === streamUrl) {
+                    return true;
+                  }
+                  
+                  // Block navigation to obvious popup/ad URLs
+                  const popupKeywords = ['popup', 'ad', 'ads', 'click', 'redirect', 'promo'];
+                  const hasPopupKeywords = popupKeywords.some(keyword => 
+                    request.url.toLowerCase().includes(keyword)
+                  );
+                  
+                  // Block external navigation attempts (popups trying to navigate within WebView)
+                  const currentDomain = new URL(streamUrl).hostname;
+                  let requestDomain = '';
+                  try {
+                    requestDomain = new URL(request.url).hostname;
+                  } catch (e) {
+                    console.log('Invalid F1 URL:', request.url);
                     return false;
                   }
+                  
+                  // Allow same-domain navigation but block cross-domain (likely popups)
+                  if (requestDomain !== currentDomain || hasPopupKeywords) {
+                    console.log('Blocked F1 popup/cross-domain navigation:', request.url);
+                    return false;
+                  }
+                  
                   return true;
                 }}
-                userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                // Handle when WebView tries to open a new window (popup)
+                onOpenWindow={(syntheticEvent) => {
+                  const { nativeEvent } = syntheticEvent;
+                  console.log('Blocked F1 popup window:', nativeEvent.targetUrl);
+                  // Don't open the popup - just log it
+                  return false;
+                }}
               />
             </View>
           </View>
