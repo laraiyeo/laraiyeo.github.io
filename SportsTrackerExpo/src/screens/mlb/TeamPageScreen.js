@@ -315,7 +315,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       // Convert ESPN ID to MLB ID for API calls
       const mlbApiId = getAPITeamId(teamId, sport);
       // Get current year season games
-      const currentYear = YearFallbackUtils.getPreferredYear();
+      const currentYear = YearFallbackUtils.getCurrentYear();
       const response = await fetch(
         `https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${mlbApiId}&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&hydrate=team,linescore,decisions`
       );

@@ -316,7 +316,6 @@ const TeamPageScreen = ({ route, navigation }) => {
       if (data && data.team) {
         setTeamData(data.team);
         // try to fetch standings/record and season schedules (seasontype 1,2,3)
-        const year = YearFallbackUtils.getPreferredYear();
         const recordPromise = fetchTeamRecord(data.team.id);
 
         // Fetch schedule types 1,2,3 and pick the last non-empty type for updates
@@ -682,35 +681,24 @@ const TeamPageScreen = ({ route, navigation }) => {
       console.log('NHL TeamPage: teamData:', teamData);
       console.log('NHL TeamPage: resolvedParam:', resolvedParam);
 
-      // Try types 3, then 2, then 1
+      // Try types 3, then 2, then 1 with year fallback
       const typesToTry = [3, 2, 1];
       let v2data = null;
       for (const t of typesToTry) {
         try {
-          const statsUrl = `https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${YearFallbackUtils.getPreferredYear()}/types/${t}/teams/${currentTeamId}/statistics?lang=en&region=us`;
-          // eslint-disable-next-line no-console
-          console.log('NHL TeamPage: trying stats type', t, statsUrl);
-          const resp = await fetch(statsUrl);
-          if (!resp.ok) {
-            console.log('NHL TeamPage: stats v2 request failed for type', t, 'status', resp.status);
-            continue;
-          }
-          const json = await resp.json();
-          // Check for presence of meaningful data - v2 typically contains groups/categories/splits
-          const hasGroups = Array.isArray(json.groups) && json.groups.length > 0;
-          const hasCategories = Array.isArray(json.categories) && json.categories.length > 0;
-          const hasStatistics = json.statistics && Object.keys(json.statistics).length > 0;
-          const hasResultsCategories = json.results && json.results.stats && Array.isArray(json.results.stats.categories) && json.results.stats.categories.length > 0;
-          const hasSplitsCategories = json.splits && ((Array.isArray(json.splits) && json.splits.some(s => Array.isArray(s.categories) && s.categories.length > 0)) || (json.splits.categories && Array.isArray(json.splits.categories) && json.splits.categories.length > 0));
-          if (json && (hasGroups || hasCategories || hasStatistics || hasResultsCategories || hasSplitsCategories)) {
-            v2data = json;
-            console.log('NHL TeamPage: got v2 stats for type', t);
-            break;
-          } else {
-            console.log('NHL TeamPage: v2 type', t, 'returned HTTP 200 but no usable data. keys:', Object.keys(json), 'hasGroups:', hasGroups, 'hasCategories:', hasCategories, 'hasStatistics:', hasStatistics, 'hasResultsCategories:', hasResultsCategories, 'hasSplitsCategories:', hasSplitsCategories);
-            // for debugging, log a small sample if there is content
-            try { console.log('NHL TeamPage: v2 sample:', JSON.stringify(json && (json.groups || json.categories || json.results || json.statistics || json.splits) || json).slice(0, 2000)); } catch (e) { /* ignore */ }
-          }
+          const { data: statsData, year } = await YearFallbackUtils.fetchWithYearFallback(
+            async (year) => {
+              const statsUrl = `https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${year}/types/${t}/teams/${currentTeamId}/statistics?lang=en&region=us`;
+              console.log('NHL TeamPage: trying stats type', t, 'year', year, statsUrl);
+              const resp = await fetch(statsUrl);
+              return await resp.json();
+            },
+            (data) => data && !data.error && Array.isArray(data.groups) && data.groups.length > 0
+          );
+          
+          v2data = statsData;
+          console.log('NHL TeamPage: stats v2 success for type', t, 'year', year);
+          break;
         } catch (e) {
           // don't fail fast; try next type
           // eslint-disable-next-line no-console

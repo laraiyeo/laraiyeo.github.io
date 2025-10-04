@@ -106,7 +106,7 @@ const SearchScreen = ({ route, navigation }) => {
           activePlayers.map(async (player) => {
             try {
               // Try to get current team info from player stats
-              const currentYear = YearFallbackUtils.getPreferredYear();
+              const currentYear = YearFallbackUtils.getCurrentYear();
               const statsResponse = await fetch(`https://statsapi.mlb.com/api/v1/people/${player.id}/stats?stats=season&season=${currentYear}`);
               const statsData = await statsResponse.json();
               

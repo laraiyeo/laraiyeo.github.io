@@ -400,9 +400,17 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
   // Fetch eventlog teams for the past 6 seasons (simple, limited) and store them
   const fetchEventlogTeams = async () => {
     try {
-      const thisYear = YearFallbackUtils.getPreferredYear();
+      // Use fallback mechanism to get the current valid year
+      const { year: currentYear } = await YearFallbackUtils.fetchWithYearFallback(
+        async (year) => {
+          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${year}/leaders?limit=1`);
+          return await response.json();
+        },
+        (data) => data && !data.error
+      ).catch(() => ({ year: YearFallbackUtils.getCurrentYear() }));
+      
       const seasons = [];
-      for (let i = 0; i < 6; i++) seasons.push(String(thisYear - i));
+      for (let i = 0; i < 6; i++) seasons.push(String(currentYear - i));
 
       const results = {};
       await Promise.all(seasons.map(async (season) => {
@@ -441,7 +449,7 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
       }
       // If no seasons found, generate a recent seasons list (last 6 years)
       if (seasons.length === 0) {
-        const thisYear = YearFallbackUtils.getPreferredYear();
+        const thisYear = YearFallbackUtils.getCurrentYear();
         for (let i = 0; i < 6; i++) seasons.push(String(thisYear - i));
       }
 
@@ -570,7 +578,7 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
 
       // Simple approach: just show recent seasons 2020-2025 regardless of team data
       // Let the UI handle missing data by showing "-" for missing stats
-      const currentYear = YearFallbackUtils.getPreferredYear();
+      const currentYear = YearFallbackUtils.getCurrentYear();
       const fixedSeasons = [];
       for (let year = currentYear; year >= 2020; year--) {
         fixedSeasons.push(String(year));
@@ -660,7 +668,15 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
         headshot: { href: `https://a.espncdn.com/i/headshots/nhl/players/full/${playerId}.png` }
       };
 
-      const seasonYear = YearFallbackUtils.getPreferredYear();
+      // Use year fallback to find a valid season for current stats
+      const { year: seasonYear } = await YearFallbackUtils.fetchWithYearFallback(
+        async (year) => {
+          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${year}/types/2/athletes/${playerId}/statistics?lang=en&region=us`);
+          return await response.json();
+        },
+        (data) => data && !data.error && data.splits
+      ).catch(() => ({ year: YearFallbackUtils.getCurrentYear() }));
+      
       const siteUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/athletes/${playerId}`;
       const splitsUrl = `https://site.web.api.espn.com/apis/common/v3/sports/hockey/nhl/athletes/${playerId}/splits`;
       const statsUrl = `https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${seasonYear}/types/2/athletes/${playerId}/statistics?lang=en&region=us`;

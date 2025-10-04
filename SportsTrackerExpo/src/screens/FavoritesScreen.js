@@ -3059,12 +3059,14 @@ const FavoritesScreen = ({ navigation }) => {
             
             // Fetch status to check if in progress
             let isInProgress = false;
+            let isFinal = false;
             if (comp.status?.$ref) {
               try {
                 const statusResp = await fetch(comp.status.$ref, { timeout: 5000 });
                 if (statusResp.ok) {
                   const statusData = await statusResp.json();
                   isInProgress = statusData.type?.state === 'in';
+                  isFinal = statusData.type?.description === 'Final';
                   console.log(`[F1] Competition ${comp.type?.abbreviation} (${comp.id}): date=${compDate.toISOString()}, recent=${isRecent}, inProgress=${isInProgress}, status=${statusData.type?.description}`);
                 }
               } catch (err) {
@@ -3085,11 +3087,12 @@ const FavoritesScreen = ({ navigation }) => {
               console.log(`[F1] Selected RECENT competition: ${comp.type?.abbreviation}`);
             }
             
-            // Priority 3: Most recent past competition by date
-            if (!selectedCompetition && compDate <= now) {
+            // Priority 3: Most recent past competition with Final status
+            if (compDate <= now && isFinal) {
+              // Select if Final and more recent than current selection (or no selection yet)
               if (!selectedCompetition || new Date(selectedCompetition.date) < compDate) {
                 selectedCompetition = comp;
-                console.log(`[F1] Selected most recent PAST competition: ${comp.type?.abbreviation}`);
+                console.log(`[F1] Selected most recent FINAL competition: ${comp.type?.abbreviation}`);
               }
             }
           }
@@ -5873,7 +5876,7 @@ const FavoritesScreen = ({ navigation }) => {
               <View style={{ alignItems: 'center', marginTop: 4 }}>
                 {matchStatus.time && matchStatus.detail !== 'Halftime' && (
                   <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary, fontWeight: '600' }]}>
-                    {matchStatus.time}
+                    {matchStatus.time === '0.00' ? 'End' : matchStatus.time}
                   </Text>
                 )}
               </View>
@@ -6146,7 +6149,7 @@ const FavoritesScreen = ({ navigation }) => {
               <View style={{ alignItems: 'center', marginTop: 4 }}>
                 {matchStatus.time && matchStatus.detail !== 'Halftime' && (
                   <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary, fontWeight: '600' }]}>
-                    {matchStatus.time}
+                    {matchStatus.time === '0.00' ? 'End' : matchStatus.time}
                   </Text>
                 )}
               </View>

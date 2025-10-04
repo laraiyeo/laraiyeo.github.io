@@ -27,7 +27,10 @@
     "react-native-svg-transformer": "^1.5.1",
     "react-native-vector-icons": "^10.3.0",
     "react-native-web": "^0.21.0",
-    "react-native-webview": "13.15.0"
+    "react-native-webview": "13.15.0",
+    "expo-application": "~7.0.7",
+    "expo-constants": "~18.0.9",
+    "expo-dev-client": "~5.0.5"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

@@ -69,9 +69,13 @@ const StatsScreen = ({ route }) => {
 
   const fetchPlayerStats = async () => {
     try {
-      const preferredYear = YearFallbackUtils.getPreferredYear();
-      const response = await fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${preferredYear}/types/2/leaders?limit=10`);
-      const data = await response.json();
+      const { data } = await YearFallbackUtils.fetchWithYearFallback(
+        async (year) => {
+          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${year}/types/2/leaders?limit=10`);
+          return await response.json();
+        },
+        (data) => data && data.categories && data.categories.length > 0
+      );
       
       if (data.categories) {
         // First, collect all unique athlete and team refs

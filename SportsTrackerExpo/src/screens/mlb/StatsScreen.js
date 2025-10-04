@@ -58,30 +58,19 @@ const StatsScreen = ({ route }) => {
     try {
       const leagueParam = selectedLeague === 'ALL' ? '' : `&leagueId=${leagues.find(l => l.key === selectedLeague).id}`;
       
-      // Use fallback mechanism for API calls
-      const [hittingResult, pitchingResult] = await Promise.all([
-        YearFallbackUtils.fetchWithYearFallback(
-          async (year) => {
-            const response = await fetch(
-              `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=battingAverage,homeRuns,rbi,hits,runs,stolenBases&leaderGameTypes=R&season=${year}&limit=10${leagueParam}&statGroup=hitting`
-            );
-            return await response.json();
-          },
-          (data) => data && data.leagueLeaders && data.leagueLeaders.length > 0
+      // Use current year for API calls since MLB has 2026 data available
+      const currentYear = YearFallbackUtils.getCurrentYear();
+      const [hittingResponse, pitchingResponse] = await Promise.all([
+        fetch(
+          `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=battingAverage,homeRuns,rbi,hits,runs,stolenBases&leaderGameTypes=R&season=${currentYear}&limit=10${leagueParam}&statGroup=hitting`
         ),
-        YearFallbackUtils.fetchWithYearFallback(
-          async (year) => {
-            const response = await fetch(
-              `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=era,strikeouts,wins,saves&leaderGameTypes=R&season=${year}&limit=10${leagueParam}&statGroup=pitching`
-            );
-            return await response.json();
-          },
-          (data) => data && data.leagueLeaders && data.leagueLeaders.length > 0
+        fetch(
+          `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=era,strikeouts,wins,saves&leaderGameTypes=R&season=${currentYear}&limit=10${leagueParam}&statGroup=pitching`
         )
       ]);
       
-      const hittingData = hittingResult.data;
-      const pitchingData = pitchingResult.data;
+      const hittingData = await hittingResponse.json();
+      const pitchingData = await pitchingResponse.json();
       
       // Process hitting stats
       const processedHitting = {};

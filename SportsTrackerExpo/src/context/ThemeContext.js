@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { stripSportSuffix } from '../utils/TeamIdMapping';
+import AppIconService from '../services/AppIconService';
 
 const ThemeContext = createContext();
 
@@ -36,14 +37,6 @@ const colorPalettes = {
     accent: '#a78bfa',       // Lighter accent for dark mode visibility
     light: '#ddd6fe',        // Adjusted for better contrast
     name: 'Royal Purple'
-  },
-  teal: {
-    primary: '#0d9488',      // Brighter teal for better visibility
-    primaryDark: '#0f766e',  // Lighter than original for dark mode
-    secondary: '#14b8a6',    // More vibrant teal for both modes
-    accent: '#2dd4bf',       // Lighter accent for dark mode visibility
-    light: '#99f6e4',        // Adjusted for better contrast
-    name: 'Ocean Teal'
   },
   gold: {
     primary: '#bf9b30',      // Brighter gold for better visibility
@@ -104,12 +97,20 @@ export const ThemeProvider = ({ children }) => {
       const savedTheme = await AsyncStorage.getItem('theme');
       const savedColor = await AsyncStorage.getItem('colorPalette');
       
+      let finalTheme = true; // default dark mode
+      let finalColor = 'red'; // default red color
+      
       if (savedTheme !== null) {
-        setIsDarkMode(savedTheme === 'dark');
+        finalTheme = savedTheme === 'dark';
+        setIsDarkMode(finalTheme);
       }
       if (savedColor !== null) {
-        setCurrentColorPalette(savedColor);
+        finalColor = savedColor;
+        setCurrentColorPalette(finalColor);
       }
+      
+      // Set initial app icon based on loaded preferences
+      await AppIconService.changeAppIcon(finalTheme, finalColor);
     } catch (error) {
       console.error('Error loading theme preferences:', error);
     } finally {
@@ -122,6 +123,8 @@ export const ThemeProvider = ({ children }) => {
     setIsDarkMode(newTheme);
     try {
       await AsyncStorage.setItem('theme', newTheme ? 'dark' : 'light');
+      // Update app icon when theme changes
+      await AppIconService.changeAppIcon(newTheme, currentColorPalette);
     } catch (error) {
       console.error('Error saving theme preference:', error);
     }
@@ -131,6 +134,8 @@ export const ThemeProvider = ({ children }) => {
     setCurrentColorPalette(paletteKey);
     try {
       await AsyncStorage.setItem('colorPalette', paletteKey);
+      // Update app icon when color palette changes
+      await AppIconService.changeAppIcon(isDarkMode, paletteKey);
     } catch (error) {
       console.error('Error saving color preference:', error);
     }
@@ -236,6 +241,12 @@ export const ThemeProvider = ({ children }) => {
     }
   };
 
+  // Helper function to get current app icon info
+  const getCurrentAppIcon = () => {
+    const theme = isDarkMode ? 'dark' : 'light';
+    return `${theme}-${currentColorPalette}`;
+  };
+
   const value = {
     isDarkMode,
     theme,
@@ -246,7 +257,9 @@ export const ThemeProvider = ({ children }) => {
     toggleTheme,
     changeColorPalette,
     getLogoPath,
-    getTeamLogoUrl
+    getTeamLogoUrl,
+    getCurrentAppIcon,
+    AppIconService
   };
 
   // Prevent rendering children until we've loaded saved preferences to avoid

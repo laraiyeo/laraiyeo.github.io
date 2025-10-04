@@ -327,7 +327,6 @@ const TeamPageScreen = ({ route, navigation }) => {
       if (data && data.team) {
         setTeamData(data.team);
         // try to fetch standings/record and season schedules (seasontype 1,2,3)
-        const year = YearFallbackUtils.getPreferredYear();
         const recordPromise = fetchTeamRecord(data.team.id);
 
         // Fetch schedule types 1,2,3 and pick the last non-empty type for updates

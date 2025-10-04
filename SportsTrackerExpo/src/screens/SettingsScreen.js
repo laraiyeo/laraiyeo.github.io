@@ -1,17 +1,37 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, TextInput, Modal, Image } from 'react-native';
 import { useFavorites } from '../context/FavoritesContext';
 import { useTheme } from '../context/ThemeContext';
 import { useChat } from '../context/ChatContext';
 
 const SettingsScreen = ({ navigation }) => {
-  const { isDarkMode, theme, colors, colorPalettes, currentColorPalette, toggleTheme, changeColorPalette } = useTheme();
+  const { isDarkMode, theme, colors, colorPalettes, currentColorPalette, toggleTheme, changeColorPalette, getCurrentAppIcon } = useTheme();
   const { favorites, removeFavorite, getFavoriteTeams, clearAllFavorites } = useFavorites();
   const { userName, userColor, updateUserName, updateUserColor, nameColors } = useChat();
   
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [tempUsername, setTempUsername] = useState(userName);
   const [colorModalVisible, setColorModalVisible] = useState(false);
+
+  // Function to get the current app icon image source
+  const getCurrentAppIconSource = () => {
+    const theme = isDarkMode ? 'dark' : 'light';
+    const iconMap = {
+      'dark-blue': require('../../assets/dark/blue.png'),
+      'dark-red': require('../../assets/dark/red.png'),
+      'dark-green': require('../../assets/dark/green.png'),
+      'dark-purple': require('../../assets/dark/purple.png'),
+      'dark-gold': require('../../assets/dark/gold.png'),
+      'light-blue': require('../../assets/light/blue.png'),
+      'light-red': require('../../assets/light/red.png'),
+      'light-green': require('../../assets/light/green.png'),
+      'light-purple': require('../../assets/light/purple.png'),
+      'light-gold': require('../../assets/light/gold.png'),
+    };
+    
+    const iconKey = `${theme}-${currentColorPalette}`;
+    return iconMap[iconKey] || iconMap['dark-red']; // fallback to default
+  };
 
   const renderColorOption = (paletteKey, palette) => {
     const isSelected = currentColorPalette === paletteKey;
@@ -81,6 +101,25 @@ const SettingsScreen = ({ navigation }) => {
               thumbColor={isDarkMode ? colors.accent : '#f4f3f4'}
               ios_backgroundColor={theme.border}
             />
+          </View>
+          
+          <View style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: theme.borderSecondary }]}>
+            <View style={styles.settingInfo}>
+              <Text allowFontScaling={false} style={[styles.settingLabel, { color: theme.text }]}>App Icon</Text>
+              <Text allowFontScaling={false} style={[styles.settingDescription, { color: theme.textSecondary }]}>
+                Preview: {getCurrentAppIcon && getCurrentAppIcon().replace('-', ' ').toUpperCase()}
+              </Text>
+              <Text allowFontScaling={false} style={[styles.settingDescription, { color: theme.textTertiary, fontSize: 12, marginTop: 2 }]}>
+                Dynamic icons work on iOS builds only (not Expo Go)
+              </Text>
+            </View>
+            <View style={[styles.appIconPreview, { borderColor: colors.primary }]}>
+              <Image 
+                source={getCurrentAppIconSource()} 
+                style={styles.appIconImage}
+                resizeMode="contain"
+              />
+            </View>
           </View>
         </View>
 
@@ -559,6 +598,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  appIconPreview: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 2,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appIconImage: {
+    width: 40,
+    height: 40,
   },
 });
 

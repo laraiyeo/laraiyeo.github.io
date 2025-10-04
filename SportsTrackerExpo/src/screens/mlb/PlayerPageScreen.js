@@ -104,14 +104,14 @@ const PlayerPageScreen = ({ route, navigation }) => {
       console.log('Player position:', position, 'isPitcher:', isPitcher, 'isTwoWay:', isTwoWay);
       
       let statsUrl;
-      const preferredYear = YearFallbackUtils.getPreferredYear();
+      const currentYear = YearFallbackUtils.getCurrentYear();
       if (isPitcher) {
-        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${preferredYear}`;
+        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${currentYear}`;
       } else if (isTwoWay) {
         // For two-way players, we'll fetch hitting stats first, then pitching if needed
-        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${preferredYear}`;
+        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${currentYear}`;
       } else {
-        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${preferredYear}`;
+        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${currentYear}`;
       }
       
       console.log('Fetching player stats from:', statsUrl);
@@ -163,7 +163,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     
     setLoadingGameLog(true);
     try {
-      const currentYear = YearFallbackUtils.getPreferredYear();
+      const currentYear = YearFallbackUtils.getCurrentYear();
       const position = playerData.primaryPosition?.name || '';
       const isPitcher = position.toLowerCase().includes('pitcher');
       const isTwoWay = position.toLowerCase().includes('two-way');
@@ -280,7 +280,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     
     setLoadingVsTeam(true);
     try {
-      const currentYear = YearFallbackUtils.getPreferredYear();
+      const currentYear = YearFallbackUtils.getCurrentYear();
       const position = playerData.primaryPosition?.name || '';
       const isPitcher = position.toLowerCase().includes('pitcher');
       const isTwoWay = position.toLowerCase().includes('two-way');
@@ -351,7 +351,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     
     setLoadingStats(true);
     try {
-      const currentYear = YearFallbackUtils.getPreferredYear();
+      const currentYear = YearFallbackUtils.getCurrentYear();
       const position = playerData.primaryPosition?.name || '';
       const isPitcher = position.toLowerCase().includes('pitcher');
       const isTwoWay = position.toLowerCase().includes('two-way');
