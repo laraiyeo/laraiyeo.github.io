@@ -7,12 +7,31 @@ let redisClient = null;
  */
 async function initializeRedis() {
   try {
+    const redisUrl = process.env.REDIS_URL;
+    if (!redisUrl) {
+      console.warn('REDIS_URL not set; skipping Redis initialization (will run without cache)');
+      return null;
+    }
+
     redisClient = redis.createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379'
+      url: redisUrl,
+      // Provide a small reconnect strategy backoff to avoid very aggressive reconnects
+      socket: {
+        reconnectStrategy: (retries) => {
+          // Exponential backoff capped at 2000ms
+          return Math.min(50 * Math.pow(2, retries), 2000);
+        }
+      }
     });
 
+    // Throttle repeated error logs to avoid terminal spam when Redis is unreachable
+    let errorLogged = false;
     redisClient.on('error', (err) => {
-      console.error('Redis error:', err);
+      if (!errorLogged) {
+        console.error('Redis error:', err);
+        errorLogged = true;
+        setTimeout(() => { errorLogged = false; }, 60 * 1000); // reset throttle after 60s
+      }
     });
 
     redisClient.on('connect', () => {
