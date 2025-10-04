@@ -327,14 +327,6 @@ class BackgroundJobsService {
   }
 }
 
-// Create notification service if not exists
-const notificationService = {
-  async sendNotification(userId, notification) {
-    // This would integrate with the web-push notification system
-    console.log(`Sending notification to user ${userId}:`, notification);
-  }
-};
-
 module.exports = {
   startBackgroundJobs: () => new BackgroundJobsService().startBackgroundJobs(),
   stopBackgroundJobs: () => new BackgroundJobsService().stopBackgroundJobs(),

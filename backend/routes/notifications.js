@@ -8,18 +8,38 @@ const { getCachedData, setCachedData, generateCacheKey } = require('../services/
 let webpushEnabled = true;
 const vapidPublic = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
-const vapidSubject = process.env.VAPID_SUBJECT || process.env.VAPID_EMAIL;
+let vapidSubject = process.env.VAPID_SUBJECT || process.env.VAPID_EMAIL;
 
-if (vapidPublic && vapidPrivate && vapidSubject) {
+// web-push expects the subject to be a URL (mailto: or https:). If the user provided
+// a plain email address, prefix it with 'mailto:'. Validate minimal shape before calling setVapidDetails.
+function normalizeVapidSubject(subject) {
+  if (!subject) return null;
+  // if it already looks like a URL (starts with mailto: or http), accept as-is
+  const lower = subject.toLowerCase();
+  if (lower.startsWith('mailto:') || lower.startsWith('http://') || lower.startsWith('https://')) {
+    return subject;
+  }
+  // crude email regex: if looks like an email, prefix mailto:
+  const emailLike = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+  if (emailLike.test(subject)) {
+    return `mailto:${subject}`;
+  }
+  // otherwise invalid subject
+  return null;
+}
+
+const normalizedSubject = normalizeVapidSubject(vapidSubject);
+
+if (vapidPublic && vapidPrivate && normalizedSubject) {
   try {
-    webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
+    webpush.setVapidDetails(normalizedSubject, vapidPublic, vapidPrivate);
   } catch (err) {
     console.error('Error configuring web-push VAPID keys:', err);
     webpushEnabled = false;
   }
 } else {
   webpushEnabled = false;
-  console.warn('web-push not configured: missing VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY or VAPID_SUBJECT/VAPID_EMAIL');
+  console.warn('web-push not configured: missing VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY or valid VAPID_SUBJECT/VAPID_EMAIL');
 }
 
 /**
