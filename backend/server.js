@@ -65,22 +65,30 @@ app.use('*', (req, res) => {
 
 // Initialize services and start server
 async function startServer() {
+  // Try to initialize Redis but don't let failures prevent the server from starting.
   try {
-    // Initialize Redis connection
     await initializeRedis();
     console.log('✅ Redis connected');
+  } catch (err) {
+    console.error('⚠️ Redis initialization failed (will continue without cache):', err.message || err);
+  }
 
-    // Start background jobs for data fetching and notifications
+  // Start background jobs. They may rely on Redis internally but should handle missing Redis gracefully.
+  try {
     startBackgroundJobs();
     console.log('✅ Background jobs started');
+  } catch (err) {
+    console.error('⚠️ Failed to start background jobs (continuing):', err.message || err);
+  }
 
-    // Start the server
+  // Start the server regardless of Redis/background job status so healthchecks can pass.
+  try {
     app.listen(PORT, () => {
       console.log(`🚀 Sports Tracker Backend running on port ${PORT}`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
     });
-  } catch (error) {
-    console.error('❌ Failed to start server:', error);
+  } catch (err) {
+    console.error('❌ Failed to start server listener:', err);
     process.exit(1);
   }
 }
