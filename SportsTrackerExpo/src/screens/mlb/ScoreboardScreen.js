@@ -880,13 +880,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
         </View>
       )}
 
-      {usingBackend && !backendError && (
-        <View style={[styles.statusBanner, { backgroundColor: '#4caf50' }]}>
-          <Text style={[styles.statusText, { color: '#fff' }]}>
-            ✅ Delta updates active - reduced data usage
-          </Text>
-        </View>
-      )}
+
 
       <FlatList
         data={games}

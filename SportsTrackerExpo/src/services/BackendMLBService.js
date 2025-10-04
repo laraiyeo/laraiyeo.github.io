@@ -265,9 +265,11 @@ export class BackendMLBService {
         // No changes, return cached data with full structure
         const cachedData = await AsyncStorage.getItem(this.STANDINGS_CACHE_KEY);
         if (cachedData) {
+          const parsedData = JSON.parse(cachedData);
+          console.log('BackendMLBService: Using cached standings data, records:', parsedData?.records?.length || 0);
           return {
             hasChanges: false,
-            data: JSON.parse(cachedData)
+            data: parsedData
           };
         }
       }

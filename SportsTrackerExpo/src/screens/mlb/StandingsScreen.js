@@ -83,8 +83,14 @@ const StandingsScreen = ({ route }) => {
       if (usingBackend) {
         // Try to get standings from backend first
         try {
-          const backendStandings = await BackendMLBService.getStandings();
-          console.log('StandingsScreen: Got standings from backend:', backendStandings?.data?.records?.length || 0);
+          const backendStandings = await BackendMLBService.getStandings(true); // Force refresh for debugging
+          console.log('StandingsScreen: Got standings from backend:', {
+            hasData: !!backendStandings,
+            hasDataProp: !!backendStandings?.data,
+            hasRecords: !!backendStandings?.data?.records,
+            recordsLength: backendStandings?.data?.records?.length || 0,
+            hasChanges: backendStandings?.hasChanges
+          });
           
           if (backendStandings && backendStandings.data && backendStandings.data.records && backendStandings.data.records.length > 0) {
             // Transform backend data to expected format
@@ -296,13 +302,7 @@ const StandingsScreen = ({ route }) => {
         </View>
       )}
 
-      {usingBackend && !backendError && (
-        <View style={[styles.statusBanner, { backgroundColor: '#4caf50' }]}>
-          <Text style={[styles.statusText, { color: '#fff' }]}>
-            ✅ Delta updates active - reduced data usage
-          </Text>
-        </View>
-      )}
+
 
       {renderMLBStandings()}
     </View>
