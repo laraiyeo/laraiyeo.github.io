@@ -196,7 +196,8 @@ export class BackendMLBService {
       // Try backend delta first
       try {
         const result = await this.getStandingsFromBackend(forceRefresh);
-        if (result) {
+        if (result && result.data && result.data.records) {
+          console.log('BackendMLBService: Returning standings with', result.data.records.length, 'divisions');
           return result;
         }
       } catch (error) {
@@ -259,16 +260,19 @@ export class BackendMLBService {
         // Cache the data locally
         await AsyncStorage.setItem(this.STANDINGS_CACHE_KEY, JSON.stringify(data.data));
         
-        return data.data;
+        return data; // Return full delta structure
       } else if (!data.hasChanges) {
-        // No changes, return cached data
+        // No changes, return cached data with full structure
         const cachedData = await AsyncStorage.getItem(this.STANDINGS_CACHE_KEY);
         if (cachedData) {
-          return JSON.parse(cachedData);
+          return {
+            hasChanges: false,
+            data: JSON.parse(cachedData)
+          };
         }
       }
 
-      return data.data || {};
+      return data; // Return full structure
       
     } catch (error) {
       console.error('BackendMLBService: Backend standings request failed:', error);
