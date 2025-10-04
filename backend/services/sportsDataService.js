@@ -606,7 +606,8 @@ class SportsDataService {
    */
   async fetchMLBStandings() {
     try {
-      const url = `${this.mlbBaseUrl}/api/v1/standings?leagueId=103,104&season=2024&standingsTypes=regularSeason`;
+      const currentYear = new Date().getFullYear();
+      const url = `${this.mlbBaseUrl}/api/v1/standings?leagueId=103,104&season=${currentYear}&standingsTypes=regularSeason`;
       console.log('[SportsDataService] Fetching MLB standings from:', url);
       const response = await this.makeRequest(url);
       return response.data;

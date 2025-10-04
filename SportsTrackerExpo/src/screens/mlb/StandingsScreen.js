@@ -83,14 +83,8 @@ const StandingsScreen = ({ route }) => {
       if (usingBackend) {
         // Try to get standings from backend first
         try {
-          const backendStandings = await BackendMLBService.getStandings(true); // Force refresh for debugging
-          console.log('StandingsScreen: Got standings from backend:', {
-            hasData: !!backendStandings,
-            hasDataProp: !!backendStandings?.data,
-            hasRecords: !!backendStandings?.data?.records,
-            recordsLength: backendStandings?.data?.records?.length || 0,
-            hasChanges: backendStandings?.hasChanges
-          });
+          const backendStandings = await BackendMLBService.getStandings();
+          console.log('StandingsScreen: Got standings from backend:', backendStandings?.data?.records?.length || 0, 'divisions');
           
           if (backendStandings && backendStandings.data && backendStandings.data.records && backendStandings.data.records.length > 0) {
             // Transform backend data to expected format
