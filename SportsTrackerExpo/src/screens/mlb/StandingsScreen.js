@@ -84,15 +84,15 @@ const StandingsScreen = ({ route }) => {
         // Try to get standings from backend first
         try {
           const backendStandings = await BackendMLBService.getStandings();
-          console.log('StandingsScreen: Got standings from backend:', backendStandings?.length || 0);
+          console.log('StandingsScreen: Got standings from backend:', backendStandings?.data?.records?.length || 0);
           
-          if (backendStandings && backendStandings.length > 0) {
-            // Transform backend data to expected format if needed
-            setStandings({ content: { standings: { groups: backendStandings } } });
+          if (backendStandings && backendStandings.data && backendStandings.data.records && backendStandings.data.records.length > 0) {
+            // Transform backend data to expected format
+            setStandings({ content: { standings: { groups: backendStandings.data.records } } });
             setBackendError(null);
             return;
           } else {
-            console.log('StandingsScreen: Backend returned empty standings, falling back to direct API');
+            console.log('StandingsScreen: Backend returned empty or invalid standings, falling back to direct API');
           }
         } catch (backendError) {
           console.error('StandingsScreen: Backend standings failed:', backendError);
