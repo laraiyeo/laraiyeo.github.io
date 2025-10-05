@@ -192,6 +192,12 @@ const RaceDetailsScreen = ({ route }) => {
           return 'Leader';
         }
         return gapStat.displayValue || gapStat.value;
+      } else {
+        // gapToLeader category exists but no gapToLeader stat - check if this is position 1
+        const positionStat = categories[1].stats?.find(stat => stat.name === 'position');
+        if (positionStat && positionStat.value === 1) {
+          return 'Leader';
+        }
       }
     }
     
@@ -4066,7 +4072,9 @@ const RaceDetailsScreen = ({ route }) => {
                         </View>
                         <View style={styles.modalStatRow}>
                           <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary }]}>Gap</Text>
-                          <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text }]}>{behindTime ?? (behindLaps != null ? `+${behindLaps} Laps` : 'Leader')}</Text>
+                          <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text }]}>
+                            {isLiveRace ? getLiveGapToLeader(selectedDriverDetails.competitor) : (behindTime ?? (behindLaps != null ? `+${behindLaps} Laps` : (selectedDriverDetails.competitor?.totalTime || '-')))}
+                          </Text>
                         </View>
                         <View style={styles.modalStatRow}>
                           <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary }]}>Champ Pts</Text>

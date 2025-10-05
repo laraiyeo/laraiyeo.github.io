@@ -1,0 +1,1260 @@
+FavoritesScreen: Auto-refresh triggered for games that need updates
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1143 Auto-refresh check for game 600052102_McLaren: isLive=false, isPre=false, isPost=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:540 shouldGameReceiveUpdates for 600052102_McLaren: isLive=false, isPre=false, isPost=false, teamName=F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:634 Game 600052102_McLaren (F1): UPDATE - Unclear status, allowing updates as fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1143 Auto-refresh check for game 600052102_Ferrari: isLive=false, isPre=false, isPost=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:540 shouldGameReceiveUpdates for 600052102_Ferrari: isLive=false, isPre=false, isPost=false, teamName=F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:634 Game 600052102_Ferrari (F1): UPDATE - Unclear status, allowing updates as fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1143 Auto-refresh check for game 401820325: isLive=false, isPre=true, isPost=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:540 shouldGameReceiveUpdates for 401820325: isLive=false, isPre=true, isPost=false, teamName=WNBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:567 Game 401820325 (WNBA): NO UPDATE - Pre-game too far in future (starts in 380 minutes)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1143 Auto-refresh check for game 813062: isLive=false, isPre=true, isPost=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:540 shouldGameReceiveUpdates for 813062: isLive=false, isPre=true, isPost=false, teamName=MLB
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:567 Game 813062 (MLB): NO UPDATE - Pre-game too far in future (starts in 448 minutes)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1143 Auto-refresh check for game 401772854: isLive=false, isPre=false, isPost=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:540 shouldGameReceiveUpdates for 401772854: isLive=false, isPre=false, isPost=false, teamName=NFL
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:634 Game 401772854 (NFL): UPDATE - Unclear status, allowing updates as fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1143 Auto-refresh check for game 401812676: isLive=false, isPre=true, isPost=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:540 shouldGameReceiveUpdates for 401812676: isLive=false, isPre=true, isPost=false, teamName=NBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:567 Game 401812676 (NBA): NO UPDATE - Pre-game too far in future (starts in 500 minutes)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1149 FavoritesScreen: Updating 3 games that meet timing criteria
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1361 Fetching favorite games... 2025-10-05T12:40:19.718Z 
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1380 Fetching games for teams: (18) ['Baltimore Orioles (MLB)', 'Toronto Blue Jays (MLB)', 'New York Yankees (MLB)', 'Philadelphia Phillies (MLB)', 'Los Angeles Dodgers (MLB)', 'McLaren (f1)', 'Cincinnati Bengals (NFL)', 'Tottenham Hotspur (Champions League)', 'Florida Panthers (nhl)', 'Anaheim Ducks (nhl)', 'Unknown (uefa champions)', 'Oklahoma City Thunder (nba)', 'New York Knicks (nba)', 'San Francisco 49ers (NFL)', 'Ferrari (f1)', 'Las Vegas Aces (wnba)', 'Unknown (null)', 'Brooklyn Nets (nba)']
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1399 [NO STORED GAME] Baltimore Orioles has no currentGame stored
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1396 [STORED GAME] Toronto Blue Jays already has currentGame: {eventId: 813062, eventLink: '/api/v1.1/game/813062/feed/live', gameDate: '2025-10-05T20:08:00Z', competition: 'mlb', updatedAt: '2025-10-05T12:39:37.744Z'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1396 [STORED GAME] New York Yankees already has currentGame: {eventId: 813062, eventLink: '/api/v1.1/game/813062/feed/live', gameDate: '2025-10-05T20:08:00Z', competition: 'mlb', updatedAt: '2025-10-05T12:39:37.745Z'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1396 [STORED GAME] Philadelphia Phillies already has currentGame: {eventId: 813052, eventLink: '/api/v1.1/game/813052/feed/live', gameDate: '2025-10-06T22:08:00Z', competition: 'mlb', updatedAt: '2025-10-05T12:39:37.745Z'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1396 [STORED GAME] Los Angeles Dodgers already has currentGame: {eventId: 813052, eventLink: '/api/v1.1/game/813052/feed/live', gameDate: '2025-10-06T22:08:00Z', competition: 'mlb', updatedAt: '2025-10-05T12:39:37.729Z'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1396 [STORED GAME] McLaren already has currentGame: {eventId: '600052102', eventLink: 'https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/events/600052102?lang=en&region=us', gameDate: '2025-10-03T09:30Z', competition: 'f1', updatedAt: '2025-10-05T12:38:22.642Z'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1396 [STORED GAME] Cincinnati Bengals already has currentGame: {eventId: '401772854', eventLink: 'http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/401772854?lang=en&region=us', gameDate: '2025-10-05T20:25Z', competition: 'nfl', updatedAt: '2025-10-05T12:39:37.617Z'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1399 [NO STORED GAME] Tottenham Hotspur has no currentGame stored
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1399 [NO STORED GAME] Florida Panthers has no currentGame stored
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1399 [NO STORED GAME] Anaheim Ducks has no currentGame stored
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1396 [STORED GAME] Unknown already has currentGame: {eventId: '740674', eventLink: 'http://sports.core.api.espn.com/v2/sports/soccer/leagues/eng.1/events/740674?lang=en&region=us', gameDate: '2025-10-19T13:00Z', competition: 'eng.1', updatedAt: '2025-10-05T12:39:37.729Z'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1396 [STORED GAME] Oklahoma City Thunder already has currentGame: {eventId: '401812676', eventLink: 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401812676', gameDate: '2025-10-05T21:00Z', competition: 'nba', updatedAt: '2025-10-05T12:39:37.679Z'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1399 [NO STORED GAME] New York Knicks has no currentGame stored
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1399 [NO STORED GAME] San Francisco 49ers has no currentGame stored
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1396 [STORED GAME] Ferrari already has currentGame: {eventId: '600052102', eventLink: 'https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/events/600052102?lang=en&region=us', gameDate: '2025-10-03T09:30Z', competition: 'f1', updatedAt: '2025-10-05T12:38:22.639Z'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1396 [STORED GAME] Las Vegas Aces already has currentGame: {eventId: '401820325', eventLink: 'https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/summary?event=401820325', gameDate: '2025-10-05T19:00Z', competition: 'wnba', updatedAt: '2025-10-05T12:39:37.768Z'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1399 [NO STORED GAME] Unknown has no currentGame stored
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1399 [NO STORED GAME] Brooklyn Nets has no currentGame stored
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1422 Processing 18 unique teams from 18 favorites
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1456 [NO CURRENT GAME] Baltimore Orioles has no currentGame - team page utils will handle this in the background
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1458 FavoritesScreen: team Baltimore Orioles fetch phases (ms): {total: 0}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2498 Fetching game directly from event link for Toronto Blue Jays: /api/v1.1/game/813062/feed/live
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2499 [DIRECT FETCH] Live game update for Toronto Blue Jays - bypassing poll gating
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:72 [DATE UTILS] Current time: 2025-10-05T12:40:19.719Z, NY time: 2025-10-05T12:40:19.000Z, NY hour: 8
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:80 [DATE UTILS] After 2 AM NY, using today as game day: 10/5/2025
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:120 [DATE UTILS] Date range calculation: Current time: 2025-10-05T12:40:19.719Z, NY Hour: 8, Game day: Sun Oct 05 2025, Range: 2025-10-05T06:00:00.000Z to 2025-10-06T06:00:00.000Z
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2531 Fetching MLB game using statsapi.mlb.com for Toronto Blue Jays with gamePk: 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2498 Fetching game directly from event link for New York Yankees: /api/v1.1/game/813062/feed/live
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2499 [DIRECT FETCH] Live game update for New York Yankees - bypassing poll gating
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:72 [DATE UTILS] Current time: 2025-10-05T12:40:19.720Z, NY time: 2025-10-05T12:40:19.000Z, NY hour: 8
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:80 [DATE UTILS] After 2 AM NY, using today as game day: 10/5/2025
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:120 [DATE UTILS] Date range calculation: Current time: 2025-10-05T12:40:19.720Z, NY Hour: 8, Game day: Sun Oct 05 2025, Range: 2025-10-05T06:00:00.000Z to 2025-10-06T06:00:00.000Z
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2531 Fetching MLB game using statsapi.mlb.com for New York Yankees with gamePk: 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2498 Fetching game directly from event link for Philadelphia Phillies: /api/v1.1/game/813052/feed/live
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2499 [DIRECT FETCH] Live game update for Philadelphia Phillies - bypassing poll gating
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:72 [DATE UTILS] Current time: 2025-10-05T12:40:19.721Z, NY time: 2025-10-05T12:40:19.000Z, NY hour: 8
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:80 [DATE UTILS] After 2 AM NY, using today as game day: 10/5/2025
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:120 [DATE UTILS] Date range calculation: Current time: 2025-10-05T12:40:19.721Z, NY Hour: 8, Game day: Sun Oct 05 2025, Range: 2025-10-05T06:00:00.000Z to 2025-10-06T06:00:00.000Z
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2525 [DATE FILTER] Game for Philadelphia Phillies excluded - gameDate: 2025-10-06T22:08:00.000Z, todayStart: 2025-10-05T06:00:00.000Z, extendedTodayEnd: 2025-10-06T06:00:00.000Z
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2498 Fetching game directly from event link for Los Angeles Dodgers: /api/v1.1/game/813052/feed/live
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2499 [DIRECT FETCH] Live game update for Los Angeles Dodgers - bypassing poll gating
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:72 [DATE UTILS] Current time: 2025-10-05T12:40:19.721Z, NY time: 2025-10-05T12:40:19.000Z, NY hour: 8
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:80 [DATE UTILS] After 2 AM NY, using today as game day: 10/5/2025
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:120 [DATE UTILS] Date range calculation: Current time: 2025-10-05T12:40:19.721Z, NY Hour: 8, Game day: Sun Oct 05 2025, Range: 2025-10-05T06:00:00.000Z to 2025-10-06T06:00:00.000Z
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2525 [DATE FILTER] Game for Los Angeles Dodgers excluded - gameDate: 2025-10-06T22:08:00.000Z, todayStart: 2025-10-05T06:00:00.000Z, extendedTodayEnd: 2025-10-06T06:00:00.000Z
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2498 Fetching game directly from event link for McLaren: https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/events/600052102?lang=en&region=us
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2499 [DIRECT FETCH] Live game update for McLaren - bypassing poll gating
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:72 [DATE UTILS] Current time: 2025-10-05T12:40:19.721Z, NY time: 2025-10-05T12:40:19.000Z, NY hour: 8
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:80 [DATE UTILS] After 2 AM NY, using today as game day: 10/5/2025
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:120 [DATE UTILS] Date range calculation: Current time: 2025-10-05T12:40:19.721Z, NY Hour: 8, Game day: Sun Oct 05 2025, Range: 2025-10-05T06:00:00.000Z to 2025-10-06T06:00:00.000Z
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3190 [F1 FETCH] Fetching F1 data for driver: McLaren from https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/events/600052102?lang=en&region=us
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2498 Fetching game directly from event link for Cincinnati Bengals: http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/401772854?lang=en&region=us
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2499 [DIRECT FETCH] Live game update for Cincinnati Bengals - bypassing poll gating
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:72 [DATE UTILS] Current time: 2025-10-05T12:40:19.722Z, NY time: 2025-10-05T12:40:19.000Z, NY hour: 8
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:80 [DATE UTILS] After 2 AM NY, using today as game day: 10/5/2025
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:120 [DATE UTILS] Date range calculation: Current time: 2025-10-05T12:40:19.722Z, NY Hour: 8, Game day: Sun Oct 05 2025, Range: 2025-10-05T06:00:00.000Z to 2025-10-06T06:00:00.000Z
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2633 Fetching NFL game using ESPN API for Cincinnati Bengals with eventId: 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:139 [BYPASS] Allowing gated URL during poll mode: https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1456 [NO CURRENT GAME] Tottenham Hotspur has no currentGame - team page utils will handle this in the background
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1458 FavoritesScreen: team Tottenham Hotspur fetch phases (ms): {total: 0}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1456 [NO CURRENT GAME] Florida Panthers has no currentGame - team page utils will handle this in the background
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1458 FavoritesScreen: team Florida Panthers fetch phases (ms): {total: 0}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1456 [NO CURRENT GAME] Anaheim Ducks has no currentGame - team page utils will handle this in the background
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1458 FavoritesScreen: team Anaheim Ducks fetch phases (ms): {total: 0}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2498 Fetching game directly from event link for Unknown Team: http://sports.core.api.espn.com/v2/sports/soccer/leagues/eng.1/events/740674?lang=en&region=us
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2499 [DIRECT FETCH] Live game update for Unknown Team - bypassing poll gating
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:72 [DATE UTILS] Current time: 2025-10-05T12:40:19.723Z, NY time: 2025-10-05T12:40:19.000Z, NY hour: 8
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:80 [DATE UTILS] After 2 AM NY, using today as game day: 10/5/2025
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:120 [DATE UTILS] Date range calculation: Current time: 2025-10-05T12:40:19.723Z, NY Hour: 8, Game day: Sun Oct 05 2025, Range: 2025-10-05T06:00:00.000Z to 2025-10-06T06:00:00.000Z
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2525 [DATE FILTER] Game for Unknown Team excluded - gameDate: 2025-10-19T13:00:00.000Z, todayStart: 2025-10-05T06:00:00.000Z, extendedTodayEnd: 2025-10-06T06:00:00.000Z
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2498 Fetching game directly from event link for Oklahoma City Thunder: https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2499 [DIRECT FETCH] Live game update for Oklahoma City Thunder - bypassing poll gating
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:72 [DATE UTILS] Current time: 2025-10-05T12:40:19.724Z, NY time: 2025-10-05T12:40:19.000Z, NY hour: 8
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:80 [DATE UTILS] After 2 AM NY, using today as game day: 10/5/2025
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:120 [DATE UTILS] Date range calculation: Current time: 2025-10-05T12:40:19.724Z, NY Hour: 8, Game day: Sun Oct 05 2025, Range: 2025-10-05T06:00:00.000Z to 2025-10-06T06:00:00.000Z
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3022 Fetching NBA game using ESPN API for Oklahoma City Thunder with eventId: 401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:139 [BYPASS] Allowing gated URL during poll mode: https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1456 [NO CURRENT GAME] New York Knicks has no currentGame - team page utils will handle this in the background
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1458 FavoritesScreen: team New York Knicks fetch phases (ms): {total: 1}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1456 [NO CURRENT GAME] San Francisco 49ers has no currentGame - team page utils will handle this in the background
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1458 FavoritesScreen: team San Francisco 49ers fetch phases (ms): {total: 0}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2498 Fetching game directly from event link for Ferrari: https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/events/600052102?lang=en&region=us
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2499 [DIRECT FETCH] Live game update for Ferrari - bypassing poll gating
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:72 [DATE UTILS] Current time: 2025-10-05T12:40:19.725Z, NY time: 2025-10-05T12:40:19.000Z, NY hour: 8
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:80 [DATE UTILS] After 2 AM NY, using today as game day: 10/5/2025
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:120 [DATE UTILS] Date range calculation: Current time: 2025-10-05T12:40:19.725Z, NY Hour: 8, Game day: Sun Oct 05 2025, Range: 2025-10-05T06:00:00.000Z to 2025-10-06T06:00:00.000Z
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3190 [F1 FETCH] Fetching F1 data for driver: Ferrari from https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/events/600052102?lang=en&region=us
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2498 Fetching game directly from event link for Las Vegas Aces: https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/summary?event=401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2499 [DIRECT FETCH] Live game update for Las Vegas Aces - bypassing poll gating
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:72 [DATE UTILS] Current time: 2025-10-05T12:40:19.726Z, NY time: 2025-10-05T12:40:19.000Z, NY hour: 8
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:80 [DATE UTILS] After 2 AM NY, using today as game day: 10/5/2025
+C:\live-sports-tracker\SportsTrackerExpo\src\utils\DateUtils.js:120 [DATE UTILS] Date range calculation: Current time: 2025-10-05T12:40:19.726Z, NY Hour: 8, Game day: Sun Oct 05 2025, Range: 2025-10-05T06:00:00.000Z to 2025-10-06T06:00:00.000Z
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3106 Fetching WNBA game using ESPN API for Las Vegas Aces with eventId: 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:139 [BYPASS] Allowing gated URL during poll mode: https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/summary?event=401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1456 [NO CURRENT GAME] Unknown Team has no currentGame - team page utils will handle this in the background
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1458 FavoritesScreen: team Unknown Team fetch phases (ms): {total: 1}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1456 [NO CURRENT GAME] Brooklyn Nets has no currentGame - team page utils will handle this in the background
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1458 FavoritesScreen: team Brooklyn Nets fetch phases (ms): {total: 0}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1510 FavoritesScreen: team Philadelphia Phillies fetch phases (ms): {total: 6}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1510 FavoritesScreen: team Los Angeles Dodgers fetch phases (ms): {total: 6}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1510 FavoritesScreen: team Unknown Team fetch phases (ms): {total: 4}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_McLaren (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_Ferrari (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401820325 (wnba) -> sport group: "WNBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 813062 (mlb) -> sport group: "MLB"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401772854 (nfl) -> sport group: "NFL"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401812676 (nba) -> sport group: "NBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 813062: {sport: 'MLB', actualLeagueCode: 'mlb', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 813062 - homeTeam: true awayTeam: true sport: MLB
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 813062 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7817 Game 813062 (MLB) Status - Live: false, Scheduled: true, Finished: false, Start Time: 4:08 PM EST, Direct Link: https://statsapi.mlb.com/api/v1.1/game/813062/feed/live
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:540 shouldGameReceiveUpdates for 813062: isLive=false, isPre=true, isPost=false, teamName=MLB
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:567 Game 813062 (MLB): NO UPDATE - Pre-game too far in future (starts in 448 minutes)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5440 Game 813062 (MLB) Status - Live: false, Scheduled: true, Finished: false (MLB coded: S)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:540 shouldGameReceiveUpdates for 813062: isLive=false, isPre=true, isPost=false, teamName=MLB
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:567 Game 813062 (MLB): NO UPDATE - Pre-game too far in future (starts in 448 minutes)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5825 MLB Game 813062 venue sources: {mlb: 'Rogers Centre', competition: undefined, liveHeader: undefined, gamepackage: undefined, gameInfo: undefined, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401772854: {sport: 'NFL', actualLeagueCode: 'nfl', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: true, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401772854 - homeTeam: true awayTeam: true sport: NFL
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401772854 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7817 Game 401772854 (NFL) Status - Live: false, Scheduled: true, Finished: false, Start Time: 4:25 PM EST, Direct Link: https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:540 shouldGameReceiveUpdates for 401772854: isLive=false, isPre=true, isPost=false, teamName=NFL
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:567 Game 401772854 (NFL): NO UPDATE - Pre-game too far in future (starts in 465 minutes)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:6741 FAV_NFL DEBUG - id=401772854 keys=["id","date","status","period","displayClock","venue","competitions","homeTeam","awayTeam","situation","drives","playsData","favoriteTeam","sport","actualLeagueCode","fromDirectLink","eventLink","isLive","isScheduled","isFinished"] competitionsKeys=["id","date","venue","competitors","status","situation"] status_comp={"type":{"id":"1","name":"STATUS_SCHEDULED","state":"pre","completed":false,"description":"Scheduled","detail":"Sun, October 5th at 4:25 PM EDT","shortDetail":"10/5 - 4:25 PM EDT"},"isTBDFlex":false} gameDataWithStatus=false liveData=false plays=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401812676: {sport: 'NBA', actualLeagueCode: 'nba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401812676 - homeTeam: true awayTeam: true sport: NBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401812676 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7817 Game 401812676 (NBA) Status - Live: false, Scheduled: true, Finished: false, Start Time: 5:00 PM EST, Direct Link: https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:540 shouldGameReceiveUpdates for 401812676: isLive=false, isPre=true, isPost=false, teamName=NBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:567 Game 401812676 (NBA): NO UPDATE - Pre-game too far in future (starts in 500 minutes)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401820325: {sport: 'WNBA', actualLeagueCode: 'wnba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401820325 - homeTeam: true awayTeam: true sport: WNBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401820325 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7817 Game 401820325 (WNBA) Status - Live: false, Scheduled: true, Finished: false, Start Time: 3:00 PM EST, Direct Link: https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/summary?event=401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:540 shouldGameReceiveUpdates for 401820325: isLive=false, isPre=true, isPost=false, teamName=WNBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:567 Game 401820325 (WNBA): NO UPDATE - Pre-game too far in future (starts in 380 minutes)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 600052102_McLaren: {sport: 'F1', actualLeagueCode: 'f1', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 600052102_McLaren - homeTeam: false awayTeam: false sport: F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7406 [RENDER] Game 600052102_McLaren returning null - no homeTeam or awayTeam (this might be F1!)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7409 [F1 EARLY ROUTING] Detected F1 before home/away check - routing to renderF1GameCard
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5086 [F1 CARD RENDER] Checking F1 game: {hasDriver: false, hasDrivers: true, driversLength: 2, hasCompetitions: true, competitionsLength: 1}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1510 FavoritesScreen: team Toronto Blue Jays fetch phases (ms): {total: 36}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1510 FavoritesScreen: team New York Yankees fetch phases (ms): {total: 35}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401812676 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401812676 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401812676 (CHA vs OKC): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401812676 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401812676 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401812676 (CHA vs OKC): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401812676 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401812676 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401812676 (CHA vs OKC): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401812676 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401812676 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401812676 (CHA vs OKC): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_McLaren (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_Ferrari (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401820325 (wnba) -> sport group: "WNBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 813062 (mlb) -> sport group: "MLB"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401772854 (nfl) -> sport group: "NFL"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401812676 (nba) -> sport group: "NBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 813062: {sport: 'MLB', actualLeagueCode: 'mlb', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 813062 - homeTeam: true awayTeam: true sport: MLB
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 813062 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5825 MLB Game 813062 venue sources: {mlb: 'Rogers Centre', competition: undefined, liveHeader: undefined, gamepackage: undefined, gameInfo: undefined, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401772854: {sport: 'NFL', actualLeagueCode: 'nfl', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: true, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401772854 - homeTeam: true awayTeam: true sport: NFL
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401772854 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:6741 FAV_NFL DEBUG - id=401772854 keys=["id","date","status","period","displayClock","venue","competitions","homeTeam","awayTeam","situation","drives","playsData","favoriteTeam","sport","actualLeagueCode","fromDirectLink","eventLink","isLive","isScheduled","isFinished"] competitionsKeys=["id","date","venue","competitors","status","situation"] status_comp={"type":{"id":"1","name":"STATUS_SCHEDULED","state":"pre","completed":false,"description":"Scheduled","detail":"Sun, October 5th at 4:25 PM EDT","shortDetail":"10/5 - 4:25 PM EDT"},"isTBDFlex":false} gameDataWithStatus=false liveData=false plays=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401812676: {sport: 'NBA', actualLeagueCode: 'nba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401812676 - homeTeam: true awayTeam: true sport: NBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401812676 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401820325: {sport: 'WNBA', actualLeagueCode: 'wnba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401820325 - homeTeam: true awayTeam: true sport: WNBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401820325 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 600052102_McLaren: {sport: 'F1', actualLeagueCode: 'f1', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 600052102_McLaren - homeTeam: false awayTeam: false sport: F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7406 [RENDER] Game 600052102_McLaren returning null - no homeTeam or awayTeam (this might be F1!)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7409 [F1 EARLY ROUTING] Detected F1 before home/away check - routing to renderF1GameCard
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5086 [F1 CARD RENDER] Checking F1 game: {hasDriver: false, hasDrivers: true, driversLength: 2, hasCompetitions: true, competitionsLength: 1}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:540 shouldGameReceiveUpdates for 600052102_McLaren: isLive=false, isPre=false, isPost=false, teamName=F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:634 Game 600052102_McLaren (F1): UPDATE - Unclear status, allowing updates as fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1108 FavoritesScreen: Games needing updates detected - setting up continuous refresh
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_McLaren (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_Ferrari (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401820325 (wnba) -> sport group: "WNBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 813062 (mlb) -> sport group: "MLB"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401772854 (nfl) -> sport group: "NFL"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401812676 (nba) -> sport group: "NBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 813062: {sport: 'MLB', actualLeagueCode: 'mlb', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 813062 - homeTeam: true awayTeam: true sport: MLB
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 813062 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5825 MLB Game 813062 venue sources: {mlb: 'Rogers Centre', competition: undefined, liveHeader: undefined, gamepackage: undefined, gameInfo: undefined, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401772854: {sport: 'NFL', actualLeagueCode: 'nfl', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: true, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401772854 - homeTeam: true awayTeam: true sport: NFL
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401772854 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:6741 FAV_NFL DEBUG - id=401772854 keys=["id","date","status","period","displayClock","venue","competitions","homeTeam","awayTeam","situation","drives","playsData","favoriteTeam","sport","actualLeagueCode","fromDirectLink","eventLink","isLive","isScheduled","isFinished"] competitionsKeys=["id","date","venue","competitors","status","situation"] status_comp={"type":{"id":"1","name":"STATUS_SCHEDULED","state":"pre","completed":false,"description":"Scheduled","detail":"Sun, October 5th at 4:25 PM EDT","shortDetail":"10/5 - 4:25 PM EDT"},"isTBDFlex":false} gameDataWithStatus=false liveData=false plays=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401812676: {sport: 'NBA', actualLeagueCode: 'nba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401812676 - homeTeam: true awayTeam: true sport: NBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401812676 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401820325: {sport: 'WNBA', actualLeagueCode: 'wnba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401820325 - homeTeam: true awayTeam: true sport: WNBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401820325 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 600052102_McLaren: {sport: 'F1', actualLeagueCode: 'f1', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 600052102_McLaren - homeTeam: false awayTeam: false sport: F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7406 [RENDER] Game 600052102_McLaren returning null - no homeTeam or awayTeam (this might be F1!)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7409 [F1 EARLY ROUTING] Detected F1 before home/away check - routing to renderF1GameCard
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5086 [F1 CARD RENDER] Checking F1 game: {hasDriver: false, hasDrivers: true, driversLength: 2, hasCompetitions: true, competitionsLength: 1}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3200 F1 API response structure for McLaren: {hasCompetitions: true, competitionsLength: 5, hasDrivers: true, topLevelKeys: Array(10)}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3217 [F1] Found 5 competitions, selecting most relevant one
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3200 F1 API response structure for Ferrari: {hasCompetitions: true, competitionsLength: 5, hasDrivers: true, topLevelKeys: Array(10)}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3217 [F1] Found 5 competitions, selecting most relevant one
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3233 [F1] Competition FP1 (401737821): date=2025-10-03T09:30:00.000Z, recent=false, inProgress=false, status=Final
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3258 [F1] Selected most recent FINAL competition: FP1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3233 [F1] Competition FP1 (401737821): date=2025-10-03T09:30:00.000Z, recent=false, inProgress=false, status=Final
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3258 [F1] Selected most recent FINAL competition: FP1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2645 [DEBUG] NFL API response structure for Cincinnati Bengals: {hasHeader: true, hasCompetitions: true, competitionsLength: 1, hasDirectCompetitions: false, directCompetitionsLength: undefined, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2672 [NFL SITUATION EXTRACT] Checking situation data for Cincinnati Bengals: {competitionKeys: Array(17), hasSituation: false, situationData: undefined, status: {…}}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2687 [NFL SITUATION EXTRACT] NFLService.extractGameSituation result: {possession: null, down: null, distance: null, yardLine: 50, possessionText: null}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3118 [DEBUG] WNBA API response structure for Las Vegas Aces: {hasHeader: true, hasCompetitions: true, competitionsLength: 1, topLevelKeys: Array(10)}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3174 Successfully converted WNBA game 401820325 for Las Vegas Aces {hasHeader: true, hasCompetitions: true, status: 'Scheduled'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1510 FavoritesScreen: team Las Vegas Aces fetch phases (ms): {total: 223}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401812676 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401812676 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401812676 (CHA vs OKC): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401812676 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401812676 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401812676 (CHA vs OKC): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3233 [F1] Competition FP2 (401737822): date=2025-10-03T13:00:00.000Z, recent=false, inProgress=false, status=Final
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3258 [F1] Selected most recent FINAL competition: FP2
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_McLaren (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_Ferrari (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401820325 (wnba) -> sport group: "WNBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 813062 (mlb) -> sport group: "MLB"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401772854 (nfl) -> sport group: "NFL"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401812676 (nba) -> sport group: "NBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 813062: {sport: 'MLB', actualLeagueCode: 'mlb', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 813062 - homeTeam: true awayTeam: true sport: MLB
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 813062 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5825 MLB Game 813062 venue sources: {mlb: 'Rogers Centre', competition: undefined, liveHeader: undefined, gamepackage: undefined, gameInfo: undefined, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401772854: {sport: 'NFL', actualLeagueCode: 'nfl', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: true, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401772854 - homeTeam: true awayTeam: true sport: NFL
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401772854 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:6741 FAV_NFL DEBUG - id=401772854 keys=["id","date","status","period","displayClock","venue","competitions","homeTeam","awayTeam","situation","drives","playsData","favoriteTeam","sport","actualLeagueCode","fromDirectLink","eventLink","isLive","isScheduled","isFinished"] competitionsKeys=["id","date","venue","competitors","status","situation"] status_comp={"type":{"id":"1","name":"STATUS_SCHEDULED","state":"pre","completed":false,"description":"Scheduled","detail":"Sun, October 5th at 4:25 PM EDT","shortDetail":"10/5 - 4:25 PM EDT"},"isTBDFlex":false} gameDataWithStatus=false liveData=false plays=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401812676: {sport: 'NBA', actualLeagueCode: 'nba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401812676 - homeTeam: true awayTeam: true sport: NBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401812676 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401820325: {sport: 'WNBA', actualLeagueCode: 'wnba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401820325 - homeTeam: true awayTeam: true sport: WNBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401820325 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 600052102_McLaren: {sport: 'F1', actualLeagueCode: 'f1', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 600052102_McLaren - homeTeam: false awayTeam: false sport: F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7406 [RENDER] Game 600052102_McLaren returning null - no homeTeam or awayTeam (this might be F1!)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7409 [F1 EARLY ROUTING] Detected F1 before home/away check - routing to renderF1GameCard
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5086 [F1 CARD RENDER] Checking F1 game: {hasDriver: false, hasDrivers: true, driversLength: 2, hasCompetitions: true, competitionsLength: 1}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:540 shouldGameReceiveUpdates for 600052102_McLaren: isLive=false, isPre=false, isPost=false, teamName=F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:634 Game 600052102_McLaren (F1): UPDATE - Unclear status, allowing updates as fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1108 FavoritesScreen: Games needing updates detected - setting up continuous refresh
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3233 [F1] Competition FP2 (401737822): date=2025-10-03T13:00:00.000Z, recent=false, inProgress=false, status=Final
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3258 [F1] Selected most recent FINAL competition: FP2
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2894 [NFL INITIAL] Attached 0 drives during initial creation, plays in most recent drive: 0
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:2917 Successfully converted NFL game 401772854 for Cincinnati Bengals {hasHomeTeam: true, hasAwayTeam: true, hasSituation: true, situationKeys: Array(5), venue: 'Paycor Stadium', …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1510 FavoritesScreen: team Cincinnati Bengals fetch phases (ms): {total: 258}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401812676 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401812676 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401812676 (CHA vs OKC): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401812676 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401812676 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401812676 (CHA vs OKC): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_McLaren (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_Ferrari (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401820325 (wnba) -> sport group: "WNBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 813062 (mlb) -> sport group: "MLB"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401772854 (nfl) -> sport group: "NFL"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401812676 (nba) -> sport group: "NBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 813062: {sport: 'MLB', actualLeagueCode: 'mlb', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 813062 - homeTeam: true awayTeam: true sport: MLB
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 813062 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5825 MLB Game 813062 venue sources: {mlb: 'Rogers Centre', competition: undefined, liveHeader: undefined, gamepackage: undefined, gameInfo: undefined, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401772854: {sport: 'NFL', actualLeagueCode: 'nfl', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: true, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401772854 - homeTeam: true awayTeam: true sport: NFL
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401772854 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:6741 FAV_NFL DEBUG - id=401772854 keys=["id","date","status","period","displayClock","venue","competitions","homeTeam","awayTeam","situation","drives","playsData","favoriteTeam","sport","actualLeagueCode","fromDirectLink","eventLink","isLive","isScheduled","isFinished"] competitionsKeys=["id","date","venue","competitors","status","situation"] status_comp={"type":{"id":"1","name":"STATUS_SCHEDULED","state":"pre","completed":false,"description":"Scheduled","detail":"Sun, October 5th at 4:25 PM EDT","shortDetail":"10/5 - 4:25 PM EDT"},"isTBDFlex":false} gameDataWithStatus=false liveData=false plays=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401812676: {sport: 'NBA', actualLeagueCode: 'nba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401812676 - homeTeam: true awayTeam: true sport: NBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401812676 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401820325: {sport: 'WNBA', actualLeagueCode: 'wnba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401820325 - homeTeam: true awayTeam: true sport: WNBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401820325 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 600052102_McLaren: {sport: 'F1', actualLeagueCode: 'f1', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 600052102_McLaren - homeTeam: false awayTeam: false sport: F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7406 [RENDER] Game 600052102_McLaren returning null - no homeTeam or awayTeam (this might be F1!)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7409 [F1 EARLY ROUTING] Detected F1 before home/away check - routing to renderF1GameCard
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5086 [F1 CARD RENDER] Checking F1 game: {hasDriver: false, hasDrivers: true, driversLength: 2, hasCompetitions: true, competitionsLength: 1}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3233 [F1] Competition FP3 (401737824): date=2025-10-04T09:30:00.000Z, recent=false, inProgress=false, status=Final
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3258 [F1] Selected most recent FINAL competition: FP3
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:540 shouldGameReceiveUpdates for 600052102_McLaren: isLive=false, isPre=false, isPost=false, teamName=F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:634 Game 600052102_McLaren (F1): UPDATE - Unclear status, allowing updates as fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1108 FavoritesScreen: Games needing updates detected - setting up continuous refresh
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_McLaren (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_Ferrari (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401820325 (wnba) -> sport group: "WNBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 813062 (mlb) -> sport group: "MLB"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401772854 (nfl) -> sport group: "NFL"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401812676 (nba) -> sport group: "NBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 813062: {sport: 'MLB', actualLeagueCode: 'mlb', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 813062 - homeTeam: true awayTeam: true sport: MLB
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 813062 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5825 MLB Game 813062 venue sources: {mlb: 'Rogers Centre', competition: undefined, liveHeader: undefined, gamepackage: undefined, gameInfo: undefined, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401772854: {sport: 'NFL', actualLeagueCode: 'nfl', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: true, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401772854 - homeTeam: true awayTeam: true sport: NFL
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401772854 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:6741 FAV_NFL DEBUG - id=401772854 keys=["id","date","status","period","displayClock","venue","competitions","homeTeam","awayTeam","situation","drives","playsData","favoriteTeam","sport","actualLeagueCode","fromDirectLink","eventLink","isLive","isScheduled","isFinished"] competitionsKeys=["id","date","venue","competitors","status","situation"] status_comp={"type":{"id":"1","name":"STATUS_SCHEDULED","state":"pre","completed":false,"description":"Scheduled","detail":"Sun, October 5th at 4:25 PM EDT","shortDetail":"10/5 - 4:25 PM EDT"},"isTBDFlex":false} gameDataWithStatus=false liveData=false plays=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401812676: {sport: 'NBA', actualLeagueCode: 'nba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401812676 - homeTeam: true awayTeam: true sport: NBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401812676 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401820325: {sport: 'WNBA', actualLeagueCode: 'wnba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401820325 - homeTeam: true awayTeam: true sport: WNBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401820325 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 600052102_McLaren: {sport: 'F1', actualLeagueCode: 'f1', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 600052102_McLaren - homeTeam: false awayTeam: false sport: F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7406 [RENDER] Game 600052102_McLaren returning null - no homeTeam or awayTeam (this might be F1!)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7409 [F1 EARLY ROUTING] Detected F1 before home/away check - routing to renderF1GameCard
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5086 [F1 CARD RENDER] Checking F1 game: {hasDriver: false, hasDrivers: true, driversLength: 2, hasCompetitions: true, competitionsLength: 1}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3233 [F1] Competition FP3 (401737824): date=2025-10-04T09:30:00.000Z, recent=false, inProgress=false, status=Final
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3258 [F1] Selected most recent FINAL competition: FP3
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3233 [F1] Competition Qual (401737823): date=2025-10-04T13:00:00.000Z, recent=false, inProgress=false, status=Final
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3258 [F1] Selected most recent FINAL competition: Qual
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3233 [F1] Competition Qual (401737823): date=2025-10-04T13:00:00.000Z, recent=false, inProgress=false, status=Final
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3258 [F1] Selected most recent FINAL competition: Qual
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3233 [F1] Competition Race (401737825): date=2025-10-05T12:00:00.000Z, recent=true, inProgress=true, status=In Progress
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3243 [F1] Selected IN-PROGRESS competition: Race
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3278 [F1 FILTER] Looking for constructor: "McLaren" (teamId: f1_mclaren)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Mercedes" vs constructor="McLaren"
+2C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="McLaren" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Mercedes" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Ferrari" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Red Bull" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Aston Martin" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Haas" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Sauber" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Ferrari" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Racing Bulls" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Aston Martin" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Haas" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Williams" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Alpine" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Williams" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Racing Bulls" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Alpine" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Red Bull" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Sauber" vs constructor="McLaren"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3295 [F1 FILTER] Found 2 drivers for constructor McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3313 [F1] Fetching venue ref: http://sports.core.api.espn.com/v2/sports/racing/leagues/f1/venues/247?lang=en&region=us
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3233 [F1] Competition Race (401737825): date=2025-10-05T12:00:00.000Z, recent=true, inProgress=true, status=In Progress
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3243 [F1] Selected IN-PROGRESS competition: Race
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3278 [F1 FILTER] Looking for constructor: "Ferrari" (teamId: f1_ferrari)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Mercedes" vs constructor="Ferrari"
+2C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="McLaren" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Mercedes" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Ferrari" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Red Bull" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Aston Martin" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Haas" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Sauber" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Ferrari" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Racing Bulls" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Aston Martin" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Haas" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Williams" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Alpine" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Williams" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Racing Bulls" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Alpine" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Red Bull" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3287 [F1 FILTER] Checking competitor: team="", vehicle="Sauber" vs constructor="Ferrari"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3295 [F1 FILTER] Found 2 drivers for constructor Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3313 [F1] Fetching venue ref: http://sports.core.api.espn.com/v2/sports/racing/leagues/f1/venues/247?lang=en&region=us
+2C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3329 [F1] Fetching status ref: http://sports.core.api.espn.com/v2/sports/racing/leagues/f1/events/600052102/competitions/401737825/status?lang=en&region=us
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3345 [F1] Fetching athlete ref: http://sports.core.api.espn.com/v2/sports/racing/athletes/5579?lang=en&region=us
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3345 [F1] Fetching athlete ref: http://sports.core.api.espn.com/v2/sports/racing/athletes/5752?lang=en&region=us
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3345 [F1] Fetching athlete ref: http://sports.core.api.espn.com/v2/sports/racing/athletes/868?lang=en&region=us
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3345 [F1] Fetching athlete ref: http://sports.core.api.espn.com/v2/sports/racing/athletes/5498?lang=en&region=us
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3355 [F1] Fetching statistics ref: http://sports.core.api.espn.com/v2/sports/racing/leagues/f1/events/600052102/competitions/401737825/competitors/5579/statistics?lang=en&region=us
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3355 [F1] Fetching statistics ref: http://sports.core.api.espn.com/v2/sports/racing/leagues/f1/events/600052102/competitions/401737825/competitors/5752/statistics?lang=en&region=us
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3355 [F1] Fetching statistics ref: http://sports.core.api.espn.com/v2/sports/racing/leagues/f1/events/600052102/competitions/401737825/competitors/868/statistics?lang=en&region=us
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3355 [F1] Fetching statistics ref: http://sports.core.api.espn.com/v2/sports/racing/leagues/f1/events/600052102/competitions/401737825/competitors/5498/statistics?lang=en&region=us
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3443 Successfully converted F1 race data for McLaren {hasDrivers: true, driversCount: 2, sessionName: 'Singapore Airlines Singapore Grand Prix'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3451 
+========================================
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3452 F1 CARD DATA (TEXT VERSION)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3453 ========================================
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3454 EVENT: Singapore Airlines Singapore Grand Prix
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3455 COMPETITION: Race || Race
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3456 CIRCUIT: Marina Bay Circuit
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3457 DATE: 2025-10-05T12:00Z
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3458 CONSTRUCTOR: McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3459 STATUS: [object Object]
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3460 ----------------------------------------
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3464 DRIVERS (2):
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3466 
+Driver 1: Lando Norris
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3467   Position: 2
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3502   Time: Not available
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3506   Laps: 21
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3510   Available stats (11): lapsCompleted, championshipPts, bonus, penaltyPts, place, qual1TimeMS, qual2TimeMS, qual3TimeMS, position, gapToLeader, lastUpdated
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3466 
+Driver 2: Oscar Piastri
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3467   Position: 3
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3502   Time: Not available
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3506   Laps: 21
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3510   Available stats (11): lapsCompleted, championshipPts, bonus, penaltyPts, place, qual1TimeMS, qual2TimeMS, qual3TimeMS, position, gapToLeader, lastUpdated
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3516 ========================================
+
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1510 FavoritesScreen: team McLaren fetch phases (ms): {total: 417}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401812676 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401812676 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401812676 (CHA vs OKC): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401812676 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401812676 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401812676 (CHA vs OKC): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_McLaren (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_Ferrari (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401820325 (wnba) -> sport group: "WNBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 813062 (mlb) -> sport group: "MLB"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401772854 (nfl) -> sport group: "NFL"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401812676 (nba) -> sport group: "NBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 813062: {sport: 'MLB', actualLeagueCode: 'mlb', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 813062 - homeTeam: true awayTeam: true sport: MLB
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 813062 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5825 MLB Game 813062 venue sources: {mlb: 'Rogers Centre', competition: undefined, liveHeader: undefined, gamepackage: undefined, gameInfo: undefined, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401772854: {sport: 'NFL', actualLeagueCode: 'nfl', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: true, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401772854 - homeTeam: true awayTeam: true sport: NFL
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401772854 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:6741 FAV_NFL DEBUG - id=401772854 keys=["id","date","status","period","displayClock","venue","competitions","homeTeam","awayTeam","situation","drives","playsData","favoriteTeam","sport","actualLeagueCode","fromDirectLink","eventLink","isLive","isScheduled","isFinished"] competitionsKeys=["id","date","venue","competitors","status","situation"] status_comp={"type":{"id":"1","name":"STATUS_SCHEDULED","state":"pre","completed":false,"description":"Scheduled","detail":"Sun, October 5th at 4:25 PM EDT","shortDetail":"10/5 - 4:25 PM EDT"},"isTBDFlex":false} gameDataWithStatus=false liveData=false plays=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401812676: {sport: 'NBA', actualLeagueCode: 'nba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401812676 - homeTeam: true awayTeam: true sport: NBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401812676 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401820325: {sport: 'WNBA', actualLeagueCode: 'wnba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401820325 - homeTeam: true awayTeam: true sport: WNBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401820325 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 600052102_McLaren: {sport: 'F1', actualLeagueCode: 'f1', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 600052102_McLaren - homeTeam: false awayTeam: false sport: F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7406 [RENDER] Game 600052102_McLaren returning null - no homeTeam or awayTeam (this might be F1!)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7409 [F1 EARLY ROUTING] Detected F1 before home/away check - routing to renderF1GameCard
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5086 [F1 CARD RENDER] Checking F1 game: {hasDriver: false, hasDrivers: true, driversLength: 2, hasCompetitions: true, competitionsLength: 1}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:540 shouldGameReceiveUpdates for 600052102_McLaren: isLive=false, isPre=false, isPost=false, teamName=F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:634 Game 600052102_McLaren (F1): UPDATE - Unclear status, allowing updates as fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1108 FavoritesScreen: Games needing updates detected - setting up continuous refresh
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3443 Successfully converted F1 race data for Ferrari {hasDrivers: true, driversCount: 2, sessionName: 'Singapore Airlines Singapore Grand Prix'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3451 
+========================================
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3452 F1 CARD DATA (TEXT VERSION)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3453 ========================================
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3454 EVENT: Singapore Airlines Singapore Grand Prix
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3455 COMPETITION: Race || Race
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3456 CIRCUIT: Marina Bay Circuit
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3457 DATE: 2025-10-05T12:00Z
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3458 CONSTRUCTOR: Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3459 STATUS: [object Object]
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3460 ----------------------------------------
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3464 DRIVERS (2):
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3466 
+Driver 1: Lewis Hamilton
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3467   Position: 5
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3502   Time: Not available
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3506   Laps: 21
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3510   Available stats (11): lapsCompleted, championshipPts, bonus, penaltyPts, place, qual1TimeMS, qual2TimeMS, qual3TimeMS, position, gapToLeader, lastUpdated
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3466 
+Driver 2: Charles Leclerc
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3467   Position: 10
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3502   Time: Not available
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3506   Laps: 21
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3510   Available stats (12): lapsCompleted, championshipPts, bonus, penaltyPts, pitsTaken, place, qual1TimeMS, qual2TimeMS, qual3TimeMS, position, gapToLeader, lastUpdated
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3516 ========================================
+
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1510 FavoritesScreen: team Ferrari fetch phases (ms): {total: 440}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401812676 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401812676 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401812676 (CHA vs OKC): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401812676 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401812676 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401812676 (CHA vs OKC): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_McLaren (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_Ferrari (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401820325 (wnba) -> sport group: "WNBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 813062 (mlb) -> sport group: "MLB"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401772854 (nfl) -> sport group: "NFL"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401812676 (nba) -> sport group: "NBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 813062: {sport: 'MLB', actualLeagueCode: 'mlb', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 813062 - homeTeam: true awayTeam: true sport: MLB
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 813062 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5825 MLB Game 813062 venue sources: {mlb: 'Rogers Centre', competition: undefined, liveHeader: undefined, gamepackage: undefined, gameInfo: undefined, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401772854: {sport: 'NFL', actualLeagueCode: 'nfl', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: true, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401772854 - homeTeam: true awayTeam: true sport: NFL
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401772854 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:6741 FAV_NFL DEBUG - id=401772854 keys=["id","date","status","period","displayClock","venue","competitions","homeTeam","awayTeam","situation","drives","playsData","favoriteTeam","sport","actualLeagueCode","fromDirectLink","eventLink","isLive","isScheduled","isFinished"] competitionsKeys=["id","date","venue","competitors","status","situation"] status_comp={"type":{"id":"1","name":"STATUS_SCHEDULED","state":"pre","completed":false,"description":"Scheduled","detail":"Sun, October 5th at 4:25 PM EDT","shortDetail":"10/5 - 4:25 PM EDT"},"isTBDFlex":false} gameDataWithStatus=false liveData=false plays=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401812676: {sport: 'NBA', actualLeagueCode: 'nba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401812676 - homeTeam: true awayTeam: true sport: NBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401812676 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401820325: {sport: 'WNBA', actualLeagueCode: 'wnba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401820325 - homeTeam: true awayTeam: true sport: WNBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401820325 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 600052102_McLaren: {sport: 'F1', actualLeagueCode: 'f1', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 600052102_McLaren - homeTeam: false awayTeam: false sport: F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7406 [RENDER] Game 600052102_McLaren returning null - no homeTeam or awayTeam (this might be F1!)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7409 [F1 EARLY ROUTING] Detected F1 before home/away check - routing to renderF1GameCard
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5086 [F1 CARD RENDER] Checking F1 game: {hasDriver: false, hasDrivers: true, driversLength: 2, hasCompetitions: true, competitionsLength: 1}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3034 [DEBUG] NBA API response structure for Oklahoma City Thunder: {hasHeader: true, hasCompetitions: true, competitionsLength: 1, topLevelKeys: Array(10)}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:3090 Successfully converted NBA game 401812676 for Oklahoma City Thunder {hasHeader: true, hasCompetitions: true, status: 'Scheduled'}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1510 FavoritesScreen: team Oklahoma City Thunder fetch phases (ms): {total: 467}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1587 Duplicate game removed: 813062 (MLB)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1593 Found 7 games (6 unique) for 18 favorite teams
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1594 Unique game IDs: (6) [813062, '600052102_McLaren', '401772854', '401812676', '600052102_Ferrari', '401820325']
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1597 [AUTO STORAGE] Storing currentGame data for all teams with fetched games...
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1640 UPDATE TRACKING: No games currently need updates (all finished beyond timing window or too far in future)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:540 shouldGameReceiveUpdates for 600052102_McLaren: isLive=false, isPre=false, isPost=false, teamName=F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:634 Game 600052102_McLaren (F1): UPDATE - Unclear status, allowing updates as fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1108 FavoritesScreen: Games needing updates detected - setting up continuous refresh
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401812676 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401812676 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401812676 (CHA vs OKC): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401812676 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401812676 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401812676 (CHA vs OKC): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401812676 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401812676 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401812676 (CHA vs OKC): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401812676
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401812676 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401812676 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401812676 (CHA vs OKC): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401772854
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401772854 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:812 [STATUS DEBUG] Game 401772854 - checking NFL computeMatchFlags
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:814 [STATUS DEBUG] Game 401772854 - NFL flags: isLive=false, isFinished=false, isScheduled=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:823 [STATUS DEBUG] Game 401772854 -> Scheduled (from NFL flags)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 401772854 (CIN vs DET): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 813062
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 813062 - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:803 [STATUS DEBUG] Game 813062 - MLB coded: "S"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 813062 (UNK vs UNK): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 401820325
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 401820325 - fallback status: state="pre"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:792 [STATUS DEBUG] Game 401820325 -> Scheduled
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 401820325 (LV vs PHX): status="Scheduled"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_McLaren (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_Ferrari (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401820325 (wnba) -> sport group: "WNBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 813062 (mlb) -> sport group: "MLB"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401772854 (nfl) -> sport group: "NFL"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401812676 (nba) -> sport group: "NBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 813062: {sport: 'MLB', actualLeagueCode: 'mlb', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 813062 - homeTeam: true awayTeam: true sport: MLB
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 813062 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5825 MLB Game 813062 venue sources: {mlb: 'Rogers Centre', competition: undefined, liveHeader: undefined, gamepackage: undefined, gameInfo: undefined, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401772854: {sport: 'NFL', actualLeagueCode: 'nfl', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: true, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401772854 - homeTeam: true awayTeam: true sport: NFL
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401772854 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:6741 FAV_NFL DEBUG - id=401772854 keys=["id","date","status","period","displayClock","venue","competitions","homeTeam","awayTeam","situation","drives","playsData","favoriteTeam","sport","actualLeagueCode","fromDirectLink","eventLink","isLive","isScheduled","isFinished"] competitionsKeys=["id","date","venue","competitors","status","situation"] status_comp={"type":{"id":"1","name":"STATUS_SCHEDULED","state":"pre","completed":false,"description":"Scheduled","detail":"Sun, October 5th at 4:25 PM EDT","shortDetail":"10/5 - 4:25 PM EDT"},"isTBDFlex":false} gameDataWithStatus=false liveData=false plays=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401812676: {sport: 'NBA', actualLeagueCode: 'nba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401812676 - homeTeam: true awayTeam: true sport: NBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401812676 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401820325: {sport: 'WNBA', actualLeagueCode: 'wnba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401820325 - homeTeam: true awayTeam: true sport: WNBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401820325 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 600052102_McLaren: {sport: 'F1', actualLeagueCode: 'f1', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 600052102_McLaren - homeTeam: false awayTeam: false sport: F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7406 [RENDER] Game 600052102_McLaren returning null - no homeTeam or awayTeam (this might be F1!)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7409 [F1 EARLY ROUTING] Detected F1 before home/away check - routing to renderF1GameCard
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5086 [F1 CARD RENDER] Checking F1 game: {hasDriver: false, hasDrivers: true, driversLength: 2, hasCompetitions: true, competitionsLength: 1}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:540 shouldGameReceiveUpdates for 600052102_McLaren: isLive=false, isPre=false, isPost=false, teamName=F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:634 Game 600052102_McLaren (F1): UPDATE - Unclear status, allowing updates as fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:1108 FavoritesScreen: Games needing updates detected - setting up continuous refresh
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_McLaren (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 600052102_Ferrari (f1) -> sport group: "F1"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401820325 (wnba) -> sport group: "WNBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 813062 (mlb) -> sport group: "MLB"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401772854 (nfl) -> sport group: "NFL"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:8293 [GROUPING] Game 401812676 (nba) -> sport group: "NBA"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 813062: {sport: 'MLB', actualLeagueCode: 'mlb', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 813062 - homeTeam: true awayTeam: true sport: MLB
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 813062 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5825 MLB Game 813062 venue sources: {mlb: 'Rogers Centre', competition: undefined, liveHeader: undefined, gamepackage: undefined, gameInfo: undefined, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401772854: {sport: 'NFL', actualLeagueCode: 'nfl', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: true, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401772854 - homeTeam: true awayTeam: true sport: NFL
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401772854 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:6741 FAV_NFL DEBUG - id=401772854 keys=["id","date","status","period","displayClock","venue","competitions","homeTeam","awayTeam","situation","drives","playsData","favoriteTeam","sport","actualLeagueCode","fromDirectLink","eventLink","isLive","isScheduled","isFinished"] competitionsKeys=["id","date","venue","competitors","status","situation"] status_comp={"type":{"id":"1","name":"STATUS_SCHEDULED","state":"pre","completed":false,"description":"Scheduled","detail":"Sun, October 5th at 4:25 PM EDT","shortDetail":"10/5 - 4:25 PM EDT"},"isTBDFlex":false} gameDataWithStatus=false liveData=false plays=false
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401812676: {sport: 'NBA', actualLeagueCode: 'nba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401812676 - homeTeam: true awayTeam: true sport: NBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401812676 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 401820325: {sport: 'WNBA', actualLeagueCode: 'wnba', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 401820325 - homeTeam: true awayTeam: true sport: WNBA
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7582 [STATUS READ] Game 401820325 - statusFromSiteAPI found: false, displayClock: undefined
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_Ferrari
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_Ferrari - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_Ferrari - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_Ferrari -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:772 [STATUS DEBUG] Checking status for game 600052102_McLaren
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:785 [STATUS DEBUG] Game 600052102_McLaren - fallback status: state="undefined"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:828 [STATUS DEBUG] Game 600052102_McLaren - using date-based fallback
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:837 [STATUS DEBUG] Game 600052102_McLaren -> Live (date-based)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:849 [SORT DEBUG] Game 600052102_Ferrari (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:850 [SORT DEBUG] Game 600052102_McLaren (UNK vs UNK): status="Live"
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7389 Rendering game card for 600052102_McLaren: {sport: 'F1', actualLeagueCode: 'f1', fromDirectLink: true, hasGameDataWithStatus: false, hasStatus: false, …}
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7403 [RENDER] Game 600052102_McLaren - homeTeam: false awayTeam: false sport: F1
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7406 [RENDER] Game 600052102_McLaren returning null - no homeTeam or awayTeam (this might be F1!)
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:7409 [F1 EARLY ROUTING] Detected F1 before home/away check - routing to renderF1GameCard
+C:\live-sports-tracker\SportsTrackerExpo\src\screens\FavoritesScreen.js:5086 [F1 CARD RENDER] Checking F1 game: {hasDriver: false, hasDrivers: true, driversLength: 2, hasCompetitions: true, competitionsLength: 1}

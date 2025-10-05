@@ -1745,7 +1745,7 @@ const NHLGameDetailsScreen = ({ route }) => {
       <View style={styles.rosterContainer}>
         <View style={styles.rosterHeader}>
           <Image 
-            source={{ uri: team?.team?.logo || getTeamLogoUrl('nhl', team.team?.abbreviation) }} 
+            source={{ uri: team?.team?.logos?.[isDarkMode ? 1 : 0].href || getTeamLogoUrl('nhl', team.team?.abbreviation) }} 
             style={styles.rosterTeamLogo} 
           />
           <Text style={[styles.rosterTeamName, { color: theme.text }]}>

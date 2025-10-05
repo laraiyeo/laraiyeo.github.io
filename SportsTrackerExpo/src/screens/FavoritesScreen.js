@@ -517,11 +517,28 @@ const gamesToUpdate = new Set();
 
 // Function to determine if a game should receive updates based on its current status
 const shouldGameReceiveUpdates = (game, statusInfo, teamName = 'Unknown') => {
-  const { isLive, isPre, isPost } = statusInfo;
+  let { isLive, isPre, isPost } = statusInfo;
   const gameId = game.id || game.eventId;
   
-  // Debug logging to understand status detection
-  console.log(`shouldGameReceiveUpdates for ${gameId}: isLive=${isLive}, isPre=${isPre}, isPost=${isPost}, teamName=${teamName}`);
+  // If status flags are undefined, compute them from the game object
+  if (isLive === undefined && isPre === undefined && isPost === undefined) {
+    // Try to get status flags from the game object itself first
+    if (game.isLive !== undefined || game.isScheduled !== undefined || game.isFinished !== undefined) {
+      isLive = game.isLive;
+      isPre = game.isScheduled && !game.isLive;
+      isPost = game.isFinished;
+    } else {
+      // Compute status flags using computeMatchFlags if available
+      const computedFlags = computeMatchFlags(game);
+      isLive = computedFlags.isLive;
+      isPre = computedFlags.isScheduled && !computedFlags.isLive;
+      isPost = computedFlags.isFinished;
+    }
+    console.log(`shouldGameReceiveUpdates for ${gameId}: Computed status - isLive=${isLive}, isPre=${isPre}, isPost=${isPost}, teamName=${teamName}`);
+  } else {
+    // Debug logging to understand status detection
+    console.log(`shouldGameReceiveUpdates for ${gameId}: isLive=${isLive}, isPre=${isPre}, isPost=${isPost}, teamName=${teamName}`);
+  }
   
   // Always update live games
   if (isLive) {
@@ -652,11 +669,34 @@ const formatF1Color = (color) => {
 const selectBestF1Time = (driver) => {
   if (!driver) return '---';
   
+  // Check for live gap to leader data first (similar to RaceDetailsScreen logic)
+  if (driver.liveStats && driver.liveStats.splits && driver.liveStats.splits.categories) {
+    const categories = driver.liveStats.splits.categories;
+    
+    // Priority 1: categories[1].gapToLeader (if exists and valid)
+    if (categories[1] && categories[1].name === 'gapToLeader') {
+      const gapStat = categories[1].stats?.find(stat => stat.name === 'gapToLeader');
+      if (gapStat) {
+        if (gapStat.value === 0) {
+          return 'Leader';
+        }
+        return gapStat.displayValue || gapStat.value;
+      } else {
+        // gapToLeader category exists but no gapToLeader stat - check if this is position 1
+        const positionStat = categories[1].stats?.find(stat => stat.name === 'position');
+        if (positionStat && positionStat.value === 1) {
+          return 'Leader';
+        }
+      }
+    }
+  }
+  
   // Extract stats from the statistics array (same as in console output)
   const stats = driver.statistics || [];
   let totalTime = null;
   let behindTime = null;
   let behindLaps = null;
+  let gapToLeaderFromStats = null;
   
   // Try result fields first
   if (driver.result) {
@@ -674,11 +714,13 @@ const selectBestF1Time = (driver) => {
       if (!totalTime && key === 'totaltime') totalTime = val;
       if (!behindTime && key === 'behindtime') behindTime = val;
       if (!behindLaps && key === 'behindlaps') behindLaps = val;
+      if (!gapToLeaderFromStats && key === 'gaptoleader') gapToLeaderFromStats = val;
     }
   }
   
   // Also check top-level driver properties as fallback
   const timeOptions = [
+    gapToLeaderFromStats,
     driver.gapToLeader,
     totalTime,
     driver.totalTime,
@@ -1073,16 +1115,30 @@ const FavoritesScreen = ({ navigation }) => {
             if (!game) return false;
             
             // Create proper status info object with more robust detection
-            const statusInfo = { 
-              isLive: game.isLive || false, 
-              isPre: (game.isScheduled && !game.isLive) || false, 
-              isPost: game.isFinished || 
-                     (game.status?.type?.completed === true) ||
-                     (game.status?.type?.description?.toLowerCase().includes('final')) ||
-                     (game.header?.competitions?.[0]?.status?.type?.completed === true) ||
-                     (game.competitions?.[0]?.status?.type?.completed === true) ||
-                     false
-            };
+            let statusInfo;
+            
+            // If the game doesn't have status flags set OR all flags are false (indicating they need recomputation), compute them using computeMatchFlags
+            if ((game.isLive === undefined && game.isScheduled === undefined && game.isFinished === undefined) ||
+                (!game.isLive && !game.isScheduled && !game.isFinished)) {
+              const flags = computeMatchFlags(game);
+              statusInfo = {
+                isLive: flags.isLive,
+                isPre: flags.isScheduled && !flags.isLive,
+                isPost: flags.isFinished
+              };
+            } else {
+              // Use existing flags with fallback detection
+              statusInfo = { 
+                isLive: game.isLive || false, 
+                isPre: (game.isScheduled && !game.isLive) || false, 
+                isPost: game.isFinished || 
+                       (game.status?.type?.completed === true) ||
+                       (game.status?.type?.description?.toLowerCase().includes('final')) ||
+                       (game.header?.competitions?.[0]?.status?.type?.completed === true) ||
+                       (game.competitions?.[0]?.status?.type?.completed === true) ||
+                       false
+              };
+            }
             
             // Debug log to see what's happening
             console.log(`Auto-refresh check for game ${game.id || game.eventId}: isLive=${statusInfo.isLive}, isPre=${statusInfo.isPre}, isPost=${statusInfo.isPost}`);
@@ -1145,16 +1201,29 @@ const FavoritesScreen = ({ navigation }) => {
           if (!game) return false;
 
           // Create proper status info object with more robust detection (same as main auto-refresh)
-          const statusInfo = { 
-            isLive: game.isLive || false, 
-            isPre: (game.isScheduled && !game.isLive) || false, 
-            isPost: game.isFinished || 
-                   (game.status?.type?.completed === true) ||
-                   (String(game.status?.type?.description || '').toLowerCase().includes('final')) ||
-                   (game.header?.competitions?.[0]?.status?.type?.completed === true) ||
-                   (game.competitions?.[0]?.status?.type?.completed === true) ||
-                   false
-          };
+          let statusInfo;
+          
+          // If the game doesn't have status flags set, compute them using computeMatchFlags
+          if (game.isLive === undefined && game.isScheduled === undefined && game.isFinished === undefined) {
+            const flags = computeMatchFlags(game);
+            statusInfo = {
+              isLive: flags.isLive,
+              isPre: flags.isScheduled && !flags.isLive,
+              isPost: flags.isFinished
+            };
+          } else {
+            // Use existing flags with fallback detection
+            statusInfo = { 
+              isLive: game.isLive || false, 
+              isPre: (game.isScheduled && !game.isLive) || false, 
+              isPost: game.isFinished || 
+                     (game.status?.type?.completed === true) ||
+                     (String(game.status?.type?.description || '').toLowerCase().includes('final')) ||
+                     (game.header?.competitions?.[0]?.status?.type?.completed === true) ||
+                     (game.competitions?.[0]?.status?.type?.completed === true) ||
+                     false
+            };
+          }
 
           // Debug log to see what's happening
           console.log(`Plays auto-refresh check for game ${game.id || game.eventId}: isLive=${statusInfo.isLive}, isPre=${statusInfo.isPre}, isPost=${statusInfo.isPost}`);
@@ -1282,9 +1351,9 @@ const FavoritesScreen = ({ navigation }) => {
       currentFetchPhase = forceRefresh ? 'initial' : 'poll';
       const now = Date.now();
 
-      // Reduce debounce frequency: don't refetch more often than every 20 seconds
-      if (!forceRefresh && lastFetchTime && (now - lastFetchTime) < 20000) {
-        if (DEBUG) console.log('Skipping fetch - too soon since last fetch (20s cooldown)');
+      // Reduce debounce frequency: don't refetch more often than every 10 seconds
+      if (!forceRefresh && lastFetchTime && (now - lastFetchTime) < 10000) {
+        if (DEBUG) console.log('Skipping fetch - too soon since last fetch (10s cooldown)');
         setLoading(false);
         setRefreshing(false);
         return;
@@ -1622,20 +1691,44 @@ const FavoritesScreen = ({ navigation }) => {
         Array.isArray(currentGamesSnapshot) ? 
           currentGamesSnapshot.filter(g => {
             if (!g) return false;
-            const statusInfo = { 
-              isLive: g.isLive, 
-              isPre: g.isScheduled && !g.isLive, 
-              isPost: g.isFinished 
-            };
+            
+            let statusInfo;
+            if (g.isLive === undefined && g.isScheduled === undefined && g.isFinished === undefined) {
+              const flags = computeMatchFlags(g);
+              statusInfo = {
+                isLive: flags.isLive,
+                isPre: flags.isScheduled && !flags.isLive,
+                isPost: flags.isFinished
+              };
+            } else {
+              statusInfo = { 
+                isLive: g.isLive, 
+                isPre: g.isScheduled && !g.isLive, 
+                isPost: g.isFinished 
+              };
+            }
+            
             return shouldGameReceiveUpdates(g, statusInfo, g.sport || 'Unknown');
           }) : 
           favoriteGames.filter(game => {
             if (!game) return false;
-            const statusInfo = { 
-              isLive: game.isLive, 
-              isPre: game.isScheduled && !game.isLive, 
-              isPost: game.isFinished 
-            };
+            
+            let statusInfo;
+            if (game.isLive === undefined && game.isScheduled === undefined && game.isFinished === undefined) {
+              const flags = computeMatchFlags(game);
+              statusInfo = {
+                isLive: flags.isLive,
+                isPre: flags.isScheduled && !flags.isLive,
+                isPost: flags.isFinished
+              };
+            } else {
+              statusInfo = { 
+                isLive: game.isLive, 
+                isPre: game.isScheduled && !game.isLive, 
+                isPost: game.isFinished 
+              };
+            }
+            
             return shouldGameReceiveUpdates(game, statusInfo, game.sport || 'Unknown');
           })
       );
@@ -2802,14 +2895,24 @@ const FavoritesScreen = ({ navigation }) => {
             console.log(`[NFL INITIAL] Attached ${initialDrivesData.length} drives during initial creation, plays in most recent drive: ${formattedGame.playsData ? formattedGame.playsData.length : 0}`);
           }
           
-          // Add additional metadata
+          // Compute status flags based on competition status
+          const statusType = competition.status?.type?.state;
+          const isLive = statusType === 'in';
+          const isScheduled = statusType === 'pre' || statusType === 'in';
+          const isFinished = statusType === 'post';
+
+          // Add additional metadata including status flags
           const convertedGame = {
             ...formattedGame,
             favoriteTeam: team,
             sport: 'NFL',
             actualLeagueCode: 'nfl',
             fromDirectLink: true,
-            eventLink: nflUrl
+            eventLink: nflUrl,
+            // Add status flags for proper update detection
+            isLive: isLive,
+            isScheduled: isScheduled,
+            isFinished: isFinished
           };
           
           console.log(`Successfully converted NFL game ${convertedGame.id} for ${teamName}`, {
@@ -2865,6 +2968,12 @@ const FavoritesScreen = ({ navigation }) => {
           const homeCompetitor = competitors.find(c => c.homeAway === 'home');
           const awayCompetitor = competitors.find(c => c.homeAway === 'away');
 
+          // Compute status flags based on competition status
+          const statusType = competition.status?.type?.state;
+          const isLive = statusType === 'in';
+          const isScheduled = statusType === 'pre' || statusType === 'in';
+          const isFinished = statusType === 'post';
+
           // Convert NHL data to standard format
           const convertedGame = {
             ...eventData,
@@ -2888,7 +2997,11 @@ const FavoritesScreen = ({ navigation }) => {
             sport: 'NHL',
             actualLeagueCode: 'nhl',
             fromDirectLink: true,
-            eventLink: nhlUrl
+            eventLink: nhlUrl,
+            // Add status flags for proper update detection
+            isLive: isLive,
+            isScheduled: isScheduled,
+            isFinished: isFinished
           };
           
           console.log(`Successfully converted NHL game ${convertedGame.id} for ${teamName}`, {
@@ -2939,6 +3052,12 @@ const FavoritesScreen = ({ navigation }) => {
           const homeCompetitor = competitors.find(c => c.homeAway === 'home');
           const awayCompetitor = competitors.find(c => c.homeAway === 'away');
 
+          // Compute status flags based on competition status
+          const statusType = competition.status?.type?.state;
+          const isLive = statusType === 'in';
+          const isScheduled = statusType === 'pre' || statusType === 'in';
+          const isFinished = statusType === 'post';
+
           // Convert NBA data to standard format
           const convertedGame = {
             ...eventData,
@@ -2962,7 +3081,11 @@ const FavoritesScreen = ({ navigation }) => {
             sport: 'NBA',
             actualLeagueCode: 'nba',
             fromDirectLink: true,
-            eventLink: nbaUrl
+            eventLink: nbaUrl,
+            // Add status flags for proper update detection
+            isLive: isLive,
+            isScheduled: isScheduled,
+            isFinished: isFinished
           };
           
           console.log(`Successfully converted NBA game ${convertedGame.id} for ${teamName}`, {
@@ -3013,6 +3136,12 @@ const FavoritesScreen = ({ navigation }) => {
           const homeCompetitor = competitors.find(c => c.homeAway === 'home');
           const awayCompetitor = competitors.find(c => c.homeAway === 'away');
 
+          // Compute status flags based on competition status
+          const statusType = competition.status?.type?.state;
+          const isLive = statusType === 'in';
+          const isScheduled = statusType === 'pre' || statusType === 'in';
+          const isFinished = statusType === 'post';
+
           // Convert WNBA data to standard format
           const convertedGame = {
             ...eventData,
@@ -3036,7 +3165,11 @@ const FavoritesScreen = ({ navigation }) => {
             sport: 'WNBA',
             actualLeagueCode: 'wnba',
             fromDirectLink: true,
-            eventLink: wnbaUrl
+            eventLink: wnbaUrl,
+            // Add status flags for proper update detection
+            isLive: isLive,
+            isScheduled: isScheduled,
+            isFinished: isFinished
           };
           
           console.log(`Successfully converted WNBA game ${convertedGame.id} for ${teamName}`, {
@@ -3248,7 +3381,9 @@ const FavoritesScreen = ({ navigation }) => {
                 result: driver.result || null,
                 athlete: athlete,
                 team: driver.team,
-                vehicle: driver.vehicle
+                vehicle: driver.vehicle,
+                // Include liveStats for gap to leader calculation
+                liveStats: driver.liveStats || null
               };
             } catch (err) {
               console.warn(`[F1] Error fetching driver data:`, err);
@@ -3261,11 +3396,19 @@ const FavoritesScreen = ({ navigation }) => {
                 result: driver.result || null,
                 athlete: driver.athlete || {},
                 team: driver.team,
-                vehicle: driver.vehicle
+                vehicle: driver.vehicle,
+                // Include liveStats for gap to leader calculation
+                liveStats: driver.liveStats || null
               };
             }
           }));
           
+          // Compute status flags based on statusObject (resolved from $ref)
+          const statusType = statusObject?.type?.state;
+          const isLive = statusType === 'in';
+          const isScheduled = statusType === 'pre' || statusType === 'in';
+          const isFinished = statusType === 'post';
+
           const convertedGame = {
             id: `${f1Data.id || currentGameData.eventId}_${constructorTeamName}`, // Unique ID per constructor for React keys
             originalEventId: f1Data.id || currentGameData.eventId, // Store original event ID for reference
@@ -3282,6 +3425,10 @@ const FavoritesScreen = ({ navigation }) => {
             actualLeagueCode: 'f1',
             fromDirectLink: true,
             eventLink: currentGameData.eventLink,
+            // Add status flags for proper update detection
+            isLive: isLive,
+            isScheduled: isScheduled,
+            isFinished: isFinished,
             // Race session info
             session: {
               id: f1Data.id,
@@ -5900,14 +6047,14 @@ const FavoritesScreen = ({ navigation }) => {
             <Text allowFontScaling={false} style={[styles.gameStatus, {
               color: colors.primary
             }]}>
-              {gameStatusText}
+              {gameStatusText.includes('End of ') ? gameStatusText.replace('End of ', '') : gameStatusText}
             </Text>
             
             {isLive ? (
               <View style={{ alignItems: 'center', marginTop: 4 }}>
                 {matchStatus.time && matchStatus.detail !== 'Halftime' && (
                   <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary, fontWeight: '600' }]}>
-                    {matchStatus.time === '0.00' ? 'End' : matchStatus.time}
+                    {matchStatus.time === '0.00' || matchStatus.time === '0.0' ? 'End' : matchStatus.time}
                   </Text>
                 )}
               </View>
@@ -6173,14 +6320,14 @@ const FavoritesScreen = ({ navigation }) => {
             <Text allowFontScaling={false} style={[styles.gameStatus, {
               color: colors.primary
             }]}>
-              {gameStatusText}
+              {gameStatusText.includes('End of ') ? gameStatusText.replace('End of ', '') : gameStatusText}
             </Text>
             
             {isLive ? (
               <View style={{ alignItems: 'center', marginTop: 4 }}>
                 {matchStatus.time && matchStatus.detail !== 'Halftime' && (
                   <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary, fontWeight: '600' }]}>
-                    {matchStatus.time === '0.00' ? 'End' : matchStatus.time}
+                    {matchStatus.time === '0.00' || matchStatus.time === '0.0' ? 'End' : matchStatus.time}
                   </Text>
                 )}
               </View>
