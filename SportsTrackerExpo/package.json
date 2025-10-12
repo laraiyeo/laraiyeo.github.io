@@ -10,11 +10,17 @@
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.1",
+    "@expo/vector-icons": "^15.0.2",
+    "@g-loot/react-tournament-brackets": "^1.0.31-rc",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-navigation/bottom-tabs": "^7.4.7",
     "@react-navigation/native": "^7.1.17",
     "@react-navigation/stack": "^7.4.8",
     "expo": "^54.0.1",
+    "expo-application": "~7.0.7",
+    "expo-clipboard": "~8.0.7",
+    "expo-constants": "~18.0.9",
+    "expo-dev-client": "~5.0.5",
     "expo-status-bar": "~3.0.7",
     "firebase": "^12.3.0",
     "react": "19.1.0",
@@ -28,9 +34,8 @@
     "react-native-vector-icons": "^10.3.0",
     "react-native-web": "^0.21.0",
     "react-native-webview": "13.15.0",
-    "expo-application": "~7.0.7",
-    "expo-constants": "~18.0.9",
-    "expo-dev-client": "~5.0.5"
+    "react-svg-pan-zoom": "^3.13.1",
+    "styled-components": "^6.1.19"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

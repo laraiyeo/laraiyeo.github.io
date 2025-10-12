@@ -69,15 +69,9 @@ async function buildGameCard(game) {
     ? `${seriesStatus.seriesAbbrev || "N/A"} - Game ${seriesStatus.gameNumberOfSeries || "N/A"}`
     : "";
 
-  const awayRecord =
-    seriesStatus?.topSeedTeamAbbrev === awayTeam.abbrev
-      ? `${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`
-      : `${seriesStatus.bottomSeedWins}-${seriesStatus.topSeedWins}`;
+  const awayRecord = '';
 
-  const homeRecord =
-    seriesStatus?.topSeedTeamAbbrev === homeTeam.abbrev
-      ? `${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`
-      : `${seriesStatus.bottomSeedWins}-${seriesStatus.topSeedWins}`;
+  const homeRecord = '';
 
   function getOrdinalSuffix(num) {
     if (num % 100 >= 11 && num % 100 <= 13) return `${num}th`;
@@ -93,13 +87,6 @@ async function buildGameCard(game) {
   const homeIsWinner = homeTeam.score > awayTeam.score;
 
   let gameSeriesInfo = "";
-  if (seriesStatus.topSeedWins > seriesStatus.bottomSeedWins) {
-    gameSeriesInfo = `${seriesStatus.topSeedTeamAbbrev} ${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`;
-  } else if (seriesStatus.bottomSeedWins > seriesStatus.topSeedWins) {
-    gameSeriesInfo = `${seriesStatus.bottomSeedTeamAbbrev} ${seriesStatus.bottomSeedWins}-${seriesStatus.topSeedWins}`;
-  } else {
-    gameSeriesInfo = `Tied ${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`;
-  }
 
   const currentPeriod = periodDescriptor.periodType === "OT"
     ? `${getOrdinalSuffix(periodDescriptor.otPeriods)} OT`

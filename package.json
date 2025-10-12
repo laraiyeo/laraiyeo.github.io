@@ -1,0 +1,30 @@
+{
+  "name": "valorant-vct-proxy",
+  "version": "1.0.0",
+  "description": "Comprehensive Valorant VCT data proxy server for PandaScore API",
+  "main": "esports-proxy.js",
+  "scripts": {
+    "start": "node esports-proxy.js",
+    "dev": "node esports-proxy.js"
+  },
+  "keywords": [
+    "valorant",
+    "vct",
+    "esports",
+    "proxy",
+    "pandascore"
+  ],
+  "author": "Damilola Laraiyetan",
+  "license": "MIT",
+  "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^6.7.2",
+    "@fortawesome/free-solid-svg-icons": "^7.1.0",
+    "@fortawesome/react-native-fontawesome": "^0.3.2",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.7"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

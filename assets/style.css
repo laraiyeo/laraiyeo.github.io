@@ -176,6 +176,10 @@ body {
     background-image: url('ncaa.png');
 }
 
+.block-cs2 {
+    background-image: url('cs2-logo.png');
+}
+
 .block {
     cursor: pointer;
 }
