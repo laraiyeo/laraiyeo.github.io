@@ -26,18 +26,15 @@ const VALDiscoverScreen = ({ navigation }) => {
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [allCompletedEvents, setAllCompletedEvents] = useState([]);
   const [allUpcomingEvents, setAllUpcomingEvents] = useState([]);
+  const [allLiveEvents, setAllLiveEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedGame, setSelectedGame] = useState('VAL');
+  // Removed selectedGame state since game selection is now handled by top tabs
   const [showCompletedModal, setShowCompletedModal] = useState(false);
   const [showUpcomingModal, setShowUpcomingModal] = useState(false);
+  const [showLiveModal, setShowLiveModal] = useState(false);
 
-  const gameFilters = [
-    { name: 'CS2', icon: 'game-controller', active: false },
-    { name: 'VAL', icon: 'game-controller', active: true },
-    { name: 'DOTA2', icon: 'game-controller', active: false },
-    { name: 'LOL', icon: 'game-controller', active: false }
-  ];
+  // Removed gameFilters since they're now handled by top tab navigation
 
   useEffect(() => {
     loadData();
@@ -84,6 +81,7 @@ const VALDiscoverScreen = ({ navigation }) => {
       setUpcomingEvents(discoverData.upcoming || []);
       setAllCompletedEvents(discoverData.allCompleted || []);
       setAllUpcomingEvents(discoverData.allUpcoming || []);
+      setAllLiveEvents(liveEventsList);
     } catch (error) {
       console.error('Error loading Valorant discover data:', error);
       setFeaturedEvents([]);
@@ -92,6 +90,7 @@ const VALDiscoverScreen = ({ navigation }) => {
       setUpcomingEvents([]);
       setAllCompletedEvents([]);
       setAllUpcomingEvents([]);
+      setAllLiveEvents([]);
     } finally {
       setLoading(false);
     }
@@ -103,15 +102,7 @@ const VALDiscoverScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  const handleGameFilterPress = (gameName) => {
-    setSelectedGame(gameName);
-    if (gameName === 'CS2') {
-      navigation.navigate('CS2Discover');
-    } else if (gameName === 'VAL') {
-      // Already on VAL discover, no navigation needed
-    }
-    // TODO: Add navigation for other games when implemented
-  };
+  // Removed handleGameFilterPress since game switching is now handled by top tabs
 
   const FeaturedEventCard = ({ event, index, scrollX }) => {
     const dateRange = formatEventDateRange(event.startDate, event.endDate);
@@ -139,7 +130,7 @@ const VALDiscoverScreen = ({ navigation }) => {
             <Image
               source={{ uri: event.imageUrl || event.logoUrl }}
               style={styles.featuredImage}
-              resizeMode="cover"
+              resizeMode="contain"
             />
           ) : (
             <View style={[styles.featuredImage, { backgroundColor: '#ff4654' }]} />
@@ -205,7 +196,7 @@ const VALDiscoverScreen = ({ navigation }) => {
             <Image
               source={{ uri: event.imageUrl || event.logoUrl }}
               style={styles.eventImage}
-              resizeMode="cover"
+              resizeMode="contain"
             />
           ) : (
             <View style={[styles.eventImagePlaceholder, { backgroundColor: colors.primary }]}>
@@ -303,42 +294,23 @@ const VALDiscoverScreen = ({ navigation }) => {
         
       </View>
 
-      {/* Game Filter */}
-      <View style={styles.filterContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-          {gameFilters.map((game, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.filterChip,
-                game.active && styles.activeFilterChip,
-                { backgroundColor: game.active ? colors.primary : theme.surfaceSecondary }
-              ]}
-              onPress={() => handleGameFilterPress(game.name)}
-            >
-              <Ionicons 
-                name={game.icon} 
-                size={16} 
-                color={game.active ? 'white' : theme.text} 
-                style={styles.filterIcon}
-              />
-              <Text style={[
-                styles.filterText,
-                { color: game.active ? 'white' : theme.text }
-              ]}>
-                {game.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+      {/* Game filter removed - now handled by top tab navigation */}
 
       {/* Featured Section */}
       {featuredEvents.length > 0 && (
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
+          <TouchableOpacity 
+            style={styles.sectionHeader}
+            onPress={() => setShowLiveModal(true)}
+            disabled={allLiveEvents.length === 0}
+          >
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Featured</Text>
-          </View>
+            {allLiveEvents.length > 0 && (
+              <View style={styles.sectionArrow}>
+                <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+              </View>
+            )}
+          </TouchableOpacity>
           
           <FlatList
             data={featuredEvents}
@@ -406,6 +378,14 @@ const VALDiscoverScreen = ({ navigation }) => {
       )}
 
       {/* Modals */}
+      <FullListModal
+        visible={showLiveModal}
+        onClose={() => setShowLiveModal(false)}
+        events={allLiveEvents}
+        title="All Live Events"
+        type="live"
+      />
+      
       <FullListModal
         visible={showCompletedModal}
         onClose={() => setShowCompletedModal(false)}
@@ -549,8 +529,10 @@ const styles = StyleSheet.create({
   },
   featuredImage: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
     borderRadius: 12,
+    backgroundColor: '#1a1a1a',
   },
   featuredOverlay: {
     position: 'absolute',
@@ -637,14 +619,18 @@ const styles = StyleSheet.create({
   },
   eventImageContainer: {
     marginRight: 16,
+    width: 80,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   eventImage: {
-    width: 60,
+    width: 80,
     height: 60,
     borderRadius: 8,
   },
   eventImagePlaceholder: {
-    width: 60,
+    width: 80,
     height: 60,
     borderRadius: 8,
     justifyContent: 'center',

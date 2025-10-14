@@ -97,8 +97,13 @@ import NHLGameDetailsScreen from './src/screens/nhl/GameDetailsScreen';
 import NHLTeamPageScreen from './src/screens/nhl/TeamPageScreen';
 import NHLPlayerPageScreen from './src/screens/nhl/PlayerPageScreen';
 
+// Esports screens
+import EsportsNavigator from './src/screens/esports/EsportsTabNavigator';
+
 // CS2 Esports screens
 import CS2TabNavigator from './src/screens/esports/cs2/CS2TabNavigator';
+import CS2HomeScreen from './src/screens/esports/cs2/CS2HomeScreen';
+import CS2DiscoverScreen from './src/screens/esports/cs2/CS2DiscoverScreen';
 import CS2MatchDetailsScreen from './src/screens/esports/cs2/CS2MatchDetailsScreen';
 import CS2LiveScreen from './src/screens/esports/cs2/CS2LiveScreen';
 import CS2ResultsScreen from './src/screens/esports/cs2/CS2ResultsScreen';
@@ -712,22 +717,22 @@ const MainStackNavigator = () => {
           if (sport?.toLowerCase() === 'f1') {
             return <F1TabNavigator route={route} navigation={navigation} />;
           }
-          // For CS2 esports, use the CS2 tab navigator
-          if (sport?.toLowerCase() === 'cs2') {
-            return <CS2TabNavigator route={route} navigation={navigation} />;
-          }
-          // For Valorant esports (default for esports), use VALTabNavigator
-          if (sport?.toLowerCase() === 'val' || sport?.toLowerCase() === 'valorant' || sport?.toLowerCase() === 'esports') {
-            return <VALTabNavigator route={route} navigation={navigation} />;
+          // For esports (VAL, CS2, DOTA2, LOL), use the unified esports navigator
+          if (sport?.toLowerCase() === 'cs2' || sport?.toLowerCase() === 'val' || sport?.toLowerCase() === 'valorant' || sport?.toLowerCase() === 'esports' || sport?.toLowerCase() === 'dota2' || sport?.toLowerCase() === 'lol') {
+            return <EsportsNavigator route={route} navigation={navigation} />;
           }
           // For other sports, use the tab navigator
           return <SportTabNavigator route={route} navigation={navigation} />;
         }}
         options={({ route }) => {
           const { sport } = route.params;
+          // For esports, show a unified title
+          const title = (sport?.toLowerCase() === 'cs2' || sport?.toLowerCase() === 'val' || sport?.toLowerCase() === 'valorant' || sport?.toLowerCase() === 'esports' || sport?.toLowerCase() === 'dota2' || sport?.toLowerCase() === 'lol') 
+            ? 'ESPORTS' 
+            : sport.toUpperCase();
           return {
             headerShown: true, // Always show header for sports
-            title: sport.toUpperCase(),
+            title: title,
             headerStyle: {
               backgroundColor: colors.primary,
             },
@@ -1058,6 +1063,32 @@ const MainStackNavigator = () => {
         component={VALMatchScreen}
         options={{ 
           title: 'Match Analysis',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+
+      {/* CS2 Esports Screens */}
+      <Stack.Screen 
+        name="CS2Home" 
+        component={CS2HomeScreen}
+        options={{ 
+          title: 'Counter-Strike 2',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="CS2Discover" 
+        component={CS2DiscoverScreen}
+        options={{ 
+          title: 'Discover',
           headerStyle: {
             backgroundColor: colors.primary,
           },

@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
-import { getMatchDetails, getLiveSeriesState } from '../../../services/cs2Service';
+import { getMatchDetails } from '../../../services/cs2MatchService';
 
 const CS2MatchDetailsScreen = ({ navigation, route }) => {
   const { colors, theme } = useTheme();
@@ -29,15 +29,23 @@ const CS2MatchDetailsScreen = ({ navigation, route }) => {
   const loadMatchData = async () => {
     try {
       setLoading(true);
-      const [match, live] = await Promise.all([
-        getMatchDetails(matchId),
-        getLiveSeriesState(matchId)
-      ]);
+      // Note: This screen is deprecated in favor of CS2Results
+      // Just redirect to CS2Results if matchData is available
+      if (route.params?.matchData) {
+        navigation.replace('CS2Results', {
+          matchId: matchId,
+          matchData: route.params.matchData
+        });
+        return;
+      }
       
+      // Legacy support - try to load with just matchId (will likely fail)
+      const match = await getMatchDetails(matchId);
       setMatchData(match);
-      setLiveData(live);
     } catch (error) {
       console.error('Error loading match data:', error);
+      // Redirect to tournament screen or show error
+      console.warn('CS2MatchDetailsScreen is deprecated. Use CS2Results instead.');
     } finally {
       setLoading(false);
     }

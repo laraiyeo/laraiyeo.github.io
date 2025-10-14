@@ -29,13 +29,6 @@ const VALHomeScreen = ({ navigation, route }) => {
   const [activeFilter, setActiveFilter] = useState('today');
   const [selectedGame, setSelectedGame] = useState('VAL');
 
-  const gameFilters = [
-    { name: 'CS2', icon: 'game-controller', active: false },
-    { name: 'VAL', icon: 'game-controller', active: true },
-    { name: 'DOTA2', icon: 'game-controller', active: false },
-    { name: 'LOL', icon: 'game-controller', active: false }
-  ];
-
   useEffect(() => {
     loadData();
   }, []);
@@ -101,11 +94,12 @@ const VALHomeScreen = ({ navigation, route }) => {
   const handleGameFilterPress = (gameName) => {
     setSelectedGame(gameName);
     if (gameName === 'CS2') {
-      navigation.navigate('CS2Home');
+      // Navigate to the parent navigator and then to CS2 tab
+      navigation.getParent()?.navigate('CS2');
     } else if (gameName === 'VAL') {
-      // Already on VAL home, no navigation needed
+      // Already on VAL, no navigation needed
     }
-    // TODO: Add navigation for other games when implemented
+    // TODO: Add navigation for other games when implemented  
   };
 
   // Load data for selected date filter
@@ -161,14 +155,31 @@ const VALHomeScreen = ({ navigation, route }) => {
     } else if (diffHours < 24) {
       return `${diffHours}h ago`;
     } else {
-      return eventDate.toLocaleDateString();
+      // Format as "Oct 12, 2025 • 3:30 PM"
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      
+      const month = monthNames[eventDate.getMonth()];
+      const day = eventDate.getDate();
+      const year = eventDate.getFullYear();
+      
+      let hours = eventDate.getHours();
+      const minutes = eventDate.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      
+      hours = hours % 12;
+      hours = hours ? hours : 12; // 0 should be 12
+      
+      const formattedTime = `${hours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+      
+      return `${month} ${day}, ${year} • ${formattedTime}`;
     }
   };
 
   // Helper function to clean event name (remove text after ' - ')
   const cleanEventName = (eventName) => {
     if (!eventName) return '';
-    const dashIndex = eventName.indexOf(' - ');
+    const dashIndex = eventName.indexOf(' - ') !== -1 ? eventName.indexOf(' - ') : eventName.indexOf(': ');
     return dashIndex !== -1 ? eventName.substring(0, dashIndex) : eventName;
   };
 
@@ -316,7 +327,24 @@ const VALHomeScreen = ({ navigation, route }) => {
                     {/* Time on left */}
                     <View style={styles.matchTimeContainer}>
                       <Text style={[styles.matchTime, { color: theme.textSecondary }]}>
-                        {new Date(match.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {(() => {
+                          const date = new Date(match.startDate);
+                          // Get hours and minutes in 12-hour format
+                          let hours = date.getHours();
+                          const minutes = date.getMinutes();
+                          hours = hours % 12;
+                          hours = hours ? hours : 12; // 0 should be 12
+                          const formattedHours = hours.toString().padStart(2, '0');
+                          const formattedMinutes = minutes.toString().padStart(2, '0');
+                          return `${formattedHours}:${formattedMinutes}`;
+                        })()}
+                      </Text>
+                      <Text style={[styles.matchTimeAmPm, { color: theme.textSecondary }]}>
+                        {(() => {
+                          const date = new Date(match.startDate);
+                          const hours = date.getHours();
+                          return hours >= 12 ? 'PM' : 'AM';
+                        })()}
                       </Text>
                     </View>
                     
@@ -421,7 +449,7 @@ const VALHomeScreen = ({ navigation, route }) => {
             </Text>
           </View>
           <Text style={[styles.completedScore, { 
-            color: (series.team1Score || 0) > (series.team2Score || 0) ? theme.success : theme.text 
+            color: (series.team1Score || 0) > (series.team2Score || 0) ? colors.primary : theme.textSecondary
           }]}>
             {series.team1Score || 0}
           </Text>
@@ -448,7 +476,7 @@ const VALHomeScreen = ({ navigation, route }) => {
             </Text>
           </View>
           <Text style={[styles.completedScore, { 
-            color: (series.team2Score || 0) > (series.team1Score || 0) ? theme.success : theme.text 
+            color: (series.team2Score || 0) > (series.team1Score || 0) ? colors.primary : theme.textSecondary
           }]}>
             {series.team2Score || 0}
           </Text>
@@ -484,36 +512,6 @@ const VALHomeScreen = ({ navigation, route }) => {
           <Text style={[styles.headerTitle, { color: theme.text }]}>
             VALORANT
           </Text>
-        </View>
-
-        {/* Game Filter */}
-        <View style={styles.filterContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-            {gameFilters.map((game, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.filterChip,
-                  game.active && styles.activeFilterChip,
-                  { backgroundColor: game.active ? colors.primary : theme.surfaceSecondary }
-                ]}
-                onPress={() => handleGameFilterPress(game.name)}
-              >
-                <Ionicons 
-                  name={game.icon} 
-                  size={16} 
-                  color={game.active ? 'white' : theme.text} 
-                  style={styles.filterIcon}
-                />
-                <Text style={[
-                  styles.filterText,
-                  { color: game.active ? 'white' : theme.text }
-                ]}>
-                  {game.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
         </View>
 
         {/* Live Matches */}
@@ -945,6 +943,10 @@ const styles = StyleSheet.create({
   matchTime: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  matchTimeAmPm: {
+    fontSize: 11,
+    opacity: 0.7,
   },
   stackedTeams: {
     flex: 1,

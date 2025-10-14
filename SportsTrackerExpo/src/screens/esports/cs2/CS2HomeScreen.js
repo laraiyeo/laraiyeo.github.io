@@ -14,27 +14,19 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../../../context/ThemeContext';
-import { getLiveSeries, getRecentSeries, getUpcomingSeries } from '../../../services/cs2Service';
+import { getLiveMatches, getUpcomingMatches, getCompletedMatches, getCompletedMatchesForDate, getSeries } from '../../../services/cs2Service';
 
 const { width } = Dimensions.get('window');
 
 const CS2HomeScreen = ({ navigation, route }) => {
   const { colors, theme } = useTheme();
   const [liveSeries, setLiveSeries] = useState([]);
-  const [recentSeries, setRecentSeries] = useState([]);
+  const [completedSeries, setCompletedSeries] = useState([]);
   const [upcomingSeries, setUpcomingSeries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [rawApiData, setRawApiData] = useState(null);
   const [activeFilter, setActiveFilter] = useState('today');
-  const [selectedGame, setSelectedGame] = useState('CS2');
-
-  const gameFilters = [
-    { name: 'CS2', icon: 'game-controller', active: true },
-    { name: 'VAL', icon: 'game-controller', active: false },
-    { name: 'DOTA2', icon: 'game-controller', active: false },
-    { name: 'LOL', icon: 'game-controller', active: false }
-  ];
 
   useEffect(() => {
     loadData();
@@ -43,26 +35,32 @@ const CS2HomeScreen = ({ navigation, route }) => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [live, recent, upcoming] = await Promise.all([
-        getLiveSeries(5),
-        getRecentSeries(6),
-        getUpcomingSeries(10)
+      
+      // Fetch live, upcoming, and completed matches using the new API
+      const [liveData, upcomingData, completedData] = await Promise.all([
+        getLiveMatches(),
+        getUpcomingMatches('today'),
+        getCompletedMatches(100)
       ]);
       
       // Store raw API data for debugging
       setRawApiData({
-        live: live,
-        recent: recent,
-        upcoming: upcoming,
+        live: liveData,
+        upcoming: upcomingData,
+        completed: completedData,
         timestamp: new Date().toISOString(),
         currentDate: new Date().toString()
       });
       
-      setLiveSeries(live.edges || []);
-      setRecentSeries(recent.edges || []);
-      setUpcomingSeries(upcoming.edges || []);
+      setLiveSeries(liveData?.edges || []);
+      setUpcomingSeries(upcomingData?.edges || []);
+      setCompletedSeries(completedData?.edges || []);
     } catch (error) {
-      console.error('Error loading CS2 data:', error);
+      console.error('Error loading CS2 series data:', error);
+      // Fallback to empty arrays on error
+      setLiveSeries([]);
+      setCompletedSeries([]);
+      setUpcomingSeries([]);
     } finally {
       setLoading(false);
     }
@@ -88,258 +86,419 @@ const CS2HomeScreen = ({ navigation, route }) => {
     }
   };
 
-  const handleGameFilterPress = (gameName) => {
-    setSelectedGame(gameName);
-    if (gameName === 'CS2') {
-      // Already on CS2 home, no navigation needed
-    } else if (gameName === 'VAL') {
-      navigation.navigate('VALHome');
-    }
-    // TODO: Add navigation for other games when implemented
-  };
-
-  const getFilteredUpcomingMatches = () => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-    const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-    return upcomingSeries.filter(match => {
-      const matchDate = new Date(match.node.startTimeScheduled);
-      const matchDay = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate());
-
-      switch (activeFilter) {
-        case 'today':
-          return matchDay.getTime() === today.getTime();
-        case 'tomorrow':
-          return matchDay.getTime() === tomorrow.getTime();
-        case 'week':
-          return matchDay >= today && matchDay <= weekFromNow;
-        default:
-          return true;
+  // Load data for selected date filter
+  const loadFilteredData = async (filter) => {
+    try {
+      if (filter === 'yesterday') {
+        // For yesterday, fetch both completed matches and any remaining upcoming matches from yesterday
+        const [completedData, upcomingData] = await Promise.all([
+          getCompletedMatchesForDate('yesterday', 100),
+          getUpcomingMatches('yesterday')
+        ]);
+        setCompletedSeries(completedData?.edges || []);
+        setUpcomingSeries(upcomingData?.edges || []);
+      } else if (filter === 'today') {
+        // For today, fetch both upcoming matches and completed matches
+        const [upcomingData, completedData] = await Promise.all([
+          getUpcomingMatches('today'),
+          getCompletedMatchesForDate('today', 100)
+        ]);
+        setUpcomingSeries(upcomingData?.edges || []);
+        setCompletedSeries(completedData?.edges || []);
+      } else {
+        // For tomorrow, only fetch upcoming matches (no completed matches in the future)
+        const upcomingData = await getUpcomingMatches(filter);
+        setUpcomingSeries(upcomingData?.edges || []);
+        setCompletedSeries([]);
       }
-    });
+    } catch (error) {
+      console.error('Error loading filtered data:', error);
+      setCompletedSeries([]);
+      setUpcomingSeries([]);
+    }
   };
 
-  const formatMatchTime = (dateString) => {
-    const date = new Date(dateString);
+  // Handle filter change
+  const handleFilterChange = (filter) => {
+    setActiveFilter(filter);
+    loadFilteredData(filter);
+  };
+
+  // Helper function to format relative time
+  const getRelativeTime = (dateString) => {
     const now = new Date();
-    const diffMs = date - now;
+    const eventDate = new Date(dateString);
+    const diffMs = now - eventDate;
     const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    // Future matches
-    if (diffMs > 0) {
-      if (diffDays > 7) {
-        return date.toLocaleDateString();
-      } else if (diffDays > 0) {
-        return `${diffDays}d`;
-      } else if (diffHours > 0) {
-        return `${diffHours}h`;
-      } else if (diffMins > 0) {
-        return `${diffMins}m`;
-      } else {
-        return 'Now';
-      }
-    } 
-    // Past matches
-    else {
-      const absHours = Math.abs(diffHours);
-      const absDays = Math.abs(diffDays);
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    
+    if (diffMins < 60) {
+      return `${diffMins}m ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours}h ago`;
+    } else {
+      // Format as "Oct 12, 2025 • 3:30 PM"
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       
-      if (absDays > 7) {
-        return date.toLocaleDateString();
-      } else if (absDays > 0) {
-        return `${absDays}d ago`;
-      } else if (absHours > 0) {
-        return `${absHours}h ago`;
-      } else {
-        return 'Recently';
-      }
+      const month = monthNames[eventDate.getMonth()];
+      const day = eventDate.getDate();
+      const year = eventDate.getFullYear();
+      
+      let hours = eventDate.getHours();
+      const minutes = eventDate.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      
+      hours = hours % 12;
+      hours = hours ? hours : 12; // 0 should be 12
+      
+      const formattedTime = `${hours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+      
+      return `${month} ${day}, ${year} • ${formattedTime}`;
     }
   };
 
-  const LiveMatchCard = ({ match }) => {
+  // Helper function to clean event name (remove text after ' - ')
+  const cleanEventName = (eventName) => {
+    if (!eventName) return '';
+    const dashIndex = eventName.indexOf(' - ') !== -1 ? eventName.indexOf(' - ') : eventName.indexOf(': ');
+    return dashIndex !== -1 ? eventName.substring(0, dashIndex) : eventName;
+  };
+
+  // Live Series Card - VALORANT style with teams on left/right, score in middle
+  const LiveSeriesCard = ({ match }) => {
     const series = match.node;
     const team1 = series.teams[0];
     const team2 = series.teams[1];
 
     return (
       <TouchableOpacity
-        style={[styles.liveMatchCard, { backgroundColor: theme.surfaceSecondary, borderColor: '#ff4444' }]}
-        onPress={() => navigation.navigate('CS2MatchDetails', { matchId: series.id })}
+        style={[styles.liveSeriesCard, { backgroundColor: theme.surfaceSecondary }]}
+        onPress={() => {
+          navigation.navigate('CS2Results', {
+            matchId: series.id,
+            matchData: series
+          });
+        }}
+        activeOpacity={0.7}
       >
         <View style={styles.liveIndicator}>
           <View style={styles.liveDot} />
           <Text style={styles.liveText}>LIVE</Text>
         </View>
         
-        <View style={styles.tournamentInfo}>
-          <Text style={[styles.tournamentName, { color: theme.text }]} numberOfLines={1}>
-            {series.tournament?.nameShortened || series.tournament?.name}
-          </Text>
-          <Text style={styles.matchFormat}>{series.format?.nameShortened}</Text>
-        </View>
-
-        <View style={styles.teamsContainer}>
-          <View style={styles.teamRow}>
-            <View style={styles.teamInfo}>
-              {team1?.baseInfo?.logoUrl ? (
-                <Image source={{ uri: team1.baseInfo.logoUrl }} style={styles.teamLogo} />
-              ) : (
-                <View style={[styles.placeholderLogo, { backgroundColor: team1?.baseInfo?.colorPrimary || '#666' }]}>
-                  <Text style={styles.placeholderText}>
-                    {team1?.baseInfo?.name?.substring(0, 2).toUpperCase()}
-                  </Text>
-                </View>
-              )}
-              <Text style={[styles.teamName, { color: theme.text }]} numberOfLines={1}>
-                {team1?.baseInfo?.name}
-              </Text>
-            </View>
-            <Text style={[styles.teamScore, { color: theme.text }]}>
-              {team1?.scoreAdvantage || 0}
-            </Text>
-          </View>
-
-          <View style={styles.teamRow}>
-            <View style={styles.teamInfo}>
-              {team2?.baseInfo?.logoUrl ? (
-                <Image source={{ uri: team2.baseInfo.logoUrl }} style={styles.teamLogo} />
-              ) : (
-                <View style={[styles.placeholderLogo, { backgroundColor: team2?.baseInfo?.colorPrimary || '#666' }]}>
-                  <Text style={styles.placeholderText}>
-                    {team2?.baseInfo?.name?.substring(0, 2).toUpperCase()}
-                  </Text>
-                </View>
-              )}
-              <Text style={[styles.teamName, { color: theme.text }]} numberOfLines={1}>
-                {team2?.baseInfo?.name}
-              </Text>
-            </View>
-            <Text style={[styles.teamScore, { color: theme.text }]}>
-              {team2?.scoreAdvantage || 0}
-            </Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  const RecentMatchCard = ({ match }) => {
-    const series = match.node;
-    const team1 = series.teams[0];
-    const team2 = series.teams[1];
-    const winner1 = (team1?.scoreAdvantage || 0) > (team2?.scoreAdvantage || 0);
-    const winner2 = (team2?.scoreAdvantage || 0) > (team1?.scoreAdvantage || 0);
-
-    return (
-      <TouchableOpacity
-        style={[styles.recentMatchCard, { backgroundColor: theme.surfaceSecondary }]}
-        onPress={() => navigation.navigate('CS2MatchDetails', { matchId: series.id })}
-      >
-        <View style={styles.tournamentBadge}>
-          <Text style={styles.tournamentBadgeText} numberOfLines={1}>
-            {series.tournament?.nameShortened || 'Tournament'}
-          </Text>
-        </View>
-
-        <View style={styles.matchScore}>
-          <Text style={[styles.scoreText, { color: theme.text }]}>
-            {team1?.scoreAdvantage || 0} - {team2?.scoreAdvantage || 0}
-          </Text>
-        </View>
-
-        <View style={styles.teamsRow}>
-          <View style={[styles.teamContainer, winner1 && styles.winnerTeam]}>
-            {team1?.baseInfo?.logoUrl ? (
-              <Image source={{ uri: team1.baseInfo.logoUrl }} style={styles.smallTeamLogo} />
-            ) : (
-              <View style={[styles.smallPlaceholderLogo, { backgroundColor: team1?.baseInfo?.colorPrimary || '#666' }]}>
-                <Text style={styles.smallPlaceholderText}>
-                  {team1?.baseInfo?.name?.substring(0, 2).toUpperCase()}
-                </Text>
-              </View>
-            )}
-            <Text style={[styles.smallTeamName, { color: theme.text }]} numberOfLines={1}>
-              {team1?.baseInfo?.name}
-            </Text>
-          </View>
-
-          <View style={[styles.teamContainer, winner2 && styles.winnerTeam]}>
-            {team2?.baseInfo?.logoUrl ? (
-              <Image source={{ uri: team2.baseInfo.logoUrl }} style={styles.smallTeamLogo} />
-            ) : (
-              <View style={[styles.smallPlaceholderLogo, { backgroundColor: team2?.baseInfo?.colorPrimary || '#666' }]}>
-                <Text style={styles.smallPlaceholderText}>
-                  {team2?.baseInfo?.name?.substring(0, 2).toUpperCase()}
-                </Text>
-              </View>
-            )}
-            <Text style={[styles.smallTeamName, { color: theme.text }]} numberOfLines={1}>
-              {team2?.baseInfo?.name}
-            </Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  const UpcomingMatchCard = ({ match }) => {
-    const series = match.node;
-    const team1 = series.teams[0];
-    const team2 = series.teams[1];
-
-    return (
-      <TouchableOpacity
-        style={[styles.upcomingMatchCard, { backgroundColor: theme.surfaceSecondary }]}
-        onPress={() => navigation.navigate('CS2MatchDetails', { matchId: series.id })}
-      >
-        <View style={styles.upcomingHeader}>
-          <Text style={[styles.upcomingTime, { color: colors.primary }]}>
-            {formatMatchTime(series.startTimeScheduled)}
-          </Text>
-          <Text style={styles.upcomingFormat}>{series.format?.nameShortened}</Text>
-        </View>
-
-        <View style={styles.upcomingTeams}>
-          <View style={styles.upcomingTeam}>
-            {team1?.baseInfo?.logoUrl ? (
-              <Image source={{ uri: team1.baseInfo.logoUrl }} style={styles.upcomingLogo} />
-            ) : (
-              <View style={[styles.upcomingPlaceholder, { backgroundColor: team1?.baseInfo?.colorPrimary || '#666' }]}>
-                <Text style={styles.upcomingPlaceholderText}>
-                  {team1?.baseInfo?.name?.substring(0, 2).toUpperCase()}
-                </Text>
-              </View>
-            )}
-            <Text style={[styles.upcomingTeamName, { color: theme.text }]} numberOfLines={1}>
-              {team1?.baseInfo?.name}
-            </Text>
-          </View>
-
-          <Text style={[styles.vsText, { color: theme.textSecondary }]}>VS</Text>
-
-          <View style={styles.upcomingTeam}>
-            {team2?.baseInfo?.logoUrl ? (
-              <Image source={{ uri: team2.baseInfo.logoUrl }} style={styles.upcomingLogo} />
-            ) : (
-              <View style={[styles.upcomingPlaceholder, { backgroundColor: team2?.baseInfo?.colorPrimary || '#666' }]}>
-                <Text style={styles.upcomingPlaceholderText}>
-                  {team2?.baseInfo?.name?.substring(0, 2).toUpperCase()}
-                </Text>
-              </View>
-            )}
-            <Text style={[styles.upcomingTeamName, { color: theme.text }]} numberOfLines={1}>
-              {team2?.baseInfo?.name}
-            </Text>
-          </View>
-        </View>
-
-        <Text style={[styles.upcomingTournament, { color: theme.textSecondary }]} numberOfLines={1}>
-          {series.tournament?.nameShortened || series.tournament?.name}
+        {/* Event Child Label */}
+        <Text style={[styles.liveEventChildLabel, { color: theme.textTertiary }]} numberOfLines={1}>
+          {series.format?.nameShortened || 'Main Event'} - Tier
         </Text>
+        
+        {/* Event Name (cleaned) */}
+        <Text style={[styles.liveEventName, { color: theme.text }]} numberOfLines={1}>
+          {cleanEventName(series.tournament?.nameShortened || series.tournament?.name)}
+        </Text>
+        
+        {/* Teams Layout - VALORANT style */}
+        <View style={styles.liveTeamsContainer}>
+          {/* Team 1 - Left Side */}
+          <View style={styles.liveTeamSide}>
+            <View style={styles.liveTeamLogo}>
+              {team1?.baseInfo?.logoUrl ? (
+                <Image
+                  source={{ uri: team1.baseInfo.logoUrl }}
+                  style={styles.teamLogoImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={[styles.teamLogoPlaceholder, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.teamLogoText}>
+                    {(team1?.baseInfo?.name || 'T1').substring(0, 2).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text style={[styles.liveTeamName, { color: theme.text }]} numberOfLines={1}>
+              {team1?.baseInfo?.name || 'Team 1'}
+            </Text>
+          </View>
+          
+          {/* Score in Middle */}
+          <View style={styles.liveScoreContainer}>
+            <Text style={[styles.liveScore, { color: theme.text }]}>
+              {series.team1Score || 0} - {series.team2Score || 0}
+            </Text>
+          </View>
+          
+          {/* Team 2 - Right Side */}
+          <View style={styles.liveTeamSide}>
+            <View style={styles.liveTeamLogo}>
+              {team2?.baseInfo?.logoUrl ? (
+                <Image
+                  source={{ uri: team2.baseInfo.logoUrl }}
+                  style={styles.teamLogoImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={[styles.teamLogoPlaceholder, { backgroundColor: colors.secondary }]}>
+                  <Text style={styles.teamLogoText}>
+                    {(team2?.baseInfo?.name || 'T2').substring(0, 2).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text style={[styles.liveTeamName, { color: theme.text }]} numberOfLines={1}>
+              {team2?.baseInfo?.name || 'Team 2'}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Group series by event for upcoming matches section
+  const groupSeriesByEvent = (series) => {
+    const grouped = {};
+    series.forEach(match => {
+      const s = match.node;
+      const eventKey = s.tournament?.id || s.tournament?.name;
+      if (!grouped[eventKey]) {
+        grouped[eventKey] = {
+          eventId: s.tournament?.id,
+          parentEventId: s.tournament?.id,
+          parentEventSlug: s.tournament?.slug,
+          eventName: s.tournament?.name,
+          eventChildLabel: s.format?.nameShortened,
+          series: []
+        };
+      }
+      grouped[eventKey].series.push(s);
+    });
+    return Object.values(grouped);
+  };
+
+  // Upcoming Matches Section - VALORANT style grouped by event
+  const UpcomingMatchesSection = ({ series }) => {
+    const groupedEvents = groupSeriesByEvent(series);
+    
+    return (
+      <View style={styles.upcomingMatchesContainer}>
+        {groupedEvents.map((event) => (
+          <View key={event.eventId} style={[styles.eventContainer, { backgroundColor: theme.surfaceSecondary }]}>
+            {/* Event Header with Logo */}
+            <TouchableOpacity 
+              style={styles.eventHeaderContainer}
+              onPress={() => navigation.navigate('CS2Tournament', { 
+                tournamentId: event.parentEventId,
+                tournamentSlug: event.parentEventSlug 
+              })}
+            >
+              <View style={styles.eventLogoContainer}>
+                {event.series[0]?.tournament?.logoUrl ? (
+                  <Image
+                    source={{ uri: event.series[0].tournament.logoUrl }}
+                    style={styles.eventLogoImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={[styles.eventLogoPlaceholder, { backgroundColor: colors.primary }]}>
+                    <Ionicons name="trophy" size={16} color="white" />
+                  </View>
+                )}
+              </View>
+              
+              <View style={styles.eventInfo}>
+                <Text style={[styles.upcomingEventName, { color: theme.text }]} numberOfLines={1}>
+                  {cleanEventName(event.eventName)}
+                </Text>
+                <Text style={[styles.upcomingEventChildLabel, { color: theme.textTertiary }]} numberOfLines={1}>
+                  {event.eventChildLabel || 'Tournament'} - Tier
+                </Text>
+              </View>
+            </TouchableOpacity>
+            
+            {/* Matches in this event */}
+            <View style={styles.matchesList}>
+              {event.series.map((match, index) => {
+                const team1 = match.teams[0];
+                const team2 = match.teams[1];
+                
+                return (
+                  <View key={match.id}>
+                    <TouchableOpacity
+                      style={styles.upcomingMatchRow}
+                      onPress={() => {
+                        navigation.navigate('CS2Results', {
+                          matchId: match.id,
+                          matchData: match
+                        });
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      {/* Time on left */}
+                      <View style={styles.matchTimeContainer}>
+                        <Text style={[styles.matchTime, { color: theme.textSecondary }]}>
+                          {(() => {
+                            const date = new Date(match.startTime);
+                            // Get hours and minutes in 12-hour format
+                            let hours = date.getHours();
+                            const minutes = date.getMinutes();
+                            hours = hours % 12;
+                            hours = hours ? hours : 12; // 0 should be 12
+                            const formattedHours = hours.toString().padStart(2, '0');
+                            const formattedMinutes = minutes.toString().padStart(2, '0');
+                            return `${formattedHours}:${formattedMinutes}`;
+                          })()}
+                        </Text>
+                        <Text style={[styles.matchTimeAmPm, { color: theme.textSecondary }]}>
+                          {(() => {
+                            const date = new Date(match.startTime);
+                            const hours = date.getHours();
+                            return hours >= 12 ? 'PM' : 'AM';
+                          })()}
+                        </Text>
+                      </View>
+                      
+                      {/* Teams stacked vertically */}
+                      <View style={styles.stackedTeams}>
+                        {/* Team 1 */}
+                        <View style={styles.teamWithLogo}>
+                          <View style={styles.teamLogoSmall}>
+                            {team1?.baseInfo?.logoUrl ? (
+                              <Image
+                                source={{ uri: team1.baseInfo.logoUrl }}
+                                style={styles.teamLogoSmallImage}
+                                resizeMode="contain"
+                              />
+                            ) : (
+                              <View style={[styles.teamLogoSmallPlaceholder, { backgroundColor: colors.primary }]}>
+                                <Text style={styles.teamLogoSmallText}>
+                                  {(team1?.baseInfo?.name || 'T1').substring(0, 1).toUpperCase()}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={[styles.stackedTeamName, { color: theme.text }]} numberOfLines={1}>
+                            {team1?.baseInfo?.name || 'TBD'}
+                          </Text>
+                        </View>
+                        
+                        {/* Team 2 */}
+                        <View style={styles.teamWithLogo}>
+                          <View style={styles.teamLogoSmall}>
+                            {team2?.baseInfo?.logoUrl ? (
+                              <Image
+                                source={{ uri: team2.baseInfo.logoUrl }}
+                                style={styles.teamLogoSmallImage}
+                                resizeMode="contain"
+                              />
+                            ) : (
+                              <View style={[styles.teamLogoSmallPlaceholder, { backgroundColor: colors.secondary }]}>
+                                <Text style={styles.teamLogoSmallText}>
+                                  {(team2?.baseInfo?.name || 'T2').substring(0, 1).toUpperCase()}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={[styles.stackedTeamName, { color: theme.text }]} numberOfLines={1}>
+                            {team2?.baseInfo?.name || 'TBD'}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                    
+                    {/* Separator line between matches (except last one) */}
+                    {index < event.series.length - 1 && (
+                      <View style={[styles.matchSeparator, { backgroundColor: theme.border }]} />
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  // Completed Series Card - VALORANT style cube-like form with event child label and relative time
+  const CompletedSeriesCard = ({ match }) => {
+    const series = match.node;
+    const team1 = series.teams[0];
+    const team2 = series.teams[1];
+    
+    return (
+      <TouchableOpacity
+        style={[styles.completedSeriesCard, { backgroundColor: theme.surfaceSecondary }]}
+        onPress={() => {
+          navigation.navigate('CS2Results', {
+            matchId: series.id,
+            matchData: series
+          });
+        }}
+        activeOpacity={0.7}
+      >
+        {/* Event Child Label */}
+        <Text style={[styles.completedEventLabel, { color: theme.text }]} numberOfLines={1}>
+          {series.tournament?.nameShortened || series.format?.nameShortened}
+        </Text>
+        
+        {/* Relative Time */}
+        <Text style={[styles.completedTime, { color: theme.textSecondary }]}>
+          {getRelativeTime(series.endTime || series.startTime)}
+        </Text>
+        
+        {/* Teams */}
+        <View style={styles.completedTeamsContainer}>
+          <View style={styles.completedTeamRow}>
+            <View style={styles.completedTeamWithLogo}>
+              <View style={styles.completedTeamLogo}>
+                {team1?.baseInfo?.logoUrl ? (
+                  <Image
+                    source={{ uri: team1.baseInfo.logoUrl }}
+                    style={styles.completedTeamLogoImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={[styles.completedTeamLogoPlaceholder, { backgroundColor: colors.primary }]}>
+                    <Text style={styles.completedTeamLogoText}>
+                      {(team1?.baseInfo?.name || 'T1').substring(0, 1).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <Text style={[styles.completedTeamName, { color: theme.text }]} numberOfLines={1}>
+                {team1?.baseInfo?.name || 'Team 1'}
+              </Text>
+            </View>
+            <Text style={[styles.completedScore, { color: (series.team1Score || 0) > (series.team2Score || 0) ? colors.primary : theme.textSecondary }]}>
+              {series.team1Score || 0}
+            </Text>
+          </View>
+          <View style={styles.completedTeamRow}>
+            <View style={styles.completedTeamWithLogo}>
+              <View style={styles.completedTeamLogo}>
+                {team2?.baseInfo?.logoUrl ? (
+                  <Image
+                    source={{ uri: team2.baseInfo.logoUrl }}
+                    style={styles.completedTeamLogoImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={[styles.completedTeamLogoPlaceholder, { backgroundColor: colors.secondary }]}>
+                    <Text style={styles.completedTeamLogoText}>
+                      {(team2?.baseInfo?.name || 'T2').substring(0, 1).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <Text style={[styles.completedTeamName, { color: theme.text }]} numberOfLines={1}>
+                {team2?.baseInfo?.name || 'Team 2'}
+              </Text>
+            </View>
+            <Text style={[styles.completedScore, { color: (series.team2Score || 0) > (series.team1Score || 0) ? colors.primary : theme.textSecondary }]}>
+              {series.team2Score || 0}
+            </Text>
+          </View>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -348,136 +507,106 @@ const CS2HomeScreen = ({ navigation, route }) => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.text }]}>Loading CS2 matches...</Text>
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+          Loading Counter-Strike 2 esports data...
+        </Text>
       </View>
     );
   }
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.background }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      {/* Debug Button */}
-      <View style={styles.debugSection}>
-        <TouchableOpacity 
-          style={[styles.debugButton, { backgroundColor: colors.primary }]} 
-          onPress={copyRawApiData}
-        >
-          <Ionicons name="code-slash" size={16} color="#fff" />
-          <Text style={styles.debugButtonText}>Copy Raw API Data</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <ScrollView
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>
+            COUNTER-STRIKE 2
+          </Text>
+        </View>
 
-      {/* Game Filter */}
-      <View style={styles.filterContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-          {gameFilters.map((game, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.filterChip,
-                game.active && styles.activeFilterChip,
-                { backgroundColor: game.active ? colors.primary : theme.surfaceSecondary }
-              ]}
-              onPress={() => handleGameFilterPress(game.name)}
-            >
-              <Ionicons 
-                name={game.icon} 
-                size={16} 
-                color={game.active ? 'white' : theme.text} 
-                style={styles.filterIcon}
-              />
-              <Text style={[
-                styles.filterText,
-                { color: game.active ? 'white' : theme.text }
-              ]}>
-                {game.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+        {/* Live Matches */}
+        {liveSeries.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>● Live matches</Text>
+            </View>
+            
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+              {liveSeries.map((match) => (
+                <LiveSeriesCard key={match.node.id} match={match} />
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
-      {/* Live Matches Section */}
-      {liveSeries.length > 0 && (
+        {/* Upcoming Matches Filter Buttons */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleContainer}>
-              <View style={styles.liveDot} />
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Live Matches</Text>
-            </View>
-            <TouchableOpacity onPress={() => navigation.navigate('CS2Live')}>
-              <Ionicons name="chevron-forward" size={20} color={colors.primary} />
-            </TouchableOpacity>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Upcoming matches</Text>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-            {liveSeries.map((match, index) => (
-              <LiveMatchCard key={match.node.id} match={match} />
+          
+          <View style={styles.upcomingFilters}>
+            {['yesterday', 'today', 'tomorrow'].map((filter) => (
+              <TouchableOpacity
+                key={filter}
+                style={[
+                  styles.upcomingFilterButton,
+                  activeFilter === filter && styles.activeUpcomingFilter,
+                  { 
+                    backgroundColor: activeFilter === filter ? colors.primary : theme.surfaceSecondary,
+                    borderColor: theme.border 
+                  }
+                ]}
+                onPress={() => handleFilterChange(filter)}
+              >
+                <Text style={[
+                  styles.upcomingFilterText,
+                  { color: activeFilter === filter ? 'white' : theme.text }
+                ]}>
+                  {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                </Text>
+              </TouchableOpacity>
             ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* Recent Results Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Recent results</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('CS2Results')}>
-            <Ionicons name="chevron-forward" size={20} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.recentGrid}>
-          {recentSeries.slice(0, 6).map((match, index) => (
-            <RecentMatchCard key={match.node.id} match={match} />
-          ))}
-        </View>
-      </View>
-
-      {/* Upcoming Matches Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Upcoming matches</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('CS2Upcoming')}>
-            <Ionicons name="chevron-forward" size={20} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.upcomingContainer}>
-          <View style={styles.filterTabs}>
-            <TouchableOpacity 
-              style={[styles.filterTab, activeFilter === 'today' && styles.activeFilterTab]}
-              onPress={() => setActiveFilter('today')}
-            >
-              <Text style={[
-                styles.filterTabText, 
-                activeFilter === 'today' ? styles.activeFilterTabText : { color: theme.textSecondary }
-              ]}>Today</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.filterTab, activeFilter === 'tomorrow' && styles.activeFilterTab]}
-              onPress={() => setActiveFilter('tomorrow')}
-            >
-              <Text style={[
-                styles.filterTabText, 
-                activeFilter === 'tomorrow' ? styles.activeFilterTabText : { color: theme.textSecondary }
-              ]}>Tomorrow</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.filterTab, activeFilter === 'week' && styles.activeFilterTab]}
-              onPress={() => setActiveFilter('week')}
-            >
-              <Text style={[
-                styles.filterTabText, 
-                activeFilter === 'week' ? styles.activeFilterTabText : { color: theme.textSecondary }
-              ]}>Next 7 days</Text>
-            </TouchableOpacity>
           </View>
-          {getFilteredUpcomingMatches().slice(0, 5).map((match, index) => (
-            <UpcomingMatchCard key={match.node.id} match={match} />
-          ))}
         </View>
-      </View>
-    </ScrollView>
+
+        {/* Upcoming Matches - Grouped by Event */}
+        {upcomingSeries.length > 0 ? (
+          <View style={styles.upcomingContainer}>
+            <UpcomingMatchesSection series={upcomingSeries} />
+          </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="calendar-outline" size={48} color={theme.textTertiary} />
+            <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>
+              No upcoming matches for {activeFilter}
+            </Text>
+          </View>
+        )}
+
+        {/* Completed Matches */}
+        {completedSeries.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Completed matches</Text>
+            </View>
+            
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+              {completedSeries.map((match) => (
+                <CompletedSeriesCard key={match.node.id} match={match} />
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        <View style={styles.bottomPadding} />
+      </ScrollView>
+    </View>
   );
 };
 
@@ -489,38 +618,51 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 32,
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 16,
     fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    flex: 1,
   },
   section: {
     marginBottom: 24,
   },
   sectionHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  sectionTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
   horizontalScroll: {
     paddingLeft: 16,
   },
-  liveMatchCard: {
+  
+  // Live Series Card Styles - VALORANT Layout
+  liveSeriesCard: {
     width: 280,
-    marginRight: 16,
     padding: 16,
     borderRadius: 12,
-    borderWidth: 2,
+    marginRight: 12,
+    minHeight: 130,
   },
   liveIndicator: {
     flexDirection: 'row',
@@ -535,257 +677,277 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   liveText: {
-    fontSize: 12,
-    fontWeight: '600',
     color: '#ff4444',
-  },
-  tournamentInfo: {
-    marginBottom: 12,
-  },
-  tournamentName: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  matchFormat: {
     fontSize: 12,
-    color: '#888',
-    marginTop: 2,
-  },
-  teamsContainer: {
-    gap: 8,
-  },
-  teamRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  teamInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  teamLogo: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    marginRight: 8,
-  },
-  placeholderLogo: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    marginRight: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  placeholderText: {
-    fontSize: 10,
     fontWeight: 'bold',
-    color: 'white',
   },
-  teamName: {
-    fontSize: 14,
+  liveEventChildLabel: {
+    marginTop: -20,
+    fontSize: 10,
     fontWeight: '500',
-    flex: 1,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    marginBottom: 4,
   },
-  teamScore: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  recentGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  recentMatchCard: {
-    width: (width - 44) / 2,
-    padding: 12,
-    borderRadius: 8,
-    minHeight: 120,
-  },
-  tournamentBadge: {
-    backgroundColor: '#ff6600',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-  },
-  tournamentBadgeText: {
-    fontSize: 10,
+  liveEventName: {
+    fontSize: 12,
     fontWeight: '600',
-    color: 'white',
-  },
-  matchScore: {
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  scoreText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  teamsRow: {
-    gap: 4,
-  },
-  teamContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 2,
-  },
-  winnerTeam: {
-    opacity: 1,
-  },
-  smallTeamLogo: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    marginRight: 6,
-  },
-  smallPlaceholderLogo: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    marginRight: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  smallPlaceholderText: {
-    fontSize: 8,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  smallTeamName: {
-    fontSize: 12,
-    fontWeight: '400',
-    flex: 1,
-  },
-  upcomingContainer: {
-    paddingHorizontal: 16,
-  },
-  filterTabs: {
-    flexDirection: 'row',
     marginBottom: 16,
-    gap: 8,
+    textAlign: 'center',
   },
-  filterTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: 'transparent',
-  },
-  activeFilterTab: {
-    backgroundColor: '#007AFF',
-  },
-  filterTabText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  activeFilterTabText: {
-    color: 'white',
-  },
-  upcomingMatchCard: {
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  upcomingHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  upcomingTime: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  upcomingFormat: {
-    fontSize: 12,
-    color: '#888',
-  },
-  upcomingTeams: {
+  liveTeamsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    flex: 1,
   },
-  upcomingTeam: {
+  liveTeamSide: {
     alignItems: 'center',
     flex: 1,
   },
-  upcomingLogo: {
+  liveTeamLogo: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  upcomingPlaceholder: {
+  teamLogoImage: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    marginBottom: 4,
+  },
+  teamLogoPlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  upcomingPlaceholderText: {
-    fontSize: 12,
+  teamLogoText: {
+    fontSize: 10,
     fontWeight: 'bold',
     color: 'white',
   },
-  upcomingTeamName: {
+  liveTeamName: {
     fontSize: 12,
     fontWeight: '500',
     textAlign: 'center',
   },
-  vsText: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginHorizontal: 16,
-  },
-  upcomingTournament: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  debugSection: {
-    padding: 16,
+  liveScoreContainer: {
     alignItems: 'center',
-  },
-  debugButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 8,
+    marginBottom: 20,
   },
-  debugButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+  liveScore: {
+    fontSize: 25,
+    fontWeight: 'bold',
   },
-  filterContainer: {
-    marginBottom: 24,
-  },
-  filterScroll: {
-    paddingLeft: 16,
-  },
-  filterChip: {
+
+  // Upcoming Matches Styles - VALORANT Layout
+  upcomingFilters: {
     flexDirection: 'row',
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  upcomingFilterButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 12,
+    borderWidth: 1,
   },
-  activeFilterChip: {
+  activeUpcomingFilter: {
     // Active styles handled in component
   },
-  filterIcon: {
-    marginRight: 6,
-  },
-  filterText: {
+  upcomingFilterText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  upcomingContainer: {
+    paddingHorizontal: 16,
+  },
+  upcomingMatchesContainer: {
+    marginBottom: 24,
+  },
+  eventContainer: {
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  eventHeaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  eventLogoContainer: {
+    marginRight: 12,
+  },
+  eventLogoImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  eventLogoPlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  eventInfo: {
+    flex: 1,
+  },
+  upcomingEventName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  upcomingEventChildLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+  },
+  matchesList: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  upcomingMatchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  matchTimeContainer: {
+    width: 50,
+    marginRight: 16,
+  },
+  matchTime: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  matchTimeAmPm: {
+    fontSize: 11,
+    opacity: 0.7,
+  },
+  stackedTeams: {
+    flex: 1,
+  },
+  teamWithLogo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  teamLogoSmall: {
+    width: 20,
+    height: 20,
+    marginRight: 8,
+  },
+  teamLogoSmallImage: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  teamLogoSmallPlaceholder: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  teamLogoSmallText: {
+    fontSize: 8,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  stackedTeamName: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  matchSeparator: {
+    height: 1,
+    marginHorizontal: 16,
+    opacity: 0.3,
+  },
+  
+  // Completed Matches Styles - Horizontal Scroll
+  completedSeriesCard: {
+    width: 180,
+    padding: 12,
+    borderRadius: 8,
+    marginRight: 12,
+    minHeight: 120,
+  },
+  completedEventLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  completedTime: {
+    fontSize: 11,
+    marginBottom: 8,
+  },
+  completedTeamsContainer: {
+    marginTop: 'auto',
+  },
+  completedTeamRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  completedTeamWithLogo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  completedTeamLogo: {
+    width: 16,
+    height: 16,
+    marginRight: 6,
+  },
+  completedTeamLogoImage: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+  },
+  completedTeamLogoPlaceholder: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  completedTeamLogoText: {
+    fontSize: 8,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  completedTeamName: {
+    fontSize: 12,
+    fontWeight: '500',
+    flex: 1,
+  },
+  completedScore: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    paddingHorizontal: 16,
+  },
+  emptyStateText: {
+    marginTop: 12,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  bottomPadding: {
+    height: 32,
   },
 });
 

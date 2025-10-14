@@ -55,6 +55,43 @@ const VALEventScreen = ({ navigation, route }) => {
             }
           });
         }
+        
+        // Extract teams from weekly tournaments
+        if (childEvent.bracketJson && childEvent.bracketJson.type === 'weekly' && childEvent.bracketJson.weekly) {
+          if (childEvent.bracketJson.weekly.weeks) {
+            childEvent.bracketJson.weekly.weeks.forEach(week => {
+              if (week.series) {
+                week.series.forEach(series => {
+                  // Add team1
+                  if (series.team1 && !teamIds.has(series.team1.id)) {
+                    teamIds.add(series.team1.id);
+                    allTeams.push({
+                      id: series.team1.id,
+                      name: series.team1.name,
+                      shortName: series.team1.shortName,
+                      logoUrl: series.team1.logoUrl,
+                      countryId: series.team1.countryId,
+                      country: series.team1.country
+                    });
+                  }
+                  
+                  // Add team2
+                  if (series.team2 && !teamIds.has(series.team2.id)) {
+                    teamIds.add(series.team2.id);
+                    allTeams.push({
+                      id: series.team2.id,
+                      name: series.team2.name,
+                      shortName: series.team2.shortName,
+                      logoUrl: series.team2.logoUrl,
+                      countryId: series.team2.countryId,
+                      country: series.team2.country
+                    });
+                  }
+                });
+              }
+            });
+          }
+        }
       });
     }
     
@@ -171,6 +208,28 @@ const VALEventScreen = ({ navigation, route }) => {
             }
           });
         }
+      } else if (eventType === 'weekly' && childEvent.bracketJson.weekly) {
+        // Weekly tournament matches
+        if (childEvent.bracketJson.weekly.weeks) {
+          childEvent.bracketJson.weekly.weeks.forEach((week, weekIndex) => {
+            if (week.series) {
+              week.series.forEach(series => {
+                allMatches.push({
+                  id: series.id || series.seriesId,
+                  team1: series.team1,
+                  team2: series.team2,
+                  team1Score: series.team1Score || 0,
+                  team2Score: series.team2Score || 0,
+                  startDate: series.startDate,
+                  completed: series.completed || false,
+                  eventName: childEvent.name || childEvent.shortName,
+                  stageTitle: week.title || `Week ${weekIndex + 1}`,
+                  eventType: 'weekly'
+                });
+              });
+            }
+          });
+        }
       }
     });
     
@@ -244,13 +303,122 @@ const VALEventScreen = ({ navigation, route }) => {
       });
     });
     
-    // Sort by losses (asc), then by wins (desc)
+    // Sort by losses (asc), then by wins (desc), then by round differential (desc)
     standings.sort((a, b) => {
       if (a.losses !== b.losses) return a.losses - b.losses;
-      return b.wins - a.wins;
+      if (a.wins !== b.wins) return b.wins - a.wins;
+      return (b.roundsWon - b.roundsLost) - (a.roundsWon - a.roundsLost);
     });
     
     return standings;
+  };
+
+  // Calculate cumulative weekly standings from Week 1 up to current week
+  const calculateWeeklyStandings = (allWeeks, currentWeekIndex, allTeams) => {
+    const standings = [];
+    
+    if (!allWeeks || !allTeams) return standings;
+    
+    // Create standings for each team
+    allTeams.forEach(team => {
+      let seriesWins = 0;
+      let seriesLosses = 0;
+      let roundsWon = 0;
+      let roundsLost = 0;
+      
+      // Calculate cumulative stats from Week 1 up to current week (inclusive)
+      for (let weekIdx = 0; weekIdx <= currentWeekIndex; weekIdx++) {
+        const week = allWeeks[weekIdx];
+        if (!week.series) continue;
+        
+        week.series.forEach(series => {
+          if (series.team1?.id === team.id || series.team2?.id === team.id) {
+            const isTeam1 = series.team1?.id === team.id;
+            
+            if (series.completed) {
+              const teamSeriesScore = isTeam1 ? series.team1Score : series.team2Score;
+              const opponentSeriesScore = isTeam1 ? series.team2Score : series.team1Score;
+              
+              if (teamSeriesScore > opponentSeriesScore) {
+                seriesWins++;
+              } else if (opponentSeriesScore > teamSeriesScore) {
+                seriesLosses++;
+              }
+              
+              // Use round wins/losses from team data if available
+              if (isTeam1 && series.team1) {
+                roundsWon += series.team1.team1TotalRoundsWon || 0;
+                roundsLost += series.team1.team1TotalRoundsLost || 0;
+              } else if (!isTeam1 && series.team2) {
+                roundsWon += series.team2.team2TotalRoundsWon || 0;
+                roundsLost += series.team2.team2TotalRoundsLost || 0;
+              }
+            }
+          }
+        });
+      }
+      
+      const totalSeries = seriesWins + seriesLosses;
+      const winRate = totalSeries > 0 ? (seriesWins / totalSeries) * 100 : 0;
+      const roundDifferential = roundsWon - roundsLost;
+      
+      standings.push({
+        ...team,
+        wins: seriesWins,
+        losses: seriesLosses,
+        winRate: winRate.toFixed(1),
+        roundsWon,
+        roundsLost,
+        roundDifferential: roundDifferential >= 0 ? `+${roundDifferential}` : `${roundDifferential}`,
+        qualified: team.qualified || false,
+        nonQualified: team.nonQualified || false
+      });
+    });
+    
+    // Sort by losses (asc), then by wins (desc), then by round differential (desc)
+    standings.sort((a, b) => {
+      if (a.losses !== b.losses) return a.losses - b.losses;
+      if (a.wins !== b.wins) return b.wins - a.wins;
+      return (b.roundsWon - b.roundsLost) - (a.roundsWon - a.roundsLost);
+    });
+    
+    return standings;
+  };
+
+  // Calculate ranking changes between weeks
+  const calculateRankingChanges = (currentWeekStandings, allWeeks, currentWeekIndex, allTeams) => {
+    if (currentWeekIndex === 0) {
+      // First week, no previous rankings to compare
+      return currentWeekStandings.map(team => ({ ...team, rankingChange: null }));
+    }
+    
+    // Get previous week's cumulative standings
+    const previousWeekStandings = calculateWeeklyStandings(allWeeks, currentWeekIndex - 1, allTeams);
+    
+    // Create a map of team ID to previous ranking
+    const previousRankings = {};
+    previousWeekStandings.forEach((team, index) => {
+      previousRankings[team.id] = index + 1; // 1-based ranking
+    });
+    
+    // Calculate changes for current week
+    return currentWeekStandings.map((team, currentIndex) => {
+      const currentRank = currentIndex + 1;
+      const previousRank = previousRankings[team.id];
+      
+      let rankingChange = null;
+      if (previousRank !== undefined) {
+        const positionChange = previousRank - currentRank; // Positive means moved up
+        if (positionChange !== 0) {
+          rankingChange = {
+            direction: positionChange > 0 ? 'up' : 'down',
+            positions: Math.abs(positionChange)
+          };
+        }
+      }
+      
+      return { ...team, rankingChange };
+    });
   };
 
   const loadData = async () => {
@@ -409,6 +577,305 @@ const VALEventScreen = ({ navigation, route }) => {
                 
                 {/* Child Events */}
                 {event.childEvents.map((childEvent, index) => {
+                  // Handle weekly tournaments as separate sections for each week
+                  if (childEvent.bracketJson && childEvent.bracketJson.type === 'weekly' && childEvent.bracketJson.weekly && childEvent.bracketJson.weekly.weeks) {
+                    return childEvent.bracketJson.weekly.weeks.map((week, weekIndex) => {
+                      // Calculate week status based on match dates
+                      const weekMatches = week.series || [];
+                      const matchDates = weekMatches.map(match => match.startDate).filter(Boolean);
+                      
+                      let weekStartDate = null;
+                      let weekEndDate = null;
+                      let weekStatus = 'Scheduled';
+                      
+                      if (matchDates.length > 0) {
+                        const sortedDates = matchDates.sort((a, b) => new Date(a) - new Date(b));
+                        weekStartDate = sortedDates[0];
+                        weekEndDate = sortedDates[sortedDates.length - 1];
+                        weekStatus = getEventStatus(weekStartDate, weekEndDate);
+                      }
+                      
+                      const weekKey = `${childEvent.id}-week-${weekIndex}`;
+                      const isExpanded = expandedEvents[weekKey] || false;
+                      
+                      return (
+                        <View key={weekKey} style={[styles.eventCard, { backgroundColor: theme.surfaceSecondary }]}>
+                          {/* Week Header */}
+                          <TouchableOpacity
+                            style={styles.eventHeader}
+                            onPress={() => {
+                              setExpandedEvents(prev => ({
+                                ...prev,
+                                [weekKey]: !prev[weekKey]
+                              }));
+                            }}
+                          >
+                            <View style={styles.eventHeaderLeft}>
+                              <Text style={[styles.eventName, { color: theme.text }]}>
+                                {week.title || `Week ${weekIndex + 1}`}
+                              </Text>
+                              <View style={styles.eventMeta}>
+                                <View style={[
+                                  styles.statusBadge, 
+                                  { backgroundColor: weekStatus === 'Completed' ? theme.success : weekStatus === 'In Progress' ? theme.error : theme.warning }
+                                ]}>
+                                  <Text style={styles.statusText}>{weekStatus}</Text>
+                                </View>
+                                <Text style={[styles.eventDates, { color: theme.textSecondary }]}>
+                                  {weekStartDate && weekEndDate 
+                                    ? formatEventDateRange(weekStartDate, weekEndDate)
+                                    : 'TBD'}
+                                </Text>
+                              </View>
+                            </View>
+                            <Ionicons 
+                              name={isExpanded ? "chevron-up" : "chevron-down"} 
+                              size={20} 
+                              color={theme.textSecondary} 
+                            />
+                          </TouchableOpacity>
+                          
+                          {/* Week Content */}
+                          {isExpanded && (
+                            <View style={styles.expandedContent}>
+                              {/* Week Standings */}
+                              <View style={styles.groupContainer}>
+                                <Text style={[styles.groupTitle, { color: theme.text }]}>
+                                  {week.title || `Week ${weekIndex + 1}`} Results
+                                </Text>
+                                
+                                {(() => {
+                                  // Get all teams from the week
+                                  const weeklyTeams = [];
+                                  const teamIds = new Set();
+                                  
+                                  if (week.series) {
+                                    week.series.forEach(series => {
+                                      if (series.team1 && !teamIds.has(series.team1.id)) {
+                                        teamIds.add(series.team1.id);
+                                        weeklyTeams.push(series.team1);
+                                      }
+                                      if (series.team2 && !teamIds.has(series.team2.id)) {
+                                        teamIds.add(series.team2.id);
+                                        weeklyTeams.push(series.team2);
+                                      }
+                                    });
+                                  }
+                                  
+                                  const baseStandings = calculateWeeklyStandings(childEvent.bracketJson.weekly.weeks, weekIndex, weeklyTeams);
+                                  const standings = calculateRankingChanges(baseStandings, childEvent.bracketJson.weekly.weeks, weekIndex, weeklyTeams);
+                                  const showMatchesKey = weekKey;
+                                  
+                                  return (
+                                    <>
+                                      {/* Standings Table */}
+                                      <View style={[styles.standingsTable, { backgroundColor: theme.surface }]}>
+                                        {/* Table Header */}
+                                        <View style={styles.tableHeader}>
+                                          <Text style={[styles.headerText, { color: theme.textSecondary }]}>#</Text>
+                                          <Text style={[styles.headerTextTeam, { color: theme.textSecondary }]}>Team</Text>
+                                          <Text style={[styles.headerText, { color: theme.textSecondary }]}>W</Text>
+                                          <Text style={[styles.headerText, { color: theme.textSecondary }]}>L</Text>
+                                          <Text style={[styles.headerText, { color: theme.textSecondary }]}>+/-</Text>
+                                        </View>
+                                        
+                                        {/* Table Rows */}
+                                        {standings.map((team, teamIndex) => (
+                                          <View 
+                                            key={team.id} 
+                                            style={[
+                                              styles.tableRow,
+                                              { 
+                                                borderLeftWidth: team.qualified ? 3 : team.nonQualified ? 3 : 0,
+                                                borderLeftColor: team.qualified ? theme.success : team.nonQualified ? theme.error : theme.surface
+                                              }
+                                            ]}
+                                          >
+                                            <View style={styles.rankingCell}>
+                                              {team.rankingChange && (
+                                                <View style={styles.rankingChangeIndicator}>
+                                                  <Text style={[
+                                                    styles.rankingChangeTriangle,
+                                                    { 
+                                                      color: team.rankingChange.direction === 'up' ? theme.success : '',
+                                                      fontSize: 8
+                                                    }
+                                                  ]}>
+                                                    {team.rankingChange.direction === 'up' ? '▲' : ''}
+                                                  </Text>
+                                                  <Text style={[
+                                                    styles.rankingChangeNumber,
+                                                    { 
+                                                      color: team.rankingChange.direction === 'up' ? theme.success : theme.error,
+                                                      fontSize: 10
+                                                    }
+                                                  ]}>
+                                                    {team.rankingChange.positions}
+                                                  </Text>
+                                                  <Text style={[
+                                                    styles.rankingChangeTriangle,
+                                                    { 
+                                                      color: team.rankingChange.direction !== 'up' ? theme.error : '',
+                                                      fontSize: 8
+                                                    }
+                                                  ]}>
+                                                    {team.rankingChange.direction !== 'up' ? '▼' : ''}
+                                                  </Text>
+                                                </View>
+                                              )}
+                                              <Text style={[styles.cellText, { color: theme.textSecondary }]}>
+                                                {teamIndex + 1}
+                                              </Text>
+                                            </View>
+                                            <View style={styles.teamCell}>
+                                              <Image
+                                                source={{ uri: team.logoUrl || 'https://i.imgur.com/BIC4pnO.webp' }}
+                                                style={styles.teamLogoSmall}
+                                                resizeMode="contain"
+                                              />
+                                              <Text style={[styles.teamNameText, { color: theme.text }]}>
+                                                {team.shortName || team.name}
+                                              </Text>
+                                            </View>
+                                            <Text style={[styles.cellText, { color: theme.text }]}>{team.wins}</Text>
+                                            <Text style={[styles.cellText, { color: theme.text }]}>{team.losses}</Text>
+                                            <Text style={[
+                                              styles.cellText, 
+                                              { 
+                                                color: team.roundsWon - team.roundsLost > 0 
+                                                  ? theme.success 
+                                                  : team.roundsWon - team.roundsLost < 0 
+                                                    ? theme.error 
+                                                    : theme.text 
+                                              }
+                                            ]}>
+                                              {team.roundsWon - team.roundsLost > 0 ? '+' : ''}{team.roundsWon - team.roundsLost}
+                                            </Text>
+                                          </View>
+                                        ))}
+                                      </View>
+                                      
+                                      {/* Show/Hide Matches Button */}
+                                      <TouchableOpacity
+                                        style={[styles.showMatchesButton, { backgroundColor: theme.surface }]}
+                                        onPress={() => setShowMatches(prev => ({
+                                          ...prev,
+                                          [showMatchesKey]: !prev[showMatchesKey]
+                                        }))}
+                                      >
+                                        <Text style={[styles.showMatchesText, { color: colors.primary }]}>
+                                          {showMatches[showMatchesKey] ? 'Hide Matches' : 'Show Matches'} 
+                                          {' '}({week.series ? week.series.length : 0})
+                                        </Text>
+                                      </TouchableOpacity>
+                                      
+                                      {/* Weekly Matches List */}
+                                      {showMatches[showMatchesKey] && week.series && (
+                                        <View style={styles.matchesList}>
+                                          {week.series.map((series, seriesIndex) => {
+                                            const team1IsWinner = series.team1Score > series.team2Score;
+                                            const team2IsWinner = series.team2Score > series.team1Score;
+                                            const seriesCompleted = series.completed && (series.team1Score > 0 || series.team2Score > 0);
+                                            
+                                            return (
+                                              <TouchableOpacity 
+                                                key={seriesIndex} 
+                                                style={[styles.matchCard, { backgroundColor: theme.surface }]}
+                                                onPress={() => {
+                                                  navigation.navigate('VALSeries', {
+                                                    seriesId: series.id || series.seriesId
+                                                  });
+                                                }}
+                                                activeOpacity={0.7}
+                                              >
+                                                <View style={styles.matchHeader}>
+                                                  <Text style={[styles.matchDate, { color: theme.textSecondary }]}>
+                                                    {series.startDate ? 
+                                                      new Date(series.startDate).toLocaleDateString('en-US', { 
+                                                        month: 'short', 
+                                                        day: 'numeric' 
+                                                      }).replace(',', '') : 'TBD'}
+                                                  </Text>
+                                                  <Text style={[styles.matchTime, { color: theme.textSecondary }]}>
+                                                    {series.startDate ? new Date(series.startDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}
+                                                  </Text>
+                                                </View>
+                                                <View style={styles.matchTeams}>
+                                                  <View style={styles.matchTeam}>
+                                                    <Image
+                                                      source={{ uri: series.team1?.logoUrl || 'https://i.imgur.com/BIC4pnO.webp' }}
+                                                      style={[
+                                                        styles.matchTeamLogo,
+                                                        { opacity: seriesCompleted && !team1IsWinner ? 0.5 : 1 }
+                                                      ]}
+                                                      resizeMode="contain"
+                                                    />
+                                                    <Text style={[
+                                                      styles.matchTeamName, 
+                                                      { 
+                                                        color: theme.text,
+                                                        opacity: seriesCompleted && !team1IsWinner ? 0.6 : 1
+                                                      }
+                                                    ]}>
+                                                      {series.team1?.shortName || 'TBD'}
+                                                    </Text>
+                                                    <Text style={[
+                                                      styles.matchScore, 
+                                                      { 
+                                                        color: theme.text,
+                                                        opacity: seriesCompleted && !team1IsWinner ? 0.6 : 1
+                                                      }
+                                                    ]}>
+                                                      {series.team1Score || 0}
+                                                    </Text>
+                                                  </View>
+                                                  <Text style={[styles.matchVs, { color: theme.textSecondary }]}>vs</Text>
+                                                  <View style={styles.matchTeam}>
+                                                    <Text style={[
+                                                      styles.matchScore, 
+                                                      { 
+                                                        color: theme.text,
+                                                        opacity: seriesCompleted && !team2IsWinner ? 0.6 : 1
+                                                      }
+                                                    ]}>
+                                                      {series.team2Score || 0}
+                                                    </Text>
+                                                    <Text style={[
+                                                      styles.matchTeamName, 
+                                                      { 
+                                                        color: theme.text,
+                                                        opacity: seriesCompleted && !team2IsWinner ? 0.6 : 1
+                                                      }
+                                                    ]}>
+                                                      {series.team2?.shortName || 'TBD'}
+                                                    </Text>
+                                                    <Image
+                                                      source={{ uri: series.team2?.logoUrl || 'https://i.imgur.com/BIC4pnO.webp' }}
+                                                      style={[
+                                                        styles.matchTeamLogo,
+                                                        { opacity: seriesCompleted && !team2IsWinner ? 0.5 : 1 }
+                                                      ]}
+                                                      resizeMode="contain"
+                                                    />
+                                                  </View>
+                                                </View>
+                                              </TouchableOpacity>
+                                            );
+                                          })}
+                                        </View>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </View>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    });
+                  }
+                  
+                  // Handle non-weekly tournaments (existing logic)
                   const status = getEventStatus(childEvent.startDate, childEvent.endDate);
                   const isExpanded = expandedEvents[childEvent.id] || false;
                   
@@ -502,6 +969,7 @@ const VALEventScreen = ({ navigation, route }) => {
                             </View>
                           )}
                           
+                          
                           {/* Group Standings - Only show for group type */}
                           {childEvent.bracketJson.type === 'group' && childEvent.bracketJson.groups && childEvent.bracketJson.groups.map((group, groupIndex) => {
                             const isGroupActive = activeGroups[`${childEvent.id}-${groupIndex}`];
@@ -524,7 +992,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                     <Text style={[styles.headerTextTeam, { color: theme.textSecondary }]}>Team</Text>
                                     <Text style={[styles.headerText, { color: theme.textSecondary }]}>W</Text>
                                     <Text style={[styles.headerText, { color: theme.textSecondary }]}>L</Text>
-                                    <Text style={[styles.headerText, { color: theme.textSecondary }]}>RW/RL</Text>
+                                    <Text style={[styles.headerText, { color: theme.textSecondary }]}>+/-</Text>
                                   </View>
                                   
                                   {/* Table Rows */}
@@ -534,8 +1002,8 @@ const VALEventScreen = ({ navigation, route }) => {
                                       style={[
                                         styles.tableRow,
                                         { 
-                                          borderLeftWidth: 3,
-                                          borderLeftColor: team.qualified ? theme.success : team.nonQualified ? theme.error : theme.textSecondary
+                                          borderLeftWidth: team.qualified ? 3 : team.nonQualified ? 3 : 0,
+                                          borderLeftColor: team.qualified ? theme.success : team.nonQualified ? theme.error : theme.surface
                                         }
                                       ]}
                                     >
@@ -554,8 +1022,17 @@ const VALEventScreen = ({ navigation, route }) => {
                                       </View>
                                       <Text style={[styles.cellText, { color: theme.text }]}>{team.wins}</Text>
                                       <Text style={[styles.cellText, { color: theme.text }]}>{team.losses}</Text>
-                                      <Text style={[styles.cellText, { color: theme.text }]}>
-                                        {team.roundsWon}/{team.roundsLost}
+                                      <Text style={[
+                                        styles.cellText, 
+                                        { 
+                                          color: team.roundsWon - team.roundsLost > 0 
+                                            ? theme.success 
+                                            : team.roundsWon - team.roundsLost < 0 
+                                              ? theme.error 
+                                              : theme.text 
+                                        }
+                                      ]}>
+                                        {team.roundsWon - team.roundsLost > 0 ? '+' : ''}{team.roundsWon - team.roundsLost}
                                       </Text>
                                     </View>
                                   ))}
@@ -571,7 +1048,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                 >
                                   <Text style={[styles.showMatchesText, { color: colors.primary }]}>
                                     {showMatches[showMatchesKey] ? 'Hide Matches' : 'Show Matches'} 
-                                    ({extractSeriesFromGroup(group).length})
+                                    {' '}({extractSeriesFromGroup(group).length})
                                   </Text>
                                 </TouchableOpacity>
                                 
@@ -674,8 +1151,10 @@ const VALEventScreen = ({ navigation, route }) => {
                             );
                           })}
                           
+
+                          
                           {/* Playoff Bracket Content */}
-{childEvent.bracketJson.type === 'double' && (
+{(childEvent.bracketJson.type === 'double' || childEvent.bracketJson.type === 'single') && (
   <View style={styles.playoffContainer}>
     <ScrollView
       horizontal
@@ -896,7 +1375,7 @@ const VALEventScreen = ({ navigation, route }) => {
             )}
 
             {/* Lower Bracket */}
-            {childEvent.bracketJson.losers && (
+            {childEvent.bracketJson.type === 'double' && childEvent.bracketJson.losers && (
               <View style={styles.bracketSection}>
                 <View style={[styles.bracketRounds, { position: 'relative', height: loserBracket.maxHeight }]}>
                   {childEvent.bracketJson.losers.map((round, roundIndex) => (
@@ -1031,6 +1510,8 @@ const VALEventScreen = ({ navigation, route }) => {
     </ScrollView>
   </View>
 )}
+
+
 
                         </View>
                       )}
@@ -1198,7 +1679,13 @@ const VALEventScreen = ({ navigation, route }) => {
                                   </View>
                                 )}
                                 
-                                {!match.completed && match.startDate && (
+                                {!match.completed && (
+                                  <View style={[styles.resultStatus, { backgroundColor: theme.warning }]}>
+                                    <Text style={styles.resultStatusText}>UPCOMING</Text>
+                                  </View>
+                                )}
+                                
+                                {match.startDate && (
                                   <Text style={[styles.resultTime, { color: theme.textSecondary }]}>
                                     {new Date(match.startDate).toLocaleTimeString([], {
                                       hour: '2-digit',
@@ -1867,6 +2354,96 @@ const styles = StyleSheet.create({
   },
   resultTime: {
     fontSize: 12,
+  },
+  
+  // Weekly Tournament Styles
+  weeklyContainer: {
+    padding: 16,
+  },
+  weekSection: {
+    marginBottom: 20,
+    borderRadius: 12,
+    padding: 16,
+  },
+  weekTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  weeklyMatchCard: {
+    borderRadius: 8,
+    marginBottom: 12,
+    padding: 12,
+  },
+  weeklyMatchHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  weeklyMatchDate: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  weeklyMatchTime: {
+    fontSize: 12,
+  },
+  weeklyMatchTeams: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  weeklyMatchTeam: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  weeklyTeamLogo: {
+    width: 32,
+    height: 32,
+    marginHorizontal: 8,
+  },
+  weeklyTeamName: {
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  weeklyTeamScore: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    minWidth: 30,
+    textAlign: 'center',
+  },
+  weeklyMatchVs: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginHorizontal: 16,
+  },
+  
+  // Ranking Change Styles
+  rankingCell: {
+    width: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rankingChangeIndicator: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 4,
+    minWidth: 12,
+  },
+  rankingChangeTriangle: {
+    fontSize: 8,
+    lineHeight: 8,
+    textAlign: 'center',
+  },
+  rankingChangeNumber: {
+    fontSize: 10,
+    lineHeight: 10,
+    textAlign: 'center',
+    fontWeight: 'bold',
   },
 });
 

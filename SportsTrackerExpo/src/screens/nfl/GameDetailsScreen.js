@@ -1758,6 +1758,93 @@ const GameDetailsScreen = ({ route }) => {
         </View>
       </View>
 
+      {/* Prediction Section - Only for scheduled games */}
+      {(() => {
+        const statusDesc = status?.type?.description?.toLowerCase();
+        const isScheduled = statusDesc?.includes('scheduled');
+        const predictor = gameDetails.predictor;
+        
+        if (!isScheduled || !predictor) return null;
+
+        // Get win probabilities
+        const awayWinChance = parseFloat(predictor.awayTeam?.gameProjection || '0');
+        const homeWinChance = parseFloat(predictor.homeTeam?.gameProjection || '0');
+        
+        // Get team colors (fallback to default if not available)
+        const awayTeamColor = awayTeam?.team?.color ? `#${awayTeam.team.color}` : colors.primary;
+        const homeTeamColor = homeTeam?.team?.color ? `#${homeTeam.team.color}` : colors.secondary;
+
+        return (
+          <View style={[styles.section, { backgroundColor: theme.surface }]}>
+            <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.primary }]}>
+              {predictor.header || 'Prediction'}
+            </Text>
+            <View style={[styles.predictionContainer, { backgroundColor: theme.surfaceSecondary }]}>
+              {/* Team Headers */}
+              <View style={styles.predictionHeader}>
+                <View style={styles.predictionTeamHeaderLeft}>
+                  <TeamLogoImage 
+                    team={awayTeam?.team}
+                    style={styles.predictionTeamLogo}
+                  />
+                  <Text allowFontScaling={false} style={[styles.predictionTeamName, { color: theme.text }]}>
+                    {awayTeam?.team?.abbreviation}
+                  </Text>
+                </View>
+                <Text allowFontScaling={false} style={[styles.predictionVs, { color: theme.textSecondary }]}>vs</Text>
+                <View style={styles.predictionTeamHeaderRight}>
+                  <Text allowFontScaling={false} style={[styles.predictionTeamName, { color: theme.text }]}>
+                    {homeTeam?.team?.abbreviation}
+                  </Text>
+                  <TeamLogoImage 
+                    team={homeTeam?.team}
+                    style={styles.predictionTeamLogo}
+                  />
+                </View>
+              </View>
+
+              {/* Win Probability Bar */}
+              <View style={styles.predictionBarContainer}>
+                <View style={[styles.predictionBar, { backgroundColor: theme.border }]}>
+                  {/* Away team fill */}
+                  <View 
+                    style={[
+                      styles.predictionFill,
+                      styles.predictionAwayFill,
+                      {
+                        width: `${awayWinChance}%`,
+                        backgroundColor: awayTeamColor,
+                      }
+                    ]}
+                  />
+                  {/* Home team fill */}
+                  <View 
+                    style={[
+                      styles.predictionFill,
+                      styles.predictionHomeFill,
+                      {
+                        width: `${homeWinChance}%`,
+                        backgroundColor: homeTeamColor,
+                      }
+                    ]}
+                  />
+                </View>
+              </View>
+
+              {/* Win Percentages */}
+              <View style={styles.predictionPercentages}>
+                <Text allowFontScaling={false} style={[styles.predictionPercentage, { color: awayTeamColor }]}>
+                  {awayWinChance.toFixed(1)}%
+                </Text>
+                <Text allowFontScaling={false} style={[styles.predictionPercentage, { color: homeTeamColor }]}>
+                  {homeWinChance.toFixed(1)}%
+                </Text>
+              </View>
+            </View>
+          </View>
+        );
+      })()}
+
       {/* Team Stats */}
       <View style={[styles.section, { backgroundColor: theme.surface }]}>
         <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.primary }]}>Team Statistics</Text>
@@ -4995,6 +5082,83 @@ const styles = StyleSheet.create({
   },
   chatModalBody: {
     flex: 1,
+  },
+  
+  // Prediction Section Styles
+  predictionContainer: {
+    padding: 16,
+    borderRadius: 8,
+  },
+  predictionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  predictionTeamHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  predictionTeamHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'flex-start',
+  },
+  predictionTeamHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  predictionTeamLogo: {
+    width: 32,
+    height: 32,
+    marginHorizontal: 8,
+  },
+  predictionTeamName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  predictionVs: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginHorizontal: 16,
+  },
+  predictionBarContainer: {
+    marginBottom: 12,
+  },
+  predictionBar: {
+    height: 24,
+    borderRadius: 12,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  predictionFill: {
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+  },
+  predictionAwayFill: {
+    left: 0,
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
+  },
+  predictionHomeFill: {
+    right: 0,
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  predictionPercentages: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  predictionPercentage: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

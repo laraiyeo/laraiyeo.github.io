@@ -480,9 +480,14 @@ export const getSeriesData = async (completed = null, minStartDate = null, maxSt
 // Helper function to get live series
 export const getLiveSeries = async () => {
     try {
-        const data = await ribApiCall('/series?live=true&take=20');
+        // Get current time to fetch series that could be live
+        const now = new Date();
+        const minStartDate = new Date(now.getTime() - 6 * 60 * 60 * 1000); // 6 hours ago
         
-        // Additional client-side filtering to ensure only live matches are returned
+        // Fetch upcoming/ongoing series
+        const data = await ribApiCall(`/series?minStartDate=${encodeURIComponent(minStartDate.toISOString())}&completed=false&take=75`);
+        
+        // Filter for series that are actually live
         if (data.data) {
             const liveSeries = data.data.filter(series => series.live === true);
             return {
@@ -552,11 +557,11 @@ export const getUpcomingSeries = async (date, take = 25) => {
             take * 3 // Get more results to account for filtering
         );
         
-        // Filter results to only include series that start within the target day
+        // Filter results to only include series that start within the target day and are not live
         if (data.data) {
             const filteredSeries = data.data.filter(series => {
                 const seriesDate = new Date(series.startDate);
-                return seriesDate >= startOfDay && seriesDate <= endOfDay;
+                return seriesDate >= startOfDay && seriesDate <= endOfDay && series.live === false;
             });
             
             return {

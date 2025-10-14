@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,27 +9,29 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
-import { getTournaments, getTournamentSeries } from '../../../services/cs2Service';
+import { getCurrentAndUpcomingTournaments, getUpcomingTournaments, getRecentTournaments } from '../../../services/cs2Service';
 
 const { width } = Dimensions.get('window');
 
 const CS2DiscoverScreen = ({ navigation }) => {
   const { colors, theme } = useTheme();
-  const [featuredTournaments, setFeaturedTournaments] = useState([]);
-  const [trendingTournaments, setTrendingTournaments] = useState([]);
+  const [featuredEvents, setFeaturedEvents] = useState([]);
+  const [liveEvents, setLiveEvents] = useState([]);
+  const [completedEvents, setCompletedEvents] = useState([]);
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [allCompletedEvents, setAllCompletedEvents] = useState([]);
+  const [allUpcomingEvents, setAllUpcomingEvents] = useState([]);
+  const [allCurrentEvents, setAllCurrentEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedGame, setSelectedGame] = useState('CS2');
-
-  const gameFilters = [
-    { name: 'CS2', icon: 'game-controller', active: true },
-    { name: 'VALORANT', icon: 'game-controller', active: false },
-    { name: 'Dota 2', icon: 'game-controller', active: false },
-    { name: 'LoL', icon: 'game-controller', active: false }
-  ];
+  const [showCompletedModal, setShowCompletedModal] = useState(false);
+  const [showUpcomingModal, setShowUpcomingModal] = useState(false);
+  const [showCurrentModal, setShowCurrentModal] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -38,14 +40,78 @@ const CS2DiscoverScreen = ({ navigation }) => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const tournaments = await getTournaments(null, null, 20);
       
-      // Split tournaments into featured and trending
-      const allTournaments = tournaments.edges || [];
-      setFeaturedTournaments(allTournaments.slice(0, 5));
-      setTrendingTournaments(allTournaments.slice(5, 15));
+      // Fetch CS2 tournaments data - current, upcoming, and recent
+      const [currentTournaments, upcomingTournaments, recentTournaments] = await Promise.all([
+        getCurrentAndUpcomingTournaments(1000),
+        getUpcomingTournaments(1000),
+        getRecentTournaments(1000)
+      ]);
+      
+      // Transform tournament data to match event structure
+      const currentEvents = (currentTournaments.edges || []).map(tournament => ({
+        id: tournament.node.id,
+        slug: tournament.node.slug,
+        name: tournament.node.name,
+        startDate: tournament.node.startDate || new Date().toISOString(),
+        endDate: tournament.node.endDate || new Date().toISOString(),
+        imageUrl: tournament.node.image || null,
+        logoUrl: tournament.node.image || null,
+        prizePool: tournament.node.prize || null,
+        prizePoolCurrency: 'USD',
+        status: tournament.node.status || 'current'
+      }));
+      
+      const upcomingEvents = (upcomingTournaments.edges || []).map(tournament => ({
+        id: tournament.node.id,
+        slug: tournament.node.slug,
+        name: tournament.node.name,
+        startDate: tournament.node.startDate || new Date().toISOString(),
+        endDate: tournament.node.endDate || new Date().toISOString(),
+        imageUrl: tournament.node.image || null,
+        logoUrl: tournament.node.image || null,
+        prizePool: tournament.node.prize || null,
+        prizePoolCurrency: 'USD'
+      }));
+      
+      const recentEvents = (recentTournaments.edges || []).map(tournament => ({
+        id: tournament.node.id,
+        slug: tournament.node.slug,
+        name: tournament.node.name,
+        startDate: tournament.node.startDate || new Date().toISOString(),
+        endDate: tournament.node.endDate || new Date().toISOString(),
+        imageUrl: tournament.node.image || null,
+        logoUrl: tournament.node.image || null,
+        prizePool: tournament.node.prize || null,
+        prizePoolCurrency: 'USD'
+      }));
+      
+      // Set live events (empty for now since we don't have live tournament data)
+      setLiveEvents([]);
+      
+      // Create featured events - only show tournaments with "current" status
+      const currentList = currentEvents.filter(event => event.status === 'current');
+      const upcomingList = upcomingEvents;
+      const completedList = recentEvents;
+      
+      // Only show current/in-progress tournaments in featured section
+      const featured = currentList.slice(0, 5);
+      
+      setFeaturedEvents(featured);
+      setCompletedEvents(completedList.slice(0, 5));
+      setUpcomingEvents(upcomingList.slice(0, 5));
+      setAllCompletedEvents(completedList);
+      setAllUpcomingEvents(upcomingList);
+      setAllCurrentEvents(currentList);
     } catch (error) {
       console.error('Error loading CS2 discover data:', error);
+      setFeaturedEvents([]);
+      setLiveEvents([]);
+      setCompletedEvents([]);
+      setUpcomingEvents([]);
+      setAllCompletedEvents([]);
+      setAllUpcomingEvents([]);
+      setAllCurrentEvents([]);
     } finally {
       setLoading(false);
     }
@@ -57,22 +123,75 @@ const CS2DiscoverScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  const FeaturedTournamentCard = ({ tournament, isLarge = false }) => {
-    const tournamentData = tournament.node;
+  // Helper functions to match VAL discover screen
+  const formatEventDateRange = (startDate, endDate) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const options = { month: 'short', day: 'numeric' };
+    
+    if (start.toDateString() === end.toDateString()) {
+      return start.toLocaleDateString('en-US', options);
+    }
+    
+    return `${start.toLocaleDateString('en-US', options)} - ${end.toLocaleDateString('en-US', options)}`;
+  };
+
+  const formatPrizePool = (amount, currency = 'USD') => {
+    if (!amount) return null;
+    
+    if (amount >= 1000000) {
+      return `$${(amount / 1000000).toFixed(1)}M`;
+    } else if (amount >= 1000) {
+      return `$${(amount / 1000).toFixed(0)}K`;
+    }
+    return `$${amount.toLocaleString()}`;
+  };
+
+  const FeaturedEventCard = ({ event, index, scrollX }) => {
+    const start = new Date(event.startDate);
+    const options = { month: 'short', day: 'numeric' };
+    const dateRange = start.toLocaleDateString('en-US', options);
+    const prizePool = formatPrizePool(event.prizePool, event.prizePoolCurrency);
+    
+    // Check if event is live
+    const now = new Date();
+    const startDate = new Date(event.startDate);
+    const endDate = new Date(event.endDate);
+    const isLive = event.status === 'current';
+    
+    const cardWidth = width * 0.85;
+    const spacing = 16;
     
     return (
       <TouchableOpacity
         style={[
-          styles.featuredCard,
-          isLarge ? styles.largeFeaturedCard : styles.smallFeaturedCard,
-          { backgroundColor: theme.surfaceSecondary }
+          styles.carouselFeaturedCard,
+          { backgroundColor: theme.surfaceSecondary, width: cardWidth }
         ]}
-        onPress={() => navigation.navigate('CS2Tournament', { tournamentId: tournamentData.id })}
+        onPress={() => navigation.navigate('CS2Tournament', { 
+          tournamentId: event.id, 
+          tournamentSlug: event.slug 
+        })}
       >
         <View style={styles.featuredImageContainer}>
-          {/* Tournament image placeholder - using gradient background */}
-          <View style={[styles.featuredImage, { backgroundColor: '#ff6600' }]}>
-            <View style={styles.featuredOverlay}>
+          {event.imageUrl || event.logoUrl ? (
+            <Image
+              source={{ uri: event.imageUrl || event.logoUrl }}
+              style={styles.featuredImage}
+              resizeMode="contain"
+            />
+          ) : (
+            <View style={[styles.featuredImage, { backgroundColor: colors.primary }]} />
+          )}
+          
+          <View style={styles.featuredOverlay}>
+            <View style={styles.featuredBadgeContainer}>
+              {isLive && (
+                <View style={styles.liveBadge}>
+                  <View style={styles.liveIndicator} />
+                  <Text style={styles.liveBadgeText}>IN PROGRESS</Text>
+                </View>
+              )}
               <Text style={styles.featuredBadge}>FEATURED</Text>
             </View>
           </View>
@@ -80,16 +199,123 @@ const CS2DiscoverScreen = ({ navigation }) => {
         
         <View style={styles.featuredContent}>
           <Text style={[styles.featuredTitle, { color: theme.text }]} numberOfLines={2}>
-            {tournamentData.name}
+            {event.name}
           </Text>
-          <Text style={[styles.featuredDate, { color: theme.textSecondary }]}>
-            Jun 18 - Jun 19 • 9+ hrs
-          </Text>
-          <Text style={[styles.featuredSubtitle, { color: theme.textSecondary }]} numberOfLines={1}>
-            {tournamentData.nameShortened || 'CS2 Tournament'}
-          </Text>
+          <View style={styles.featuredDetails}>
+            <Text style={[styles.featuredDate, { color: theme.textSecondary }]}>
+              Start: {dateRange}
+            </Text>
+            {prizePool && (
+              <>
+                <Text style={[styles.featuredDivider, { color: theme.textSecondary }]}> • </Text>
+                <Text style={[styles.featuredPrizePool, { color: theme.textSecondary }]}>
+                  {prizePool}
+                </Text>
+              </>
+            )}
+          </View>
         </View>
       </TouchableOpacity>
+    );
+  };
+
+  const EventCard = ({ event, type = 'upcoming', isModal = false, onPress }) => {
+    const dateRange = formatEventDateRange(event.startDate, event.endDate);
+    const prizePool = formatPrizePool(event.prizePool, event.prizePoolCurrency);
+    
+    const handlePress = () => {
+      if (onPress) {
+        onPress(event.id);
+      } else {
+        navigation.navigate('CS2Tournament', { 
+          tournamentId: event.id, 
+          tournamentSlug: event.slug 
+        });
+      }
+    };
+    
+    return (
+      <TouchableOpacity
+        style={[
+          isModal ? styles.modalEventCard : styles.eventCard, 
+          { backgroundColor: theme.surfaceSecondary }
+        ]}
+        onPress={handlePress}
+      >
+        <View style={styles.eventImageContainer}>
+          {event.imageUrl || event.logoUrl ? (
+            <Image
+              source={{ uri: event.imageUrl || event.logoUrl }}
+              style={styles.eventImage}
+              resizeMode="contain"
+            />
+          ) : (
+            <View style={[styles.eventImagePlaceholder, { backgroundColor: colors.primary }]}>
+              <Ionicons name="trophy" size={24} color="white" />
+            </View>
+          )}
+        </View>
+        
+        <View style={styles.eventContent}>
+          <Text style={[styles.eventTitle, { color: theme.text }]} numberOfLines={2}>
+            {event.name}
+          </Text>
+          <View style={styles.eventDetails}>
+            <Text style={[styles.eventDate, { color: theme.textSecondary }]}>
+              {dateRange}
+            </Text>
+            {prizePool && (
+              <>
+                <Text style={[styles.eventDivider, { color: theme.textSecondary }]}> • </Text>
+                <Text style={[styles.eventPrizePool, { color: theme.textSecondary }]}>
+                  {prizePool}
+                </Text>
+              </>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const FullListModal = ({ visible, onClose, events, title, type }) => {
+    const handleEventPress = (eventId) => {
+      onClose(); // Close the modal first
+      navigation.navigate('CS2Tournament', { 
+        tournamentId: eventId, 
+        tournamentSlug: events.find(e => e.id === eventId)?.slug 
+      }); // Then navigate
+    };
+
+    return (
+      <Modal
+        visible={visible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={onClose}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>{title}</Text>
+            <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+              <Ionicons name="close" size={24} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            {events.map((event) => (
+              <EventCard 
+                key={event.id} 
+                event={event} 
+                type={type} 
+                isModal={true} 
+                onPress={handleEventPress}
+              />
+            ))}
+            <View style={styles.bottomPadding} />
+          </ScrollView>
+        </View>
+      </Modal>
     );
   };
 
@@ -99,11 +325,14 @@ const CS2DiscoverScreen = ({ navigation }) => {
     return (
       <TouchableOpacity
         style={[styles.trendingCard, { backgroundColor: theme.surfaceSecondary }]}
-        onPress={() => navigation.navigate('CS2Tournament', { tournamentId: tournamentData.id })}
+        onPress={() => navigation.navigate('CS2Tournament', { 
+          tournamentId: tournamentData.id, 
+          tournamentSlug: tournamentData.slug 
+        })}
       >
         <View style={styles.trendingImageContainer}>
           <View style={[styles.trendingImage, { backgroundColor: '#333' }]}>
-            <Ionicons name="trophy" size={24} color="#ff6600" />
+            <Ionicons name="trophy" size={24} color={colors.primary} />
           </View>
         </View>
         
@@ -123,8 +352,9 @@ const CS2DiscoverScreen = ({ navigation }) => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.text }]}>
-          Browse esports and discover tournaments to watch
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+          Loading CS2 tournaments and events...{'\n'}
+          Discover major Counter-Strike competitions
         </Text>
       </View>
     );
@@ -133,125 +363,148 @@ const CS2DiscoverScreen = ({ navigation }) => {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.background }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+      showsVerticalScrollIndicator={false}
     >
       {/* Header */}
       <View style={styles.header}>
+        
         <Text style={[styles.headerTitle, { color: theme.text }]}>
-          Browse esports and discover{'\n'}tournaments to watch
+          Counter-Strike Events
         </Text>
         
-        <TouchableOpacity style={styles.searchButton}>
-          <Ionicons name="search" size={20} color={theme.text} />
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.profileButton}>
-          <Ionicons name="person-circle" size={24} color={theme.text} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Game Filter */}
-      <View style={styles.filterContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-          {gameFilters.map((game, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.filterChip,
-                game.active && styles.activeFilterChip,
-                { backgroundColor: game.active ? colors.primary : theme.surfaceSecondary }
-              ]}
-              onPress={() => setSelectedGame(game.name)}
-            >
-              <Ionicons 
-                name={game.icon} 
-                size={16} 
-                color={game.active ? 'white' : theme.text} 
-                style={styles.filterIcon}
-              />
-              <Text style={[
-                styles.filterText,
-                { color: game.active ? 'white' : theme.text }
-              ]}>
-                {game.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
       </View>
 
       {/* Featured Section */}
-      {featuredTournaments.length > 0 && (
+      {featuredEvents.length > 0 && (
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
+          <TouchableOpacity 
+            style={styles.sectionHeader}
+            onPress={() => setShowCurrentModal(true)}
+            disabled={allCurrentEvents.length === 0}
+          >
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Featured</Text>
-          </View>
+            {allCurrentEvents.length > 0 && (
+              <View style={styles.sectionArrow}>
+                <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+              </View>
+            )}
+          </TouchableOpacity>
           
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.featuredScroll}>
-            {featuredTournaments.map((tournament, index) => (
-              <FeaturedTournamentCard 
-                key={tournament.node.id} 
-                tournament={tournament} 
-                isLarge={index === 0}
-              />
-            ))}
-          </ScrollView>
+          <FlatList
+            data={featuredEvents}
+            renderItem={({ item, index }) => (
+              <FeaturedEventCard event={item} index={index} />
+            )}
+            keyExtractor={(item) => item.id.toString()}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.carouselContainer}
+            snapToInterval={width * 0.85 + 16}
+            decelerationRate="fast"
+            snapToAlignment="start"
+            ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
+          />
         </View>
       )}
 
-      {/* Trending Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Trending</Text>
+      {/* Completed Events Section */}
+      {completedEvents.length > 0 && (
+        <View style={styles.section}>
+          <TouchableOpacity 
+            style={styles.sectionHeader}
+            onPress={() => setShowCompletedModal(true)}
+            disabled={allCompletedEvents.length <= 5}
+          >
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Completed Events</Text>
+            {allCompletedEvents.length > 5 && (
+              <View style={styles.sectionArrow}>
+                <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+              </View>
+            )}
+          </TouchableOpacity>
+          
+          <View style={styles.eventsGrid}>
+            {completedEvents.map((event) => (
+              <EventCard key={event.id} event={event} type="completed" />
+            ))}
+          </View>
         </View>
-        
-        <View style={styles.trendingGrid}>
-          {trendingTournaments.slice(0, 6).map((tournament, index) => (
-            <TrendingTournamentCard key={tournament.node.id} tournament={tournament} />
-          ))}
-        </View>
-      </View>
+      )}
 
-      {/* Additional Categories */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Categories</Text>
+      {/* Upcoming Events Section */}
+      {upcomingEvents.length > 0 && (
+        <View style={styles.section}>
+          <TouchableOpacity 
+            style={styles.sectionHeader}
+            onPress={() => setShowUpcomingModal(true)}
+            disabled={allUpcomingEvents.length <= 5}
+          >
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Upcoming Events</Text>
+            {allUpcomingEvents.length > 5 && (
+              <View style={styles.sectionArrow}>
+                <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+              </View>
+            )}
+          </TouchableOpacity>
+          
+          <View style={styles.eventsGrid}>
+            {upcomingEvents.map((event) => (
+              <EventCard key={event.id} event={event} type="upcoming" />
+            ))}
+          </View>
         </View>
-        
-        <View style={styles.categoriesContainer}>
-          <TouchableOpacity style={[styles.categoryCard, { backgroundColor: theme.surfaceSecondary }]}>
-            <Ionicons name="flame" size={24} color="#ff4444" />
-            <Text style={[styles.categoryTitle, { color: theme.text }]}>Popular</Text>
-            <Text style={[styles.categorySubtitle, { color: theme.textSecondary }]}>
-              Most watched tournaments
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={[styles.categoryCard, { backgroundColor: theme.surfaceSecondary }]}>
-            <Ionicons name="calendar" size={24} color="#00aa44" />
-            <Text style={[styles.categoryTitle, { color: theme.text }]}>Upcoming</Text>
-            <Text style={[styles.categorySubtitle, { color: theme.textSecondary }]}>
-              Don't miss these events
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={[styles.categoryCard, { backgroundColor: theme.surfaceSecondary }]}>
-            <Ionicons name="trophy" size={24} color="#ffaa00" />
-            <Text style={[styles.categoryTitle, { color: theme.text }]}>Championships</Text>
-            <Text style={[styles.categorySubtitle, { color: theme.textSecondary }]}>
-              Major competitions
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={[styles.categoryCard, { backgroundColor: theme.surfaceSecondary }]}>
-            <Ionicons name="star" size={24} color="#aa00ff" />
-            <Text style={[styles.categoryTitle, { color: theme.text }]}>Premium</Text>
-            <Text style={[styles.categorySubtitle, { color: theme.textSecondary }]}>
-              Exclusive content
+      )}
+
+      {/* Modals */}
+      <FullListModal
+        visible={showCurrentModal}
+        onClose={() => setShowCurrentModal(false)}
+        events={allCurrentEvents}
+        title="All Live Events"
+        type="live"
+      />
+      
+      <FullListModal
+        visible={showCompletedModal}
+        onClose={() => setShowCompletedModal(false)}
+        events={allCompletedEvents}
+        title="All Completed Events"
+        type="completed"
+      />
+      
+      <FullListModal
+        visible={showUpcomingModal}
+        onClose={() => setShowUpcomingModal(false)}
+        events={allUpcomingEvents}
+        title="All Upcoming Events"
+        type="upcoming"
+      />
+
+      {/* Empty State */}
+      {featuredEvents.length === 0 && completedEvents.length === 0 && upcomingEvents.length === 0 && (
+        <View style={styles.emptyState}>
+          <Ionicons name="search" size={64} color={theme.textTertiary} />
+          <Text style={[styles.emptyStateTitle, { color: theme.text }]}>
+            Discover Counter-Strike Esports
+          </Text>
+          <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>
+            Stay tuned for upcoming tournaments and events
+          </Text>
+          <TouchableOpacity 
+            style={[styles.exploreButton, { backgroundColor: colors.primary }]}
+            onPress={() => navigation.navigate('CS2Home')}
+          >
+            <Text style={styles.exploreButtonText}>
+              Explore Counter-Strike
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
+      )}
+
+      <View style={styles.bottomPadding} />
     </ScrollView>
   );
 };
@@ -278,6 +531,10 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     flexDirection: 'row',
     alignItems: 'flex-start',
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
   },
   headerTitle: {
     fontSize: 24,
@@ -308,131 +565,234 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   activeFilterChip: {
-    // Style applied via backgroundColor prop
+    // Active styles handled in component
   },
   filterIcon: {
     marginRight: 6,
   },
   filterText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   section: {
     marginBottom: 32,
   },
   sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
-  featuredScroll: {
-    paddingLeft: 16,
+  sectionArrow: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  featuredCard: {
-    marginRight: 16,
+  carouselContainer: {
+    paddingHorizontal: 16,
+  },
+  carouselFeaturedCard: {
     borderRadius: 12,
     overflow: 'hidden',
-  },
-  largeFeaturedCard: {
-    width: 280,
-  },
-  smallFeaturedCard: {
-    width: 240,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   featuredImageContainer: {
-    position: 'relative',
+    height: 200,
   },
   featuredImage: {
-    height: 160,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+    backgroundColor: '#1a1a1a',
   },
   featuredOverlay: {
     position: 'absolute',
-    top: 12,
-    left: 12,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  featuredBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   featuredBadge: {
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     color: 'white',
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: 'bold',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
+  },
+  liveBadge: {
+    backgroundColor: '#ff4444',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    gap: 4,
+  },
+  liveIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'white',
+  },
+  liveBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   featuredContent: {
     padding: 16,
   },
   featuredTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  featuredDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   featuredDate: {
-    fontSize: 12,
-    marginBottom: 4,
+    fontSize: 14,
   },
-  featuredSubtitle: {
-    fontSize: 12,
+  featuredDivider: {
+    fontSize: 14,
+    fontWeight: 'bold',
   },
-  trendingGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  trendingCard: {
-    width: (width - 44) / 2,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  trendingImageContainer: {
-    height: 100,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  trendingImage: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  trendingContent: {
-    padding: 12,
-  },
-  trendingTitle: {
+  featuredPrizePool: {
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 4,
   },
-  trendingSubtitle: {
-    fontSize: 12,
-  },
-  categoriesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  eventsGrid: {
     paddingHorizontal: 16,
-    gap: 12,
   },
-  categoryCard: {
-    width: (width - 44) / 2,
+  eventCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 16,
     borderRadius: 12,
+    marginBottom: 12,
+  },
+  modalEventCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    marginHorizontal: 15,
+  },
+  eventImageContainer: {
+    marginRight: 16,
+    width: 80,
+    height: 60,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  categoryTitle: {
+  eventImage: {
+    width: 80,
+    height: 60,
+    borderRadius: 8,
+  },
+  eventImagePlaceholder: {
+    width: 80,
+    height: 60,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  eventContent: {
+    flex: 1,
+  },
+  eventTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  eventDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  eventDate: {
+    fontSize: 14,
+  },
+  eventDivider: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  eventPrizePool: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 64,
+    paddingHorizontal: 32,
+  },
+  emptyStateTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  exploreButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+  },
+  exploreButtonText: {
+    color: 'white',
     fontSize: 16,
     fontWeight: '600',
-    marginTop: 8,
-    marginBottom: 4,
   },
-  categorySubtitle: {
-    fontSize: 12,
-    textAlign: 'center',
+  bottomPadding: {
+    height: 32,
+  },
+  modalContainer: {
+    flex: 1,
+    paddingTop: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  modalCloseButton: {
+    padding: 8,
+  },
+  modalContent: {
+    flex: 1,
+    paddingTop: 16,
   },
 });
 

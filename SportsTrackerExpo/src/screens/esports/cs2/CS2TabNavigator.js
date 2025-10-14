@@ -5,7 +5,6 @@ import { useTheme } from '../../../context/ThemeContext';
 
 import CS2HomeScreen from './CS2HomeScreen';
 import CS2DiscoverScreen from './CS2DiscoverScreen';
-import CS2MiscScreen from './CS2MiscScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -22,20 +21,17 @@ const CS2TabNavigator = ({ navigation, route }) => {
             iconName = 'home';
           } else if (route.name === 'CS2Discover') {
             iconName = 'compass';
-          } else if (route.name === 'CS2Misc') {
-            iconName = 'grid';
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: theme.textSecondary,
+        tabBarInactiveTintColor: theme.textTertiary,
         tabBarStyle: {
-          backgroundColor: theme.surfaceSecondary,
+          backgroundColor: theme.surface,
           borderTopColor: theme.border,
           paddingBottom: 8,
           paddingTop: 8,
-          height: 60,
         },
         tabBarLabelStyle: {
           fontSize: 11,
@@ -56,13 +52,6 @@ const CS2TabNavigator = ({ navigation, route }) => {
         component={CS2DiscoverScreen}
         options={{
           tabBarLabel: 'Discover',
-        }}
-      />
-      <Tab.Screen 
-        name="CS2Misc" 
-        component={CS2MiscScreen}
-        options={{
-          tabBarLabel: 'Misc',
         }}
       />
     </Tab.Navigator>

@@ -6,9 +6,6 @@ import { useTheme } from '../../../context/ThemeContext';
 // Import Valorant screens
 import VALHomeScreen from './VALHomeScreen';
 import VALDiscoverScreen from './VALDiscoverScreen';
-import VALLiveScreen from './VALLiveScreen';
-import VALResultsScreen from './VALResultsScreen';
-import VALUpcomingScreen from './VALUpcomingScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -22,15 +19,9 @@ const VALTabNavigator = () => {
           let iconName;
 
           if (route.name === 'VALHome') {
-            iconName = focused ? 'home' : 'home-outline';
+            iconName = 'home';
           } else if (route.name === 'VALDiscover') {
-            iconName = focused ? 'search' : 'search-outline';
-          } else if (route.name === 'VALLive') {
-            iconName = focused ? 'radio' : 'radio-outline';
-          } else if (route.name === 'VALResults') {
-            iconName = focused ? 'trophy' : 'trophy-outline';
-          } else if (route.name === 'VALUpcoming') {
-            iconName = focused ? 'calendar' : 'calendar-outline';
+            iconName = 'compass';
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -40,44 +31,28 @@ const VALTabNavigator = () => {
         headerShown: false,
         tabBarStyle: {
           backgroundColor: theme.surface,
-          borderTopWidth: 1,
           borderTopColor: theme.border,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '500',
         },
       })}
     >
       <Tab.Screen 
         name="VALHome" 
         component={VALHomeScreen}
-        options={{ 
-          title: 'Home',
+        options={{
+          tabBarLabel: 'Home',
         }}
       />
       <Tab.Screen 
         name="VALDiscover" 
         component={VALDiscoverScreen}
-        options={{ 
-          title: 'Discover',
-        }}
-      />
-      <Tab.Screen 
-        name="VALLive" 
-        component={VALLiveScreen}
-        options={{ 
-          title: 'Live',
-        }}
-      />
-      <Tab.Screen 
-        name="VALResults" 
-        component={VALResultsScreen}
-        options={{ 
-          title: 'Results',
-        }}
-      />
-      <Tab.Screen 
-        name="VALUpcoming" 
-        component={VALUpcomingScreen}
-        options={{ 
-          title: 'Upcoming',
+        options={{
+          tabBarLabel: 'Discover',
         }}
       />
     </Tab.Navigator>

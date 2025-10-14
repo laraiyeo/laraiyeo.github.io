@@ -941,23 +941,35 @@ const VALMatchScreen = ({ navigation, route }) => {
                     
                     return (
                       <View key={index} style={[styles.killFeedItem, { backgroundColor: theme.surface }]}>
-                        <View style={styles.bombEventMain}>
-                          <Image
-                            source={{ uri: getAgentImageUrl(getAgentDisplayName(player?.characterId || player?.agentId)) }}
-                            style={styles.killFeedAgentImage}
-                          />
-                          <Text style={[styles.killFeedPlayerName, { color: theme.text }]}>
-                            {player?.displayName || 'Unknown'}
-                          </Text>
-                          <View style={styles.bombIconSection}>
-                            <Ionicons 
-                              name={isPlant ? 'nuclear' : 'construct'} 
-                              size={20} 
-                              color={isPlant ? '#ff4444' : '#44ff44'} 
+                        <View style={styles.killFeedMain}>
+                          {/* Left Section - Player */}
+                          <View style={styles.killerSection}>
+                            <Image
+                              source={{ uri: getAgentImageUrl(getAgentDisplayName(player?.characterId || player?.agentId)) }}
+                              style={styles.killFeedAgentImage}
                             />
-                            <Text style={[styles.bombActionText, { color: theme.text }]}>
-                              {isPlant ? 'Planted' : 'Defused'}
+                            <Text style={[styles.killFeedPlayerName, { color: theme.text }]}>
+                              {player?.displayName || 'Unknown'}
                             </Text>
+                          </View>
+
+                          {/* Center Section - Bomb Icon */}
+                          <View style={styles.weaponSection}>
+                            <View style={styles.bombIconContainer}>
+                              <Ionicons 
+                                name={isPlant ? 'nuclear' : 'construct'} 
+                                size={24} 
+                                color={isPlant ? theme.error : theme.success} 
+                              />
+                              <Text style={[styles.bombActionText, { color: theme.text }]}>
+                                {isPlant ? 'Planted' : 'Defused'}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* Right Section - Empty for consistency */}
+                          <View style={styles.victimSection}>
+                            {/* Empty to maintain layout consistency */}
                           </View>
                         </View>
                       </View>
@@ -1954,9 +1966,15 @@ const styles = StyleSheet.create({
     marginLeft: 16,
   },
   bombActionText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
-    marginLeft: 16,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  bombIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'column',
   },
 });
 

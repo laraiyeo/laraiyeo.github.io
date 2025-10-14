@@ -104,7 +104,6 @@ export const getMapNameById = (mapId) => {
     10: 'Pearl',
     11: 'Lotus',
     12: 'Sunset',
-    11: 'Abyss',
     13: 'Abyss',
     14: 'Corrode'
   };
