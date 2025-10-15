@@ -816,36 +816,44 @@ const VALSeriesScreen = ({ navigation, route }) => {
                           : 0;
                           
                         return (
-                          <View key={mapData.mapId} style={[styles.mapStatCard, { backgroundColor: theme.surface }]}>
-                            <Text style={[styles.mapStatName, { color: theme.text }]}>
-                              {mapData.mapName}
-                            </Text>
-                            
-                            <View style={styles.mapStatTeams}>
-                              <View style={styles.mapStatTeam}>
-                                <Text style={[styles.mapStatTeamName, { color: theme.text }]}>
-                                  {series.team1?.shortName}
-                                </Text>
-                                <Text style={[styles.mapStatWinRate, { color: theme.text }]}>
-                                  {team1WinRate}%
-                                </Text>
-                                <Text style={[styles.mapStatRecord, { color: theme.textSecondary }]}>
-                                  {mapData.team1.matchesWon}W {mapData.team1.matchesPlayed - mapData.team1.matchesWon}L
-                                </Text>
-                              </View>
+                          <View key={mapData.mapId} style={styles.mapStatCard}>
+                            <Image
+                              source={{ uri: getMapSampleUrl(mapData.mapName) }}
+                              style={styles.mapStatBackground}
+                              resizeMode="cover"
+                            />
+                            <View style={styles.mapStatOverlay} />
+                            <View style={styles.mapStatContent}>
+                              <Text style={[styles.mapStatName, { color: 'white' }]}>
+                                {mapData.mapName}
+                              </Text>
                               
-                              <View style={styles.mapStatDivider} />
-                              
-                              <View style={styles.mapStatTeam}>
-                                <Text style={[styles.mapStatTeamName, { color: theme.text }]}>
-                                  {series.team2?.shortName}
-                                </Text>
-                                <Text style={[styles.mapStatWinRate, { color: theme.text }]}>
-                                  {team2WinRate}%
-                                </Text>
-                                <Text style={[styles.mapStatRecord, { color: theme.textSecondary }]}>
-                                  {mapData.team2.matchesWon}W {mapData.team2.matchesPlayed - mapData.team2.matchesWon}L
-                                </Text>
+                              <View style={styles.mapStatTeams}>
+                                <View style={styles.mapStatTeam}>
+                                  <Text style={[styles.mapStatTeamName, { color: 'white' }]}>
+                                    {series.team1?.shortName}
+                                  </Text>
+                                  <Text style={[styles.mapStatWinRate, { color: 'white' }]}>
+                                    {team1WinRate}%
+                                  </Text>
+                                  <Text style={[styles.mapStatRecord, { color: 'rgba(255,255,255,0.8)' }]}>
+                                    {mapData.team1.matchesWon}W {mapData.team1.matchesPlayed - mapData.team1.matchesWon}L
+                                  </Text>
+                                </View>
+                                
+                                <View style={styles.mapStatDivider} />
+                                
+                                <View style={styles.mapStatTeam}>
+                                  <Text style={[styles.mapStatTeamName, { color: 'white' }]}>
+                                    {series.team2?.shortName}
+                                  </Text>
+                                  <Text style={[styles.mapStatWinRate, { color: 'white' }]}>
+                                    {team2WinRate}%
+                                  </Text>
+                                  <Text style={[styles.mapStatRecord, { color: 'rgba(255,255,255,0.8)' }]}>
+                                    {mapData.team2.matchesWon}W {mapData.team2.matchesPlayed - mapData.team2.matchesWon}L
+                                  </Text>
+                                </View>
                               </View>
                             </View>
                           </View>
@@ -2525,9 +2533,32 @@ const styles = StyleSheet.create({
   },
   mapStatCard: {
     width: '48%',
-    padding: 16,
     borderRadius: 8,
     marginBottom: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  mapStatBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
+  mapStatOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+  },
+  mapStatContent: {
+    padding: 16,
+    position: 'relative',
+    zIndex: 1,
   },
   mapStatName: {
     fontSize: 16,

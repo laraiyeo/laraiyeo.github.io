@@ -22,7 +22,7 @@ export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team
     // Use match start date for filtering, fallback to current date if not provided
     const filterDate = matchStartDate ? new Date(matchStartDate).toISOString().split('T')[0] : '2025-10-12';
     
-    // Fetch all endpoints for both teams as shown in txt files
+    // First, fetch basic data to get team information
     const [
       // 1.txt - Head to head matches between teams
       headToHeadResponse,
@@ -30,10 +30,6 @@ export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team
       team1RecentMatchesResponse,
       // 2.txt - Recent matches for team2 analysis (fetch for both teams)
       team2RecentMatchesResponse,
-      // 3.txt - Team1 map pool data
-      team1MapPoolResponse,
-      // 3.txt - Team2 map pool data (fetch for both teams)
-      team2MapPoolResponse,
       // 4.txt - Team1 players/lineup
       team1PlayersResponse,
       // 4.txt - Team2 players/lineup (fetch for both teams)
@@ -49,10 +45,6 @@ export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team
       fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][overlap]=${team1Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=2025-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`),
       // 2. Recent matches for team2 (2.txt with team2 ID)
       fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][overlap]=${team2Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=2025-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`),
-      // 3. Team1 map pool data (3.txt)
-      team1Slug ? fetch(`${CS2_API_BASE}/api/v1/teams/${team1Slug}/map_pool?scope=show-match-team-map-pool&filter[begin_at_from]=2025-01-01&filter[begin_at_to]=${filterDate}`) : null,
-      // 3. Team2 map pool data (3.txt with team2 slug)
-      team2Slug ? fetch(`${CS2_API_BASE}/api/v1/teams/${team2Slug}/map_pool?scope=show-match-team-map-pool&filter[begin_at_from]=2025-01-01&filter[begin_at_to]=${filterDate}`) : null,
       // 4. Team1 players (4.txt)
       fetch(`${CS2_API_BASE}/api/v1/players?scope=show-match-lineup&page[offset]=0&page[limit]=7&filter[team_id][eq]=${team1Id}`),
       // 4. Team2 players (4.txt with team2 ID)
@@ -67,8 +59,6 @@ export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team
       headToHeadData, 
       team1RecentMatchesData, 
       team2RecentMatchesData, 
-      team1MapPoolData, 
-      team2MapPoolData, 
       team1PlayersData, 
       team2PlayersData, 
       gameDetailsData,
@@ -77,12 +67,66 @@ export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team
       headToHeadResponse.json(),
       team1RecentMatchesResponse.json(),
       team2RecentMatchesResponse.json(),
-      team1MapPoolResponse ? team1MapPoolResponse.json() : null,
-      team2MapPoolResponse ? team2MapPoolResponse.json() : null,
       team1PlayersResponse.json(),
       team2PlayersResponse.json(),
       gameDetailsResponse.json(),
       matchDetailsResponse ? matchDetailsResponse.json() : null
+    ]);
+
+    // Extract team slugs from available data sources
+    let extractedTeam1Slug = team1Slug;
+    let extractedTeam2Slug = team2Slug;
+
+    // Try to get team slugs from match details first (most reliable)
+    if (matchDetailsData && matchDetailsData.team1 && matchDetailsData.team2) {
+      extractedTeam1Slug = extractedTeam1Slug || matchDetailsData.team1.slug;
+      extractedTeam2Slug = extractedTeam2Slug || matchDetailsData.team2.slug;
+    }
+
+    // Fallback to recent matches data for team slugs
+    if (!extractedTeam1Slug && team1RecentMatchesData?.results?.length > 0) {
+      const team1Match = team1RecentMatchesData.results[0];
+      const team1InMatch = team1Match.team1_id === team1Id ? team1Match.team1 : team1Match.team2;
+      extractedTeam1Slug = team1InMatch?.slug;
+    }
+
+    if (!extractedTeam2Slug && team2RecentMatchesData?.results?.length > 0) {
+      const team2Match = team2RecentMatchesData.results[0];
+      const team2InMatch = team2Match.team1_id === team2Id ? team2Match.team1 : team2Match.team2;
+      extractedTeam2Slug = team2InMatch?.slug;
+    }
+
+    // Fallback to head-to-head data for team slugs
+    if ((!extractedTeam1Slug || !extractedTeam2Slug) && headToHeadData?.results?.length > 0) {
+      const h2hMatch = headToHeadData.results[0];
+      if (!extractedTeam1Slug) {
+        const team1InH2H = h2hMatch.team1_id === team1Id ? h2hMatch.team1 : h2hMatch.team2;
+        extractedTeam1Slug = team1InH2H?.slug;
+      }
+      if (!extractedTeam2Slug) {
+        const team2InH2H = h2hMatch.team1_id === team2Id ? h2hMatch.team1 : h2hMatch.team2;
+        extractedTeam2Slug = team2InH2H?.slug;
+      }
+    }
+
+    // Now fetch map pool data with extracted slugs
+    const [team1MapPoolData, team2MapPoolData] = await Promise.all([
+      // 3. Team1 map pool data (3.txt)
+      extractedTeam1Slug ? 
+        fetch(`${CS2_API_BASE}/api/v1/teams/${extractedTeam1Slug}/map_pool?scope=show-match-team-map-pool&filter[begin_at_from]=2025-01-01&filter[begin_at_to]=${filterDate}`)
+          .then(res => res.json())
+          .catch(err => {
+            console.warn(`Failed to fetch team1 map pool for slug ${extractedTeam1Slug}:`, err);
+            return null;
+          }) : null,
+      // 3. Team2 map pool data (3.txt with team2 slug)
+      extractedTeam2Slug ? 
+        fetch(`${CS2_API_BASE}/api/v1/teams/${extractedTeam2Slug}/map_pool?scope=show-match-team-map-pool&filter[begin_at_from]=2025-01-01&filter[begin_at_to]=${filterDate}`)
+          .then(res => res.json())
+          .catch(err => {
+            console.warn(`Failed to fetch team2 map pool for slug ${extractedTeam2Slug}:`, err);
+            return null;
+          }) : null
     ]);
     
     return formatCompleteMatchData({
@@ -402,6 +446,11 @@ export const getCS2MapImageUrl = (mapSlug) => {
  * @returns {string} - Display name (e.g., "Inferno")
  */
 export const getMapDisplayName = (mapName) => {
+  // Handle null or undefined map names
+  if (!mapName || typeof mapName !== 'string') {
+    return 'TBD';
+  }
+
   const mapNames = {
     'de_inferno': 'Inferno',
     'de_mirage': 'Mirage',
@@ -452,4 +501,203 @@ export const formatSeriesData = (matchData) => {
     format: matchData.bo_type ? `BO${matchData.bo_type}` : 'BO3',
     maps: [] // Will be populated by getMatchDetails
   };
+};
+
+/**
+ * Get specific match details for individual match screen (4 endpoints from specific match folder)
+ * @param {number} gameId - The game ID (e.g., 142513)
+ * @param {string} seriesSlug - The series slug (e.g., "falcons-esports-vs-vitality-12-10-2025")
+ * @param {string} mapName - The map name (e.g., "de_inferno")
+ * @returns {Promise<Object>} - Complete match data with detailed stats
+ */
+export const getSpecificMatchDetails = async (gameId, seriesSlug, mapName) => {
+  try {
+    if (!gameId) {
+      throw new Error('Game ID is required');
+    }
+    
+    // Fetch basic match data and player stats (not round-specific)
+    const [playerStatsResponse, gameDetailsResponse] = await Promise.all([
+      fetch(`${CS2_API_BASE}/api/v1/games/${gameId}/players_stats`),
+      seriesSlug && mapName ? 
+        fetch(`${CS2_API_BASE}/api/v1/matches/${seriesSlug}/games/${mapName}`) :
+        fetch(`${CS2_API_BASE}/api/v1/games/${gameId}?with=winner_team_clan,loser_team_clan,game_side_results,game_rounds`)
+    ]);
+    
+    const [playerStatsData, gameDetailsData] = await Promise.all([
+      playerStatsResponse.json(),
+      gameDetailsResponse.json()
+    ]);
+    
+    // Debug log the data structure
+    console.log('🔍 Game Details Data Structure:', JSON.stringify(gameDetailsData, null, 2));
+    console.log('🔍 Has team1?', !!gameDetailsData?.team1);
+    console.log('🔍 Has team2?', !!gameDetailsData?.team2);
+    
+    return formatSpecificMatchData({
+      playerStats: playerStatsData,
+      gameDetails: gameDetailsData,
+      gameId
+    });
+  } catch (error) {
+    console.error('Error fetching specific match details:', error);
+    throw error;
+  }
+};
+
+/**
+ * Format specific match data for the match details screen
+ * @param {Object} combinedData - Combined data from all 4 endpoints
+ * @returns {Object} - Formatted match data
+ */
+const formatSpecificMatchData = (combinedData) => {
+  const { playerStats, gameDetails, gameId } = combinedData;
+  
+  if (!gameDetails) {
+    return null;
+  }
+
+  // Check if this is the detailed match endpoint response or fallback
+  let matchInfo, team1Data, team2Data, team1Score, team2Score;
+  
+  if (gameDetails.team1 && gameDetails.team2) {
+    // This is from the detailed endpoint: /matches/${seriesSlug}/games/${mapName}
+    matchInfo = gameDetails;
+    team1Data = {
+      id: matchInfo.team1.id,
+      name: matchInfo.team1.name,
+      logoUrl: matchInfo.team1.image_url || 'https://via.placeholder.com/48'
+    };
+    team2Data = {
+      id: matchInfo.team2.id,
+      name: matchInfo.team2.name,
+      logoUrl: matchInfo.team2.image_url || 'https://via.placeholder.com/48'
+    };
+    team1Score = matchInfo.team1_score || 0;
+    team2Score = matchInfo.team2_score || 0;
+  } else {
+    // This is from the fallback endpoint - use winner/loser clan data
+    matchInfo = gameDetails;
+    const winnerClan = matchInfo.winner_team_clan;
+    const loserClan = matchInfo.loser_team_clan;
+    
+    team1Data = {
+      id: winnerClan?.team?.id,
+      name: winnerClan?.clan_name || winnerClan?.team?.name || 'Team 1',
+      logoUrl: winnerClan?.team?.image_url || 'https://via.placeholder.com/48'
+    };
+    team2Data = {
+      id: loserClan?.team?.id,
+      name: loserClan?.clan_name || loserClan?.team?.name || 'Team 2',
+      logoUrl: loserClan?.team?.image_url || 'https://via.placeholder.com/48'
+    };
+    team1Score = matchInfo.winner_clan_score || 0;
+    team2Score = matchInfo.loser_clan_score || 0;
+  }
+
+  const matchData = {
+    id: gameId,
+    gameId: gameId,
+    matchId: matchInfo.match_id,
+    mapName: matchInfo.map_name,
+    displayName: getMapDisplayName(matchInfo.map_name),
+    status: matchInfo.status,
+    startTime: matchInfo.begin_at,
+    endTime: matchInfo.end_at,
+    duration: matchInfo.duration,
+    
+    // Team data
+    team1: team1Data,
+    team2: team2Data,
+    
+    // Scores
+    team1Score: team1Score,
+    team2Score: team2Score,
+    
+    // Match info
+    eventName: matchInfo.tournament?.name || 'CS2 Match',
+    format: 'Single Map',
+    completed: matchInfo.status === 'finished',
+    
+    // Raw data for detailed analysis
+    playerStats: playerStats,
+    rounds: matchInfo.game_rounds || []
+  };
+
+  return matchData;
+};
+
+/**
+ * Get round-specific data (hit group stats and kills matrix)
+ * @param {number} gameId - The game ID
+ * @param {number} roundNumber - The round number
+ * @returns {Promise<Object>} - Round-specific data
+ */
+export const getRoundData = async (gameId, roundNumber) => {
+  try {
+    if (!gameId || !roundNumber) {
+      throw new Error('Game ID and round number are required');
+    }
+    
+    const [hitGroupStatsResponse, killsMatrixResponse] = await Promise.all([
+      fetch(`${CS2_API_BASE}/api/v1/games/${gameId}/rounds/${roundNumber}/hit_group_stats`),
+      fetch(`${CS2_API_BASE}/api/v1/games/${gameId}/rounds/${roundNumber}/kills_matrix`)
+    ]);
+    
+    const [hitGroupStatsData, killsMatrixData] = await Promise.all([
+      hitGroupStatsResponse.json(),
+      killsMatrixResponse.json()
+    ]);
+    
+    return {
+      roundNumber,
+      hitGroupStats: hitGroupStatsData,
+      killsMatrix: killsMatrixData
+    };
+  } catch (error) {
+    console.error(`Error fetching round ${roundNumber} data:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Get weapon stats for all players in the match
+ * @param {number} gameId - The game ID
+ * @returns {Promise<Object>} - Weapon stats data
+ */
+export const getWeaponStats = async (gameId) => {
+  try {
+    if (!gameId) {
+      throw new Error('Game ID is required');
+    }
+    
+    const response = await fetch(`${CS2_API_BASE}/api/v1/games/${gameId}/weapons_stats`);
+    const data = await response.json();
+    
+    return data;
+  } catch (error) {
+    console.error('Error fetching weapon stats:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get hit group stats for all players in the match
+ * @param {number} gameId - The game ID
+ * @returns {Promise<Object>} - Hit group stats data
+ */
+export const getHitGroupStats = async (gameId) => {
+  try {
+    if (!gameId) {
+      throw new Error('Game ID is required');
+    }
+    
+    const response = await fetch(`${CS2_API_BASE}/api/v1/games/${gameId}/hit_group_stats`);
+    const data = await response.json();
+    
+    return data;
+  } catch (error) {
+    console.error('Error fetching hit group stats:', error);
+    throw error;
+  }
 };

@@ -1131,22 +1131,30 @@ const CS2TournamentScreen = ({ navigation, route }) => {
 
               // Group matches by date for headers (like VAL)
               const matchesByDate = {};
+              const dateKeyToDisplay = {};
+              
               finishedMatches.forEach(match => {
                 if (match.start_date) {
-                  const dateKey = new Date(match.start_date).toLocaleDateString('en-US', {
+                  const matchDate = new Date(match.start_date);
+                  // Use ISO date string as key for reliable sorting
+                  const dateKey = matchDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+                  const displayKey = matchDate.toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
                   });
+                  
                   if (!matchesByDate[dateKey]) {
                     matchesByDate[dateKey] = [];
+                    dateKeyToDisplay[dateKey] = displayKey;
                   }
                   matchesByDate[dateKey].push(match);
                 } else {
                   // Handle matches without dates
-                  const tbdKey = 'To Be Determined';
+                  const tbdKey = 'tbd';
                   if (!matchesByDate[tbdKey]) {
                     matchesByDate[tbdKey] = [];
+                    dateKeyToDisplay[tbdKey] = 'To Be Determined';
                   }
                   matchesByDate[tbdKey].push(match);
                 }
@@ -1155,8 +1163,14 @@ const CS2TournamentScreen = ({ navigation, route }) => {
               // Sort matches within each date (most recent first)
               Object.keys(matchesByDate).forEach(dateKey => {
                 matchesByDate[dateKey].sort((a, b) => {
-                  const dateA = new Date(a.end_date || a.start_date || 0);
-                  const dateB = new Date(b.end_date || b.start_date || 0);
+                  const dateA = new Date(a.end_date || a.start_date || 0).getTime();
+                  const dateB = new Date(b.end_date || b.start_date || 0).getTime();
+                  
+                  // Handle invalid dates
+                  if (isNaN(dateA) && isNaN(dateB)) return 0;
+                  if (isNaN(dateA)) return 1;
+                  if (isNaN(dateB)) return -1;
+                  
                   return dateB - dateA;
                 });
               });
@@ -1166,15 +1180,17 @@ const CS2TournamentScreen = ({ navigation, route }) => {
                   {Object.entries(matchesByDate)
                     .sort(([dateKeyA], [dateKeyB]) => {
                       // Sort date keys in descending order (most recent first)
-                      if (dateKeyA === 'To Be Determined') return 1;
-                      if (dateKeyB === 'To Be Determined') return -1;
-                      return new Date(dateKeyB) - new Date(dateKeyA);
+                      if (dateKeyA === 'tbd') return 1;
+                      if (dateKeyB === 'tbd') return -1;
+                      
+                      // Use direct string comparison for ISO dates (YYYY-MM-DD)
+                      return dateKeyB.localeCompare(dateKeyA); // Descending order
                     })
                     .map(([dateKey, dateMatches]) => (
                     <View key={dateKey} style={styles.resultsDateSection}>
                       {/* Date Header */}
                       <Text style={[styles.resultsDateHeader, { color: theme.text }]}>
-                        {dateKey}
+                        {dateKeyToDisplay[dateKey]}
                       </Text>
                       
                       {/* Matches for this date */}

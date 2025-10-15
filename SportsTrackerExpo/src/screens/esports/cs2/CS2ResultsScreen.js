@@ -65,6 +65,8 @@ const CS2ResultsScreen = ({ navigation, route }) => {
           const detailedData = await getMatchDetails(matchId, team1Id, team2Id, team1Slug, team2Slug, matchStartDate, matchSlug);
           setSeries(detailedData);
           console.log('Series data set to:', detailedData);
+          console.log('Team1 Map Pool:', detailedData.team1MapPool);
+          console.log('Team2 Map Pool:', detailedData.team2MapPool);
         } else {
           console.warn('Missing team IDs, using fallback data:', { team1Id, team2Id, matchData });
           // Fallback to passed match data if team IDs are missing
@@ -386,7 +388,15 @@ const CS2ResultsScreen = ({ navigation, route }) => {
           const isTeam2Winner = match.winner_team_id === series.team2?.id;
           
           return (
-            <View key={match.id} style={[styles.recentMatchCard, { backgroundColor: theme.surface }]}>
+            <TouchableOpacity 
+              key={match.id} 
+              style={[styles.recentMatchCard, { backgroundColor: theme.surfaceSecondary }]}
+              onPress={() => navigation.push('CS2Results', { 
+                matchId: match.id, 
+                matchData: match 
+              })}
+              activeOpacity={0.7}
+            >
               {/* Tournament Name */}
               <Text style={[styles.recentMatchTournament, { color: theme.textSecondary }]}>
                 {match.tournament?.name || 'Tournament'}
@@ -395,7 +405,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
               {/* Match Info Row */}
               <View style={styles.recentMatchRow}>
                 {/* Team 1 */}
-                <View style={styles.recentMatchTeam}>
+                <View style={styles.recentMatchTeamLeft}>
                   <Image
                     source={{ uri: match.team1?.image_url }}
                     style={[
@@ -423,7 +433,15 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                 </View>
 
                 {/* Team 2 */}
-                <View style={styles.recentMatchTeam}>
+                <View style={styles.recentMatchTeamRight}>
+                  <Image
+                    source={{ uri: match.team2?.image_url }}
+                    style={[
+                      styles.recentMatchTeamLogoRight,
+                      { opacity: !isTeam2Winner ? 0.6 : 1 }
+                    ]}
+                    resizeMode="contain"
+                  />
                   <Text style={[
                     styles.recentMatchTeamName,
                     { 
@@ -433,14 +451,6 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                   ]}>
                     {match.team2?.name || 'TBD'}
                   </Text>
-                  <Image
-                    source={{ uri: match.team2?.image_url }}
-                    style={[
-                      styles.recentMatchTeamLogo,
-                      { opacity: !isTeam2Winner ? 0.6 : 1 }
-                    ]}
-                    resizeMode="contain"
-                  />
                 </View>
               </View>
 
@@ -452,9 +462,169 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                   year: 'numeric'
                 })}
               </Text>
-            </View>
+            </TouchableOpacity>
           );
         })}
+      </View>
+    );
+  };
+
+  // Render Map Performance section
+  // Helper function to get team name for Map Performance (show second word if 2 words)
+  const getMapPerformanceTeamName = (teamName) => {
+    if (!teamName) return '';
+    const words = teamName.trim().split(' ');
+    return words.length === 2 ? words[1] : teamName;
+  };
+
+  // Helper function to create tournament abbreviation (first letter of each capitalized word)
+  const createTournamentAbbreviation = (tournamentName) => {
+    if (!tournamentName) return '';
+    
+    const words = tournamentName.split(' ');
+    const result = [];
+    let capitalizedLetters = '';
+    
+    for (const word of words) {
+      // If word is all caps or a number, add it separately (after any accumulated letters)
+      if (/^\d+$/.test(word) || (word.length > 1 && word === word.toUpperCase())) {
+        if (capitalizedLetters) {
+          result.push(capitalizedLetters);
+          capitalizedLetters = '';
+        }
+        result.push(word);
+      }
+      // If word starts with capital letter, accumulate the first letter
+      else if (word[0] === word[0].toUpperCase()) {
+        capitalizedLetters += word[0];
+      }
+    }
+    
+    // Add any remaining accumulated letters
+    if (capitalizedLetters) {
+      result.push(capitalizedLetters);
+    }
+    
+    return result.join(' ');
+  };
+
+  // Helper function to calculate match result for a team from games array
+  const calculateMatchResult = (games, teamId) => {
+    if (!games || !Array.isArray(games) || !teamId) return { won: false, teamScore: 0, opponentScore: 0 };
+    
+    let teamWins = 0;
+    let opponentWins = 0;
+    
+    games.forEach(game => {
+      const winnerId = game.winner_team_clan?.team?.id;
+      if (winnerId === teamId) {
+        teamWins++;
+      } else {
+        opponentWins++;
+      }
+    });
+    
+    return {
+      won: teamWins > opponentWins,
+      teamScore: teamWins,
+      opponentScore: opponentWins
+    };
+  };
+
+  const renderMapPerformance = () => {
+    if (!series.team1MapPool || !series.team2MapPool || !Array.isArray(series.team1MapPool) || !Array.isArray(series.team2MapPool)) {
+      return (
+        <View style={[styles.noDataContainer]}>
+          <Text style={[styles.noDataText, { color: theme.textSecondary }]}>
+            Map performance data not available
+          </Text>
+        </View>
+      );
+    }
+
+    // Get maps with map_count values and combine team data
+    const team1Maps = series.team1MapPool.filter(map => map.maps_count && map.maps_count > 0);
+    const team2Maps = series.team2MapPool.filter(map => map.maps_count && map.maps_count > 0);
+    
+    // Create a set of all unique maps played by both teams
+    const allMaps = new Set();
+    team1Maps.forEach(map => allMaps.add(map.map));
+    team2Maps.forEach(map => allMaps.add(map.map));
+    
+    const mapPerformanceData = Array.from(allMaps).map(mapName => {
+      const team1MapData = team1Maps.find(map => map.map === mapName);
+      const team2MapData = team2Maps.find(map => map.map === mapName);
+      
+      return {
+        mapName,
+        team1: {
+          played: team1MapData?.maps_count || 0,
+          won: team1MapData?.win_maps_count || 0,
+          winRate: team1MapData?.maps_count ? ((team1MapData.win_maps_count || 0) / team1MapData.maps_count * 100).toFixed(0) : '0'
+        },
+        team2: {
+          played: team2MapData?.maps_count || 0,
+          won: team2MapData?.win_maps_count || 0,
+          winRate: team2MapData?.maps_count ? ((team2MapData.win_maps_count || 0) / team2MapData.maps_count * 100).toFixed(0) : '0'
+        }
+      };
+    }).filter(map => map.team1.played > 0 || map.team2.played > 0);
+
+    if (mapPerformanceData.length === 0) {
+      return (
+        <View style={[styles.noDataContainer]}>
+          <Text style={[styles.noDataText, { color: theme.textSecondary }]}>
+            No map performance data available
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.mapStatsGrid}>
+        {mapPerformanceData.map((mapData, index) => (
+          <View key={mapData.mapName} style={styles.mapStatCard}>
+            <Image
+              source={{ uri: getCS2MapImageUrl(mapData.mapName?.replace('de_', '') || mapData.mapName?.toLowerCase()) }}
+              style={styles.mapStatBackground}
+              resizeMode="cover"
+            />
+            <View style={styles.mapStatOverlay} />
+            <View style={styles.mapStatContent}>
+              <Text style={[styles.mapStatName, { color: 'white' }]}>
+                {getMapDisplayName(mapData.mapName)}
+              </Text>
+              
+              <View style={styles.mapStatTeams}>
+                <View style={styles.mapStatTeam}>
+                  <Text style={[styles.mapStatTeamName, { color: 'white' }]}>
+                    {getMapPerformanceTeamName(series.team1?.shortName)}
+                  </Text>
+                  <Text style={[styles.mapStatWinRate, { color: 'white' }]}>
+                    {mapData.team1.winRate}%
+                  </Text>
+                  <Text style={[styles.mapStatRecord, { color: 'rgba(255,255,255,0.8)' }]}>
+                    {mapData.team1.won}W {mapData.team1.played - mapData.team1.won}L
+                  </Text>
+                </View>
+                
+                <View style={styles.mapStatDivider} />
+                
+                <View style={styles.mapStatTeam}>
+                  <Text style={[styles.mapStatTeamName, { color: 'white' }]}>
+                    {getMapPerformanceTeamName(series.team2?.shortName)}
+                  </Text>
+                  <Text style={[styles.mapStatWinRate, { color: 'white' }]}>
+                    {mapData.team2.winRate}%
+                  </Text>
+                  <Text style={[styles.mapStatRecord, { color: 'rgba(255,255,255,0.8)' }]}>
+                    {mapData.team2.won}W {mapData.team2.played - mapData.team2.won}L
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        ))}
       </View>
     );
   };
@@ -675,6 +845,14 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                           { backgroundColor: theme.surface }
                         ]}
                         activeOpacity={0.8}
+                        onPress={() => {
+                          // Navigate to CS2MatchScreen with required parameters
+                          navigation.navigate('CS2Match', {
+                            gameId: map.id,
+                            seriesSlug: series.matchDetails?.slug || `match-${series.id}`,
+                            mapName: map.name || map.displayName?.toLowerCase()
+                          });
+                        }}
                       >
                         {/* SECTION 1: Header */}
                         <View style={[styles.headerSection, { backgroundColor: theme.surface }]}>
@@ -936,13 +1114,150 @@ const CS2ResultsScreen = ({ navigation, route }) => {
               
               {/* H2H Record Card */}
               {renderHeadToHeadCard()}
-              
+
               {/* Recent Matches */}
               <Text style={[styles.recentMatchesTitle, { color: theme.text }]}>
                 Recent Matches
               </Text>
               
               {renderRecentMatches()}
+              
+              {/* Map Performance Section */}
+              <Text style={[styles.sectionTitle, { color: theme.text, marginTop: 24 }]}>
+                Map Performance
+              </Text>
+              
+              {renderMapPerformance()}
+
+              {/* Recent Form - Team 1 */}
+              {series.team1RecentMatches?.results && series.team1RecentMatches.results.length > 0 && (
+                <View style={[styles.statsSection, { marginBottom: 15 }]}>
+                  <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                    {getMapPerformanceTeamName(series.team1?.shortName)} Recent Form
+                  </Text>
+                  
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.recentFormScroll}>
+                    {series.team1RecentMatches.results.slice(0, 5).map((match, index) => {
+                      const isTeam1 = match.team1?.id === series.team1?.id;
+                      const opponent = isTeam1 ? match.team2 : match.team1;
+                      const result = calculateMatchResult(match.games, series.team1?.id);
+                      const tournamentAbbr = createTournamentAbbreviation(match.tournament?.name);
+                      
+                      return (
+                        <TouchableOpacity 
+                          key={match.id} 
+                          style={[styles.recentFormGameCard, { backgroundColor: theme.surface }]}
+                          onPress={() => navigation.push('CS2Results', { 
+                            matchId: match.id, 
+                            matchData: match 
+                          })}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[styles.formResultBadge, { backgroundColor: result.won ? theme.success : theme.error }]}>
+                            <Text style={styles.formResultText}>{result.won ? 'W' : 'L'}</Text>
+                          </View>
+                          
+                          <View style={styles.formGameContent}>
+                            <Text style={[styles.formEventName, { color: theme.textSecondary }]} numberOfLines={1}>
+                              {tournamentAbbr}
+                            </Text>
+                            
+                            <View style={styles.formMatchup}>
+                              <Image
+                                source={{ uri: series.team1?.logoUrl }}
+                                style={styles.formTeamLogo}
+                                resizeMode="contain"
+                              />
+                              <View style={styles.formScoreContainer}>
+                                <Text style={[styles.formScore, { color: theme.text }]}>
+                                  {result.teamScore} - {result.opponentScore}
+                                </Text>
+                              </View>
+                              <Image
+                                source={{ uri: opponent?.image_url || 'https://via.placeholder.com/48' }}
+                                style={styles.formTeamLogo}
+                                resizeMode="contain"
+                              />
+                            </View>
+                            
+                            <Text style={[styles.formDate, { color: theme.textSecondary }]}>
+                              {new Date(match.start_date).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Recent Form - Team 2 */}
+              {series.team2RecentMatches?.results && series.team2RecentMatches.results.length > 0 && (
+                <View style={styles.statsSection}>
+                  <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                    {getMapPerformanceTeamName(series.team2?.shortName)} Recent Form
+                  </Text>
+                  
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.recentFormScroll}>
+                    {series.team2RecentMatches.results.slice(0, 5).map((match, index) => {
+                      const isTeam1 = match.team1?.id === series.team2?.id;
+                      const opponent = isTeam1 ? match.team2 : match.team1;
+                      const result = calculateMatchResult(match.games, series.team2?.id);
+                      const tournamentAbbr = createTournamentAbbreviation(match.tournament?.name);
+                      
+                      return (
+                        <TouchableOpacity 
+                          key={match.id} 
+                          style={[styles.recentFormGameCard, { backgroundColor: theme.surface }]}
+                          onPress={() => navigation.push('CS2Results', { 
+                            matchId: match.id, 
+                            matchData: match 
+                          })}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[styles.formResultBadge, { backgroundColor: result.won ? theme.success : theme.error }]}>
+                            <Text style={styles.formResultText}>{result.won ? 'W' : 'L'}</Text>
+                          </View>
+                          
+                          <View style={styles.formGameContent}>
+                            <Text style={[styles.formEventName, { color: theme.textSecondary }]} numberOfLines={1}>
+                              {tournamentAbbr}
+                            </Text>
+                            
+                            <View style={styles.formMatchup}>
+                              <Image
+                                source={{ uri: series.team2?.logoUrl }}
+                                style={styles.formTeamLogo}
+                                resizeMode="contain"
+                              />
+                              <View style={styles.formScoreContainer}>
+                                <Text style={[styles.formScore, { color: theme.text }]}>
+                                  {result.teamScore} - {result.opponentScore}
+                                </Text>
+                              </View>
+                              <Image
+                                source={{ uri: opponent?.image_url || 'https://via.placeholder.com/48' }}
+                                style={styles.formTeamLogo}
+                                resizeMode="contain"
+                              />
+                            </View>
+                            
+                            <Text style={[styles.formDate, { color: theme.textSecondary }]}>
+                              {new Date(match.start_date).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -1859,26 +2174,39 @@ const styles = StyleSheet.create({
   recentMatchRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
     marginBottom: 8,
   },
-  recentMatchTeam: {
+  recentMatchTeamLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
+  recentMatchTeamRight: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    flex: 1,
+  },
   recentMatchTeamLogo: {
-    width: 24,
-    height: 24,
-    marginHorizontal: 8,
+    width: 35,
+    height: 35,
+    marginRight: 8,
+  },
+  recentMatchTeamLogoRight: {
+    width: 35,
+    height: 35,
+    marginLeft: 8,
   },
   recentMatchTeamName: {
     fontSize: 14,
     fontWeight: '600',
-    flex: 1,
   },
   recentMatchScore: {
-    minWidth: 60,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
   },
   recentMatchScoreText: {
     fontSize: 16,
@@ -1894,6 +2222,132 @@ const styles = StyleSheet.create({
   },
   noDataText: {
     fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  // Map Performance Styles - EXACT VAL Style
+  mapStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  mapStatCard: {
+    width: '48%',
+    borderRadius: 8,
+    marginBottom: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  mapStatBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
+  mapStatOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+  },
+  mapStatContent: {
+    padding: 16,
+    position: 'relative',
+    zIndex: 1,
+  },
+  mapStatName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  mapStatTeams: {
+    flexDirection: 'row',
+  },
+  mapStatTeam: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  mapStatDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginHorizontal: 12,
+  },
+  mapStatTeamName: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  mapStatWinRate: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  mapStatRecord: {
+    fontSize: 10,
+  },
+  // Recent Form Styles - EXACT VAL Style
+  recentFormScroll: {
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+  },
+  recentFormGameCard: {
+    width: 140,
+    borderRadius: 8,
+    padding: 12,
+    marginRight: 12,
+    position: 'relative',
+  },
+  formResultBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  formResultText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  formGameContent: {
+    alignItems: 'center',
+  },
+  formEventName: {
+    fontSize: 10,
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  formMatchup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 8,
+  },
+  formTeamLogo: {
+    width: 24,
+    height: 24,
+  },
+  formScoreContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  formScore: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  formDate: {
+    fontSize: 10,
     textAlign: 'center',
   },
 });

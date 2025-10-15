@@ -105,6 +105,7 @@ import CS2TabNavigator from './src/screens/esports/cs2/CS2TabNavigator';
 import CS2HomeScreen from './src/screens/esports/cs2/CS2HomeScreen';
 import CS2DiscoverScreen from './src/screens/esports/cs2/CS2DiscoverScreen';
 import CS2MatchDetailsScreen from './src/screens/esports/cs2/CS2MatchDetailsScreen';
+import CS2MatchScreen from './src/screens/esports/cs2/CS2MatchScreen';
 import CS2LiveScreen from './src/screens/esports/cs2/CS2LiveScreen';
 import CS2ResultsScreen from './src/screens/esports/cs2/CS2ResultsScreen';
 import CS2UpcomingScreen from './src/screens/esports/cs2/CS2UpcomingScreen';
@@ -941,6 +942,18 @@ const MainStackNavigator = () => {
         component={CS2ResultsScreen}
         options={{ 
           title: 'Results',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="CS2Match" 
+        component={CS2MatchScreen}
+        options={{ 
+          title: 'Match Details',
           headerStyle: {
             backgroundColor: colors.primary,
           },
