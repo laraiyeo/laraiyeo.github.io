@@ -276,6 +276,16 @@ const VALHomeScreen = ({ navigation, route }) => {
       }
       grouped[eventKey].series.push(s);
     });
+    
+    // Sort matches within each event by start time in ascending order (earliest first)
+    Object.values(grouped).forEach(event => {
+      event.series.sort((a, b) => {
+        const dateA = new Date(a.startDate);
+        const dateB = new Date(b.startDate);
+        return dateA.getTime() - dateB.getTime(); // Ascending order
+      });
+    });
+    
     return Object.values(grouped);
   };
 

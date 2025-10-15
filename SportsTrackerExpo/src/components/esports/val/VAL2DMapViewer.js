@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
+import FontAwesome6 from 'react-native-vector-icons/FontAwesome6';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../../context/ThemeContext';
 import {
   getMapPosition,
@@ -23,9 +25,31 @@ import {
 const { width: screenWidth } = Dimensions.get('window');
 const MAP_SIZE = screenWidth; // Full screen width
 
-// PlayerMarker component with proper fallback handling
-const PlayerMarker = ({ position, playerInfo, theme }) => {
+// Helper function to get player's death time in a round
+const getPlayerDeathTime = (events, playerId, roundNumber) => {
+  if (!events || !Array.isArray(events)) {
+    return null;
+  }
+
+  const killEvent = events.find(event => 
+    event.roundNumber === roundNumber &&
+    event.eventType === 'kill' &&
+    event.referencePlayerId === playerId // referencePlayerId is the victim
+  );
+
+  return killEvent ? killEvent.roundTimeMillis : null;
+};
+
+// PlayerMarker component with proper fallback handling and close icon logic
+const PlayerMarker = ({ position, playerInfo, theme, matchData, selectedRound, selectedTime }) => {
   const [imageError, setImageError] = useState(false);
+
+  // Get the player's death time
+  const deathTime = getPlayerDeathTime(matchData?.events, position.playerId, selectedRound);
+  
+  // Determine if we should show close icon or player avatar
+  const shouldShowCloseIcon = deathTime !== null && selectedTime > deathTime;
+  const diedAtSelectedTime = deathTime !== null && selectedTime === deathTime;
 
   return (
     <View
@@ -34,25 +58,38 @@ const PlayerMarker = ({ position, playerInfo, theme }) => {
         {
           left: position.x - 12, // Center the dot
           top: position.y - 12,
-          backgroundColor: playerInfo.teamColor,
-          borderColor: playerInfo.teamColor,
-          opacity: position.isAlive ? 1.0 : 0.65, // Dead players have 50% opacity
+          backgroundColor: shouldShowCloseIcon ? '' : playerInfo.teamColor,
+          borderColor: shouldShowCloseIcon ? '' : playerInfo.teamColor,
+          opacity: position.isAlive ? 1.0 : 0.65, // Dead players have reduced opacity
+          borderWidth: shouldShowCloseIcon ? 0 : 2,
         },
       ]}
     >
-      {/* Agent icon if available and not errored */}
-      {playerInfo.agentIcon && !imageError ? (
-        <Image
-          source={{ uri: playerInfo.agentIcon }}
-          style={[styles.agentIcon, { opacity: position.isAlive ? 1.0 : 0.65 }]}
-          onError={() => {
-            setImageError(true);
-          }}
+      {/* Show close icon for dead players after their death time */}
+      {shouldShowCloseIcon ? (
+        <Ionicons
+          name="close"
+          size={20}
+          color={playerInfo.teamColor}
+          style={{ opacity: 1, zIndex: 0 }}
         />
       ) : (
-        <Text style={[styles.playerInitial, { color: 'white', opacity: position.isAlive ? 1.0 : 0.65 }]}>
-          {playerInfo.playerName.charAt(0).toUpperCase()}
-        </Text>
+        /* Show agent icon or initial for alive players or at moment of death */
+        <>
+          {playerInfo.agentIcon && !imageError ? (
+            <Image
+              source={{ uri: playerInfo.agentIcon }}
+              style={[styles.agentIcon, { opacity: position.isAlive ? 1.0 : 0.65 }]}
+              onError={() => {
+                setImageError(true);
+              }}
+            />
+          ) : (
+            <Text style={[styles.playerInitial, { color: 'white', opacity: position.isAlive ? 1.0 : 0.65 }]}>
+              {playerInfo.playerName.charAt(0).toUpperCase()}
+            </Text>
+          )}
+        </>
       )}
     </View>
   );
@@ -201,6 +238,94 @@ const VAL2DMapViewer = ({ matchData, playersWithInfo, locations, selectedRound =
     }).filter(Boolean);
   }, [matchData?.events, selectedRound, selectedTime, screenPositions, playersWithInfo]);
 
+  // Get bomb and defuse locations - only show one at a time
+  const { bombLocations, defuseLocations } = useMemo(() => {
+    if (!matchData?.events || selectedTime === null || selectedTime === undefined || !coordinateBounds) {
+      return { bombLocations: [], defuseLocations: [] };
+    }
+
+    const timeMillis = selectedTime;
+    
+    // Check if there are any defuse events at or before the selected time
+    const defuseEvents = matchData.events.filter(event => 
+      event.eventType === 'defuse' && 
+      event.roundNumber === selectedRound &&
+      event.roundTimeMillis <= timeMillis
+    );
+
+    // If bomb was defused, only show defuse locations (no bomb icon)
+    if (defuseEvents.length > 0) {
+      const defuseLocationsArray = defuseEvents.map(defuseEvent => {
+        const defuser = playersWithInfo?.find(p => p.playerId === defuseEvent.playerId);
+        
+        // Get defuser's location at the time of defusing (or closest available)
+        const defuserLocation = locations.find(loc => 
+          loc.playerId === defuseEvent.playerId &&
+          loc.roundNumber === selectedRound &&
+          Math.abs(loc.roundTimeMillis - defuseEvent.roundTimeMillis) <= 2000 // Within 2 seconds
+        );
+
+        if (defuserLocation) {
+          const screenPos = getMapPosition(
+            { x: defuserLocation.locationX, y: defuserLocation.locationY },
+            mapConfig,
+            MAP_SIZE,
+            coordinateBounds
+          );
+
+          return {
+            id: `defuse-${defuseEvent.playerId}-${defuseEvent.roundTimeMillis}`,
+            x: screenPos.x,
+            y: screenPos.y,
+            defuserTeam: defuser?.teamNumber || 1,
+            defuseTime: defuseEvent.roundTimeMillis
+          };
+        }
+        return null;
+      }).filter(Boolean);
+
+      return { bombLocations: [], defuseLocations: defuseLocationsArray };
+    }
+
+    // If no defuse events, show bomb locations (if any)
+    const bombPlantEvents = matchData.events.filter(event => 
+      event.eventType === 'plant' && 
+      event.roundNumber === selectedRound &&
+      event.roundTimeMillis <= timeMillis
+    );
+
+    const bombLocationsArray = bombPlantEvents.map(plantEvent => {
+      const planter = playersWithInfo?.find(p => p.playerId === plantEvent.playerId);
+      
+      // Get planter's location at the time of planting (or closest available)
+      const planterLocation = locations.find(loc => 
+        loc.playerId === plantEvent.playerId &&
+        loc.roundNumber === selectedRound &&
+        Math.abs(loc.roundTimeMillis - plantEvent.roundTimeMillis) <= 2000 // Within 2 seconds
+      );
+
+      if (planterLocation) {
+        const screenPos = getMapPosition(
+          { x: planterLocation.locationX, y: planterLocation.locationY },
+          mapConfig,
+          MAP_SIZE,
+          coordinateBounds
+        );
+
+        return {
+          id: `bomb-${plantEvent.playerId}-${plantEvent.roundTimeMillis}`,
+          x: screenPos.x,
+          y: screenPos.y,
+          planterTeam: planter?.teamNumber || 1,
+          plantTime: plantEvent.roundTimeMillis
+        };
+      }
+      return null;
+    }).filter(Boolean);
+
+    return { bombLocations: bombLocationsArray, defuseLocations: [] };
+  }, [matchData?.events, selectedRound, selectedTime, locations, coordinateBounds, mapConfig, playersWithInfo]);
+
   // Determine attacking team for this round - memoized for use in both player colors and kill lines
   const attackingTeamNumber = useMemo(() => {
     let attacking = 1; // Default
@@ -310,6 +435,46 @@ const VAL2DMapViewer = ({ matchData, playersWithInfo, locations, selectedRound =
             </View>
           )}
 
+          {/* Render bomb locations first (lowest z-index, below everything except map) */}
+          {bombLocations.map((bomb) => (
+            <View
+              key={bomb.id}
+              style={[
+                styles.bombMarker,
+                {
+                  left: bomb.x - 12,
+                  top: bomb.y - 12,
+                }
+              ]}
+            >
+              <FontAwesome6
+                name="bomb"
+                size={20}
+                color={bomb.planterTeam === attackingTeamNumber ? theme.error : theme.success}
+              />
+            </View>
+          ))}
+
+          {/* Render defuse locations (above bomb, below players) */}
+          {defuseLocations.map((defuse) => (
+            <View
+              key={defuse.id}
+              style={[
+                styles.defuseMarker,
+                {
+                  left: defuse.x - 12,
+                  top: defuse.y - 12,
+                }
+              ]}
+            >
+              <FontAwesome6
+                name="wrench"
+                size={20}
+                color={defuse.defuserTeam === attackingTeamNumber ? theme.error : theme.success}
+              />
+            </View>
+          ))}
+
           {/* Render victims first (lowest z-index) */}
           {screenPositions
             .filter(position => {
@@ -326,6 +491,9 @@ const VAL2DMapViewer = ({ matchData, playersWithInfo, locations, selectedRound =
                   position={position}
                   playerInfo={playerInfo}
                   theme={theme}
+                  matchData={matchData}
+                  selectedRound={selectedRound}
+                  selectedTime={selectedTime}
                 />
               );
             })}
@@ -368,6 +536,9 @@ const VAL2DMapViewer = ({ matchData, playersWithInfo, locations, selectedRound =
                   position={position}
                   playerInfo={playerInfo}
                   theme={theme}
+                  matchData={matchData}
+                  selectedRound={selectedRound}
+                  selectedTime={selectedTime}
                 />
               );
             })}
@@ -448,6 +619,22 @@ const styles = StyleSheet.create({
   eventsText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  bombMarker: {
+    position: 'absolute',
+    zIndex: 0, // Lowest z-index (below everything except map)
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 24,
+    height: 24,
+  },
+  defuseMarker: {
+    position: 'absolute',
+    zIndex: 0, // Above bomb, but still below players and kill lines
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 24,
+    height: 24,
   },
 });
 

@@ -704,6 +704,53 @@ const VALMatchScreen = ({ navigation, route }) => {
   };
 
   const [timelinePosition, setTimelinePosition] = useState(0); // Keep in milliseconds
+  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  const [autoPlayInterval, setAutoPlayInterval] = useState(null);
+
+  // Auto-play functionality
+  const startAutoPlay = (timePoints) => {
+    if (isAutoPlaying) return; // Already playing
+    
+    setIsAutoPlaying(true);
+    let currentIndex = 0;
+    
+    const interval = setInterval(() => {
+      if (currentIndex >= timePoints.length) {
+        // Reached the end, stop auto-play
+        clearInterval(interval);
+        setIsAutoPlaying(false);
+        setAutoPlayInterval(null);
+        return;
+      }
+      
+      setTimelinePosition(timePoints[currentIndex]);
+      currentIndex++;
+    }, 1500); // 1.5 seconds per time point
+    
+    setAutoPlayInterval(interval);
+  };
+
+  const stopAutoPlay = () => {
+    if (autoPlayInterval) {
+      clearInterval(autoPlayInterval);
+      setAutoPlayInterval(null);
+    }
+    setIsAutoPlaying(false);
+  };
+
+  // Cleanup interval on unmount or tab change
+  useEffect(() => {
+    return () => {
+      if (autoPlayInterval) {
+        clearInterval(autoPlayInterval);
+      }
+    };
+  }, [autoPlayInterval]);
+
+  // Stop auto-play when changing rounds
+  useEffect(() => {
+    stopAutoPlay();
+  }, [selectedRound]);
 
   const renderRoundsTab = () => {
     // Get events for selected round
@@ -985,6 +1032,42 @@ const VALMatchScreen = ({ navigation, route }) => {
                   </Text>
                 )}
               </ScrollView>
+              
+              {/* Auto-Play Button */}
+              <TouchableOpacity
+                style={[
+                  styles.autoPlayButton,
+                  { 
+                    backgroundColor: isAutoPlaying ? theme.error : colors.primary,
+                    opacity: uniqueEventTimesMs.length <= 1 ? 0.5 : 1
+                  }
+                ]}
+                onPress={() => {
+                  if (isAutoPlaying) {
+                    stopAutoPlay();
+                  } else {
+                    if (uniqueEventTimesMs.length > 1) {
+                      // Start from beginning if at the end
+                      const startFromBeginning = timelinePosition === uniqueEventTimesMs[uniqueEventTimesMs.length - 1];
+                      if (startFromBeginning) {
+                        setTimelinePosition(uniqueEventTimesMs[0]);
+                      }
+                      startAutoPlay(uniqueEventTimesMs);
+                    }
+                  }
+                }}
+                disabled={uniqueEventTimesMs.length <= 1}
+              >
+                <Ionicons 
+                  name={isAutoPlaying ? "pause" : "play"} 
+                  size={16} 
+                  color="white" 
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.autoPlayButtonText}>
+                  {isAutoPlaying ? 'PAUSE' : 'PLAY'} {isAutoPlaying ? '⏸️' : '▶️'}
+                </Text>
+              </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -1975,6 +2058,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'column',
+  },
+  autoPlayButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 16,
+    marginHorizontal: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  autoPlayButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

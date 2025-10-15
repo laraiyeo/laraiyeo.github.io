@@ -2088,7 +2088,7 @@ const styles = StyleSheet.create({
   },
   // Stats Tab Styles
   playersScroll: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 16,
     marginBottom: 16,
   },
   playerCard: {
