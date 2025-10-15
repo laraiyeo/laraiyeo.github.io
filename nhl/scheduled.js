@@ -19,20 +19,13 @@ async function buildCardContent(awayTeam, homeTeam, startTime, seriesStatus) {
   const awayAbbrev = awayTeam.abbrev;
   const homeAbbrev = homeTeam.abbrev;
 
-  const awayRecord =
-    seriesStatus.topSeedTeamAbbrev === awayAbbrev
-      ? `${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`
-      : `${seriesStatus.bottomSeedWins}-${seriesStatus.topSeedWins}`;
+  const awayRecord = '';
 
-  const homeRecord =
-    seriesStatus.topSeedTeamAbbrev === homeAbbrev
-      ? `${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`
-      : `${seriesStatus.bottomSeedWins}-${seriesStatus.topSeedWins}`;
-  const seriesInfo = `${seriesStatus.seriesAbbrev || "N/A"} - Game ${seriesStatus.gameNumberOfSeries || "N/A"}`;
+  const homeRecord =  '';
 
   return `
     <div style="display: flex; flex-direction: column; justify-content: space-between; align-items: center; height: 100%;">
-      <div style="font-size: 0.8rem; color: grey; text-align: center;">${seriesInfo}</div>
+      <div style="font-size: 0.8rem; color: grey; text-align: center;">NHL</div>
       <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
         <div style="text-align: center;">
           <div style="display: flex; align-items: center; gap: 8px;">

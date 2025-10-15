@@ -97,6 +97,31 @@ import NHLGameDetailsScreen from './src/screens/nhl/GameDetailsScreen';
 import NHLTeamPageScreen from './src/screens/nhl/TeamPageScreen';
 import NHLPlayerPageScreen from './src/screens/nhl/PlayerPageScreen';
 
+// Esports screens
+import EsportsNavigator from './src/screens/esports/EsportsTabNavigator';
+
+// CS2 Esports screens
+import CS2TabNavigator from './src/screens/esports/cs2/CS2TabNavigator';
+import CS2HomeScreen from './src/screens/esports/cs2/CS2HomeScreen';
+import CS2DiscoverScreen from './src/screens/esports/cs2/CS2DiscoverScreen';
+import CS2MatchDetailsScreen from './src/screens/esports/cs2/CS2MatchDetailsScreen';
+import CS2MatchScreen from './src/screens/esports/cs2/CS2MatchScreen';
+import CS2LiveScreen from './src/screens/esports/cs2/CS2LiveScreen';
+import CS2ResultsScreen from './src/screens/esports/cs2/CS2ResultsScreen';
+import CS2UpcomingScreen from './src/screens/esports/cs2/CS2UpcomingScreen';
+import CS2TournamentScreen from './src/screens/esports/cs2/CS2TournamentScreen';
+
+// Valorant Esports screens
+import VALTabNavigator from './src/screens/esports/val/VALTabNavigator';
+import VALHomeScreen from './src/screens/esports/val/VALHomeScreen';
+import VALDiscoverScreen from './src/screens/esports/val/VALDiscoverScreen';
+import VALLiveScreen from './src/screens/esports/val/VALLiveScreen';
+import VALResultsScreen from './src/screens/esports/val/VALResultsScreen';
+import VALUpcomingScreen from './src/screens/esports/val/VALUpcomingScreen';
+import VALEventScreen from './src/screens/esports/val/VALEventScreen';
+import VALSeriesScreen from './src/screens/esports/val/VALSeriesScreen';
+import VALMatchScreen from './src/screens/esports/val/VALMatchScreen';
+
 // Italy enhanced screens
 import ItalyScoreboardScreen from './src/screens/soccer/italy/ItalyScoreboardScreen';
 import ItalyStandingsScreen from './src/screens/soccer/italy/ItalyStandingsScreen';
@@ -693,14 +718,22 @@ const MainStackNavigator = () => {
           if (sport?.toLowerCase() === 'f1') {
             return <F1TabNavigator route={route} navigation={navigation} />;
           }
+          // For esports (VAL, CS2, DOTA2, LOL), use the unified esports navigator
+          if (sport?.toLowerCase() === 'cs2' || sport?.toLowerCase() === 'val' || sport?.toLowerCase() === 'valorant' || sport?.toLowerCase() === 'esports' || sport?.toLowerCase() === 'dota2' || sport?.toLowerCase() === 'lol') {
+            return <EsportsNavigator route={route} navigation={navigation} />;
+          }
           // For other sports, use the tab navigator
           return <SportTabNavigator route={route} navigation={navigation} />;
         }}
         options={({ route }) => {
           const { sport } = route.params;
+          // For esports, show a unified title
+          const title = (sport?.toLowerCase() === 'cs2' || sport?.toLowerCase() === 'val' || sport?.toLowerCase() === 'valorant' || sport?.toLowerCase() === 'esports' || sport?.toLowerCase() === 'dota2' || sport?.toLowerCase() === 'lol') 
+            ? 'ESPORTS' 
+            : sport.toUpperCase();
           return {
             headerShown: true, // Always show header for sports
-            title: sport.toUpperCase(),
+            title: title,
             headerStyle: {
               backgroundColor: colors.primary,
             },
@@ -729,6 +762,12 @@ const MainStackNavigator = () => {
               return <F1RaceDetailsScreen {...props} />;
             case 'soccer':
               return <SpainGameDetailsScreen {...props} />;
+            case 'cs2':
+              return <CS2MatchDetailsScreen {...props} />;
+            case 'val':
+            case 'valorant':
+            case 'esports':
+              return <VALEventScreen {...props} />;
             default:
               return <NFLGameDetailsScreen {...props} />; // Default fallback
           }
@@ -867,6 +906,202 @@ const MainStackNavigator = () => {
         component={F1RacerDetailsScreen}
         options={{ 
           title: 'Racer Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="CS2MatchDetails" 
+        component={CS2MatchDetailsScreen}
+        options={{ 
+          title: 'Match Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="CS2Live" 
+        component={CS2LiveScreen}
+        options={{ 
+          title: 'Live Matches',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="CS2Results" 
+        component={CS2ResultsScreen}
+        options={{ 
+          title: 'Results',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="CS2Match" 
+        component={CS2MatchScreen}
+        options={{ 
+          title: 'Match Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="CS2Upcoming" 
+        component={CS2UpcomingScreen}
+        options={{ 
+          title: 'Upcoming Matches',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="CS2Tournament" 
+        component={CS2TournamentScreen}
+        options={{ 
+          title: 'Tournament',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+
+      {/* Valorant Esports Screens */}
+      <Stack.Screen 
+        name="VALHome" 
+        component={VALHomeScreen}
+        options={{ 
+          title: 'Valorant',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="VALDiscover" 
+        component={VALDiscoverScreen}
+        options={{ 
+          title: 'Discover',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="VALLive" 
+        component={VALLiveScreen}
+        options={{ 
+          title: 'Live Events',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="VALResults" 
+        component={VALResultsScreen}
+        options={{ 
+          title: 'Results',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="VALUpcoming" 
+        component={VALUpcomingScreen}
+        options={{ 
+          title: 'Upcoming Events',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="VALEvent" 
+        component={VALEventScreen}
+        options={{ 
+          title: 'Event Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="VALSeries" 
+        component={VALSeriesScreen}
+        options={{ 
+          title: 'Match Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="VALMatch" 
+        component={VALMatchScreen}
+        options={{ 
+          title: 'Match Analysis',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+
+      {/* CS2 Esports Screens */}
+      <Stack.Screen 
+        name="CS2Home" 
+        component={CS2HomeScreen}
+        options={{ 
+          title: 'Counter-Strike 2',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="CS2Discover" 
+        component={CS2DiscoverScreen}
+        options={{ 
+          title: 'Discover',
           headerStyle: {
             backgroundColor: colors.primary,
           },

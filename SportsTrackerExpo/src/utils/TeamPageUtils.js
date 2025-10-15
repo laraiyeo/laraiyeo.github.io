@@ -20,6 +20,12 @@ const shouldFetchFinishedGame = (gameDate, sport) => {
   } else if (sport === 'nfl') {
     // NFL: Stop fetching finished games after 5 minutes
     return timeDiff < (5 * 60 * 1000);
+  } else if (sport === 'nba') {
+    // NBA: Show finished games until next 2 AM EST (up to ~18 hours for late games)
+    return timeDiff < (18 * 60 * 60 * 1000);
+  } else if (sport === 'wnba') {
+    // WNBA: Show finished games until next 2 AM EST (up to ~18 hours for late games)
+    return timeDiff < (18 * 60 * 60 * 1000);
   } else if (sport === 'f1') {
     // F1: Stop fetching finished sessions after 24 hours (F1 races are much less frequent)
     return timeDiff < (24 * 60 * 60 * 1000);
@@ -562,6 +568,172 @@ export const fetchNHLTeamCurrentGame = async (teamId, updateTeamCurrentGameFunc)
 };
 
 /**
+ * Fetch current game for NBA team using ESPN Basketball API
+ */
+export const fetchNBATeamCurrentGame = async (teamId, updateTeamCurrentGameFunc) => {
+  try {
+    console.log(`[TEAM PAGE UTILS] Fetching NBA current game for team ${teamId}`);
+    
+    // Use API-safe team id (strip sport suffixes) for ESPN API calls
+    const nbaApiTeamId = getAPITeamId(teamId, 'nba');
+    const encodedNbaId = encodeURIComponent(String(nbaApiTeamId));
+    console.log(`[TEAM PAGE UTILS] Using API team ID: ${nbaApiTeamId} (encoded: ${encodedNbaId})`);
+    
+    // Get today's date range
+    const today = new Date();
+    const formatDate = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    const dateStr = formatDate(today);
+    console.log(`[TEAM PAGE UTILS] NBA date: ${dateStr}`);
+    
+    // Fetch NBA schedule for the team
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${encodedNbaId}/schedule`);
+    const data = await response.json();
+    
+    if (!data.events || data.events.length === 0) {
+      console.log(`[TEAM PAGE UTILS] No NBA games found for team ${teamId}`);
+      return { success: false, reason: 'No games found' };
+    }
+    
+    // Find today's game
+    const todayGame = data.events.find(event => {
+      const gameDate = new Date(event.date);
+      const gameDateStr = formatDate(gameDate);
+      return gameDateStr === dateStr;
+    });
+    
+    if (!todayGame) {
+      console.log(`[TEAM PAGE UTILS] No NBA game today for team ${teamId}`);
+      return { success: false, reason: 'No game today' };
+    }
+    
+    // Check if we should fetch this game based on timing restrictions
+    if (!shouldFetchFinishedGame(todayGame.date, 'nba')) {
+      console.log(`[TEAM PAGE UTILS] NBA game is finished and outside fetch window for team ${teamId}`);
+      return { success: false, reason: 'Game finished, outside fetch window' };
+    }
+    
+    console.log(`[TEAM PAGE UTILS] Found NBA game for team ${teamId}: ${todayGame.id}`);
+    
+    // Store using the same format as other sports for consistency
+    if (updateTeamCurrentGameFunc) {
+      await updateTeamCurrentGameFunc(teamId, {
+        eventId: todayGame.id,
+        eventLink: `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${todayGame.id}`,
+        gameDate: todayGame.date,
+        competition: 'nba',
+        updatedAt: new Date().toISOString()
+      });
+    }
+    
+    const currentGameData = {
+      gameId: todayGame.id,
+      status: todayGame.status?.type?.name || 'Unknown',
+      homeTeam: todayGame.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home'),
+      awayTeam: todayGame.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away'),
+      date: todayGame.date,
+      venue: todayGame.competitions?.[0]?.venue?.fullName,
+      lastUpdated: new Date().toISOString(),
+      sport: 'nba'
+    };
+    
+    return { success: true, game: currentGameData };
+    
+  } catch (error) {
+    console.error(`[TEAM PAGE UTILS] Error fetching NBA current game for team ${teamId}:`, error);
+    return { success: false, reason: error.message };
+  }
+};
+
+/**
+ * Fetch current game for WNBA team using ESPN Basketball API
+ */
+export const fetchWNBATeamCurrentGame = async (teamId, updateTeamCurrentGameFunc) => {
+  try {
+    console.log(`[TEAM PAGE UTILS] Fetching WNBA current game for team ${teamId}`);
+    
+    // Use API-safe team id (strip sport suffixes) for ESPN API calls
+    const wnbaApiTeamId = getAPITeamId(teamId, 'wnba');
+    const encodedWnbaId = encodeURIComponent(String(wnbaApiTeamId));
+    console.log(`[TEAM PAGE UTILS] Using API team ID: ${wnbaApiTeamId} (encoded: ${encodedWnbaId})`);
+    
+    // Get today's date range
+    const today = new Date();
+    const formatDate = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    const dateStr = formatDate(today);
+    console.log(`[TEAM PAGE UTILS] WNBA date: ${dateStr}`);
+    
+    // Fetch WNBA schedule for the team
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${encodedWnbaId}/schedule`);
+    const data = await response.json();
+    
+    if (!data.events || data.events.length === 0) {
+      console.log(`[TEAM PAGE UTILS] No WNBA games found for team ${teamId}`);
+      return { success: false, reason: 'No games found' };
+    }
+    
+    // Find today's game
+    const todayGame = data.events.find(event => {
+      const gameDate = new Date(event.date);
+      const gameDateStr = formatDate(gameDate);
+      return gameDateStr === dateStr;
+    });
+    
+    if (!todayGame) {
+      console.log(`[TEAM PAGE UTILS] No WNBA game today for team ${teamId}`);
+      return { success: false, reason: 'No game today' };
+    }
+    
+    // Check if we should fetch this game based on timing restrictions
+    if (!shouldFetchFinishedGame(todayGame.date, 'wnba')) {
+      console.log(`[TEAM PAGE UTILS] WNBA game is finished and outside fetch window for team ${teamId}`);
+      return { success: false, reason: 'Game finished, outside fetch window' };
+    }
+    
+    console.log(`[TEAM PAGE UTILS] Found WNBA game for team ${teamId}: ${todayGame.id}`);
+    
+    // Store using the same format as other sports for consistency
+    if (updateTeamCurrentGameFunc) {
+      await updateTeamCurrentGameFunc(teamId, {
+        eventId: todayGame.id,
+        eventLink: `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/summary?event=${todayGame.id}`,
+        gameDate: todayGame.date,
+        competition: 'wnba',
+        updatedAt: new Date().toISOString()
+      });
+    }
+    
+    const currentGameData = {
+      gameId: todayGame.id,
+      status: todayGame.status?.type?.name || 'Unknown',
+      homeTeam: todayGame.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home'),
+      awayTeam: todayGame.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away'),
+      date: todayGame.date,
+      venue: todayGame.competitions?.[0]?.venue?.fullName,
+      lastUpdated: new Date().toISOString(),
+      sport: 'wnba'
+    };
+    
+    return { success: true, game: currentGameData };
+    
+  } catch (error) {
+    console.error(`[TEAM PAGE UTILS] Error fetching WNBA current game for team ${teamId}:`, error);
+    return { success: false, reason: error.message };
+  }
+};
+
+/**
  * Fetch current race/session for F1 driver using ESPN F1 Calendar API (same as ConstructorDetailsScreen)
  */
 export const fetchF1DriverCurrentRace = async (teamId, updateTeamCurrentGameFunc) => {
@@ -702,6 +874,14 @@ export const fetchTeamCurrentGame = async (teamId, sport, updateTeamCurrentGameF
   
   if (sportLower === 'nhl' || sportLower === 'hockey') {
     return await fetchNHLTeamCurrentGame(teamId, updateTeamCurrentGameFunc);
+  }
+  
+  if (sportLower === 'nba' || sportLower === 'basketball') {
+    return await fetchNBATeamCurrentGame(teamId, updateTeamCurrentGameFunc);
+  }
+  
+  if (sportLower === 'wnba') {
+    return await fetchWNBATeamCurrentGame(teamId, updateTeamCurrentGameFunc);
   }
   
   if (sportLower === 'f1' || sportLower === 'formula 1' || sportLower === 'formula1') {

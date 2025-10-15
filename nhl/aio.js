@@ -217,7 +217,7 @@ async function displayGames(games, sectionId, containerId, noGamesId) {
 async function fetchNHLGames() {
   try {
     const today = getAdjustedDateForNBA();
-    const proxyUrl = 'https://api.allorigins.win/raw?url=';
+    const proxyUrl = 'https://corsproxy.io/?url=';
     const apiUrl = `https://api-web.nhle.com/v1/schedule/${today}`;
     const response = await fetch(proxyUrl + encodeURIComponent(apiUrl));
     const data = await response.json();

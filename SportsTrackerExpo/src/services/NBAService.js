@@ -124,6 +124,30 @@ export class NBAService {
       const home = (competition.competitors || []).find(c => c.homeAway === 'home') || {};
       const away = (competition.competitors || []).find(c => c.homeAway === 'away') || {};
 
+      let resultAway;
+      if (away.record) {
+        resultAway = away.record;
+      } else if (home.record) {
+        const flippedHomeRecord = home.record.split('-').reverse().join('-');
+        resultAway = flippedHomeRecord;
+      } else if (away.records?.[0]?.summary) {
+        resultAway = away.records[0].summary;
+      } else {
+        resultAway = null;
+      }
+
+      let resultHome;
+      if (home.record) {
+        resultHome = home.record;
+      } else if (away.record) {
+        const flippedAwayRecord = away.record.split('-').reverse().join('-');
+        resultHome = flippedAwayRecord;
+      } else if (home.records?.[0]?.summary) {
+        resultHome = home.records[0].summary;
+      } else {
+        resultHome = null;
+      }
+
       return {
         id: game.id,
         status: game.status?.type?.description || '',
@@ -137,7 +161,7 @@ export class NBAService {
           abbreviation: home.team?.abbreviation || '',
           logo: this.convertToHttps(home.team?.logo),
           score: home.score,
-          record: home.records?.[0]?.summary || ''
+          record: resultHome || ''
         },
         awayTeam: {
           id: away.id,
@@ -145,7 +169,7 @@ export class NBAService {
           abbreviation: away.team?.abbreviation || '',
           logo: this.convertToHttps(away.team?.logo),
           score: away.score,
-          record: away.records?.[0]?.summary || ''
+          record: resultAway || ''
         },
         date: game.date,
         venue: competition.venue?.fullName || '',

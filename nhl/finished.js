@@ -20,19 +20,12 @@ async function buildFinalCardContent(awayTeam, homeTeam, awayScore, homeScore, s
 
   // Determine series info
   let seriesInfo = "";
-  if (seriesStatus.topSeedWins > seriesStatus.bottomSeedWins) {
-    seriesInfo = `${seriesStatus.topSeedTeamAbbrev} ${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`;
-  } else if (seriesStatus.bottomSeedWins > seriesStatus.topSeedWins) {
-    seriesInfo = `${seriesStatus.bottomSeedTeamAbbrev} ${seriesStatus.bottomSeedWins}-${seriesStatus.topSeedWins}`;
-  } else {
-    seriesInfo = `Tied ${seriesStatus.topSeedWins}-${seriesStatus.bottomSeedWins}`;
-  }
 
   const seriesDetails = `${seriesStatus.seriesAbbrev || "N/A"} - Game ${seriesStatus.gameNumberOfSeries || "N/A"}`;
 
   return `
     <div style="display: flex; flex-direction: column; justify-content: space-between; align-items: center; height: 100%;">
-      <div style="font-size: 0.8rem; color: grey; text-align: center;">${seriesDetails}</div>
+      <div style="font-size: 0.8rem; color: grey; text-align: center;">NHL</div>
       <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
         <div style="text-align: center;">
           <div style="display: flex; align-items: center; gap: 8px;">

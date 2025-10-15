@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 
 const HomeScreen = () => {
@@ -58,10 +59,10 @@ const HomeScreen = () => {
       color: colors.primary
     },
     {
-      id: 'ncaa',
-      title: 'NCAA',
-      description: 'View all live NCAA games happening right now.',
-      icon: require('../../assets/ncaa.png'),
+      id: 'esports',
+      title: 'ESPORTS',
+      description: 'View all live esports matches happening right now.',
+      iconName: 'desktop-outline',
       color: colors.primary
     }
   ];
@@ -86,7 +87,11 @@ const HomeScreen = () => {
             activeOpacity={0.8}
           >
             <View style={styles.sportContent}>
-              <Image source={sport.icon} style={styles.sportIcon} />
+              {sport.icon ? (
+                <Image source={sport.icon} style={styles.sportIcon} />
+              ) : (
+                <Ionicons name={sport.iconName} size={50} color={sport.color} style={styles.sportIcon} />
+              )}
               <Text allowFontScaling={false} style={[styles.sportTitle, { color: sport.color }]}>{sport.title}</Text>
               <Text allowFontScaling={false} style={[styles.sportDescription, { color: theme.textSecondary }]}>{sport.description}</Text>
             </View>

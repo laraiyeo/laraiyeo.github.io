@@ -163,7 +163,7 @@ export const FavoritesProvider = ({ children }) => {
     // Use functional updater to avoid races; remove only the first matching occurrence
     let newFavorites = null;
     setFavorites(prev => {
-      const index = prev.findIndex(fav => String(fav.teamId) === id || String(fav.teamId) === addSportSuffix(id, fav.sport));
+      const index = prev.findIndex(fav => String(fav.teamId) === id);
       if (index === -1) {
         console.log(`FavoritesContext: removeFavorite did not find teamId=${id}`);
         newFavorites = prev;
@@ -324,8 +324,8 @@ export const FavoritesProvider = ({ children }) => {
 
       let found = false;
       const updatedFavorites = baseFavorites.map(fav => {
-        // Compare normalized stored ids
-        if (String(fav.teamId) === id || String(addSportSuffix(stripSportSuffix(id).id, fav.sport)) === String(fav.teamId)) {
+        // Compare normalized stored ids - strict matching to prevent cross-sport contamination
+        if (String(fav.teamId) === id) {
           found = true;
           return {
             ...fav,
@@ -397,7 +397,7 @@ export const FavoritesProvider = ({ children }) => {
 
   const getTeamCurrentGame = (teamId) => {
     const id = resolveStoredId(teamId) || null;
-    const team = favorites.find(fav => String(fav.teamId) === id || String(stripSportSuffix(fav.teamId).id) === stripSportSuffix(id).id);
+    const team = favorites.find(fav => String(fav.teamId) === id);
     return team?.currentGame || null;
   };
 
@@ -405,7 +405,7 @@ export const FavoritesProvider = ({ children }) => {
     const id = resolveStoredId(teamId) || null;
     setFavorites(prev => {
       const updatedFavorites = (prev || []).map(fav => {
-        if (String(fav.teamId) === id || stripSportSuffix(fav.teamId).id === stripSportSuffix(id).id) {
+        if (String(fav.teamId) === id) {
           const { currentGame, ...teamWithoutGame } = fav;
           return teamWithoutGame;
         }
@@ -481,6 +481,55 @@ export const FavoritesProvider = ({ children }) => {
     return await populateMissingCurrentGames(favorites);
   };
 
+  // Function to clear corrupted currentGame data for specific sports (e.g., NBA/WNBA teams with NHL data)
+  const clearCorruptedCurrentGames = async (targetSports = ['nba', 'wnba']) => {
+    console.log(`FavoritesContext: Clearing corrupted currentGame data for sports: ${targetSports.join(', ')}`);
+    
+    setFavorites(prev => {
+      const updatedFavorites = (prev || []).map(fav => {
+        const favSport = String(fav.sport || '').toLowerCase();
+        
+        // If this is a target sport team with currentGame data
+        if (targetSports.includes(favSport) && fav.currentGame) {
+          const gameCompetition = String(fav.currentGame.competition || '').toLowerCase();
+          
+          // Check if the currentGame data doesn't match the team's sport
+          if (!targetSports.includes(gameCompetition)) {
+            console.log(`FavoritesContext: Clearing corrupted ${gameCompetition} data from ${favSport} team ${fav.teamId}`);
+            const { currentGame, ...teamWithoutGame } = fav;
+            return teamWithoutGame;
+          }
+        }
+        
+        return fav;
+      });
+      
+      return updatedFavorites;
+    });
+    
+    // Persist the cleaned data
+    const cleanedFavorites = favorites.map(fav => {
+      const favSport = String(fav.sport || '').toLowerCase();
+      
+      if (targetSports.includes(favSport) && fav.currentGame) {
+        const gameCompetition = String(fav.currentGame.competition || '').toLowerCase();
+        
+        if (!targetSports.includes(gameCompetition)) {
+          const { currentGame, ...teamWithoutGame } = fav;
+          return teamWithoutGame;
+        }
+      }
+      
+      return fav;
+    });
+    
+    await saveFavorites(cleanedFavorites);
+    console.log('FavoritesContext: Corrupted currentGame data cleared and persisted');
+    
+    // Now refresh with correct data
+    return await populateMissingCurrentGames(cleanedFavorites);
+  };
+
   const value = {
     favorites,
     loading,
@@ -495,6 +544,7 @@ export const FavoritesProvider = ({ children }) => {
     clearTeamCurrentGame,
     clearAllFavorites,
     refreshAllCurrentGames,
+    clearCorruptedCurrentGames,
   };
 
   return (
