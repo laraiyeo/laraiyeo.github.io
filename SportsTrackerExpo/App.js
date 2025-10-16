@@ -122,6 +122,14 @@ import VALEventScreen from './src/screens/esports/val/VALEventScreen';
 import VALSeriesScreen from './src/screens/esports/val/VALSeriesScreen';
 import VALMatchScreen from './src/screens/esports/val/VALMatchScreen';
 
+// League of Legends Esports screens
+import LOLTabNavigator from './src/screens/esports/lol/LOLTabNavigator';
+import LOLHomeScreen from './src/screens/esports/lol/LOLHomeScreen';
+import LOLDiscoverScreen from './src/screens/esports/lol/LOLDiscoverScreen';
+import LOLMatchDetailsScreen from './src/screens/esports/lol/LOLMatchDetailsScreen';
+import LOLGameDetailsScreen from './src/screens/esports/lol/LOLGameDetailsScreen';
+import LOLTournamentScreen from './src/screens/esports/lol/LOLTournamentScreen';
+
 // Italy enhanced screens
 import ItalyScoreboardScreen from './src/screens/soccer/italy/ItalyScoreboardScreen';
 import ItalyStandingsScreen from './src/screens/soccer/italy/ItalyStandingsScreen';
@@ -1076,6 +1084,68 @@ const MainStackNavigator = () => {
         component={VALMatchScreen}
         options={{ 
           title: 'Match Analysis',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+
+      {/* League of Legends Esports Screens */}
+      <Stack.Screen 
+        name="LOLHome" 
+        component={LOLHomeScreen}
+        options={{ 
+          title: 'League of Legends',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="LOLDiscover" 
+        component={LOLDiscoverScreen}
+        options={{ 
+          title: 'Discover LoL',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="LOLMatchDetails" 
+        component={LOLMatchDetailsScreen}
+        options={{ 
+          title: 'Match Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="LOLGameDetails" 
+        component={LOLGameDetailsScreen}
+        options={{ 
+          title: 'Game Analysis',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="LOLTournament" 
+        component={LOLTournamentScreen}
+        options={{ 
+          title: 'Tournament',
           headerStyle: {
             backgroundColor: colors.primary,
           },

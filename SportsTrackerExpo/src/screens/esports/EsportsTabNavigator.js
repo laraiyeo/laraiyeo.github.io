@@ -5,6 +5,7 @@ import { useTheme } from '../../context/ThemeContext';
 // Import individual game tab navigators
 import VALTabNavigator from './val/VALTabNavigator';
 import CS2TabNavigator from './cs2/CS2TabNavigator';
+import LOLTabNavigator from './lol/LOLTabNavigator';
 
 const EsportsTabNavigator = ({ navigation, route }) => {
   const { colors, theme } = useTheme();
@@ -13,7 +14,6 @@ const EsportsTabNavigator = ({ navigation, route }) => {
   const games = [
     { key: 'VAL', label: 'VALORANT' },
     { key: 'CS2', label: 'CS2' },
-    { key: 'DOTA2', label: 'DOTA2' },
     { key: 'LOL', label: 'LOL' },
   ];
 
@@ -21,6 +21,8 @@ const EsportsTabNavigator = ({ navigation, route }) => {
     switch (activeGame) {
       case 'CS2':
         return <CS2TabNavigator navigation={navigation} route={route} />;
+      case 'LOL':
+        return <LOLTabNavigator navigation={navigation} route={route} />;
       case 'VAL':
       default:
         return <VALTabNavigator navigation={navigation} route={route} />;
@@ -57,7 +59,7 @@ const EsportsTabNavigator = ({ navigation, route }) => {
 
       {/* Active Game Content */}
       <View style={styles.gameContent}>
-        {(activeGame === 'VAL' || activeGame === 'CS2') ? (
+        {(activeGame === 'VAL' || activeGame === 'CS2' || activeGame === 'LOL') ? (
           renderActiveGame()
         ) : (
           <View style={styles.comingSoon}>
