@@ -847,7 +847,17 @@ const FavoritesScreen = ({ navigation }) => {
       try {
         const saved = await AsyncStorage.getItem('favorites_section_order');
         if (saved) {
-          setSectionOrder(JSON.parse(saved));
+          const savedOrder = JSON.parse(saved);
+          const mergedOrder = mergeSectionOrders(savedOrder);
+          setSectionOrder(mergedOrder);
+          
+          // If merged order is different from saved, update storage
+          if (JSON.stringify(mergedOrder) !== JSON.stringify(savedOrder)) {
+            saveSectionOrder(mergedOrder);
+          }
+        } else {
+          // No saved order, use default
+          setSectionOrder(DEFAULT_SECTION_ORDER);
         }
       } catch (e) {
       }
@@ -930,6 +940,26 @@ const FavoritesScreen = ({ navigation }) => {
   // Default section order if none present
   const DEFAULT_SECTION_ORDER = ['MLB', 'NFL', 'NBA', 'NHL', 'WNBA', 'Soccer', 'F1'];
 
+  // Function to merge saved order with default order to ensure all sports are included
+  const mergeSectionOrders = (savedOrder) => {
+    if (!savedOrder) return DEFAULT_SECTION_ORDER;
+    
+    // Create a set of saved items for quick lookup
+    const savedSet = new Set(savedOrder);
+    
+    // Start with saved order
+    const mergedOrder = [...savedOrder];
+    
+    // Add any missing items from DEFAULT_SECTION_ORDER at the end
+    DEFAULT_SECTION_ORDER.forEach(sport => {
+      if (!savedSet.has(sport)) {
+        mergedOrder.push(sport);
+      }
+    });
+    
+    return mergedOrder;
+  };
+
   const saveSectionOrder = async (order) => {
     try {
       await AsyncStorage.setItem('favorites_section_order', JSON.stringify(order));
@@ -941,7 +971,7 @@ const FavoritesScreen = ({ navigation }) => {
   const closeReorderModal = () => setIsReorderModalVisible(false);
 
   const moveItem = (index, dir) => {
-    const order = [...(sectionOrder || DEFAULT_SECTION_ORDER)];
+    const order = [...mergeSectionOrders(sectionOrder)];
     const newIndex = index + dir;
     if (newIndex < 0 || newIndex >= order.length) return;
     const tmp = order[newIndex];
@@ -7571,7 +7601,7 @@ const FavoritesScreen = ({ navigation }) => {
 
   // Reorder modal content
   const renderReorderModal = () => {
-    const data = sectionOrder || DEFAULT_SECTION_ORDER;
+    const data = mergeSectionOrders(sectionOrder);
     return (
       <Modal
         visible={isReorderModalVisible}

@@ -1,0 +1,32 @@
+# Ignore frontend files - we only want to deploy the backend
+*.html
+*.css
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+assets/
+f1/
+mlb/
+nba/
+ncaa/
+nfl/
+nhl/
+soccer/
+wnba/
+mobile-app/
+SportsTrackerExpo/
+f1-fastf1/
+scripts/
+
+# Keep backend and deployment files
+!backend/
+!railway.json
+!package.json
+!.env.example
+!docker-compose.yml
+!DEPLOYMENT_OPTIONS.md
+!RAILWAY_SETUP.md
+!INTEGRATION_GUIDE.md
+!CLOUD_DEPLOYMENT.md
