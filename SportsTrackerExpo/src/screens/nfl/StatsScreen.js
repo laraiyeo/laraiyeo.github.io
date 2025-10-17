@@ -13,7 +13,21 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import NFLDataService from '../../services/NFLDataService';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
+
+// NFL-specific year logic: July-December uses current year, otherwise previous year
+const getNFLYear = () => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const month = now.getMonth(); // 0-based: 0=January, 6=July, 11=December
+  
+  // If current month is July (6) to December (11), use current year
+  if (month >= 6) { // July to December
+    return currentYear;
+  }
+  
+  // Otherwise use previous year (January to June)
+  return currentYear - 1;
+};
 
 const StatsScreen = ({ route }) => {
   const { sport } = route.params;
@@ -69,13 +83,16 @@ const StatsScreen = ({ route }) => {
 
   const fetchPlayerStats = async () => {
     try {
-      const { data } = await YearFallbackUtils.fetchWithYearFallback(
-        async (year) => {
-          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${year}/types/2/leaders?limit=10`);
-          return await response.json();
-        },
-        (data) => data && data.categories && data.categories.length > 0
-      );
+      const currentYear = getNFLYear();
+      const response = await fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${currentYear}/types/2/leaders?limit=10`);
+      const rawData = await response.json();
+      
+      // Validate that we have relevant data
+      if (!(rawData && rawData.categories && rawData.categories.length > 0)) {
+        throw new Error('No stats data found');
+      }
+      
+      const data = rawData;
       
       if (data.categories) {
         // First, collect all unique athlete and team refs

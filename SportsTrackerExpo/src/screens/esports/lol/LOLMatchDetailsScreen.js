@@ -15,7 +15,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
 import { 
   getMatchDetails,
-  getMatchWindow
+  getMatchWindow,
+  calculateVodStartingTime,
+  calculateMatchDateWith2359
 } from '../../../services/lolService';
 
 const { width } = Dimensions.get('window');
@@ -33,6 +35,10 @@ const LOLMatchDetailsScreen = ({ navigation, route }) => {
     loadMatchData();
   }, [matchId]);
 
+
+
+
+
   const loadMatchData = async () => {
     try {
       setLoading(true);
@@ -47,31 +53,71 @@ const LOLMatchDetailsScreen = ({ navigation, route }) => {
         
         if (completedGames.length > 0) {
           console.log(`Loading window data for ${completedGames.length} completed games`);
-          
-          // Time candidates that work with the web version
-          const gameDateCandidates = [
-            '2025-10-16T15:32:30.000Z', // Primary time from web version
-            '2025-10-15T19:05:10.000Z',
-            '2025-10-15T18:05:10.000Z', 
-            '2025-10-15T17:05:10.000Z',
-            '2025-10-15T20:05:10.000Z',
-          ];
 
           // Create promises for all games in parallel
           const windowPromises = completedGames.map(async (game) => {
             console.log(`Loading window data for game ${game.id}`);
             
-            // Try each time candidate until one succeeds
-            for (const gameDate of gameDateCandidates) {
+            // Try match date with 23:59 first
+            const matchWith2359 = calculateMatchDateWith2359(game);
+            if (matchWith2359) {
               try {
-                console.log(`Testing game date: ${gameDate} for game ${game.id}`);
-                const windowResponse = await getMatchWindow(game.id, gameDate);
+                console.log(`Using match date 23:59: ${matchWith2359} for game ${game.id}`);
+                const windowResponse = await getMatchWindow(game.id, matchWith2359);
                 if (windowResponse) {
-                  console.log(`Success with game date: ${gameDate} for game ${game.id}`);
+                  console.log(`Success with match date 23:59: ${matchWith2359} for game ${game.id}`);
                   return { gameId: game.id, data: windowResponse };
                 }
               } catch (error) {
-                console.log(`Failed with game date: ${gameDate} for game ${game.id}`, error.message);
+                console.log(`Failed with match date 23:59: ${matchWith2359} for game ${game.id}`, error.message);
+              }
+            }
+            
+            // Calculate the starting time using VOD data as backup
+            const calculatedTime = calculateVodStartingTime(game);
+            
+            if (calculatedTime) {
+              try {
+                console.log(`Using VOD calculated time: ${calculatedTime} for game ${game.id}`);
+                const windowResponse = await getMatchWindow(game.id, calculatedTime);
+                if (windowResponse) {
+                  console.log(`Success with VOD calculated time: ${calculatedTime} for game ${game.id}`);
+                  return { gameId: game.id, data: windowResponse };
+                }
+              } catch (error) {
+                console.log(`Failed with VOD calculated time: ${calculatedTime} for game ${game.id}`, error.message);
+              }
+            }
+            
+            // Fallback to time candidates with proper buffer (at least 30 seconds old)
+            const now = new Date();
+            const bufferTime = new Date(now.getTime() - 30000); // 30 seconds ago
+            const rounded = new Date(Math.floor(bufferTime.getTime() / 10000) * 10000);
+            const minus = new Date(rounded.getTime() - 10000);
+            const added = new Date(rounded.getTime() + 10000);
+            const iso1 = minus.toISOString();
+            const iso2 = added.toISOString();
+            const iso = rounded.toISOString();
+            console.log(`Using buffered times (30s old): ${iso}, ${iso1}, ${iso2}`);
+            
+            const gameDateCandidates = [
+              `${iso1}`,
+              `${iso2}`,
+              `${iso}`,
+              '2025-10-16T15:32:30.000Z'
+            ];
+            
+            // Try each time candidate until one succeeds
+            for (const gameDate of gameDateCandidates) {
+              try {
+                console.log(`Testing hardcoded fallback date: ${gameDate} for game ${game.id}`);
+                const windowResponse = await getMatchWindow(game.id, gameDate);
+                if (windowResponse) {
+                  console.log(`Success with hardcoded fallback date: ${gameDate} for game ${game.id}`);
+                  return { gameId: game.id, data: windowResponse };
+                }
+              } catch (error) {
+                console.log(`Failed with hardcoded fallback date: ${gameDate} for game ${game.id}`, error.message);
                 continue;
               }
             }

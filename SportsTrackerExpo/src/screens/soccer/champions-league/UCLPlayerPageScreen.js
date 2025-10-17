@@ -2,7 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView, Modal } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { ChampionsLeagueServiceEnhanced } from '../../../services/soccer/ChampionsLeagueServiceEnhanced';
-import YearFallbackUtils from '../../../utils/YearFallbackUtils';
+
+// Helper function for Champions League year logic
+// For Champions League standings/bracket screens: July-December uses next year, else current year
+const getChampionsLeagueYear = () => {
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1; // getMonth() returns 0-11
+  return (currentMonth >= 7 && currentMonth <= 12) ? now.getFullYear() : now.getFullYear() - 1;
+};
 
 // UEFA leagues configuration for career stats
 const LEAGUES = {
@@ -491,22 +498,20 @@ const UCLPlayerPageScreen = ({ route, navigation }) => {
       // Fetch stats for each competition in parallel
       const statsPromises = competitions.map(async (competition) => {
         try {
-          // Use fetchWithYearFallback to find player stats data that exists
-          const statsData = await YearFallbackUtils.fetchWithYearFallback(
-            async (year) => {
-              const response = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition.code}/seasons/${year}/types/${competition.seasonType}/athletes/${playerId}/statistics/0?lang=en&region=us`);
-              
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-              }
-              
-              return await response.json();
-            },
-            (data) => {
-              console.log(`Validating player stats data:`, data);
-              return data && data.splits && data.splits.categories && Array.isArray(data.splits.categories) && data.splits.categories.length > 0;
+          // Fetch player stats with Champions League year logic
+          const year = getChampionsLeagueYear();
+          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition.code}/seasons/${year}/types/${competition.seasonType}/athletes/${playerId}/statistics/0?lang=en&region=us`);
+          
+          let statsData = null;
+          if (response.ok) {
+            statsData = await response.json();
+            // Validate the stats data
+            console.log(`Validating player stats data:`, statsData);
+            const isValid = statsData && statsData.splits && statsData.splits.categories && Array.isArray(statsData.splits.categories) && statsData.splits.categories.length > 0;
+            if (!isValid) {
+              statsData = null;
             }
-          );
+          }
           
           if (statsData) {
             console.log(`Found stats for player ${playerId} in ${competition.name}`);
@@ -584,22 +589,19 @@ const UCLPlayerPageScreen = ({ route, navigation }) => {
       // Fetch game logs from all UCL competitions in parallel
       const fetchPromises = competitions.map(async (competition) => {
         try {
-          // Use fetchWithYearFallback to find game log data that exists
-          const gameLogData = await YearFallbackUtils.fetchWithYearFallback(
-            async (year) => {
-              const response = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/seasons/${year}/athletes/${playerId}/eventlog?lang=en&region=us&played=true`);
-              
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-              }
-              
-              return await response.json();
-            },
-            (data) => {
-              console.log(`Validating game log data for ${competition}:`, data);
-              return data && ((data.events && data.events.length > 0) || (data.events && data.events.items && data.events.items.length > 0));
+          // Fetch game log with Champions League year logic
+          const year = getChampionsLeagueYear();
+          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/seasons/${year}/athletes/${playerId}/eventlog?lang=en&region=us&played=true`);
+          
+          let gameLogData = null;
+          if (response.ok) {
+            gameLogData = await response.json();
+            console.log(`Validating game log data for ${competition}:`, gameLogData);
+            const isValid = gameLogData && ((gameLogData.events && gameLogData.events.length > 0) || (gameLogData.events && gameLogData.events.items && gameLogData.events.items.length > 0));
+            if (!isValid) {
+              gameLogData = null;
             }
-          );
+          }
           
           if (gameLogData) {
             console.log(`Found game log data for ${competition}:`, gameLogData);

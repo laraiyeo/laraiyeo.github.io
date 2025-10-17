@@ -377,8 +377,10 @@ const NBAScoreboardScreen = ({ navigation }) => {
     const isLive = isLiveGame(item);
     const isScheduled = item.status === 'Scheduled';
 
-    const awayWinner = item.isCompleted && !isLive && item.awayTeam.score > item.homeTeam.score;
-    const homeWinner = item.isCompleted && !isLive && item.homeTeam.score > item.awayTeam.score;
+    const awayWinner = item.isCompleted && !isLive && Number(item.awayTeam.score) > Number(item.homeTeam.score);
+    const homeWinner = item.isCompleted && !isLive && Number(item.homeTeam.score) > Number(item.awayTeam.score);
+
+    console.log('Home:', item.homeTeam.score, 'Away:', item.awayTeam.score, 'Home Winner:', homeWinner);
 
     return (
       <TouchableOpacity
@@ -404,18 +406,19 @@ const NBAScoreboardScreen = ({ navigation }) => {
 
         <View style={styles.gameContent}>
           {/* Away Team */}
-          <TouchableOpacity
-            style={styles.teamRow}
-            onPress={() => handleTeamPress(item.awayTeam)}
-            activeOpacity={0.7}
-          >
+          <View style={styles.teamRow}>
             <View style={styles.teamInfo}>
-              <TeamLogo 
-                teamAbbreviation={normalizeAbbreviation(item.awayTeam.abbreviation)}
-                size={32}
-                style={[styles.teamLogo, { opacity : (isLive || isScheduled) ? 1 : (awayWinner ? 1 : 0.6) }]}
-                iconStyle={{ marginRight: 12 }}
-              />
+              <TouchableOpacity
+                onPress={() => handleTeamPress(item.awayTeam)}
+                activeOpacity={0.7}
+              >
+                <TeamLogo 
+                  teamAbbreviation={normalizeAbbreviation(item.awayTeam.abbreviation)}
+                  size={32}
+                  style={[styles.teamLogo, { opacity : (isLive || isScheduled) ? 1 : (awayWinner ? 1 : 0.6) }]}
+                  iconStyle={{ marginRight: 12 }}
+                />
+              </TouchableOpacity>
               <View style={styles.teamDetails}>
                 <View style={styles.teamNameContainer}>
                   {isFavorite(item.awayTeam.id, 'nba') && (
@@ -435,21 +438,22 @@ const NBAScoreboardScreen = ({ navigation }) => {
             <Text allowFontScaling={false} style={[styles.teamScore, { color: (isLive || isScheduled) ? theme.text : (awayWinner ? colors.primary : theme.textSecondary) }]}>
               {item.status === 'Scheduled' ? '' : item.awayTeam.score || '-'}
             </Text>
-          </TouchableOpacity>
+          </View>
 
           {/* Home Team */}
-          <TouchableOpacity
-            style={styles.teamRow}
-            onPress={() => handleTeamPress(item.homeTeam)}
-            activeOpacity={0.7}
-          >
+          <View style={styles.teamRow}>
             <View style={styles.teamInfo}>
-              <TeamLogo 
-                teamAbbreviation={normalizeAbbreviation(item.homeTeam.abbreviation)}
-                size={32}
-                style={[styles.teamLogo, { opacity : (isLive || isScheduled) ? 1 : (homeWinner ? 1 : 0.6) }]}
-                iconStyle={{ marginRight: 12 }}
-              />
+              <TouchableOpacity
+                onPress={() => handleTeamPress(item.homeTeam)}
+                activeOpacity={0.7}
+              >
+                <TeamLogo 
+                  teamAbbreviation={normalizeAbbreviation(item.homeTeam.abbreviation)}
+                  size={32}
+                  style={[styles.teamLogo, { opacity : (isLive || isScheduled) ? 1 : (homeWinner ? 1 : 0.6) }]}
+                  iconStyle={{ marginRight: 12 }}
+                />
+              </TouchableOpacity>
               <View style={styles.teamDetails}>
                 <View style={styles.teamNameContainer}>
                   {isFavorite(item.homeTeam.id, 'nba') && (
@@ -469,7 +473,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
             <Text allowFontScaling={false} style={[styles.teamScore, { color: (isLive || isScheduled) ? theme.text : (homeWinner ? colors.primary : theme.textSecondary) }]}>
               {item.status === 'Scheduled' ? '' : item.homeTeam.score || '-'}
             </Text>
-          </TouchableOpacity>
+          </View>
         </View>
 
         {/* Game Info */}

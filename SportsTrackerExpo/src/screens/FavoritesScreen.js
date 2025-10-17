@@ -733,7 +733,31 @@ const FavoritesScreen = ({ navigation }) => {
   const sortGamesByStatusAndTime = (games) => {
     return games.sort((a, b) => {
       const getGameStatus = (game) => {
-        // Use the same status checking logic as the display function
+        // For NFL games, prioritize computed flags or specific NFL logic first
+        if (game.sport === 'NFL' || String(game.actualLeagueCode || '').toLowerCase() === 'nfl') {
+          // First try to use pre-computed flags if available
+          if (game.isLive !== undefined || game.isScheduled !== undefined || game.isFinished !== undefined) {
+            if (game.isLive) {
+              return 'Live';
+            }
+            if (game.isFinished) {
+              return 'Final';
+            }
+            return 'Scheduled';
+          }
+          
+          // Fallback to computing flags if not pre-computed
+          const flags = computeMatchFlags(game);
+          if (flags.isLive) {
+            return 'Live';
+          }
+          if (flags.isFinished) {
+            return 'Final';
+          }
+          return 'Scheduled';
+        }
+
+        // Use the same status checking logic as the display function for other sports
         const statusFromSiteAPI = game.gameDataWithStatus?.header?.competitions?.[0]?.status;
         let statusType = null;
         
@@ -761,18 +785,6 @@ const FavoritesScreen = ({ navigation }) => {
             if (coded === 'I') return 'Live';
             return 'Scheduled';
           }
-        }
-        
-        // If this is an NFL game and we couldn't determine status from statusType, check computeMatchFlags
-        if (game.sport === 'NFL' || String(game.actualLeagueCode || '').toLowerCase() === 'nfl') {
-          const flags = computeMatchFlags(game);
-          if (flags.isLive) {
-            return 'Live';
-          }
-          if (flags.isFinished) {
-            return 'Final';
-          }
-          return 'Scheduled';
         }
 
         // Fallback to date-based logic if no status available

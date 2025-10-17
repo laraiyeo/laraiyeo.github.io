@@ -1,6 +1,6 @@
 // Valorant API Service using rib.gg API
 const RIB_API_BASE_URL = 'https://corsproxy.io/?url=https://be-prod.rib.gg/v1';
-const RIB_NEXT_BASE_URL = 'https://corsproxy.io/?url=https://www.rib.gg/_next/data/2glECPS_a3VR_3n_l25P6/en';
+const RIB_NEXT_BASE_URL = 'https://corsproxy.io/?url=https://www.rib.gg/_next/data/npASm5vnJ_D_TiFBai3fN/en';
 
 // Generic API call helper
 export const ribApiCall = async (endpoint, options = {}) => {

@@ -222,6 +222,133 @@ export const getMatchDetails = async (matchId) => {
     }
 };
 
+// Calculate starting time using match date with 23:59 time (simpler approach)
+export const calculateMatchDateWith2359 = (gameData) => {
+    if (!gameData?.vods || gameData.vods.length === 0) {
+        console.log('No VOD data available for match date calculation');
+        return null;
+    }
+
+    // Find the en-US VOD for firstFrameTime
+    const enUsVod = gameData.vods.find(vod => vod.locale === 'en-US');
+    if (!enUsVod?.firstFrameTime) {
+        console.log('No en-US VOD or firstFrameTime found');
+        return null;
+    }
+
+    // Parse the firstFrameTime to get the match date
+    const matchDate = new Date(enUsVod.firstFrameTime);
+    if (isNaN(matchDate.getTime())) {
+        console.log('Invalid firstFrameTime date');
+        return null;
+    }
+
+    // Get the date part and set time to 23:59:00.000Z
+    const dateStr = matchDate.toISOString().split('T')[0]; // Get YYYY-MM-DD
+    const calculatedTime = new Date(`${dateStr}T23:59:00.000Z`);
+    
+    // Check if the calculated time is too recent (need at least 30 second buffer)
+    const now = new Date();
+    const timeDifference = now.getTime() - calculatedTime.getTime();
+    
+    if (timeDifference < 30000) { // Less than 30 seconds old
+        console.log(`Calculated time ${calculatedTime.toISOString()} is too recent (${timeDifference}ms ago), adjusting...`);
+        // Use a time that's at least 30 seconds old
+        const bufferedTime = new Date(now.getTime() - 30000);
+        const finalTime = bufferedTime.toISOString();
+        console.log(`Adjusted to buffered time: ${finalTime}`);
+        return finalTime;
+    }
+    
+    const finalTime = calculatedTime.toISOString();
+    console.log(`Match date with 23:59: ${finalTime} (derived from: ${enUsVod.firstFrameTime})`);
+    
+    return finalTime;
+};
+
+// Calculate starting time using VOD data for window/details requests
+export const calculateVodStartingTime = (gameData) => {
+    if (!gameData?.vods || gameData.vods.length === 0) {
+        console.log('No VOD data available for time calculation');
+        return null;
+    }
+
+    // Find the en-US VOD
+    const enUsVod = gameData.vods.find(vod => vod.locale === 'en-US');
+    if (!enUsVod?.firstFrameTime) {
+        console.log('No en-US VOD or firstFrameTime found');
+        return null;
+    }
+
+    // Find the first VOD with valid startMillis and endMillis
+    const firstVodWithMillis = gameData.vods.find(vod => 
+        vod.startMillis !== null && 
+        vod.endMillis !== null && 
+        vod.startMillis !== undefined && 
+        vod.endMillis !== undefined &&
+        typeof vod.startMillis === 'number' &&
+        typeof vod.endMillis === 'number' &&
+        vod.endMillis > vod.startMillis  // Ensure valid duration
+    );
+
+    if (!firstVodWithMillis) {
+        console.log('No VOD with valid millis found');
+        return null;
+    }
+
+    // Calculate the duration from the first VOD (endMillis - startMillis)
+    const vodDurationMs = firstVodWithMillis.endMillis - firstVodWithMillis.startMillis;
+    console.log(`VOD duration: ${vodDurationMs}ms (${vodDurationMs / 1000}s) from locale: ${firstVodWithMillis.locale}`);
+    
+    // Validate duration is reasonable (between 10 minutes and 3 hours)
+    if (vodDurationMs < 600000 || vodDurationMs > 10800000) {
+        console.log(`VOD duration ${vodDurationMs}ms seems unreasonable, skipping calculation`);
+        return null;
+    }
+    
+    // Parse the firstFrameTime from en-US VOD
+    const firstFrameTime = new Date(enUsVod.firstFrameTime);
+    if (isNaN(firstFrameTime.getTime())) {
+        console.log('Invalid firstFrameTime date');
+        return null;
+    }
+    
+    console.log(`First frame time: ${firstFrameTime.toISOString()}`);
+    
+    // Add the VOD duration to the firstFrameTime
+    const calculatedTime = new Date(firstFrameTime.getTime() + vodDurationMs);
+    console.log(`Calculated time before rounding: ${calculatedTime.toISOString()}`);
+    
+    // Round up to the nearest 10 seconds
+    const roundedSeconds = Math.ceil(calculatedTime.getSeconds() / 10) * 10;
+    calculatedTime.setSeconds(roundedSeconds, 0); // Set milliseconds to 0
+    
+    // Handle minute overflow
+    if (roundedSeconds >= 60) {
+        calculatedTime.setMinutes(calculatedTime.getMinutes() + 1);
+        calculatedTime.setSeconds(0);
+    }
+    
+    const finalTime = calculatedTime.toISOString();
+    
+    // Check if the calculated time is too recent (need at least 30 second buffer)
+    const now = new Date();
+    const timeDifference = now.getTime() - calculatedTime.getTime();
+    
+    if (timeDifference < 30000) { // Less than 30 seconds old
+        console.log(`VOD calculated time ${finalTime} is too recent (${timeDifference}ms ago), adjusting...`);
+        // Use a time that's at least 30 seconds old
+        const bufferedTime = new Date(now.getTime() - 30000);
+        const adjustedTime = bufferedTime.toISOString();
+        console.log(`Adjusted to buffered time: ${adjustedTime}`);
+        return adjustedTime;
+    }
+    
+    console.log(`Final calculated starting time: ${finalTime}`);
+    
+    return finalTime;
+};
+
 // Get match window data (livestats)
 export const getMatchWindow = async (gameId, startingTime) => {
     try {
@@ -247,9 +374,53 @@ export const getMatchLiveDetails = async (gameId, startingTime) => {
 };
 
 // Get endgame statistics using optimized approach
-export const getEndgameStats = async (gameId, gameDate) => {
+export const getEndgameStats = async (gameId, gameDate, gameData = null) => {
     try {
-        // Direct game date candidates - test multiple times around the provided date
+        // First, try match date with 23:59 if game data is available
+        if (gameData) {
+            const matchWith2359 = calculateMatchDateWith2359(gameData);
+            if (matchWith2359) {
+                try {
+                    console.log(`Trying match date 23:59: ${matchWith2359}`);
+                    const windowData = await getMatchWindow(gameId, matchWith2359);
+                    const detailsData = await getMatchLiveDetails(gameId, matchWith2359);
+                    
+                    if (windowData && detailsData) {
+                        console.log(`Success with match date 23:59: ${matchWith2359}`);
+                        return {
+                            window: windowData,
+                            details: detailsData,
+                            timestamp: matchWith2359
+                        };
+                    }
+                } catch (error) {
+                    console.log(`Match date 23:59 ${matchWith2359} failed:`, error.message);
+                }
+            }
+
+            // Second, try VOD calculated time if available
+            const calculatedTime = calculateVodStartingTime(gameData);
+            if (calculatedTime) {
+                try {
+                    console.log(`Trying VOD calculated time: ${calculatedTime}`);
+                    const windowData = await getMatchWindow(gameId, calculatedTime);
+                    const detailsData = await getMatchLiveDetails(gameId, calculatedTime);
+                    
+                    if (windowData && detailsData) {
+                        console.log(`Success with VOD calculated time: ${calculatedTime}`);
+                        return {
+                            window: windowData,
+                            details: detailsData,
+                            timestamp: calculatedTime
+                        };
+                    }
+                } catch (error) {
+                    console.log(`VOD calculated time ${calculatedTime} failed:`, error.message);
+                }
+            }
+        }
+
+        // Fallback to direct game date candidates - test multiple times around the provided date
         const baseDateStr = gameDate.split('T')[0]; // Extract date part
         const gameDateCandidates = [
             `${baseDateStr}T19:05:10.000Z`,

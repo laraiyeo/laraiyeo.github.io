@@ -395,16 +395,13 @@ const NFLScoreboardScreen = ({ navigation }) => {
               return g1.date - g2.date;
             }
 
-            // For Live: sort by displayClock (descending so games with more time remaining show first), then by start time
+            // For Live: sort by start time ascending (not by game clock)
             if (s1 === 0) {
-              const c1 = parseClockValue(g1.displayClock || '0');
-              const c2 = parseClockValue(g2.displayClock || '0');
-              if (c1 !== c2) return c2 - c1; // more time remaining first
               return g1.date - g2.date;
             }
 
-            // For Finished: sort by end/start time descending (most recently finished first)
-            return g2.date - g1.date;
+            // For Finished: sort by start time ascending (earliest finished games first: 1,2,3)
+            return g1.date - g2.date;
           });
 
           sortedForDate.forEach(game => groupedGames.push({ type: 'game', ...game }));

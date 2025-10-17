@@ -18,7 +18,6 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { useWindowDimensions } from 'react-native';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 // Global image cache to persist across component re-renders
 const loadedImages = new Set();
@@ -771,11 +770,17 @@ const RaceDetailsScreen = ({ route }) => {
   // Function to fetch driver standings (needed to get event log)
   const fetchDriverStandings = async () => {
     try {
-      const data = await YearFallbackUtils.fetchWithYearFallback(
-        (year) => `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/standings/0`,
-        (data) => data.standings && data.standings.length > 0
-      );
-      return data;
+      const currentYear = new Date().getFullYear();
+      const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/standings/0`;
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      // Validate that we have relevant data
+      if (data.standings && data.standings.length > 0) {
+        return { data, year: currentYear };
+      }
+      
+      throw new Error('No standings data found');
     } catch (error) {
       console.error('Error fetching driver standings:', error);
       return null;
@@ -2037,6 +2042,15 @@ const RaceDetailsScreen = ({ route }) => {
             </View>
           ) : null}
         </View>
+        
+        {/* Streaming availability indicator */}
+        {isStreamingAvailable() && (
+          <View style={styles.streamingIndicator}>
+            <Text allowFontScaling={false} style={[styles.streamingText, { color: colors.primary }]}>
+              Tap to view stream
+            </Text>
+          </View>
+        )}
       </TouchableOpacity>
     </View>
     );
@@ -3232,6 +3246,18 @@ const RaceDetailsScreen = ({ route }) => {
     nextCompText: {
       fontSize: 12,
       fontStyle: 'italic'
+    },
+    streamingIndicator: {
+      position: 'absolute',
+      bottom: 2,
+      left: 16,
+      right: 16,
+      alignItems: 'center',
+    },
+    streamingText: {
+      fontSize: 12,
+      fontStyle: 'italic',
+      opacity: 0.8,
     },
     headerCardTop: {
       marginBottom: 6,

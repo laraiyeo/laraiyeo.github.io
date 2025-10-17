@@ -14,12 +14,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../../context/ThemeContext';
-import { 
+import {
   getMatchWindow,
-  getMatchLiveDetails 
-} from '../../../services/lolService';
-
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  getMatchLiveDetails,
+  calculateVodStartingTime,
+  calculateMatchDateWith2359
+} from '../../../services/lolService';const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 // SVG Icon Components
 const InhibitorIcon = ({ size = 24, color = "#555d64" }) => (
@@ -150,26 +150,113 @@ const LOLGameDetailsScreen = ({ navigation, route }) => {
     loadGameData();
   }, [gameId]);
 
+
+
+
+
   const loadGameData = async () => {
     try {
       setLoading(true);
       
-      // Time candidates that work with the web version
-      const gameDateCandidates = [
-        '2025-10-16T15:32:30.000Z', // Primary time from web version
-        '2025-10-15T19:05:10.000Z',
-        '2025-10-15T18:05:10.000Z', 
-        '2025-10-15T17:05:10.000Z',
-        '2025-10-15T20:05:10.000Z',
-      ];
-
       let windowResponse = null;
       let detailsResponse = null;
+
+      // First, try to find the game data from matchDetails to calculate time
+      let gameData = null;
+      if (matchDetails?.match?.games) {
+        gameData = matchDetails.match.games.find(game => game.id === gameId);
+      }
+
+      // Try match date with 23:59 first
+      if (gameData) {
+        const matchWith2359 = calculateMatchDateWith2359(gameData);
+        
+        if (matchWith2359) {
+          try {
+            console.log(`Using match date 23:59: ${matchWith2359} for game ${gameId}`);
+            
+            // Try to load both window and details data with match date 23:59
+            const [windowResult, detailsResult] = await Promise.allSettled([
+              getMatchWindow(gameId, matchWith2359),
+              getMatchLiveDetails(gameId, matchWith2359)
+            ]);
+
+            if (windowResult.status === 'fulfilled' && windowResult.value) {
+              windowResponse = windowResult.value;
+            }
+            
+            if (detailsResult.status === 'fulfilled' && detailsResult.value) {
+              detailsResponse = detailsResult.value;
+            }
+
+            // If we got at least one successful response, we're done
+            if (windowResponse || detailsResponse) {
+              console.log(`Success with match date 23:59: ${matchWith2359} for game ${gameId}`);
+              setWindowData(windowResponse);
+              setDetailsData(detailsResponse);
+              return;
+            }
+          } catch (error) {
+            console.log(`Failed with match date 23:59: ${matchWith2359} for game ${gameId}`, error.message);
+          }
+        }
+
+        // Try VOD calculated time as backup
+        const calculatedTime = calculateVodStartingTime(gameData);
+        
+        if (calculatedTime) {
+          try {
+            console.log(`Using VOD calculated time: ${calculatedTime} for game ${gameId}`);
+            
+            // Try to load both window and details data with calculated time
+            const [windowResult, detailsResult] = await Promise.allSettled([
+              getMatchWindow(gameId, calculatedTime),
+              getMatchLiveDetails(gameId, calculatedTime)
+            ]);
+
+            if (windowResult.status === 'fulfilled' && windowResult.value) {
+              windowResponse = windowResult.value;
+            }
+            
+            if (detailsResult.status === 'fulfilled' && detailsResult.value) {
+              detailsResponse = detailsResult.value;
+            }
+
+            // If we got at least one successful response, we're done
+            if (windowResponse || detailsResponse) {
+              console.log(`Success with VOD calculated time: ${calculatedTime} for game ${gameId}`);
+              setWindowData(windowResponse);
+              setDetailsData(detailsResponse);
+              return;
+            }
+          } catch (error) {
+            console.log(`Failed with VOD calculated time: ${calculatedTime} for game ${gameId}`, error.message);
+          }
+        }
+      }
+
+      // Fallback to hardcoded time candidates with proper buffer if both methods fail
+      const now = new Date();
+      const bufferTime = new Date(now.getTime() - 30000); // 30 seconds ago
+      const rounded = new Date(Math.floor(bufferTime.getTime() / 10000) * 10000);
+      const minus = new Date(rounded.getTime() - 10000);
+      const added = new Date(rounded.getTime() + 10000);
+      const iso1 = minus.toISOString();
+      const iso2 = added.toISOString();
+      const iso = rounded.toISOString();
+      console.log(`Using buffered times (30s old): ${iso}, ${iso1}, ${iso2}`);
+      
+      const gameDateCandidates = [
+        `${iso1}`,
+        `${iso2}`,
+        `${iso}`,
+        '2025-10-16T15:32:30.000Z'
+      ];
 
       // Try each time candidate until one succeeds
       for (const gameDate of gameDateCandidates) {
         try {
-          console.log(`Testing game date: ${gameDate} for game ${gameId}`);
+          console.log(`Testing hardcoded fallback date: ${gameDate} for game ${gameId}`);
           
           // Try to load both window and details data
           const [windowResult, detailsResult] = await Promise.allSettled([
@@ -187,11 +274,11 @@ const LOLGameDetailsScreen = ({ navigation, route }) => {
 
           // If we got at least one successful response, break
           if (windowResponse || detailsResponse) {
-            console.log(`Success with game date: ${gameDate} for game ${gameId}`);
+            console.log(`Success with fallback date: ${gameDate} for game ${gameId}`);
             break;
           }
         } catch (error) {
-          console.log(`Failed with game date: ${gameDate} for game ${gameId}`, error.message);
+          console.log(`Failed with fallback date: ${gameDate} for game ${gameId}`, error.message);
           continue;
         }
       }

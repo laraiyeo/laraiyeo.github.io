@@ -4,9 +4,16 @@
 
 import React from 'react';
 import { normalizeLeagueCodeForStorage } from '../../utils/TeamIdMapping';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const EUROPA_LEAGUE_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa';
+
+// Helper function for Europa League year logic
+// For Europa League standings/bracket screens: July-December uses next year, else current year
+const getEuropaLeagueYear = () => {
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1; // getMonth() returns 0-11
+  return (currentMonth >= 7 && currentMonth <= 12) ? now.getFullYear() + 1 : now.getFullYear();
+};
 
 // Competition configurations
 const EUROPA_LEAGUE_COMPETITIONS = {
@@ -398,7 +405,7 @@ export const EuropaLeagueServiceEnhanced = {
       const teamPromises = teams.map(async (team) => {
         try {
           const teamId = team.team.id;
-          const rosterResponse = await fetch(`${EUROPA_LEAGUE_BASE_URL}/teams/${teamId}/roster?season=${YearFallbackUtils.getPreferredYear()}`);
+          const rosterResponse = await fetch(`${EUROPA_LEAGUE_BASE_URL}/teams/${teamId}/roster?season=${getEuropaLeagueYear()}`);
           const rosterData = await rosterResponse.json();
           
           if (rosterData.athletes) {

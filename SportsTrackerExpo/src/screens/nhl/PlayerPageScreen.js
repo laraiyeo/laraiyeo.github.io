@@ -2,7 +2,20 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView, Modal } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { NHLService } from '../../services/NHLService';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
+
+// NHL-specific year logic: September-December uses next year, otherwise current year
+const getNHLYear = () => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const month = now.getMonth(); // 0-based: 0=January, 8=September, 11=December
+  
+  // If current month is September (8) to December (11), use next year
+  if (month >= 8) { // September to December
+    return currentYear + 1;
+  }
+  
+  return currentYear;
+};
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
 const convertToHttps = (url) => {
@@ -400,14 +413,8 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
   // Fetch eventlog teams for the past 6 seasons (simple, limited) and store them
   const fetchEventlogTeams = async () => {
     try {
-      // Use fallback mechanism to get the current valid year
-      const { year: currentYear } = await YearFallbackUtils.fetchWithYearFallback(
-        async (year) => {
-          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${year}/leaders?limit=1`);
-          return await response.json();
-        },
-        (data) => data && !data.error
-      ).catch(() => ({ year: YearFallbackUtils.getCurrentYear() }));
+      // Use NHL-specific year logic
+      const currentYear = getNHLYear();
       
       const seasons = [];
       for (let i = 0; i < 6; i++) seasons.push(String(currentYear - i));
@@ -449,7 +456,7 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
       }
       // If no seasons found, generate a recent seasons list (last 6 years)
       if (seasons.length === 0) {
-        const thisYear = YearFallbackUtils.getCurrentYear();
+        const thisYear = getNHLYear();
         for (let i = 0; i < 6; i++) seasons.push(String(thisYear - i));
       }
 
@@ -578,7 +585,7 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
 
       // Simple approach: just show recent seasons 2020-2025 regardless of team data
       // Let the UI handle missing data by showing "-" for missing stats
-      const currentYear = YearFallbackUtils.getCurrentYear();
+      const currentYear = getNHLYear();
       const fixedSeasons = [];
       for (let year = currentYear; year >= 2020; year--) {
         fixedSeasons.push(String(year));
@@ -668,14 +675,8 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
         headshot: { href: `https://a.espncdn.com/i/headshots/nhl/players/full/${playerId}.png` }
       };
 
-      // Use year fallback to find a valid season for current stats
-      const { year: seasonYear } = await YearFallbackUtils.fetchWithYearFallback(
-        async (year) => {
-          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${year}/types/2/athletes/${playerId}/statistics?lang=en&region=us`);
-          return await response.json();
-        },
-        (data) => data && !data.error && data.splits
-      ).catch(() => ({ year: YearFallbackUtils.getCurrentYear() }));
+      // Use NHL-specific year logic for current stats
+      const seasonYear = getNHLYear();
       
       const siteUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/athletes/${playerId}`;
       const splitsUrl = `https://site.web.api.espn.com/apis/common/v3/sports/hockey/nhl/athletes/${playerId}/splits`;

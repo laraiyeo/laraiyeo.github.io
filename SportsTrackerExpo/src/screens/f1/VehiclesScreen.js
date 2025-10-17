@@ -9,7 +9,6 @@ import {
   Alert,
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const VehiclesScreen = () => {
   const { theme, colors } = useTheme();
@@ -61,12 +60,11 @@ const VehiclesScreen = () => {
 
     const logoName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
     
-    // Try preferred year first (2026), then fallback to current year (2025)
-    const preferredYear = YearFallbackUtils.getPreferredYear();
+    // Use current year for logo URLs
     const currentYear = new Date().getFullYear();
     
-    // Return preferred year URL - browser will handle 404 fallback via onError
-    return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${preferredYear}/${logoName}/${preferredYear}${logoName}${logoColor}.webp`;
+    // Return current year URL
+    return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${currentYear}/${logoName}/${currentYear}${logoName}${logoColor}.webp`;
   };
 
   // Get constructor car (same as teams.js)
@@ -91,34 +89,34 @@ const VehiclesScreen = () => {
     
     const carName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
     
-    // Try preferred year first (2026), then fallback to current year (2025)
-    const preferredYear = YearFallbackUtils.getPreferredYear();
+    // Use current year for car URLs
+    const currentYear = new Date().getFullYear();
     
-    // Return preferred year URL - browser will handle 404 fallback via onError
-    return `https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000000/common/f1/${preferredYear}/${carName}/${preferredYear}${carName}carright.webp`;
+    // Return current year URL
+    return `https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000000/common/f1/${currentYear}/${carName}/${currentYear}${carName}carright.webp`;
   };
 
   // Fetch constructors data
   const fetchConstructors = async () => {
     try {
       setLoading(true);
-      const data = await YearFallbackUtils.fetchWithYearFallback(
-        async (year) => {
-          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/standings/1`);
-          
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          
-          return await response.json();
-        },
-        (data) => {
-          console.log('Validating F1 constructor standings data for vehicles:', data);
-          // Handle both possible structures: data.standings or data.data.standings
-          const standings = data?.standings || data?.data?.standings;
-          return standings && standings.length > 0;
-        }
-      );
+      const currentYear = new Date().getFullYear();
+      const response = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/standings/1`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const standingsRawData = await response.json();
+      
+      // Validate that we have relevant data
+      console.log('Validating F1 constructor standings data for vehicles:', standingsRawData);
+      const standings = standingsRawData?.standings || standingsRawData?.data?.standings;
+      if (!(standings && standings.length > 0)) {
+        throw new Error('No constructor standings data found');
+      }
+      
+      const data = { data: standingsRawData, year: currentYear };
       
       console.log('[VehiclesScreen] data:', data ? 'exists' : 'null');
       const standingsData = data?.standings || data?.data?.standings;

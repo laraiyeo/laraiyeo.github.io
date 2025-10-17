@@ -68,15 +68,14 @@ const LOLDiscoverScreen = ({ navigation }) => {
           const tournaments = await getTournamentsForLeague(league.id);
           console.log(`League ${league.name}: ${tournaments.length} total tournaments`);
           
-          // Filter tournaments for 2025 only
-          const tournaments2025 = tournaments.filter(tournament => {
-            return tournament.startDate && tournament.startDate.startsWith('2025');
+          const tournamentsYear = tournaments.filter(tournament => {
+            return tournament.startDate && tournament.startDate.startsWith(new Date().getFullYear().toString());
           });
           
-          console.log(`League ${league.name}: ${tournaments2025.length} tournaments in 2025`);
+          console.log(`League ${league.name}: ${tournamentsYear.length} tournaments in ${new Date().getFullYear()}`);
           
           // Transform tournaments to events format
-          return tournaments2025.map((tournament) => {
+          return tournamentsYear.map((tournament) => {
             const now = new Date();
             const startDate = new Date(tournament.startDate);
             const endDate = new Date(tournament.endDate);

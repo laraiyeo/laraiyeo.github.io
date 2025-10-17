@@ -13,7 +13,6 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const StandingsScreen = ({ route }) => {
   const { theme, colors, isDarkMode } = useTheme();
@@ -85,39 +84,46 @@ const StandingsScreen = ({ route }) => {
       console.log('[StandingsScreen] Starting fetchStandings');
       setLoading(true);
       
-      // Fetch both driver and constructor standings with year fallback
-      const [driversData, constructorsData] = await Promise.all([
-        YearFallbackUtils.fetchWithYearFallback(
-          async (year) => {
-            const response = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/standings/0`);
-            if (!response.ok) {
-              throw new Error(`HTTP ${response.status}`);
-            }
-            return await response.json();
-          },
-          (data) => {
-            console.log('Validating F1 driver standings data:', data);
-            // Handle both possible structures: data.standings or data.data.standings
-            const standings = data?.standings || data?.data?.standings;
-            return standings && standings.length > 0;
+      // Fetch both driver and constructor standings with current year
+      const currentYear = new Date().getFullYear();
+      
+      const [driversRawData, constructorsRawData] = await Promise.all([
+        (async () => {
+          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/standings/0`);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
           }
-        ),
-        YearFallbackUtils.fetchWithYearFallback(
-          async (year) => {
-            const response = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/standings/1`);
-            if (!response.ok) {
-              throw new Error(`HTTP ${response.status}`);
-            }
-            return await response.json();
-          },
-          (data) => {
-            console.log('Validating F1 constructor standings data:', data);
-            // Handle both possible structures: data.standings or data.data.standings
-            const standings = data?.standings || data?.data?.standings;
-            return standings && standings.length > 0;
+          const data = await response.json();
+          
+          // Validate that we have relevant data
+          console.log('Validating F1 driver standings data:', data);
+          const standings = data?.standings || data?.data?.standings;
+          if (!(standings && standings.length > 0)) {
+            throw new Error('No driver standings data found');
           }
-        )
+          
+          return { data, year: currentYear };
+        })(),
+        (async () => {
+          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/standings/1`);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const data = await response.json();
+          
+          // Validate that we have relevant data
+          console.log('Validating F1 constructor standings data:', data);
+          const standings = data?.standings || data?.data?.standings;
+          if (!(standings && standings.length > 0)) {
+            throw new Error('No constructor standings data found');
+          }
+          
+          return { data, year: currentYear };
+        })()
       ]);
+      
+      const driversData = driversRawData;
+      const constructorsData = constructorsRawData;
       
       // Prepare driversWithDetails so constructors can reference it later
       let driversWithDetails = [];
@@ -491,8 +497,8 @@ const StandingsScreen = ({ route }) => {
 
     const logoName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
     const variant = isDarkMode ? 'logowhite' : 'logoblack';
-    const preferredYear = YearFallbackUtils.getPreferredYear();
-    return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${preferredYear}/${logoName}/${preferredYear}${logoName}${variant}.webp`;
+    const currentYear = new Date().getFullYear();
+    return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${currentYear}/${logoName}/${currentYear}${logoName}${variant}.webp`;
   };
 
   const getLogoUrl = (constructorName) => {

@@ -2197,21 +2197,23 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
     return (
       <View style={[styles.pitchVisualization, { backgroundColor: theme.background }]}>
-        {/* Batter Section */}
-        <View style={styles.pitchPlayerSection}>
+        {/* Batter Section - Above the Box */}
+        <View style={styles.pitchPlayerSectionTop}>
           {batterHeadshot && (
-            <View style={styles.pitchPlayerInfo}>
+            <View style={styles.pitchPlayerInfoTop}>
               <Image
                 source={{ uri: batterHeadshot }}
                 style={[styles.pitchPlayerHeadshot, { borderColor: colors.primary }]}
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=B' }}
               />
-              <Text allowFontScaling={false} style={[styles.pitchPlayerName, { color: colors.primary }]}>
-                {batter.fullName ? 
-                  `${batter.fullName.split(' ')[0][0]}. ${batter.fullName.split(' ').pop()}` : 
-                  'Batter'}
-              </Text>
-              <Text allowFontScaling={false} style={[styles.pitchPlayerRole, { color: theme.textSecondary }]}>Batter</Text>
+              <View style={styles.pitchPlayerTextContainer}>
+                <Text allowFontScaling={false} style={[styles.pitchPlayerName, { color: colors.primary }]}>
+                  {batter.fullName ? 
+                    `${batter.fullName.split(' ')[0][0]}. ${batter.fullName.split(' ').pop()}` : 
+                    'Batter'}
+                </Text>
+                <Text allowFontScaling={false} style={[styles.pitchPlayerRole, { color: theme.textSecondary }]}>Batter</Text>
+              </View>
             </View>
           )}
         </View>
@@ -2240,7 +2242,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             }
 
             // Convert plate coordinates to percentage - exact web algorithm
-            const xPercent = ((pitchData.coordinates.pX + 2.0) / 4.0) * 100;
+            const xPercent = ((pitchData.coordinates.pX + 2.0) / 3.75) * 100;
             const yPercent = pitchData.strikeZoneTop && pitchData.strikeZoneBottom ? 
               ((pitchData.strikeZoneTop - pitchData.coordinates.pZ) / 
                (pitchData.strikeZoneTop - pitchData.strikeZoneBottom)) * 60 + 20 : 50;
@@ -2250,8 +2252,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             const finalYPercent = Math.max(5, Math.min(95, yPercent));
 
             // Convert percentages to pixel positions for React Native (120px container)
-            const finalX = (finalXPercent / 100) * 120 - 6; // Center the 12px dot
-            const finalY = (finalYPercent / 100) * 120 - 6; // Center the 12px dot
+            const finalX = (finalXPercent / 100) * 120 - 5; // Center the 12px dot
+            const finalY = (finalYPercent / 100) * 120 + 12.5; // Center the 12px dot
 
             // Determine pitch color based on call
             let pitchColor = '#4CAF50'; // Green for balls
@@ -2268,6 +2270,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   styles.pitchLocation,
                   { 
                     backgroundColor: pitchColor,
+                    borderColor: pitchColor,
                     left: finalX,
                     top: finalY,
                     position: 'absolute',
@@ -2283,21 +2286,23 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           })}
         </View>
 
-        {/* Pitcher Section */}
-        <View style={styles.pitchPlayerSection}>
+        {/* Pitcher Section - Below the Box */}
+        <View style={styles.pitchPlayerSectionBottom}>
           {pitcherHeadshot && (
-            <View style={styles.pitchPlayerInfo}>
+            <View style={styles.pitchPlayerInfoBottom}>
+              <View style={styles.pitchPlayerTextContainer}>
+                <Text allowFontScaling={false} style={[styles.pitchPlayerName, { color: colors.primary }]}>
+                  {pitcher.fullName ? 
+                    `${pitcher.fullName.split(' ')[0][0]}. ${pitcher.fullName.split(' ').pop()}` : 
+                    'Pitcher'}
+                </Text>
+                <Text allowFontScaling={false} style={[styles.pitchPlayerRole, { color: theme.textSecondary }]}>Pitcher</Text>
+              </View>
               <Image
                 source={{ uri: pitcherHeadshot }}
                 style={[styles.pitchPlayerHeadshot, { borderColor: colors.primary }]}
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=P' }}
               />
-              <Text allowFontScaling={false} style={[styles.pitchPlayerName, { color: colors.primary }]}>
-                {pitcher.fullName ? 
-                  `${pitcher.fullName.split(' ')[0][0]}. ${pitcher.fullName.split(' ').pop()}` : 
-                  'Pitcher'}
-              </Text>
-              <Text allowFontScaling={false} style={[styles.pitchPlayerRole, { color: theme.textSecondary }]}>Pitcher</Text>
             </View>
           )}
         </View>
@@ -4599,8 +4604,8 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   strikeZoneContainer: {
-    width: 120,
-    height: 120,
+    width: 150,
+    height: 150,
     position: 'relative',
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: 4,
@@ -4610,16 +4615,16 @@ const styles = StyleSheet.create({
   },
   strikeZoneOutline: {
     position: 'absolute',
-    width: 60,
-    height: 60,
+    width: 70,
+    height: 80,
     borderWidth: 2,
     borderColor: '#777',
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 2,
     top: '50%',
     left: '50%',
-    marginLeft: -30,
-    marginTop: -30,
+    marginLeft: -35,
+    marginTop: -40,
   },
   pitchLocation: {
     position: 'absolute',
@@ -5607,6 +5612,52 @@ const styles = StyleSheet.create({
   },
   chatModalBody: {
     flex: 1,
+  },
+  // Pitch Visualization Styles
+  pitchVisualization: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginVertical: 8,
+    borderRadius: 8,
+  },
+  pitchPlayerSectionTop: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  pitchPlayerSectionBottom: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  pitchPlayerInfoTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pitchPlayerInfoBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pitchPlayerTextContainer: {
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
+  pitchPlayerHeadshot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+  },
+  pitchPlayerName: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  pitchPlayerRole: {
+    fontSize: 12,
+    textAlign: 'center',
   },
 });
 

@@ -2,7 +2,21 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
+
+// NFL-specific year logic: July-December uses current year, otherwise previous year
+const getNFLYear = () => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const month = now.getMonth(); // 0-based: 0=January, 6=July, 11=December
+  
+  // If current month is July (6) to December (11), use current year
+  if (month >= 6) { // July to December
+    return currentYear;
+  }
+  
+  // Otherwise use previous year (January to June)
+  return currentYear - 1;
+};
 
 const TeamPageScreen = ({ route, navigation }) => {
   const { teamId, sport = 'nfl' } = route.params;

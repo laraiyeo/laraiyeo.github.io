@@ -10,7 +10,6 @@ import {
   Modal
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const PlayerPageScreen = ({ route, navigation }) => {
   const { playerId, playerName, teamId, sport } = route.params;
@@ -104,7 +103,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       console.log('Player position:', position, 'isPitcher:', isPitcher, 'isTwoWay:', isTwoWay);
       
       let statsUrl;
-      const currentYear = YearFallbackUtils.getCurrentYear();
+      const currentYear = new Date().getFullYear();
       if (isPitcher) {
         statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${currentYear}`;
       } else if (isTwoWay) {
@@ -163,7 +162,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     
     setLoadingGameLog(true);
     try {
-      const currentYear = YearFallbackUtils.getCurrentYear();
+      const currentYear = new Date().getFullYear();
       const position = playerData.primaryPosition?.name || '';
       const isPitcher = position.toLowerCase().includes('pitcher');
       const isTwoWay = position.toLowerCase().includes('two-way');
@@ -280,7 +279,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     
     setLoadingVsTeam(true);
     try {
-      const currentYear = YearFallbackUtils.getCurrentYear();
+      const currentYear = new Date().getFullYear();
       const position = playerData.primaryPosition?.name || '';
       const isPitcher = position.toLowerCase().includes('pitcher');
       const isTwoWay = position.toLowerCase().includes('two-way');
@@ -351,7 +350,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     
     setLoadingStats(true);
     try {
-      const currentYear = YearFallbackUtils.getCurrentYear();
+      const currentYear = new Date().getFullYear();
       const position = playerData.primaryPosition?.name || '';
       const isPitcher = position.toLowerCase().includes('pitcher');
       const isTwoWay = position.toLowerCase().includes('two-way');

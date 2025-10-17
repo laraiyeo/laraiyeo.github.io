@@ -21,6 +21,8 @@ export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team
     
     // Use match start date for filtering, fallback to current date if not provided
     const filterDate = matchStartDate ? new Date(matchStartDate).toISOString().split('T')[0] : '2025-10-12';
+
+    const currentYear = new Date().getFullYear();
     
     // First, fetch basic data to get team information
     const [
@@ -40,11 +42,11 @@ export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team
       matchDetailsResponse
     ] = await Promise.all([
       // 1. Head to head between the two teams (1.txt)
-      fetch(`${CS2_API_BASE}/api/v1/matches?page[offset]=0&page[limit]=10&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][contains]=${team1Id},${team2Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=2025-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament`),
+      fetch(`${CS2_API_BASE}/api/v1/matches?page[offset]=0&page[limit]=10&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][contains]=${team1Id},${team2Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament`),
       // 2. Recent matches for team1 (2.txt)
-      fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][overlap]=${team1Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=2025-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`),
+      fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][overlap]=${team1Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`),
       // 2. Recent matches for team2 (2.txt with team2 ID)
-      fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][overlap]=${team2Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=2025-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`),
+      fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][overlap]=${team2Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`),
       // 4. Team1 players (4.txt)
       fetch(`${CS2_API_BASE}/api/v1/players?scope=show-match-lineup&page[offset]=0&page[limit]=7&filter[team_id][eq]=${team1Id}`),
       // 4. Team2 players (4.txt with team2 ID)
@@ -113,7 +115,7 @@ export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team
     const [team1MapPoolData, team2MapPoolData] = await Promise.all([
       // 3. Team1 map pool data (3.txt)
       extractedTeam1Slug ? 
-        fetch(`${CS2_API_BASE}/api/v1/teams/${extractedTeam1Slug}/map_pool?scope=show-match-team-map-pool&filter[begin_at_from]=2025-01-01&filter[begin_at_to]=${filterDate}`)
+        fetch(`${CS2_API_BASE}/api/v1/teams/${extractedTeam1Slug}/map_pool?scope=show-match-team-map-pool&filter[begin_at_from]=${currentYear}-01-01&filter[begin_at_to]=${filterDate}`)
           .then(res => res.json())
           .catch(err => {
             console.warn(`Failed to fetch team1 map pool for slug ${extractedTeam1Slug}:`, err);
@@ -121,7 +123,7 @@ export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team
           }) : null,
       // 3. Team2 map pool data (3.txt with team2 slug)
       extractedTeam2Slug ? 
-        fetch(`${CS2_API_BASE}/api/v1/teams/${extractedTeam2Slug}/map_pool?scope=show-match-team-map-pool&filter[begin_at_from]=2025-01-01&filter[begin_at_to]=${filterDate}`)
+        fetch(`${CS2_API_BASE}/api/v1/teams/${extractedTeam2Slug}/map_pool?scope=show-match-team-map-pool&filter[begin_at_from]=${currentYear}-01-01&filter[begin_at_to]=${filterDate}`)
           .then(res => res.json())
           .catch(err => {
             console.warn(`Failed to fetch team2 map pool for slug ${extractedTeam2Slug}:`, err);
@@ -156,7 +158,8 @@ export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team
 export const getTeamRecentMatches = async (teamId, matchStartDate) => {
   try {
     const filterDate = matchStartDate ? new Date(matchStartDate).toISOString().split('T')[0] : '2025-10-12';
-    const response = await fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][overlap]=${teamId}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=2025-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`);
+    const currentYear = new Date().getFullYear();
+    const response = await fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][overlap]=${teamId}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`);
     const data = await response.json();
     
     return data;
@@ -175,7 +178,8 @@ export const getTeamRecentMatches = async (teamId, matchStartDate) => {
 export const getTeamMapPool = async (teamSlug, matchStartDate) => {
   try {
     const filterDate = matchStartDate ? new Date(matchStartDate).toISOString().split('T')[0] : '2025-10-12';
-    const response = await fetch(`${CS2_API_BASE}/api/v1/teams/${teamSlug}/map_pool?scope=show-match-team-map-pool&filter[begin_at_from]=2025-01-01&filter[begin_at_to]=${filterDate}`);
+    const currentYear = new Date().getFullYear();
+    const response = await fetch(`${CS2_API_BASE}/api/v1/teams/${teamSlug}/map_pool?scope=show-match-team-map-pool&filter[begin_at_from]=${currentYear}-01-01&filter[begin_at_to]=${filterDate}`);
     const data = await response.json();
     
     return data;

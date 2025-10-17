@@ -3,7 +3,14 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Scr
 import { useTheme } from '../../../context/ThemeContext';
 import { useFavorites } from '../../../context/FavoritesContext';
 import { ChampionsLeagueServiceEnhanced } from '../../../services/soccer/ChampionsLeagueServiceEnhanced';
-import YearFallbackUtils from '../../../utils/YearFallbackUtils';
+
+// Helper function for Champions League year logic
+// For Champions League standings/bracket screens: July-December uses next year, else current year
+const getChampionsLeagueYear = () => {
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1; // getMonth() returns 0-11
+  return (currentMonth >= 7 && currentMonth <= 12) ? now.getFullYear() : now.getFullYear() - 1;
+};
 
 const UCLTeamPageScreen = ({ route, navigation }) => {
   const { teamId, teamName } = route.params;
@@ -222,19 +229,18 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
 
       const competitionPromises = UCLCompetitions.map(async (leagueCode) => {
         try {
-          // Use fetchWithYearFallback to try multiple years for events data
-          const { data: eventsData } = await YearFallbackUtils.fetchWithYearFallback(
-            async (year) => {
-              const response = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${year}/teams/${teamId}/events?lang=en&region=us&limit=100`);
-              return await response.json();
-            },
-            (data) => data && data.items && data.items.length > 0
-          );
+          // Fetch events data with Champions League year logic
+          const year = getChampionsLeagueYear();
+          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${year}/teams/${teamId}/events?lang=en&region=us&limit=100`);
+          const eventsData = await response.json();
           
-          if (!eventsData) {
-            console.log(`No events data found for ${leagueCode} team ${teamId} in any year`);
+          // Validate events data
+          const hasValidData = eventsData && eventsData.items && eventsData.items.length > 0;
+          if (!hasValidData) {
+            console.log(`No valid events data found for ${leagueCode} team ${teamId}`);
             return [];
           }
+
           
           console.log(`Found ${eventsData.items.length} events for team ${teamId} in ${leagueCode}`);
           
@@ -446,19 +452,15 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
     
     setLoadingRoster(true);
     try {
-      // Use fetchWithYearFallback to find roster data that exists
-      const { data: rosterData } = await YearFallbackUtils.fetchWithYearFallback(
-        async (year) => {
-          const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/teams/${teamId}/roster?season=${year}`);
-          return await response.json();
-        },
-        (data) => data && data.athletes && data.athletes.length > 0
-      );
+      // Fetch roster data with Champions League year logic
+      const year = getChampionsLeagueYear();
+      const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/teams/${teamId}/roster?season=${year}`);
+      const rosterData = await response.json();
       
       if (rosterData && rosterData.athletes && rosterData.athletes.length > 0) {
         setRoster(rosterData.athletes);
       } else {
-        console.log('No roster data found for any year');
+        console.log('No roster data found');
         setRoster([]);
       }
     } catch (error) {
@@ -486,22 +488,19 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
       // Fetch stats for each season type in parallel
       const statsPromises = seasonTypes.map(async (seasonType) => {
         try {
-          // Use fetchWithYearFallback to try multiple years for stats data
-          const statsData = await YearFallbackUtils.fetchWithYearFallback(
-            async (year) => {
-              const response = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${seasonType.leagueCode}/seasons/${year}/types/1/teams/${teamId}/statistics/0?lang=en&region=us`);
-              
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-              }
-              
-              return await response.json();
-            },
-            (data) => {
-              console.log(`Validating stats data:`, data);
-              return data && data.splits && data.splits.categories && Array.isArray(data.splits.categories) && data.splits.categories.length > 0;
+          // Fetch stats data with Champions League year logic
+          const year = getChampionsLeagueYear();
+          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${seasonType.leagueCode}/seasons/${year}/types/1/teams/${teamId}/statistics/0?lang=en&region=us`);
+          
+          let statsData = null;
+          if (response.ok) {
+            statsData = await response.json();
+            console.log(`Validating stats data:`, statsData);
+            const isValid = statsData && statsData.splits && statsData.splits.categories && Array.isArray(statsData.splits.categories) && statsData.splits.categories.length > 0;
+            if (!isValid) {
+              statsData = null;
             }
-          );
+          }
           
           if (statsData) {
             console.log(`Found ${seasonType.name} stats data:`, JSON.stringify(statsData, null, 2));
@@ -928,7 +927,7 @@ const UCLTeamPageScreen = ({ route, navigation }) => {
         </View>
         
         {/* Venue */}
-        <View stystyle={[styles.venueSection, { borderTopColor: theme.border }]}>
+        <View style={[styles.venueSection, { borderTopColor: theme.border }]}>
           <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>{venue}</Text>
         </View>
       </TouchableOpacity>

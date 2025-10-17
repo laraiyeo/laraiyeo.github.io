@@ -14,7 +14,6 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useWindowDimensions } from 'react-native';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const RacerDetailsScreen = ({ route }) => {
   const { racerId, racerName, teamColor } = route.params || {};
@@ -71,23 +70,23 @@ const RacerDetailsScreen = ({ route }) => {
   const fetchRacerStats = async () => {
     try {
       // Prefer the athlete records endpoint which contains headshot, team, and stats
-      const response = await YearFallbackUtils.fetchWithYearFallback(
-        async (year) => {
-          const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/athletes/${racerId}/records/0?lang=en&region=us`;
-          const apiResponse = await fetch(url);
-          
-          if (!apiResponse.ok) {
-            throw new Error(`HTTP ${apiResponse.status}`);
-          }
-          
-          return await apiResponse.json();
-        },
-        (data) => {
-          console.log('Validating F1 racer records data:', data);
-          return data && (data.records || data.athlete || data.stats);
-        }
-      );
+      const currentYear = new Date().getFullYear();
+      const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/athletes/${racerId}/records/0?lang=en&region=us`;
+      const apiResponse = await fetch(url);
       
+      if (!apiResponse.ok) {
+        throw new Error(`HTTP ${apiResponse.status}`);
+      }
+      
+      const data = await apiResponse.json();
+      
+      // Validate that we have relevant data
+      console.log('Validating F1 racer records data:', data);
+      if (!(data && (data.records || data.athlete || data.stats))) {
+        throw new Error('No racer records data found');
+      }
+      
+      const response = { data, year: currentYear };
       const records = response?.data || response;
 
       // Debug logging to see response structure
@@ -194,23 +193,23 @@ const RacerDetailsScreen = ({ route }) => {
       console.error('Error fetching racer stats (records endpoint):', error);
       // Fallback: attempt previous approach via standings endpoint
       try {
-        const response = await YearFallbackUtils.fetchWithYearFallback(
-          async (year) => {
-            const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/standings/0`;
-            const apiResponse = await fetch(url);
-            
-            if (!apiResponse.ok) {
-              throw new Error(`HTTP ${apiResponse.status}`);
-            }
-            
-            return await apiResponse.json();
-          },
-          (data) => {
-            console.log('Validating F1 driver standings data:', data);
-            return data.standings && data.standings.length > 0;
-          }
-        );
+        const currentYear = new Date().getFullYear();
+        const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/standings/0`;
+        const apiResponse = await fetch(url);
         
+        if (!apiResponse.ok) {
+          throw new Error(`HTTP ${apiResponse.status}`);
+        }
+        
+        const standingsData = await apiResponse.json();
+        
+        // Validate that we have relevant data
+        console.log('Validating F1 driver standings data:', standingsData);
+        if (!(standingsData.standings && standingsData.standings.length > 0)) {
+          throw new Error('No driver standings data found');
+        }
+        
+        const response = { data: standingsData, year: currentYear };
         const data = response?.data || response;
         if (data?.standings) {
           const driverStanding = data.standings.find(standing => {
@@ -255,23 +254,23 @@ const RacerDetailsScreen = ({ route }) => {
   const fetchRacerRaceLog = async () => {
     try {
       // First fetch the athlete data to get the eventLog $ref
-      const athleteResponse = await YearFallbackUtils.fetchWithYearFallback(
-        async (year) => {
-          const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/athletes/${racerId}?lang=en&region=us`;
-          const apiResponse = await fetch(url);
-          
-          if (!apiResponse.ok) {
-            throw new Error(`HTTP ${apiResponse.status}`);
-          }
-          
-          return await apiResponse.json();
-        },
-        (data) => {
-          console.log('Validating F1 athlete data:', data);
-          return data && data.id;
-        }
-      );
+      const currentYear = new Date().getFullYear();
+      const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/athletes/${racerId}?lang=en&region=us`;
+      const apiResponse = await fetch(url);
       
+      if (!apiResponse.ok) {
+        throw new Error(`HTTP ${apiResponse.status}`);
+      }
+      
+      const athleteRawData = await apiResponse.json();
+      
+      // Validate that we have relevant data
+      console.log('Validating F1 athlete data:', athleteRawData);
+      if (!(athleteRawData && athleteRawData.id)) {
+        throw new Error('No athlete data found');
+      }
+      
+      const athleteResponse = { data: athleteRawData, year: currentYear };
       const athleteData = athleteResponse?.data || athleteResponse;
       
       console.log(`[RacerDetails] Athlete data for ${racerId}:`, JSON.stringify(athleteData, null, 2));
@@ -451,7 +450,7 @@ const RacerDetailsScreen = ({ route }) => {
 
     const logoName = nameMap[teamName] || teamName.toLowerCase().replace(/\s+/g, '');
     const variant = isDarkMode ? 'logowhite' : 'logoblack';
-    const currentYear = YearFallbackUtils.getCurrentYear(); // Use current year for logos
+    const currentYear = new Date().getFullYear(); // Use current year for logos
     return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${currentYear}/${logoName}/${currentYear}${logoName}${variant}.webp`;
   };
 

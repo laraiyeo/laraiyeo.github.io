@@ -335,8 +335,9 @@ const getCompletedMatches = async (limit = 100) => {
  * Get current and upcoming tournaments (for featured section)
  */
 const getCurrentAndUpcomingTournaments = async (limit = 100) => {
-  const url = `${BASE_URL}/api/v1/tournaments?scope=index-current-tournaments&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=current,upcoming&filter[tournaments.end_date][gte]=2025-01-01&filter[tournaments.start_date][lte]=2025-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
-  
+  const currentYear = new Date().getFullYear();
+  const url = `${BASE_URL}/api/v1/tournaments?scope=index-current-tournaments&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=current,upcoming&filter[tournaments.end_date][gte]=${currentYear}-01-01&filter[tournaments.start_date][lte]=${currentYear}-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
+
   try {
     const response = await makeRequest(url);
     
@@ -369,8 +370,9 @@ const getCurrentAndUpcomingTournaments = async (limit = 100) => {
  * Get upcoming tournaments (separate from current)
  */
 const getUpcomingTournaments = async (limit = 100) => {
-  const url = `${BASE_URL}/api/v1/tournaments?scope=index-upcoming-tournaments&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=upcoming&filter[tournaments.end_date][gte]=2025-01-01&filter[tournaments.start_date][lte]=2025-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
-  
+  const currentYear = new Date().getFullYear();
+  const url = `${BASE_URL}/api/v1/tournaments?scope=index-upcoming-tournaments&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=upcoming&filter[tournaments.end_date][gte]=${currentYear}-01-01&filter[tournaments.start_date][lte]=${currentYear}-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
+
   try {
     const response = await makeRequest(url);
     
@@ -404,8 +406,9 @@ const getUpcomingTournaments = async (limit = 100) => {
  * Get recent tournaments (for trending section)
  */
 const getRecentTournaments = async (limit = 100) => {
-  const url = `${BASE_URL}/api/v1/tournaments?scope=index-finished-tournaments&page[offset]=0&page[limit]=${limit}&sort=-end_date&filter[tournaments.status][in]=finished&filter[tournaments.end_date][gte]=2025-01-01&filter[tournaments.start_date][lte]=2025-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
-  
+  const currentYear = new Date().getFullYear();
+  const url = `${BASE_URL}/api/v1/tournaments?scope=index-finished-tournaments&page[offset]=0&page[limit]=${limit}&sort=-end_date&filter[tournaments.status][in]=finished&filter[tournaments.end_date][gte]=${currentYear}-01-01&filter[tournaments.start_date][lte]=${currentYear}-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
+
   try {
     const response = await makeRequest(url);
     
@@ -449,9 +452,9 @@ const getTournaments = async (status = 'current', limit = 100) => {
     scope = 'index-upcoming-tournaments';
     statusFilter = 'upcoming';
   }
-  
-  const url = `${BASE_URL}/api/v1/tournaments?scope=${scope}&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=${statusFilter}&filter[tournaments.end_date][gte]=2025-01-01&filter[tournaments.start_date][lte]=2025-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
-  
+  const currentYear = new Date().getFullYear();
+  const url = `${BASE_URL}/api/v1/tournaments?scope=${scope}&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=${statusFilter}&filter[tournaments.end_date][gte]=${currentYear}-01-01&filter[tournaments.start_date][lte]=${currentYear}-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
+
   try {
     const response = await makeRequest(url);
     

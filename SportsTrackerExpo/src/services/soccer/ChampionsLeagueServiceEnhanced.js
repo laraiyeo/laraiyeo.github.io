@@ -4,9 +4,16 @@
 
 import React from 'react';
 import { normalizeLeagueCodeForStorage } from '../../utils/TeamIdMapping';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const CHAMPIONS_LEAGUE_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions';
+
+// Helper function for Champions League year logic
+// For Champions League standings/bracket screens: July-December uses next year, else current year
+const getChampionsLeagueYear = () => {
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1; // getMonth() returns 0-11
+  return (currentMonth >= 7 && currentMonth <= 12) ? now.getFullYear() + 1 : now.getFullYear();
+};
 
 // Competition configurations
 const CHAMPIONS_LEAGUE_COMPETITIONS = {
@@ -294,41 +301,31 @@ export const ChampionsLeagueServiceEnhanced = {
     try {
       const leagueCode = 'uefa.champions'; // Champions League
       
-      // Use fetchWithYearFallback with corrected validation
-      const { data: standingsData } = await YearFallbackUtils.fetchWithYearFallback(
-        async (year) => {
-          const response = await fetch(`https://cdn.espn.com/core/soccer/table?xhr=1&league=${leagueCode}&season=${year}`);
-          return await response.json();
-        },
-        (data) => {
-          // Check if we have the basic structure and at least some entries
-          const hasValidStructure = data && 
-                                   data.content && 
-                                   data.content.standings && 
-                                   data.content.standings.groups && 
-                                   data.content.standings.groups.length > 0 &&
-                                   data.content.standings.groups[0] && 
-                                   data.content.standings.groups[0].standings && 
-                                   data.content.standings.groups[0].standings.entries &&
-                                   Array.isArray(data.content.standings.groups[0].standings.entries) &&
-                                   data.content.standings.groups[0].standings.entries.length > 0;
+      // Fetch standings with Champions League year logic
+      const year = getChampionsLeagueYear();
+      const response = await fetch(`https://cdn.espn.com/core/soccer/table?xhr=1&league=${leagueCode}&season=${year}`);
+      const standingsData = await response.json();
+
+      // Check if we have the basic structure and at least some entries
+      const hasValidStructure = standingsData && 
+                               standingsData.content && 
+                               standingsData.content.standings && 
+                               standingsData.content.standings.groups && 
+                               standingsData.content.standings.groups.length > 0 &&
+                               standingsData.content.standings.groups[0] && 
+                               standingsData.content.standings.groups[0].standings && 
+                               standingsData.content.standings.groups[0].standings.entries &&
+                               Array.isArray(standingsData.content.standings.groups[0].standings.entries) &&
+                               standingsData.content.standings.groups[0].standings.entries.length > 0;
           
-          if (!hasValidStructure) {
-            console.log('UCL standings validation failed - structure check');
-          } else {
-            console.log(`UCL standings validation passed - found ${data.content.standings.groups[0].standings.entries.length} entries`);
-          }
-          
-          return hasValidStructure;
-        }
-      );
-      
-      if (!standingsData) {
-        console.log('No standings data found for any year');
-        throw new Error('No standings data available');
+      if (!hasValidStructure) {
+        console.log('UCL standings validation failed - structure check');
+        throw new Error('Invalid standings data structure');
+      } else {
+        console.log(`UCL standings validation passed - found ${standingsData.content.standings.groups[0].standings.entries.length} entries`);
       }
       
-      console.log('Found standings data with year fallback');
+      console.log('Found standings data');
       const data = standingsData;
       
       // Check if we have the expected structure
@@ -423,16 +420,12 @@ export const ChampionsLeagueServiceEnhanced = {
       const teamPromises = teams.map(async (team) => {
         try {
           const teamId = team.team.id;
-          // Use fetchWithYearFallback to find roster data that exists
-          const { data: rosterData } = await YearFallbackUtils.fetchWithYearFallback(
-            async (year) => {
-              const response = await fetch(`${CHAMPIONS_LEAGUE_BASE_URL}/teams/${teamId}/roster?season=${year}`);
-              return await response.json();
-            },
-            (data) => data && data.athletes && data.athletes.length > 0
-          );
+          // Fetch roster data with Champions League year logic
+          const year = getChampionsLeagueYear();
+          const response = await fetch(`${CHAMPIONS_LEAGUE_BASE_URL}/teams/${teamId}/roster?season=${year}`);
+          const rosterData = await response.json();
           
-          if (!rosterData) {
+          if (!rosterData || !rosterData.athletes || rosterData.athletes.length === 0) {
             return [];
           }
           

@@ -347,6 +347,15 @@ const LOLHomeScreen = ({ navigation, route }) => {
     }
     
     console.log(`Filtered ${completedFilteredData.length} completed matches for ${filter}`);
+    
+    // Sort completed matches by most recent first (descending order)
+    completedFilteredData.sort((a, b) => {
+      const dateA = new Date(a.startTime);
+      const dateB = new Date(b.startTime);
+      return dateB.getTime() - dateA.getTime(); // Most recent first
+    });
+    
+    console.log('Completed matches sorted by most recent first');
     console.log('=== END DEBUG ===');
     
     setUpcomingSeries(filteredData);
@@ -372,15 +381,25 @@ const LOLHomeScreen = ({ navigation, route }) => {
       return `${diffMins}m ago`;
     } else if (diffHours < 24) {
       return `${diffHours}h ago`;
-    } else if (diffDays === 1) {
-      return 'Yesterday';
-    } else if (diffDays < 7) {
-      return `${diffDays}d ago`;
     } else {
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
-      });
+      // Format as "Oct 12, 2025 • 3:30 PM"
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      
+      const month = monthNames[date.getMonth()];
+      const day = date.getDate();
+      const year = date.getFullYear();
+      
+      let hours = date.getHours();
+      const minutes = date.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      
+      hours = hours % 12;
+      hours = hours ? hours : 12; // 0 should be 12
+      
+      const formattedTime = `${hours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+      
+      return `${month} ${day}, ${year} • ${formattedTime}`;
     }
   };
 

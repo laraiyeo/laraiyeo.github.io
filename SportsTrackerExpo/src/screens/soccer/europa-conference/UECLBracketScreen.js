@@ -15,6 +15,14 @@ import {
 import { useTheme } from '../../../context/ThemeContext';
 import { useFocusEffect } from '@react-navigation/native';
 
+// Helper function for Europa Conference League year logic
+// For Europa Conference League standings/bracket screens: July-December uses next year, else current year
+const getEuropaConferenceLeagueYear = () => {
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1; // getMonth() returns 0-11
+  return (currentMonth >= 7 && currentMonth <= 12) ? now.getFullYear() + 1 : now.getFullYear();
+};
+
 const { width } = Dimensions.get('window');
 
 // In-memory cache for prefetched logo URIs to avoid flicker
@@ -98,7 +106,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
   // Fetch knockout playoffs data
   const fetchKnockoutPlayoffs = async () => {
     try {
-      const currentYear = new Date().getFullYear() + 1;
+      const currentYear = getEuropaConferenceLeagueYear();
       const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/scoreboard?dates=${currentYear}0101`;
 
       const calendarResponse = await fetch(CALENDAR_API_URL);
@@ -250,7 +258,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
         return cachedRoundOf16;
       }
 
-      const currentYear = new Date().getFullYear() + 1;
+      const currentYear = getEuropaConferenceLeagueYear();
       const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/scoreboard?dates=${currentYear}0101`;
 
       const calendarResponse = await fetch(CALENDAR_API_URL);
@@ -363,7 +371,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
         return cachedQuarterfinals;
       }
 
-      const currentYear = new Date().getFullYear() + 1;
+      const currentYear = getEuropaConferenceLeagueYear();
       const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/scoreboard?dates=${currentYear}0101`;
 
       const calendarResponse = await fetch(CALENDAR_API_URL);
@@ -404,7 +412,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
         return cachedSemifinals;
       }
 
-      const currentYear = new Date().getFullYear() + 1;
+      const currentYear = getEuropaConferenceLeagueYear();
       const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/scoreboard?dates=${currentYear}0101`;
 
       const calendarResponse = await fetch(CALENDAR_API_URL);
@@ -445,7 +453,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
         return cachedFinals;
       }
 
-      const currentYear = new Date().getFullYear() + 1;
+      const currentYear = getEuropaConferenceLeagueYear();
       const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/scoreboard?dates=${currentYear}0101`;
 
       const calendarResponse = await fetch(CALENDAR_API_URL);
