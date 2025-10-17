@@ -18,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { useWindowDimensions } from 'react-native';
+import { useStreamingAccess } from '../../utils/streamingUtils';
 
 // Global image cache to persist across component re-renders
 const loadedImages = new Set();
@@ -113,6 +114,9 @@ const RaceDetailsScreen = ({ route }) => {
   const [driverModalVisible, setDriverModalVisible] = useState(false);
   const [selectedDriverDetails, setSelectedDriverDetails] = useState(null);
   const { width: windowWidth } = useWindowDimensions();
+
+  // Streaming access check
+  const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
 
   // Streaming state
   const [streamModalVisible, setStreamModalVisible] = useState(false);
@@ -289,6 +293,12 @@ const RaceDetailsScreen = ({ route }) => {
 
   // Helper to determine if streaming should be available
   const isStreamingAvailable = () => {
+    // First check if streaming code has been entered
+    if (!isStreamingUnlocked) {
+      console.log('Streaming code not entered');
+      return false;
+    }
+
     if (!raceData) {
       console.log('No race data available');
       return false;
@@ -1345,7 +1355,11 @@ const RaceDetailsScreen = ({ route }) => {
     
     if (!isStreamingAvailable()) {
       console.log('Stream not available, showing alert');
-      Alert.alert('Stream Unavailable', 'Streaming is only available during the race weekend (Oct 3-5, 2025 EST).');
+      if (!isStreamingUnlocked) {
+        Alert.alert('Stream Unavailable', 'Please unlock streaming access in Settings first.');
+      } else {
+        Alert.alert('Stream Unavailable', 'Streaming is only available during the race weekend (Oct 3-5, 2025 EST).');
+      }
       return;
     }
 
@@ -1959,13 +1973,14 @@ const RaceDetailsScreen = ({ route }) => {
     return (
       <View style={styles.headerContainer}>
         
+        {/* Only show streaming interface when streaming is unlocked */}
         <TouchableOpacity 
           style={[styles.headerCard, { 
             backgroundColor: theme.surface, 
             borderColor: 'transparent',
             opacity: isStreamingAvailable() ? 1 : 0.8
           }]}
-          onPress={openStreamModal}
+          onPress={isStreamingUnlocked ? openStreamModal : undefined}
           activeOpacity={isStreamingAvailable() ? 0.7 : 1}
           disabled={!isStreamingAvailable()}
         >
@@ -4133,7 +4148,8 @@ const RaceDetailsScreen = ({ route }) => {
         </View>
       </Modal>
 
-      {/* Stream Modal */}
+      {/* Stream Modal - Only render when streaming is unlocked */}
+      {isStreamingUnlocked && (
       <Modal
         animationType="slide"
         transparent={true}
@@ -4341,6 +4357,7 @@ const RaceDetailsScreen = ({ route }) => {
           </View>
         </View>
       </Modal>
+      )}
     </View>
   );
 };

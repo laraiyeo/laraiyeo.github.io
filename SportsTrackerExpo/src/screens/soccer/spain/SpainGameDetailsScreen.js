@@ -23,6 +23,7 @@ import { useTheme } from '../../../context/ThemeContext';
 import { useFavorites } from '../../../context/FavoritesContext';
 import ChatComponent from '../../../components/ChatComponent';
 import { Ionicons } from '@expo/vector-icons';
+import { useStreamingAccess } from '../../../utils/streamingUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -71,6 +72,9 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
   const [streamError, setStreamError] = useState(false);
   const [showStreamModal, setShowStreamModal] = useState(false);
   const [chatModalVisible, setChatModalVisible] = useState(false);
+
+  // Streaming access check
+  const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
   
   const scrollViewRef = useRef(null);
   const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
@@ -1991,8 +1995,8 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
               )}
             </View>
             
-            {/* Stream Button - Only show for live games */}
-            {matchStatus.isLive && (
+            {/* Stream Button - Only show for live games and when streaming is unlocked */}
+            {matchStatus.isLive && isStreamingUnlocked && (
               <TouchableOpacity
                 style={[styles.streamButton, { backgroundColor: colors.primary }]}
                 onPress={() => {
@@ -4122,7 +4126,8 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
       
       {renderPlayerPopup()}
       
-      {/* Stream Modal - Popup style like MLB */}
+      {/* Stream Modal - Only render when streaming is unlocked */}
+      {isStreamingUnlocked && (
       <Modal 
         animationType="fade"
         transparent={true}
@@ -4235,6 +4240,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
           </View>
         </View>
       </Modal>
+      )}
       
       {/* Floating Chat Button */}
       <TouchableOpacity

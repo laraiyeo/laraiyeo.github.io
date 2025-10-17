@@ -19,6 +19,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { convertMLBIdToESPNId } from '../../utils/TeamIdMapping';
 import ChatComponent from '../../components/ChatComponent';
+import { useStreamingAccess } from '../../utils/streamingUtils';
 
 // Color similarity detection utility
 const calculateColorSimilarity = (color1, color2) => {
@@ -134,6 +135,9 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   const [availableStreams, setAvailableStreams] = useState({});
   const [streamUrl, setStreamUrl] = useState('');
   const [isStreamLoading, setIsStreamLoading] = useState(true);
+
+  // Streaming access check
+  const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
   const scrollViewRef = useRef(null);
   const playsScrollViewRef = useRef(null);
   const [playsScrollPosition, setPlaysScrollPosition] = useState(0);
@@ -1184,6 +1188,16 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   };
 
   const openStreamModal = async () => {
+    // Check if streaming is unlocked
+    if (!isStreamingUnlocked) {
+      Alert.alert(
+        'Streaming Locked',
+        'Please enter the streaming code in Settings to access live streams.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     const awayTeam = gameData?.gameData?.teams?.away;
     const homeTeam = gameData?.gameData?.teams?.home;
     
@@ -1327,8 +1341,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     return (
       <TouchableOpacity 
         style={[styles.gameHeader, { backgroundColor: theme.surface }]} 
-        onPress={isGameLive ? openStreamModal : undefined} 
-        activeOpacity={isGameLive ? 0.8 : 1}
+        onPress={isGameLive && isStreamingUnlocked ? openStreamModal : undefined} 
+        activeOpacity={isGameLive && isStreamingUnlocked ? 0.8 : 1}
       >
         <View style={styles.teamContainer}>
           {/* Away Team */}
@@ -3259,7 +3273,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         </View>
       </Modal>
 
-      {/* Stream Modal */}
+      {/* Stream Modal - Only render when streaming is unlocked */}
+      {isStreamingUnlocked && (
       <Modal
         animationType="fade"
         transparent={true}
@@ -3724,6 +3739,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           </View>
         </View>
       </Modal>
+      )}
 
       {/* Chat Modal */}
       <Modal

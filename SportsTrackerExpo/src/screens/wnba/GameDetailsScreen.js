@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { View, Text, ActivityIndicator, ScrollView, Image, StyleSheet, TouchableOpacity, Modal, Animated } from 'react-native';
+import { View, Text, ActivityIndicator, ScrollView, Image, StyleSheet, TouchableOpacity, Modal, Animated, Alert } from 'react-native';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, Defs, LinearGradient, Stop, Path, G } from 'react-native-svg';
 import { WebView } from 'react-native-webview';
@@ -8,6 +8,7 @@ import { useFavorites } from '../../context/FavoritesContext';
 import { useNavigation } from '@react-navigation/native';
 import { WNBAService } from '../../services/WNBAService';
 import ChatComponent from '../../components/ChatComponent';
+import { useStreamingAccess } from '../../utils/streamingUtils';
 
 // Color similarity detection utility
 const calculateColorSimilarity = (color1, color2) => {
@@ -252,6 +253,9 @@ const WNBAGameDetailsScreen = ({ route }) => {
   const [isStreamLoading, setIsStreamLoading] = useState(true);
   const [chatModalVisible, setChatModalVisible] = useState(false);
 
+  // Streaming access check
+  const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
+
   // Memoized team IDs for performance - prevents repeated calculations
   const awayTeamId = useMemo(() => {
     const away = details?.boxscore?.teams?.[0] || details?.header?.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away');
@@ -482,6 +486,16 @@ const WNBAGameDetailsScreen = ({ route }) => {
   const openStreamModal = async () => {
     try {
       console.log('openStreamModal: invoked');
+      
+      // Check if streaming is unlocked
+      if (!isStreamingUnlocked) {
+        Alert.alert(
+          'Streaming Locked',
+          'Please enter the streaming code in Settings to access live streams.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
 
       const competition = details?.header?.competitions?.[0] || details?.competitions?.[0] || details?.game?.competitions?.[0];
       if (!competition) {
@@ -2446,14 +2460,14 @@ const WNBAGameDetailsScreen = ({ route }) => {
         </Text>
       </View>
 
-      {/* Stream Button - only show for live games */}
+      {/* Stream Button - only show for live games and when streaming is unlocked */}
       {(() => {
         const competition = details?.header?.competitions?.[0] || details?.boxscore?.game || details?.game || null;
         const statusType = competition?.status?.type || details?.game?.status?.type || {};
         const state = statusType?.state;
         const isLive = state === 'in';
         
-        return isLive ? (
+        return isLive && isStreamingUnlocked ? (
           <TouchableOpacity 
             style={[styles.streamButton, { backgroundColor: colors.primary }]}
             onPress={openStreamModal}
@@ -2691,7 +2705,8 @@ const WNBAGameDetailsScreen = ({ route }) => {
         </View>
       </Modal>
 
-      {/* Stream Modal */}
+      {/* Stream Modal - Only render when streaming is unlocked */}
+      {isStreamingUnlocked && (
       <Modal
         visible={streamModalVisible}
         animationType="slide"
@@ -2902,6 +2917,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
           </View>
         </View>
       </Modal>
+      )}
 
       </ScrollView>
       

@@ -18,6 +18,7 @@ import { NFLService } from '../../services/NFLService';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import ChatComponent from '../../components/ChatComponent';
+import { useStreamingAccess } from '../../utils/streamingUtils';
 import { Ionicons } from '@expo/vector-icons';
 
 // Color similarity detection utility
@@ -151,6 +152,9 @@ const GameDetailsScreen = ({ route }) => {
   const [streamUrl, setStreamUrl] = useState('');
   const [isStreamLoading, setIsStreamLoading] = useState(true);
   const [chatModalVisible, setChatModalVisible] = useState(false);
+
+  // Streaming access check
+  const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
   const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
 
   // Stream API functions (adapted from MLB)
@@ -389,6 +393,16 @@ const GameDetailsScreen = ({ route }) => {
   const openStreamModal = async () => {
     try {
       console.log('openStreamModal: invoked');
+      
+      // Check if streaming is unlocked
+      if (!isStreamingUnlocked) {
+        Alert.alert(
+          'Streaming Locked',
+          'Please enter the streaming code in Settings to access live streams.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
 
       // Try to locate the competition object in several common locations
       const competition = gameDetails?.header?.competitions?.[0] || gameDetails?.competitions?.[0] || formattedGameData?.competitions?.[0];
@@ -2928,13 +2942,13 @@ const GameDetailsScreen = ({ route }) => {
         )}
       </View>
 
-      {/* Stream Button - Show for live games */}
+      {/* Stream Button - Show for live games and when streaming is unlocked */}
       {(() => {
         const isGameLive = status?.type?.description === 'In Progress' || 
                           status?.type?.state === 'in' ||
                           (status?.period && status?.period > 0 && !status?.type?.completed);
         
-        if (!isGameLive) return null;
+        if (!isGameLive || !isStreamingUnlocked) return null;
         
         return (
           <TouchableOpacity 
@@ -3251,7 +3265,8 @@ const GameDetailsScreen = ({ route }) => {
         </View>
       </Modal>
 
-      {/* Stream Modal */}
+      {/* Stream Modal - Only render when streaming is unlocked */}
+      {isStreamingUnlocked && (
       <Modal
         animationType="fade"
         transparent={true}
@@ -3380,6 +3395,7 @@ const GameDetailsScreen = ({ route }) => {
           </View>
         </View>
       </Modal>
+      )}
     </ScrollView>
     
     {/* Floating Chat Button */}
