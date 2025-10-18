@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -121,7 +121,8 @@ const RaceDetailsScreen = ({ route }) => {
   // Streaming state
   const [streamModalVisible, setStreamModalVisible] = useState(false);
   const [isStreamLoading, setIsStreamLoading] = useState(true);
-  const [selectedStream, setSelectedStream] = useState(1); // 1 for Test 1, 2 for Test 2
+  const [selectedStream, setSelectedStream] = useState(3); // 1 for Test 1, 2 for Test 2, 3 for Grand Prix
+  const [grandPrixStreamUrl, setGrandPrixStreamUrl] = useState(null); // URL for Grand Prix stream
 
   // Live race tracking state
   const [isLiveRace, setIsLiveRace] = useState(false);
@@ -291,16 +292,14 @@ const RaceDetailsScreen = ({ route }) => {
     }
   };
 
-  // Helper to determine if streaming should be available
-  const isStreamingAvailable = () => {
+  // Helper to determine if streaming should be available (memoized to avoid excessive calculations)
+  const isStreamingAvailable = useMemo(() => {
     // First check if streaming code has been entered
     if (!isStreamingUnlocked) {
-      console.log('Streaming code not entered');
       return false;
     }
 
     if (!raceData) {
-      console.log('No race data available');
       return false;
     }
 
@@ -312,15 +311,8 @@ const RaceDetailsScreen = ({ route }) => {
     // Get race weekend start and end dates
     const raceStartDate = raceData.date ? new Date(raceData.date) : null;
     const raceEndDate = raceData.endDate ? new Date(raceData.endDate) : null;
-    
-    console.log('Stream availability check:', {
-      nowEST: nowEST.toISOString(),
-      raceStartDate: raceStartDate?.toISOString(),
-      raceEndDate: raceEndDate?.toISOString(),
-    });
 
     if (!raceStartDate || !raceEndDate) {
-      console.log('Race dates not available');
       return false;
     }
 
@@ -334,20 +326,21 @@ const RaceDetailsScreen = ({ route }) => {
     const raceEndDateOnly = new Date(raceEndEST.getFullYear(), raceEndEST.getMonth(), raceEndEST.getDate());
     
     const isWithinRaceWeekend = currentESTDateOnly >= raceStartDateOnly && currentESTDateOnly <= raceEndDateOnly;
-    
-    console.log('Date comparison:', {
-      currentESTDateOnly: currentESTDateOnly.toDateString(),
-      raceStartDateOnly: raceStartDateOnly.toDateString(),
-      raceEndDateOnly: raceEndDateOnly.toDateString(),
-      isWithinRaceWeekend
-    });
 
     return isWithinRaceWeekend;
-  };
+  }, [isStreamingUnlocked, raceData]);
 
   useEffect(() => {
     fetchRaceDetails();
     loadOpenF1Data();
+    // Pre-fetch Grand Prix stream URL for better UX
+    fetchGrandPrixStream().then(url => {
+      if (url) {
+        setGrandPrixStreamUrl(url);
+      }
+    }).catch(error => {
+      console.error('Failed to pre-fetch Grand Prix stream:', error);
+    });
   }, [raceId]);
 
   // Load events when selected session changes
@@ -406,7 +399,27 @@ const RaceDetailsScreen = ({ route }) => {
       if (!raceData) return;
       const { results: res, order } = await fetchCompetitionResultsForEvent(raceData);
       if (!mounted) return;
-      setCompetitionResults(res);
+      
+      // Preserve existing liveStats when updating competition results
+      setCompetitionResults(prev => {
+        const merged = { ...res };
+        
+        // For each competition, preserve liveStats from previous state if they exist
+        Object.keys(merged).forEach(compId => {
+          if (prev[compId] && prev[compId].competitors) {
+            merged[compId].competitors = merged[compId].competitors.map(newCompetitor => {
+              const existingCompetitor = prev[compId].competitors.find(c => c.id === newCompetitor.id);
+              if (existingCompetitor && existingCompetitor.liveStats) {
+                return { ...newCompetitor, liveStats: existingCompetitor.liveStats };
+              }
+              return newCompetitor;
+            });
+          }
+        });
+        
+        return merged;
+      });
+      
       setCompetitionOrder(order);
 
       // pick default competition - prefer current (nextCompetitionLabel) or last completed competition
@@ -1349,11 +1362,64 @@ const RaceDetailsScreen = ({ route }) => {
     }
   };
 
+  // Function to fetch Grand Prix stream from streaming API
+  const fetchGrandPrixStream = async () => {
+    try {
+      console.log('Fetching Grand Prix stream from streaming API...');
+      const response = await fetch('https://streamed.pk/api/matches/motor-sports/popular');
+      const data = await response.json();
+      
+      // Find the first match with "Grand Prix" in the title
+      const grandPrixMatch = data.find(match => 
+        match.title && match.title.toLowerCase().includes('grand prix')
+      );
+      
+      if (!grandPrixMatch) {
+        console.log('No Grand Prix match found');
+        return null;
+      }
+      
+      console.log('Found Grand Prix match:', grandPrixMatch.title);
+      
+      // Look for admin source
+      const adminSource = grandPrixMatch.sources?.find(source => source.source === 'admin');
+      
+      if (!adminSource) {
+        console.log('No admin source found for Grand Prix match');
+        // Look for next Grand Prix match with admin source
+        const alternativeMatch = data.find(match => 
+          match.title && 
+          match.title.toLowerCase().includes('grand prix') &&
+          match.sources?.some(source => source.source === 'admin') &&
+          match.id !== grandPrixMatch.id
+        );
+        
+        if (alternativeMatch) {
+          const altAdminSource = alternativeMatch.sources.find(source => source.source === 'admin');
+          const streamUrl = `https://embedsports.top/embed/admin/${altAdminSource.id}/1`;
+          console.log('Found alternative Grand Prix stream:', streamUrl);
+          return streamUrl;
+        }
+        
+        return null;
+      }
+      
+      // Build the embed URL
+      const streamUrl = `https://embedsports.top/embed/admin/${adminSource.id}/1`;
+      console.log('Grand Prix stream URL:', streamUrl);
+      return streamUrl;
+      
+    } catch (error) {
+      console.error('Failed to fetch Grand Prix stream:', error);
+      return null;
+    }
+  };
+
   // Stream modal functions
   const openStreamModal = async () => {
     console.log('Header clicked! Opening stream modal...');
     
-    if (!isStreamingAvailable()) {
+    if (!isStreamingAvailable) {
       console.log('Stream not available, showing alert');
       if (!isStreamingUnlocked) {
         Alert.alert('Stream Unavailable', 'Please unlock streaming access in Settings first.');
@@ -1367,6 +1433,13 @@ const RaceDetailsScreen = ({ route }) => {
     setStreamModalVisible(true);
     setIsStreamLoading(true);
     
+    // Fetch Grand Prix stream URL in the background
+    fetchGrandPrixStream().then(url => {
+      setGrandPrixStreamUrl(url);
+    }).catch(error => {
+      console.error('Failed to fetch Grand Prix stream in modal:', error);
+    });
+    
     // Simulate loading time for stream
     setTimeout(() => {
       setIsStreamLoading(false);
@@ -1376,6 +1449,7 @@ const RaceDetailsScreen = ({ route }) => {
   const closeStreamModal = () => {
     setStreamModalVisible(false);
     setIsStreamLoading(true);
+    setGrandPrixStreamUrl(null); // Reset Grand Prix stream URL
   };
 
   const fetchRaceWinner = async (eventData) => {
@@ -1753,13 +1827,13 @@ const RaceDetailsScreen = ({ route }) => {
   };
 
   const updateLiveRaceStatus = async () => {
-    const isLive = checkIfRaceIsLive();
-    setIsLiveRace(isLive);
-
     // Use refs to get current values
     const currentTab = selectedTabRef.current;
     const currentCompetitionId = selectedCompetitionIdRef.current;
     const currentCompetitionResults = competitionResultsRef.current;
+
+    const isLive = checkIfRaceIsLive();
+    setIsLiveRace(isLive);
 
     console.log('[updateLiveRaceStatus]', {
       isLive,
@@ -1861,6 +1935,12 @@ const RaceDetailsScreen = ({ route }) => {
 
     console.log('[startLiveUpdates] Starting live updates every 5 seconds');
     const interval = setInterval(() => {
+      // Skip update if stream modal is open
+      if (streamModalVisible) {
+        console.log('Stream modal open, skipping F1 race update');
+        return;
+      }
+      
       updateLiveRaceStatus();
     }, 5000); // Update every 5 seconds
 
@@ -1879,14 +1959,32 @@ const RaceDetailsScreen = ({ route }) => {
   useEffect(() => {
     if (raceData) {
       console.log('[useEffect] Checking live status - raceData exists, selectedCompetitionId:', selectedCompetitionId);
-      updateLiveRaceStatus();
       
       const isLive = checkIfRaceIsLive();
       console.log('[useEffect] checkIfRaceIsLive result:', isLive);
+      setIsLiveRace(isLive); // Immediately update the live status
       
+      // Always trigger an immediate update when switching competitions
       if (isLive) {
+        updateLiveRaceStatus(); // Update stats immediately for live competitions
+      }
+    }
+  }, [raceData, selectedCompetitionId]);
+
+  // Separate effect to manage live update intervals based on overall live status
+  // Effect to manage live updates based on race status (not dependent on competition results to avoid restarts)
+  useEffect(() => {
+    if (raceData) {
+      const isLive = checkIfRaceIsLive();
+      if (isLive && !streamModalVisible) {
+        console.log('[useEffect] Starting live updates - race is live and stream modal closed');
         startLiveUpdates();
       } else {
+        if (streamModalVisible) {
+          console.log('[useEffect] Stopping live updates - stream modal is open');
+        } else {
+          console.log('[useEffect] Stopping live updates - race not live');
+        }
         stopLiveUpdates();
       }
     }
@@ -1895,15 +1993,50 @@ const RaceDetailsScreen = ({ route }) => {
     return () => {
       stopLiveUpdates();
     };
-  }, [raceData, selectedCompetitionId]);
+  }, [raceData, streamModalVisible]); // Added streamModalVisible dependency
+
+  // Separate effect to check for live competitions in competition results
+  useEffect(() => {
+    if (raceData && competitionResults && !streamModalVisible) {
+      // Check if ANY competition is live, not just the selected one
+      const hasAnyLiveCompetition = raceData.competitions?.some(comp => {
+        const competition = competitionResults[comp.id];
+        if (!competition) return false;
+        
+        const statusState = competition.status?.type?.state;
+        const completed = competition.status?.type?.completed;
+        return !(completed === true || statusState === 'post' || statusState === 'final');
+      });
+
+      if (hasAnyLiveCompetition && !checkIfRaceIsLive()) {
+        console.log('[useEffect] Live competition detected in results - starting updates');
+        startLiveUpdates();
+      }
+    } else if (streamModalVisible) {
+      // Stop updates when stream modal is open
+      console.log('[useEffect] Stream modal opened - stopping competition updates');
+      stopLiveUpdates();
+    }
+  }, [competitionResults, streamModalVisible]); // Added streamModalVisible dependency
 
   // Separate effect to handle immediate update when switching to Results/Grid tabs
   useEffect(() => {
-    if (raceData && checkIfRaceIsLive() && (selectedTab === 'RESULTS' || selectedTab === 'GRID')) {
+    if (raceData && checkIfRaceIsLive() && (selectedTab === 'RESULTS' || selectedTab === 'GRID') && !streamModalVisible) {
       console.log('[useEffect] Tab switched to', selectedTab, '- triggering immediate update');
       updateLiveRaceStatus();
     }
-  }, [selectedTab]);
+  }, [selectedTab, streamModalVisible]);
+
+  // Fetch immediately when stream modal closes
+  useEffect(() => {
+    if (streamModalVisible === false && raceData) {
+      const isLive = checkIfRaceIsLive();
+      if (isLive) {
+        console.log('Stream modal closed, immediately fetching F1 race data');
+        updateLiveRaceStatus();
+      }
+    }
+  }, [streamModalVisible]);
 
   const formatRaceDate = (dateString) => {
     const date = new Date(dateString);
@@ -1978,11 +2111,11 @@ const RaceDetailsScreen = ({ route }) => {
           style={[styles.headerCard, { 
             backgroundColor: theme.surface, 
             borderColor: 'transparent',
-            opacity: isStreamingAvailable() ? 1 : 0.8
+            opacity: isStreamingAvailable ? 1 : 0.8
           }]}
           onPress={isStreamingUnlocked ? openStreamModal : undefined}
-          activeOpacity={isStreamingAvailable() ? 0.7 : 1}
-          disabled={!isStreamingAvailable()}
+          activeOpacity={isStreamingAvailable ? 0.7 : 1}
+          disabled={!isStreamingAvailable}
         >
           <View style={styles.headerCardContent}>
           <View style={styles.headerCardLeft}>
@@ -2059,7 +2192,7 @@ const RaceDetailsScreen = ({ route }) => {
         </View>
         
         {/* Streaming availability indicator */}
-        {isStreamingAvailable() && (
+        {isStreamingAvailable && (
           <View style={styles.streamingIndicator}>
             <Text allowFontScaling={false} style={[styles.streamingText, { color: colors.primary }]}>
               Tap to view stream
@@ -2299,7 +2432,7 @@ const RaceDetailsScreen = ({ route }) => {
                         <Text allowFontScaling={false} style={[styles.totalTime, { color: theme.text }]} numberOfLines={1}>
                           {isLiveRace ? 
                             getLiveGapToLeader(r) :
-                            (r.totalTime || `+${r.behindLaps} Laps`)
+                            (r.totalTime || (r.behindLaps != null ? `+${r.behindLaps} Laps` : r.behindTime || '-'))
                           }
                         </Text>
                         <Text allowFontScaling={false} style={[styles.lapsText, { color: theme.textSecondary }]} numberOfLines={1}>{r.laps ? `${r.laps} laps` : ''}</Text>
@@ -4171,6 +4304,21 @@ const RaceDetailsScreen = ({ route }) => {
               <TouchableOpacity 
                 style={[
                   styles.streamSelectorButton, 
+                  { backgroundColor: selectedStream === 3 ? colors.primary : theme.surface }
+                ]} 
+                onPress={() => setSelectedStream(3)}
+              >
+                <Text allowFontScaling={false} style={[
+                  styles.streamSelectorText, 
+                  { color: selectedStream === 3 ? '#fff' : theme.text }
+                ]}>
+                  Grand Prix {!grandPrixStreamUrl ? '⏳' : ''}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[
+                  styles.streamSelectorButton, 
                   { backgroundColor: selectedStream === 1 ? colors.primary : theme.surface }
                 ]} 
                 onPress={() => setSelectedStream(1)}
@@ -4179,7 +4327,7 @@ const RaceDetailsScreen = ({ route }) => {
                   styles.streamSelectorText, 
                   { color: selectedStream === 1 ? '#fff' : theme.text }
                 ]}>
-                  Test 1
+                  Test 2
                 </Text>
               </TouchableOpacity>
               
@@ -4194,26 +4342,45 @@ const RaceDetailsScreen = ({ route }) => {
                   styles.streamSelectorText, 
                   { color: selectedStream === 2 ? '#fff' : theme.text }
                 ]}>
-                  Test 2
+                  Test 3
                 </Text>
               </TouchableOpacity>
             </View>
 
             {/* Stream Content */}
             <View style={styles.streamContent}>
-              {isStreamLoading && (
+              {(isStreamLoading || (selectedStream === 3 && !grandPrixStreamUrl)) && (
                 <View style={styles.streamLoadingContainer}>
                   <ActivityIndicator size="large" color={colors.primary} />
                   <Text allowFontScaling={false} style={[styles.streamLoadingText, { color: theme.text }]}>
-                    Loading F1 Stream...
+                    {selectedStream === 3 && !grandPrixStreamUrl 
+                      ? 'Loading Grand Prix Stream...' 
+                      : 'Loading F1 Stream...'}
                   </Text>
                 </View>
               )}
 
-              {/* F1 Stream WebView - Using NBA's proven approach */}
+              {/* Show error message if Grand Prix stream is selected but failed to load */}
+              {selectedStream === 3 && !isStreamLoading && !grandPrixStreamUrl && (
+                <View style={styles.streamLoadingContainer}>
+                  <Text allowFontScaling={false} style={[styles.streamLoadingText, { color: theme.textSecondary }]}>
+                    Grand Prix stream not available
+                  </Text>
+                  <Text allowFontScaling={false} style={[styles.streamLoadingText, { color: theme.textSecondary, fontSize: 12, marginTop: 8 }]}>
+                    Try selecting Test 1 or Test 2
+                  </Text>
+                </View>
+              )}
+
+              {/* F1 Stream WebView - Only show if URL is available or not Grand Prix stream */}
+              {(selectedStream !== 3 || grandPrixStreamUrl) && (
               <WebView
-                source={{ uri: `https://embedsports.top/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}` }}
-                style={[styles.streamWebView, { opacity: isStreamLoading ? 0 : 1 }]}
+                source={{ 
+                  uri: selectedStream === 3 && grandPrixStreamUrl 
+                    ? grandPrixStreamUrl 
+                    : `https://embedsports.top/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}` 
+                }}
+                style={[styles.streamWebView, { opacity: (isStreamLoading || (selectedStream === 3 && !grandPrixStreamUrl)) ? 0 : 1 }]}
                 javaScriptEnabled={true}
                 domStorageEnabled={true}
                 startInLoadingState={true}
@@ -4316,7 +4483,9 @@ const RaceDetailsScreen = ({ route }) => {
                   console.log('F1 WebView navigation request:', request.url);
                   
                   // Allow the initial stream URL to load
-                  const streamUrl = `https://embedsports.top/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}`;
+                  const streamUrl = selectedStream === 3 && grandPrixStreamUrl 
+                    ? grandPrixStreamUrl 
+                    : `https://embedsports.top/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}`;
                   if (request.url === streamUrl) {
                     return true;
                   }
@@ -4353,6 +4522,7 @@ const RaceDetailsScreen = ({ route }) => {
                   return false;
                 }}
               />
+              )}
             </View>
           </View>
         </View>

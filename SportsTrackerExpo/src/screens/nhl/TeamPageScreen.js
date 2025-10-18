@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Scr
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import { useFocusEffect } from '@react-navigation/native';
 import { NHLService } from '../../services/NHLService';
 
 // NHL-specific year logic: September-December uses next year, otherwise current year
@@ -139,16 +140,18 @@ const TeamPageScreen = ({ route, navigation }) => {
   const cachedStandings = useRef(null);
   const cachedEvents = useRef(null);
 
-  useEffect(() => {
-    fetchTeamData();
-    
-    // Cleanup interval on unmount
-    return () => {
-      if (liveUpdateInterval.current) {
-        clearInterval(liveUpdateInterval.current);
-      }
-    };
-  }, [teamId]);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchTeamData();
+      
+      // Cleanup interval on unmount
+      return () => {
+        if (liveUpdateInterval.current) {
+          clearInterval(liveUpdateInterval.current);
+        }
+      };
+    }, [teamId])
+  );
 
   // Convert HTTP to HTTPS helper (from NFL)
   const convertToHttps = (url) => {

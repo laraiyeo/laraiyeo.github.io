@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import { useFocusEffect } from '@react-navigation/native';
 
 // NFL-specific year logic: July-December uses current year, otherwise previous year
 const getNFLYear = () => {
@@ -42,14 +43,17 @@ const TeamPageScreen = ({ route, navigation }) => {
   const cachedStandings = useRef(null);
   const cachedEvents = useRef(null);
 
-  useEffect(() => {
-    console.log('NFL TeamPageScreen received - teamId:', teamId);
-    fetchTeamData();
+  // Use useFocusEffect instead of useEffect to only load data when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('NFL TeamPageScreen focused - teamId:', teamId);
+      fetchTeamData();
 
-    return () => {
-      if (liveUpdateInterval.current) clearInterval(liveUpdateInterval.current);
-    };
-  }, [teamId]);
+      return () => {
+        if (liveUpdateInterval.current) clearInterval(liveUpdateInterval.current);
+      };
+    }, [teamId])
+  );
 
   // Convert HTTP to HTTPS helper (from other files)
   const convertToHttps = (url) => {

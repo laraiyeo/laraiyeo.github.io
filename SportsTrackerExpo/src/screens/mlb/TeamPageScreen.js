@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { getAPITeamId, convertMLBIdToESPNId } from '../../utils/TeamIdMapping';
@@ -35,22 +36,22 @@ const TeamPageScreen = ({ route, navigation }) => {
   const [loadingStats, setLoadingStats] = useState(false);
   const liveUpdateInterval = useRef(null);
 
-  useEffect(() => {
-    console.log('TeamPageScreen received - teamId:', teamId, 'sport:', sport);
-    // Convert ESPN ID to MLB ID for API calls
-    const mlbApiId = getAPITeamId(teamId, sport);
-    console.log('Using MLB API ID:', mlbApiId, 'for ESPN team ID:', teamId);
-    fetchTeamData();
-    
-    // Cleanup interval on unmount
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('TeamPageScreen received - teamId:', teamId, 'sport:', sport);
+      // Convert ESPN ID to MLB ID for API calls
+      const mlbApiId = getAPITeamId(teamId, sport);
+      console.log('Using MLB API ID:', mlbApiId, 'for ESPN team ID:', teamId);
+      fetchTeamData();
+      
+      // Cleanup interval on unmount
     return () => {
       if (liveUpdateInterval.current) {
         clearInterval(liveUpdateInterval.current);
-      }
-    };
-  }, [teamId]);
-
-  const fetchTeamData = async () => {
+        }
+      };
+    }, [teamId])
+  );  const fetchTeamData = async () => {
     try {
       // Convert ESPN ID to MLB ID for API calls
       const mlbApiId = getAPITeamId(teamId, sport);

@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { normalizeLeagueCodeForStorage } from '../../utils/TeamIdMapping';
+import { BaseCacheService } from '../BaseCacheService';
 
 const GERMANY_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1';
 
@@ -25,6 +26,57 @@ const GERMANY_COMPETITIONS = {
 export const GermanyServiceEnhanced = {
   // Logo cache to prevent repeated fetches
   logoCache: new Map(),
+
+  // Smart live game detection for Soccer
+  hasLiveEvents(games) {
+    try {
+      if (!Array.isArray(games)) return false;
+      return games.some(game => {
+        const status = game?.status?.type?.name?.toLowerCase() || 
+                      game?.competitions?.[0]?.status?.type?.name?.toLowerCase() ||
+                      '';
+        return status.includes('live') || 
+               status.includes('in progress') ||
+               status.includes('halftime') ||
+               status.includes('break') ||
+               status.includes('second half') ||
+               status.includes('first half') ||
+               status.includes('extra time') ||
+               status.includes('penalty') ||
+               status.includes('overtime');
+      });
+    } catch (error) {
+      console.error('GermanyService: Error detecting live events', error);
+      return false;
+    }
+  },
+
+  getDataType(data, context) {
+    try {
+      if (this.hasLiveEvents(data?.events || data)) {
+        return 'live';
+      }
+      
+      if (context?.includes('standings') || context?.includes('teams') || context?.includes('team') || context?.includes('player')) {
+        return 'static';
+      }
+      
+      return 'scheduled'; // Default for matches/scoreboard
+    } catch (error) {
+      console.error('GermanyService: Error determining data type', error);
+      return 'scheduled';
+    }
+  },
+
+  // Proxy method to use BaseCacheService caching
+  async getCachedData(key, fetchFunction, context) {
+    return BaseCacheService.getCachedData(key, fetchFunction, context, this.getDataType.bind(this));
+  },
+
+  // Proxy method for browser headers
+  getBrowserHeaders() {
+    return BaseCacheService.getBrowserHeaders();
+  },
 
   // Function to get team logo with fallback and caching (from soccer web logic)
   async getTeamLogoWithFallback(teamId) {

@@ -1676,7 +1676,7 @@ const FavoritesScreen = ({ navigation }) => {
                 try {
                   const scorePromises = game.competitions[0].competitors.map(async (competitor, index) => {
                     if (competitor.score?.$ref) {
-                      const scoreData = await getEventData(competitor.score.$ref, true).catch(() => null);
+                      const scoreData = await getEventData(competitor.score.$ref, true, { ...game, respectLiveStatus: true }).catch(() => null);
                       return { index, scoreData };
                     }
                     return { index, scoreData: null };
@@ -1709,7 +1709,7 @@ const FavoritesScreen = ({ navigation }) => {
                 try {
                   const scorePromises = game.competitions[0].competitors.map(async (competitor, index) => {
                     if (competitor.score?.$ref) {
-                      const scoreData = await getEventData(competitor.score.$ref, true).catch(() => null);
+                      const scoreData = await getEventData(competitor.score.$ref, true, { ...game, respectLiveStatus: true }).catch(() => null);
                       return { index, scoreData };
                     }
                     return { index, scoreData: null };
@@ -1742,7 +1742,7 @@ const FavoritesScreen = ({ navigation }) => {
                 try {
                   const scorePromises = game.competitions[0].competitors.map(async (competitor, index) => {
                     if (competitor.score?.$ref) {
-                      const scoreData = await getEventData(competitor.score.$ref, true).catch(() => null);
+                      const scoreData = await getEventData(competitor.score.$ref, true, { ...game, respectLiveStatus: true }).catch(() => null);
                       return { index, scoreData };
                     }
                     return { index, scoreData: null };
@@ -1756,7 +1756,7 @@ const FavoritesScreen = ({ navigation }) => {
             } else if (game.sport === 'MLB' || game.actualLeagueCode === 'mlb') {
               // For MLB games, use the direct game link (statsapi) instead of ESPN plays endpoint
               if (game.eventLink) {
-                const gameData = await getEventData(game.eventLink, true); // bypass gating for live updates
+                const gameData = await getEventData(game.eventLink, true, { ...game, respectLiveStatus: true }); // bypass gating for live updates
                 // If statsapi returned liveData, pull both plays and updated situation info
                 if (gameData && gameData.liveData) {
                   const allPlays = gameData.liveData.plays?.allPlays;
@@ -1867,17 +1867,28 @@ const FavoritesScreen = ({ navigation }) => {
               } else {
               }
             } else if (game.actualLeagueCode === 'nfl') {
-              // Handle NFL games with proper API
+              // Handle NFL games - only fetch summary for live games to reduce API calls
               try {
-                // Use the ESPN NFL summary API to get updated game data
-                const nflSummaryUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${game.id}`;
-                const updatedData = await fetchJsonWithCache(nflSummaryUrl, { bypassGating: true });
-
-                // Also fetch drives (plays) so we can derive situation/play text reliably like GameDetails
+                // Check if game is likely live before making expensive API call
+                const gameFlags = computeMatchFlags(game);
+                const isLikelyLive = gameFlags.isLive || 
+                  (game.status && (game.status.toLowerCase().includes('live') || 
+                                  game.status.toLowerCase().includes('progress') || 
+                                  game.status.toLowerCase().includes('quarter')));
+                
+                let updatedData = null;
                 let drivesData = null;
-                try {
-                  drivesData = await NFLService.getDrives(game.id).catch(() => null);
-                } catch (dErr) {
+                
+                if (isLikelyLive) {
+                  // Use the ESPN NFL summary API to get updated game data
+                  const nflSummaryUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${game.id}`;
+                  updatedData = await fetchJsonWithCache(nflSummaryUrl, { bypassGating: true });
+
+                  // Also fetch drives (plays) so we can derive situation/play text reliably like GameDetails
+                  try {
+                    drivesData = await NFLService.getDrives(game.id).catch(() => null);
+                  } catch (dErr) {
+                  }
                 }
 
                 if (updatedData?.header?.competitions?.[0]) {
@@ -1972,79 +1983,112 @@ const FavoritesScreen = ({ navigation }) => {
               }
               return game; // Return game object even if update failed
             } else if (game.actualLeagueCode === 'nhl') {
-              // Handle NHL games with proper hockey URLs
+              // Handle NHL games - only fetch summary for live games to reduce API calls
               try {
-                const nhlSummaryUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/summary?event=${game.id}`;
-                const statusJson = await fetchJsonWithCache(nhlSummaryUrl);
+                // Check if game is likely live before making expensive API call
+                const gameFlags = computeMatchFlags(game);
+                const isLikelyLive = gameFlags.isLive || 
+                  (game.status && (game.status.toLowerCase().includes('live') || 
+                                  game.status.toLowerCase().includes('progress') || 
+                                  game.status.toLowerCase().includes('period')));
                 
-                if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
-                  extraStatusForMerge = statusJson.header.competitions[0];
-                  // Also try to get plays data for live games
-                  const competition = statusJson.header.competitions[0];
-                  const isLive = competition?.status?.type?.state === 'in';
-                  if (isLive) {
-                    try {
-                      const playsUrl = `${nhlSummaryUrl}&enable=plays`;
-                      const playsResponse = await fetchJsonWithCache(playsUrl);
-                      if (playsResponse?.plays && playsResponse.plays.length > 0) {
-                        playsData = [...playsResponse.plays].reverse();
+                if (isLikelyLive) {
+                  const nhlSummaryUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/summary?event=${game.id}`;
+                  const statusJson = await fetchJsonWithCache(nhlSummaryUrl);
+                  
+                  if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
+                    extraStatusForMerge = statusJson.header.competitions[0];
+                    // Also try to get plays data for live games
+                    const competition = statusJson.header.competitions[0];
+                    const isLive = competition?.status?.type?.state === 'in';
+                    if (isLive) {
+                      try {
+                        const playsUrl = `${nhlSummaryUrl}&enable=plays`;
+                        const playsResponse = await fetchJsonWithCache(playsUrl);
+                        if (playsResponse?.plays && playsResponse.plays.length > 0) {
+                          playsData = [...playsResponse.plays].reverse();
+                        }
+                      } catch (playsError) {
                       }
-                    } catch (playsError) {
                     }
+                  } else {
                   }
                 } else {
+                  // For non-live games, skip the summary fetch to reduce API calls
                 }
               } catch (nhlUpdateError) {
               }
               return game; // Return game object even if update failed
             } else if (game.actualLeagueCode === 'nba') {
-              // Handle NBA games with proper basketball URLs
+              // Handle NBA games - only fetch summary for live games to reduce API calls
               try {
-                const nbaSummaryUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${game.id}`;
-                const statusJson = await fetchJsonWithCache(nbaSummaryUrl);
+                // Check if game is likely live before making expensive API call
+                const gameFlags = computeMatchFlags(game);
+                const isLikelyLive = gameFlags.isLive || 
+                  (game.status && (game.status.toLowerCase().includes('live') || 
+                                  game.status.toLowerCase().includes('progress') || 
+                                  game.status.toLowerCase().includes('quarter')));
                 
-                if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
-                  extraStatusForMerge = statusJson.header.competitions[0];
-                  // Also try to get plays data for live games
-                  const competition = statusJson.header.competitions[0];
-                  const isLive = competition?.status?.type?.state === 'in';
-                  if (isLive) {
-                    try {
-                      const playsUrl = `${nbaSummaryUrl}&enable=plays`;
-                      const playsResponse = await fetchJsonWithCache(playsUrl);
-                      if (playsResponse?.plays && playsResponse.plays.length > 0) {
-                        playsData = [...playsResponse.plays].reverse();
+                if (isLikelyLive) {
+                  const nbaSummaryUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${game.id}`;
+                  const statusJson = await fetchJsonWithCache(nbaSummaryUrl);
+                  
+                  if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
+                    extraStatusForMerge = statusJson.header.competitions[0];
+                    // Also try to get plays data for live games
+                    const competition = statusJson.header.competitions[0];
+                    const isLive = competition?.status?.type?.state === 'in';
+                    if (isLive) {
+                      try {
+                        const playsUrl = `${nbaSummaryUrl}&enable=plays`;
+                        const playsResponse = await fetchJsonWithCache(playsUrl);
+                        if (playsResponse?.plays && playsResponse.plays.length > 0) {
+                          playsData = [...playsResponse.plays].reverse();
+                        }
+                      } catch (playsError) {
                       }
-                    } catch (playsError) {
                     }
+                  } else {
                   }
                 } else {
+                  // For non-live games, skip the summary fetch to reduce API calls
                 }
               } catch (nbaUpdateError) {
               }
               return game; // Return game object even if update failed
             } else if (game.actualLeagueCode === 'wnba') {
-              // Handle WNBA games with proper basketball URLs
+              // Handle WNBA games - only fetch summary for live games to reduce API calls
               try {
-                const wnbaSummaryUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/summary?event=${game.id}`;
-                const statusJson = await fetchJsonWithCache(wnbaSummaryUrl);
+                // Check if game is likely live before making expensive API call
+                const gameFlags = computeMatchFlags(game);
+                const isLikelyLive = gameFlags.isLive || 
+                  (game.status && (game.status.toLowerCase().includes('live') || 
+                                  game.status.toLowerCase().includes('progress') || 
+                                  game.status.toLowerCase().includes('quarter')));
                 
-                if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
-                  extraStatusForMerge = statusJson.header.competitions[0];
-                  // Also try to get plays data for live games
-                  const competition = statusJson.header.competitions[0];
-                  const isLive = competition?.status?.type?.state === 'in';
-                  if (isLive) {
-                    try {
-                      const playsUrl = `${wnbaSummaryUrl}&enable=plays`;
-                      const playsResponse = await fetchJsonWithCache(playsUrl);
-                      if (playsResponse?.plays && playsResponse.plays.length > 0) {
-                        playsData = [...playsResponse.plays].reverse();
+                if (isLikelyLive) {
+                  const wnbaSummaryUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/summary?event=${game.id}`;
+                  const statusJson = await fetchJsonWithCache(wnbaSummaryUrl);
+                  
+                  if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
+                    extraStatusForMerge = statusJson.header.competitions[0];
+                    // Also try to get plays data for live games
+                    const competition = statusJson.header.competitions[0];
+                    const isLive = competition?.status?.type?.state === 'in';
+                    if (isLive) {
+                      try {
+                        const playsUrl = `${wnbaSummaryUrl}&enable=plays`;
+                        const playsResponse = await fetchJsonWithCache(playsUrl);
+                        if (playsResponse?.plays && playsResponse.plays.length > 0) {
+                          playsData = [...playsResponse.plays].reverse();
+                        }
+                      } catch (playsError) {
                       }
-                    } catch (playsError) {
                     }
+                  } else {
                   }
                 } else {
+                  // For non-live games, skip the summary fetch to reduce API calls
                 }
               } catch (wnbaUpdateError) {
               }
@@ -2075,7 +2119,7 @@ const FavoritesScreen = ({ navigation }) => {
                 try {
                   const scorePromises = game.competitions[0].competitors.map(async (competitor, index) => {
                     if (competitor.score?.$ref) {
-                      const scoreData = await getEventData(competitor.score.$ref, true).catch(() => null);
+                      const scoreData = await getEventData(competitor.score.$ref, true, { ...game, respectLiveStatus: true }).catch(() => null);
                       return { index, scoreData };
                     }
                     return { index, scoreData: null };
@@ -2201,7 +2245,7 @@ const FavoritesScreen = ({ navigation }) => {
   };
 
   // Function to fetch game data directly using event link
-  const getEventData = async (url, bypassGating = false) => {
+  const getEventData = async (url, bypassGating = false, gameContext = null) => {
     if (!url) {
       return null;
     }
@@ -2216,6 +2260,20 @@ const FavoritesScreen = ({ navigation }) => {
           const eventIdMatch = url.match(/\/nhl\/game\/(\d+)/);
           if (eventIdMatch) {
             const eventId = eventIdMatch[1];
+            
+            // Check if we should only fetch for live games (when called from update function)
+            if (gameContext && gameContext.respectLiveStatus) {
+              const gameFlags = computeMatchFlags(gameContext);
+              const isLikelyLive = gameFlags.isLive || 
+                (gameContext.status && (gameContext.status.toLowerCase().includes('live') || 
+                                       gameContext.status.toLowerCase().includes('progress') || 
+                                       gameContext.status.toLowerCase().includes('period')));
+              if (!isLikelyLive) {
+                // Skip fetching for non-live NHL games to reduce API calls
+                return null;
+              }
+            }
+            
             url = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/summary?event=${eventId}`;
           }
         } else if (url.startsWith('/nfl/game/')) {
@@ -2223,6 +2281,20 @@ const FavoritesScreen = ({ navigation }) => {
           const eventIdMatch = url.match(/\/nfl\/game\/(\d+)/);
           if (eventIdMatch) {
             const eventId = eventIdMatch[1];
+            
+            // Check if we should only fetch for live games (when called from update function)
+            if (gameContext && gameContext.respectLiveStatus) {
+              const gameFlags = computeMatchFlags(gameContext);
+              const isLikelyLive = gameFlags.isLive || 
+                (gameContext.status && (gameContext.status.toLowerCase().includes('live') || 
+                                       gameContext.status.toLowerCase().includes('progress') || 
+                                       gameContext.status.toLowerCase().includes('quarter')));
+              if (!isLikelyLive) {
+                // Skip fetching for non-live NFL games to reduce API calls
+                return null;
+              }
+            }
+            
             url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${eventId}`;
           }
         } else if (url.startsWith('/nba/game/')) {
@@ -2230,6 +2302,20 @@ const FavoritesScreen = ({ navigation }) => {
           const eventIdMatch = url.match(/\/nba\/game\/(\d+)/);
           if (eventIdMatch) {
             const eventId = eventIdMatch[1];
+            
+            // Check if we should only fetch for live games (when called from update function)
+            if (gameContext && gameContext.respectLiveStatus) {
+              const gameFlags = computeMatchFlags(gameContext);
+              const isLikelyLive = gameFlags.isLive || 
+                (gameContext.status && (gameContext.status.toLowerCase().includes('live') || 
+                                       gameContext.status.toLowerCase().includes('progress') || 
+                                       gameContext.status.toLowerCase().includes('quarter')));
+              if (!isLikelyLive) {
+                // Skip fetching for non-live NBA games to reduce API calls
+                return null;
+              }
+            }
+            
             url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${eventId}`;
           }
         } else if (url.startsWith('http')) {
@@ -3166,15 +3252,7 @@ const FavoritesScreen = ({ navigation }) => {
           // Try multiple competitions to find the right one (like ChampionsLeagueServiceEnhanced)
           // Only include soccer competitions - exclude NFL, NHL, NBA, etc.
           const soccerCompetitions = [
-            'uefa.champions_qual',       // Champions League Qualifying
-            'uefa.champions',            // Champions League
-            'uefa.europa',               // Europa League  
-            'uefa.europa.conf',          // Europa Conference League
-            'esp.1',                     // La Liga
-            'ita.1',                     // Serie A
-            'ger.1',                     // Bundesliga
-            'eng.1',                     // Premier League
-            'fra.1'                      // Ligue 1
+            'eng.1'
           ];
 
           const competitionsToTry = [];

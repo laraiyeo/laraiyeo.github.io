@@ -412,6 +412,20 @@ const NHLGameDetailsScreen = ({ route }) => {
     setIsStreamLoading(true);
   };
 
+  // Fetch immediately when stream modal closes to resume updates
+  useEffect(() => {
+    if (!streamModalVisible && gameId && details) {
+      // Only fetch if we were previously showing the modal (not on initial load)
+      const wasModalOpen = streamModalVisible === false;
+      if (wasModalOpen) {
+        console.log('Stream modal closed, fetching fresh NHL game data');
+        NHLService.getGameDetails(gameId).then(setDetails).catch(e => 
+          console.error('Failed to fetch NHL game details after stream modal close', e)
+        );
+      }
+    }
+  }, [streamModalVisible, gameId]);
+
   // helper: convert hex to rgba for subtle tinting (hoisted so render paths can use it)
     
 
@@ -464,6 +478,12 @@ const NHLGameDetailsScreen = ({ route }) => {
     }
     
     const intervalId = setInterval(async () => {
+      // Skip update if stream modal is open
+      if (streamModalVisible) {
+        console.log('Stream modal open, skipping NHL game update');
+        return;
+      }
+      
       try {
         const data = await NHLService.getGameDetails(gameId);
         setDetails(data);
@@ -484,7 +504,7 @@ const NHLGameDetailsScreen = ({ route }) => {
     }, 4000);
 
     return () => clearInterval(intervalId);
-  }, [gameId, details]);
+  }, [gameId, details, streamModalVisible]);
 
   // Precompute normalized plays for immediate rendering when user clicks the Plays tab
   useEffect(() => {

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Scr
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import { useFocusEffect } from '@react-navigation/native';
 import { NBAService } from '../../services/NBAService';
 
 // NBA-specific year logic: September-December uses next year, otherwise current year
@@ -136,16 +137,19 @@ const TeamPageScreen = ({ route, navigation }) => {
   const cachedStandings = useRef(null);
   const cachedEvents = useRef(null);
 
-  useEffect(() => {
-    fetchTeamData();
-    
-    // Cleanup interval on unmount
-    return () => {
-      if (liveUpdateInterval.current) {
-        clearInterval(liveUpdateInterval.current);
-      }
-    };
-  }, [teamId]);
+  // Use useFocusEffect instead of useEffect to only load data when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('NBA TeamPageScreen focused - teamId:', teamId);
+      fetchTeamData();
+      
+      return () => {
+        if (liveUpdateInterval.current) {
+          clearInterval(liveUpdateInterval.current);
+        }
+      };
+    }, [teamId])
+  );
 
   // Convert HTTP to HTTPS helper (from NFL)
   const convertToHttps = (url) => {

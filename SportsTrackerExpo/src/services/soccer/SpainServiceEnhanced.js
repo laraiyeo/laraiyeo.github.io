@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { normalizeLeagueCodeForStorage } from '../../utils/TeamIdMapping';
+import { BaseCacheService } from '../BaseCacheService';
 
 const SPAIN_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/esp';
 
@@ -25,6 +26,57 @@ const SPAIN_COMPETITIONS = {
 export const SpainServiceEnhanced = {
   // Logo cache to prevent repeated fetches
   logoCache: new Map(),
+
+  // Smart live game detection for Soccer
+  hasLiveEvents(games) {
+    try {
+      if (!Array.isArray(games)) return false;
+      return games.some(game => {
+        const status = game?.status?.type?.name?.toLowerCase() || 
+                      game?.competitions?.[0]?.status?.type?.name?.toLowerCase() ||
+                      '';
+        return status.includes('live') || 
+               status.includes('in progress') ||
+               status.includes('halftime') ||
+               status.includes('break') ||
+               status.includes('second half') ||
+               status.includes('first half') ||
+               status.includes('extra time') ||
+               status.includes('penalty') ||
+               status.includes('overtime');
+      });
+    } catch (error) {
+      console.error('SpainService: Error detecting live events', error);
+      return false;
+    }
+  },
+
+  getDataType(data, context) {
+    try {
+      if (this.hasLiveEvents(data?.events || data)) {
+        return 'live';
+      }
+      
+      if (context?.includes('standings') || context?.includes('teams') || context?.includes('team') || context?.includes('player')) {
+        return 'static';
+      }
+      
+      return 'scheduled'; // Default for matches/scoreboard
+    } catch (error) {
+      console.error('SpainService: Error determining data type', error);
+      return 'scheduled';
+    }
+  },
+
+  // Proxy method to use BaseCacheService caching
+  async getCachedData(key, fetchFunction, context) {
+    return BaseCacheService.getCachedData(key, fetchFunction, context, this.getDataType.bind(this));
+  },
+
+  // Proxy method for browser headers
+  getBrowserHeaders() {
+    return BaseCacheService.getBrowserHeaders();
+  },
 
   // Function to get team logo with fallback and caching (from soccer web logic)
   async getTeamLogoWithFallback(teamId) {
@@ -160,7 +212,8 @@ export const SpainServiceEnhanced = {
     const fetchPromises = allCompetitionsToCheck.map(async (competition) => {
       try {
         console.log(`Starting fetch for ${competition.code}...`);
-        const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition.code}/scoreboard?dates=${dateRange}`);
+        const headers = this.getBrowserHeaders();
+        const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition.code}/scoreboard?dates=${dateRange}`, { headers });
         
         if (response.ok) {
           const data = await response.json();
@@ -210,23 +263,26 @@ export const SpainServiceEnhanced = {
 
   // Fetch current matches/scoreboard with date filter (like MLB service)
   async getScoreboard(dateFilter = 'today') {
-    try {
-      const { startDate, endDate } = this.getDateRange(dateFilter);
-      const dateRange = this.createDateRangeString(startDate, endDate);
-      
-      console.log(`Fetching Spain scoreboard for ${dateFilter}:`, dateRange);
-      
-      // Fetch from all competitions
-      const games = await this.fetchGamesFromAllCompetitions(dateRange);
-      
-      return {
-        events: games,
-        leagues: games.length > 0 ? [games[0].leaguesData] : []
-      };
-    } catch (error) {
-      console.error('Error fetching Spain scoreboard:', error);
-      throw error;
-    }
+    const cacheKey = `spain_scoreboard_${dateFilter}`;
+    return this.getCachedData(cacheKey, async () => {
+      try {
+        const { startDate, endDate } = this.getDateRange(dateFilter);
+        const dateRange = this.createDateRangeString(startDate, endDate);
+        
+        console.log(`Fetching Spain scoreboard for ${dateFilter}:`, dateRange);
+        
+        // Fetch from all competitions
+        const games = await this.fetchGamesFromAllCompetitions(dateRange);
+        
+        return {
+          events: games,
+          leagues: games.length > 0 ? [games[0].leaguesData] : []
+        };
+      } catch (error) {
+        console.error('Error fetching Spain scoreboard:', error);
+        throw error;
+      }
+    }, 'scoreboard');
   },
 
   // Fetch game details
@@ -510,5 +566,11 @@ export const SpainServiceEnhanced = {
       flag: 'https://a.espncdn.com/i/teamlogos/countries/500/esp.png',
       apiCode: 'esp.1'
     };
+  },
+
+  // Clear all caches
+  clearCache() {
+    this.logoCache.clear();
+    return BaseCacheService.clearCache();
   }
 };

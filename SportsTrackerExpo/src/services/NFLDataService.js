@@ -1,6 +1,9 @@
 // Shared NFL data service for caching teams and players across screens
-class NFLDataService {
+import { BaseCacheService } from './BaseCacheService';
+
+class NFLDataService extends BaseCacheService {
   constructor() {
+    super(); // Call parent constructor first
     this.teamsCache = null;
     this.playersCache = null;
     this.isInitializing = false;
@@ -66,7 +69,8 @@ class NFLDataService {
   async _fetchData() {
     try {
       // Fetch teams first
-      const teamsResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams`);
+      const headers = this.getBrowserHeaders();
+      const teamsResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams`, { headers });
       const teamsData = await teamsResponse.json();
       
       if (!teamsData.sports?.[0]?.leagues?.[0]?.teams) {
@@ -82,7 +86,7 @@ class NFLDataService {
       const rosterPromises = teams.map(async (team) => {
         try {
           const rosterUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${team.id}/roster`;
-          const rosterResponse = await fetch(rosterUrl);
+          const rosterResponse = await fetch(rosterUrl, { headers });
           const roster = await rosterResponse.json();
           
           if (roster.athletes) {
@@ -162,6 +166,7 @@ class NFLDataService {
     this.isInitializing = false;
     this.initPromise = null;
     this.notifyListeners();
+    return super.clearCache();
   }
 }
 

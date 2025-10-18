@@ -669,6 +669,12 @@ const GameDetailsScreen = ({ route }) => {
     
     if (isLiveGame) {
       const interval = setInterval(() => {
+        // Skip update if stream modal is open
+        if (streamModalVisible) {
+          console.log('Stream modal open, skipping NFL game update');
+          return;
+        }
+        
         const statusDesc = status?.type?.description?.toLowerCase();
         const isScheduled = statusDesc?.includes('scheduled');
         
@@ -721,6 +727,24 @@ const GameDetailsScreen = ({ route }) => {
       }
     }
   }, [drivesData, driveModalVisible, selectedDrive?.id]);
+
+  // Fetch immediately when stream modal closes
+  useEffect(() => {
+    if (streamModalVisible === false && gameDetails) {
+      const competition = gameDetails.header?.competitions?.[0] || gameDetails.competitions?.[0];
+      const status = competition?.status || gameDetails.header?.status;
+      const statusDesc = status?.type?.description?.toLowerCase();
+      const isScheduled = statusDesc?.includes('scheduled');
+      
+      console.log('Stream modal closed, immediately fetching NFL game data');
+      loadGameDetails(true);
+      
+      if (!isScheduled) {
+        loadDrives(true);
+        loadGameSituation(true);
+      }
+    }
+  }, [streamModalVisible]);
 
   const loadGameSituation = async (silentUpdate = false) => {
     try {

@@ -467,6 +467,12 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
 
     const interval = setInterval(() => {
       try {
+        // Skip update if stream modal is open
+        if (showStreamModal) {
+          console.log('Stream modal open, skipping Italy game update');
+          return;
+        }
+        
         if (isLive) {
           loadGameDetails(true); // Silent update for live games
         }
@@ -509,6 +515,17 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
     setPlaysData(null);
     setStatsData(null);
   }, [gameId]);
+
+  // Fetch immediately when stream modal closes
+  useEffect(() => {
+    if (showStreamModal === false && gameData) {
+      const isLive = gameData && gameData.header?.competitions?.[0]?.status?.type?.state === 'in';
+      if (isLive) {
+        console.log('Stream modal closed, immediately fetching Italy game data');
+        loadGameDetails(true);
+      }
+    }
+  }, [showStreamModal]);
 
   const loadGameDetails = async (silentUpdate = false) => {
     try {

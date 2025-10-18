@@ -1,14 +1,17 @@
 // MLB API Service for Mobile App
 // Adapted from MLB scoreboard.js and live.js
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 export class MLBService {
   static BASE_URL = "https://statsapi.mlb.com";
   static SCHEDULE_URL = `${this.BASE_URL}/api/v1/schedule/games/?sportId=1`;
   
-  // Cache for API responses
+  // Cache for API responses (fallback in-memory cache)
   static cache = new Map();
   static cacheTimestamps = new Map();
-  static CACHE_DURATION = 2000; // 2 seconds cache duration for better responsiveness during live games
+  static CACHE_DURATION = 2000; // 2 seconds for live sports data (faster updates)
+  static STALE_CACHE_DURATION = 10000; // 10 seconds - ESPN's max-age for fallback
 
   // Team abbreviation mapping for ESPN logos
   static teamAbbrMap = {
@@ -34,28 +37,75 @@ export class MLBService {
     "Toronto Blue Jays": "#134A8E", "Washington Nationals": "#AB0003"
   };
 
-  // Generic cache method
-  static async getCachedData(key, fetchFunction) {
+  // Generic cache method with AsyncStorage persistence
+  static async getCachedData(key, fetchFunction, isLiveData = false) {
     const now = Date.now();
-    const lastFetch = this.cacheTimestamps.get(key);
+    const cacheKey = `mlb_cache_${key}`;
     
-    // Return cached data if it's fresh
-    if (lastFetch && (now - lastFetch) < this.CACHE_DURATION && this.cache.has(key)) {
-      return this.cache.get(key);
-    }
+    // Use shorter cache for live games, longer for scheduled/finished games
+    const cacheDuration = isLiveData ? 2000 : this.CACHE_DURATION; // 2s for live, 10s for others
     
-    // Fetch fresh data
     try {
+      // 1️⃣ Try to read from AsyncStorage
+      const cachedItem = await AsyncStorage.getItem(cacheKey);
+      if (cachedItem) {
+        const { data, timestamp } = JSON.parse(cachedItem);
+        const age = (now - timestamp) / 1000;
+        const isFresh = (now - timestamp) < cacheDuration;
+
+        if (isFresh) {
+          console.log(
+            `%c[MLBService Cache HIT] %c${key} %c(${age.toFixed(1)}s old)${isLiveData ? ' [LIVE]' : ''}`,
+            'color: limegreen; font-weight: bold;',
+            'color: white;',
+            'color: gray;'
+          );
+          return data;
+        } else {
+          console.log(
+            `%c[MLBService Cache STALE] %c${key} %c(${age.toFixed(1)}s old — refreshing...)${isLiveData ? ' [LIVE]' : ''}`,
+            'color: orange; font-weight: bold;',
+            'color: white;',
+            'color: gray;'
+          );
+        }
+      }
+
+      // 2️⃣ Fetch from network if not cached or stale
+      console.log(
+        `%c[MLBService Fetch] %c${key} %c(network request)${isLiveData ? ' [LIVE]' : ''}`,
+        'color: cyan; font-weight: bold;',
+        'color: white;',
+        'color: gray;'
+      );
+
       const data = await fetchFunction();
-      this.cache.set(key, data);
-      this.cacheTimestamps.set(key, now);
+      await AsyncStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: now }));
+
       return data;
-    } catch (error) {
-      // Return cached data if available, even if stale
+    } catch (err) {
+      console.warn('⚠️ Cache read/write failed:', err);
+
+      // fallback: in-memory cache
       if (this.cache.has(key)) {
+        console.log(
+          `%c[MLBService Fallback Memory Cache] %c${key}`,
+          'color: yellow; font-weight: bold;',
+          'color: white;'
+        );
         return this.cache.get(key);
       }
-      throw error;
+
+      // last resort: fetch from network
+      console.log(
+        `%c[MLBService Network Fallback] %c${key}`,
+        'color: red; font-weight: bold;',
+        'color: white;'
+      );
+
+      const data = await fetchFunction();
+      this.cache.set(key, data);
+      return data;
     }
   }
 
@@ -108,6 +158,18 @@ export class MLBService {
   static async getScoreboard(startDate = null, endDate = null) {
     const cacheKey = `scoreboard_${startDate || 'today'}_${endDate || startDate || 'today'}`;
     
+    // First check if we have cached data to determine if there are live games
+    let hasLiveGames = false;
+    try {
+      const cachedItem = await AsyncStorage.getItem(`mlb_cache_${cacheKey}`);
+      if (cachedItem) {
+        const { data } = JSON.parse(cachedItem);
+        hasLiveGames = this.hasLiveGames(data);
+      }
+    } catch (err) {
+      // Ignore cache read errors
+    }
+    
     return this.getCachedData(cacheKey, async () => {
       let url = this.SCHEDULE_URL;
       console.log('MLBService.getScoreboard called with:', { startDate, endDate });
@@ -150,7 +212,13 @@ export class MLBService {
       }
 
       return processedData;
-    });
+    }, hasLiveGames); // Use pre-checked live games status
+  }
+
+  // Check if there are any live games in the data
+  static hasLiveGames(data) {
+    if (!data || !data.events) return false;
+    return data.events.some(game => game.isLive);
   }
 
   // Process game data to match our expected format

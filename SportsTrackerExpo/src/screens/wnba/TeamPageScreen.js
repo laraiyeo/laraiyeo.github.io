@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { WNBAService } from '../../services/WNBAService';
@@ -119,16 +120,18 @@ const TeamPageScreen = ({ route, navigation }) => {
   const cachedStandings = useRef(null);
   const cachedEvents = useRef(null);
 
-  useEffect(() => {
-    fetchTeamData();
-    
-    // Cleanup interval on unmount
-    return () => {
-      if (liveUpdateInterval.current) {
-        clearInterval(liveUpdateInterval.current);
-      }
-    };
-  }, [teamId]);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchTeamData();
+      
+      // Cleanup interval on unmount
+      return () => {
+        if (liveUpdateInterval.current) {
+          clearInterval(liveUpdateInterval.current);
+        }
+      };
+    }, [teamId])
+  );
 
   // Convert HTTP to HTTPS helper (from NFL)
   const convertToHttps = (url) => {

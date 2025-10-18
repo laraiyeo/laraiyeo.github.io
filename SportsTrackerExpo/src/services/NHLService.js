@@ -1,30 +1,59 @@
 // NHL API Service for Mobile App
 // Combines ESPN NHL endpoints with nhl api fallback for additional data
 
-export class NHLService {
+import { BaseCacheService } from './BaseCacheService';
+
+export class NHLService extends BaseCacheService {
   static SCOREBOARD_API_URL = "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard";
   static TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams";
   static NHL_API_BASE = "https://api-web.nhle.com/v1";
 
-  static cache = new Map();
-  static cacheTimestamps = new Map();
-  static CACHE_DURATION = 2000; // 2 seconds for live responsiveness
-
-  static async getCachedData(key, fetchFunction) {
-    const now = Date.now();
-    const lastFetch = this.cacheTimestamps.get(key);
-    if (lastFetch && (now - lastFetch) < this.CACHE_DURATION && this.cache.has(key)) {
-      return this.cache.get(key);
-    }
-
+  // Smart live game detection for NHL
+  static hasLiveEvents(data) {
     try {
-      const data = await fetchFunction();
-      this.cache.set(key, data);
-      this.cacheTimestamps.set(key, now);
-      return data;
+      const events = data?.events || [];
+      return events.some(event => {
+        const status = event?.status?.type?.name;
+        const description = event?.status?.type?.description;
+        
+        // NHL live statuses
+        return status === 'STATUS_IN_PROGRESS' || 
+               description?.toLowerCase().includes('period') ||
+               description?.toLowerCase().includes('overtime') ||
+               description?.toLowerCase().includes('intermission');
+      });
     } catch (error) {
-      if (this.cache.has(key)) return this.cache.get(key);
-      throw error;
+      console.error('NHLService: Error detecting live events', error);
+      return false;
+    }
+  }
+
+  static getDataType(data, context) {
+    try {
+      if (this.hasLiveEvents(data)) {
+        return 'live';
+      }
+      
+      if (context?.includes('standings') || context?.includes('teams')) {
+        return 'static';
+      }
+      
+      // Check if events are scheduled or finished
+      const events = data?.events || [];
+      const hasScheduled = events.some(event => 
+        event?.status?.type?.name === 'STATUS_SCHEDULED'
+      );
+      const hasFinished = events.some(event => 
+        event?.status?.type?.completed === true
+      );
+      
+      if (hasScheduled && !hasFinished) return 'scheduled';
+      if (hasFinished && !hasScheduled) return 'finished';
+      
+      return 'scheduled'; // Default for mixed or unknown
+    } catch (error) {
+      console.error('NHLService: Error determining data type', error);
+      return 'scheduled';
     }
   }
 
@@ -36,7 +65,7 @@ export class NHLService {
 
   // Fetch scoreboard from ESPN (primary)
   static async getScoreboard(startDate = null, endDate = null) {
-    const cacheKey = `scoreboard_${startDate || 'today'}_${endDate || startDate || 'today'}`;
+    const cacheKey = `nhl_scoreboard_${startDate || 'today'}_${endDate || startDate || 'today'}`;
     return this.getCachedData(cacheKey, async () => {
       let url = this.SCOREBOARD_API_URL;
       if (startDate) {
@@ -46,21 +75,23 @@ export class NHLService {
           url += `?dates=${startDate}`;
         }
       }
-      const res = await fetch(url);
+      const headers = this.getBrowserHeaders();
+      const res = await fetch(url, { headers });
       const data = await res.json();
       return data;
-    });
+    }, 'scoreboard');
   }
 
   // Fetch game details using ESPN summary as primary
   static async getGameDetails(gameId) {
-    const cacheKey = `gameDetails_${gameId}`;
+    const cacheKey = `nhl_game_details_${gameId}`;
     return this.getCachedData(cacheKey, async () => {
       const url = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/summary?event=${gameId}`;
-      const res = await fetch(this.convertToHttps(url));
+      const headers = this.getBrowserHeaders();
+      const res = await fetch(this.convertToHttps(url), { headers });
       const data = await res.json();
       return data;
-    });
+    }, 'game_details');
   }
 
   // Try NHL official API as fallback to convert or enrich data
@@ -120,12 +151,13 @@ export class NHLService {
     const cacheKey = 'nhl_standings';
     return this.getCachedData(cacheKey, async () => {
       // Prefer NHL official API which returns a flat standings array
+      const headers = this.getBrowserHeaders();
 
       try {
         const nhlUrl = `https://corsproxy.io/?url=${this.NHL_API_BASE}/standings/now`;
         // Try direct fetch first
         try {
-          const res = await fetch(nhlUrl);
+          const res = await fetch(nhlUrl, { headers });
           if (res.ok) {
             const data = await res.json();
             return data;
@@ -134,7 +166,7 @@ export class NHLService {
           // Direct fetch failed (possibly CORS) - try via a public CORS proxy
           try {
             const proxy = `https://corsproxy.io/?url=${encodeURIComponent(nhlUrl)}`;
-            const pres = await fetch(proxy);
+            const pres = await fetch(proxy, { headers });
             if (pres.ok) {
               const pdata = await pres.json();
               return pdata;
@@ -151,20 +183,22 @@ export class NHLService {
       // ESPN fallback
       try {
         const url = 'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/standings';
-        const res2 = await fetch(url);
+        const res2 = await fetch(url, { headers });
         const data2 = await res2.json();
         return data2;
       } catch (err) {
         throw err;
       }
-    });
+    }, 'standings');
   }
 
   static async getPlayerGameStats(gameId, playerId) {
-    try {
+    const cacheKey = `nhl_player_stats_${gameId}_${playerId}`;
+    return this.getCachedData(cacheKey, async () => {
       const url = `https://cdn.espn.com/core/nhl/boxscore?xhr=1&gameId=${gameId}`;
+      const headers = this.getBrowserHeaders();
       
-      const response = await fetch(this.convertToHttps(url));
+      const response = await fetch(this.convertToHttps(url), { headers });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -244,15 +278,11 @@ export class NHLService {
 
       return formattedStats;
       
-    } catch (error) {
-      console.error('Error fetching player game stats:', error);
-      throw error;
-    }
+    }, 'player_stats');
   }
 
   static clearCache() {
-    this.cache.clear();
-    this.cacheTimestamps.clear();
+    return super.clearCache();
   }
 }
 

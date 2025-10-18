@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { normalizeLeagueCodeForStorage } from '../../utils/TeamIdMapping';
+import { BaseCacheService } from '../BaseCacheService';
 
 const ENGLAND_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1';
 
@@ -25,6 +26,68 @@ const ENGLAND_COMPETITIONS = {
 export const EnglandServiceEnhanced = {
   // Logo cache to prevent repeated fetches
   logoCache: new Map(),
+
+  // Smart live game detection for Soccer
+  hasLiveEvents(games) {
+    try {
+      if (!Array.isArray(games)) return false;
+      return games.some(game => {
+        const status = game?.status?.type?.name;
+        const description = game?.status?.type?.description;
+        const state = game?.status?.type?.state;
+        
+        // Soccer live statuses
+        return status === 'STATUS_IN_PROGRESS' || 
+               state === 'in' ||
+               description?.toLowerCase().includes('half') ||
+               description?.toLowerCase().includes('extra time') ||
+               description?.toLowerCase().includes('penalties');
+      });
+    } catch (error) {
+      console.error('EnglandService: Error detecting live events', error);
+      return false;
+    }
+  },
+
+  getDataType(data, context) {
+    try {
+      // Check for live games in data
+      const events = data?.events || [];
+      if (this.hasLiveEvents(events)) {
+        return 'live';
+      }
+      
+      if (context?.includes('standings') || context?.includes('teams') || context?.includes('team')) {
+        return 'static';
+      }
+      
+      // Check if events are scheduled or finished
+      const hasScheduled = events.some(event => 
+        event?.status?.type?.name === 'STATUS_SCHEDULED'
+      );
+      const hasFinished = events.some(event => 
+        event?.status?.type?.completed === true
+      );
+      
+      if (hasScheduled && !hasFinished) return 'scheduled';
+      if (hasFinished && !hasScheduled) return 'finished';
+      
+      return 'scheduled'; // Default for mixed or unknown
+    } catch (error) {
+      console.error('EnglandService: Error determining data type', error);
+      return 'scheduled';
+    }
+  },
+
+  // Proxy method to use BaseCacheService caching
+  async getCachedData(key, fetchFunction, context) {
+    return BaseCacheService.getCachedData(key, fetchFunction, context, this.getDataType.bind(this));
+  },
+
+  // Proxy method for browser headers
+  getBrowserHeaders() {
+    return BaseCacheService.getBrowserHeaders();
+  },
 
   // Function to get team logo with fallback and caching (from soccer web logic)
   async getTeamLogoWithFallback(teamId) {
@@ -160,7 +223,9 @@ export const EnglandServiceEnhanced = {
     const fetchPromises = allCompetitionsToCheck.map(async (competition) => {
       try {
         console.log(`Starting fetch for ${competition.code}...`);
-        const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition.code}/scoreboard?dates=${dateRange}`);
+        const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition.code}/scoreboard?dates=${dateRange}`, { 
+          headers: this.getBrowserHeaders() 
+        });
         
         if (response.ok) {
           const data = await response.json();
@@ -210,7 +275,8 @@ export const EnglandServiceEnhanced = {
 
   // Fetch current matches/scoreboard with date filter (like MLB service)
   async getScoreboard(dateFilter = 'today') {
-    try {
+    const cacheKey = `england_scoreboard_${dateFilter}`;
+    return this.getCachedData(cacheKey, async () => {
       const { startDate, endDate } = this.getDateRange(dateFilter);
       const dateRange = this.createDateRangeString(startDate, endDate);
       
@@ -223,15 +289,13 @@ export const EnglandServiceEnhanced = {
         events: games,
         leagues: games.length > 0 ? [games[0].leaguesData] : []
       };
-    } catch (error) {
-      console.error('Error fetching England scoreboard:', error);
-      throw error;
-    }
+    }, 'scoreboard');
   },
 
   // Fetch game details
   async getGameDetails(gameId, competitionHint = null) {
-    try {
+    const cacheKey = `england_game_details_${gameId}_${competitionHint || 'auto'}`;
+    return this.getCachedData(cacheKey, async () => {
       // First, if we don't already have a strong hint, query the sports core API
       // event resource which includes a season.$ref that identifies the league code
       // (e.g. eng.fa). Using that is the most reliable way to determine
@@ -241,7 +305,8 @@ export const EnglandServiceEnhanced = {
         try {
           // Try each England competition to find the right one
           for (const comp of ['eng.1', 'eng.fa', 'eng.league_cup']) {
-            const coreResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${comp}/events/${gameId}?lang=en&region=us`);
+            const headers = this.getBrowserHeaders();
+            const coreResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${comp}/events/${gameId}?lang=en&region=us`, { headers });
             if (coreResponse.ok) {
               const coreData = await coreResponse.json();
               // Try to read season.$ref or seasonType.$ref which include the league code
@@ -275,9 +340,10 @@ export const EnglandServiceEnhanced = {
         }
       }
 
+      const headers = this.getBrowserHeaders();
       for (const competition of competitionOrder) {
         try {
-          const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${gameId}`);
+          const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${gameId}`, { headers });
           if (response.ok) {
             const data = await response.json();
             // For England competitions, always use our mapping instead of API-provided names
@@ -291,15 +357,13 @@ export const EnglandServiceEnhanced = {
         }
       }
       throw new Error(`Game ${gameId} not found in any English competition`);
-    } catch (error) {
-      console.error('Error fetching England game details:', error);
-      throw error;
-    }
+    }, 'game_details');
   },
 
   // Fetch league standings using the same CDN endpoint as soccer web app
   async getStandings() {
-    try {
+    const cacheKey = 'england_standings';
+    return this.getCachedData(cacheKey, async () => {
       const currentSeason = new Date().getFullYear().toString();
       const leagueCode = 'eng.1'; // Premier League
       
@@ -307,7 +371,8 @@ export const EnglandServiceEnhanced = {
       const STANDINGS_URL = `https://cdn.espn.com/core/soccer/table?xhr=1&league=${leagueCode}&season=${currentSeason}`;
       
       console.log('Fetching standings from:', STANDINGS_URL);
-      const response = await fetch(STANDINGS_URL);
+      const headers = this.getBrowserHeaders();
+      const response = await fetch(STANDINGS_URL, { headers });
       const standingsText = await response.text();
       
       console.log('Raw standings response:', standingsText.substring(0, 200) + '...');
@@ -339,40 +404,37 @@ export const EnglandServiceEnhanced = {
         console.log('Unexpected standings structure');
         throw new Error('Unexpected standings structure');
       }
-    } catch (error) {
-      console.error('Error fetching England standings:', error);
-      throw error;
-    }
+    }, 'standings');
   },
 
   // Fetch team information
   async getTeam(teamId) {
-    try {
-      const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/teams/${teamId}`);
+    const cacheKey = `england_team_${teamId}`;
+    return this.getCachedData(cacheKey, async () => {
+      const headers = this.getBrowserHeaders();
+      const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/teams/${teamId}`, { headers });
       const data = await response.json();
       return data;
-    } catch (error) {
-      console.error('Error fetching England team:', error);
-      throw error;
-    }
+    }, 'team');
   },
 
   // Fetch player information
   async getPlayer(playerId) {
-    try {
-      const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/players/${playerId}`);
+    const cacheKey = `england_player_${playerId}`;
+    return this.getCachedData(cacheKey, async () => {
+      const headers = this.getBrowserHeaders();
+      const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/players/${playerId}`, { headers });
       const data = await response.json();
       return data;
-    } catch (error) {
-      console.error('Error fetching England player:', error);
-      throw error;
-    }
+    }, 'player');
   },
 
   // Search for teams
   async searchTeams(query) {
-    try {
-      const response = await fetch(`${ENGLAND_BASE_URL}/teams?limit=50`);
+    const cacheKey = `england_search_teams_${query}`;
+    return this.getCachedData(cacheKey, async () => {
+      const headers = this.getBrowserHeaders();
+      const response = await fetch(`${ENGLAND_BASE_URL}/teams?limit=50`, { headers });
       const data = await response.json();
 
       if (data.sports && data.sports[0] && data.sports[0].leagues && data.sports[0].leagues[0]) {
@@ -382,10 +444,7 @@ export const EnglandServiceEnhanced = {
         );
       }
       return [];
-    } catch (error) {
-      console.error('Error searching England teams:', error);
-      throw error;
-    }
+    }, 'search');
   },
 
   // Search for players (using same approach as team-page.js)
@@ -502,5 +561,11 @@ export const EnglandServiceEnhanced = {
       flag: 'https://a.espncdn.com/i/teamlogos/countries/500/eng.png',
       apiCode: 'eng.1'
     };
+  },
+
+  // Clear all caches
+  clearCache() {
+    this.logoCache.clear();
+    return BaseCacheService.clearCache();
   }
 };

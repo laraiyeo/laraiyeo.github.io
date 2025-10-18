@@ -1,9 +1,56 @@
 // LoL Esports API Service using lolesports.com API
+import { BaseCacheService } from './BaseCacheService';
+
 const LOL_API_BASE_URL = 'https://esports-api.lolesports.com/persisted/gw';
 const LOL_LIVESTATS_BASE_URL = 'https://feed.lolesports.com/livestats/v1';
 
 // API configuration
 const API_KEY = '0TvQnueqKa5mxJntVWt0w4LpLfEkrV1Ta8rQBb9Z';
+
+class LoLService extends BaseCacheService {
+  // Smart live match detection for LoL
+  static hasLiveEvents(data) {
+    try {
+      const events = data?.data?.schedule?.events || [];
+      return events.some(event => {
+        const state = event?.state?.toLowerCase();
+        return state === 'inprogress' || state === 'in_progress';
+      });
+    } catch (error) {
+      console.error('LoLService: Error detecting live events', error);
+      return false;
+    }
+  }
+
+  static getDataType(data, context) {
+    try {
+      if (this.hasLiveEvents(data)) {
+        return 'live';
+      }
+      
+      if (context?.includes('tournament') || context?.includes('teams') || context?.includes('team')) {
+        return 'static';
+      }
+      
+      // Check if events are scheduled or finished
+      const events = data?.data?.schedule?.events || [];
+      const hasScheduled = events.some(event => 
+        event?.state?.toLowerCase() === 'unstarted'
+      );
+      const hasFinished = events.some(event => 
+        event?.state?.toLowerCase() === 'completed'
+      );
+      
+      if (hasScheduled && !hasFinished) return 'scheduled';
+      if (hasFinished && !hasScheduled) return 'finished';
+      
+      return 'scheduled'; // Default for mixed or unknown
+    } catch (error) {
+      console.error('LoLService: Error determining data type', error);
+      return 'scheduled';
+    }
+  }
+}
 
 // Generic API call helper for LoL esports
 export const lolApiCall = async (endpoint, options = {}) => {
@@ -11,12 +58,15 @@ export const lolApiCall = async (endpoint, options = {}) => {
         const url = `${LOL_API_BASE_URL}${endpoint}`;
         console.log(`LoL API Call: ${url}`);
         
+        const headers = {
+            ...LoLService.getBrowserHeaders(),
+            'Content-Type': 'application/json',
+            'x-api-key': API_KEY,
+        };
+        
         const response = await fetch(url, {
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': API_KEY,
-            },
+            headers,
             ...options
         });
 
@@ -96,7 +146,8 @@ const extractCurrentTimeFromError = (errorText) => {
 
 // Get live matches/events
 export const getLiveMatches = async () => {
-    try {
+    const cacheKey = 'lol_live_matches';
+    return LoLService.getCachedData(cacheKey, async () => {
         // Try getLive first, fallback to getSchedule if it doesn't exist
         let endpoint = '/getLive?hl=en-US';
         let data;
@@ -116,10 +167,7 @@ export const getLiveMatches = async () => {
         }
         
         return [];
-    } catch (error) {
-        console.error('Error fetching live matches:', error);
-        return [];
-    }
+    }, 'live');
 };
 
 // Get completed matches for a specific date
@@ -587,3 +635,9 @@ export const getCompletedEvents = async (tournamentId) => {
         return [];
     }
 };
+
+// Export LoLService for cache management
+export { LoLService };
+
+// Add clearCache as standalone export for compatibility
+export const clearCache = () => LoLService.clearCache();

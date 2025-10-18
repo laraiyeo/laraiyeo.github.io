@@ -1,6 +1,10 @@
 // Shared NBA data service for caching teams and players across screens
-class NBADataService {
+
+import { BaseCacheService } from './BaseCacheService';
+
+class NBADataService extends BaseCacheService {
   constructor() {
+    super();
     this.teamsCache = null;
     this.playersCache = null;
     this.isInitializing = false;
@@ -66,7 +70,8 @@ class NBADataService {
   async _fetchData() {
     try {
       // Fetch teams first
-      const teamsResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams`);
+      const headers = this.getBrowserHeaders();
+      const teamsResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams`, { headers });
       const teamsData = await teamsResponse.json();
       
       if (!teamsData.sports?.[0]?.leagues?.[0]?.teams) {
@@ -82,7 +87,7 @@ class NBADataService {
       const rosterPromises = teams.map(async (team) => {
         try {
           const rosterUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${team.id}/roster`;
-          const rosterResponse = await fetch(rosterUrl);
+          const rosterResponse = await fetch(rosterUrl, { headers });
           const roster = await rosterResponse.json();
           
           if (roster.athletes) {
@@ -155,6 +160,8 @@ class NBADataService {
     this.isInitializing = false;
     this.initPromise = null;
     this.notifyListeners();
+    // Also clear parent cache
+    super.clearCache();
   }
 
   // NBA-specific position grouping - all positions can compare with each other

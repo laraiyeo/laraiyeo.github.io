@@ -572,6 +572,20 @@ const NBAGameDetailsScreen = ({ route }) => {
     setIsStreamLoading(true);
   };
 
+  // Fetch immediately when stream modal closes to resume updates
+  useEffect(() => {
+    if (!streamModalVisible && gameId && details) {
+      // Only fetch if we were previously showing the modal (not on initial load)
+      const wasModalOpen = streamModalVisible === false;
+      if (wasModalOpen) {
+        console.log('Stream modal closed, fetching fresh NBA game data');
+        NBAService.getGameDetails(gameId).then(setDetails).catch(e => 
+          console.error('Failed to fetch NBA game details after stream modal close', e)
+        );
+      }
+    }
+  }, [streamModalVisible, gameId]);
+
   // helper: convert hex to rgba for subtle tinting (hoisted so render paths can use it)
     
 
@@ -624,6 +638,12 @@ const NBAGameDetailsScreen = ({ route }) => {
     }
     
     const intervalId = setInterval(async () => {
+      // Skip update if stream modal is open
+      if (streamModalVisible) {
+        console.log('Stream modal open, skipping NBA game update');
+        return;
+      }
+      
       try {
         const data = await NBAService.getGameDetails(gameId);
         setDetails(data);
@@ -644,7 +664,7 @@ const NBAGameDetailsScreen = ({ route }) => {
     }, 4000);
 
     return () => clearInterval(intervalId);
-  }, [gameId, details]);
+  }, [gameId, details, streamModalVisible]);
 
   // Lightweight plays processing for NBA - simplified version without heavy computation  
   useEffect(() => {
@@ -2403,27 +2423,6 @@ const NBAGameDetailsScreen = ({ route }) => {
             </View>
           </View>
         </View>
-
-        {/* Scorers section - soccer style: left away, center puck, right home */}
-        {((awayScorers && awayScorers.length > 0) || (homeScorers && homeScorers.length > 0)) && (
-          <View style={styles.scorersSectionRow}>
-            <View style={styles.scorersColumn}>
-              {awayScorers && awayScorers.length > 0 && awayScorers.map((scorer, idx) => (
-                <Text key={`a-${idx}`} style={[styles.scorerText, { color: theme.text, textAlign: 'left' }]}>{scorer}</Text>
-              ))}
-            </View>
-
-            <View style={styles.scorersCenter}>
-              <FontAwesome6 name="basketball" size={18} color={theme.text} />
-            </View>
-
-            <View style={[styles.scorersColumn, { alignItems: 'flex-end' }]}>
-              {homeScorers && homeScorers.length > 0 && homeScorers.map((scorer, idx) => (
-                <Text key={`h-${idx}`} style={[styles.scorerText, { color: theme.text, textAlign: 'right' }]}>{scorer}</Text>
-              ))}
-            </View>
-          </View>
-        )}
 
         <Text style={[styles.dateText, { color: theme.textSecondary }]}>
           {new Date(gameDate).toLocaleDateString('en-US', { 

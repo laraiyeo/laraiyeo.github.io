@@ -575,6 +575,12 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     
     if (isLiveGame) {
       const interval = setInterval(() => {
+        // Skip update if stream modal is open
+        if (streamModalVisible) {
+          console.log('Stream modal open, skipping MLB game update');
+          return;
+        }
+        
         console.log('MLBGameDetailsScreen: Live update tick');
         loadLiveDataUpdate();
       }, 2000); // Update every 2 seconds for live games
@@ -614,6 +620,21 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       loadScheduledGameData();
     }
   }, [gameData]);
+
+  // Fetch immediately when stream modal closes
+  useEffect(() => {
+    if (streamModalVisible === false && gameData) {
+      const isLiveGame = gameData?.gameData?.status?.statusCode === 'I' || // In progress
+                         gameData?.gameData?.status?.detailedState === 'In Progress' ||
+                         gameData?.gameData?.status?.detailedState === 'Manager challenge' ||
+                         gameData?.gameData?.status?.codedGameState === 'M'; // Manager challenge
+      
+      if (isLiveGame) {
+        console.log('Stream modal closed, immediately fetching MLB game data');
+        loadLiveDataUpdate();
+      }
+    }
+  }, [streamModalVisible]);
 
   // Monitor for live updates specifically for plays
   useEffect(() => {
@@ -1454,7 +1475,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               })()}
             </Text>
           )}
-          {isGameLive && (
+          {isGameLive && isStreamingUnlocked && (
             <Text allowFontScaling={false} style={[styles.streamHint, { color: colors.primary }]}>Tap to view streams</Text>
           )}
         </View>

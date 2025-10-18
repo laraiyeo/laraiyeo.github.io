@@ -1,5 +1,70 @@
 // CS2 Match Service - handles individual match/series data
+import { BaseCacheService } from './BaseCacheService';
+
 const CS2_API_BASE = 'https://corsproxy.io/?url=https://api.bo3.gg';
+
+class CS2MatchService extends BaseCacheService {
+  // Smart live match detection for CS2 matches
+  static hasLiveEvents(data) {
+    try {
+      // Check if match details contain live status
+      if (data?.status && (
+        data.status.toLowerCase() === 'live' ||
+        data.status.toLowerCase() === 'ongoing'
+      )) {
+        return true;
+      }
+      
+      // Check games for live status
+      if (data?.games) {
+        return data.games.some(game => 
+          game?.status?.toLowerCase() === 'live' ||
+          game?.status?.toLowerCase() === 'ongoing'
+        );
+      }
+      
+      // Check match results structure
+      if (data?.results) {
+        return data.results.some(match =>
+          match?.status?.toLowerCase() === 'live' ||
+          match?.status?.toLowerCase() === 'ongoing'
+        );
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('CS2MatchService: Error detecting live events', error);
+      return false;
+    }
+  }
+
+  static getDataType(data, context) {
+    try {
+      if (this.hasLiveEvents(data)) {
+        return 'live';
+      }
+      
+      // Team/player data is generally static
+      if (context?.includes('team') || context?.includes('player') || context?.includes('lineup')) {
+        return 'static';
+      }
+      
+      // Check match status for finished/upcoming
+      const hasFinished = data?.status?.toLowerCase() === 'finished' ||
+                         data?.results?.some(match => match?.status?.toLowerCase() === 'finished');
+      const hasScheduled = data?.status?.toLowerCase() === 'upcoming' ||
+                          data?.results?.some(match => match?.status?.toLowerCase() === 'upcoming');
+      
+      if (hasFinished && !hasScheduled) return 'finished';
+      if (hasScheduled && !hasFinished) return 'scheduled';
+      
+      return 'scheduled'; // Default
+    } catch (error) {
+      console.error('CS2MatchService: Error determining data type', error);
+      return 'scheduled';
+    }
+  }
+}
 
 /**
  * Get detailed match data including games/maps - fetches all 6 endpoints as shown in txt files
@@ -13,48 +78,51 @@ const CS2_API_BASE = 'https://corsproxy.io/?url=https://api.bo3.gg';
  * @returns {Promise<Object>} - Complete formatted match data
  */
 export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team2Slug, matchStartDate, matchSlug) => {
-  try {
-    // Validate required parameters
-    if (!matchId || !team1Id || !team2Id) {
-      throw new Error(`Missing required parameters: matchId=${matchId}, team1Id=${team1Id}, team2Id=${team2Id}`);
-    }
-    
-    // Use match start date for filtering, fallback to current date if not provided
-    const filterDate = matchStartDate ? new Date(matchStartDate).toISOString().split('T')[0] : '2025-10-12';
+  const cacheKey = `cs2_match_details_${matchId}_${team1Id}_${team2Id}`;
+  return CS2MatchService.getCachedData(cacheKey, async () => {
+    try {
+      // Validate required parameters
+      if (!matchId || !team1Id || !team2Id) {
+        throw new Error(`Missing required parameters: matchId=${matchId}, team1Id=${team1Id}, team2Id=${team2Id}`);
+      }
+      
+      // Use match start date for filtering, fallback to current date if not provided
+      const filterDate = matchStartDate ? new Date(matchStartDate).toISOString().split('T')[0] : '2025-10-12';
 
-    const currentYear = new Date().getFullYear();
-    
-    // First, fetch basic data to get team information
-    const [
-      // 1.txt - Head to head matches between teams
-      headToHeadResponse,
-      // 2.txt - Recent matches for team1 analysis
-      team1RecentMatchesResponse,
-      // 2.txt - Recent matches for team2 analysis (fetch for both teams)
-      team2RecentMatchesResponse,
-      // 4.txt - Team1 players/lineup
-      team1PlayersResponse,
-      // 4.txt - Team2 players/lineup (fetch for both teams)
-      team2PlayersResponse,
-      // 5.txt - Detailed game data for this match
-      gameDetailsResponse,
-      // 6.txt - Detailed match info using match slug
-      matchDetailsResponse
-    ] = await Promise.all([
+      const currentYear = new Date().getFullYear();
+      const headers = CS2MatchService.getBrowserHeaders();
+      
+      // First, fetch basic data to get team information
+      const [
+        // 1.txt - Head to head matches between teams
+        headToHeadResponse,
+        // 2.txt - Recent matches for team1 analysis
+        team1RecentMatchesResponse,
+        // 2.txt - Recent matches for team2 analysis (fetch for both teams)
+        team2RecentMatchesResponse,
+        // 4.txt - Team1 players/lineup
+        team1PlayersResponse,
+        // 4.txt - Team2 players/lineup (fetch for both teams)
+        team2PlayersResponse,
+        // 5.txt - Detailed game data for this match
+        gameDetailsResponse,
+        // 6.txt - Detailed match info using match slug
+        matchDetailsResponse
+      ] = await Promise.all([
       // 1. Head to head between the two teams (1.txt)
-      fetch(`${CS2_API_BASE}/api/v1/matches?page[offset]=0&page[limit]=10&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][contains]=${team1Id},${team2Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament`),
+      fetch(`${CS2_API_BASE}/api/v1/matches?page[offset]=0&page[limit]=10&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][contains]=${team1Id},${team2Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament`, { headers }),
       // 2. Recent matches for team1 (2.txt)
-      fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][overlap]=${team1Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`),
+      fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][overlap]=${team1Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`, { headers }),
       // 2. Recent matches for team2 (2.txt with team2 ID)
-      fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][overlap]=${team2Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`),
+      fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][overlap]=${team2Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`, { headers }),
       // 4. Team1 players (4.txt)
-      fetch(`${CS2_API_BASE}/api/v1/players?scope=show-match-lineup&page[offset]=0&page[limit]=7&filter[team_id][eq]=${team1Id}`),
+      fetch(`${CS2_API_BASE}/api/v1/players?scope=show-match-lineup&page[offset]=0&page[limit]=7&filter[team_id][eq]=${team1Id}`, { headers }),
       // 4. Team2 players (4.txt with team2 ID)
-      fetch(`${CS2_API_BASE}/api/v1/players?scope=show-match-lineup&page[offset]=0&page[limit]=7&filter[team_id][eq]=${team2Id}`),
+      fetch(`${CS2_API_BASE}/api/v1/players?scope=show-match-lineup&page[offset]=0&page[limit]=7&filter[team_id][eq]=${team2Id}`, { headers }),
       // 5. Game details for this specific match (5.txt)
-      fetch(`${CS2_API_BASE}/api/v1/games?sort=number&filter[games.match_id][eq]=${matchId}&with=winner_team_clan,loser_team_clan,game_side_results,game_rounds`),
+      fetch(`${CS2_API_BASE}/api/v1/games?sort=number&filter[games.match_id][eq]=${matchId}&with=winner_team_clan,loser_team_clan,game_side_results,game_rounds`, { headers }),
       // 6. Detailed match info using match slug (6.txt)
-      matchSlug ? fetch(`${CS2_API_BASE}/api/v1/matches/${matchSlug}?scope=show-match&stream_language=en&with=teams,tournament_deep,stage`) : null
+      matchSlug ? fetch(`${CS2_API_BASE}/api/v1/matches/${matchSlug}?scope=show-match&stream_language=en&with=teams,tournament_deep,stage`, { headers }) : null
     ]);
 
     const [
@@ -143,10 +211,11 @@ export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team
       matchDetails: matchDetailsData,
       matchId
     });
-  } catch (error) {
-    console.error('Error fetching match details:', error);
-    throw error;
-  }
+    } catch (error) {
+      console.error('Error fetching match details:', error);
+      throw error;
+    }
+  }, 'match_details');
 };
 
 /**
@@ -156,17 +225,21 @@ export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team
  * @returns {Promise<Object>} - Recent matches data
  */
 export const getTeamRecentMatches = async (teamId, matchStartDate) => {
-  try {
-    const filterDate = matchStartDate ? new Date(matchStartDate).toISOString().split('T')[0] : '2025-10-12';
-    const currentYear = new Date().getFullYear();
-    const response = await fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][overlap]=${teamId}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`);
-    const data = await response.json();
-    
-    return data;
-  } catch (error) {
-    console.error('Error fetching team recent matches:', error);
-    throw error;
-  }
+  const cacheKey = `cs2_team_recent_matches_${teamId}_${matchStartDate}`;
+  return CS2MatchService.getCachedData(cacheKey, async () => {
+    try {
+      const filterDate = matchStartDate ? new Date(matchStartDate).toISOString().split('T')[0] : '2025-10-12';
+      const currentYear = new Date().getFullYear();
+      const headers = CS2MatchService.getBrowserHeaders();
+      const response = await fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][overlap]=${teamId}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`, { headers });
+      const data = await response.json();
+      
+      return data;
+    } catch (error) {
+      console.error('Error fetching team recent matches:', error);
+      throw error;
+    }
+  }, 'team_matches');
 };
 
 /**
@@ -195,15 +268,19 @@ export const getTeamMapPool = async (teamSlug, matchStartDate) => {
  * @returns {Promise<Object>} - Team players data
  */
 export const getTeamPlayers = async (teamId) => {
-  try {
-    const response = await fetch(`${CS2_API_BASE}/api/v1/players?scope=show-match-lineup&page[offset]=0&page[limit]=7&filter[team_id][eq]=${teamId}`);
-    const data = await response.json();
-    
-    return data;
-  } catch (error) {
-    console.error('Error fetching team players:', error);
-    throw error;
-  }
+  const cacheKey = `cs2_team_players_${teamId}`;
+  return CS2MatchService.getCachedData(cacheKey, async () => {
+    try {
+      const headers = CS2MatchService.getBrowserHeaders();
+      const response = await fetch(`${CS2_API_BASE}/api/v1/players?scope=show-match-lineup&page[offset]=0&page[limit]=7&filter[team_id][eq]=${teamId}`, { headers });
+      const data = await response.json();
+      
+      return data;
+    } catch (error) {
+      console.error('Error fetching team players:', error);
+      throw error;
+    }
+  }, 'team_players');
 };
 
 /**
@@ -638,30 +715,34 @@ const formatSpecificMatchData = (combinedData) => {
  * @returns {Promise<Object>} - Round-specific data
  */
 export const getRoundData = async (gameId, roundNumber) => {
-  try {
-    if (!gameId || !roundNumber) {
-      throw new Error('Game ID and round number are required');
+  const cacheKey = `cs2_round_data_${gameId}_${roundNumber}`;
+  return CS2MatchService.getCachedData(cacheKey, async () => {
+    try {
+      if (!gameId || !roundNumber) {
+        throw new Error('Game ID and round number are required');
+      }
+      
+      const headers = CS2MatchService.getBrowserHeaders();
+      const [hitGroupStatsResponse, killsMatrixResponse] = await Promise.all([
+        fetch(`${CS2_API_BASE}/api/v1/games/${gameId}/rounds/${roundNumber}/hit_group_stats`, { headers }),
+        fetch(`${CS2_API_BASE}/api/v1/games/${gameId}/rounds/${roundNumber}/kills_matrix`, { headers })
+      ]);
+      
+      const [hitGroupStatsData, killsMatrixData] = await Promise.all([
+        hitGroupStatsResponse.json(),
+        killsMatrixResponse.json()
+      ]);
+      
+      return {
+        roundNumber,
+        hitGroupStats: hitGroupStatsData,
+        killsMatrix: killsMatrixData
+      };
+    } catch (error) {
+      console.error(`Error fetching round ${roundNumber} data:`, error);
+      throw error;
     }
-    
-    const [hitGroupStatsResponse, killsMatrixResponse] = await Promise.all([
-      fetch(`${CS2_API_BASE}/api/v1/games/${gameId}/rounds/${roundNumber}/hit_group_stats`),
-      fetch(`${CS2_API_BASE}/api/v1/games/${gameId}/rounds/${roundNumber}/kills_matrix`)
-    ]);
-    
-    const [hitGroupStatsData, killsMatrixData] = await Promise.all([
-      hitGroupStatsResponse.json(),
-      killsMatrixResponse.json()
-    ]);
-    
-    return {
-      roundNumber,
-      hitGroupStats: hitGroupStatsData,
-      killsMatrix: killsMatrixData
-    };
-  } catch (error) {
-    console.error(`Error fetching round ${roundNumber} data:`, error);
-    throw error;
-  }
+  }, 'round_data');
 };
 
 /**
@@ -696,7 +777,8 @@ export const getHitGroupStats = async (gameId) => {
       throw new Error('Game ID is required');
     }
     
-    const response = await fetch(`${CS2_API_BASE}/api/v1/games/${gameId}/hit_group_stats`);
+    const headers = CS2MatchService.getBrowserHeaders();
+    const response = await fetch(`${CS2_API_BASE}/api/v1/games/${gameId}/hit_group_stats`, { headers });
     const data = await response.json();
     
     return data;
@@ -705,3 +787,9 @@ export const getHitGroupStats = async (gameId) => {
     throw error;
   }
 };
+
+// Export CS2MatchService for cache management
+export { CS2MatchService };
+
+// Add clearCache as standalone export for compatibility
+export const clearCache = () => CS2MatchService.clearCache();
