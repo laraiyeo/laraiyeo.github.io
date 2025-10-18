@@ -111,6 +111,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   const [playerModalVisible, setPlayerModalVisible] = useState(false);
   const [playerStats, setPlayerStats] = useState(null);
   const [loadingPlayerStats, setLoadingPlayerStats] = useState(false);
+  const [selectedStatsType, setSelectedStatsType] = useState('batting'); // 'batting' or 'pitching'
   const [chatModalVisible, setChatModalVisible] = useState(false);
   const [awayRoster, setAwayRoster] = useState(null);
   const [homeRoster, setHomeRoster] = useState(null);
@@ -944,11 +945,12 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     return inningState === 'Top' ? `Top ${ordinal}` : `Bot ${ordinal}`;
   };
 
-  const handlePlayerPress = async (player, team) => {
+  const handlePlayerPress = async (player, team, statsType = 'batting') => {
     setSelectedPlayer({
       ...player,
       team: team
     });
+    setSelectedStatsType(statsType);
     setPlayerModalVisible(true);
     setLoadingPlayerStats(true);
 
@@ -975,6 +977,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     setPlayerModalVisible(false);
     setSelectedPlayer(null);
     setPlayerStats(null);
+    setSelectedStatsType('batting');
   };
 
   const handleScroll = (event) => {
@@ -1760,13 +1763,13 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 <TouchableOpacity 
                   key={player.person?.id || index} 
                   style={[styles.statTableRow, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}
-                  onPress={() => handlePlayerPress(player, team)}
+                  onPress={() => handlePlayerPress(player, team, 'batting')}
                 >
                   <View style={styles.statTablePlayerCell}>
                     <Text allowFontScaling={false} style={[styles.statTablePlayerName, { color: rowColor }]}>
                       {player.person?.fullName || 'Unknown Player'}
                     </Text>
-                    <Text allowFontScaling={false} style={[styles.statTablePlayerNumber, { color: rowColor }]}> 
+                    <Text allowFontScaling={false} style={[styles.statTablePlayerNumber, { color: theme.textSecondary }]}> 
                       #{player.jerseyNumber || '--'} {player.position?.abbreviation || ''}
                     </Text>
                   </View>
@@ -1784,7 +1787,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         {/* Pitching Stats */}
         <View style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
           <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: colors.primary }]}>Pitching</Text>
-          <View style={[styles.statTableHeader, { backgroundColor: theme.cardBackground || theme.surface }]}>
+          <View style={[styles.statTableHeader, { backgroundColor: theme.cardBackground || theme.surfaceSecondary }]}>
             <Text allowFontScaling={false} style={[styles.statTableHeaderPlayer, { color: theme.text }]}>Player</Text>
             <Text allowFontScaling={false} style={[styles.statTableHeaderStat, { color: theme.text }]}>IP</Text>
             <Text allowFontScaling={false} style={[styles.statTableHeaderStat, { color: theme.text }]}>H</Text>
@@ -1801,7 +1804,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               <TouchableOpacity 
                 key={pitcherId} 
                 style={[styles.statTableRow, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}
-                onPress={() => handlePlayerPress(player, team)}
+                onPress={() => handlePlayerPress(player, team, 'pitching')}
               >
                 <View style={styles.statTablePlayerCell}>
                   <Text allowFontScaling={false} style={[styles.statTablePlayerName, { color: theme.text }]}>
@@ -2990,6 +2993,14 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     const isPitcher = player.position?.abbreviation === 'P' || player.allPositions?.some(pos => pos.abbreviation === 'P');
     const battingStats = stats.batting || {};
     const pitchingStats = stats.pitching || {};
+    
+    // Determine which stats to show based on selectedStatsType and available data
+    const showBattingStats = selectedStatsType === 'batting' && Object.keys(battingStats).length > 0;
+    const showPitchingStats = selectedStatsType === 'pitching' && Object.keys(pitchingStats).length > 0;
+    
+    // For two-way players, if selected type has no stats, fall back to the other type
+    const fallbackToBatting = selectedStatsType === 'pitching' && Object.keys(pitchingStats).length === 0 && Object.keys(battingStats).length > 0;
+    const fallbackToPitching = selectedStatsType === 'batting' && Object.keys(battingStats).length === 0 && Object.keys(pitchingStats).length > 0;
 
     // Format game date properly
     const formatGameDate = (dateStr) => {
@@ -3015,7 +3026,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         </View>
 
         {/* Batting Stats */}
-        {Object.keys(battingStats).length > 0 && (
+        {(showBattingStats || fallbackToBatting) && (
           <View style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
             <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: colors.primary }]}>⚾ Batting</Text>
             
@@ -3070,7 +3081,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         )}
 
         {/* Pitching Stats */}
-        {Object.keys(pitchingStats).length > 0 && (
+        {(showPitchingStats || fallbackToPitching) && (
           <View style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
             <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: colors.primary }]}>🥎 Pitching</Text>
             
@@ -3125,7 +3136,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         )}
 
         {/* No Stats Message */}
-        {Object.keys(battingStats).length === 0 && Object.keys(pitchingStats).length === 0 && (
+        {!showBattingStats && !showPitchingStats && !fallbackToBatting && !fallbackToPitching && (
           <View style={styles.noStatsContainer}>
             <Text allowFontScaling={false} style={[styles.noStatsText, { color: theme.textSecondary }]}>No statistics available for this game</Text>
           </View>
@@ -3251,6 +3262,45 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                     </View>
                   </View>
                 </View>
+
+                {/* Stats Type Toggle for Two-Way Players */}
+                {selectedPlayer && playerStats && playerStats.batting && playerStats.pitching && 
+                 Object.keys(playerStats.batting).length > 0 && Object.keys(playerStats.pitching).length > 0 && (
+                  <View style={styles.statsToggleContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.statsToggleButton,
+                        selectedStatsType === 'batting' && styles.statsToggleButtonActive,
+                        { 
+                          backgroundColor: selectedStatsType === 'batting' ? colors.primary : theme.surface,
+                          borderColor: colors.primary
+                        }
+                      ]}
+                      onPress={() => setSelectedStatsType('batting')}
+                    >
+                      <Text allowFontScaling={false} style={[
+                        styles.statsToggleButtonText,
+                        { color: selectedStatsType === 'batting' ? '#FFFFFF' : colors.primary }
+                      ]}>⚾ Batting</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.statsToggleButton,
+                        selectedStatsType === 'pitching' && styles.statsToggleButtonActive,
+                        { 
+                          backgroundColor: selectedStatsType === 'pitching' ? colors.primary : theme.surface,
+                          borderColor: colors.primary
+                        }
+                      ]}
+                      onPress={() => setSelectedStatsType('pitching')}
+                    >
+                      <Text allowFontScaling={false} style={[
+                        styles.statsToggleButtonText,
+                        { color: selectedStatsType === 'pitching' ? '#FFFFFF' : colors.primary }
+                      ]}>🥎 Pitching</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 {/* Player Stats */}
                 <View style={styles.playerStatsContainer}>
@@ -5673,6 +5723,39 @@ const styles = StyleSheet.create({
   },
   pitchPlayerRole: {
     fontSize: 12,
+    textAlign: 'center',
+  },
+  // Stats toggle styles
+  statsToggleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginHorizontal: 20,
+    marginVertical: 10,
+    backgroundColor: 'transparent',
+  },
+  statsToggleButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginHorizontal: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statsToggleButtonActive: {
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  statsToggleButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
     textAlign: 'center',
   },
 });
