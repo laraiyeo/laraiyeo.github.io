@@ -19,52 +19,13 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.sportsheart.app",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
-        "UIBackgroundModes": ["background-fetch"]
-      },
-      "alternateAppIcons": {
-        "dark-blue": {
-          "prerendered": true,
-          "filename": "dark-blue"
-        },
-        "dark-red": {
-          "prerendered": true,
-          "filename": "dark-red"
-        },
-        "dark-green": {
-          "prerendered": true,
-          "filename": "dark-green"
-        },
-        "dark-purple": {
-          "prerendered": true,
-          "filename": "dark-purple"
-        },
-        "dark-gold": {
-          "prerendered": true,
-          "filename": "dark-gold"
-        },
-        "light-blue": {
-          "prerendered": true,
-          "filename": "light-blue"
-        },
-        "light-red": {
-          "prerendered": true,
-          "filename": "light-red"
-        },
-        "light-green": {
-          "prerendered": true,
-          "filename": "light-green"
-        },
-        "light-purple": {
-          "prerendered": true,
-          "filename": "light-purple"
-        },
-        "light-gold": {
-          "prerendered": true,
-          "filename": "light-gold"
-        }
+        "UIBackgroundModes": [
+          "background-fetch"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -85,12 +46,68 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-dynamic-app-icon"
+      "expo-font",
+      [
+        "nixa-expo-dynamic-app-icon",
+        {
+          "dark-blue": {
+            "image": "./assets/dark/blue.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "dark-red": {
+            "image": "./assets/dark/red.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "dark-green": {
+            "image": "./assets/dark/green.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "dark-purple": {
+            "image": "./assets/dark/purple.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "dark-gold": {
+            "image": "./assets/dark/gold.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "light-blue": {
+            "image": "./assets/light/blue.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "light-red": {
+            "image": "./assets/light/red.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "light-green": {
+            "image": "./assets/light/green.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "light-purple": {
+            "image": "./assets/light/purple.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "light-gold": {
+            "image": "./assets/light/gold.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {
-        "projectId": "your-project-id-here"
+        "projectId": "fb066229-1442-4efb-b65c-4588b95b115c"
       }
-    }
+    },
+    "owner": "laraiyeo"
   }
 }

@@ -217,9 +217,6 @@ const SettingsScreen = ({ navigation }) => {
               <Text allowFontScaling={false} style={[styles.settingDescription, { color: theme.textSecondary }]}>
                 Preview: {getCurrentAppIcon && getCurrentAppIcon().replace('-', ' ').toUpperCase()}
               </Text>
-              <Text allowFontScaling={false} style={[styles.settingDescription, { color: theme.textTertiary, fontSize: 12, marginTop: 2 }]}>
-                Dynamic icons work on iOS builds only (not Expo Go)
-              </Text>
             </View>
             <View style={[styles.appIconPreview, { borderColor: colors.primary }]}>
               <Image 

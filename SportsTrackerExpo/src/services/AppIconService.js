@@ -1,5 +1,5 @@
-import * as DynamicAppIcon from 'expo-dynamic-app-icon';
 import { Platform } from 'react-native';
+import { setAppIcon, getAppIcon } from 'nixa-expo-dynamic-app-icon';
 import Constants from 'expo-constants';
 
 class AppIconService {
@@ -23,27 +23,26 @@ class AppIconService {
         return false;
       }
 
-      // Only available on iOS
-      if (Platform.OS !== 'ios') {
-        console.log('Dynamic app icons are only supported on iOS');
-        return false;
-      }
-
-      // Check if the device supports alternate icons
-      const supportsAlternateIcons = await DynamicAppIcon.supportsAlternateIconsAsync();
-      if (!supportsAlternateIcons) {
-        console.log('This device does not support alternate app icons');
-        return false;
-      }
-
       // Construct the icon name based on theme and color
       const theme = isDarkMode ? 'dark' : 'light';
       const iconName = `${theme}-${colorPalette}`;
       
       console.log(`Attempting to change app icon to: ${iconName}`);
 
-      // Set the alternate icon
-      await DynamicAppIcon.setAlternateIconAsync(iconName);
+      // Add debug logging
+      console.log('Available icons:', this.getAvailableIcons());
+      console.log('Current execution environment:', Constants.executionEnvironment);
+      console.log('Is Expo Go:', this.isExpoGo());
+
+      // Set the alternate icon using nixa-expo-dynamic-app-icon
+      const result = await setAppIcon(iconName, 'DEFAULT');
+      
+      console.log('setAppIcon result:', result);
+      
+      if (result === false) {
+        console.log(`Failed to change app icon to: ${iconName}`);
+        return false;
+      }
       
       console.log(`Successfully changed app icon to: ${iconName}`);
       return true;
@@ -64,12 +63,8 @@ class AppIconService {
         return null;
       }
 
-      if (Platform.OS !== 'ios') {
-        return null;
-      }
-
-      const currentIcon = await DynamicAppIcon.getAlternateIconAsync();
-      return currentIcon;
+      const currentIcon = await getAppIcon();
+      return currentIcon === 'DEFAULT' ? null : currentIcon;
     } catch (error) {
       console.error('Error getting current app icon:', error);
       return null;
@@ -86,11 +81,13 @@ class AppIconService {
         return false;
       }
 
-      if (Platform.OS !== 'ios') {
+      const result = await setAppIcon('DEFAULT', 'DEFAULT');
+      
+      if (result === false) {
+        console.log('Failed to reset to default app icon');
         return false;
       }
-
-      await DynamicAppIcon.setAlternateIconAsync(null);
+      
       console.log('Reset to default app icon');
       return true;
     } catch (error) {
@@ -101,7 +98,6 @@ class AppIconService {
 
   /**
    * Gets all available icon combinations
-   * @returns {Array} Array of all possible icon combinations
    */
   static getAvailableIcons() {
     const themes = ['dark', 'light'];

@@ -16,7 +16,7 @@ const SplashScreen = ({ onFinish }) => {
 
   // Define splash assets based on theme
   const getSplashAssets = () => {
-    const colorTheme = currentColorPalette || 'red';
+    const colorTheme = currentColorPalette || 'blue';
     const mode = isDarkMode ? 'dark' : 'light';
     
     // Asset structure: mode/color/files
@@ -103,7 +103,16 @@ const SplashScreen = ({ onFinish }) => {
   const handleVideoEnd = () => {
     if (!isFinished) {
       setIsFinished(true);
-      onFinish();
+      
+      // Add a small delay to prevent flash, then fade out smoothly
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        // Call onFinish after fade out completes
+        onFinish();
+      });
     }
   };
 
