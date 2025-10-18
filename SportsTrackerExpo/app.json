@@ -1,29 +1,96 @@
 {
   "expo": {
-    "name": "SportsTrackerExpo",
-    "slug": "SportsTrackerExpo",
+    "name": "SportsHeart",
+    "slug": "sportsheart",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "runtimeVersion": "1.0.0",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sportsheart.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "CFBundleAllowMixedLocalizations": true,
+        "UIBackgroundModes": ["background-fetch"]
+      },
+      "alternateAppIcons": {
+        "dark-blue": {
+          "prerendered": true,
+          "filename": "dark-blue"
+        },
+        "dark-red": {
+          "prerendered": true,
+          "filename": "dark-red"
+        },
+        "dark-green": {
+          "prerendered": true,
+          "filename": "dark-green"
+        },
+        "dark-purple": {
+          "prerendered": true,
+          "filename": "dark-purple"
+        },
+        "dark-gold": {
+          "prerendered": true,
+          "filename": "dark-gold"
+        },
+        "light-blue": {
+          "prerendered": true,
+          "filename": "light-blue"
+        },
+        "light-red": {
+          "prerendered": true,
+          "filename": "light-red"
+        },
+        "light-green": {
+          "prerendered": true,
+          "filename": "light-green"
+        },
+        "light-purple": {
+          "prerendered": true,
+          "filename": "light-purple"
+        },
+        "light-gold": {
+          "prerendered": true,
+          "filename": "light-gold"
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "edgeToEdgeEnabled": true
+      "package": "com.sportsheart.app",
+      "versionCode": 1,
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "INTERNET",
+        "VIBRATE"
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-dynamic-app-icon"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id-here"
+      }
     }
   }
 }

@@ -1,4 +1,4 @@
-import * as Application from 'expo-application';
+import * as DynamicAppIcon from 'expo-dynamic-app-icon';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
@@ -29,14 +29,8 @@ class AppIconService {
         return false;
       }
 
-      // Check if Application.supportsAlternateIconsAsync exists
-      if (!Application.supportsAlternateIconsAsync) {
-        console.log('Application.supportsAlternateIconsAsync is not available');
-        return false;
-      }
-
       // Check if the device supports alternate icons
-      const supportsAlternateIcons = await Application.supportsAlternateIconsAsync();
+      const supportsAlternateIcons = await DynamicAppIcon.supportsAlternateIconsAsync();
       if (!supportsAlternateIcons) {
         console.log('This device does not support alternate app icons');
         return false;
@@ -49,7 +43,7 @@ class AppIconService {
       console.log(`Attempting to change app icon to: ${iconName}`);
 
       // Set the alternate icon
-      await Application.setAlternateIconAsync(iconName);
+      await DynamicAppIcon.setAlternateIconAsync(iconName);
       
       console.log(`Successfully changed app icon to: ${iconName}`);
       return true;
@@ -74,12 +68,7 @@ class AppIconService {
         return null;
       }
 
-      if (!Application.getAlternateIconAsync) {
-        console.log('Application.getAlternateIconAsync is not available');
-        return null;
-      }
-
-      const currentIcon = await Application.getAlternateIconAsync();
+      const currentIcon = await DynamicAppIcon.getAlternateIconAsync();
       return currentIcon;
     } catch (error) {
       console.error('Error getting current app icon:', error);
@@ -101,12 +90,7 @@ class AppIconService {
         return false;
       }
 
-      if (!Application.setAlternateIconAsync) {
-        console.log('Application.setAlternateIconAsync is not available');
-        return false;
-      }
-
-      await Application.setAlternateIconAsync(null);
+      await DynamicAppIcon.setAlternateIconAsync(null);
       console.log('Reset to default app icon');
       return true;
     } catch (error) {

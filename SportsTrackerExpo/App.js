@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavigationContainer, getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
+// Import SplashScreen component
+import SplashScreen from './src/components/SplashScreen';
 
 // Import theme context
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
@@ -1555,11 +1558,23 @@ const MainStackNavigator = () => {
   );
 };
 
-const AppContent = () => (
-  <NavigationContainer>
-    <MainStackNavigator />
-  </NavigationContainer>
-);
+const AppContent = () => {
+  const [showSplash, setShowSplash] = useState(true);
+
+  const handleSplashFinish = () => {
+    setShowSplash(false);
+  };
+
+  if (showSplash) {
+    return <SplashScreen onFinish={handleSplashFinish} />;
+  }
+
+  return (
+    <NavigationContainer>
+      <MainStackNavigator />
+    </NavigationContainer>
+  );
+};
 
 export default function App() {
   return (
