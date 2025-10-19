@@ -758,11 +758,13 @@ export const fetchF1DriverCurrentRace = async (teamId, updateTeamCurrentGameFunc
     // Helper to fetch event references with limit
     const fetchRef = async (refUrl) => {
       if (!refUrl) return null;
+      // Normalize HTTP URLs to HTTPS for ESPN APIs
+      const normalizedUrl = refUrl.replace(/^http:\/\//, 'https://');
       try {
-        const resp = await fetch(refUrl);
+        const resp = await fetch(normalizedUrl);
         return await resp.json();
       } catch (err) {
-        console.warn('[TEAM PAGE UTILS] Failed to fetch ref', refUrl, err);
+        console.warn('[TEAM PAGE UTILS] Failed to fetch ref', normalizedUrl, err);
         return null;
       }
     };

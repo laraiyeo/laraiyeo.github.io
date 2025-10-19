@@ -20,6 +20,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.sportsheart.app",
       "buildNumber": "2",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
         "UIBackgroundModes": [
@@ -101,7 +102,8 @@
             "platforms": ["ios", "android"]
           }
         }
-      ]
+      ],
+      "@react-native-firebase/app"
     ],
     "extra": {
       "eas": {

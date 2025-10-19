@@ -688,7 +688,8 @@ const ConstructorDetailsScreen = ({ route }) => {
       if (standingsData?.standings) {
         const constructorDrivers = [];
         
-        for (const standing of standingsData.standings) {
+        // Process all drivers concurrently instead of sequentially
+        const driverPromises = standingsData.standings.map(async (standing) => {
           try {
             const athleteUrl = normalizeUrl(standing.athlete.$ref);
             const athleteResponse = await fetch(athleteUrl);
@@ -751,7 +752,7 @@ const ConstructorDetailsScreen = ({ route }) => {
 
             if (normalizedDriverTeam === normalizedConstructor) {
               console.log('Found driver for constructor:', athleteData.displayName);
-              constructorDrivers.push({
+              return {
                 id: athleteData.id,
                 name: athleteData.displayName || athleteData.name,
                 firstName: athleteData.firstName || '',
@@ -760,16 +761,27 @@ const ConstructorDetailsScreen = ({ route }) => {
                 headshot: buildESPNHeadshotUrl(athleteData.id) || athleteData.headshot?.href || null,
                 points: (Array.isArray(standing.records?.[0]?.stats) ? standing.records[0].stats.find(stat => stat.name === 'championshipPts')?.displayValue : standing.records?.[0]?.stats?.championshipPts?.displayValue) || '0',
                 wins: (Array.isArray(standing.records?.[0]?.stats) ? standing.records[0].stats.find(stat => stat.name === 'wins')?.displayValue : standing.records?.[0]?.stats?.wins?.displayValue) || '0',
-                position: constructorDrivers.length + 1
-              });
+                position: 0 // Will be assigned after filtering
+              };
             }
+            return null;
           } catch (error) {
             console.error('Error processing driver:', error);
+            return null;
           }
-        }
+        });
+
+        // Wait for all driver promises to complete
+        const driverResults = await Promise.all(driverPromises);
         
-        console.log('Final constructor drivers:', constructorDrivers);
-        setRacers(constructorDrivers);
+        // Filter out null results and assign positions
+        const validDrivers = driverResults.filter(driver => driver !== null);
+        validDrivers.forEach((driver, index) => {
+          driver.position = index + 1;
+        });
+        
+        console.log('Final constructor drivers:', validDrivers);
+        setRacers(validDrivers);
       }
     } catch (error) {
       console.error('Error fetching constructor racers:', error);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer, getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -12,6 +12,9 @@ import SplashScreen from './src/components/SplashScreen';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { FavoritesProvider } from './src/context/FavoritesContext';
 import { ChatProvider } from './src/context/ChatContext';
+
+// Import Analytics Service
+import analyticsService from './src/services/AnalyticsService';
 
 // Custom header title component that disables font scaling
 const HeaderTitle = ({ children, style }) => {
@@ -1560,6 +1563,19 @@ const MainStackNavigator = () => {
 
 const AppContent = () => {
   const [showSplash, setShowSplash] = useState(true);
+
+  // Initialize Firebase Analytics
+  useEffect(() => {
+    const initializeAnalytics = async () => {
+      try {
+        await analyticsService.initialize();
+      } catch (error) {
+        console.warn('Firebase Analytics initialization failed (expected in old development builds):', error.message);
+      }
+    };
+    
+    initializeAnalytics();
+  }, []);
 
   const handleSplashFinish = () => {
     setShowSplash(false);

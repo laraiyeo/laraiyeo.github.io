@@ -14,6 +14,14 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import NFLDataService from '../../services/NFLDataService';
 
+// Helper function to convert HTTP URLs to HTTPS
+const convertToHttps = (url) => {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+};
+
 // NFL-specific year logic: July-December uses current year, otherwise previous year
 const getNFLYear = () => {
   const now = new Date();
@@ -108,18 +116,18 @@ const StatsScreen = ({ route }) => {
 
         // Fetch all athlete and team data in parallel
         const [athleteResults, teamResults] = await Promise.all([
-          Promise.all(Array.from(athleteRefs).map(ref => 
-            fetch(ref).then(res => res.json()).catch(err => {
-              console.warn('Failed to fetch athlete:', ref, err);
+          Promise.all(Array.from(athleteRefs).map(ref => {
+            return fetch(convertToHttps(ref)).then(res => res.json()).catch(err => {
+              console.warn('Failed to fetch athlete:', convertToHttps(ref), err);
               return null;
-            })
-          )),
-          Promise.all(Array.from(teamRefs).map(ref => 
-            fetch(ref).then(res => res.json()).catch(err => {
-              console.warn('Failed to fetch team:', ref, err);
+            });
+          })),
+          Promise.all(Array.from(teamRefs).map(ref => {
+            return fetch(convertToHttps(ref)).then(res => res.json()).catch(err => {
+              console.warn('Failed to fetch team:', convertToHttps(ref), err);
               return null;
-            })
-          ))
+            });
+          }))
         ]);
 
         // Create lookup maps

@@ -87,7 +87,7 @@ const SplashScreen = ({ onFinish }) => {
     // Fade in the video instantly (or over 100ms for smoothness)
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 120,
+      duration: 150,
       useNativeDriver: true,
     }).start();
 
@@ -107,7 +107,7 @@ const SplashScreen = ({ onFinish }) => {
       // Add a small delay to prevent flash, then fade out smoothly
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 200,
+        duration: 250,
         useNativeDriver: true,
       }).start(() => {
         // Call onFinish after fade out completes
@@ -119,11 +119,6 @@ const SplashScreen = ({ onFinish }) => {
   return (
     <View style={[styles.container, { backgroundColor: isDarkMode ? '#000000' : '#ffffff' }]}>
       {/* Static splash image stays visible underneath */}
-      <Image
-        source={splashAssets.image}
-        style={[styles.media, { width: finalWidth, height: finalHeight, position: 'absolute' }]}
-        resizeMode="contain"
-      />
 
       {/* Fade-in video over the image */}
       <Animated.View

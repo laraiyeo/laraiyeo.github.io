@@ -277,8 +277,8 @@ const CompareScreen = ({ route }) => {
           onPress={() => openPlayerSearch(playerNumber)}
         >
           <View style={styles.addPlayerButton}>
-            <Text style={[styles.addPlayerIcon, { color: theme.textSecondary }]}>+</Text>
-            <Text style={[styles.addPlayerText, { color: theme.textSecondary }]}>
+            <Text style={[styles.addPlayerIcon, { color: colors.primary }]}>+</Text>
+            <Text style={[styles.addPlayerText, { color: colors.primary }]}>
               Add Player {playerNumber}
             </Text>
           </View>

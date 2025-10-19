@@ -14,6 +14,14 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import NHLDataService from '../../services/NHLDataService';
 
+// Helper function to convert HTTP URLs to HTTPS
+const convertToHttps = (url) => {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+};
+
 // NHL-specific year logic: September-December uses next year, otherwise current year
 const getNHLYear = () => {
   const now = new Date();
@@ -108,14 +116,14 @@ const StatsScreen = ({ route }) => {
         // Fetch all athlete and team data in parallel
         const [athleteResults, teamResults] = await Promise.all([
           Promise.all(Array.from(athleteRefs).map(ref => 
-            fetch(ref).then(res => res.json()).catch(err => {
-              console.warn('Failed to fetch athlete:', ref, err);
+            fetch(convertToHttps(ref)).then(res => res.json()).catch(err => {
+              console.warn('Failed to fetch athlete:', convertToHttps(ref), err);
               return null;
             })
           )),
           Promise.all(Array.from(teamRefs).map(ref => 
-            fetch(ref).then(res => res.json()).catch(err => {
-              console.warn('Failed to fetch team:', ref, err);
+            fetch(convertToHttps(ref)).then(res => res.json()).catch(err => {
+              console.warn('Failed to fetch team:', convertToHttps(ref), err);
               return null;
             })
           ))

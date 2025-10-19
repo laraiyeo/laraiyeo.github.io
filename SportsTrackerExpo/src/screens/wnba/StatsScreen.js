@@ -14,6 +14,14 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import WNBADataService from '../../services/WNBADataService';
 
+// Helper function to convert HTTP URLs to HTTPS
+const convertToHttps = (url) => {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+};
+
 const StatsScreen = ({ route }) => {
   const { sport } = route.params;
   const { theme, colors, getTeamLogoUrl } = useTheme();
@@ -94,14 +102,14 @@ const StatsScreen = ({ route }) => {
         // Fetch all athlete and team data in parallel
         const [athleteResults, teamResults] = await Promise.all([
           Promise.all(Array.from(athleteRefs).map(ref => 
-            fetch(ref).then(res => res.json()).catch(err => {
-              console.warn('Failed to fetch athlete:', ref, err);
+            fetch(convertToHttps(ref)).then(res => res.json()).catch(err => {
+              console.warn('Failed to fetch athlete:', convertToHttps(ref), err);
               return null;
             })
           )),
           Promise.all(Array.from(teamRefs).map(ref => 
-            fetch(ref).then(res => res.json()).catch(err => {
-              console.warn('Failed to fetch team:', ref, err);
+            fetch(convertToHttps(ref)).then(res => res.json()).catch(err => {
+              console.warn('Failed to fetch team:', convertToHttps(ref), err);
               return null;
             })
           ))

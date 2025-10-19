@@ -97,7 +97,7 @@ const StandingsScreen = ({ route }) => {
       <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
         {[afc, nfc].filter(Boolean).map((conference, confIndex) => (
           <View key={confIndex} style={[styles.conferenceContainer, { backgroundColor: theme.surface }]}>
-            <Text allowFontScaling={false} style={[styles.conferenceTitle, { color: colors.primary }]}>{conference.name}</Text>
+            <Text allowFontScaling={false} style={[styles.conferenceTitle, { color: colors.primary, borderBottomColor: theme.border }]}>{conference.name}</Text>
             
             {conference.groups.map((division, divIndex) => (
               <View key={divIndex} style={styles.divisionContainer}>

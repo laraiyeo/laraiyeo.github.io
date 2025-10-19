@@ -121,16 +121,25 @@ function smallHash(str) {
   return hash;
 }
 
+// Helper function to normalize URLs to HTTPS
+const normalizeUrl = (url) => {
+  if (!url) return url;
+  return url.replace(/^http:\/\//, 'https://');
+};
+
 // Cached fetch with conditional headers, in-flight dedupe, and same-pass dedupe
 async function fetchJsonWithCache(url, options = {}) {
+  // Normalize URL to HTTPS to prevent hanging requests
+  const normalizedUrl = normalizeUrl(url);
+  
   const { timeout = 3500, force = false, bypassGating = false } = options;
   // During poll passes, avoid making expensive discovery requests to ESPN Core / Site APIs
   // unless explicitly forced or bypassing gating. Return cached data when available, otherwise null.
   try {
     if (!force && !bypassGating && currentFetchPhase === 'poll') {
       const blockedPatterns = ['sports.core.api.espn.com', 'site.api.espn.com', '/v2/sports/'];
-      if (blockedPatterns.some(p => String(url).includes(p))) {
-        const cached = eventFetchCache.get(url);
+      if (blockedPatterns.some(p => String(normalizedUrl).includes(p))) {
+        const cached = eventFetchCache.get(normalizedUrl);
         if (cached?.parsed) return cached.parsed;
         // don't perform network fetch during poll for these endpoints
         return null;
@@ -142,21 +151,21 @@ async function fetchJsonWithCache(url, options = {}) {
   }
   
   // Same-pass dedupe: if already fetched in this pass, return cached
-  if (!force && urlLastFetchedPass.get(url) === currentFetchPassId) {
-    const cached = eventFetchCache.get(url);
+  if (!force && urlLastFetchedPass.get(normalizedUrl) === currentFetchPassId) {
+    const cached = eventFetchCache.get(normalizedUrl);
     if (cached?.parsed) {
       if (DEBUG) return cached.parsed;
     }
   }
   
   // In-flight dedupe: if currently fetching, return the existing promise
-  if (inFlightFetches.has(url)) {
-    if (DEBUG) return inFlightFetches.get(url);
+  if (inFlightFetches.has(normalizedUrl)) {
+    if (DEBUG) return inFlightFetches.get(normalizedUrl);
   }
   
   const fetchPromise = (async () => {
     try {
-      const cacheEntry = eventFetchCache.get(url);
+      const cacheEntry = eventFetchCache.get(normalizedUrl);
       const headers = {};
       
       // Add conditional headers if we have cache data
@@ -170,7 +179,7 @@ async function fetchJsonWithCache(url, options = {}) {
         controller.abort();
       }, timeout);
       
-      const response = await fetch(url, { 
+      const response = await fetch(normalizedUrl, { 
         headers, 
         signal: controller.signal 
       });
@@ -178,7 +187,7 @@ async function fetchJsonWithCache(url, options = {}) {
       
       // Handle 304 Not Modified
       if (response.status === 304 && cacheEntry?.parsed) {
-        if (DEBUG) urlLastFetchedPass.set(url, currentFetchPassId);
+        if (DEBUG) urlLastFetchedPass.set(normalizedUrl, currentFetchPassId);
         return cacheEntry.parsed;
       }
       
@@ -195,7 +204,7 @@ async function fetchJsonWithCache(url, options = {}) {
       
       // If body hash unchanged, return cached parsed data
       if (cacheEntry?.lastHash === bodyHash && cacheEntry?.parsed) {
-        if (DEBUG) urlLastFetchedPass.set(url, currentFetchPassId);
+        if (DEBUG) urlLastFetchedPass.set(normalizedUrl, currentFetchPassId);
         return cacheEntry.parsed;
       }
       
@@ -213,7 +222,7 @@ async function fetchJsonWithCache(url, options = {}) {
       }
       
       // Update cache
-      eventFetchCache.set(url, {
+      eventFetchCache.set(normalizedUrl, {
         etag: response.headers.get('etag'),
         lastModified: response.headers.get('last-modified'),
         lastHash: bodyHash,
@@ -221,14 +230,14 @@ async function fetchJsonWithCache(url, options = {}) {
         timestamp: Date.now()
       });
       
-      urlLastFetchedPass.set(url, currentFetchPassId);
+      urlLastFetchedPass.set(normalizedUrl, currentFetchPassId);
       if (DEBUG) return parsed;
       
     } catch (error) {
       // Return cached data if available on timeout/error
-      const cacheEntry = eventFetchCache.get(url);
+      const cacheEntry = eventFetchCache.get(normalizedUrl);
       if (cacheEntry?.parsed) {
-        urlLastFetchedPass.set(url, currentFetchPassId);
+        urlLastFetchedPass.set(normalizedUrl, currentFetchPassId);
         return cacheEntry.parsed;
       }
       
@@ -239,11 +248,11 @@ async function fetchJsonWithCache(url, options = {}) {
       
       throw error;
     } finally {
-      inFlightFetches.delete(url);
+      inFlightFetches.delete(normalizedUrl);
     }
   })();
   
-  inFlightFetches.set(url, fetchPromise);
+  inFlightFetches.set(normalizedUrl, fetchPromise);
   return fetchPromise;
 }
 
@@ -2924,7 +2933,8 @@ const FavoritesScreen = ({ navigation }) => {
       if (team.sport === 'f1' || team.sport === 'F1' || currentGameData.competition === 'f1') {
         try {
           // For F1, use the Core API endpoint like ConstructorDetailsScreen does
-          const f1Response = await fetch(currentGameData.eventLink, { timeout: 15000 });
+          const normalizedEventLink = normalizeUrl(currentGameData.eventLink);
+          const f1Response = await fetch(normalizedEventLink, { timeout: 15000 });
           if (!f1Response.ok) {
             return null;
           }
@@ -2947,7 +2957,8 @@ const FavoritesScreen = ({ navigation }) => {
             let isFinal = false;
             if (comp.status?.$ref) {
               try {
-                const statusResp = await fetch(comp.status.$ref, { timeout: 5000 });
+                const normalizedStatusRef = normalizeUrl(comp.status.$ref);
+                const statusResp = await fetch(normalizedStatusRef, { timeout: 5000 });
                 if (statusResp.ok) {
                   const statusData = await statusResp.json();
                   isInProgress = statusData.type?.state === 'in';
@@ -3016,7 +3027,8 @@ const FavoritesScreen = ({ navigation }) => {
           let circuitFlag = null;
           if (f1Data.venues?.[0]?.$ref) {
             try {
-              const venueResp = await fetch(f1Data.venues[0].$ref, { timeout: 10000 });
+              const normalizedVenueRef = normalizeUrl(f1Data.venues[0].$ref);
+              const venueResp = await fetch(normalizedVenueRef, { timeout: 10000 });
               if (venueResp.ok) {
                 const venueData = await venueResp.json();
                 circuitName = venueData.fullName || circuitName;
@@ -3030,7 +3042,8 @@ const FavoritesScreen = ({ navigation }) => {
           let statusObject = null;
           if (competition.status?.$ref) {
             try {
-              const statusResp = await fetch(competition.status.$ref, { timeout: 10000 });
+              const normalizedCompetitionStatusRef = normalizeUrl(competition.status.$ref);
+              const statusResp = await fetch(normalizedCompetitionStatusRef, { timeout: 10000 });
               if (statusResp.ok) {
                 statusObject = await statusResp.json();
               }
@@ -3044,7 +3057,8 @@ const FavoritesScreen = ({ navigation }) => {
               // Fetch athlete reference if it's a $ref
               let athlete = driver.athlete || {};
               if (athlete.$ref) {
-                const athleteResp = await fetch(athlete.$ref, { timeout: 10000 });
+                const normalizedAthleteRef = normalizeUrl(athlete.$ref);
+                const athleteResp = await fetch(normalizedAthleteRef, { timeout: 10000 });
                 if (athleteResp.ok) {
                   athlete = await athleteResp.json();
                 }
@@ -3053,7 +3067,8 @@ const FavoritesScreen = ({ navigation }) => {
               // Fetch statistics reference if it's a $ref
               let statistics = driver.statistics || [];
               if (statistics.$ref) {
-                const statsResp = await fetch(statistics.$ref, { timeout: 10000 });
+                const normalizedStatsRef = normalizeUrl(statistics.$ref);
+                const statsResp = await fetch(normalizedStatsRef, { timeout: 10000 });
                 if (statsResp.ok) {
                   const statsData = await statsResp.json();
                   // Extract stats from the splits.categories structure

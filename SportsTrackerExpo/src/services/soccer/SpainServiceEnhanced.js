@@ -6,7 +6,7 @@ import React from 'react';
 import { normalizeLeagueCodeForStorage } from '../../utils/TeamIdMapping';
 import { BaseCacheService } from '../BaseCacheService';
 
-const SPAIN_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/esp';
+const SPAIN_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1';
 
 // Helper function for general soccer year logic
 // For domestic leagues: July-December uses current year, else previous year

@@ -70,7 +70,7 @@ class NHLDataService extends BaseCacheService {
   async _fetchData() {
     try {
       // Fetch teams first
-      const headers = this.getBrowserHeaders();
+      const headers = this.constructor.getBrowserHeaders();
       const teamsResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams`, { headers });
       const teamsData = await teamsResponse.json();
       

@@ -7,7 +7,9 @@ class AppIconService {
    * Check if we're running in Expo Go
    */
   static isExpoGo() {
-    return Constants.executionEnvironment === 'standalone' ? false : true;
+    // In Expo Go, executionEnvironment is 'storeClient'
+    // In development builds and production, it's 'standalone'
+    return Constants.executionEnvironment === 'storeClient';
   }
 
   /**
@@ -27,24 +29,14 @@ class AppIconService {
       const theme = isDarkMode ? 'dark' : 'light';
       const iconName = `${theme}-${colorPalette}`;
       
-      console.log(`Attempting to change app icon to: ${iconName}`);
-
-      // Add debug logging
-      console.log('Available icons:', this.getAvailableIcons());
-      console.log('Current execution environment:', Constants.executionEnvironment);
-      console.log('Is Expo Go:', this.isExpoGo());
-
       // Set the alternate icon using nixa-expo-dynamic-app-icon
       const result = await setAppIcon(iconName, 'DEFAULT');
-      
-      console.log('setAppIcon result:', result);
       
       if (result === false) {
         console.log(`Failed to change app icon to: ${iconName}`);
         return false;
       }
       
-      console.log(`Successfully changed app icon to: ${iconName}`);
       return true;
     } catch (error) {
       console.error('Error changing app icon:', error);
@@ -72,7 +64,7 @@ class AppIconService {
   }
 
   /**
-   * Resets to the default app icon
+   * Resets to the default app icon (dark-red)
    */
   static async resetToDefaultIcon() {
     try {
@@ -81,14 +73,15 @@ class AppIconService {
         return false;
       }
 
-      const result = await setAppIcon('DEFAULT', 'DEFAULT');
+      // Reset to dark-red as the default icon
+      const result = await setAppIcon('dark-red', 'DEFAULT');
       
       if (result === false) {
         console.log('Failed to reset to default app icon');
         return false;
       }
       
-      console.log('Reset to default app icon');
+      console.log('Reset to default app icon (dark-red)');
       return true;
     } catch (error) {
       console.error('Error resetting to default app icon:', error);

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'rea
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome6, FontAwesome } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import analyticsService from '../services/AnalyticsService';
 
 const HomeScreen = () => {
   const navigation = useNavigation();
@@ -68,6 +69,9 @@ const HomeScreen = () => {
   ];
 
   const handleSportPress = (sport) => {
+    // Log analytics event for sport selection
+    analyticsService.logSportSelection(sport.id);
+    
     navigation.navigate('SportTabs', { sport: sport.id });
   };
 

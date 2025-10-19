@@ -235,7 +235,7 @@ const CompareScreen = ({ route }) => {
           onPress={() => openPlayerSearch(playerNumber)}
         >
           <Text style={[styles.addPlayerIcon, { color: colors.primary }]}>+</Text>
-          <Text style={[styles.addPlayerText, { color: theme.text }]}>
+          <Text style={[styles.addPlayerText, { color: colors.primary }]}>
             Add Player {playerNumber}
           </Text>
         </TouchableOpacity>
