@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
+import { getSafeImageUri } from '../../../utils/imageUtils';
 import { getStandings, getCompletedEvents, getLeagues, getTournamentsForLeague, formatMatchData } from '../../../services/lolService';
 
 const LOLTournamentScreen = ({ navigation, route }) => {
@@ -304,7 +305,7 @@ const LOLTournamentScreen = ({ navigation, route }) => {
                                 <View key={team?.id || index} style={[styles.resultTeam, index === 1 && styles.resultTeam2]}>
                                   {team?.image && (
                                     <Image
-                                      source={{ uri: team.image }}
+                                      source={{ uri: getSafeImageUri(team.image) }}
                                       style={[styles.resultTeamLogo,
                                         team?.result?.outcome === 'win' && { opacity: 1 },
                                         team?.result?.outcome === 'loss' && { opacity: 0.5 }
@@ -389,7 +390,7 @@ const LOLTournamentScreen = ({ navigation, route }) => {
               <View key={team.id} style={[styles.teamCard, { backgroundColor: theme.surfaceSecondary }]}>
                 {team.image && (
                   <Image
-                    source={{ uri: team.image }}
+                    source={{ uri: getSafeImageUri(team.image) }}
                     style={styles.teamLogo}
                     resizeMode="contain"
                   />
@@ -496,7 +497,7 @@ const LOLTournamentScreen = ({ navigation, route }) => {
                     <View key={team?.id || index} style={[styles.resultTeam, index === 1 && styles.resultTeam2]}>
                       {team?.image && (
                         <Image
-                          source={{ uri: team.image }}
+                          source={{ uri: getSafeImageUri(team.image) }}
                           style={[styles.resultTeamLogo,
                             index === 1 && match.teams[0]?.result?.gameWins > match.teams[1]?.result?.gameWins && { opacity: 0.5 },
                             index === 0 && match.teams[1]?.result?.gameWins > match.teams[0]?.result?.gameWins && { opacity: 0.5 }
@@ -610,7 +611,7 @@ const LOLTournamentScreen = ({ navigation, route }) => {
       <View style={[styles.heroSection, { backgroundColor: theme.surfaceSecondary }]}>
         {league?.image ? (
           <Image
-            source={{ uri: league.image }}
+            source={{ uri: getSafeImageUri(league.image) }}
             style={styles.heroImage}
             resizeMode="cover"
           />

@@ -23,9 +23,6 @@
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
-        "UIBackgroundModes": [
-          "background-fetch"
-        ],
         "ITSAppUsesNonExemptEncryption": false
       }
     },

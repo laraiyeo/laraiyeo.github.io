@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
+import { getSafeImageUri } from '../../../utils/imageUtils';
 import { 
   getMatchDetails,
   getMatchWindow,
@@ -376,7 +377,7 @@ const LOLMatchDetailsScreen = ({ navigation, route }) => {
             <View style={styles.teamCompleteSection}>
               <View style={styles.logoScoreRow}>
                 <Image
-                  source={{ uri: teams[0]?.image || 'https://i.imgur.com/BIC4pnO.webp' }}
+                  source={{ uri: getSafeImageUri(teams[0]?.image) }}
                   style={[
                     styles.teamLogoHead,
                     { opacity: status.text === 'FINISHED' && teams[0]?.result?.gameWins < teams[1]?.result?.gameWins ? 0.6 : 1 }
@@ -420,7 +421,7 @@ const LOLMatchDetailsScreen = ({ navigation, route }) => {
                   {teams[1]?.result?.gameWins || 0}
                 </Text>
                 <Image
-                  source={{ uri: teams[1]?.image || 'https://i.imgur.com/BIC4pnO.webp' }}
+                  source={{ uri: getSafeImageUri(teams[1]?.image) }}
                   style={[
                     styles.teamLogoHead,
                     { opacity: status.text === 'FINISHED' && teams[1]?.result?.gameWins < teams[0]?.result?.gameWins ? 0.6 : 1 }
@@ -521,7 +522,7 @@ const LOLMatchDetailsScreen = ({ navigation, route }) => {
                     <View style={styles.mapScoreSection}>
                       {/* Map Background */}
                       <Image
-                        source={{ uri: 'https://i.redd.it/wofey4h7koba1.jpg' }}
+                        source={{ uri: getSafeImageUri('https://i.redd.it/wofey4h7koba1.jpg') }}
                         style={styles.mapBackground}
                         resizeMode="cover"
                       />
@@ -533,7 +534,7 @@ const LOLMatchDetailsScreen = ({ navigation, route }) => {
                       <View style={styles.scoreContent}>
                         <View style={styles.teamScoreContainer}>
                           <Image
-                            source={{ uri: teams[0]?.image || 'https://i.imgur.com/BIC4pnO.webp' }}
+                            source={{ uri: getSafeImageUri(teams[0]?.image) }}
                             style={[
                               styles.teamLogo,
                               { 
@@ -561,7 +562,7 @@ const LOLMatchDetailsScreen = ({ navigation, route }) => {
                         
                         <View style={styles.teamScoreContainer}>
                           <Image
-                            source={{ uri: teams[1]?.image || 'https://i.imgur.com/BIC4pnO.webp' }}
+                            source={{ uri: getSafeImageUri(teams[1]?.image) }}
                             style={[
                               styles.teamLogo,
                               { 
@@ -596,7 +597,7 @@ const LOLMatchDetailsScreen = ({ navigation, route }) => {
                             {playersData.team1.map((player, pIndex) => (
                               <View key={pIndex} style={styles.leftPlayerItem}>
                                 <Image
-                                  source={{ uri: player.champion === 'TBD' ? '' : `https://ddragon.leagueoflegends.com/cdn/15.20.1/img/champion/${player.champion}.png` }}
+                                  source={{ uri: player.champion === 'TBD' ? '' : getSafeImageUri(`https://ddragon.leagueoflegends.com/cdn/15.20.1/img/champion/${player.champion}.png`) }}
                                   style={styles.championImage}
                                   resizeMode="cover"
                                 />
@@ -630,7 +631,7 @@ const LOLMatchDetailsScreen = ({ navigation, route }) => {
                                   </Text>
                                 </View>
                                 <Image
-                                  source={{ uri: player.champion === 'TBD' ? '' : `https://ddragon.leagueoflegends.com/cdn/15.20.1/img/champion/${player.champion}.png` }}
+                                  source={{ uri: player.champion === 'TBD' ? '' : getSafeImageUri(`https://ddragon.leagueoflegends.com/cdn/15.20.1/img/champion/${player.champion}.png`) }}
                                   style={styles.championImage}
                                   resizeMode="cover"
                                 />

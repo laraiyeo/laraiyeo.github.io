@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../../context/ThemeContext';
+import { getSafeImageUri } from '../../../utils/imageUtils';
 import {
   getMatchWindow,
   getMatchLiveDetails,
@@ -548,7 +549,7 @@ const LOLGameDetailsScreen = ({ navigation, route }) => {
             <View style={styles.scoreContainer}>
               <View style={styles.teamScoreSection}>
                 <Image
-                  source={{ uri: teams[0]?.image || 'https://i.imgur.com/BIC4pnO.webp' }}
+                  source={{ uri: getSafeImageUri(teams[0]?.image) }}
                   style={[
                     styles.teamLogoHero,
                     { opacity: gameScores.hasFinished && gameScores.winningTeam === 2 ? 0.6 : 1 }
@@ -584,7 +585,7 @@ const LOLGameDetailsScreen = ({ navigation, route }) => {
               
               <View style={styles.teamScoreSection}>
                 <Image
-                  source={{ uri: teams[1]?.image || 'https://i.imgur.com/BIC4pnO.webp' }}
+                  source={{ uri: getSafeImageUri(teams[1]?.image) }}
                   style={[
                     styles.teamLogoHero,
                     { opacity: gameScores.hasFinished && gameScores.winningTeam === 1 ? 0.6 : 1 }
@@ -752,7 +753,7 @@ const LOLGameDetailsScreen = ({ navigation, route }) => {
             <View style={styles.scoreContainer}>
               <View style={styles.teamScoreSection}>
                 <Image
-                  source={{ uri: teams[0]?.image || 'https://i.imgur.com/BIC4pnO.webp' }}
+                  source={{ uri: getSafeImageUri(teams[0]?.image) }}
                   style={[
                     styles.teamLogoHero,
                     { opacity: gameScores.hasFinished && gameScores.winningTeam === 2 ? 0.6 : 1 }
@@ -788,7 +789,7 @@ const LOLGameDetailsScreen = ({ navigation, route }) => {
               
               <View style={styles.teamScoreSection}>
                 <Image
-                  source={{ uri: teams[1]?.image || 'https://i.imgur.com/BIC4pnO.webp' }}
+                  source={{ uri: getSafeImageUri(teams[1]?.image) }}
                   style={[
                     styles.teamLogoHero,
                     { opacity: gameScores.hasFinished && gameScores.winningTeam === 1 ? 0.6 : 1 }
@@ -814,7 +815,7 @@ const LOLGameDetailsScreen = ({ navigation, route }) => {
             <View style={[styles.teamStatsTable, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <View style={[styles.teamStatsHeader, { backgroundColor: theme.surface }]}>
                 <Image
-                  source={{ uri: teams[0]?.image || 'https://i.imgur.com/BIC4pnO.webp' }}
+                  source={{ uri: getSafeImageUri(teams[0]?.image) }}
                   style={styles.teamStatsLogo}
                   resizeMode="contain"
                 />
@@ -831,7 +832,7 @@ const LOLGameDetailsScreen = ({ navigation, route }) => {
                 >
                   <View style={styles.teamSummaryContent}>
                     <Image
-                      source={{ uri: teams[0]?.image || 'https://i.imgur.com/BIC4pnO.webp' }}
+                      source={{ uri: getSafeImageUri(teams[0]?.image) }}
                       style={styles.teamSummaryLogo}
                       resizeMode="contain"
                     />
@@ -980,7 +981,7 @@ const LOLGameDetailsScreen = ({ navigation, route }) => {
             <View style={[styles.teamStatsTable, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <View style={[styles.teamStatsHeader, { backgroundColor: theme.surface }]}>
                 <Image
-                  source={{ uri: teams[1]?.image || 'https://i.imgur.com/BIC4pnO.webp' }}
+                  source={{ uri: getSafeImageUri(teams[1]?.image) }}
                   style={styles.teamStatsLogo}
                   resizeMode="contain"
                 />
@@ -997,7 +998,7 @@ const LOLGameDetailsScreen = ({ navigation, route }) => {
                 >
                   <View style={styles.teamSummaryContent}>
                     <Image
-                      source={{ uri: teams[1]?.image || 'https://i.imgur.com/BIC4pnO.webp' }}
+                      source={{ uri: getSafeImageUri(teams[1]?.image) }}
                       style={styles.teamSummaryLogo}
                       resizeMode="contain"
                     />

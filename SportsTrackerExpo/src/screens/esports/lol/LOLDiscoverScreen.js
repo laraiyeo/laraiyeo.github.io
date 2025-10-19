@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
+import { getSafeImageUri } from '../../../utils/imageUtils';
 import { getLeagues, getTournamentsForLeague, getTournaments, getTeams } from '../../../services/lolService';
 
 const { width } = Dimensions.get('window');
@@ -283,7 +284,7 @@ const LOLDiscoverScreen = ({ navigation }) => {
         <View style={styles.featuredImageContainer}>
           {event.imageUrl || event.logoUrl ? (
             <Image
-              source={{ uri: event.imageUrl || event.logoUrl }}
+              source={{ uri: getSafeImageUri(event.imageUrl || event.logoUrl) }}
               style={styles.featuredImage}
               resizeMode="contain"
             />
@@ -352,7 +353,7 @@ const LOLDiscoverScreen = ({ navigation }) => {
         <View style={styles.eventImageContainer}>
           {event.imageUrl || event.logoUrl ? (
             <Image
-              source={{ uri: event.imageUrl || event.logoUrl }}
+              source={{ uri: getSafeImageUri(event.imageUrl || event.logoUrl) }}
               style={styles.eventImage}
               resizeMode="contain"
             />

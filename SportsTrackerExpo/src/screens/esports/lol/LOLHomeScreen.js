@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../../../context/ThemeContext';
+import { getSafeImageUri } from '../../../utils/imageUtils';
 import { 
   getScheduledMatches,
   formatMatchData,
@@ -469,7 +470,7 @@ const LOLHomeScreen = ({ navigation, route }) => {
             <View style={styles.liveTeamLogo}>
               {teams[0]?.image ? (
                 <Image
-                  source={{ uri: teams[0].image }}
+                  source={{ uri: getSafeImageUri(teams[0].image) }}
                   style={styles.teamLogoImage}
                   resizeMode="contain"
                 />
@@ -498,7 +499,7 @@ const LOLHomeScreen = ({ navigation, route }) => {
             <View style={styles.liveTeamLogo}>
               {teams[1]?.image ? (
                 <Image
-                  source={{ uri: teams[1].image }}
+                  source={{ uri: getSafeImageUri(teams[1].image) }}
                   style={styles.teamLogoImage}
                   resizeMode="contain"
                 />
@@ -567,7 +568,7 @@ const LOLHomeScreen = ({ navigation, route }) => {
               <View style={styles.eventLogoContainer}>
                 {getTournamentLogo(event.eventName) ? (
                   <Image
-                    source={{ uri: getTournamentLogo(event.eventName) }}
+                    source={{ uri: getSafeImageUri(getTournamentLogo(event.eventName)) }}
                     style={styles.eventLogoImage}
                     resizeMode="contain"
                   />
@@ -630,7 +631,7 @@ const LOLHomeScreen = ({ navigation, route }) => {
                             <View style={styles.teamLogoSmall}>
                               {team.image ? (
                                 <Image
-                                  source={{ uri: team.image }}
+                                  source={{ uri: getSafeImageUri(team.image) }}
                                   style={styles.teamLogoSmallImage}
                                   resizeMode="contain"
                                 />
@@ -700,7 +701,7 @@ const LOLHomeScreen = ({ navigation, route }) => {
                   <View style={styles.completedTeamLogo}>
                     {team.image ? (
                       <Image
-                        source={{ uri: team.image }}
+                        source={{ uri: getSafeImageUri(team.image) }}
                         style={styles.completedTeamLogoImage}
                         resizeMode="contain"
                       />
@@ -810,7 +811,7 @@ const LOLHomeScreen = ({ navigation, route }) => {
                 <View style={styles.teamInfo}>
                   {teams[0].image && (
                     <Image
-                      source={{ uri: teams[0].image }}
+                      source={{ uri: getSafeImageUri(teams[0].image) }}
                       style={styles.teamLogo}
                       resizeMode="contain"
                     />
@@ -836,7 +837,7 @@ const LOLHomeScreen = ({ navigation, route }) => {
                 <View style={styles.teamInfo}>
                   {teams[1].image && (
                     <Image
-                      source={{ uri: teams[1].image }}
+                      source={{ uri: getSafeImageUri(teams[1].image) }}
                       style={styles.teamLogo}
                       resizeMode="contain"
                     />

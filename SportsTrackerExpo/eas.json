@@ -46,7 +46,7 @@
     "production": {
       "ios": {
         "appleId": "laraiyetand3@gmail.com",
-        "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
+        "ascAppId": "6754208862",
         "appleTeamId": "QN6DJ39GCZ"
       },
       "android": {
