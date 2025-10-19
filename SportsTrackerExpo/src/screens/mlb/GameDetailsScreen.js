@@ -107,6 +107,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   const [loadingTeamStats, setLoadingTeamStats] = useState(false);
   const [openPlays, setOpenPlays] = useState(new Set());
   const [isIncrementalUpdate, setIsIncrementalUpdate] = useState(false);
+  const loadingPlaysRef = useRef(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [playerModalVisible, setPlayerModalVisible] = useState(false);
   const [playerStats, setPlayerStats] = useState(null);
@@ -603,11 +604,19 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
   // Refresh plays data when active tab is plays and game data changes
   useEffect(() => {
-    if (gameData && activeTab === 'plays') {
+    console.log('MLB plays useEffect triggered - gameData:', !!gameData, 'activeTab:', activeTab, 'gameId:', gameId);
+    if (gameData && activeTab === 'plays' && gameId) {
+      console.log('Loading plays data...');
       // Always refresh plays when switching to plays tab or when game data changes while on plays tab
       loadPlaysData();
+    } else if (!gameData) {
+      console.log('No gameData available for plays');
+    } else if (activeTab !== 'plays') {
+      console.log('Not on plays tab, current tab:', activeTab);
+    } else if (!gameId) {
+      console.log('No gameId available for plays');
     }
-  }, [gameData, activeTab]);
+  }, [gameData, activeTab, gameId]);
 
   // Load scheduled game data when game data is loaded and game is scheduled, pre-game, or warmup
   useEffect(() => {
@@ -790,17 +799,32 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   };
 
   const loadPlaysData = async () => {
-    if (!gameId || loadingPlays) return;
+    console.log('loadPlaysData called - gameId:', gameId, 'loadingPlays:', loadingPlays, 'loadingPlaysRef:', loadingPlaysRef.current);
+    if (!gameId) {
+      console.log('Exiting loadPlaysData - no gameId');
+      return;
+    }
+    
+    if (loadingPlaysRef.current) {
+      console.log('Exiting loadPlaysData - already loading (ref check)');
+      return;
+    }
     
     try {
+      loadingPlaysRef.current = true;
       setIsIncrementalUpdate(false);
       setLoadingPlays(true);
+      console.log('Fetching plays data for gameId:', gameId);
       const plays = await MLBService.getPlayByPlay(gameId);
+      console.log('Plays data received:', !!plays, plays ? Object.keys(plays).length : 0, 'keys');
       setPlaysData(plays);
+      console.log('Successfully set plays data, setting loadingPlays to false');
     } catch (error) {
       console.error('Error loading plays:', error);
       Alert.alert('Error', 'Failed to load plays data');
     } finally {
+      console.log('Finally block - setting loadingPlays to false');
+      loadingPlaysRef.current = false;
       setLoadingPlays(false);
     }
   };
@@ -1961,11 +1985,11 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   };
 
   const renderPlaysContent = () => {
-    console.log('renderPlaysContent called, loadingPlays:', loadingPlays, 'isIncrementalUpdate:', isIncrementalUpdate);
+    console.log('renderPlaysContent called, loadingPlays:', loadingPlays, 'isIncrementalUpdate:', isIncrementalUpdate, 'playsData:', !!playsData, 'playsData keys:', playsData ? Object.keys(playsData) : 'null');
     
-    // Only show loading if it's not an incremental update
-    if (loadingPlays && !isIncrementalUpdate) {
-      console.log('Showing loading spinner');
+    // Show loading spinner only if we don't have data AND we're loading (not incremental)
+    if (!playsData && loadingPlays && !isIncrementalUpdate) {
+      console.log('Showing loading spinner - no data and loading');
       return (
         <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -1975,6 +1999,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     }
 
     if (!playsData) {
+      console.log('No playsData available - showing placeholder');
       return (
         <View style={styles.placeholderContainer}>
           <Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.textSecondary }]}>No plays data available</Text>
@@ -3825,10 +3850,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             {/* Chat Modal Header */}
             <View style={[styles.chatModalHeader, { borderBottomColor: theme.border }]}>
               <Text allowFontScaling={false} style={[styles.chatModalTitle, { color: theme.text }]}>
-                {(() => {
-                  console.log('GameData at line 3667:', gameData);
-                  return gameData ? `${gameData.gameData?.teams?.away?.teamName || 'Away'} vs ${gameData.gameData?.teams?.home?.teamName || 'Home'}` : 'Chat';
-                })()}
+                {gameData ? `${gameData.gameData?.teams?.away?.teamName || 'Away'} vs ${gameData.gameData?.teams?.home?.teamName || 'Home'}` : 'Chat'}
               </Text>
               <TouchableOpacity
                 style={styles.chatModalCloseButton}

@@ -72,7 +72,7 @@ const WNBAStandingsScreen = () => {
   const { theme, colors, getTeamLogoUrl } = useTheme();
   const { isFavorite } = useFavorites();
   const navigation = useNavigation();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [standings, setStandings] = useState(null);
   const [intervalId, setIntervalId] = useState(null);
 
@@ -89,8 +89,13 @@ const WNBAStandingsScreen = () => {
 
   useEffect(() => {
     let mounted = true;
-    const load = async () => {
+    const load = async (silent = false) => {
       try {
+        // Only show loading for non-silent updates
+        if (!silent && mounted) {
+          setLoading(true);
+        }
+        
         const data = await WNBAService.getStandings();
         if (!mounted) return;
         const formattedData = WNBAService.formatStandingsForMobile(data);
@@ -98,24 +103,23 @@ const WNBAStandingsScreen = () => {
       } catch (e) {
         console.error('Failed to load WNBA standings', e);
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted && !silent) {
+          setLoading(false);
+        }
       }
     };
 
+    // Initial load only (like StatsScreen - no background updates)
     load();
 
-    const unsubscribeFocus = navigation.addListener('focus', () => {
-      load();
-      const id = setInterval(load, 30000);
-      setIntervalId(id);
-    });
-
-    const unsubscribeBlur = navigation.addListener('blur', () => {
-      if (intervalId) { clearInterval(intervalId); setIntervalId(null); }
-    });
-
-    return () => { mounted = false; if (intervalId) clearInterval(intervalId); unsubscribeFocus(); unsubscribeBlur(); };
-  }, [navigation, intervalId]);
+    return () => { 
+      mounted = false; 
+      if (intervalId) {
+        clearInterval(intervalId);
+        setIntervalId(null);
+      }
+    };
+  }, []);
 
   if (loading) return (<View style={[styles.loadingContainer, { backgroundColor: theme.background }]}><ActivityIndicator size="large" color={colors.primary} /></View>);
   if (!standings) return (<View style={[styles.container, { backgroundColor: theme.background }]}><Text style={{ color: theme.text }}>No standings available</Text></View>);

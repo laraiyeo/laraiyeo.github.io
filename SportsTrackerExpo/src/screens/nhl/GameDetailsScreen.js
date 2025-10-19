@@ -1079,7 +1079,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                   top: topStyle,
                   left: leftStyle,
                   // center like soccer player dots
-                  transform: [{ translateX: '-50%' }, { translateY: '-50%' }],
+                  transform: [{ translateX: '0%' }, { translateY: '-7.5%' }],
                   backgroundColor: marker.color || '#999'
                 }
               ]}

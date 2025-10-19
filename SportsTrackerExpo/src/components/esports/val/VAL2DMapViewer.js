@@ -58,8 +58,8 @@ const PlayerMarker = ({ position, playerInfo, theme, matchData, selectedRound, s
         {
           left: position.x - 12, // Center the dot
           top: position.y - 12,
-          backgroundColor: shouldShowCloseIcon ? '' : playerInfo.teamColor,
-          borderColor: shouldShowCloseIcon ? '' : playerInfo.teamColor,
+          backgroundColor: shouldShowCloseIcon ? 'rgba(0, 0, 0, 0)' : playerInfo.teamColor,
+          borderColor: shouldShowCloseIcon ? 'rgba(0, 0, 0, 0)' : playerInfo.teamColor,
           opacity: position.isAlive ? 1.0 : 0.65, // Dead players have reduced opacity
           borderWidth: shouldShowCloseIcon ? 0 : 2,
         },

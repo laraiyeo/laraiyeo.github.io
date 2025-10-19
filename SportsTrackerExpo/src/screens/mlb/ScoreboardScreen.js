@@ -20,7 +20,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
   const { theme, colors, getTeamLogoUrl } = useTheme();
   const { isFavorite } = useFavorites();
   const [games, setGames] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start as false, only show when actually loading
   const [refreshing, setRefreshing] = useState(false);
   const [updateInterval, setUpdateInterval] = useState(null);
   const [selectedDateFilter, setSelectedDateFilter] = useState('today'); // 'yesterday', 'today', 'upcoming'
@@ -94,6 +94,8 @@ const MLBScoreboardScreen = ({ navigation }) => {
     }
   };
 
+
+
   // Track screen focus to pause/resume updates
   useFocusEffect(
     React.useCallback(() => {
@@ -111,9 +113,11 @@ const MLBScoreboardScreen = ({ navigation }) => {
   );
 
   useEffect(() => {
-    // Load the current filter first (non-silent for initial load)
+    // Load data on mount or when filter changes (similar to StatsScreen pattern)
     loadScoreboard(false);
-    
+  }, [selectedDateFilter]);
+
+  useEffect(() => {
     // Set up continuous fetching for 'today' and 'upcoming' - only if screen is focused
     if ((selectedDateFilter === 'today' || selectedDateFilter === 'upcoming') && isScreenFocused) {
       const interval = setInterval(() => {

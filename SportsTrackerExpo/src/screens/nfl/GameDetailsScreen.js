@@ -2790,7 +2790,7 @@ const GameDetailsScreen = ({ route }) => {
 
         {/* Game Info or Yard Line */}
         {!status?.type?.completed && status?.period && status?.period > 0 ? (
-          <View style={styles.yardLineContainer}>
+          <View style={[styles.yardLineContainer, {borderTopColor: theme.border}]}>
             {/* Football Field - always show during active game */}
             <View style={styles.yardLineField}>
               {/* Field yard lines - proper football field layout (Away left, Home right) */}

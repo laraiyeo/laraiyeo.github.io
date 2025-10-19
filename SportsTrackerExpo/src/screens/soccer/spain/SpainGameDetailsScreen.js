@@ -35,6 +35,79 @@ const convertToHttps = (url) => {
   return url;
 };
 
+// Function to get team logo URLs with dark mode support
+const getTeamLogoUrls = (teamId, isDarkMode) => {
+  if (!teamId) return { primaryUrl: null, fallbackUrl: null };
+  
+  const baseUrl = 'https://a.espncdn.com/i/teamlogos/soccer/500';
+  const darkUrl = `${baseUrl}-dark/${teamId}.png`;
+  const lightUrl = `${baseUrl}/${teamId}.png`;
+  
+  return {
+    primaryUrl: isDarkMode ? darkUrl : lightUrl,
+    fallbackUrl: isDarkMode ? lightUrl : darkUrl
+  };
+};
+
+// TeamLogoImage component with dark mode and fallback support
+const TeamLogoImage = React.memo(({ teamId, style, isScoring = false, isDarkMode }) => {
+  const [logoSource, setLogoSource] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  const loadLogo = useCallback(async () => {
+    if (teamId) {
+      try {
+        if (isScoring) {
+          // For scoring plays, always use dark variant
+          const darkUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
+          setLogoSource({ uri: darkUrl });
+        } else {
+          // For non-scoring, use normal dark mode logic
+          const { primaryUrl, fallbackUrl } = getTeamLogoUrls(teamId, isDarkMode);
+          setLogoSource({ uri: primaryUrl });
+        }
+      } catch (error) {
+        console.log('Error loading team logo:', error);
+        setLogoSource(null);
+      }
+    }
+  }, [teamId, isScoring, isDarkMode]);
+
+  useEffect(() => {
+    loadLogo();
+  }, [loadLogo]);
+
+  const handleImageError = useCallback(() => {
+    if (retryCount < 2) {
+      setRetryCount(prev => prev + 1);
+      const { fallbackUrl } = getTeamLogoUrls(teamId, isDarkMode);
+      if (fallbackUrl) {
+        setLogoSource({ uri: fallbackUrl });
+      }
+    } else {
+      // Final fallback to a generic placeholder or null
+      setLogoSource(null);
+    }
+  }, [retryCount, teamId, isDarkMode]);
+
+  if (!logoSource) {
+    return (
+      <View style={[style, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ fontSize: 10, color: '#999' }}>?</Text>
+      </View>
+    );
+  }
+
+  return (
+    <Image 
+      source={logoSource}
+      style={style}
+      onError={handleImageError}
+      resizeMode="contain"
+    />
+  );
+});
+
 const SpainGameDetailsScreen = ({ route, navigation }) => {
   const { gameId, sport, competition, homeTeam, awayTeam } = route?.params || {};
   const { theme, colors, isDarkMode } = useTheme();
@@ -79,102 +152,6 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
   const scrollViewRef = useRef(null);
   const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
   const lastPlaysHashRef = useRef('');
-
-  // Function to get team logo URLs with dark mode support
-  const getTeamLogoUrls = (teamId, isDarkMode) => {
-    if (!teamId) return { primaryUrl: '', fallbackUrl: '' };
-    
-    const baseUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
-    const darkUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
-    
-    if (isDarkMode) {
-      return {
-        primaryUrl: darkUrl,
-        fallbackUrl: baseUrl
-      };
-    } else {
-      return {
-        primaryUrl: baseUrl,
-        fallbackUrl: darkUrl
-      };
-    }
-  };
-
-  // TeamLogoImage component with dark mode and fallback support
-  const TeamLogoImage = ({ teamId, style, isScoring = false }) => {
-    const [logoSource, setLogoSource] = useState(null);
-    const [retryCount, setRetryCount] = useState(0);
-
-    useEffect(() => {
-      const loadLogo = async () => {
-        if (teamId) {
-          try {
-            if (isScoring) {
-              // For scoring plays, always use dark variant
-              const darkUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
-              setLogoSource({ uri: darkUrl });
-            } else {
-              // For non-scoring, use normal dark mode logic
-              const { primaryUrl, fallbackUrl } = getTeamLogoUrls(teamId, isDarkMode);
-              setLogoSource({ uri: primaryUrl });
-            }
-          } catch (error) {
-            console.error('Error loading team logo:', error);
-            setLogoSource(require('../../../../assets/soccer.png'));
-          }
-        } else {
-          setLogoSource(require('../../../../assets/soccer.png'));
-        }
-        setRetryCount(0);
-      };
-      
-      loadLogo();
-    }, [teamId, isDarkMode, isScoring]);
-
-    const handleError = () => {
-      if (retryCount === 0 && teamId) {
-        if (isScoring) {
-          // For scoring plays, fallback to regular variant
-          const regularUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
-          setRetryCount(1);
-          setLogoSource({ uri: regularUrl });
-        } else {
-          // For non-scoring, try the fallback URL (opposite dark mode variant)
-          const { fallbackUrl } = getTeamLogoUrls(teamId, isDarkMode);
-          setRetryCount(1);
-          setLogoSource({ uri: fallbackUrl });
-        }
-      } else {
-        // Final fallback to soccer.png
-        setLogoSource(require('../../../../assets/soccer.png'));
-      }
-    };
-
-    // Get the default source - use actual logo first, then soccer.png
-    const getDefaultSource = () => {
-      if (teamId) {
-        if (isScoring) {
-          // For scoring plays, use dark variant as default
-          const darkUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
-          return { uri: darkUrl };
-        } else {
-          // For non-scoring, use normal logic
-          const { primaryUrl } = getTeamLogoUrls(teamId, isDarkMode);
-          return { uri: primaryUrl };
-        }
-      }
-      return require('../../../../assets/soccer.png');
-    };
-
-    return (
-      <Image
-        style={style}
-        source={logoSource || getDefaultSource()}
-        defaultSource={getDefaultSource()}
-        onError={handleError}
-      />
-    );
-  };
 
   // Enhanced logo function with dark mode support and fallbacks
   const getTeamLogo = async (teamId, isDarkMode) => {
@@ -1947,6 +1924,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                     opacity: 0.6
                   }
                 ]}
+                isDarkMode={isDarkMode}
               />
               <View style={styles.scoreBox}>
                 <View style={styles.scoreWithShootout}>
@@ -2065,6 +2043,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                     opacity: 0.6
                   }
                 ]}
+                isDarkMode={isDarkMode}
               />
             </View>
             <Text allowFontScaling={false} style={[
@@ -2288,6 +2267,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
               <TeamLogoImage 
                 teamId={homeTeam?.team?.id}
                 style={styles.statsTeamLogo}
+                isDarkMode={isDarkMode}
               />
               <Text allowFontScaling={false} style={[styles.statsTeamName, { color: theme.text }]}>
                 {homeTeam.team.shortDisplayName}
@@ -2300,6 +2280,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
               <TeamLogoImage 
                 teamId={awayTeam?.team?.id}
                 style={styles.statsTeamLogo}
+                isDarkMode={isDarkMode}
               />
             </View>
           </View>
@@ -2546,6 +2527,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
               <TeamLogoImage 
                 teamId={homeTeamIdInMatch}
                 style={styles.h2hTeamLogo}
+                isDarkMode={isDarkMode}
               />
               <Text allowFontScaling={false} style={[styles.h2hTeamName, { color: theme.text }]}>
                 {homeTeamInMatch}
@@ -2556,6 +2538,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
               <TeamLogoImage 
                 teamId={awayTeamIdInMatch}
                 style={styles.h2hTeamLogo}
+                isDarkMode={isDarkMode}
               />
               <Text allowFontScaling={false} style={[styles.h2hTeamName, { color: theme.text }]}>
                 {awayTeamInMatch}
@@ -2625,6 +2608,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
           <TeamLogoImage 
             teamId={gameData.homeCompetitor?.team?.id}
             style={styles.teamTabLogo}
+            isDarkMode={isDarkMode}
           />
           <View style={styles.teamTabInfo}>
             <Text allowFontScaling={false} style={[styles.teamTabName, { color: theme.text }]}>
@@ -2695,6 +2679,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
           <TeamLogoImage 
             teamId={gameData.awayCompetitor?.team?.id}
             style={styles.teamTabLogo}
+            isDarkMode={isDarkMode}
           />
           <View style={styles.teamTabInfo}>
             <Text allowFontScaling={false} style={[styles.teamTabName, { color: theme.text }]}>
@@ -2887,7 +2872,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
     return (
       <View style={[styles.subsBox, { backgroundColor: theme.surface, borderColor: colors.primary }]}>
         <View style={styles.subsHeader}>
-          <TeamLogoImage teamId={teamType === 'home' ? gameData?.homeCompetitor?.team?.id : gameData?.awayCompetitor?.team?.id} style={styles.subsTeamLogo} />
+          <TeamLogoImage teamId={teamType === 'home' ? gameData?.homeCompetitor?.team?.id : gameData?.awayCompetitor?.team?.id} style={styles.subsTeamLogo} isDarkMode={isDarkMode} />
           <Text allowFontScaling={false} style={[styles.subsTitle, { color: theme.text }]}>Subs</Text>
         </View>
         <View style={styles.subsList}>
@@ -2956,7 +2941,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
       <View style={styles.pitchesWrapper}>
         <View style={styles.pitchContainer}>
           <View style={styles.teamInfo}>
-            <TeamLogoImage teamId={gameData?.awayCompetitor?.team?.id} style={styles.formTeamLogo} />
+            <TeamLogoImage teamId={gameData?.awayCompetitor?.team?.id} style={styles.formTeamLogo} isDarkMode={isDarkMode} />
             <Text allowFontScaling={false} style={[styles.teamFormation, { color: theme.text }]}>{awayFormation}</Text>
           </View>
           <View style={styles.footballPitch}>
@@ -2972,7 +2957,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
         <View style={styles.pitchContainer}>
           <View style={styles.teamInfo}>
             <Text allowFontScaling={false} style={[styles.teamFormation, { color: theme.text }]}>{homeFormation}</Text>
-            <TeamLogoImage teamId={gameData?.homeCompetitor?.team?.id} style={styles.formTeamLogo} />
+            <TeamLogoImage teamId={gameData?.homeCompetitor?.team?.id} style={styles.formTeamLogo} isDarkMode={isDarkMode} />
           </View>
           <View style={styles.footballPitch}>
             <View style={styles.centerCircle} />
@@ -2993,7 +2978,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
     return (
       <View style={styles.pitchContainer}>
         <View style={styles.teamInfo}>
-          <TeamLogoImage teamId={teamType === 'home' ? gameData?.homeCompetitor?.team?.id : gameData?.awayCompetitor?.team?.id} style={styles.formTeamLogo} />
+          <TeamLogoImage teamId={teamType === 'home' ? gameData?.homeCompetitor?.team?.id : gameData?.awayCompetitor?.team?.id} style={styles.formTeamLogo} isDarkMode={isDarkMode} />
           <Text allowFontScaling={false} style={[styles.teamFormation, { color: theme.text }]}>{formation}</Text>
         </View>
         <View style={styles.footballPitch}>
@@ -3702,6 +3687,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                         teamId={homeTeam?.team?.id}
                         style={styles.teamLogoSmall}
                         isScoring={isScoring}
+                        isDarkMode={isDarkMode}
                       />
                       <Text allowFontScaling={false} style={[styles.scoreSmall, { color: isScoring ? scoringTextColor : theme.text }]}> 
                         {currentHomeScore}
@@ -3716,6 +3702,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                         teamId={awayTeam?.team?.id}
                         style={styles.teamLogoSmall}
                         isScoring={isScoring}
+                        isDarkMode={isDarkMode}
                       />
                     </View>
                   </View>
@@ -4059,6 +4046,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
             <TeamLogoImage 
               teamId={selectedPlayer.teamId}
               style={styles.hoverTeamLogo}
+              isDarkMode={isDarkMode}
             />
             <View style={styles.hoverPlayerName}>
               <Text allowFontScaling={false} style={[styles.hoverJersey, { color: theme.textSecondary }]}>
@@ -4948,7 +4936,7 @@ const styles = StyleSheet.create({
   centerCircle: {
     position: 'absolute',
     top: '-0.5%', // Matches CSS positioning
-    left: '50%',
+    left: '42.5%',
     width: '40.98%', // 250px of 610px from CSS
     height: '20%', // Reduced height for half circle effect
     borderWidth: 2,
@@ -5012,6 +5000,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 5,
+    transform: [{ translateX: '30%' }, { translateY: '12.5%' }], // Center horizontally
   },
   playerNumber: {
     color: '#000000', // Black text like web
@@ -5025,6 +5014,7 @@ const styles = StyleSheet.create({
     textShadowColor: '#000000', // Black text shadow like web
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 1,
+    transform: [{ translateX: '30%' }, { translateY: '12.5%' }], // Center horizontally
   },
   subsBox: {
     width: width - 20, // Match the pitch width

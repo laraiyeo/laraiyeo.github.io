@@ -208,6 +208,7 @@ const SettingsScreen = ({ navigation }) => {
               }}
               thumbColor={isDarkMode ? colors.accent : '#f4f3f4'}
               ios_backgroundColor={theme.border}
+              marginRight={50}
             />
           </View>
           
@@ -272,9 +273,9 @@ const SettingsScreen = ({ navigation }) => {
         {/* Streaming Code Section */}
         <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.sectionHeader}>
-            <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Video Access</Text>
+            <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Special Access</Text>
             <Text allowFontScaling={false} style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
-              {isStreamingUnlocked ? 'Streaming is currently unlocked' : 'Unlock video features'}
+              {isStreamingUnlocked ? 'Streaming is currently unlocked' : 'Unlock special features'}
             </Text>
           </View>
           
@@ -459,7 +460,7 @@ What word do you send?
             
             <TouchableOpacity
               style={[styles.contactButton, { backgroundColor: theme.surfaceSecondary }]}
-              onPress={() => Linking.openURL('https://x.com/laraiyeo')}
+              onPress={() => Linking.openURL('https://x.com/sportsheart_')}
               activeOpacity={0.7}
             >
               <Image 

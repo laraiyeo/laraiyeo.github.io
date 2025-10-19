@@ -32,11 +32,9 @@ const normalizeTeam = (entry) => {
     winPercentage: statObj.winPercent || statObj.winPercentage || '0.000',
     gamesBehind: statObj.gamesBehind || statObj.gb || '0',
     streak: statObj.streak || '',
-    pointsFor: statObj.pointsFor || statObj.pf || '0',
-    pointsAgainst: statObj.pointsAgainst || statObj.pa || '0',
-    ppg: ppg,
-    oppPpg: oppPpg,
-    diff: diffFormatted,
+    pointsFor: statObj.avgPointsFor || statObj.pf || '0',
+    pointsAgainst: statObj.avgPointsAgainst || statObj.pa || '0',
+    diff: statObj.differential || '0',
     conferenceName: team.conferenceName,
     divisionName: team.divisionName,
     clinchIndicator: statObj.clinchIndicator || null,
@@ -73,7 +71,7 @@ const NBAStandingsScreen = () => {
   const { theme, colors, getTeamLogoUrl } = useTheme();
   const { isFavorite } = useFavorites();
   const navigation = useNavigation();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [standings, setStandings] = useState(null);
   const [intervalId, setIntervalId] = useState(null);
 
@@ -93,8 +91,13 @@ const NBAStandingsScreen = () => {
 
   useEffect(() => {
     let mounted = true;
-    const load = async () => {
+    const load = async (silent = false) => {
       try {
+        // Only show loading for non-silent updates
+        if (!silent && mounted) {
+          setLoading(true);
+        }
+        
         const data = await NBAService.getStandings();
         if (!mounted) return;
         const formattedData = NBAService.formatStandingsForMobile(data);
@@ -102,24 +105,23 @@ const NBAStandingsScreen = () => {
       } catch (e) {
         console.error('Failed to load NBA standings', e);
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted && !silent) {
+          setLoading(false);
+        }
       }
     };
 
+    // Initial load only (like StatsScreen - no background updates)
     load();
 
-    const unsubscribeFocus = navigation.addListener('focus', () => {
-      load();
-      const id = setInterval(load, 30000);
-      setIntervalId(id);
-    });
-
-    const unsubscribeBlur = navigation.addListener('blur', () => {
-      if (intervalId) { clearInterval(intervalId); setIntervalId(null); }
-    });
-
-    return () => { mounted = false; if (intervalId) clearInterval(intervalId); unsubscribeFocus(); unsubscribeBlur(); };
-  }, [navigation, intervalId]);
+    return () => { 
+      mounted = false; 
+      if (intervalId) {
+        clearInterval(intervalId);
+        setIntervalId(null);
+      }
+    };
+  }, []);
 
   if (loading) return (<View style={[styles.loadingContainer, { backgroundColor: theme.background }]}><ActivityIndicator size="large" color={colors.primary} /></View>);
   if (!standings) return (<View style={[styles.container, { backgroundColor: theme.background }]}><Text style={{ color: theme.text }}>No standings available</Text></View>);
@@ -193,7 +195,7 @@ const NBAStandingsScreen = () => {
           </View>
           <View style={styles.ppgContainer}>
             <Text allowFontScaling={false} style={[styles.ppgText, { color: theme.textSecondary }]}>
-              PPG: {team.ppg} | OPP: {team.oppPpg} | 
+              PPG: {team.pointsFor} | OPP: {team.pointsAgainst} | 
             </Text>
             <Text allowFontScaling={false} style={[
               styles.diffText, 

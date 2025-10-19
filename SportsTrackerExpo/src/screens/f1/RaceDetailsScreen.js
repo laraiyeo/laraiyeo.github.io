@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { SvgUri } from 'react-native-svg';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { useWindowDimensions } from 'react-native';
@@ -129,6 +129,7 @@ const RaceDetailsScreen = ({ route }) => {
   const [liveUpdateInterval, setLiveUpdateInterval] = useState(null);
   const [currentLiveSession, setCurrentLiveSession] = useState(null);
   const [nextScheduledSession, setNextScheduledSession] = useState(null);
+  const [isScreenFocused, setIsScreenFocused] = useState(true);
 
   // Refs to access current values in interval callbacks
   const selectedTabRef = useRef(selectedTab);
@@ -139,6 +140,18 @@ const RaceDetailsScreen = ({ route }) => {
   useEffect(() => { selectedTabRef.current = selectedTab; }, [selectedTab]);
   useEffect(() => { selectedCompetitionIdRef.current = selectedCompetitionId; }, [selectedCompetitionId]);
   useEffect(() => { competitionResultsRef.current = competitionResults; }, [competitionResults]);
+
+  // Handle screen focus/blur to stop updates when not on screen
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('[useFocusEffect] Screen focused');
+      setIsScreenFocused(true);
+      return () => {
+        console.log('[useFocusEffect] Screen blurred');
+        setIsScreenFocused(false);
+      };
+    }, [])
+  );
 
   // OpenF1 API related state
   const [openF1Data, setOpenF1Data] = useState({
@@ -1897,9 +1910,39 @@ const RaceDetailsScreen = ({ route }) => {
                 const response = await fetch(convertToHttps(statsRef));
                 const statsData = await response.json();
                 
+                // Extract laps and other data from live stats
+                let liveUpdatedLaps = competitor.laps;
+                let liveUpdatedTotalTime = competitor.totalTime;
+                
+                if (statsData?.splits?.categories) {
+                  const categories = statsData.splits.categories;
+                  
+                  // Extract laps from various possible locations in the stats
+                  for (const category of categories) {
+                    if (category.stats) {
+                      for (const stat of category.stats) {
+                        const statName = (stat.name || '').toLowerCase();
+                        const statValue = stat.displayValue || stat.value;
+                        
+                        // Update laps if found
+                        if (!liveUpdatedLaps && (statName.includes('lapscompleted') || statName.includes('laps'))) {
+                          liveUpdatedLaps = statValue;
+                        }
+                        
+                        // Update total time if found
+                        if (!liveUpdatedTotalTime && (statName.includes('totaltime') || statName.includes('total'))) {
+                          liveUpdatedTotalTime = statValue;
+                        }
+                      }
+                    }
+                  }
+                }
+                
                 const updatedCompetitor = {
                   ...competitor,
-                  liveStats: statsData
+                  liveStats: statsData,
+                  laps: liveUpdatedLaps || competitor.laps,
+                  totalTime: liveUpdatedTotalTime || competitor.totalTime
                 };
                 
                 // Successfully updated with live stats
@@ -1935,12 +1978,8 @@ const RaceDetailsScreen = ({ route }) => {
 
     console.log('[startLiveUpdates] Starting live updates every 5 seconds');
     const interval = setInterval(() => {
-      // Skip update if stream modal is open
-      if (streamModalVisible) {
-        console.log('Stream modal open, skipping F1 race update');
-        return;
-      }
-      
+      // Update live race status - conditions already checked at useEffect level
+      console.log('[liveUpdateInterval] Running scheduled update');
       updateLiveRaceStatus();
     }, 5000); // Update every 5 seconds
 
@@ -1971,35 +2010,21 @@ const RaceDetailsScreen = ({ route }) => {
     }
   }, [raceData, selectedCompetitionId]);
 
-  // Separate effect to manage live update intervals based on overall live status
-  // Effect to manage live updates based on race status (not dependent on competition results to avoid restarts)
+  // Main effect to manage live update intervals based on all conditions
   useEffect(() => {
-    if (raceData) {
+    // Stop any existing intervals first
+    stopLiveUpdates();
+
+    // Only start updates if all conditions are met:
+    // 1. Screen is focused
+    // 2. Stream modal is not visible
+    // 3. Race data exists
+    // 4. Race is live OR has live competitions in results
+    if (isScreenFocused && !streamModalVisible && raceData) {
       const isLive = checkIfRaceIsLive();
-      if (isLive && !streamModalVisible) {
-        console.log('[useEffect] Starting live updates - race is live and stream modal closed');
-        startLiveUpdates();
-      } else {
-        if (streamModalVisible) {
-          console.log('[useEffect] Stopping live updates - stream modal is open');
-        } else {
-          console.log('[useEffect] Stopping live updates - race not live');
-        }
-        stopLiveUpdates();
-      }
-    }
-
-    // Cleanup on unmount
-    return () => {
-      stopLiveUpdates();
-    };
-  }, [raceData, streamModalVisible]); // Added streamModalVisible dependency
-
-  // Separate effect to check for live competitions in competition results
-  useEffect(() => {
-    if (raceData && competitionResults && !streamModalVisible) {
-      // Check if ANY competition is live, not just the selected one
-      const hasAnyLiveCompetition = raceData.competitions?.some(comp => {
+      
+      // Check if ANY competition is live in competition results
+      const hasAnyLiveCompetition = competitionResults && raceData.competitions?.some(comp => {
         const competition = competitionResults[comp.id];
         if (!competition) return false;
         
@@ -2008,35 +2033,52 @@ const RaceDetailsScreen = ({ route }) => {
         return !(completed === true || statusState === 'post' || statusState === 'final');
       });
 
-      if (hasAnyLiveCompetition && !checkIfRaceIsLive()) {
-        console.log('[useEffect] Live competition detected in results - starting updates');
+      if (isLive || hasAnyLiveCompetition) {
+        console.log('[useEffect] Starting live updates - conditions met:', {
+          isScreenFocused,
+          streamModalVisible: !streamModalVisible,
+          hasRaceData: !!raceData,
+          isLive,
+          hasAnyLiveCompetition
+        });
         startLiveUpdates();
+      } else {
+        console.log('[useEffect] Race not live and no live competitions');
       }
-    } else if (streamModalVisible) {
-      // Stop updates when stream modal is open
-      console.log('[useEffect] Stream modal opened - stopping competition updates');
+    } else {
+      console.log('[useEffect] Stopping live updates - conditions not met:', {
+        isScreenFocused,
+        streamModalVisible,
+        hasRaceData: !!raceData
+      });
+    }
+
+    // Cleanup on unmount or dependency change
+    return () => {
       stopLiveUpdates();
-    }
-  }, [competitionResults, streamModalVisible]); // Added streamModalVisible dependency
+    };
+  }, [raceData, competitionResults, streamModalVisible, isScreenFocused])
 
-  // Separate effect to handle immediate update when switching to Results/Grid tabs
+  // Separate effect to handle immediate update when switching to Results/Grid tabs or modal closes
   useEffect(() => {
-    if (raceData && checkIfRaceIsLive() && (selectedTab === 'RESULTS' || selectedTab === 'GRID') && !streamModalVisible) {
-      console.log('[useEffect] Tab switched to', selectedTab, '- triggering immediate update');
-      updateLiveRaceStatus();
-    }
-  }, [selectedTab, streamModalVisible]);
-
-  // Fetch immediately when stream modal closes
-  useEffect(() => {
-    if (streamModalVisible === false && raceData) {
-      const isLive = checkIfRaceIsLive();
-      if (isLive) {
-        console.log('Stream modal closed, immediately fetching F1 race data');
+    if (isScreenFocused && !streamModalVisible && raceData && checkIfRaceIsLive()) {
+      if (selectedTab === 'RESULTS' || selectedTab === 'GRID') {
+        console.log('[useEffect] Tab switched to', selectedTab, '- triggering immediate update');
         updateLiveRaceStatus();
       }
     }
-  }, [streamModalVisible]);
+  }, [selectedTab, streamModalVisible, isScreenFocused]);
+
+  // Fetch immediately when stream modal closes or screen regains focus (for live races)
+  useEffect(() => {
+    if (isScreenFocused && !streamModalVisible && raceData) {
+      const isLive = checkIfRaceIsLive();
+      if (isLive) {
+        console.log('[useEffect] Screen focused/modal closed - immediately fetching F1 race data');
+        updateLiveRaceStatus();
+      }
+    }
+  }, [streamModalVisible, isScreenFocused]);
 
   const formatRaceDate = (dateString) => {
     const date = new Date(dateString);
@@ -2418,7 +2460,7 @@ const RaceDetailsScreen = ({ route }) => {
                     </View>
                   </View>
                   <View style={styles.racerRight}>
-                    {r.winner ? <Text allowFontScaling={false} style={[styles.winnerBadge, { backgroundColor: colors.primary }]}>WIN</Text> : null}
+                    {r.winner ? <View allowFontScaling={false} style={[styles.winnerBadgeContainer, { backgroundColor: colors.primary, borderColor: colors.secondary }]}><Text allowFontScaling={false} style={styles.winnerText}>WIN</Text></View> : null}
                     {isQual ? (
                       <View style={{ alignItems: 'flex-end' }}>
                         {r.qual1 ? <Text allowFontScaling={false} style={[styles.totalTime, { color: theme.text }]}>Q1: {r.qual1}</Text> : null}
@@ -3759,13 +3801,19 @@ const RaceDetailsScreen = ({ route }) => {
       fontSize: 12,
       marginTop: 3
     },
-    winnerBadge: {
+    winnerBadgeContainer: {
       paddingVertical: 4,
       paddingHorizontal: 8,
       borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#fff',
+      justifyContent: 'center', // to center text vertically
+      alignItems: 'center', // to center text horizontally
+    },
+    winnerText: {
       color: '#fff',
       fontWeight: '700',
-      fontSize: 12
+      fontSize: 12,
     },
     orderText: {
       fontSize: 13,

@@ -714,7 +714,11 @@ const MainStackNavigator = () => {
   const { colors } = useTheme();
   
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        headerBackTitle: 'Back', // Always show "Back" instead of previous screen name
+      }}
+    >
       <Stack.Screen 
         name="Home" 
         component={HomeTabNavigator}

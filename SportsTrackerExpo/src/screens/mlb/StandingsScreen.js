@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
@@ -10,40 +10,47 @@ const StandingsScreen = ({ route }) => {
   const { theme, colors, getTeamLogoUrl } = useTheme();
   const { isFavorite } = useFavorites();
   const [standings, setStandings] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start as false, only show when actually loading
   const [intervalId, setIntervalId] = useState(null);
+  const intervalRef = useRef(null); // More reliable interval tracking
+  const instanceId = useRef(Math.random().toString(36).substr(2, 9)); // Unique instance ID
   const navigation = useNavigation();
 
+  console.log('MLB Standings instance created:', instanceId.current);
+
   useEffect(() => {
+    console.log('MLB Standings useEffect mount:', instanceId.current);
+    
+    // Fetch on mount only (like StatsScreen - no background updates)
     fetchStandings();
     
-    // Focus listener to start updates when screen becomes active
-    const unsubscribeFocus = navigation.addListener('focus', () => {
-      fetchStandings();
-      const interval = setInterval(fetchStandings, 60000); // 1 minute
-      setIntervalId(interval);
-    });
+    // No interval - just fetch once and cache the data
+    // This prevents any background fetching issues
     
-    // Blur listener to stop updates when screen becomes inactive
-    const unsubscribeBlur = navigation.addListener('blur', () => {
+    return () => {
+      console.log('MLB Standings useEffect cleanup:', instanceId.current);
+      
+      // Clean up any existing intervals just in case
+      if (intervalRef.current) {
+        console.log('MLB Standings: Cleaning up interval on unmount:', instanceId.current);
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
       if (intervalId) {
+        console.log('MLB Standings: Cleaning up state interval on unmount:', instanceId.current);
         clearInterval(intervalId);
         setIntervalId(null);
       }
-    });
-    
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-      unsubscribeFocus();
-      unsubscribeBlur();
     };
-  }, [navigation, intervalId]);
+  }, []);
 
-  const fetchStandings = async () => {
+  const fetchStandings = async (silent = false) => {
+    console.log('MLB Standings: fetchStandings called, instance:', instanceId.current, 'silent:', silent);
     try {
-      setLoading(true);
+      // Only show loading for non-silent updates
+      if (!silent) {
+        setLoading(true);
+      }
       
       // Use direct ESPN API
       const response = await fetch('https://cdn.espn.com/core/mlb/standings?xhr=1');
@@ -58,16 +65,22 @@ const StandingsScreen = ({ route }) => {
     } catch (error) {
       console.error('StandingsScreen: Error fetching standings:', error);
       
-      Alert.alert(
-        'Error',
-        'Failed to load standings. Please check your connection and try again.',
-        [
-          { text: 'Retry', onPress: fetchStandings },
-          { text: 'OK' }
-        ]
-      );
+      // Only show alerts for non-silent updates
+      if (!silent) {
+        Alert.alert(
+          'Error',
+          'Failed to load standings. Please check your connection and try again.',
+          [
+            { text: 'Retry', onPress: () => fetchStandings(false) },
+            { text: 'OK' }
+          ]
+        );
+      }
     } finally {
-      setLoading(false);
+      // Only clear loading for non-silent updates
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 

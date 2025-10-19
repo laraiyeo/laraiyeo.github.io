@@ -648,6 +648,8 @@ const TeamPageScreen = ({ route, navigation }) => {
     const competitors = competition.competitors || [];
     const homeTeam = competitors.find(c => c.homeAway === 'home') || home;
     const awayTeam = competitors.find(c => c.homeAway === 'away') || away;
+    const period = competition.status?.type?.description || competition.status?.period || 'N/A';
+    const clock = competition.status?.type?.shortDetail || competition.status?.displayClock || '0:00';
 
     // Debug: log first two logo entries returned by the API for each team (if present)
     try {
@@ -702,7 +704,6 @@ const TeamPageScreen = ({ route, navigation }) => {
     const determineWinner = () => {
       if (gameStatus !== 'Final') return { homeIsWinner: false, awayIsWinner: false, isDraw: false };
       if (homeShootout !== null && awayShootout !== null) {
-        const h = parseInt(homeShootout || '0');
         const a = parseInt(awayShootout || '0');
         if (h > a) return { homeIsWinner: true, awayIsWinner: false, isDraw: false };
         if (a > h) return { homeIsWinner: false, awayIsWinner: true, isDraw: false };
@@ -736,7 +737,7 @@ const TeamPageScreen = ({ route, navigation }) => {
             <View style={styles.teamSection}>
               <View style={styles.teamLogoRow}>
                 <TeamLogoImage team={awayTeam.team || awayTeam} style={[styles.teamLogo, awayIsLoser && styles.losingTeamLogo]} />
-                {gameStatus !== 'Scheduled' && (
+                {gameStatus !== 'Scheduled' && !(homeScore === '0' && awayScore === '0') && (
                   <View style={styles.scoreContainer}>
                     <Text allowFontScaling={false} style={[styles.teamScore, { color: (gameStatus === 'Final' && awayIsWinner) ? colors.primary : (awayIsLoser ? '#999' : theme.text) }]}>{awayScore}</Text>
                     {awayShootout && <Text allowFontScaling={false} style={[styles.shootoutScore, { color: awayIsLoser ? '#999' : colors.primary }]}>{`(${awayShootout})`}</Text>}
@@ -748,13 +749,13 @@ const TeamPageScreen = ({ route, navigation }) => {
 
             <View style={styles.statusSection}>
               <Text allowFontScaling={false} style={[styles.gameStatus, { color: gameStatus === 'Current' ? '#ff4444' : colors.primary }]}>{gameStatus}</Text>
-              <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>{formatGameDateEst(estDate)}</Text>
-              <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>{formatGameTimeEst(estDate)} EST</Text>
+              <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>{period}</Text>
+              <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>{clock}</Text>
             </View>
 
             <View style={styles.teamSection}>
               <View style={styles.teamLogoRow}>
-                {gameStatus !== 'Scheduled' && (
+                {gameStatus !== 'Scheduled' && !(homeScore === '0' && awayScore === '0') && (
                   <View style={styles.scoreContainer}>
                     {homeShootout && <Text allowFontScaling={false} style={[styles.shootoutScore, { color: homeIsLoser ? '#999' : colors.primary }]}>{`(${homeShootout})`}</Text>}
                     <Text allowFontScaling={false} style={[styles.teamScore, { color: (gameStatus === 'Final' && homeIsWinner) ? colors.primary : (homeIsLoser ? '#999' : theme.text) }]}>{homeScore}</Text>

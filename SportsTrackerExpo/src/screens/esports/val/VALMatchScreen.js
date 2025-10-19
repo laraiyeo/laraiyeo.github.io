@@ -566,11 +566,11 @@ const VALMatchScreen = ({ navigation, route }) => {
                     {player.economy?.armorId ? (
                       <Image 
                         source={{ uri: getArmorImage(player.economy.armorId) }} 
-                        style={styles.equipmentImage}
+                        style={[styles.equipmentImage, { tintColor: theme.text }]}
                       />
                     ) : (
                       <View style={styles.equipmentPlaceholder}>
-                        <Text style={[styles.equipmentPlaceholderText, { color: theme.textSecondary }]}>-</Text>
+                        <Text style={[styles.equipmentPlaceholderText, { color: theme.text }]}>-</Text>
                       </View>
                     )}
                   </View>
@@ -578,11 +578,11 @@ const VALMatchScreen = ({ navigation, route }) => {
                     {player.economy?.weaponId ? (
                       <Image 
                         source={{ uri: getWeaponImage(player.economy.weaponId) }} 
-                        style={styles.equipmentImage}
+                        style={[styles.equipmentImage, { tintColor: theme.text }]}
                       />
                     ) : (
                       <View style={styles.equipmentPlaceholder}>
-                        <Text style={[styles.equipmentPlaceholderText, { color: theme.textSecondary }]}>-</Text>
+                        <Text style={[styles.equipmentPlaceholderText, { color: theme.text }]}>-</Text>
                       </View>
                     )}
                   </View>
@@ -924,7 +924,8 @@ const VALMatchScreen = ({ navigation, route }) => {
                                 source={{ uri: getWeaponImage(event.weaponId) }}
                                 style={[
                                   styles.killFeedWeaponImage,
-                                  weaponFlipped && styles.weaponFlipped
+                                  weaponFlipped && styles.weaponFlipped,
+                                  { tintColor: theme.text}
                                 ]}
                               />
                             ) : event.ability ? (
@@ -932,7 +933,8 @@ const VALMatchScreen = ({ navigation, route }) => {
                                 source={{ uri: getAbilityImage(event.ability) }}
                                 style={[
                                   styles.killFeedWeaponImage,
-                                  weaponFlipped && styles.weaponFlipped
+                                  weaponFlipped && styles.weaponFlipped,
+                                  { tintColor: theme.text }
                                 ]}
                               />
                             ) : (
