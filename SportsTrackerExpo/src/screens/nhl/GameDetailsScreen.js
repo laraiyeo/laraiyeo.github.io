@@ -51,7 +51,7 @@ const getSmartTeamColors = (awayTeam, homeTeam) => {
   const homeAlternate = homeTeam.alternateColor ? `#${homeTeam.alternateColor}` : homePrimary;
   
   const similarity = calculateColorSimilarity(awayPrimary, homePrimary);
-  const conflictThreshold = 0.475; // More sensitive to color conflicts
+  const conflictThreshold = 0.625; // More sensitive to color conflicts
   
   console.log(`NHL Color Debug: ${awayTeam.displayName} (${awayPrimary}, alt: ${awayAlternate}) vs ${homeTeam.displayName} (${homePrimary}, alt: ${homeAlternate}), similarity: ${similarity.toFixed(3)}`);
   
