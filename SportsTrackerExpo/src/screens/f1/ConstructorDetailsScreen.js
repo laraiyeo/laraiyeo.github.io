@@ -15,7 +15,6 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { useWindowDimensions } from 'react-native';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const ConstructorDetailsScreen = ({ route }) => {
   const { constructorId, constructorName, constructorColor } = route.params || {};
@@ -166,24 +165,21 @@ const ConstructorDetailsScreen = ({ route }) => {
       // If we have a constructorId, try the manufacturer records endpoint (preferred)
       if (constructorId) {
         try {
-          const manufData = await YearFallbackUtils.fetchWithYearFallback(
-            async (year) => {
-              const manufUrl = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/manufacturers/${constructorId}/records/1?lang=en&region=us`;
-              const response = await fetch(manufUrl);
-              
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-              }
-              
-              return await response.json();
-            },
-            (data) => {
-              console.log('Validating F1 manufacturer records data:', data);
-              return data && (data.stats || data.records);
-            }
-          );
-
-          if (manufData) {
+          const currentYear = new Date().getFullYear();
+          const manufUrl = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/manufacturers/${constructorId}/records/1?lang=en&region=us`;
+          const response = await fetch(manufUrl);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          
+          const data = await response.json();
+          
+          // Validate that we have relevant data
+          console.log('Validating F1 manufacturer records data:', data);
+          if (data && (data.stats || data.records)) {
+            const manufData = { data, year: currentYear };
+            
             console.log('Manufacturer records response:', JSON.stringify(manufData, null, 2));
             
             const actualManufData = manufData?.data || manufData;
@@ -220,21 +216,22 @@ const ConstructorDetailsScreen = ({ route }) => {
       }
 
       // Try the current season standings as a fallback
-      const response = await YearFallbackUtils.fetchWithYearFallback(
-        async (year) => {
-          const apiResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/standings/1`);
-          
-          if (!apiResponse.ok) {
-            throw new Error(`HTTP ${apiResponse.status}`);
-          }
-          
-          return await apiResponse.json();
-        },
-        (data) => {
-          console.log('Validating F1 constructor standings data:', data);
-          return data && data.standings && data.standings.length > 0;
-        }
-      );
+      const currentYear = new Date().getFullYear();
+      const apiResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/standings/1`);
+      
+      if (!apiResponse.ok) {
+        throw new Error(`HTTP ${apiResponse.status}`);
+      }
+      
+      const standingsData = await apiResponse.json();
+      
+      // Validate that we have relevant data
+      console.log('Validating F1 constructor standings data:', standingsData);
+      if (!(standingsData && standingsData.standings && standingsData.standings.length > 0)) {
+        throw new Error('No constructor standings data found');
+      }
+      
+      const response = { data: standingsData, year: currentYear };
       console.log('=== CONSTRUCTOR STANDINGS RESPONSE ===');
       console.log(JSON.stringify(response, null, 2));
       
@@ -667,21 +664,22 @@ const ConstructorDetailsScreen = ({ route }) => {
   const fetchConstructorRacers = async () => {
     try {
       // Fetch current driver standings and filter by constructor
-      const data = await YearFallbackUtils.fetchWithYearFallback(
-        async (year) => {
-          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/standings/0`);
-          
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          
-          return await response.json();
-        },
-        (data) => {
-          console.log('Validating F1 driver standings data:', data);
-          return data && data.standings && data.standings.length > 0;
-        }
-      );
+      const currentYear = new Date().getFullYear();
+      const response = await fetch(`https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/standings/0`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const standingsRawData = await response.json();
+      
+      // Validate that we have relevant data
+      console.log('Validating F1 driver standings data:', standingsRawData);
+      if (!(standingsRawData && standingsRawData.standings && standingsRawData.standings.length > 0)) {
+        throw new Error('No driver standings data found');
+      }
+      
+      const data = { data: standingsRawData, year: currentYear };
       
       console.log('Driver standings response:', data);
       const standingsData = data?.data || data;
@@ -690,7 +688,8 @@ const ConstructorDetailsScreen = ({ route }) => {
       if (standingsData?.standings) {
         const constructorDrivers = [];
         
-        for (const standing of standingsData.standings) {
+        // Process all drivers concurrently instead of sequentially
+        const driverPromises = standingsData.standings.map(async (standing) => {
           try {
             const athleteUrl = normalizeUrl(standing.athlete.$ref);
             const athleteResponse = await fetch(athleteUrl);
@@ -753,7 +752,7 @@ const ConstructorDetailsScreen = ({ route }) => {
 
             if (normalizedDriverTeam === normalizedConstructor) {
               console.log('Found driver for constructor:', athleteData.displayName);
-              constructorDrivers.push({
+              return {
                 id: athleteData.id,
                 name: athleteData.displayName || athleteData.name,
                 firstName: athleteData.firstName || '',
@@ -762,16 +761,27 @@ const ConstructorDetailsScreen = ({ route }) => {
                 headshot: buildESPNHeadshotUrl(athleteData.id) || athleteData.headshot?.href || null,
                 points: (Array.isArray(standing.records?.[0]?.stats) ? standing.records[0].stats.find(stat => stat.name === 'championshipPts')?.displayValue : standing.records?.[0]?.stats?.championshipPts?.displayValue) || '0',
                 wins: (Array.isArray(standing.records?.[0]?.stats) ? standing.records[0].stats.find(stat => stat.name === 'wins')?.displayValue : standing.records?.[0]?.stats?.wins?.displayValue) || '0',
-                position: constructorDrivers.length + 1
-              });
+                position: 0 // Will be assigned after filtering
+              };
             }
+            return null;
           } catch (error) {
             console.error('Error processing driver:', error);
+            return null;
           }
-        }
+        });
+
+        // Wait for all driver promises to complete
+        const driverResults = await Promise.all(driverPromises);
         
-        console.log('Final constructor drivers:', constructorDrivers);
-        setRacers(constructorDrivers);
+        // Filter out null results and assign positions
+        const validDrivers = driverResults.filter(driver => driver !== null);
+        validDrivers.forEach((driver, index) => {
+          driver.position = index + 1;
+        });
+        
+        console.log('Final constructor drivers:', validDrivers);
+        setRacers(validDrivers);
       }
     } catch (error) {
       console.error('Error fetching constructor racers:', error);
@@ -800,7 +810,7 @@ const ConstructorDetailsScreen = ({ route }) => {
     const logoColor = (forceWhite || !blackLogoConstructors.includes(constructorName)) ? 'logowhite' : 'logoblack';
 
     const logoName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
-    const currentYear = YearFallbackUtils.getCurrentYear(); // Use current year for logos
+    const currentYear = new Date().getFullYear(); // Use current year for logos
     return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${currentYear}/${logoName}/${currentYear}${logoName}${logoColor}.webp`;
   };
 

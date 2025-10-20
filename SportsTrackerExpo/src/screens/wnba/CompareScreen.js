@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import WNBADataService from '../../services/WNBADataService';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const CompareScreen = ({ route }) => {
   const { sport } = route.params;
@@ -22,8 +21,8 @@ const CompareScreen = ({ route }) => {
   // State for player comparison
   const [player1, setPlayer1] = useState(null);
   const [player2, setPlayer2] = useState(null);
-  const [player1Year, setPlayer1Year] = useState(YearFallbackUtils.getCurrentYear());
-  const [player2Year, setPlayer2Year] = useState(YearFallbackUtils.getCurrentYear());
+  const [player1Year, setPlayer1Year] = useState(new Date().getFullYear());
+  const [player2Year, setPlayer2Year] = useState(new Date().getFullYear());
   const [comparisonStats, setComparisonStats] = useState(null);
   const [loading, setLoading] = useState(false);
   
@@ -43,7 +42,7 @@ const CompareScreen = ({ route }) => {
   const [allWNBAPlayers, setAllWNBAPlayers] = useState([]);
 
   // Generate year options
-  const currentYear = YearFallbackUtils.getCurrentYear();
+  const currentYear = new Date().getFullYear();
   const startYear = 2020;
   const yearOptions = Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i);
 
@@ -236,7 +235,7 @@ const CompareScreen = ({ route }) => {
           onPress={() => openPlayerSearch(playerNumber)}
         >
           <Text style={[styles.addPlayerIcon, { color: colors.primary }]}>+</Text>
-          <Text style={[styles.addPlayerText, { color: theme.text }]}>
+          <Text style={[styles.addPlayerText, { color: colors.primary }]}>
             Add Player {playerNumber}
           </Text>
         </TouchableOpacity>

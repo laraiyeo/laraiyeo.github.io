@@ -493,8 +493,7 @@ export const fetchNHLTeamCurrentGame = async (teamId, updateTeamCurrentGameFunc)
     
     // Use API-safe team id (strip sport suffixes) for ESPN API calls
     const nhlApiTeamId = getAPITeamId(teamId, 'nhl');
-    const encodedNhlId = encodeURIComponent(String(nhlApiTeamId));
-    console.log(`[TEAM PAGE UTILS] Using API team ID: ${nhlApiTeamId} (encoded: ${encodedNhlId})`);
+    console.log(`[TEAM PAGE UTILS] Using API team ID: ${nhlApiTeamId}`);
     
     // Get today's date range
     const today = new Date();
@@ -508,20 +507,21 @@ export const fetchNHLTeamCurrentGame = async (teamId, updateTeamCurrentGameFunc)
     const dateStr = formatDate(today);
     console.log(`[TEAM PAGE UTILS] NHL date: ${dateStr}`);
     
-    // Fetch NHL schedule for the team
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${encodedNhlId}/schedule`);
+    // Use lightweight scoreboard endpoint instead of heavy schedule endpoint
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates=${dateStr}`);
     const data = await response.json();
     
     if (!data.events || data.events.length === 0) {
-      console.log(`[TEAM PAGE UTILS] No NHL games found for team ${teamId}`);
+      console.log(`[TEAM PAGE UTILS] No NHL games found for date ${dateStr}`);
       return { success: false, reason: 'No games found' };
     }
     
-    // Find today's game
+    // Find today's game for this team
     const todayGame = data.events.find(event => {
-      const gameDate = new Date(event.date);
-      const gameDateStr = formatDate(gameDate);
-      return gameDateStr === dateStr;
+      const competition = event.competitions?.[0];
+      return competition?.competitors?.some(competitor => 
+        String(competitor.team.id) === String(nhlApiTeamId)
+      );
     });
     
     if (!todayGame) {
@@ -576,8 +576,7 @@ export const fetchNBATeamCurrentGame = async (teamId, updateTeamCurrentGameFunc)
     
     // Use API-safe team id (strip sport suffixes) for ESPN API calls
     const nbaApiTeamId = getAPITeamId(teamId, 'nba');
-    const encodedNbaId = encodeURIComponent(String(nbaApiTeamId));
-    console.log(`[TEAM PAGE UTILS] Using API team ID: ${nbaApiTeamId} (encoded: ${encodedNbaId})`);
+    console.log(`[TEAM PAGE UTILS] Using API team ID: ${nbaApiTeamId}`);
     
     // Get today's date range
     const today = new Date();
@@ -591,20 +590,21 @@ export const fetchNBATeamCurrentGame = async (teamId, updateTeamCurrentGameFunc)
     const dateStr = formatDate(today);
     console.log(`[TEAM PAGE UTILS] NBA date: ${dateStr}`);
     
-    // Fetch NBA schedule for the team
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${encodedNbaId}/schedule`);
+    // Use lightweight scoreboard endpoint instead of heavy schedule endpoint
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateStr}`);
     const data = await response.json();
     
     if (!data.events || data.events.length === 0) {
-      console.log(`[TEAM PAGE UTILS] No NBA games found for team ${teamId}`);
+      console.log(`[TEAM PAGE UTILS] No NBA games found for date ${dateStr}`);
       return { success: false, reason: 'No games found' };
     }
     
-    // Find today's game
+    // Find today's game for this team
     const todayGame = data.events.find(event => {
-      const gameDate = new Date(event.date);
-      const gameDateStr = formatDate(gameDate);
-      return gameDateStr === dateStr;
+      const competition = event.competitions?.[0];
+      return competition?.competitors?.some(competitor => 
+        String(competitor.team.id) === String(nbaApiTeamId)
+      );
     });
     
     if (!todayGame) {
@@ -659,8 +659,7 @@ export const fetchWNBATeamCurrentGame = async (teamId, updateTeamCurrentGameFunc
     
     // Use API-safe team id (strip sport suffixes) for ESPN API calls
     const wnbaApiTeamId = getAPITeamId(teamId, 'wnba');
-    const encodedWnbaId = encodeURIComponent(String(wnbaApiTeamId));
-    console.log(`[TEAM PAGE UTILS] Using API team ID: ${wnbaApiTeamId} (encoded: ${encodedWnbaId})`);
+    console.log(`[TEAM PAGE UTILS] Using API team ID: ${wnbaApiTeamId}`);
     
     // Get today's date range
     const today = new Date();
@@ -674,20 +673,21 @@ export const fetchWNBATeamCurrentGame = async (teamId, updateTeamCurrentGameFunc
     const dateStr = formatDate(today);
     console.log(`[TEAM PAGE UTILS] WNBA date: ${dateStr}`);
     
-    // Fetch WNBA schedule for the team
-    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${encodedWnbaId}/schedule`);
+    // Use lightweight scoreboard endpoint instead of heavy schedule endpoint
+    const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${dateStr}`);
     const data = await response.json();
     
     if (!data.events || data.events.length === 0) {
-      console.log(`[TEAM PAGE UTILS] No WNBA games found for team ${teamId}`);
+      console.log(`[TEAM PAGE UTILS] No WNBA games found for date ${dateStr}`);
       return { success: false, reason: 'No games found' };
     }
     
-    // Find today's game
+    // Find today's game for this team
     const todayGame = data.events.find(event => {
-      const gameDate = new Date(event.date);
-      const gameDateStr = formatDate(gameDate);
-      return gameDateStr === dateStr;
+      const competition = event.competitions?.[0];
+      return competition?.competitors?.some(competitor => 
+        String(competitor.team.id) === String(wnbaApiTeamId)
+      );
     });
     
     if (!todayGame) {
@@ -755,23 +755,46 @@ export const fetchF1DriverCurrentRace = async (teamId, updateTeamCurrentGameFunc
     
     console.log(`[TEAM PAGE UTILS] Found ${calJson.sections.length} F1 calendar sections`);
     
-    // Helper to fetch event references
+    // Helper to fetch event references with limit
     const fetchRef = async (refUrl) => {
       if (!refUrl) return null;
+      // Normalize HTTP URLs to HTTPS for ESPN APIs
+      const normalizedUrl = refUrl.replace(/^http:\/\//, 'https://');
       try {
-        const resp = await fetch(refUrl);
+        const resp = await fetch(normalizedUrl);
         return await resp.json();
       } catch (err) {
-        console.warn('[TEAM PAGE UTILS] Failed to fetch ref', refUrl, err);
+        console.warn('[TEAM PAGE UTILS] Failed to fetch ref', normalizedUrl, err);
         return null;
       }
     };
+    
+    // OPTIMIZATION: Only check recent events instead of entire season
+    // Filter sections to only check events from last 7 days to next 7 days
+    const sevenDaysAgo = nowMs - (7 * 24 * 60 * 60 * 1000);
+    const sevenDaysAhead = nowMs + (7 * 24 * 60 * 60 * 1000);
+    
+    const relevantSections = calJson.sections.filter(section => {
+      const startDate = section.startDate || section.event?.startDate || section.event?.date;
+      const endDate = section.endDate || section.event?.endDate || section.event?.date;
+      
+      if (!startDate) return false;
+      
+      const startMs = Date.parse(startDate);
+      const endMs = endDate ? Date.parse(endDate) : startMs;
+      
+      // Only include events that are within our recent time window
+      return (startMs >= sevenDaysAgo && startMs <= sevenDaysAhead) || 
+             (endMs >= sevenDaysAgo && endMs <= sevenDaysAhead);
+    });
+    
+    console.log(`[TEAM PAGE UTILS] Filtered to ${relevantSections.length} relevant F1 events (within 7 days)`);
     
     // Find current or recent F1 events
     let bestEvent = null;
     let bestEventData = null;
     
-    for (const section of calJson.sections) {
+    for (const section of relevantSections) {
       try {
         const startDate = section.startDate || section.event?.startDate || section.event?.date;
         const endDate = section.endDate || section.event?.endDate || section.event?.date;

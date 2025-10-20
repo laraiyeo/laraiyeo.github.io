@@ -2,7 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView, Modal } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { SpainServiceEnhanced } from '../../../services/soccer/SpainServiceEnhanced';
-import { YearFallbackUtils } from '../../../utils/YearFallbackUtils';
+
+// Helper function to get the appropriate year for domestic leagues
+const getDomesticLeagueYear = () => {
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth() + 1; // getMonth() is 0-indexed
+  const currentYear = currentDate.getFullYear();
+  
+  // For domestic leagues: July-December uses current year, January-June uses previous year
+  if (currentMonth >= 7) {
+    return currentYear;
+  } else {
+    return currentYear - 1;
+  }
+};
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
 const convertToHttps = (url) => {
@@ -485,24 +498,21 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
       // Fetch stats for each competition with year fallback
       const statsPromises = competitions.map(async (competition) => {
         try {
-          const statsData = await YearFallbackUtils.fetchWithYearFallback(
-            async (year) => {
-              const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition.code}/seasons/${year}/types/${competition.seasonType}/athletes/${playerId}/statistics/0?lang=en&region=us`;
-              const response = await fetch(convertToHttps(statsUrl));
-              
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-              }
-              
-              return await response.json();
-            },
-            (data) => {
-              console.log(`Validating Spain player stats data:`, data);
-              return data && data.splits && data.splits.categories && Array.isArray(data.splits.categories) && data.splits.categories.length > 0;
-            }
-          );
+          const year = getDomesticLeagueYear();
+          const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition.code}/seasons/${year}/types/${competition.seasonType}/athletes/${playerId}/statistics/0?lang=en&region=us`;
+          const response = await fetch(convertToHttps(statsUrl));
           
-          if (statsData) {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          
+          const statsData = await response.json();
+          console.log(`Validating Spain player stats data:`, statsData);
+          
+          // Check if data is valid
+          const isValidData = statsData && statsData.splits && statsData.splits.categories && Array.isArray(statsData.splits.categories) && statsData.splits.categories.length > 0;
+          
+          if (isValidData) {
             // Handle the case where data might be wrapped in a data property
             const actualData = statsData.data || statsData;
             
@@ -569,24 +579,21 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
       // Fetch game logs from all Spain competitions with year fallback
       const fetchPromises = competitions.map(async (competition) => {
         try {
-          const gameLogData = await YearFallbackUtils.fetchWithYearFallback(
-            async (year) => {
-              const gameLogUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/seasons/${year}/athletes/${playerId}/eventlog?lang=en&region=us&played=true`;
-              const response = await fetch(convertToHttps(gameLogUrl));
-              
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-              }
-              
-              return await response.json();
-            },
-            (data) => {
-              console.log(`Validating Spain game log data for ${competition}:`, data);
-              return data && ((data.events && data.events.length > 0) || (data.events && data.events.items && data.events.items.length > 0));
-            }
-          );
+          const year = getDomesticLeagueYear();
+          const gameLogUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/seasons/${year}/athletes/${playerId}/eventlog?lang=en&region=us&played=true`;
+          const response = await fetch(convertToHttps(gameLogUrl));
           
-          if (gameLogData) {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          
+          const gameLogData = await response.json();
+          console.log(`Validating Spain game log data for ${competition}:`, gameLogData);
+          
+          // Check if data is valid
+          const isValidData = gameLogData && ((gameLogData.events && gameLogData.events.length > 0) || (gameLogData.events && gameLogData.events.items && gameLogData.events.items.length > 0));
+          
+          if (isValidData) {
             console.log(`${competition} game log API response:`, gameLogData);
             
             // Handle the case where data might be wrapped in a data property

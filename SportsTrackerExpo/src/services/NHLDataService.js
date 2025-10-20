@@ -1,6 +1,10 @@
 // Shared NHL data service for caching teams and players across screens
-class NHLDataService {
+
+import { BaseCacheService } from './BaseCacheService';
+
+class NHLDataService extends BaseCacheService {
   constructor() {
+    super();
     this.teamsCache = null;
     this.playersCache = null;
     this.isInitializing = false;
@@ -66,7 +70,8 @@ class NHLDataService {
   async _fetchData() {
     try {
       // Fetch teams first
-      const teamsResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams`);
+      const headers = this.constructor.getBrowserHeaders();
+      const teamsResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams`, { headers });
       const teamsData = await teamsResponse.json();
       
       if (!teamsData.sports?.[0]?.leagues?.[0]?.teams) {
@@ -82,7 +87,7 @@ class NHLDataService {
       const rosterPromises = teams.map(async (team) => {
         try {
           const rosterUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${team.id}/roster`;
-          const rosterResponse = await fetch(rosterUrl);
+          const rosterResponse = await fetch(rosterUrl, { headers });
           const roster = await rosterResponse.json();
           
           if (roster.athletes) {
@@ -162,6 +167,8 @@ class NHLDataService {
     this.isInitializing = false;
     this.initPromise = null;
     this.notifyListeners();
+    // Also clear parent cache
+    super.clearCache();
   }
 
   // NHL-specific position grouping

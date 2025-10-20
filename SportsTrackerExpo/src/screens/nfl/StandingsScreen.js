@@ -9,42 +9,31 @@ const StandingsScreen = ({ route }) => {
   const { theme, colors, getTeamLogoUrl } = useTheme();
   const { isFavorite } = useFavorites();
   const [standings, setStandings] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [intervalId, setIntervalId] = useState(null);
   const navigation = useNavigation();
 
   useEffect(() => {
+    // Fetch on mount only (like StatsScreen - no background updates)
     fetchStandings();
     
-    // Focus listener to start updates when screen becomes active
-    const unsubscribeFocus = navigation.addListener('focus', () => {
-      console.log('Standings screen focused - starting updates');
-      fetchStandings();
-      const interval = setInterval(fetchStandings, 30000);
-      setIntervalId(interval);
-    });
+    // No interval - just fetch once and cache the data like StatsScreen
     
-    // Blur listener to stop updates when screen becomes inactive
-    const unsubscribeBlur = navigation.addListener('blur', () => {
-      console.log('Standings screen blurred - stopping updates');
+    return () => {
       if (intervalId) {
         clearInterval(intervalId);
         setIntervalId(null);
       }
-    });
-    
-    return () => {
-      console.log('Standings screen unmounted - cleaning up');
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-      unsubscribeFocus();
-      unsubscribeBlur();
     };
-  }, [navigation, intervalId]);
+  }, []);
 
-  const fetchStandings = async () => {
+  const fetchStandings = async (silent = false) => {
     try {
+      // Only show loading for non-silent updates
+      if (!silent) {
+        setLoading(true);
+      }
+      
       const response = await fetch('https://cdn.espn.com/core/nfl/standings?xhr=1');
       const data = await response.json();
       
@@ -52,7 +41,10 @@ const StandingsScreen = ({ route }) => {
     } catch (error) {
       console.error('Error fetching standings:', error);
     } finally {
-      setLoading(false);
+      // Only clear loading for non-silent updates
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -97,7 +89,7 @@ const StandingsScreen = ({ route }) => {
       <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
         {[afc, nfc].filter(Boolean).map((conference, confIndex) => (
           <View key={confIndex} style={[styles.conferenceContainer, { backgroundColor: theme.surface }]}>
-            <Text allowFontScaling={false} style={[styles.conferenceTitle, { color: colors.primary }]}>{conference.name}</Text>
+            <Text allowFontScaling={false} style={[styles.conferenceTitle, { color: colors.primary, borderBottomColor: theme.border }]}>{conference.name}</Text>
             
             {conference.groups.map((division, divIndex) => (
               <View key={divIndex} style={styles.divisionContainer}>

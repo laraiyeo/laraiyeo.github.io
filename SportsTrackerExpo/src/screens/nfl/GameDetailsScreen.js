@@ -18,6 +18,7 @@ import { NFLService } from '../../services/NFLService';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import ChatComponent from '../../components/ChatComponent';
+import { useStreamingAccess } from '../../utils/streamingUtils';
 import { Ionicons } from '@expo/vector-icons';
 
 // Color similarity detection utility
@@ -151,6 +152,9 @@ const GameDetailsScreen = ({ route }) => {
   const [streamUrl, setStreamUrl] = useState('');
   const [isStreamLoading, setIsStreamLoading] = useState(true);
   const [chatModalVisible, setChatModalVisible] = useState(false);
+
+  // Streaming access check
+  const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
   const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
 
   // Stream API functions (adapted from MLB)
@@ -389,6 +393,16 @@ const GameDetailsScreen = ({ route }) => {
   const openStreamModal = async () => {
     try {
       console.log('openStreamModal: invoked');
+      
+      // Check if streaming is unlocked
+      if (!isStreamingUnlocked) {
+        Alert.alert(
+          'Streaming Locked',
+          'Please enter the streaming code in Settings to access live streams.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
 
       // Try to locate the competition object in several common locations
       const competition = gameDetails?.header?.competitions?.[0] || gameDetails?.competitions?.[0] || formattedGameData?.competitions?.[0];
@@ -655,6 +669,12 @@ const GameDetailsScreen = ({ route }) => {
     
     if (isLiveGame) {
       const interval = setInterval(() => {
+        // Skip update if stream modal is open
+        if (streamModalVisible) {
+          console.log('Stream modal open, skipping NFL game update');
+          return;
+        }
+        
         const statusDesc = status?.type?.description?.toLowerCase();
         const isScheduled = statusDesc?.includes('scheduled');
         
@@ -707,6 +727,24 @@ const GameDetailsScreen = ({ route }) => {
       }
     }
   }, [drivesData, driveModalVisible, selectedDrive?.id]);
+
+  // Fetch immediately when stream modal closes
+  useEffect(() => {
+    if (streamModalVisible === false && gameDetails) {
+      const competition = gameDetails.header?.competitions?.[0] || gameDetails.competitions?.[0];
+      const status = competition?.status || gameDetails.header?.status;
+      const statusDesc = status?.type?.description?.toLowerCase();
+      const isScheduled = statusDesc?.includes('scheduled');
+      
+      console.log('Stream modal closed, immediately fetching NFL game data');
+      loadGameDetails(true);
+      
+      if (!isScheduled) {
+        loadDrives(true);
+        loadGameSituation(true);
+      }
+    }
+  }, [streamModalVisible]);
 
   const loadGameSituation = async (silentUpdate = false) => {
     try {
@@ -2752,7 +2790,7 @@ const GameDetailsScreen = ({ route }) => {
 
         {/* Game Info or Yard Line */}
         {!status?.type?.completed && status?.period && status?.period > 0 ? (
-          <View style={styles.yardLineContainer}>
+          <View style={[styles.yardLineContainer, {borderTopColor: theme.border}]}>
             {/* Football Field - always show during active game */}
             <View style={styles.yardLineField}>
               {/* Field yard lines - proper football field layout (Away left, Home right) */}
@@ -2928,13 +2966,13 @@ const GameDetailsScreen = ({ route }) => {
         )}
       </View>
 
-      {/* Stream Button - Show for live games */}
+      {/* Stream Button - Show for live games and when streaming is unlocked */}
       {(() => {
         const isGameLive = status?.type?.description === 'In Progress' || 
                           status?.type?.state === 'in' ||
                           (status?.period && status?.period > 0 && !status?.type?.completed);
         
-        if (!isGameLive) return null;
+        if (!isGameLive || !isStreamingUnlocked) return null;
         
         return (
           <TouchableOpacity 
@@ -3251,7 +3289,8 @@ const GameDetailsScreen = ({ route }) => {
         </View>
       </Modal>
 
-      {/* Stream Modal */}
+      {/* Stream Modal - Only render when streaming is unlocked */}
+      {isStreamingUnlocked && (
       <Modal
         animationType="fade"
         transparent={true}
@@ -3380,6 +3419,7 @@ const GameDetailsScreen = ({ route }) => {
           </View>
         </View>
       </Modal>
+      )}
     </ScrollView>
     
     {/* Floating Chat Button */}

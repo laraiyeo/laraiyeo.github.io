@@ -1,14 +1,20 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer, getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+// Import SplashScreen component
+import SplashScreen from './src/components/SplashScreen';
+
 // Import theme context
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { FavoritesProvider } from './src/context/FavoritesContext';
 import { ChatProvider } from './src/context/ChatContext';
+
+// Import Analytics Service
+import analyticsService from './src/services/AnalyticsService';
 
 // Custom header title component that disables font scaling
 const HeaderTitle = ({ children, style }) => {
@@ -121,6 +127,14 @@ import VALUpcomingScreen from './src/screens/esports/val/VALUpcomingScreen';
 import VALEventScreen from './src/screens/esports/val/VALEventScreen';
 import VALSeriesScreen from './src/screens/esports/val/VALSeriesScreen';
 import VALMatchScreen from './src/screens/esports/val/VALMatchScreen';
+
+// League of Legends Esports screens
+import LOLTabNavigator from './src/screens/esports/lol/LOLTabNavigator';
+import LOLHomeScreen from './src/screens/esports/lol/LOLHomeScreen';
+import LOLDiscoverScreen from './src/screens/esports/lol/LOLDiscoverScreen';
+import LOLMatchDetailsScreen from './src/screens/esports/lol/LOLMatchDetailsScreen';
+import LOLGameDetailsScreen from './src/screens/esports/lol/LOLGameDetailsScreen';
+import LOLTournamentScreen from './src/screens/esports/lol/LOLTournamentScreen';
 
 // Italy enhanced screens
 import ItalyScoreboardScreen from './src/screens/soccer/italy/ItalyScoreboardScreen';
@@ -700,7 +714,11 @@ const MainStackNavigator = () => {
   const { colors } = useTheme();
   
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        headerBackTitle: 'Back', // Always show "Back" instead of previous screen name
+      }}
+    >
       <Stack.Screen 
         name="Home" 
         component={HomeTabNavigator}
@@ -1076,6 +1094,68 @@ const MainStackNavigator = () => {
         component={VALMatchScreen}
         options={{ 
           title: 'Match Analysis',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+
+      {/* League of Legends Esports Screens */}
+      <Stack.Screen 
+        name="LOLHome" 
+        component={LOLHomeScreen}
+        options={{ 
+          title: 'League of Legends',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="LOLDiscover" 
+        component={LOLDiscoverScreen}
+        options={{ 
+          title: 'Discover LoL',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="LOLMatchDetails" 
+        component={LOLMatchDetailsScreen}
+        options={{ 
+          title: 'Match Details',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="LOLGameDetails" 
+        component={LOLGameDetailsScreen}
+        options={{ 
+          title: 'Game Analysis',
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: '#fff',
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen 
+        name="LOLTournament" 
+        component={LOLTournamentScreen}
+        options={{ 
+          title: 'Tournament',
           headerStyle: {
             backgroundColor: colors.primary,
           },
@@ -1485,11 +1565,36 @@ const MainStackNavigator = () => {
   );
 };
 
-const AppContent = () => (
-  <NavigationContainer>
-    <MainStackNavigator />
-  </NavigationContainer>
-);
+const AppContent = () => {
+  const [showSplash, setShowSplash] = useState(true);
+
+  // Initialize Firebase Analytics
+  useEffect(() => {
+    const initializeAnalytics = async () => {
+      try {
+        await analyticsService.initialize();
+      } catch (error) {
+        console.warn('Firebase Analytics initialization failed (expected in old development builds):', error.message);
+      }
+    };
+    
+    initializeAnalytics();
+  }, []);
+
+  const handleSplashFinish = () => {
+    setShowSplash(false);
+  };
+
+  if (showSplash) {
+    return <SplashScreen onFinish={handleSplashFinish} />;
+  }
+
+  return (
+    <NavigationContainer>
+      <MainStackNavigator />
+    </NavigationContainer>
+  );
+};
 
 export default function App() {
   return (

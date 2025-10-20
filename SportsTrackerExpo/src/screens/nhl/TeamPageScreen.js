@@ -3,8 +3,22 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Scr
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import { useFocusEffect } from '@react-navigation/native';
 import { NHLService } from '../../services/NHLService';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
+
+// NHL-specific year logic: September-December uses next year, otherwise current year
+const getNHLYear = () => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const month = now.getMonth(); // 0-based: 0=January, 8=September, 11=December
+  
+  // If current month is September (8) to December (11), use next year
+  if (month >= 8) { // September to December
+    return currentYear + 1;
+  }
+  
+  return currentYear;
+};
 
 // Normalize abbreviations for logo lookup consistency
 const normalizeAbbreviation = (abbrev) => {
@@ -126,16 +140,18 @@ const TeamPageScreen = ({ route, navigation }) => {
   const cachedStandings = useRef(null);
   const cachedEvents = useRef(null);
 
-  useEffect(() => {
-    fetchTeamData();
-    
-    // Cleanup interval on unmount
-    return () => {
-      if (liveUpdateInterval.current) {
-        clearInterval(liveUpdateInterval.current);
-      }
-    };
-  }, [teamId]);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchTeamData();
+      
+      // Cleanup interval on unmount
+      return () => {
+        if (liveUpdateInterval.current) {
+          clearInterval(liveUpdateInterval.current);
+        }
+      };
+    }, [teamId])
+  );
 
   // Convert HTTP to HTTPS helper (from NFL)
   const convertToHttps = (url) => {
@@ -681,28 +697,31 @@ const TeamPageScreen = ({ route, navigation }) => {
       console.log('NHL TeamPage: teamData:', teamData);
       console.log('NHL TeamPage: resolvedParam:', resolvedParam);
 
-      // Try types 3, then 2, then 1 with year fallback
+      // Try types 3, then 2, then 1 with NHL year logic
       const typesToTry = [3, 2, 1];
+      const nhlYear = getNHLYear();
+      const yearsToTry = [nhlYear, nhlYear - 1, nhlYear + 1]; // Try current NHL year, then previous, then next
       let v2data = null;
-      for (const t of typesToTry) {
-        try {
-          const { data: statsData, year } = await YearFallbackUtils.fetchWithYearFallback(
-            async (year) => {
-              const statsUrl = `https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${year}/types/${t}/teams/${currentTeamId}/statistics?lang=en&region=us`;
-              console.log('NHL TeamPage: trying stats type', t, 'year', year, statsUrl);
-              const resp = await fetch(statsUrl);
-              return await resp.json();
-            },
-            (data) => data && !data.error && Array.isArray(data.groups) && data.groups.length > 0
-          );
-          
-          v2data = statsData;
-          console.log('NHL TeamPage: stats v2 success for type', t, 'year', year);
-          break;
-        } catch (e) {
-          // don't fail fast; try next type
-          // eslint-disable-next-line no-console
-          console.log('NHL TeamPage: error fetching v2 stats for type', t, e);
+      
+      outerLoop: for (const t of typesToTry) {
+        for (const year of yearsToTry) {
+          try {
+            const statsUrl = `https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${year}/types/${t}/teams/${currentTeamId}/statistics?lang=en&region=us`;
+            console.log('NHL TeamPage: trying stats type', t, 'year', year, statsUrl);
+            const resp = await fetch(statsUrl);
+            const statsData = await resp.json();
+            
+            // Validate that we have relevant data
+            if (statsData && !statsData.error && Array.isArray(statsData.groups) && statsData.groups.length > 0) {
+              v2data = statsData;
+              console.log('NHL TeamPage: stats v2 success for type', t, 'year', year);
+              break outerLoop;
+            }
+          } catch (e) {
+            // don't fail fast; try next year/type
+            // eslint-disable-next-line no-console
+            console.log('NHL TeamPage: error fetching v2 stats for type', t, 'year', year, e);
+          }
         }
       }
 

@@ -23,6 +23,7 @@ import { useTheme } from '../../../context/ThemeContext';
 import { useFavorites } from '../../../context/FavoritesContext';
 import ChatComponent from '../../../components/ChatComponent';
 import { Ionicons } from '@expo/vector-icons';
+import { useStreamingAccess } from '../../../utils/streamingUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -33,6 +34,102 @@ const convertToHttps = (url) => {
   }
   return url;
 };
+
+// Helper function for team logo URLs
+const getTeamLogoUrls = (teamId, isDarkMode) => {
+  if (!teamId) return { primaryUrl: '', fallbackUrl: '' };
+  
+  const baseUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
+  const darkUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
+  
+  if (isDarkMode) {
+    return {
+      primaryUrl: darkUrl,
+      fallbackUrl: baseUrl
+    };
+  } else {
+    return {
+      primaryUrl: baseUrl,
+      fallbackUrl: darkUrl
+    };
+  }
+};
+
+// Memoized TeamLogoImage component to prevent flickering on state changes
+const TeamLogoImage = React.memo(({ teamId, style, isScoring = false, isDarkMode }) => {
+  const [logoSource, setLogoSource] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  const loadLogo = useCallback(async () => {
+    if (teamId) {
+      try {
+        if (isScoring) {
+          // For scoring plays, always use dark variant
+          const darkUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
+          setLogoSource({ uri: darkUrl });
+        } else {
+          // For non-scoring, use normal dark mode logic
+          const { primaryUrl } = getTeamLogoUrls(teamId, isDarkMode);
+          setLogoSource({ uri: primaryUrl });
+        }
+      } catch (error) {
+        console.error('Error loading team logo:', error);
+        setLogoSource(require('../../../../assets/soccer.png'));
+      }
+    } else {
+      setLogoSource(require('../../../../assets/soccer.png'));
+    }
+    setRetryCount(0);
+  }, [teamId, isDarkMode, isScoring]);
+
+  useEffect(() => {
+    loadLogo();
+  }, [loadLogo]);
+
+  const handleError = useCallback(() => {
+    if (retryCount === 0 && teamId) {
+      if (isScoring) {
+        // For scoring plays, fallback to regular variant
+        const regularUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
+        setRetryCount(1);
+        setLogoSource({ uri: regularUrl });
+      } else {
+        // For non-scoring, try the fallback URL (opposite dark mode variant)
+        const { fallbackUrl } = getTeamLogoUrls(teamId, isDarkMode);
+        setRetryCount(1);
+        setLogoSource({ uri: fallbackUrl });
+      }
+    } else {
+      // Final fallback to soccer.png
+      setLogoSource(require('../../../../assets/soccer.png'));
+    }
+  }, [retryCount, teamId, isDarkMode, isScoring]);
+
+  // Get the default source - use actual logo first, then soccer.png
+  const getDefaultSource = useCallback(() => {
+    if (teamId) {
+      if (isScoring) {
+        // For scoring plays, use dark variant as default
+        const darkUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
+        return { uri: darkUrl };
+      } else {
+        // For non-scoring, use normal logic
+        const { primaryUrl } = getTeamLogoUrls(teamId, isDarkMode);
+        return { uri: primaryUrl };
+      }
+    }
+    return require('../../../../assets/soccer.png');
+  }, [teamId, isDarkMode, isScoring]);
+
+  return (
+    <Image
+      style={style}
+      source={logoSource || getDefaultSource()}
+      defaultSource={getDefaultSource()}
+      onError={handleError}
+    />
+  );
+});
 
 const FranceGameDetailsScreen = ({ route, navigation }) => {
   const { gameId, sport, competition, homeTeam, awayTeam } = route?.params || {};
@@ -71,6 +168,9 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
   const [streamError, setStreamError] = useState(false);
   const [showStreamModal, setShowStreamModal] = useState(false);
   const [chatModalVisible, setChatModalVisible] = useState(false);
+
+  // Streaming access check
+  const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
   
   const scrollViewRef = useRef(null);
   const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
@@ -96,81 +196,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
     }
   };
 
-  // TeamLogoImage component with dark mode and fallback support
-  const TeamLogoImage = ({ teamId, style, isScoring = false }) => {
-    const [logoSource, setLogoSource] = useState(null);
-    const [retryCount, setRetryCount] = useState(0);
 
-    useEffect(() => {
-      const loadLogo = async () => {
-        if (teamId) {
-          try {
-            if (isScoring) {
-              // For scoring plays, always use dark variant
-              const darkUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
-              setLogoSource({ uri: darkUrl });
-            } else {
-              // For non-scoring, use normal dark mode logic
-              const { primaryUrl, fallbackUrl } = getTeamLogoUrls(teamId, isDarkMode);
-              setLogoSource({ uri: primaryUrl });
-            }
-          } catch (error) {
-            console.error('Error loading team logo:', error);
-            setLogoSource(require('../../../../assets/soccer.png'));
-          }
-        } else {
-          setLogoSource(require('../../../../assets/soccer.png'));
-        }
-        setRetryCount(0);
-      };
-      
-      loadLogo();
-    }, [teamId, isDarkMode, isScoring]);
-
-    const handleError = () => {
-      if (retryCount === 0 && teamId) {
-        if (isScoring) {
-          // For scoring plays, fallback to regular variant
-          const regularUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
-          setRetryCount(1);
-          setLogoSource({ uri: regularUrl });
-        } else {
-          // For non-scoring, try the fallback URL (opposite dark mode variant)
-          const { fallbackUrl } = getTeamLogoUrls(teamId, isDarkMode);
-          setRetryCount(1);
-          setLogoSource({ uri: fallbackUrl });
-        }
-      } else {
-        // Final fallback to soccer.png
-        setLogoSource(require('../../../../assets/soccer.png'));
-      }
-    };
-
-    // Get the default source - use actual logo first, then soccer.png
-    const getDefaultSource = () => {
-      if (teamId) {
-        if (isScoring) {
-          // For scoring plays, use dark variant as default
-          const darkUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
-          return { uri: darkUrl };
-        } else {
-          // For non-scoring, use normal logic
-          const { primaryUrl } = getTeamLogoUrls(teamId, isDarkMode);
-          return { uri: primaryUrl };
-        }
-      }
-      return require('../../../../assets/soccer.png');
-    };
-
-    return (
-      <Image
-        style={style}
-        source={logoSource || getDefaultSource()}
-        defaultSource={getDefaultSource()}
-        onError={handleError}
-      />
-    );
-  };
 
   // Enhanced logo function with dark mode support and fallbacks
   const getTeamLogo = async (teamId, isDarkMode) => {
@@ -463,6 +489,12 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
 
     const interval = setInterval(() => {
       try {
+        // Skip update if stream modal is open
+        if (showStreamModal) {
+          console.log('Stream modal open, skipping France game update');
+          return;
+        }
+        
         if (isLive) {
           loadGameDetails(true); // Silent update for live games
         }
@@ -505,6 +537,17 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
     setPlaysData(null);
     setStatsData(null);
   }, [gameId]);
+
+  // Fetch immediately when stream modal closes
+  useEffect(() => {
+    if (showStreamModal === false && gameData) {
+      const isLive = gameData && gameData.header?.competitions?.[0]?.status?.type?.state === 'in';
+      if (isLive) {
+        console.log('Stream modal closed, immediately fetching France game data');
+        loadGameDetails(true);
+      }
+    }
+  }, [showStreamModal]);
 
   const loadGameDetails = async (silentUpdate = false) => {
     try {
@@ -1441,6 +1484,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
             <View style={styles.stickyTeamInfo}>
               <TeamLogoImage 
                 teamId={gameData.homeCompetitor?.team?.id}
+                isDarkMode={isDarkMode}
                 style={[
                   styles.stickyLogo,
                   // Apply loser styling if home team is losing (only for finished games)
@@ -1555,6 +1599,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
               </Text>
               <TeamLogoImage 
                 teamId={gameData.awayCompetitor?.team?.id}
+                isDarkMode={isDarkMode}
                 style={[
                   styles.stickyLogoAway,
                   // Apply loser styling if away team is losing (only for finished games)
@@ -1918,6 +1963,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
             <View style={styles.teamLogoAndScore}>
               <TeamLogoImage 
                 teamId={gameData.homeCompetitor?.team?.id}
+                isDarkMode={isDarkMode}
                 style={[
                   styles.teamLogo,
                   // Apply loser styling if home team is losing (only for finished games)
@@ -1992,8 +2038,8 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
               )}
             </View>
             
-            {/* Stream Button - Only show for live games */}
-            {matchStatus.isLive && (
+            {/* Stream Button - Only show for live games and when streaming is unlocked */}
+            {matchStatus.isLive && isStreamingUnlocked && (
               <TouchableOpacity
                 style={[styles.streamButton, { backgroundColor: colors.primary }]}
                 onPress={() => {
@@ -2038,6 +2084,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
               </View>
               <TeamLogoImage 
                 teamId={gameData.awayCompetitor?.team?.id}
+                isDarkMode={isDarkMode}
                 style={[
                   styles.teamLogo,
                   // Apply loser styling if away team is losing (only for finished games)
@@ -2269,6 +2316,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
             <View style={styles.statsTeamHome}>
               <TeamLogoImage 
                 teamId={homeTeam?.team?.id}
+                isDarkMode={isDarkMode}
                 style={styles.statsTeamLogo}
               />
               <Text allowFontScaling={false} style={[styles.statsTeamName, { color: theme.text }]}>
@@ -2281,6 +2329,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
               </Text>
               <TeamLogoImage 
                 teamId={awayTeam?.team?.id}
+                isDarkMode={isDarkMode}
                 style={styles.statsTeamLogo}
               />
             </View>
@@ -2527,6 +2576,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
             <View style={styles.h2hTeam}>
               <TeamLogoImage 
                 teamId={homeTeamIdInMatch}
+                isDarkMode={isDarkMode}
                 style={styles.h2hTeamLogo}
               />
               <Text allowFontScaling={false} style={[styles.h2hTeamName, { color: theme.text }]}>
@@ -2537,6 +2587,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
             <View style={[styles.h2hTeam, styles.h2hTeamReverse]}>
               <TeamLogoImage 
                 teamId={awayTeamIdInMatch}
+                isDarkMode={isDarkMode}
                 style={styles.h2hTeamLogo}
               />
               <Text allowFontScaling={false} style={[styles.h2hTeamName, { color: theme.text }]}>
@@ -2606,6 +2657,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
         <View style={[styles.teamTabHeader, { backgroundColor: theme.surface }]}>
           <TeamLogoImage 
             teamId={gameData.homeCompetitor?.team?.id}
+            isDarkMode={isDarkMode}
             style={styles.teamTabLogo}
           />
           <View style={styles.teamTabInfo}>
@@ -2676,6 +2728,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
         <View style={[styles.teamTabHeader, { backgroundColor: theme.surface }]}>
           <TeamLogoImage 
             teamId={gameData.awayCompetitor?.team?.id}
+            isDarkMode={isDarkMode}
             style={styles.teamTabLogo}
           />
           <View style={styles.teamTabInfo}>
@@ -2869,7 +2922,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
     return (
       <View style={[styles.subsBox, { backgroundColor: theme.surface, borderColor: colors.primary }]}>
         <View style={styles.subsHeader}>
-          <TeamLogoImage teamId={teamType === 'home' ? gameData?.homeCompetitor?.team?.id : gameData?.awayCompetitor?.team?.id} style={styles.subsTeamLogo} />
+          <TeamLogoImage teamId={teamType === 'home' ? gameData?.homeCompetitor?.team?.id : gameData?.awayCompetitor?.team?.id} isDarkMode={isDarkMode} style={styles.subsTeamLogo} />
           <Text allowFontScaling={false} style={[styles.subsTitle, { color: theme.text }]}>Subs</Text>
         </View>
         <View style={styles.subsList}>
@@ -2938,7 +2991,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
       <View style={styles.pitchesWrapper}>
         <View style={styles.pitchContainer}>
           <View style={styles.teamInfo}>
-            <TeamLogoImage teamId={gameData?.awayCompetitor?.team?.id} style={styles.formTeamLogo} />
+            <TeamLogoImage teamId={gameData?.awayCompetitor?.team?.id} isDarkMode={isDarkMode} style={styles.formTeamLogo} />
             <Text allowFontScaling={false} style={[styles.teamFormation, { color: theme.text }]}>{awayFormation}</Text>
           </View>
           <View style={styles.footballPitch}>
@@ -2954,7 +3007,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
         <View style={styles.pitchContainer}>
           <View style={styles.teamInfo}>
             <Text allowFontScaling={false} style={[styles.teamFormation, { color: theme.text }]}>{homeFormation}</Text>
-            <TeamLogoImage teamId={gameData?.homeCompetitor?.team?.id} style={styles.formTeamLogo} />
+            <TeamLogoImage teamId={gameData?.homeCompetitor?.team?.id} isDarkMode={isDarkMode} style={styles.formTeamLogo} />
           </View>
           <View style={styles.footballPitch}>
             <View style={styles.centerCircle} />
@@ -2975,7 +3028,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
     return (
       <View style={styles.pitchContainer}>
         <View style={styles.teamInfo}>
-          <TeamLogoImage teamId={teamType === 'home' ? gameData?.homeCompetitor?.team?.id : gameData?.awayCompetitor?.team?.id} style={styles.formTeamLogo} />
+          <TeamLogoImage teamId={teamType === 'home' ? gameData?.homeCompetitor?.team?.id : gameData?.awayCompetitor?.team?.id} isDarkMode={isDarkMode} style={styles.formTeamLogo} />
           <Text allowFontScaling={false} style={[styles.teamFormation, { color: theme.text }]}>{formation}</Text>
         </View>
         <View style={styles.footballPitch}>
@@ -3682,6 +3735,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
                     <View style={styles.teamScoreDisplay}>
                       <TeamLogoImage 
                         teamId={homeTeam?.team?.id}
+                        isDarkMode={isDarkMode}
                         style={styles.teamLogoSmall}
                         isScoring={isScoring}
                       />
@@ -3696,6 +3750,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
                       </Text>
                       <TeamLogoImage 
                         teamId={awayTeam?.team?.id}
+                        isDarkMode={isDarkMode}
                         style={styles.teamLogoSmall}
                         isScoring={isScoring}
                       />
@@ -4040,6 +4095,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
           >
             <TeamLogoImage 
               teamId={selectedPlayer.teamId}
+              isDarkMode={isDarkMode}
               style={styles.hoverTeamLogo}
             />
             <View style={styles.hoverPlayerName}>
@@ -4125,7 +4181,8 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
       
       {renderPlayerPopup()}
       
-      {/* Stream Modal - Popup style like MLB */}
+      {/* Stream Modal - Only render when streaming is unlocked */}
+      {isStreamingUnlocked && (
       <Modal 
         animationType="fade"
         transparent={true}
@@ -4238,6 +4295,7 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
           </View>
         </View>
       </Modal>
+      )}
       
       {/* Floating Chat Button */}
       <TouchableOpacity
@@ -4928,7 +4986,7 @@ const styles = StyleSheet.create({
   centerCircle: {
     position: 'absolute',
     top: '-0.5%', // Matches CSS positioning
-    left: '50%',
+    left: '42.5%',
     width: '40.98%', // 250px of 610px from CSS
     height: '20%', // Reduced height for half circle effect
     borderWidth: 2,
@@ -4992,6 +5050,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 5,
+    transform: [{ translateX: '30%' }, { translateY: '12.5%' }], // Center horizontally
   },
   playerNumber: {
     color: '#000000', // Black text like web
@@ -5005,6 +5064,7 @@ const styles = StyleSheet.create({
     textShadowColor: '#000000', // Black text shadow like web
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 1,
+    transform: [{ translateX: '30%' }, { translateY: '12.5%' }], // Center horizontally
   },
   subsBox: {
     width: width - 20, // Match the pitch width

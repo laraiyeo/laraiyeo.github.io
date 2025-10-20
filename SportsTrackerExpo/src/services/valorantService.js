@@ -1,17 +1,71 @@
 // Valorant API Service using rib.gg API
+import { BaseCacheService } from './BaseCacheService';
+
 const RIB_API_BASE_URL = 'https://corsproxy.io/?url=https://be-prod.rib.gg/v1';
-const RIB_NEXT_BASE_URL = 'https://corsproxy.io/?url=https://www.rib.gg/_next/data/2glECPS_a3VR_3n_l25P6/en';
+const RIB_NEXT_BASE_URL = 'https://corsproxy.io/?url=https://www.rib.gg/_next/data/npASm5vnJ_D_TiFBai3fN/en';
+
+class ValorantService extends BaseCacheService {
+  // Smart live event detection for Valorant
+  static hasLiveEvents(data) {
+    try {
+      const events = data?.data || [];
+      return events.some(event => {
+        const status = event?.status?.toLowerCase();
+        return status === 'live' || 
+               status === 'ongoing' || 
+               event?.live === true;
+      });
+    } catch (error) {
+      console.error('ValorantService: Error detecting live events', error);
+      return false;
+    }
+  }
+
+  static getDataType(data, context) {
+    try {
+      if (this.hasLiveEvents(data)) {
+        return 'live';
+      }
+      
+      if (context?.includes('tournament') || context?.includes('teams') || context?.includes('team')) {
+        return 'static';
+      }
+      
+      // Check if events are scheduled or finished
+      const events = data?.data || [];
+      const hasScheduled = events.some(event => 
+        event?.status?.toLowerCase() === 'scheduled' || 
+        event?.status?.toLowerCase() === 'upcoming'
+      );
+      const hasFinished = events.some(event => 
+        event?.status?.toLowerCase() === 'completed' ||
+        event?.status?.toLowerCase() === 'finished'
+      );
+      
+      if (hasScheduled && !hasFinished) return 'scheduled';
+      if (hasFinished && !hasScheduled) return 'finished';
+      
+      return 'scheduled'; // Default for mixed or unknown
+    } catch (error) {
+      console.error('ValorantService: Error determining data type', error);
+      return 'scheduled';
+    }
+  }
+}
 
 // Generic API call helper
 export const ribApiCall = async (endpoint, options = {}) => {
     try {
         const url = `${RIB_API_BASE_URL}${endpoint}`;
+        const headers = {
+            ...ValorantService.getBrowserHeaders(),
+            'Content-Type': 'application/json',
+            // Add any required headers for rib.gg API here
+        };
+        
         const response = await fetch(url, {
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                // Add any required headers for rib.gg API here
-            },
+            headers,
             ...options
         });
 
@@ -35,11 +89,14 @@ export const ribNextApiCall = async (endpoint, params = {}, options = {}) => {
             : '';
         const url = `${RIB_NEXT_BASE_URL}${endpoint}.json${queryString}`;
         
+        const headers = {
+            ...ValorantService.getBrowserHeaders(),
+            'Content-Type': 'application/json',
+        };
+        
         const response = await fetch(url, {
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers,
             ...options
         });
 
@@ -78,7 +135,8 @@ export const getEvents = async (minStartDate = null, maxStartDate = null, take =
 
 // Get live events
 export const getLiveEvents = async (take = 20) => {
-    try {
+    const cacheKey = `valorant_live_events_${take}`;
+    return ValorantService.getCachedData(cacheKey, async () => {
         // Get current events and filter for live ones
         const now = new Date();
         const pastDate = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 1 day ago
@@ -98,10 +156,7 @@ export const getLiveEvents = async (take = 20) => {
         }
         
         return data;
-    } catch (error) {
-        console.error('Error fetching live events:', error);
-        throw error;
-    }
+    }, 'live');
 };
 
 // Get recent events (completed)
@@ -576,3 +631,9 @@ export const getUpcomingSeries = async (date, take = 25) => {
         return { data: [], meta: { start: 0, results: 0, total: 0 } };
     }
 };
+
+// Export ValorantService for cache management
+export { ValorantService };
+
+// Add clearCache as standalone export for compatibility
+export const clearCache = () => ValorantService.clearCache();

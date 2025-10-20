@@ -14,7 +14,6 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useWindowDimensions } from 'react-native';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const RacerDetailsScreen = ({ route }) => {
   const { racerId, racerName, teamColor } = route.params || {};
@@ -50,6 +49,35 @@ const RacerDetailsScreen = ({ route }) => {
     fetchRacerDetails();
   }, [racerId]);
 
+  // Helper function to normalize URLs to HTTPS and handle timeouts
+  const normalizeUrl = (url) => {
+    if (!url) return url;
+    return url.replace(/^http:\/\//, 'https://');
+  };
+
+  const fetchWithTimeout = async (url, timeoutMs = 10000) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    try {
+      const response = await fetch(normalizeUrl(url), {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error(`Request timeout after ${timeoutMs}ms`);
+      }
+      throw error;
+    }
+  };
+
   const fetchRacerDetails = async () => {
     try {
       setLoading(true);
@@ -71,23 +99,23 @@ const RacerDetailsScreen = ({ route }) => {
   const fetchRacerStats = async () => {
     try {
       // Prefer the athlete records endpoint which contains headshot, team, and stats
-      const response = await YearFallbackUtils.fetchWithYearFallback(
-        async (year) => {
-          const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/athletes/${racerId}/records/0?lang=en&region=us`;
-          const apiResponse = await fetch(url);
-          
-          if (!apiResponse.ok) {
-            throw new Error(`HTTP ${apiResponse.status}`);
-          }
-          
-          return await apiResponse.json();
-        },
-        (data) => {
-          console.log('Validating F1 racer records data:', data);
-          return data && (data.records || data.athlete || data.stats);
-        }
-      );
+      const currentYear = new Date().getFullYear();
+      const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/athletes/${racerId}/records/0?lang=en&region=us`;
+      const apiResponse = await fetchWithTimeout(url, 10000);
       
+      if (!apiResponse.ok) {
+        throw new Error(`HTTP ${apiResponse.status}`);
+      }
+      
+      const data = await apiResponse.json();
+      
+      // Validate that we have relevant data
+      console.log('Validating F1 racer records data:', data);
+      if (!(data && (data.records || data.athlete || data.stats))) {
+        throw new Error('No racer records data found');
+      }
+      
+      const response = { data, year: currentYear };
       const records = response?.data || response;
 
       // Debug logging to see response structure
@@ -194,23 +222,23 @@ const RacerDetailsScreen = ({ route }) => {
       console.error('Error fetching racer stats (records endpoint):', error);
       // Fallback: attempt previous approach via standings endpoint
       try {
-        const response = await YearFallbackUtils.fetchWithYearFallback(
-          async (year) => {
-            const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/types/2/standings/0`;
-            const apiResponse = await fetch(url);
-            
-            if (!apiResponse.ok) {
-              throw new Error(`HTTP ${apiResponse.status}`);
-            }
-            
-            return await apiResponse.json();
-          },
-          (data) => {
-            console.log('Validating F1 driver standings data:', data);
-            return data.standings && data.standings.length > 0;
-          }
-        );
+        const currentYear = new Date().getFullYear();
+        const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/standings/0`;
+        const apiResponse = await fetchWithTimeout(url, 10000);
         
+        if (!apiResponse.ok) {
+          throw new Error(`HTTP ${apiResponse.status}`);
+        }
+        
+        const standingsData = await apiResponse.json();
+        
+        // Validate that we have relevant data
+        console.log('Validating F1 driver standings data:', standingsData);
+        if (!(standingsData.standings && standingsData.standings.length > 0)) {
+          throw new Error('No driver standings data found');
+        }
+        
+        const response = { data: standingsData, year: currentYear };
         const data = response?.data || response;
         if (data?.standings) {
           const driverStanding = data.standings.find(standing => {
@@ -219,7 +247,7 @@ const RacerDetailsScreen = ({ route }) => {
                    standing.athlete?.name === racerName;
           });
           if (driverStanding) {
-            const athleteResponse = await fetch(driverStanding.athlete.$ref);
+            const athleteResponse = await fetchWithTimeout(driverStanding.athlete.$ref, 8000);
             const athleteData = await athleteResponse.json();
             const position = data.standings.findIndex(s => s.athlete?.id === racerId) + 1;
             setRacerData({
@@ -254,35 +282,17 @@ const RacerDetailsScreen = ({ route }) => {
 
   const fetchRacerRaceLog = async () => {
     try {
-      // First fetch the athlete data to get the eventLog $ref
-      const athleteResponse = await YearFallbackUtils.fetchWithYearFallback(
-        async (year) => {
-          const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${year}/athletes/${racerId}?lang=en&region=us`;
-          const apiResponse = await fetch(url);
-          
-          if (!apiResponse.ok) {
-            throw new Error(`HTTP ${apiResponse.status}`);
-          }
-          
-          return await apiResponse.json();
-        },
-        (data) => {
-          console.log('Validating F1 athlete data:', data);
-          return data && data.id;
-        }
-      );
+      const currentYear = new Date().getFullYear();
       
-      const athleteData = athleteResponse?.data || athleteResponse;
+      // Use direct eventlog URL instead of fetching athlete data first
+      const eventLogUrl = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/athletes/${racerId}/eventlog?lang=en&region=us&limit=50`;
+      console.log(`[RacerDetails] Fetching eventLog directly:`, eventLogUrl);
       
-      console.log(`[RacerDetails] Athlete data for ${racerId}:`, JSON.stringify(athleteData, null, 2));
-      
-      if (!athleteData?.eventLog?.$ref) {
-        console.warn(`[RacerDetails] No eventLog found for athlete ${racerId}`);
-        return;
+      // Fetch the eventLog to get list of events with timeout
+      const eventLogResponse = await fetchWithTimeout(eventLogUrl, 15000);
+      if (!eventLogResponse.ok) {
+        throw new Error(`EventLog fetch failed: HTTP ${eventLogResponse.status}`);
       }
-      
-      // Fetch the eventLog to get list of events
-      const eventLogResponse = await fetch(athleteData.eventLog.$ref);
       const eventLogData = await eventLogResponse.json();
       
       console.log(`[RacerDetails] EventLog data:`, JSON.stringify(eventLogData, null, 2));
@@ -293,23 +303,41 @@ const RacerDetailsScreen = ({ route }) => {
       }
       
       const raceLogData = [];
-      const events = eventLogData.events.items.slice(0, 24); // Get last 15 events
+      const events = eventLogData.events.items.slice(0, 24); // Get last 24 events
       
-      for (const eventItem of events) {
+      // Process events concurrently instead of sequentially for better performance and reliability
+      const eventPromises = events.map(async (eventItem) => {
         try {
           // Only process events that have been played
-          if (!eventItem.played) continue;
+          if (!eventItem.played) return null;
           
-          // Fetch the event details
-          const eventResponse = await fetch(eventItem.event.$ref);
+          // Fetch the event details with timeout
+          const eventResponse = await fetchWithTimeout(eventItem.event.$ref, 8000);
+          if (!eventResponse.ok) {
+            console.warn(`Failed to fetch event ${eventItem.eventId}: HTTP ${eventResponse.status}`);
+            return null;
+          }
           const eventData = await eventResponse.json();
 
-          const venueResponse = await fetch(eventData.venues[0].$ref);
+          if (!eventData.venues || !eventData.venues[0]?.$ref) {
+            console.warn(`No venue data for event ${eventItem.eventId}`);
+            return null;
+          }
+
+          const venueResponse = await fetchWithTimeout(eventData.venues[0].$ref, 8000);
+          if (!venueResponse.ok) {
+            console.warn(`Failed to fetch venue for event ${eventItem.eventId}: HTTP ${venueResponse.status}`);
+            return null;
+          }
           const venueData = await venueResponse.json();
 
           // Fetch the statistics for this specific event and athlete
           if (eventItem.statistics?.$ref) {
-            const statsResponse = await fetch(eventItem.statistics.$ref);
+            const statsResponse = await fetchWithTimeout(eventItem.statistics.$ref, 8000);
+            if (!statsResponse.ok) {
+              console.warn(`Failed to fetch stats for event ${eventItem.eventId}: HTTP ${statsResponse.status}`);
+              return null;
+            }
             const statsData = await statsResponse.json();
             
             console.log(`[RacerDetails] Stats for event ${eventItem.eventId}:`, JSON.stringify(statsData, null, 2));
@@ -329,23 +357,32 @@ const RacerDetailsScreen = ({ route }) => {
             
             // Prefer endDate for sorting if available, fall back to start date
             const sortDate = eventData.endDate || eventData.date;
-            raceLogData.push({
+            return {
               id: eventItem.eventId,
               name: eventData.name || 'Unknown Race',
               date: `${formatEventDate(eventData.date)}\n${formatEventDate(eventData.endDate)}`,
               sortDate,
               venue: venueData.fullName || 'Unknown Venue',
               countryFlag: venueData.countryFlag?.href || '',
-              racerName: athleteData.displayName || athleteData.name || racerName,
+              racerName: racerName,
               lapsCompleted: lapsCompleted || '-',
               behindOrTotal: behindLaps ? `+${behindLaps} Laps` : totalTime ? totalTime : '-',
               place: place || '-'
-            });
+            };
           }
+          return null;
         } catch (eventError) {
           console.error(`Error processing event ${eventItem.eventId}:`, eventError);
+          return null;
         }
-      }
+      });
+
+      // Wait for all event promises to complete
+      const eventResults = await Promise.all(eventPromises);
+      
+      // Filter out null results and add to race log data
+      const validEvents = eventResults.filter(event => event !== null);
+      raceLogData.push(...validEvents);
       
   // Sort by sortDate (most recent first). sortDate prefers endDate when available
   raceLogData.sort((a, b) => new Date(b.sortDate || b.date) - new Date(a.sortDate || a.date));
@@ -451,7 +488,7 @@ const RacerDetailsScreen = ({ route }) => {
 
     const logoName = nameMap[teamName] || teamName.toLowerCase().replace(/\s+/g, '');
     const variant = isDarkMode ? 'logowhite' : 'logoblack';
-    const currentYear = YearFallbackUtils.getCurrentYear(); // Use current year for logos
+    const currentYear = new Date().getFullYear(); // Use current year for logos
     return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${currentYear}/${logoName}/${currentYear}${logoName}${variant}.webp`;
   };
 

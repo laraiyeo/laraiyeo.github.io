@@ -1,6 +1,10 @@
 // Shared WNBA data service for caching teams and players across screens
-class WNBADataService {
+
+import { BaseCacheService } from './BaseCacheService';
+
+class WNBADataService extends BaseCacheService {
   constructor() {
+    super();
     this.teamsCache = null;
     this.playersCache = null;
     this.isInitializing = false;
@@ -66,7 +70,8 @@ class WNBADataService {
   async _fetchData() {
     try {
       // Fetch teams first
-      const teamsResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams`);
+      const headers = this.constructor.getBrowserHeaders();
+      const teamsResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams`, { headers });
       const teamsData = await teamsResponse.json();
       
       if (!teamsData.sports?.[0]?.leagues?.[0]?.teams) {
@@ -82,7 +87,7 @@ class WNBADataService {
       const rosterPromises = teams.map(async (team) => {
         try {
           const rosterUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${team.id}/roster`;
-          const rosterResponse = await fetch(rosterUrl);
+          const rosterResponse = await fetch(rosterUrl, { headers });
           const roster = await rosterResponse.json();
           
           if (roster.athletes) {
@@ -155,6 +160,8 @@ class WNBADataService {
     this.isInitializing = false;
     this.initPromise = null;
     this.notifyListeners();
+    // Also clear parent cache
+    super.clearCache();
   }
 
   // WNBA-specific position grouping - all positions can compare with each other

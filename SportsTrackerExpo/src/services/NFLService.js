@@ -1,44 +1,38 @@
 // NFL API Service for Mobile App
-// Adapted from your existing scoreboard.js
+// Uses ESPN NFL endpoints with AsyncStorage persistent caching
 
-export class NFLService {
+import { BaseCacheService } from './BaseCacheService';
+
+export class NFLService extends BaseCacheService {
   static TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams";
   static SCOREBOARD_API_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard";
   
-  // Cache for API responses
-  static cache = new Map();
-  static cacheTimestamps = new Map();
-  static CACHE_DURATION = 2000; // 2 seconds cache duration for better responsiveness during live games
-
-  // Convert any URL to HTTPS (reused from your existing code)
-  static convertToHttps(url) {
-    if (typeof url !== 'string') return url;
-    return url.replace(/^http:\/\//i, 'https://');
+  // Override to detect NFL live games
+  static hasLiveEvents(data) {
+    if (!data || !data.events) return false;
+    return data.events.some(game => 
+      game.status && (
+        game.status.type?.state === 'in' || 
+        game.status.type?.completed === false ||
+        game.competitions?.[0]?.status?.type?.state === 'in'
+      )
+    );
   }
 
-  // Generic cache method
-  static async getCachedData(key, fetchFunction) {
-    const now = Date.now();
-    const lastFetch = this.cacheTimestamps.get(key);
+  // Override to determine NFL data type
+  static getDataType(data) {
+    if (!data || !data.events) return 'static';
     
-    // Return cached data if it's fresh
-    if (lastFetch && (now - lastFetch) < this.CACHE_DURATION && this.cache.has(key)) {
-      return this.cache.get(key);
-    }
+    const hasLive = this.hasLiveEvents(data);
+    if (hasLive) return 'live';
     
-    // Fetch fresh data
-    try {
-      const data = await fetchFunction();
-      this.cache.set(key, data);
-      this.cacheTimestamps.set(key, now);
-      return data;
-    } catch (error) {
-      // Return cached data if available, even if stale
-      if (this.cache.has(key)) {
-        return this.cache.get(key);
-      }
-      throw error;
-    }
+    const hasScheduled = data.events.some(game => 
+      game.status?.type?.state === 'pre' || 
+      game.competitions?.[0]?.status?.type?.state === 'pre'
+    );
+    if (hasScheduled) return 'scheduled';
+    
+    return 'finished';
   }
 
   // Get NFL Position Group (reused from your existing code)
@@ -58,20 +52,25 @@ export class NFLService {
   }
 
   // Fetch NFL teams
-  static async getTeams() {
-    try {
-      const response = await fetch(this.TEAMS_API_URL);
-      const data = await response.json();
-      return data.sports[0].leagues[0].teams;
-    } catch (error) {
-      console.error('Error fetching NFL teams:', error);
-      throw error;
-    }
+  // Convert any URL to HTTPS (for compatibility)
+  static convertToHttps(url) {
+    if (typeof url !== 'string') return url;
+    return url.replace(/^http:\/\//i, 'https://');
   }
 
-  // Fetch NFL scoreboard
+  // Fetch NFL teams with caching
+  static async getTeams() {
+    const cacheKey = 'nfl_teams';
+    return this.getCachedData(cacheKey, async () => {
+      const response = await fetch(this.TEAMS_API_URL, { headers: this.getBrowserHeaders() });
+      const data = await response.json();
+      return data.sports[0].leagues[0].teams;
+    }, 'teams');
+  }
+
+  // Fetch NFL scoreboard with smart caching
   static async getScoreboard(startDate = null, endDate = null) {
-    const cacheKey = `scoreboard_${startDate || 'today'}_${endDate || startDate || 'today'}`;
+    const cacheKey = `nfl_scoreboard_${startDate || 'today'}_${endDate || startDate || 'today'}`;
     
     return this.getCachedData(cacheKey, async () => {
       let url = this.SCOREBOARD_API_URL;
@@ -85,50 +84,44 @@ export class NFLService {
           url += `?dates=${startDate}`;
         }
       }
-      const response = await fetch(url);
+      const response = await fetch(url, { headers: this.getBrowserHeaders() });
       const data = await response.json();
       return data;
-    });
+    }, 'scoreboard');
   }
 
   // Fetch game details with caching
   static async getGameDetails(gameId) {
-    const cacheKey = `gameDetails_${gameId}`;
+    const cacheKey = `nfl_gameDetails_${gameId}`;
     
     return this.getCachedData(cacheKey, async () => {
       const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
-      
-      const response = await fetch(this.convertToHttps(url));
+      const response = await fetch(url, { headers: this.getBrowserHeaders() });
       const data = await response.json();
-      
       return data;
-    });
+    }, 'game_details');
   }
 
   // Get boxscore data for team stats
   static async getBoxScore(gameId) {
-    try {
+    const cacheKey = `nfl_boxscore_${gameId}`;
+    return this.getCachedData(cacheKey, async () => {
       const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
-      const response = await fetch(url);
+      const response = await fetch(url, { headers: this.getBrowserHeaders() });
       const data = await response.json();
       return data.boxscore || null;
-    } catch (error) {
-      console.error('Error fetching boxscore:', error);
-      return null;
-    }
+    }, 'boxscore');
   }
 
   // Get leaders data
   static async getLeaders(gameId) {
-    try {
+    const cacheKey = `nfl_leaders_${gameId}`;
+    return this.getCachedData(cacheKey, async () => {
       const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
-      const response = await fetch(url);
+      const response = await fetch(url, { headers: this.getBrowserHeaders() });
       const data = await response.json();
       return data.leaders || null;
-    } catch (error) {
-      console.error('Error fetching leaders:', error);
-      return null;
-    }
+    }, 'leaders');
   }
 
   // Get position stats for card (simplified version of your existing function)
@@ -262,7 +255,7 @@ export class NFLService {
     return this.getCachedData(cacheKey, async () => {
       const drivesUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/${gameId}/competitions/${gameId}/drives?lang=en&region=us`;
       
-      const response = await fetch(this.convertToHttps(drivesUrl));
+      const response = await fetch(this.convertToHttps(drivesUrl), { headers: this.getBrowserHeaders() });
       const drivesData = await response.json();
       
       const drives = drivesData.items || [];
@@ -733,5 +726,9 @@ export class NFLService {
         return seqA - seqB;
       });
     });
+  }
+
+  static clearCache() {
+    return super.clearCache();
   }
 }

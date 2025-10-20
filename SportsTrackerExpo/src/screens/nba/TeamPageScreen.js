@@ -3,8 +3,22 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Scr
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import { useFocusEffect } from '@react-navigation/native';
 import { NBAService } from '../../services/NBAService';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
+
+// NBA-specific year logic: September-December uses next year, otherwise current year
+const getNBAYear = () => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const month = now.getMonth(); // 0-based: 0=January, 8=September, 11=December
+  
+  // If current month is September (8) to December (11), use next year
+  if (month >= 8) { // September to December
+    return currentYear + 1;
+  }
+  
+  return currentYear;
+};
 
 // Normalize abbreviations for logo lookup consistency
 const normalizeAbbreviation = (abbrev) => {
@@ -123,16 +137,19 @@ const TeamPageScreen = ({ route, navigation }) => {
   const cachedStandings = useRef(null);
   const cachedEvents = useRef(null);
 
-  useEffect(() => {
-    fetchTeamData();
-    
-    // Cleanup interval on unmount
-    return () => {
-      if (liveUpdateInterval.current) {
-        clearInterval(liveUpdateInterval.current);
-      }
-    };
-  }, [teamId]);
+  // Use useFocusEffect instead of useEffect to only load data when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('NBA TeamPageScreen focused - teamId:', teamId);
+      fetchTeamData();
+      
+      return () => {
+        if (liveUpdateInterval.current) {
+          clearInterval(liveUpdateInterval.current);
+        }
+      };
+    }, [teamId])
+  );
 
   // Convert HTTP to HTTPS helper (from NFL)
   const convertToHttps = (url) => {
@@ -690,9 +707,10 @@ const TeamPageScreen = ({ route, navigation }) => {
       console.log('NBA TeamPage: teamData:', teamData);
       console.log('NBA TeamPage: resolvedParam:', resolvedParam);
 
-      // Try types 2, then 1 with year fallback
+      // Try types 2, then 1 with NBA year logic
       const typesToTry = [2, 1];
-      const yearsToTry = YearFallbackUtils.getYearFallbackSequence();
+      const nbaYear = getNBAYear();
+      const yearsToTry = [nbaYear, nbaYear - 1, nbaYear + 1]; // Try current NBA year, then previous, then next
       let v2data = null;
       
       outerLoop: for (const t of typesToTry) {

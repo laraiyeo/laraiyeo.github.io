@@ -3,7 +3,20 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Scr
 import { useTheme } from '../../../context/ThemeContext';
 import { useFavorites } from '../../../context/FavoritesContext';
 import { GermanyServiceEnhanced } from '../../../services/soccer/GermanyServiceEnhanced';
-import YearFallbackUtils from '../../../utils/YearFallbackUtils';
+
+// Helper function to get the appropriate year for domestic leagues
+const getDomesticLeagueYear = () => {
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth() + 1; // getMonth() is 0-indexed
+  const currentYear = currentDate.getFullYear();
+  
+  // For domestic leagues: July-December uses current year, January-June uses previous year
+  if (currentMonth >= 7) {
+    return currentYear;
+  } else {
+    return currentYear - 1;
+  }
+};
 
 const GermanyTeamPageScreen = ({ route, navigation }) => {
   const { teamId, teamName } = route.params;
@@ -202,7 +215,7 @@ const GermanyTeamPageScreen = ({ route, navigation }) => {
       const competitionPromises = germanCompetitions.map(async (leagueCode) => {
         try {
           // Get team events from ESPN Core API for each competition
-          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${teamId}/events?lang=en&region=us&limit=100`;
+          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${getDomesticLeagueYear()}/teams/${teamId}/events?lang=en&region=us&limit=100`;
           console.log(`Fetching team events from ${leagueCode}:`, eventsUrl);
           
           const eventsResponse = await fetch(convertToHttps(eventsUrl));
@@ -405,25 +418,20 @@ const GermanyTeamPageScreen = ({ route, navigation }) => {
     
     setLoadingRoster(true);
     try {
-      const rosterData = await YearFallbackUtils.fetchWithYearFallback(
-        async (year) => {
-          const response = await fetch(
-            `https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/teams/${teamId}/roster?season=${year}`
-          );
-          
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          
-          return await response.json();
-        },
-        (data) => {
-          console.log('Validating Germany roster data:', data);
-          return data && data.athletes && data.athletes.length > 0;
-        }
+      const year = getDomesticLeagueYear();
+      const response = await fetch(
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/teams/${teamId}/roster?season=${year}`
       );
       
-      if (rosterData && rosterData.athletes) {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const rosterData = await response.json();
+      console.log('Validating Germany roster data:', rosterData);
+      const isValidData = rosterData && rosterData.athletes && rosterData.athletes.length > 0;
+
+      if (isValidData) {
         setRoster(rosterData.athletes);
       } else {
         setRoster([]);
@@ -455,24 +463,19 @@ const GermanyTeamPageScreen = ({ route, navigation }) => {
       // Fetch stats for each season type in parallel with year fallback
       const statsPromises = seasonTypes.map(async (seasonType) => {
         try {
-          const statsData = await YearFallbackUtils.fetchWithYearFallback(
-            async (year) => {
-              const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${seasonType.leagueCode}/seasons/${year}/types/1/teams/${teamId}/statistics/0?lang=en&region=us`;
-              const response = await fetch(convertToHttps(statsUrl));
-              
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-              }
-              
-              return await response.json();
-            },
-            (data) => {
-              console.log(`Validating Germany team stats data for ${seasonType.name}:`, data);
-              return data && data.splits && data.splits.categories && data.splits.categories.length > 0;
-            }
-          );
+          const year = getDomesticLeagueYear();
+          const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${seasonType.leagueCode}/seasons/${year}/types/1/teams/${teamId}/statistics/0?lang=en&region=us`;
+          const response = await fetch(convertToHttps(statsUrl));
           
-          if (statsData) {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          
+          const statsData = await response.json();
+          console.log(`Validating Germany team stats data for ${seasonType.name}:`, statsData);
+          const isValidData = statsData && statsData.splits && statsData.splits.categories && statsData.splits.categories.length > 0;
+
+          if (isValidData) {
             console.log(`Found ${seasonType.name} stats with ${statsData.splits.categories.length} categories`);
             
             // Handle the case where data might be wrapped in a data property

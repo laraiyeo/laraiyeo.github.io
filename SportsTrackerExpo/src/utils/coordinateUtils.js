@@ -95,41 +95,40 @@ export const getLocationsForRound = (locations, roundNumber, timeMillis = null, 
 
   let filtered = locations.filter(location => location.roundNumber === roundNumber);
 
-  // If specific time is provided, return ONLY coordinates that exist at that exact time
+  // If specific time is provided, get last known location for each player up to that time
   if (timeMillis !== null) {
-    // SPECIAL CASE: If time is exactly 0, return empty array (no players at 0s)
+    // SPECIAL CASE: If time is exactly 0, return empty array (no players at round start)
     if (timeMillis === 0) {
       return [];
     }
     
-    // Find the exact time that matches or the closest available time
-    const availableTimes = [...new Set(filtered.map(loc => loc.roundTimeMillis))].sort((a, b) => a - b);
+    // Get unique player IDs in this round
+    const uniquePlayerIds = [...new Set(filtered.map(loc => loc.playerId))];
     
-    // Find the closest available time to the requested time
-    let targetTime = null;
-    let minDifference = Infinity;
-    
-    for (const time of availableTimes) {
-      const difference = Math.abs(time - timeMillis);
-      if (difference < minDifference) {
-        minDifference = difference;
-        targetTime = time;
-      }
+    // For each player, find their last known location at or before the selected time
+    const playersWithLastKnownLocation = uniquePlayerIds.map(playerId => {
+      // Get all locations for this player in this round, up to and including the selected time
+      const playerLocations = filtered
+        .filter(loc => loc.playerId === playerId && loc.roundTimeMillis <= timeMillis)
+        .sort((a, b) => b.roundTimeMillis - a.roundTimeMillis); // Sort by time descending (latest first)
+      
+      // Return the most recent location (last known location)
+      return playerLocations[0] || null;
+    }).filter(Boolean); // Remove any null values
+
+    // If no players have locations at or before this time, try to get the earliest locations
+    if (playersWithLastKnownLocation.length === 0) {
+      const earliestTime = Math.min(...filtered.map(loc => loc.roundTimeMillis));
+      filtered = filtered.filter(location => location.roundTimeMillis === earliestTime);
+    } else {
+      filtered = playersWithLastKnownLocation;
     }
-    
-    // If no available times, return empty array
-    if (targetTime === null) {
-      return [];
-    }
-    
-    // Return ONLY the coordinates that exist at this exact target time
-    filtered = filtered.filter(location => location.roundTimeMillis === targetTime);
 
     // Add alive/dead status to each player if events data is available
     if (events && Array.isArray(events)) {
       filtered = filtered.map(location => ({
         ...location,
-        isAlive: isPlayerAliveAtTime(events, location.playerId, roundNumber, location.roundTimeMillis || targetTime)
+        isAlive: isPlayerAliveAtTime(events, location.playerId, roundNumber, timeMillis) // Use the requested time, not the location time
       }));
     } else {
       // Default to alive if no events data
@@ -138,6 +137,12 @@ export const getLocationsForRound = (locations, roundNumber, timeMillis = null, 
         isAlive: true
       }));
     }
+  } else {
+    // If no specific time, add alive status as true for all players
+    filtered = filtered.map(location => ({
+      ...location,
+      isAlive: true
+    }));
   }
 
   return filtered;

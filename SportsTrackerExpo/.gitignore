@@ -32,6 +32,23 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env.production
+.env.development
 
 # typescript
 *.tsbuildinfo
+
+# App Store / Play Store
+google-service-account.json
+apple-app-store-connect-api-key.json
+eas-secrets.json
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Cache
+.cache/

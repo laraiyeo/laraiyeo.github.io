@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, ActivityIndicator, ScrollView, Image, StyleSheet, TouchableOpacity, Modal, Animated } from 'react-native';
+import { View, Text, ActivityIndicator, ScrollView, Image, StyleSheet, TouchableOpacity, Modal, Animated, Alert } from 'react-native';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { WebView } from 'react-native-webview';
@@ -8,6 +8,7 @@ import { useFavorites } from '../../context/FavoritesContext';
 import { useNavigation } from '@react-navigation/native';
 import { NHLService } from '../../services/NHLService';
 import ChatComponent from '../../components/ChatComponent';
+import { useStreamingAccess } from '../../utils/streamingUtils';
 
 // Smart color detection utility functions
 const calculateColorSimilarity = (color1, color2) => {
@@ -50,7 +51,7 @@ const getSmartTeamColors = (awayTeam, homeTeam) => {
   const homeAlternate = homeTeam.alternateColor ? `#${homeTeam.alternateColor}` : homePrimary;
   
   const similarity = calculateColorSimilarity(awayPrimary, homePrimary);
-  const conflictThreshold = 0.475; // More sensitive to color conflicts
+  const conflictThreshold = 0.625; // More sensitive to color conflicts
   
   console.log(`NHL Color Debug: ${awayTeam.displayName} (${awayPrimary}, alt: ${awayAlternate}) vs ${homeTeam.displayName} (${homePrimary}, alt: ${homeAlternate}), similarity: ${similarity.toFixed(3)}`);
   
@@ -117,6 +118,9 @@ const NHLGameDetailsScreen = ({ route }) => {
   const [streamUrl, setStreamUrl] = useState('');
   const [isStreamLoading, setIsStreamLoading] = useState(true);
   const [chatModalVisible, setChatModalVisible] = useState(false);
+
+  // Streaming access check
+  const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
 
   // Stream API functions (adapted from NFL)
   const STREAM_API_BASE = 'https://streamed.pk/api';
@@ -309,6 +313,16 @@ const NHLGameDetailsScreen = ({ route }) => {
   const openStreamModal = async () => {
     try {
       console.log('openStreamModal: invoked');
+      
+      // Check if streaming is unlocked
+      if (!isStreamingUnlocked) {
+        Alert.alert(
+          'Streaming Locked',
+          'Please enter the streaming code in Settings to access live streams.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
 
       const competition = details?.header?.competitions?.[0] || details?.competitions?.[0] || details?.game?.competitions?.[0];
       if (!competition) {
@@ -398,6 +412,20 @@ const NHLGameDetailsScreen = ({ route }) => {
     setIsStreamLoading(true);
   };
 
+  // Fetch immediately when stream modal closes to resume updates
+  useEffect(() => {
+    if (!streamModalVisible && gameId && details) {
+      // Only fetch if we were previously showing the modal (not on initial load)
+      const wasModalOpen = streamModalVisible === false;
+      if (wasModalOpen) {
+        console.log('Stream modal closed, fetching fresh NHL game data');
+        NHLService.getGameDetails(gameId).then(setDetails).catch(e => 
+          console.error('Failed to fetch NHL game details after stream modal close', e)
+        );
+      }
+    }
+  }, [streamModalVisible, gameId]);
+
   // helper: convert hex to rgba for subtle tinting (hoisted so render paths can use it)
     
 
@@ -450,6 +478,12 @@ const NHLGameDetailsScreen = ({ route }) => {
     }
     
     const intervalId = setInterval(async () => {
+      // Skip update if stream modal is open
+      if (streamModalVisible) {
+        console.log('Stream modal open, skipping NHL game update');
+        return;
+      }
+      
       try {
         const data = await NHLService.getGameDetails(gameId);
         setDetails(data);
@@ -470,7 +504,7 @@ const NHLGameDetailsScreen = ({ route }) => {
     }, 4000);
 
     return () => clearInterval(intervalId);
-  }, [gameId, details]);
+  }, [gameId, details, streamModalVisible]);
 
   // Precompute normalized plays for immediate rendering when user clicks the Plays tab
   useEffect(() => {
@@ -1045,7 +1079,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                   top: topStyle,
                   left: leftStyle,
                   // center like soccer player dots
-                  transform: [{ translateX: '-50%' }, { translateY: '-50%' }],
+                  transform: [{ translateX: '0%' }, { translateY: '-7.5%' }],
                   backgroundColor: marker.color || '#999'
                 }
               ]}
@@ -2170,14 +2204,14 @@ const NHLGameDetailsScreen = ({ route }) => {
         </Text>
       </View>
 
-      {/* Stream Button - only show for live games */}
+      {/* Stream Button - only show for live games and when streaming is unlocked */}
       {(() => {
         const competition = details?.header?.competitions?.[0] || details?.boxscore?.game || details?.game || null;
         const statusType = competition?.status?.type || details?.game?.status?.type || {};
         const state = statusType?.state;
         const isLive = state === 'in';
         
-        return isLive ? (
+        return isLive && isStreamingUnlocked ? (
           <TouchableOpacity 
             style={[styles.streamButton, { backgroundColor: colors.primary }]}
             onPress={openStreamModal}
@@ -2436,7 +2470,8 @@ const NHLGameDetailsScreen = ({ route }) => {
         </View>
       </Modal>
 
-      {/* Stream Modal */}
+      {/* Stream Modal - Only render when streaming is unlocked */}
+      {isStreamingUnlocked && (
       <Modal
         visible={streamModalVisible}
         animationType="slide"
@@ -2647,6 +2682,7 @@ const NHLGameDetailsScreen = ({ route }) => {
           </View>
         </View>
       </Modal>
+      )}
 
       </ScrollView>
       

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView, Modal } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { WNBAService } from '../../services/WNBAService';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
 const convertToHttps = (url) => {
@@ -191,7 +190,7 @@ const WNBAPlayerPageScreen = ({ route, navigation }) => {
       const s = (i) => (typeof statsArr[i] !== 'undefined' && statsArr[i] !== null ? statsArr[i] : '');
 
       // For WNBA: MIN | PTS | FG (Minutes, Points, Field Goals)
-      return `${s(0)} MIN • ${s(13)} PTS • ${s(1)} FG`;
+      return `${s(0)} MIN • ${s(1)} PTS • ${s(7)} FG`;
     } catch (e) {
       return '';
     }
@@ -354,7 +353,7 @@ const WNBAPlayerPageScreen = ({ route, navigation }) => {
   // Fetch eventlog teams for the past 6 seasons (simple, limited) and store them
   const fetchEventlogTeams = async () => {
     try {
-      const thisYear = YearFallbackUtils.getCurrentYear();
+      const thisYear = new Date().getFullYear();
       const seasons = [];
       for (let i = 0; i < 6; i++) seasons.push(String(thisYear - i));
 
@@ -395,7 +394,7 @@ const WNBAPlayerPageScreen = ({ route, navigation }) => {
       }
       // If no seasons found, generate a recent seasons list (last 6 years)
       if (seasons.length === 0) {
-        const thisYear = YearFallbackUtils.getCurrentYear();
+        const thisYear = new Date().getFullYear();
         for (let i = 0; i < 6; i++) seasons.push(String(thisYear - i));
       }
 
@@ -510,7 +509,7 @@ const WNBAPlayerPageScreen = ({ route, navigation }) => {
 
       // Simple approach: just show recent seasons 2020-2025 regardless of team data
       // Let the UI handle missing data by showing "-" for missing stats
-      const currentYear = YearFallbackUtils.getCurrentYear();
+      const currentYear = new Date().getFullYear();
       const fixedSeasons = [];
       for (let year = currentYear; year >= 2020; year--) {
         fixedSeasons.push(String(year));
@@ -600,7 +599,7 @@ const WNBAPlayerPageScreen = ({ route, navigation }) => {
         headshot: { href: `https://a.espncdn.com/i/headshots/wnba/players/full/${playerId}.png` }
       };
 
-      const seasonYear = YearFallbackUtils.getCurrentYear();
+      const seasonYear = new Date().getFullYear();
       const siteUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/athletes/${playerId}`;
       const splitsUrl = `https://site.web.api.espn.com/apis/common/v3/sports/basketball/wnba/athletes/${playerId}/splits`;
       const statsUrl = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/wnba/seasons/${seasonYear}/types/2/athletes/${playerId}/statistics?lang=en&region=us`;
@@ -1181,18 +1180,18 @@ const WNBAPlayerPageScreen = ({ route, navigation }) => {
                   name: 'player',
                   displayName: 'Game Stats',
                   stats: [
-                    { name: 'points', displayName: 'Points', value: statsArr[13] || 0, displayValue: (statsArr[13] || 0).toString() },
-                    { name: 'rebounds', displayName: 'Rebounds', value: statsArr[7] || 0, displayValue: (statsArr[7] || 0).toString() },
-                    { name: 'assists', displayName: 'Assists', value: statsArr[8] || 0, displayValue: (statsArr[8] || 0).toString() },
-                    { name: 'fieldGoals', displayName: 'Field Goals', value: statsArr[1] || 0, displayValue: (statsArr[1] || 0).toString() },
-                    { name: 'threePointers', displayName: 'Three Pointers', value: statsArr[3] || 0, displayValue: (statsArr[3] || 0).toString() },
-                    { name: 'freeThrows', displayName: 'Free Throws', value: statsArr[5] || 0, displayValue: (statsArr[5] || 0).toString() },
-                    { name: 'steals', displayName: 'Steals', value: statsArr[10] || 0, displayValue: (statsArr[10] || 0).toString() },
-                    { name: 'blocks', displayName: 'Blocks', value: statsArr[9] || 0, displayValue: (statsArr[9] || 0).toString() },
-                    { name: 'turnovers', displayName: 'Turnovers', value: statsArr[12] || 0, displayValue: (statsArr[12] || 0).toString() },
+                    { name: 'points', displayName: 'Points', value: statsArr[1] || 0, displayValue: (statsArr[1] || 0).toString() },
+                    { name: 'rebounds', displayName: 'Rebounds', value: statsArr[2] || 0, displayValue: (statsArr[2] || 0).toString() },
+                    { name: 'assists', displayName: 'Assists', value: statsArr[3] || 0, displayValue: (statsArr[3] || 0).toString() },
+                    { name: 'fieldGoals', displayName: 'Field Goals', value: statsArr[7] || 0, displayValue: (statsArr[7] || 0).toString() },
+                    { name: 'threePointers', displayName: 'Three Pointers', value: statsArr[9] || 0, displayValue: (statsArr[9] || 0).toString() },
+                    { name: 'freeThrows', displayName: 'Free Throws', value: statsArr[11] || 0, displayValue: (statsArr[11] || 0).toString() },
+                    { name: 'steals', displayName: 'Steals', value: statsArr[4] || 0, displayValue: (statsArr[4] || 0).toString() },
+                    { name: 'blocks', displayName: 'Blocks', value: statsArr[5] || 0, displayValue: (statsArr[5] || 0).toString() },
+                    { name: 'turnovers', displayName: 'Turnovers', value: statsArr[6] || 0, displayValue: (statsArr[6] || 0).toString() },
                     { name: 'minutes', displayName: 'Minutes', value: statsArr[0] || 0, displayValue: (statsArr[0] || 0).toString() },
-                    { name: 'personalFouls', displayName: 'Personal Fouls', value: statsArr[11] || 0, displayValue: (statsArr[11] || 0).toString() },
-                    { name: 'fieldGoalPct', displayName: 'FG %', value: statsArr[2] || 0, displayValue: (statsArr[2] || 0).toString() }
+                    { name: 'personalFouls', displayName: 'Personal Fouls', value: statsArr[13] || 0, displayValue: (statsArr[13] || 0).toString() },
+                    { name: 'fieldGoalPct', displayName: 'FG %', value: statsArr[8] || 0, displayValue: (statsArr[8] || 0).toString() }
                   ]
                 }]
               }

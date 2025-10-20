@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome6, FontAwesome } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import analyticsService from '../services/AnalyticsService';
 
 const HomeScreen = () => {
   const navigation = useNavigation();
@@ -61,24 +62,31 @@ const HomeScreen = () => {
     {
       id: 'esports',
       title: 'ESPORTS',
-      description: 'View all live esports matches happening right now.',
-      iconName: 'desktop-outline',
+      description: 'View all live E-Sports games happening right now.',
+      iconName: 'computer',
       color: colors.primary
     }
   ];
 
   const handleSportPress = (sport) => {
+    // Log analytics event for sport selection
+    analyticsService.logSportSelection(sport.id);
+    
     navigation.navigate('SportTabs', { sport: sport.id });
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-        <Text allowFontScaling={false} style={[styles.title, { color: theme.text }]}>Live Sports Tracker</Text>
+        <View style={styles.titleContainer}>
+          <Text allowFontScaling={false} style={[styles.title, { color: theme.text }]}>SportsHeart</Text>
+          <FontAwesome name="heart" size={24} color={colors.primary} style={styles.heartIcon} />
+        </View>
         <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textSecondary }]}>Choose your sport to get started</Text>
       </View>
       
-      <View style={styles.sportsGrid}>
+      <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
+        <View style={styles.sportsGrid}>
         {sports.map((sport) => (
           <TouchableOpacity
             key={sport.id}
@@ -87,11 +95,14 @@ const HomeScreen = () => {
             activeOpacity={0.8}
           >
             <View style={styles.sportContent}>
-              {sport.icon ? (
-                <Image source={sport.icon} style={styles.sportIcon} />
-              ) : (
-                <Ionicons name={sport.iconName} size={50} color={sport.color} style={styles.sportIcon} />
-              )}
+              <View style={styles.iconWrapper}>
+                {sport.icon ? (
+                  <Image source={sport.icon} style={styles.sportIconImage} />
+                ) : (
+                  <FontAwesome6 name={sport.iconName} size={48} color={sport.color} style={styles.sportIconFA} />
+                )}
+              </View>
+
               <Text allowFontScaling={false} style={[styles.sportTitle, { color: sport.color }]}>{sport.title}</Text>
               <Text allowFontScaling={false} style={[styles.sportDescription, { color: theme.textSecondary }]}>{sport.description}</Text>
             </View>
@@ -99,6 +110,7 @@ const HomeScreen = () => {
         ))}
       </View>
     </ScrollView>
+    </View>
   );
 };
 
@@ -111,14 +123,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomWidth: 1,
   },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  heartIcon: {
+    marginLeft: 8,
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
+  },
+  scrollArea: {
+    flex: 1,
   },
   sportsGrid: {
     padding: 16,
@@ -144,11 +166,21 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
   },
-  sportIcon: {
+  iconWrapper: {
     width: 100,
     height: 60,
     marginBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sportIconImage: {
+    width: 100,
+    height: 60,
     resizeMode: 'contain',
+  },
+  sportIconFA: {
+    // FontAwesome is a glyph; centering via wrapper
+    textAlign: 'center',
   },
   sportTitle: {
     fontSize: 18,

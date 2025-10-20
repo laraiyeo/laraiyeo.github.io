@@ -3,7 +3,14 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Scr
 import { useTheme } from '../../../context/ThemeContext';
 import { useFavorites } from '../../../context/FavoritesContext';
 import { EuropaConferenceLeagueServiceEnhanced } from '../../../services/soccer/EuropaConferenceLeagueServiceEnhanced';
-import YearFallbackUtils from '../../../utils/YearFallbackUtils';
+
+// Helper function for Europa Conference League year logic
+// For Europa Conference League standings/bracket screens: July-December uses next year, else current year
+const getEuropaConferenceLeagueYear = () => {
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1; // getMonth() returns 0-11
+  return (currentMonth >= 7 && currentMonth <= 12) ? now.getFullYear() : now.getFullYear() - 1;
+};
 
 const UECLTeamPageScreen = ({ route, navigation }) => {
   const { teamId, teamName } = route.params;
@@ -222,7 +229,7 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
       const competitionPromises = UECLCompetitions.map(async (leagueCode) => {
         try {
           // Get team events from ESPN Core API for each competition
-          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${teamId}/events?lang=en&region=us&limit=100`;
+          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${getEuropaConferenceLeagueYear()}/teams/${teamId}/events?lang=en&region=us&limit=100`;
           console.log(`Fetching team events from ${leagueCode}:`, eventsUrl);
           
           const eventsResponse = await fetch(convertToHttps(eventsUrl));
@@ -425,23 +432,21 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
     
     setLoadingRoster(true);
     try {
-      const rosterData = await YearFallbackUtils.fetchWithYearFallback(
-        async (year) => {
-          const response = await fetch(
-            `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/teams/${teamId}/roster?season=${year}`
-          );
-          
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          
-          return await response.json();
-        },
-        (data) => {
-          console.log('Validating UECL roster data:', data);
-          return data && data.athletes && data.athletes.length > 0;
-        }
+      // Fetch roster data with Europa Conference League year logic
+      const year = getEuropaConferenceLeagueYear();
+      const response = await fetch(
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/teams/${teamId}/roster?season=${year}`
       );
+      
+      let rosterData = null;
+      if (response.ok) {
+        rosterData = await response.json();
+        console.log('Validating UECL roster data:', rosterData);
+        const isValid = rosterData && rosterData.athletes && rosterData.athletes.length > 0;
+        if (!isValid) {
+          rosterData = null;
+        }
+      }
       
       if (rosterData && rosterData.athletes) {
         setRoster(rosterData.athletes);
@@ -474,22 +479,20 @@ const UECLTeamPageScreen = ({ route, navigation }) => {
       // Fetch stats for each season type in parallel with year fallback
       const statsPromises = seasonTypes.map(async (seasonType) => {
         try {
-          const statsData = await YearFallbackUtils.fetchWithYearFallback(
-            async (year) => {
-              const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${seasonType.leagueCode}/seasons/${year}/types/1/teams/${teamId}/statistics/0?lang=en&region=us`;
-              const response = await fetch(convertToHttps(statsUrl));
-              
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-              }
-              
-              return await response.json();
-            },
-            (data) => {
-              console.log(`Validating UECL team stats data for ${seasonType.name}:`, data);
-              return data && data.splits && data.splits.categories && data.splits.categories.length > 0;
+          // Fetch team stats with Europa Conference League year logic
+          const year = getEuropaConferenceLeagueYear();
+          const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${seasonType.leagueCode}/seasons/${year}/types/1/teams/${teamId}/statistics/0?lang=en&region=us`;
+          const response = await fetch(convertToHttps(statsUrl));
+          
+          let statsData = null;
+          if (response.ok) {
+            statsData = await response.json();
+            console.log(`Validating UECL team stats data for ${seasonType.name}:`, statsData);
+            const isValid = statsData && statsData.splits && statsData.splits.categories && statsData.splits.categories.length > 0;
+            if (!isValid) {
+              statsData = null;
             }
-          );
+          }
           
           if (statsData) {
             console.log(`Found ${seasonType.name} stats with ${statsData.splits.categories.length} categories`);

@@ -19,6 +19,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { convertMLBIdToESPNId } from '../../utils/TeamIdMapping';
 import ChatComponent from '../../components/ChatComponent';
+import { useStreamingAccess } from '../../utils/streamingUtils';
 
 // Color similarity detection utility
 const calculateColorSimilarity = (color1, color2) => {
@@ -106,10 +107,12 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   const [loadingTeamStats, setLoadingTeamStats] = useState(false);
   const [openPlays, setOpenPlays] = useState(new Set());
   const [isIncrementalUpdate, setIsIncrementalUpdate] = useState(false);
+  const loadingPlaysRef = useRef(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [playerModalVisible, setPlayerModalVisible] = useState(false);
   const [playerStats, setPlayerStats] = useState(null);
   const [loadingPlayerStats, setLoadingPlayerStats] = useState(false);
+  const [selectedStatsType, setSelectedStatsType] = useState('batting'); // 'batting' or 'pitching'
   const [chatModalVisible, setChatModalVisible] = useState(false);
   const [awayRoster, setAwayRoster] = useState(null);
   const [homeRoster, setHomeRoster] = useState(null);
@@ -134,6 +137,9 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   const [availableStreams, setAvailableStreams] = useState({});
   const [streamUrl, setStreamUrl] = useState('');
   const [isStreamLoading, setIsStreamLoading] = useState(true);
+
+  // Streaming access check
+  const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
   const scrollViewRef = useRef(null);
   const playsScrollViewRef = useRef(null);
   const [playsScrollPosition, setPlaysScrollPosition] = useState(0);
@@ -570,6 +576,12 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     
     if (isLiveGame) {
       const interval = setInterval(() => {
+        // Skip update if stream modal is open
+        if (streamModalVisible) {
+          console.log('Stream modal open, skipping MLB game update');
+          return;
+        }
+        
         console.log('MLBGameDetailsScreen: Live update tick');
         loadLiveDataUpdate();
       }, 2000); // Update every 2 seconds for live games
@@ -592,11 +604,19 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
   // Refresh plays data when active tab is plays and game data changes
   useEffect(() => {
-    if (gameData && activeTab === 'plays') {
+    console.log('MLB plays useEffect triggered - gameData:', !!gameData, 'activeTab:', activeTab, 'gameId:', gameId);
+    if (gameData && activeTab === 'plays' && gameId) {
+      console.log('Loading plays data...');
       // Always refresh plays when switching to plays tab or when game data changes while on plays tab
       loadPlaysData();
+    } else if (!gameData) {
+      console.log('No gameData available for plays');
+    } else if (activeTab !== 'plays') {
+      console.log('Not on plays tab, current tab:', activeTab);
+    } else if (!gameId) {
+      console.log('No gameId available for plays');
     }
-  }, [gameData, activeTab]);
+  }, [gameData, activeTab, gameId]);
 
   // Load scheduled game data when game data is loaded and game is scheduled, pre-game, or warmup
   useEffect(() => {
@@ -609,6 +629,21 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       loadScheduledGameData();
     }
   }, [gameData]);
+
+  // Fetch immediately when stream modal closes
+  useEffect(() => {
+    if (streamModalVisible === false && gameData) {
+      const isLiveGame = gameData?.gameData?.status?.statusCode === 'I' || // In progress
+                         gameData?.gameData?.status?.detailedState === 'In Progress' ||
+                         gameData?.gameData?.status?.detailedState === 'Manager challenge' ||
+                         gameData?.gameData?.status?.codedGameState === 'M'; // Manager challenge
+      
+      if (isLiveGame) {
+        console.log('Stream modal closed, immediately fetching MLB game data');
+        loadLiveDataUpdate();
+      }
+    }
+  }, [streamModalVisible]);
 
   // Monitor for live updates specifically for plays
   useEffect(() => {
@@ -764,17 +799,32 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   };
 
   const loadPlaysData = async () => {
-    if (!gameId || loadingPlays) return;
+    console.log('loadPlaysData called - gameId:', gameId, 'loadingPlays:', loadingPlays, 'loadingPlaysRef:', loadingPlaysRef.current);
+    if (!gameId) {
+      console.log('Exiting loadPlaysData - no gameId');
+      return;
+    }
+    
+    if (loadingPlaysRef.current) {
+      console.log('Exiting loadPlaysData - already loading (ref check)');
+      return;
+    }
     
     try {
+      loadingPlaysRef.current = true;
       setIsIncrementalUpdate(false);
       setLoadingPlays(true);
+      console.log('Fetching plays data for gameId:', gameId);
       const plays = await MLBService.getPlayByPlay(gameId);
+      console.log('Plays data received:', !!plays, plays ? Object.keys(plays).length : 0, 'keys');
       setPlaysData(plays);
+      console.log('Successfully set plays data, setting loadingPlays to false');
     } catch (error) {
       console.error('Error loading plays:', error);
       Alert.alert('Error', 'Failed to load plays data');
     } finally {
+      console.log('Finally block - setting loadingPlays to false');
+      loadingPlaysRef.current = false;
       setLoadingPlays(false);
     }
   };
@@ -940,11 +990,12 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     return inningState === 'Top' ? `Top ${ordinal}` : `Bot ${ordinal}`;
   };
 
-  const handlePlayerPress = async (player, team) => {
+  const handlePlayerPress = async (player, team, statsType = 'batting') => {
     setSelectedPlayer({
       ...player,
       team: team
     });
+    setSelectedStatsType(statsType);
     setPlayerModalVisible(true);
     setLoadingPlayerStats(true);
 
@@ -971,6 +1022,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     setPlayerModalVisible(false);
     setSelectedPlayer(null);
     setPlayerStats(null);
+    setSelectedStatsType('batting');
   };
 
   const handleScroll = (event) => {
@@ -1184,6 +1236,16 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   };
 
   const openStreamModal = async () => {
+    // Check if streaming is unlocked
+    if (!isStreamingUnlocked) {
+      Alert.alert(
+        'Streaming Locked',
+        'Please enter the streaming code in Settings to access live streams.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     const awayTeam = gameData?.gameData?.teams?.away;
     const homeTeam = gameData?.gameData?.teams?.home;
     
@@ -1327,8 +1389,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     return (
       <TouchableOpacity 
         style={[styles.gameHeader, { backgroundColor: theme.surface }]} 
-        onPress={isGameLive ? openStreamModal : undefined} 
-        activeOpacity={isGameLive ? 0.8 : 1}
+        onPress={isGameLive && isStreamingUnlocked ? openStreamModal : undefined} 
+        activeOpacity={isGameLive && isStreamingUnlocked ? 0.8 : 1}
       >
         <View style={styles.teamContainer}>
           {/* Away Team */}
@@ -1437,7 +1499,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               })()}
             </Text>
           )}
-          {isGameLive && (
+          {isGameLive && isStreamingUnlocked && (
             <Text allowFontScaling={false} style={[styles.streamHint, { color: colors.primary }]}>Tap to view streams</Text>
           )}
         </View>
@@ -1746,13 +1808,13 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 <TouchableOpacity 
                   key={player.person?.id || index} 
                   style={[styles.statTableRow, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}
-                  onPress={() => handlePlayerPress(player, team)}
+                  onPress={() => handlePlayerPress(player, team, 'batting')}
                 >
                   <View style={styles.statTablePlayerCell}>
                     <Text allowFontScaling={false} style={[styles.statTablePlayerName, { color: rowColor }]}>
                       {player.person?.fullName || 'Unknown Player'}
                     </Text>
-                    <Text allowFontScaling={false} style={[styles.statTablePlayerNumber, { color: rowColor }]}> 
+                    <Text allowFontScaling={false} style={[styles.statTablePlayerNumber, { color: theme.textSecondary }]}> 
                       #{player.jerseyNumber || '--'} {player.position?.abbreviation || ''}
                     </Text>
                   </View>
@@ -1770,7 +1832,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         {/* Pitching Stats */}
         <View style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
           <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: colors.primary }]}>Pitching</Text>
-          <View style={[styles.statTableHeader, { backgroundColor: theme.cardBackground || theme.surface }]}>
+          <View style={[styles.statTableHeader, { backgroundColor: theme.cardBackground || theme.surfaceSecondary }]}>
             <Text allowFontScaling={false} style={[styles.statTableHeaderPlayer, { color: theme.text }]}>Player</Text>
             <Text allowFontScaling={false} style={[styles.statTableHeaderStat, { color: theme.text }]}>IP</Text>
             <Text allowFontScaling={false} style={[styles.statTableHeaderStat, { color: theme.text }]}>H</Text>
@@ -1787,7 +1849,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               <TouchableOpacity 
                 key={pitcherId} 
                 style={[styles.statTableRow, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}
-                onPress={() => handlePlayerPress(player, team)}
+                onPress={() => handlePlayerPress(player, team, 'pitching')}
               >
                 <View style={styles.statTablePlayerCell}>
                   <Text allowFontScaling={false} style={[styles.statTablePlayerName, { color: theme.text }]}>
@@ -1923,11 +1985,11 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   };
 
   const renderPlaysContent = () => {
-    console.log('renderPlaysContent called, loadingPlays:', loadingPlays, 'isIncrementalUpdate:', isIncrementalUpdate);
+    console.log('renderPlaysContent called, loadingPlays:', loadingPlays, 'isIncrementalUpdate:', isIncrementalUpdate, 'playsData:', !!playsData, 'playsData keys:', playsData ? Object.keys(playsData) : 'null');
     
-    // Only show loading if it's not an incremental update
-    if (loadingPlays && !isIncrementalUpdate) {
-      console.log('Showing loading spinner');
+    // Show loading spinner only if we don't have data AND we're loading (not incremental)
+    if (!playsData && loadingPlays && !isIncrementalUpdate) {
+      console.log('Showing loading spinner - no data and loading');
       return (
         <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -1937,6 +1999,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     }
 
     if (!playsData) {
+      console.log('No playsData available - showing placeholder');
       return (
         <View style={styles.placeholderContainer}>
           <Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.textSecondary }]}>No plays data available</Text>
@@ -2197,21 +2260,23 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
     return (
       <View style={[styles.pitchVisualization, { backgroundColor: theme.background }]}>
-        {/* Batter Section */}
-        <View style={styles.pitchPlayerSection}>
+        {/* Batter Section - Above the Box */}
+        <View style={styles.pitchPlayerSectionTop}>
           {batterHeadshot && (
-            <View style={styles.pitchPlayerInfo}>
+            <View style={styles.pitchPlayerInfoTop}>
               <Image
                 source={{ uri: batterHeadshot }}
                 style={[styles.pitchPlayerHeadshot, { borderColor: colors.primary }]}
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=B' }}
               />
-              <Text allowFontScaling={false} style={[styles.pitchPlayerName, { color: colors.primary }]}>
-                {batter.fullName ? 
-                  `${batter.fullName.split(' ')[0][0]}. ${batter.fullName.split(' ').pop()}` : 
-                  'Batter'}
-              </Text>
-              <Text allowFontScaling={false} style={[styles.pitchPlayerRole, { color: theme.textSecondary }]}>Batter</Text>
+              <View style={styles.pitchPlayerTextContainer}>
+                <Text allowFontScaling={false} style={[styles.pitchPlayerName, { color: colors.primary }]}>
+                  {batter.fullName ? 
+                    `${batter.fullName.split(' ')[0][0]}. ${batter.fullName.split(' ').pop()}` : 
+                    'Batter'}
+                </Text>
+                <Text allowFontScaling={false} style={[styles.pitchPlayerRole, { color: theme.textSecondary }]}>Batter</Text>
+              </View>
             </View>
           )}
         </View>
@@ -2240,7 +2305,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             }
 
             // Convert plate coordinates to percentage - exact web algorithm
-            const xPercent = ((pitchData.coordinates.pX + 2.0) / 4.0) * 100;
+            const xPercent = ((pitchData.coordinates.pX + 2.0) / 3.75) * 100;
             const yPercent = pitchData.strikeZoneTop && pitchData.strikeZoneBottom ? 
               ((pitchData.strikeZoneTop - pitchData.coordinates.pZ) / 
                (pitchData.strikeZoneTop - pitchData.strikeZoneBottom)) * 60 + 20 : 50;
@@ -2250,8 +2315,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             const finalYPercent = Math.max(5, Math.min(95, yPercent));
 
             // Convert percentages to pixel positions for React Native (120px container)
-            const finalX = (finalXPercent / 100) * 120 - 6; // Center the 12px dot
-            const finalY = (finalYPercent / 100) * 120 - 6; // Center the 12px dot
+            const finalX = (finalXPercent / 100) * 120 - 5; // Center the 12px dot
+            const finalY = (finalYPercent / 100) * 120 + 12.5; // Center the 12px dot
 
             // Determine pitch color based on call
             let pitchColor = '#4CAF50'; // Green for balls
@@ -2268,6 +2333,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   styles.pitchLocation,
                   { 
                     backgroundColor: pitchColor,
+                    borderColor: pitchColor,
                     left: finalX,
                     top: finalY,
                     position: 'absolute',
@@ -2283,21 +2349,23 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           })}
         </View>
 
-        {/* Pitcher Section */}
-        <View style={styles.pitchPlayerSection}>
+        {/* Pitcher Section - Below the Box */}
+        <View style={styles.pitchPlayerSectionBottom}>
           {pitcherHeadshot && (
-            <View style={styles.pitchPlayerInfo}>
+            <View style={styles.pitchPlayerInfoBottom}>
+              <View style={styles.pitchPlayerTextContainer}>
+                <Text allowFontScaling={false} style={[styles.pitchPlayerName, { color: colors.primary }]}>
+                  {pitcher.fullName ? 
+                    `${pitcher.fullName.split(' ')[0][0]}. ${pitcher.fullName.split(' ').pop()}` : 
+                    'Pitcher'}
+                </Text>
+                <Text allowFontScaling={false} style={[styles.pitchPlayerRole, { color: theme.textSecondary }]}>Pitcher</Text>
+              </View>
               <Image
                 source={{ uri: pitcherHeadshot }}
                 style={[styles.pitchPlayerHeadshot, { borderColor: colors.primary }]}
                 defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=P' }}
               />
-              <Text allowFontScaling={false} style={[styles.pitchPlayerName, { color: colors.primary }]}>
-                {pitcher.fullName ? 
-                  `${pitcher.fullName.split(' ')[0][0]}. ${pitcher.fullName.split(' ').pop()}` : 
-                  'Pitcher'}
-              </Text>
-              <Text allowFontScaling={false} style={[styles.pitchPlayerRole, { color: theme.textSecondary }]}>Pitcher</Text>
             </View>
           )}
         </View>
@@ -2971,6 +3039,14 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     const isPitcher = player.position?.abbreviation === 'P' || player.allPositions?.some(pos => pos.abbreviation === 'P');
     const battingStats = stats.batting || {};
     const pitchingStats = stats.pitching || {};
+    
+    // Determine which stats to show based on selectedStatsType and available data
+    const showBattingStats = selectedStatsType === 'batting' && Object.keys(battingStats).length > 0;
+    const showPitchingStats = selectedStatsType === 'pitching' && Object.keys(pitchingStats).length > 0;
+    
+    // For two-way players, if selected type has no stats, fall back to the other type
+    const fallbackToBatting = selectedStatsType === 'pitching' && Object.keys(pitchingStats).length === 0 && Object.keys(battingStats).length > 0;
+    const fallbackToPitching = selectedStatsType === 'batting' && Object.keys(battingStats).length === 0 && Object.keys(pitchingStats).length > 0;
 
     // Format game date properly
     const formatGameDate = (dateStr) => {
@@ -2996,7 +3072,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         </View>
 
         {/* Batting Stats */}
-        {Object.keys(battingStats).length > 0 && (
+        {(showBattingStats || fallbackToBatting) && (
           <View style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
             <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: colors.primary }]}>⚾ Batting</Text>
             
@@ -3051,7 +3127,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         )}
 
         {/* Pitching Stats */}
-        {Object.keys(pitchingStats).length > 0 && (
+        {(showPitchingStats || fallbackToPitching) && (
           <View style={[styles.statCategoryContainer, { backgroundColor: theme.surface }]}>
             <Text allowFontScaling={false} style={[styles.statCategoryTitle, { color: colors.primary }]}>🥎 Pitching</Text>
             
@@ -3106,7 +3182,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         )}
 
         {/* No Stats Message */}
-        {Object.keys(battingStats).length === 0 && Object.keys(pitchingStats).length === 0 && (
+        {!showBattingStats && !showPitchingStats && !fallbackToBatting && !fallbackToPitching && (
           <View style={styles.noStatsContainer}>
             <Text allowFontScaling={false} style={[styles.noStatsText, { color: theme.textSecondary }]}>No statistics available for this game</Text>
           </View>
@@ -3233,6 +3309,45 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   </View>
                 </View>
 
+                {/* Stats Type Toggle for Two-Way Players */}
+                {selectedPlayer && playerStats && playerStats.batting && playerStats.pitching && 
+                 Object.keys(playerStats.batting).length > 0 && Object.keys(playerStats.pitching).length > 0 && (
+                  <View style={styles.statsToggleContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.statsToggleButton,
+                        selectedStatsType === 'batting' && styles.statsToggleButtonActive,
+                        { 
+                          backgroundColor: selectedStatsType === 'batting' ? colors.primary : theme.surface,
+                          borderColor: colors.primary
+                        }
+                      ]}
+                      onPress={() => setSelectedStatsType('batting')}
+                    >
+                      <Text allowFontScaling={false} style={[
+                        styles.statsToggleButtonText,
+                        { color: selectedStatsType === 'batting' ? '#FFFFFF' : colors.primary }
+                      ]}>⚾ Batting</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.statsToggleButton,
+                        selectedStatsType === 'pitching' && styles.statsToggleButtonActive,
+                        { 
+                          backgroundColor: selectedStatsType === 'pitching' ? colors.primary : theme.surface,
+                          borderColor: colors.primary
+                        }
+                      ]}
+                      onPress={() => setSelectedStatsType('pitching')}
+                    >
+                      <Text allowFontScaling={false} style={[
+                        styles.statsToggleButtonText,
+                        { color: selectedStatsType === 'pitching' ? '#FFFFFF' : colors.primary }
+                      ]}>🥎 Pitching</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
                 {/* Player Stats */}
                 <View style={styles.playerStatsContainer}>
                   {loadingPlayerStats ? (
@@ -3254,7 +3369,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         </View>
       </Modal>
 
-      {/* Stream Modal */}
+      {/* Stream Modal - Only render when streaming is unlocked */}
+      {isStreamingUnlocked && (
       <Modal
         animationType="fade"
         transparent={true}
@@ -3719,6 +3835,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           </View>
         </View>
       </Modal>
+      )}
 
       {/* Chat Modal */}
       <Modal
@@ -3733,10 +3850,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             {/* Chat Modal Header */}
             <View style={[styles.chatModalHeader, { borderBottomColor: theme.border }]}>
               <Text allowFontScaling={false} style={[styles.chatModalTitle, { color: theme.text }]}>
-                {(() => {
-                  console.log('GameData at line 3667:', gameData);
-                  return gameData ? `${gameData.gameData?.teams?.away?.teamName || 'Away'} vs ${gameData.gameData?.teams?.home?.teamName || 'Home'}` : 'Chat';
-                })()}
+                {gameData ? `${gameData.gameData?.teams?.away?.teamName || 'Away'} vs ${gameData.gameData?.teams?.home?.teamName || 'Home'}` : 'Chat'}
               </Text>
               <TouchableOpacity
                 style={styles.chatModalCloseButton}
@@ -4599,8 +4713,8 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   strikeZoneContainer: {
-    width: 120,
-    height: 120,
+    width: 150,
+    height: 150,
     position: 'relative',
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: 4,
@@ -4610,16 +4724,16 @@ const styles = StyleSheet.create({
   },
   strikeZoneOutline: {
     position: 'absolute',
-    width: 60,
-    height: 60,
+    width: 70,
+    height: 80,
     borderWidth: 2,
     borderColor: '#777',
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 2,
     top: '50%',
     left: '50%',
-    marginLeft: -30,
-    marginTop: -30,
+    marginLeft: -35,
+    marginTop: -40,
   },
   pitchLocation: {
     position: 'absolute',
@@ -5607,6 +5721,85 @@ const styles = StyleSheet.create({
   },
   chatModalBody: {
     flex: 1,
+  },
+  // Pitch Visualization Styles
+  pitchVisualization: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginVertical: 8,
+    borderRadius: 8,
+  },
+  pitchPlayerSectionTop: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  pitchPlayerSectionBottom: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  pitchPlayerInfoTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pitchPlayerInfoBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pitchPlayerTextContainer: {
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
+  pitchPlayerHeadshot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+  },
+  pitchPlayerName: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  pitchPlayerRole: {
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  // Stats toggle styles
+  statsToggleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginHorizontal: 20,
+    marginVertical: 10,
+    backgroundColor: 'transparent',
+  },
+  statsToggleButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginHorizontal: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statsToggleButtonActive: {
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  statsToggleButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 

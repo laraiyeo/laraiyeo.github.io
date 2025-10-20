@@ -531,7 +531,7 @@ const CompareScreen = ({ route }) => {
       onRequestClose={() => setShowSearchModal(false)}
     >
       <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
-        <View style={[styles.modalHeader, { backgroundColor: theme.surface }]}>
+        <View style={[styles.modalHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
           <Text allowFontScaling={false} style={[styles.modalTitle, { color: theme.text }]}>
             Select Player {searchingForPlayer}
           </Text>

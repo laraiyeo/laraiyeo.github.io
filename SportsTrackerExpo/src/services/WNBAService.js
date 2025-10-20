@@ -1,30 +1,60 @@
 // WNBA API Service for Mobile App
 // Uses ESPN WNBA endpoints for comprehensive WNBA data
 
-export class WNBAService {
+import { BaseCacheService } from './BaseCacheService';
+
+export class WNBAService extends BaseCacheService {
   static SCOREBOARD_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard";
   static TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams";
   static STANDINGS_API_URL = "https://cdn.espn.com/core/wnba/standings?xhr=1";
 
-  static cache = new Map();
-  static cacheTimestamps = new Map();
-  static CACHE_DURATION = 2000; // 2 seconds for live responsiveness
-
-  static async getCachedData(key, fetchFunction) {
-    const now = Date.now();
-    const lastFetch = this.cacheTimestamps.get(key);
-    if (lastFetch && (now - lastFetch) < this.CACHE_DURATION && this.cache.has(key)) {
-      return this.cache.get(key);
-    }
-
+  // Smart live game detection for WNBA
+  static hasLiveEvents(data) {
     try {
-      const data = await fetchFunction();
-      this.cache.set(key, data);
-      this.cacheTimestamps.set(key, now);
-      return data;
+      const events = data?.events || [];
+      return events.some(event => {
+        const status = event?.status?.type?.name;
+        const description = event?.status?.type?.description;
+        
+        // WNBA live statuses
+        return status === 'STATUS_IN_PROGRESS' || 
+               description?.toLowerCase().includes('period') ||
+               description?.toLowerCase().includes('quarter') ||
+               description?.toLowerCase().includes('halftime') ||
+               description?.toLowerCase().includes('overtime');
+      });
     } catch (error) {
-      if (this.cache.has(key)) return this.cache.get(key);
-      throw error;
+      console.error('WNBAService: Error detecting live events', error);
+      return false;
+    }
+  }
+
+  static getDataType(data, context) {
+    try {
+      if (this.hasLiveEvents(data)) {
+        return 'live';
+      }
+      
+      if (context?.includes('standings') || context?.includes('teams')) {
+        return 'static';
+      }
+      
+      // Check if events are scheduled or finished
+      const events = data?.events || [];
+      const hasScheduled = events.some(event => 
+        event?.status?.type?.name === 'STATUS_SCHEDULED'
+      );
+      const hasFinished = events.some(event => 
+        event?.status?.type?.completed === true
+      );
+      
+      if (hasScheduled && !hasFinished) return 'scheduled';
+      if (hasFinished && !hasScheduled) return 'finished';
+      
+      return 'scheduled'; // Default for mixed or unknown
+    } catch (error) {
+      console.error('WNBAService: Error determining data type', error);
+      return 'scheduled';
     }
   }
 
@@ -36,7 +66,7 @@ export class WNBAService {
 
   // Fetch scoreboard from ESPN
   static async getScoreboard(startDate = null, endDate = null) {
-    const cacheKey = `scoreboard_${startDate || 'today'}_${endDate || startDate || 'today'}`;
+    const cacheKey = `wnba_scoreboard_${startDate || 'today'}_${endDate || startDate || 'today'}`;
     return this.getCachedData(cacheKey, async () => {
       let url = this.SCOREBOARD_API_URL;
       if (startDate) {
@@ -46,21 +76,23 @@ export class WNBAService {
           url += `?dates=${startDate}`;
         }
       }
-      const res = await fetch(url);
+      const headers = this.getBrowserHeaders();
+      const res = await fetch(url, { headers });
       const data = await res.json();
       return data;
-    });
+    }, 'scoreboard');
   }
 
   // Fetch game details using ESPN summary
   static async getGameDetails(gameId) {
-    const cacheKey = `gameDetails_${gameId}`;
+    const cacheKey = `wnba_game_details_${gameId}`;
     return this.getCachedData(cacheKey, async () => {
       const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/summary?event=${gameId}`;
-      const res = await fetch(this.convertToHttps(url));
+      const headers = this.getBrowserHeaders();
+      const res = await fetch(this.convertToHttps(url), { headers });
       const data = await res.json();
       return data;
-    });
+    }, 'game_details');
   }
 
   // Fetch standings
@@ -68,53 +100,58 @@ export class WNBAService {
     const cacheKey = 'wnba_standings';
     return this.getCachedData(cacheKey, async () => {
       const url = 'https://cdn.espn.com/core/wnba/standings?xhr=1';
-      const res = await fetch(url);
+      const headers = this.getBrowserHeaders();
+      const res = await fetch(url, { headers });
       const data = await res.json();
       return data;
-    });
+    }, 'standings');
   }
 
   // Fetch teams
   static async getTeams() {
-    const cacheKey = 'teams';
+    const cacheKey = 'wnba_teams';
     return this.getCachedData(cacheKey, async () => {
-      const res = await fetch(this.TEAMS_API_URL);
+      const headers = this.getBrowserHeaders();
+      const res = await fetch(this.TEAMS_API_URL, { headers });
       const data = await res.json();
       return data;
-    });
+    }, 'teams');
   }
 
   // Fetch team details
   static async getTeamDetails(teamId) {
-    const cacheKey = `teamDetails_${teamId}`;
+    const cacheKey = `wnba_team_details_${teamId}`;
     return this.getCachedData(cacheKey, async () => {
       const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${teamId}`;
-      const res = await fetch(url);
+      const headers = this.getBrowserHeaders();
+      const res = await fetch(url, { headers });
       const data = await res.json();
       return data;
-    });
+    }, 'team_details');
   }
 
   // Fetch team roster
   static async getTeamRoster(teamId) {
-    const cacheKey = `teamRoster_${teamId}`;
+    const cacheKey = `wnba_team_roster_${teamId}`;
     return this.getCachedData(cacheKey, async () => {
       const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/${teamId}/roster`;
-      const res = await fetch(url);
+      const headers = this.getBrowserHeaders();
+      const res = await fetch(url, { headers });
       const data = await res.json();
       return data;
-    });
+    }, 'team_roster');
   }
 
   // Fetch athlete details
   static async getAthleteDetails(athleteId) {
-    const cacheKey = `athleteDetails_${athleteId}`;
+    const cacheKey = `wnba_athlete_details_${athleteId}`;
     return this.getCachedData(cacheKey, async () => {
       const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/athletes/${athleteId}`;
-      const res = await fetch(url);
+      const headers = this.getBrowserHeaders();
+      const res = await fetch(url, { headers });
       const data = await res.json();
       return data;
-    });
+    }, 'athlete_details');
   }
 
   // Format ESPN game structure into mobile-friendly shape
@@ -307,5 +344,9 @@ export class WNBAService {
       console.error('Error formatting WNBA athlete:', error);
       return null;
     }
+  }
+
+  static clearCache() {
+    return super.clearCache();
   }
 }

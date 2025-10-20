@@ -1,7 +1,62 @@
 // CS2 Service for fetching data from bo3.gg API
 // Uses corsproxy.io for CORS handling
 
+import { BaseCacheService } from './BaseCacheService';
+
 const BASE_URL = 'https://corsproxy.io/?url=https://api.bo3.gg';
+
+class CS2Service extends BaseCacheService {
+  // Smart live match detection for CS2
+  static hasLiveEvents(data) {
+    try {
+      const matches = data?.edges || [];
+      return matches.some(match => {
+        const state = match?.node?.state?.toLowerCase();
+        const status = match?.node?.status?.toLowerCase();
+        
+        // CS2 live statuses
+        return state === 'live' || 
+               status === 'live' ||
+               status === 'ongoing' ||
+               state === 'ongoing';
+      });
+    } catch (error) {
+      console.error('CS2Service: Error detecting live events', error);
+      return false;
+    }
+  }
+
+  static getDataType(data, context) {
+    try {
+      if (this.hasLiveEvents(data)) {
+        return 'live';
+      }
+      
+      if (context?.includes('tournament') || context?.includes('teams')) {
+        return 'static';
+      }
+      
+      // Check if matches are scheduled or finished
+      const matches = data?.edges || [];
+      const hasScheduled = matches.some(match => 
+        match?.node?.state?.toLowerCase() === 'upcoming' ||
+        match?.node?.status?.toLowerCase() === 'scheduled'
+      );
+      const hasFinished = matches.some(match => 
+        match?.node?.state?.toLowerCase() === 'finished' ||
+        match?.node?.status?.toLowerCase() === 'completed'
+      );
+      
+      if (hasScheduled && !hasFinished) return 'scheduled';
+      if (hasFinished && !hasScheduled) return 'finished';
+      
+      return 'scheduled'; // Default for mixed or unknown
+    } catch (error) {
+      console.error('CS2Service: Error determining data type', error);
+      return 'scheduled';
+    }
+  }
+}
 
 // Helper function to format date for API calls
 const formatDateForAPI = (date) => {
@@ -22,7 +77,8 @@ const getUTCOffset = () => {
 const makeRequest = async (url) => {
   try {
     console.log('Making request to:', url);
-    const response = await fetch(url);
+    const headers = CS2Service.getBrowserHeaders();
+    const response = await fetch(url, { headers });
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -42,13 +98,14 @@ const makeRequest = async (url) => {
  * Get live CS2 matches
  */
 const getLiveMatches = async () => {
-  const today = new Date();
-  const dateString = formatDateForAPI(today);
-  const utcOffset = getUTCOffset();
-  
-  const url = `${BASE_URL}/api/v2/matches/live?date=${dateString}&utc_offset=${utcOffset}&filter[tier][in]=s,a&filter[discipline_id][eq]=1`;
-  
-  try {
+  const cacheKey = 'cs2_live_matches';
+  return CS2Service.getCachedData(cacheKey, async () => {
+    const today = new Date();
+    const dateString = formatDateForAPI(today);
+    const utcOffset = getUTCOffset();
+    
+    const url = `${BASE_URL}/api/v2/matches/live?date=${dateString}&utc_offset=${utcOffset}&filter[tier][in]=s,a&filter[discipline_id][eq]=1`;
+    
     const response = await makeRequest(url);
     
     // Transform the data to match expected format
@@ -106,40 +163,38 @@ const getLiveMatches = async () => {
         };
       })
     };
-  } catch (error) {
-    console.error('Error fetching live matches:', error);
-    return { edges: [] };
-  }
+  }, 'live');
 };
 
 /**
  * Get upcoming CS2 matches for a specific date
  */
 const getUpcomingMatches = async (dateFilter = 'today') => {
-  let targetDate = new Date();
-  
-  switch (dateFilter) {
-    case 'yesterday':
-      targetDate = new Date();
-      targetDate.setDate(targetDate.getDate() - 1);
-      break;
-    case 'tomorrow':
-      targetDate = new Date();
-      targetDate.setDate(targetDate.getDate() + 1);
-      break;
-    case 'today':
-    default:
-      targetDate = new Date();
-      // Keep current date
-      break;
-  }
-  
-  const dateString = formatDateForAPI(targetDate);
-  const utcOffset = getUTCOffset();
-  
-  const url = `${BASE_URL}/api/v2/matches/upcoming?date=${dateString}&utc_offset=${utcOffset}&filter[tier][in]=s,a&filter[discipline_id][eq]=1`;
-  
-  try {
+  const cacheKey = `cs2_upcoming_matches_${dateFilter}`;
+  return CS2Service.getCachedData(cacheKey, async () => {
+    let targetDate = new Date();
+    
+    switch (dateFilter) {
+      case 'yesterday':
+        targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() - 1);
+        break;
+      case 'tomorrow':
+        targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + 1);
+        break;
+      case 'today':
+      default:
+        targetDate = new Date();
+        // Keep current date
+        break;
+    }
+    
+    const dateString = formatDateForAPI(targetDate);
+    const utcOffset = getUTCOffset();
+    
+    const url = `${BASE_URL}/api/v2/matches/upcoming?date=${dateString}&utc_offset=${utcOffset}&filter[tier][in]=s,a&filter[discipline_id][eq]=1`;
+    
     const response = await makeRequest(url);
     
     // Handle both possible response formats
@@ -206,10 +261,7 @@ const getUpcomingMatches = async (dateFilter = 'today') => {
         };
       })
     };
-  } catch (error) {
-    console.error('Error fetching upcoming matches:', error);
-    return { edges: [] };
-  }
+  }, 'scheduled');
 };
 
 /**
@@ -335,8 +387,9 @@ const getCompletedMatches = async (limit = 100) => {
  * Get current and upcoming tournaments (for featured section)
  */
 const getCurrentAndUpcomingTournaments = async (limit = 100) => {
-  const url = `${BASE_URL}/api/v1/tournaments?scope=index-current-tournaments&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=current,upcoming&filter[tournaments.end_date][gte]=2025-01-01&filter[tournaments.start_date][lte]=2025-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
-  
+  const currentYear = new Date().getFullYear();
+  const url = `${BASE_URL}/api/v1/tournaments?scope=index-current-tournaments&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=current,upcoming&filter[tournaments.end_date][gte]=${currentYear}-01-01&filter[tournaments.start_date][lte]=${currentYear}-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
+
   try {
     const response = await makeRequest(url);
     
@@ -369,8 +422,9 @@ const getCurrentAndUpcomingTournaments = async (limit = 100) => {
  * Get upcoming tournaments (separate from current)
  */
 const getUpcomingTournaments = async (limit = 100) => {
-  const url = `${BASE_URL}/api/v1/tournaments?scope=index-upcoming-tournaments&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=upcoming&filter[tournaments.end_date][gte]=2025-01-01&filter[tournaments.start_date][lte]=2025-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
-  
+  const currentYear = new Date().getFullYear();
+  const url = `${BASE_URL}/api/v1/tournaments?scope=index-upcoming-tournaments&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=upcoming&filter[tournaments.end_date][gte]=${currentYear}-01-01&filter[tournaments.start_date][lte]=${currentYear}-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
+
   try {
     const response = await makeRequest(url);
     
@@ -404,8 +458,9 @@ const getUpcomingTournaments = async (limit = 100) => {
  * Get recent tournaments (for trending section)
  */
 const getRecentTournaments = async (limit = 100) => {
-  const url = `${BASE_URL}/api/v1/tournaments?scope=index-finished-tournaments&page[offset]=0&page[limit]=${limit}&sort=-end_date&filter[tournaments.status][in]=finished&filter[tournaments.end_date][gte]=2025-01-01&filter[tournaments.start_date][lte]=2025-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
-  
+  const currentYear = new Date().getFullYear();
+  const url = `${BASE_URL}/api/v1/tournaments?scope=index-finished-tournaments&page[offset]=0&page[limit]=${limit}&sort=-end_date&filter[tournaments.status][in]=finished&filter[tournaments.end_date][gte]=${currentYear}-01-01&filter[tournaments.start_date][lte]=${currentYear}-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
+
   try {
     const response = await makeRequest(url);
     
@@ -449,9 +504,9 @@ const getTournaments = async (status = 'current', limit = 100) => {
     scope = 'index-upcoming-tournaments';
     statusFilter = 'upcoming';
   }
-  
-  const url = `${BASE_URL}/api/v1/tournaments?scope=${scope}&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=${statusFilter}&filter[tournaments.end_date][gte]=2025-01-01&filter[tournaments.start_date][lte]=2025-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
-  
+  const currentYear = new Date().getFullYear();
+  const url = `${BASE_URL}/api/v1/tournaments?scope=${scope}&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=${statusFilter}&filter[tournaments.end_date][gte]=${currentYear}-01-01&filter[tournaments.start_date][lte]=${currentYear}-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
+
   try {
     const response = await makeRequest(url);
     
@@ -738,5 +793,11 @@ export {
   formatPrizePool,
   
   // Legacy support
-  getSeries
+  getSeries,
+  
+  // Cache management
+  CS2Service
 };
+
+// Add clearCache as standalone export for compatibility
+export const clearCache = () => CS2Service.clearCache();

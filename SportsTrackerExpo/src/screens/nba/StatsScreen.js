@@ -13,7 +13,28 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import NHLDataService from '../../services/NHLDataService';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
+
+// Helper function to convert HTTP URLs to HTTPS
+const convertToHttps = (url) => {
+  if (url && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+};
+
+// NBA-specific year logic: September-December uses next year, otherwise current year
+const getNBAYear = () => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const month = now.getMonth(); // 0-based: 0=January, 8=September, 11=December
+  
+  // If current month is September (8) to December (11), use next year
+  if (month >= 8) { // September to December
+    return currentYear + 1;
+  }
+  
+  return currentYear;
+};
 
 const StatsScreen = ({ route }) => {
   const { sport } = route.params;
@@ -69,13 +90,16 @@ const StatsScreen = ({ route }) => {
 
   const fetchPlayerStats = async () => {
     try {
-      const { data } = await YearFallbackUtils.fetchWithYearFallback(
-        async (year) => {
-          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${year}/types/2/leaders?limit=10`);
-          return await response.json();
-        },
-        (data) => data && data.categories && data.categories.length > 0
-      );
+      const currentYear = getNBAYear();
+      const response = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${currentYear}/types/2/leaders?limit=10`);
+      const rawData = await response.json();
+      
+      // Validate that we have relevant data
+      if (!(rawData && rawData.categories && rawData.categories.length > 0)) {
+        throw new Error('No stats data found');
+      }
+      
+      const data = rawData;
       
       if (data.categories) {
         // First, collect all unique athlete and team refs
@@ -92,14 +116,14 @@ const StatsScreen = ({ route }) => {
         // Fetch all athlete and team data in parallel
         const [athleteResults, teamResults] = await Promise.all([
           Promise.all(Array.from(athleteRefs).map(ref => 
-            fetch(ref).then(res => res.json()).catch(err => {
-              console.warn('Failed to fetch athlete:', ref, err);
+            fetch(convertToHttps(ref)).then(res => res.json()).catch(err => {
+              console.warn('Failed to fetch athlete:', convertToHttps(ref), err);
               return null;
             })
           )),
           Promise.all(Array.from(teamRefs).map(ref => 
-            fetch(ref).then(res => res.json()).catch(err => {
-              console.warn('Failed to fetch team:', ref, err);
+            fetch(convertToHttps(ref)).then(res => res.json()).catch(err => {
+              console.warn('Failed to fetch team:', convertToHttps(ref), err);
               return null;
             })
           ))

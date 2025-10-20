@@ -3,7 +3,20 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Scr
 import { useTheme } from '../../../context/ThemeContext';
 import { useFavorites } from '../../../context/FavoritesContext';
 import { SpainServiceEnhanced } from '../../../services/soccer/SpainServiceEnhanced';
-import YearFallbackUtils from '../../../utils/YearFallbackUtils';
+
+// Helper function to get the appropriate year for domestic leagues
+const getDomesticLeagueYear = () => {
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth() + 1; // getMonth() is 0-indexed
+  const currentYear = currentDate.getFullYear();
+  
+  // For domestic leagues: July-December uses current year, January-June uses previous year
+  if (currentMonth >= 7) {
+    return currentYear;
+  } else {
+    return currentYear - 1;
+  }
+};
 
 const SpainTeamPageScreen = ({ route, navigation }) => {
   const { teamId, teamName } = route.params;
@@ -201,16 +214,14 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
 
       const competitionPromises = spanishCompetitions.map(async (leagueCode) => {
         try {
-          // Use fetchWithYearFallback to try multiple years for events data
-          const { data: eventsData } = await YearFallbackUtils.fetchWithYearFallback(
-            async (year) => {
-              const response = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${year}/teams/${teamId}/events?lang=en&region=us&limit=100`);
-              return await response.json();
-            },
-            (data) => data && data.items && data.items.length > 0
-          );
+          const year = getDomesticLeagueYear();
+          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${year}/teams/${teamId}/events?lang=en&region=us&limit=100`);
+          const eventsData = await response.json();
           
-          if (!eventsData) {
+          // Validate data
+          const isValidData = eventsData && eventsData.items && eventsData.items.length > 0;
+          
+          if (!isValidData) {
             console.log(`No events data found for ${leagueCode} team ${teamId} in any year`);
             return [];
           }
@@ -414,16 +425,14 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
     
     setLoadingRoster(true);
     try {
-      // Use fetchWithYearFallback to find roster data that exists
-      const { data: rosterData } = await YearFallbackUtils.fetchWithYearFallback(
-        async (year) => {
-          const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/teams/${teamId}/roster?season=${year}`);
-          return await response.json();
-        },
-        (data) => data && data.athletes && data.athletes.length > 0
-      );
+      const year = getDomesticLeagueYear();
+      const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/teams/${teamId}/roster?season=${year}`);
+      const rosterData = await response.json();
       
-      if (rosterData && rosterData.athletes && rosterData.athletes.length > 0) {
+      // Validate data
+      const isValidData = rosterData && rosterData.athletes && rosterData.athletes.length > 0;
+      
+      if (isValidData) {
         setRoster(rosterData.athletes);
       } else {
         console.log('No roster data found for any year');
@@ -455,16 +464,14 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
       // Fetch stats for each season type in parallel
       const statsPromises = seasonTypes.map(async (seasonType) => {
         try {
-          // Use fetchWithYearFallback to try multiple years for stats data
-          const { data: statsData } = await YearFallbackUtils.fetchWithYearFallback(
-            async (year) => {
-              const response = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${seasonType.leagueCode}/seasons/${year}/types/1/teams/${teamId}/statistics?lang=en&region=us`);
-              return await response.json();
-            },
-            (data) => data && data.splits && data.splits.categories && data.splits.categories.length > 0
-          );
+          const year = getDomesticLeagueYear();
+          const response = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${seasonType.leagueCode}/seasons/${year}/types/1/teams/${teamId}/statistics?lang=en&region=us`);
+          const statsData = await response.json();
           
-          if (!statsData) {
+          // Validate data
+          const isValidData = statsData && statsData.splits && statsData.splits.categories && statsData.splits.categories.length > 0;
+          
+          if (!isValidData) {
             console.log(`No stats data found for ${seasonType.name} team ${teamId} in any year`);
             return null;
           }
@@ -473,7 +480,7 @@ const SpainTeamPageScreen = ({ route, navigation }) => {
           
           // Check if there are stats available
           if (statsData.splits?.categories && statsData.splits.categories.length > 0) {
-            console.log(`Found ${seasonType.name} stats with ${data.splits.categories.length} categories`);
+            console.log(`Found ${seasonType.name} stats with ${statsData.splits.categories.length} categories`);
             return {
               seasonType: seasonType.name,
               data: statsData

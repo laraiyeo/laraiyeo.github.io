@@ -1160,7 +1160,7 @@ const CS2MatchScreen = ({ navigation, route }) => {
           displayName = 'Chest';
           break;
         case 'Stomach':
-          displayName = 'Stomach';
+          displayName = 'Stom.';
           break;
         case 'LeftArm':
         case 'RightArm':
@@ -1196,7 +1196,7 @@ const CS2MatchScreen = ({ navigation, route }) => {
     });
     
     // Convert to array, calculate percentages, and order properly
-    const orderedParts = ['Head', 'Chest', 'Stomach', 'Arms', 'Legs'];
+    const orderedParts = ['Head', 'Chest', 'Stom.', 'Arms', 'Legs'];
     const bodyParts = orderedParts
       .map(partName => {
         const part = bodyPartsMap.get(partName);
@@ -1228,7 +1228,7 @@ const CS2MatchScreen = ({ navigation, route }) => {
                 <>
                   <View style={[styles.bodyPart, {backgroundColor: colors.primary}, styles.head, { opacity: getBodyPartOpacity('Head') }]} />
                   <View style={[styles.bodyPart, {backgroundColor: colors.primary}, styles.chest, { opacity: getBodyPartOpacity('Chest') }]} />
-                  <View style={[styles.bodyPart, {backgroundColor: colors.primary}, styles.stomach, { opacity: getBodyPartOpacity('Stomach') }]} />
+                  <View style={[styles.bodyPart, {backgroundColor: colors.primary}, styles.stomach, { opacity: getBodyPartOpacity('Stom.') }]} />
                   <View style={[styles.bodyPart, {backgroundColor: colors.primary}, styles.leftArm, { opacity: getBodyPartOpacity('Arms') }]} />
                   <View style={[styles.bodyPart, {backgroundColor: colors.primary}, styles.rightArm, { opacity: getBodyPartOpacity('Arms') }]} />
                   <View style={[styles.bodyPart, {backgroundColor: colors.primary}, styles.leftLeg, { opacity: getBodyPartOpacity('Legs') }]} />
@@ -2088,7 +2088,7 @@ const styles = StyleSheet.create({
   },
   // Stats Tab Styles
   playersScroll: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 16,
     marginBottom: 16,
   },
   playerCard: {

@@ -1,31 +1,39 @@
 // NBA API Service for Mobile App
-// Uses ESPN NBA endpoints for comprehensive NBA data
+// Uses ESPN NBA endpoints with AsyncStorage persistent caching
 
-export class NBAService {
+import { BaseCacheService } from './BaseCacheService';
+
+export class NBAService extends BaseCacheService {
   static SCOREBOARD_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard";
   static TEAMS_API_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
   static STANDINGS_API_URL = "https://cdn.espn.com/core/nba/standings?xhr=1";
 
-  static cache = new Map();
-  static cacheTimestamps = new Map();
-  static CACHE_DURATION = 2000; // 2 seconds for live responsiveness
+  // Override to detect NBA live games
+  static hasLiveEvents(data) {
+    if (!data || !data.events) return false;
+    return data.events.some(game => 
+      game.status && (
+        game.status.type?.state === 'in' || 
+        game.status.type?.completed === false ||
+        game.competitions?.[0]?.status?.type?.state === 'in'
+      )
+    );
+  }
 
-  static async getCachedData(key, fetchFunction) {
-    const now = Date.now();
-    const lastFetch = this.cacheTimestamps.get(key);
-    if (lastFetch && (now - lastFetch) < this.CACHE_DURATION && this.cache.has(key)) {
-      return this.cache.get(key);
-    }
-
-    try {
-      const data = await fetchFunction();
-      this.cache.set(key, data);
-      this.cacheTimestamps.set(key, now);
-      return data;
-    } catch (error) {
-      if (this.cache.has(key)) return this.cache.get(key);
-      throw error;
-    }
+  // Override to determine NBA data type
+  static getDataType(data) {
+    if (!data || !data.events) return 'static';
+    
+    const hasLive = this.hasLiveEvents(data);
+    if (hasLive) return 'live';
+    
+    const hasScheduled = data.events.some(game => 
+      game.status?.type?.state === 'pre' || 
+      game.competitions?.[0]?.status?.type?.state === 'pre'
+    );
+    if (hasScheduled) return 'scheduled';
+    
+    return 'finished';
   }
 
   // Convert ESPN/HTTP urls to HTTPS
@@ -34,9 +42,10 @@ export class NBAService {
     return url.replace(/^http:\/\//i, 'https://');
   }
 
-  // Fetch scoreboard from ESPN
+  // Fetch scoreboard from ESPN with smart caching
   static async getScoreboard(startDate = null, endDate = null) {
-    const cacheKey = `scoreboard_${startDate || 'today'}_${endDate || startDate || 'today'}`;
+    const cacheKey = `nba_scoreboard_${startDate || 'today'}_${endDate || startDate || 'today'}`;
+    
     return this.getCachedData(cacheKey, async () => {
       let url = this.SCOREBOARD_API_URL;
       if (startDate) {
@@ -46,21 +55,22 @@ export class NBAService {
           url += `?dates=${startDate}`;
         }
       }
-      const res = await fetch(url);
-      const data = await res.json();
+      
+      const response = await fetch(url, { headers: this.getBrowserHeaders() });
+      const data = await response.json();
       return data;
-    });
+    }, 'scoreboard');
   }
 
   // Fetch game details using ESPN summary
   static async getGameDetails(gameId) {
-    const cacheKey = `gameDetails_${gameId}`;
+    const cacheKey = `nba_gameDetails_${gameId}`;
     return this.getCachedData(cacheKey, async () => {
       const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${gameId}`;
-      const res = await fetch(this.convertToHttps(url));
-      const data = await res.json();
+      const response = await fetch(url, { headers: this.getBrowserHeaders() });
+      const data = await response.json();
       return data;
-    });
+    }, false, 'live'); // Game details are often live data
   }
 
   // Fetch standings
@@ -68,53 +78,59 @@ export class NBAService {
     const cacheKey = 'nba_standings';
     return this.getCachedData(cacheKey, async () => {
       const url = 'https://cdn.espn.com/core/nba/standings?xhr=1';
-      const res = await fetch(url);
-      const data = await res.json();
+      const response = await fetch(url, { headers: this.getBrowserHeaders() });
+      const data = await response.json();
       return data;
-    });
+    }, false, 'static'); // Standings are static data
   }
 
   // Fetch teams
   static async getTeams() {
-    const cacheKey = 'teams';
+    const cacheKey = 'nba_teams';
     return this.getCachedData(cacheKey, async () => {
-      const res = await fetch(this.TEAMS_API_URL);
-      const data = await res.json();
+      const response = await fetch(this.TEAMS_API_URL, { headers: this.getBrowserHeaders() });
+      const data = await response.json();
       return data;
-    });
+    }, false, 'static'); // Teams are static data
   }
 
   // Fetch team details
   static async getTeamDetails(teamId) {
-    const cacheKey = `teamDetails_${teamId}`;
+    const cacheKey = `nba_teamDetails_${teamId}`;
     return this.getCachedData(cacheKey, async () => {
       const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}`;
-      const res = await fetch(url);
-      const data = await res.json();
+      const response = await fetch(url, { headers: this.getBrowserHeaders() });
+      const data = await response.json();
       return data;
-    });
+    }, false, 'static');
   }
 
   // Fetch team roster
   static async getTeamRoster(teamId) {
-    const cacheKey = `teamRoster_${teamId}`;
+    const cacheKey = `nba_teamRoster_${teamId}`;
     return this.getCachedData(cacheKey, async () => {
       const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}/roster`;
-      const res = await fetch(url);
-      const data = await res.json();
+      const response = await fetch(url, { headers: this.getBrowserHeaders() });
+      const data = await response.json();
       return data;
-    });
+    }, false, 'static');
   }
 
   // Fetch athlete details
   static async getAthleteDetails(athleteId) {
-    const cacheKey = `athleteDetails_${athleteId}`;
+    const cacheKey = `nba_athleteDetails_${athleteId}`;
     return this.getCachedData(cacheKey, async () => {
       const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/athletes/${athleteId}`;
-      const res = await fetch(url);
-      const data = await res.json();
+      const response = await fetch(url, { headers: this.getBrowserHeaders() });
+      const data = await response.json();
       return data;
-    });
+    }, false, 'static');
+  }
+
+  // Convert ESPN/HTTP urls to HTTPS (for compatibility)
+  static convertToHttps(url) {
+    if (typeof url !== 'string') return url;
+    return url.replace(/^http:\/\//i, 'https://');
   }
 
   // Format ESPN game structure into mobile-friendly shape
@@ -124,36 +140,13 @@ export class NBAService {
       const home = (competition.competitors || []).find(c => c.homeAway === 'home') || {};
       const away = (competition.competitors || []).find(c => c.homeAway === 'away') || {};
 
-      let resultAway;
-      if (away.record) {
-        resultAway = away.record;
-      } else if (home.record) {
-        const flippedHomeRecord = home.record.split('-').reverse().join('-');
-        resultAway = flippedHomeRecord;
-      } else if (away.records?.[0]?.summary) {
-        resultAway = away.records[0].summary;
-      } else {
-        resultAway = null;
-      }
-
-      let resultHome;
-      if (home.record) {
-        resultHome = home.record;
-      } else if (away.record) {
-        const flippedAwayRecord = away.record.split('-').reverse().join('-');
-        resultHome = flippedAwayRecord;
-      } else if (home.records?.[0]?.summary) {
-        resultHome = home.records[0].summary;
-      } else {
-        resultHome = null;
-      }
-
       return {
         id: game.id,
         status: game.status?.type?.description || '',
         displayClock: game.status?.displayClock || '',
         period: game.status?.period || 0,
         isCompleted: !!game.status?.type?.completed,
+        isLive: game.status?.type?.state === 'in',
         situation: competition.situation || null,
         homeTeam: {
           id: home.id,
@@ -161,7 +154,7 @@ export class NBAService {
           abbreviation: home.team?.abbreviation || '',
           logo: this.convertToHttps(home.team?.logo),
           score: home.score,
-          record: resultHome || ''
+          record: home.record || home.records?.[0]?.summary || ''
         },
         awayTeam: {
           id: away.id,
@@ -169,7 +162,7 @@ export class NBAService {
           abbreviation: away.team?.abbreviation || '',
           logo: this.convertToHttps(away.team?.logo),
           score: away.score,
-          record: resultAway || ''
+          record: away.record || away.records?.[0]?.summary || ''
         },
         date: game.date,
         venue: competition.venue?.fullName || '',
@@ -193,15 +186,13 @@ export class NBAService {
   // Format team standings data
   static formatStandingsForMobile(standingsData) {
     try {
-      // New structure: data.content.standings.groups
       const groups = standingsData?.content?.standings?.groups || [];
       const formatted = {};
 
       groups.forEach(group => {
-        const confName = group.name; // "Eastern Conference" or "Western Conference"
+        const confName = group.name;
         formatted[confName] = {};
 
-        // In the new structure, there's no division breakdown, just one standings list per conference
         const entries = group.standings?.entries || [];
         formatted[confName]['teams'] = entries.map(entry => ({
           team: {

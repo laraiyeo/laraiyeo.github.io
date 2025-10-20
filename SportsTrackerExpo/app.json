@@ -1,29 +1,121 @@
 {
   "expo": {
-    "name": "SportsTrackerExpo",
-    "slug": "SportsTrackerExpo",
+    "name": "SportsHeart",
+    "slug": "sportsheart",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
+    "runtimeVersion": "1.0.0",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sportsheart.app",
+      "buildNumber": "3",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "CFBundleAllowMixedLocalizations": true,
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "edgeToEdgeEnabled": true
+      "package": "com.sportsheart.app",
+      "versionCode": 1,
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "INTERNET",
+        "VIBRATE"
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "nixa-expo-dynamic-app-icon",
+        {
+          "dark-blue": {
+            "image": "./assets/dark/blue.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "dark-red": {
+            "image": "./assets/dark/red.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "dark-green": {
+            "image": "./assets/dark/green.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "dark-purple": {
+            "image": "./assets/dark/purple.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "dark-gold": {
+            "image": "./assets/dark/gold.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "light-blue": {
+            "image": "./assets/light/blue.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "light-red": {
+            "image": "./assets/light/red.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "light-green": {
+            "image": "./assets/light/green.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "light-purple": {
+            "image": "./assets/light/purple.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "light-gold": {
+            "image": "./assets/light/gold.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          }
+        }
+      ],
+      "@react-native-firebase/app",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static",
+            "newArchEnabled": false
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "fb066229-1442-4efb-b65c-4588b95b115c"
+      }
+    },
+    "owner": "laraiyeo"
   }
 }

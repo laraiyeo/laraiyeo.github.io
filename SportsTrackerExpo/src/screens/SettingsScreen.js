@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, TextInput, Modal, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, TextInput, Modal, Image, Animated, Alert, Linking } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFavorites } from '../context/FavoritesContext';
 import { useTheme } from '../context/ThemeContext';
 import { useChat } from '../context/ChatContext';
@@ -12,6 +13,14 @@ const SettingsScreen = ({ navigation }) => {
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [tempUsername, setTempUsername] = useState(userName);
   const [colorModalVisible, setColorModalVisible] = useState(false);
+
+  // Streaming code state
+  const [streamingCode, setStreamingCode] = useState('');
+  const [isStreamingUnlocked, setIsStreamingUnlocked] = useState(false);
+  const [bannerAnimation] = useState(new Animated.Value(-100));
+  const [showBanner, setShowBanner] = useState(false);
+  const [bannerMessage, setBannerMessage] = useState('');
+  const [bannerType, setBannerType] = useState('success'); // 'success' or 'error'
 
   // Function to get the current app icon image source
   const getCurrentAppIconSource = () => {
@@ -31,6 +40,90 @@ const SettingsScreen = ({ navigation }) => {
     
     const iconKey = `${theme}-${currentColorPalette}`;
     return iconMap[iconKey] || iconMap['dark-red']; // fallback to default
+  };
+
+  // Check streaming unlock status on component mount
+  useEffect(() => {
+    checkStreamingUnlockStatus();
+  }, []);
+
+  const checkStreamingUnlockStatus = async () => {
+    try {
+      const unlocked = await AsyncStorage.getItem('streamingUnlocked');
+      setIsStreamingUnlocked(unlocked === 'true');
+    } catch (error) {
+      console.error('Error checking streaming unlock status:', error);
+    }
+  };
+
+  const showBannerMessage = (message, type = 'success') => {
+    setBannerMessage(message);
+    setBannerType(type);
+    setShowBanner(true);
+    
+    // Animate banner down
+    Animated.timing(bannerAnimation, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    // Hide banner after 3 seconds
+    setTimeout(() => {
+      Animated.timing(bannerAnimation, {
+        toValue: -100,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setShowBanner(false);
+      });
+    }, 3000);
+  };
+
+  const handleStreamingCodeSubmit = async () => {
+    const correctCode = '20250417';
+    
+    if (streamingCode === correctCode) {
+      try {
+        await AsyncStorage.setItem('streamingUnlocked', 'true');
+        setIsStreamingUnlocked(true);
+        setStreamingCode('');
+        showBannerMessage('Success! Streaming is unlocked.', 'success');
+      } catch (error) {
+        console.error('Error saving streaming unlock status:', error);
+        showBannerMessage('Error saving unlock status.', 'error');
+      }
+    } else {
+      showBannerMessage('Wrong answer. Try again.', 'error');
+      setStreamingCode('');
+    }
+  };
+
+  const handleResetStreamingAccess = () => {
+    Alert.alert(
+      'Reset Streaming Access',
+      'This will remove your streaming rights. Are you sure you want to continue?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Confirm',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem('streamingUnlocked');
+              setIsStreamingUnlocked(false);
+              setStreamingCode('');
+              showBannerMessage('Streaming access has been reset.', 'error');
+            } catch (error) {
+              console.error('Error resetting streaming access:', error);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const renderColorOption = (paletteKey, palette) => {
@@ -69,7 +162,22 @@ const SettingsScreen = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-    <ScrollView style={{ flex: 1 }}>
+      {/* Success/Error Banner */}
+      {showBanner && (
+        <Animated.View 
+          style={[
+            styles.bannerContainer, 
+            {
+              backgroundColor: bannerType === 'success' ? '#4CAF50' : '#F44336',
+              transform: [{ translateY: bannerAnimation }]
+            }
+          ]}
+        >
+          <Text allowFontScaling={false} style={styles.bannerText}>{bannerMessage}</Text>
+        </Animated.View>
+      )}
+      
+      <ScrollView style={{ flex: 1 }}>
       <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         <Text allowFontScaling={false} style={[styles.title, { color: theme.text }]}>Settings</Text>
         <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textSecondary }]}>
@@ -100,6 +208,7 @@ const SettingsScreen = ({ navigation }) => {
               }}
               thumbColor={isDarkMode ? colors.accent : '#f4f3f4'}
               ios_backgroundColor={theme.border}
+              marginRight={50}
             />
           </View>
           
@@ -108,9 +217,6 @@ const SettingsScreen = ({ navigation }) => {
               <Text allowFontScaling={false} style={[styles.settingLabel, { color: theme.text }]}>App Icon</Text>
               <Text allowFontScaling={false} style={[styles.settingDescription, { color: theme.textSecondary }]}>
                 Preview: {getCurrentAppIcon && getCurrentAppIcon().replace('-', ' ').toUpperCase()}
-              </Text>
-              <Text allowFontScaling={false} style={[styles.settingDescription, { color: theme.textTertiary, fontSize: 12, marginTop: 2 }]}>
-                Dynamic icons work on iOS builds only (not Expo Go)
               </Text>
             </View>
             <View style={[styles.appIconPreview, { borderColor: colors.primary }]}>
@@ -162,6 +268,83 @@ const SettingsScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+
+        {/* Streaming Code Section */}
+        <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={styles.sectionHeader}>
+            <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Special Access</Text>
+            <Text allowFontScaling={false} style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+              {isStreamingUnlocked ? 'Streaming is currently unlocked' : 'Unlock special features'}
+            </Text>
+          </View>
+          
+          {!isStreamingUnlocked && (
+            <>
+              {/* The Challenge Question */}
+              <View style={styles.challengeQuestion}>
+                <Text allowFontScaling={false} style={[styles.challengeQuestionText, { color: theme.text }]}>
+                  You're in a universe where causality flows backward, and a species communicates using Fibonacci-encoded qubits. They challenge you to send back the first English word whose letters match the numbers 3, 1, 4, 1, 5 (the first digits of pi), with A=1, B=2, ..., Z=26.
+
+What word do you send?
+                </Text>
+              </View>
+
+              {/* Code Input */}
+              <View style={styles.codeInputContainer}>
+                <Text allowFontScaling={false} style={[styles.codeLabel, { color: theme.text }]}>Code</Text>
+                <TextInput
+                  style={[styles.codeInput, { 
+                    backgroundColor: theme.surfaceSecondary, 
+                    borderColor: theme.border,
+                    color: theme.text 
+                  }]}
+                  value={streamingCode}
+                  onChangeText={setStreamingCode}
+                  placeholder="Enter your answer"
+                  placeholderTextColor={theme.textTertiary}
+                />
+              </View>
+
+              {/* Buttons */}
+              <View style={styles.streamingButtonContainer}>
+                <TouchableOpacity
+                  style={[styles.confirmButton, { backgroundColor: colors.primary }]}
+                  onPress={handleStreamingCodeSubmit}
+                >
+                  <Text allowFontScaling={false} style={styles.confirmButtonText}>Confirm</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.resetButton, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+                  onPress={handleResetStreamingAccess}
+                >
+                  <Text allowFontScaling={false} style={[styles.resetButtonTextSymbol, { color: theme.text }]}>⟲</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Discord Reference */}
+              <Text allowFontScaling={false} style={[styles.discordText, { color: theme.textTertiary }]}>
+                Check Discord
+              </Text>
+            </>
+          )}
+
+          {isStreamingUnlocked && (
+            <View style={styles.streamingUnlockedContainer}>
+              <Text allowFontScaling={false} style={[styles.streamingUnlockedText, { color: colors.accent }]}>
+                ✓ Streaming features are unlocked
+              </Text>
+              <TouchableOpacity
+                style={[styles.resetButton, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, marginTop: 10 }]}
+                onPress={handleResetStreamingAccess}
+              >
+                <Text allowFontScaling={false} style={[styles.resetButtonText]}>
+                  <Text style={{ color: theme.text, fontSize: 25 }}>⟲</Text>
+                  <Text style={{ color: theme.text }}> Reset Access</Text>
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Chat Settings Section */}
@@ -245,6 +428,48 @@ const SettingsScreen = ({ navigation }) => {
             >
               <Text allowFontScaling={false} style={styles.openSettingsButtonText}>
                 Open Settings
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Contact Section */}
+        <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={[styles.sectionHeader, {borderBottomColor: theme.surface }]}>
+            <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>Contact</Text>
+            <Text allowFontScaling={false} style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+              Connect with us on social media
+            </Text>
+          </View>
+          
+          <View style={styles.contactRow}>
+            <TouchableOpacity
+              style={[styles.contactButton, { backgroundColor: theme.surfaceSecondary }]}
+              onPress={() => Linking.openURL('https://discord.gg/fGt3sMfwge')}
+              activeOpacity={0.7}
+            >
+              <Image 
+                source={require('../../assets/discord.png')} 
+                style={styles.contactIcon}
+                resizeMode="contain"
+              />
+              <Text allowFontScaling={false} style={[styles.contactLabel, { color: theme.text }]}>
+                Discord
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.contactButton, { backgroundColor: theme.surfaceSecondary }]}
+              onPress={() => Linking.openURL('https://x.com/sportsheart_')}
+              activeOpacity={0.7}
+            >
+              <Image 
+                source={require('../../assets/x.png')} 
+                style={styles.contactIcon}
+                resizeMode="contain"
+              />
+              <Text allowFontScaling={false} style={[styles.contactLabel, { color: theme.text }]}>
+                X (Twitter)
               </Text>
             </TouchableOpacity>
           </View>
@@ -611,6 +836,134 @@ const styles = StyleSheet.create({
   appIconImage: {
     width: 40,
     height: 40,
+  },
+  // Streaming Code Styles
+  bannerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    zIndex: 1000,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bannerText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  challengeQuestion: {
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    marginHorizontal: 12,
+  },
+  challengeQuestionText: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'justify',
+  },
+  codeInputContainer: {
+    marginBottom: 16,
+    marginHorizontal: 12,
+  },
+  codeLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  codeInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+  },
+  streamingButtonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    marginHorizontal: 12,
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  confirmButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  resetButton: {
+    paddingHorizontal: 5,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 45,
+  },
+  resetButtonTextSymbol: {
+    fontSize: 35,
+    fontWeight: 'bold',
+  },
+  resetButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  discordText: {
+    fontSize: 14,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginBottom: 16,
+  },
+  streamingUnlockedContainer: {
+    alignItems: 'center',
+    padding: 16,
+  },
+  streamingUnlockedText: {
+    marginTop: -6,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  contactRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  contactButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    minWidth: 120,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+  },
+  contactIcon: {
+    width: 32,
+    height: 32,
+    marginBottom: 8,
+  },
+  contactLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 

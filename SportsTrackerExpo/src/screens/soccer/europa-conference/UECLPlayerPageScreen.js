@@ -2,7 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView, Modal } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { EuropaConferenceLeagueServiceEnhanced } from '../../../services/soccer/EuropaConferenceLeagueServiceEnhanced';
-import YearFallbackUtils from '../../../utils/YearFallbackUtils';
+
+// Helper function for Europa Conference League year logic
+// For Europa Conference League standings/bracket screens: July-December uses next year, else current year
+const getEuropaConferenceLeagueYear = () => {
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1; // getMonth() returns 0-11
+  return (currentMonth >= 7 && currentMonth <= 12) ? now.getFullYear() : now.getFullYear() - 1;
+};
 
 // UEFA leagues configuration for career stats
 const LEAGUES = {
@@ -491,22 +498,20 @@ const UECLPlayerPageScreen = ({ route, navigation }) => {
       // Fetch stats for each competition in parallel with year fallback
       const statsPromises = competitions.map(async (competition) => {
         try {
-          const statsData = await YearFallbackUtils.fetchWithYearFallback(
-            async (year) => {
-              const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition.code}/seasons/${year}/types/${competition.seasonType}/athletes/${playerId}/statistics?lang=en&region=us`;
-              const response = await fetch(convertToHttps(statsUrl));
-              
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-              }
-              
-              return await response.json();
-            },
-            (data) => {
-              console.log(`Validating UECL player stats data for ${competition.name}:`, data);
-              return data && data.splits && data.splits.categories && data.splits.categories.length > 0;
+          // Fetch player stats with Europa Conference League year logic
+          const year = getEuropaConferenceLeagueYear();
+          const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition.code}/seasons/${year}/types/${competition.seasonType}/athletes/${playerId}/statistics?lang=en&region=us`;
+          const response = await fetch(convertToHttps(statsUrl));
+          
+          let statsData = null;
+          if (response.ok) {
+            statsData = await response.json();
+            console.log(`Validating UECL player stats data for ${competition.name}:`, statsData);
+            const isValid = statsData && statsData.splits && statsData.splits.categories && statsData.splits.categories.length > 0;
+            if (!isValid) {
+              statsData = null;
             }
-          );
+          }
           
           if (statsData) {
             console.log(`Found ${competition.name} stats with ${statsData.splits.categories.length} categories`);
@@ -577,22 +582,20 @@ const UECLPlayerPageScreen = ({ route, navigation }) => {
       // Fetch game logs from all UECL competitions with year fallback
       const fetchPromises = competitions.map(async (competition) => {
         try {
-          const gameLogData = await YearFallbackUtils.fetchWithYearFallback(
-            async (year) => {
-              const gameLogUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/seasons/${year}/athletes/${playerId}/eventlog?lang=en&region=us&played=true`;
-              const response = await fetch(convertToHttps(gameLogUrl));
-              
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-              }
-              
-              return await response.json();
-            },
-            (data) => {
-              console.log(`Validating UECL game log data for ${competition}:`, data);
-              return data && ((data.events && data.events.length > 0) || (data.events && data.events.items && data.events.items.length > 0));
+          // Fetch game log with Europa Conference League year logic
+          const year = getEuropaConferenceLeagueYear();
+          const gameLogUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/seasons/${year}/athletes/${playerId}/eventlog?lang=en&region=us&played=true`;
+          const response = await fetch(convertToHttps(gameLogUrl));
+          
+          let gameLogData = null;
+          if (response.ok) {
+            gameLogData = await response.json();
+            console.log(`Validating UECL game log data for ${competition}:`, gameLogData);
+            const isValid = gameLogData && ((gameLogData.events && gameLogData.events.length > 0) || (gameLogData.events && gameLogData.events.items && gameLogData.events.items.length > 0));
+            if (!isValid) {
+              gameLogData = null;
             }
-          );
+          }
           
           if (gameLogData) {
             console.log(`${competition} game log API response:`, gameLogData);

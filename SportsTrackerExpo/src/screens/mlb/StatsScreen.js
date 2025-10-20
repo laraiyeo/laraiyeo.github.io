@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
-import YearFallbackUtils from '../../utils/YearFallbackUtils';
 
 const StatsScreen = ({ route }) => {
   const { sport } = route.params;
@@ -59,7 +58,7 @@ const StatsScreen = ({ route }) => {
       const leagueParam = selectedLeague === 'ALL' ? '' : `&leagueId=${leagues.find(l => l.key === selectedLeague).id}`;
       
       // Use current year for API calls since MLB has 2026 data available
-      const currentYear = YearFallbackUtils.getCurrentYear();
+      const currentYear = new Date().getFullYear();
       const [hittingResponse, pitchingResponse] = await Promise.all([
         fetch(
           `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=battingAverage,homeRuns,rbi,hits,runs,stolenBases&leaderGameTypes=R&season=${currentYear}&limit=10${leagueParam}&statGroup=hitting`
