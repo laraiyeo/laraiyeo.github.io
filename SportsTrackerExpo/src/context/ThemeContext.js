@@ -119,12 +119,16 @@ export const ThemeProvider = ({ children }) => {
   };
 
   const toggleTheme = async () => {
+    console.log('toggleTheme called - current isDarkMode:', isDarkMode);
     const newTheme = !isDarkMode;
+    console.log('Setting new theme to:', newTheme);
     setIsDarkMode(newTheme);
     try {
       await AsyncStorage.setItem('theme', newTheme ? 'dark' : 'light');
+      console.log('Theme saved to AsyncStorage:', newTheme ? 'dark' : 'light');
       // Update app icon when theme changes
       await AppIconService.changeAppIcon(newTheme, currentColorPalette);
+      console.log('App icon updated successfully');
     } catch (error) {
       console.error('Error saving theme preference:', error);
     }

@@ -1,6 +1,17 @@
 import { Platform } from 'react-native';
-import { setAppIcon, getAppIcon } from 'nixa-expo-dynamic-app-icon';
 import Constants from 'expo-constants';
+
+// Conditionally import dynamic app icon only for native platforms
+let setAppIcon, getAppIcon;
+if (Platform.OS !== 'web') {
+  try {
+    const dynamicAppIcon = require('nixa-expo-dynamic-app-icon');
+    setAppIcon = dynamicAppIcon.setAppIcon;
+    getAppIcon = dynamicAppIcon.getAppIcon;
+  } catch (error) {
+    console.warn('Dynamic app icon not available:', error.message);
+  }
+}
 
 class AppIconService {
   /**
@@ -19,6 +30,18 @@ class AppIconService {
    */
   static async changeAppIcon(isDarkMode, colorPalette) {
     try {
+      // Check if running on web
+      if (Platform.OS === 'web') {
+        console.log('Dynamic app icons are not supported on web platform.');
+        return false;
+      }
+
+      // Check if functions are available
+      if (!setAppIcon) {
+        console.log('Dynamic app icon functionality not available.');
+        return false;
+      }
+
       // Check if running in Expo Go
       if (this.isExpoGo()) {
         console.log('Dynamic app icons are not supported in Expo Go. Build a development build to test this feature.');
@@ -50,6 +73,18 @@ class AppIconService {
    */
   static async getCurrentIcon() {
     try {
+      // Check if running on web
+      if (Platform.OS === 'web') {
+        console.log('Cannot get current app icon on web platform');
+        return null;
+      }
+
+      // Check if functions are available
+      if (!getAppIcon) {
+        console.log('Dynamic app icon functionality not available.');
+        return null;
+      }
+
       if (this.isExpoGo()) {
         console.log('Cannot get current app icon in Expo Go');
         return null;

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, TextInput, Modal, Image, Animated, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Image, Animated, Alert, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFavorites } from '../context/FavoritesContext';
 import { useTheme } from '../context/ThemeContext';
 import { useChat } from '../context/ChatContext';
+import UpdateService from '../services/UpdateService';
 
 const SettingsScreen = ({ navigation }) => {
   const { isDarkMode, theme, colors, colorPalettes, currentColorPalette, toggleTheme, changeColorPalette, getCurrentAppIcon } = useTheme();
@@ -14,13 +15,60 @@ const SettingsScreen = ({ navigation }) => {
   const [tempUsername, setTempUsername] = useState(userName);
   const [colorModalVisible, setColorModalVisible] = useState(false);
 
+  // Username change restriction state
+  const [lastUsernameChange, setLastUsernameChange] = useState(null);
+  const [canChangeUsername, setCanChangeUsername] = useState(true);
+  const [daysUntilNextChange, setDaysUntilNextChange] = useState(0);
+
   // Streaming code state
   const [streamingCode, setStreamingCode] = useState('');
   const [isStreamingUnlocked, setIsStreamingUnlocked] = useState(false);
+  const [confirmClickCount, setConfirmClickCount] = useState(0);
   const [bannerAnimation] = useState(new Animated.Value(-100));
   const [showBanner, setShowBanner] = useState(false);
   const [bannerMessage, setBannerMessage] = useState('');
   const [bannerType, setBannerType] = useState('success'); // 'success' or 'error'
+
+  // Update check state
+  const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
+
+  // Manual update check function
+  const handleCheckForUpdates = async () => {
+    setIsCheckingForUpdates(true);
+    
+    try {
+      await UpdateService.checkForUpdatesManually(
+        // onUpdateAvailable
+        () => {
+          Alert.alert(
+            'Update Available',
+            'A new version of the app has been downloaded. Restart the app to apply the update?',
+            [
+              { text: 'Later', style: 'cancel' },
+              { 
+                text: 'Restart Now', 
+                onPress: () => UpdateService.restartApp()
+              }
+            ]
+          );
+        },
+        // onNoUpdate
+        () => {
+          showBannerMessage('You have the latest version!', 'success');
+        },
+        // onError
+        (error) => {
+          showBannerMessage('Failed to check for updates', 'error');
+          console.error('Update check error:', error);
+        }
+      );
+    } catch (error) {
+      showBannerMessage('Failed to check for updates', 'error');
+      console.error('Update check failed:', error);
+    } finally {
+      setIsCheckingForUpdates(false);
+    }
+  };
 
   // Function to get the current app icon image source
   const getCurrentAppIconSource = () => {
@@ -45,6 +93,7 @@ const SettingsScreen = ({ navigation }) => {
   // Check streaming unlock status on component mount
   useEffect(() => {
     checkStreamingUnlockStatus();
+    checkUsernameChangeRestriction();
   }, []);
 
   const checkStreamingUnlockStatus = async () => {
@@ -53,6 +102,52 @@ const SettingsScreen = ({ navigation }) => {
       setIsStreamingUnlocked(unlocked === 'true');
     } catch (error) {
       console.error('Error checking streaming unlock status:', error);
+    }
+  };
+
+  const checkUsernameChangeRestriction = async () => {
+    try {
+      const lastChange = await AsyncStorage.getItem('lastUsernameChange');
+      if (lastChange) {
+        const lastChangeDate = new Date(lastChange);
+        const currentDate = new Date();
+        const daysDifference = Math.floor((currentDate - lastChangeDate) / (1000 * 60 * 60 * 24));
+        const daysRemaining = 30 - daysDifference;
+        
+        if (daysRemaining > 0) {
+          setCanChangeUsername(false);
+          setDaysUntilNextChange(daysRemaining);
+        } else {
+          setCanChangeUsername(true);
+          setDaysUntilNextChange(0);
+        }
+        setLastUsernameChange(lastChangeDate);
+      } else {
+        setCanChangeUsername(true);
+        setDaysUntilNextChange(0);
+      }
+    } catch (error) {
+      console.error('Error checking username change restriction:', error);
+    }
+  };
+
+  const handleUsernameChange = async (newUsername) => {
+    if (!canChangeUsername) {
+      showBannerMessage(`You can change your username in ${daysUntilNextChange} days`, 'error');
+      return;
+    }
+
+    try {
+      const currentDate = new Date().toISOString();
+      await AsyncStorage.setItem('lastUsernameChange', currentDate);
+      updateUserName(newUsername);
+      setCanChangeUsername(false);
+      setDaysUntilNextChange(30);
+      setLastUsernameChange(new Date(currentDate));
+      showBannerMessage('Username changed successfully!', 'success');
+    } catch (error) {
+      console.error('Error saving username change date:', error);
+      showBannerMessage('Error updating username', 'error');
     }
   };
 
@@ -81,6 +176,13 @@ const SettingsScreen = ({ navigation }) => {
   };
 
   const handleStreamingCodeSubmit = async () => {
+    // If text input is not yet unlocked, increment click count
+    if (confirmClickCount < 3) {
+      const newClickCount = confirmClickCount + 1;
+      setConfirmClickCount(newClickCount);
+    }
+
+    // Original code submission logic (only runs when text input is unlocked)
     const correctCode = '20250417';
     
     if (streamingCode === correctCode) {
@@ -101,8 +203,8 @@ const SettingsScreen = ({ navigation }) => {
 
   const handleResetStreamingAccess = () => {
     Alert.alert(
-      'Reset Streaming Access',
-      'This will remove your streaming rights. Are you sure you want to continue?',
+      'Reset Special Access',
+      'This will remove your special access. Are you sure you want to continue?',
       [
         {
           text: 'Cancel',
@@ -116,7 +218,8 @@ const SettingsScreen = ({ navigation }) => {
               await AsyncStorage.removeItem('streamingUnlocked');
               setIsStreamingUnlocked(false);
               setStreamingCode('');
-              showBannerMessage('Streaming access has been reset.', 'error');
+              setConfirmClickCount(0); // Reset click count
+              showBannerMessage('Special access has been reset.', 'error');
             } catch (error) {
               console.error('Error resetting streaming access:', error);
             }
@@ -199,17 +302,17 @@ const SettingsScreen = ({ navigation }) => {
                 {isDarkMode ? 'Switch to light theme' : 'Switch to dark theme'}
               </Text>
             </View>
-            <Switch
-              value={isDarkMode}
-              onValueChange={toggleTheme}
-              trackColor={{ 
-                false: theme.border, 
-                true: colors.primary 
-              }}
-              thumbColor={isDarkMode ? colors.accent : '#f4f3f4'}
-              ios_backgroundColor={theme.border}
-              marginRight={50}
-            />
+            <TouchableOpacity 
+              onPress={toggleTheme}
+              style={[styles.toggleButton, { 
+                backgroundColor: isDarkMode ? colors.primary : theme.border 
+              }]}
+            >
+              <View style={[styles.toggleThumb, { 
+                backgroundColor: isDarkMode ? colors.accent : '#f4f3f4',
+                transform: [{ translateX: isDarkMode ? 22 : 2 }]
+              }]} />
+            </TouchableOpacity>
           </View>
           
           <View style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: theme.borderSecondary }]}>
@@ -297,12 +400,15 @@ What word do you send?
                   style={[styles.codeInput, { 
                     backgroundColor: theme.surfaceSecondary, 
                     borderColor: theme.border,
-                    color: theme.text 
+                    color: confirmClickCount >= 3 ? theme.text : theme.textTertiary,
+                    opacity: confirmClickCount >= 3 ? 1 : 0.6
                   }]}
                   value={streamingCode}
-                  onChangeText={setStreamingCode}
-                  placeholder="Enter your answer"
+                  onChangeText={confirmClickCount >= 3 ? setStreamingCode : undefined}
+                  placeholder={confirmClickCount >= 3 ? "Enter your answer" : "Coming Soon!"}
                   placeholderTextColor={theme.textTertiary}
+                  editable={confirmClickCount >= 3}
+                  selectTextOnFocus={confirmClickCount >= 3}
                 />
               </View>
 
@@ -365,16 +471,30 @@ What word do you send?
               <Text allowFontScaling={false} style={[styles.settingDescription, { color: theme.textSecondary }]}>
                 Your display name in chat: {userName}
               </Text>
+              {!canChangeUsername && (
+                <Text allowFontScaling={false} style={[styles.restrictionMessage, { color: theme.textTertiary }]}>
+                  You will be able to change your name in {daysUntilNextChange} day{daysUntilNextChange !== 1 ? 's' : ''}
+                </Text>
+              )}
             </View>
             <TouchableOpacity
-              style={[styles.openSettingsButton, { backgroundColor: colors.primary }]}
+              style={[styles.openSettingsButton, { 
+                backgroundColor: canChangeUsername ? colors.primary : theme.surfaceSecondary,
+                opacity: canChangeUsername ? 1 : 0.6
+              }]}
               onPress={() => {
-                setTempUsername(userName);
-                setIsEditingUsername(true);
+                if (canChangeUsername) {
+                  setTempUsername(userName);
+                  setIsEditingUsername(true);
+                } else {
+                  showBannerMessage(`You can change your username in ${daysUntilNextChange} days`, 'error');
+                }
               }}
               activeOpacity={0.7}
             >
-              <Text allowFontScaling={false} style={styles.openSettingsButtonText}>
+              <Text allowFontScaling={false} style={[styles.openSettingsButtonText, {
+                color: canChangeUsername ? '#fff' : theme.text
+              }]}>
                 Edit
               </Text>
             </TouchableOpacity>
@@ -431,6 +551,34 @@ What word do you send?
               </Text>
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* App Updates Section */}
+        <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={[styles.sectionHeader, {borderBottomColor: theme.surface }]}>
+            <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>App Updates</Text>
+            <Text allowFontScaling={false} style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+              Check for the latest version
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.updateButton, { 
+              backgroundColor: theme.surfaceSecondary,
+              opacity: isCheckingForUpdates ? 0.6 : 1
+            }]}
+            onPress={handleCheckForUpdates}
+            disabled={isCheckingForUpdates}
+          >
+            <View style={styles.updateButtonContent}>
+              <Text allowFontScaling={false} style={[styles.updateButtonText, { color: theme.text }]}>
+                {isCheckingForUpdates ? 'Checking for Updates...' : 'Check for Updates'}
+              </Text>
+              <Text allowFontScaling={false} style={[styles.updateButtonSubtext, { color: theme.textSecondary }]}>
+                {isCheckingForUpdates ? 'Please wait...' : 'Tap to check for app updates'}
+              </Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Contact Section */}
@@ -521,7 +669,7 @@ What word do you send?
                 style={[styles.modalButton, { backgroundColor: colors.primary }]}
                 onPress={() => {
                   if (tempUsername.trim()) {
-                    updateUserName(tempUsername.trim());
+                    handleUsernameChange(tempUsername.trim());
                   }
                   setIsEditingUsername(false);
                 }}
@@ -643,6 +791,11 @@ const styles = StyleSheet.create({
   },
   settingDescription: {
     fontSize: 14,
+  },
+  restrictionMessage: {
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   colorGrid1: {
     padding: 16,
@@ -964,6 +1117,48 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  updateButton: {
+    padding: 16,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+  },
+  updateButtonContent: {
+    alignItems: 'center',
+  },
+  updateButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  updateButtonSubtext: {
+    fontSize: 12,
+  },
+  toggleButton: {
+    width: 50,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    padding: 2,
+  },
+  toggleThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
 });
 

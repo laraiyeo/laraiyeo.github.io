@@ -16,6 +16,9 @@ import { ChatProvider } from './src/context/ChatContext';
 // Import Analytics Service
 import analyticsService from './src/services/AnalyticsService';
 
+// Import Update Service
+import UpdateService from './src/services/UpdateService';
+
 // Custom header title component that disables font scaling
 const HeaderTitle = ({ children, style }) => {
   const { colors } = useTheme();
@@ -1579,6 +1582,36 @@ const AppContent = () => {
     };
     
     initializeAnalytics();
+  }, []);
+
+  // Check for app updates on startup
+  useEffect(() => {
+    const checkForUpdates = async () => {
+      try {
+        // Wait for splash screen to finish before checking updates
+        setTimeout(async () => {
+          console.log('🔄 Checking for app updates...');
+          
+          try {
+            const updateInfo = await UpdateService.getCurrentUpdateInfo();
+            console.log('📱 Current update info:', updateInfo);
+            
+            // Only check for updates if service is available
+            if (updateInfo.isEnabled) {
+              await UpdateService.checkForUpdatesOnStartup(false);
+            } else {
+              console.log('📱 Update service not available:', updateInfo.message);
+            }
+          } catch (error) {
+            console.log('📱 Update check skipped:', error.message);
+          }
+        }, 3000); // Wait 3 seconds after app start
+      } catch (error) {
+        console.warn('Update check failed:', error.message);
+      }
+    };
+    
+    checkForUpdates();
   }, []);
 
   const handleSplashFinish = () => {
