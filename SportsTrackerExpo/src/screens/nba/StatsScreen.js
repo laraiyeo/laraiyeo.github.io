@@ -168,7 +168,8 @@ const StatsScreen = ({ route }) => {
 
   const fetchTeamStats = async () => {
     try {
-      const response = await fetch('https://site.web.api.espn.com/apis/site/v3/sports/basketball/nba/teamleaders');
+      const currentYear = getNBAYear();
+      const response = await fetch(`https://site.web.api.espn.com/apis/site/v3/sports/basketball/nba/teamleaders?season=${currentYear}`);
       const data = await response.json();
       
       if (data.teamLeaders && data.teamLeaders.categories) {

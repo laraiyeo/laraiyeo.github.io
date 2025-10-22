@@ -1145,7 +1145,7 @@ const NBAGameDetailsScreen = ({ route }) => {
           {/* Header row */}
           <View style={[styles.linescoreHeaderRow, { backgroundColor: theme.surfaceSecondary || 'rgba(0,0,0,0.05)' }]}>
             <View style={styles.linescoreTeamHeaderCell}>
-              <Text style={[styles.linescoreHeaderText, { color: theme.textSecondary }]}>TM</Text>
+              <Text style={[styles.linescoreHeaderText, { color: theme.textSecondary }]}></Text>
             </View>
             {periodLabels.map((label, index) => (
               <View key={index} style={styles.linescorePeriodCell}>
@@ -2381,23 +2381,27 @@ const NBAGameDetailsScreen = ({ route }) => {
               <Text style={[styles.soccerScore, { color: isGameFinal ? (awayIsWinner ? colors.primary : (awayIsLoser ? '#999' : theme.text)) : theme.text }]}>
                 {getGameStatus().isPre ? '' : away?.score ?? away?.team?.score ?? '0'}
               </Text>
-              <View style={[
-                styles.soccerStatusBadge,
-                (() => {
-                  const gameStatus = getGameStatus();
-                  if (gameStatus.isLive) return { backgroundColor: theme.success };
-                  if (gameStatus.isPre) return { backgroundColor: theme.info };
-                  return { backgroundColor: '#9E9E9E' };
-                })()
-              ]}>
-                <Text style={styles.soccerStatusText}>{getGameStatus().text}</Text>
-                <Text style={[styles.soccerFullTimeText, { color: '#FFFFFF', marginTop: 4 }]}>
-                  {getGameStatus().detail}
-                </Text>
-              </View>
+              <Text style={[styles.scoreDash, { color: theme.textSecondary }]}>-</Text>
               <Text style={[styles.soccerScore, { color: isGameFinal ? (homeIsWinner ? colors.primary : (homeIsLoser ? '#999' : theme.text)) : theme.text }]}>
                 {getGameStatus().isPre ? '' : home?.score ?? home?.team?.score ?? '0'}
               </Text>
+            </View>
+            <View style={[
+              styles.soccerStatusBadge,
+              (() => {
+                const gameStatus = getGameStatus();
+                if (gameStatus.isLive) return { backgroundColor: theme.success };
+                if (gameStatus.isPre) return { backgroundColor: theme.info };
+                return { backgroundColor: '#9E9E9E' };
+              })()
+            ]}>
+              <View style={styles.statusRow}>
+                <Text style={[styles.statusText, { color: '#FFFFFF' }]}>{getGameStatus().text}</Text>
+                <Text style={[styles.statusDash, { color: '#FFFFFF' }]}>-</Text>
+                <Text style={[styles.statusDetail, { color: '#FFFFFF' }]}>
+                  {getGameStatus().detail}
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -3836,6 +3840,29 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: '800',
     marginHorizontal: 12,
+  },
+  scoreDash: {
+    fontSize: 24,
+    fontWeight: '600',
+    marginHorizontal: 8,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  statusDash: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginHorizontal: 8,
+  },
+  statusDetail: {
+    fontSize: 11,
+    fontWeight: '500',
   },
   soccerStatusBadge: {
     backgroundColor: '#9E9E9E',

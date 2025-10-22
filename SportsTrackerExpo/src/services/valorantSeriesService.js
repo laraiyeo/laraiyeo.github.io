@@ -6,7 +6,7 @@ const API_V1_BASE_URL = 'https://corsproxy.io/?url=https://be-prod.rib.gg/v1';
 
 export const getSeriesDetails = async (seriesId) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/_next/data/npASm5vnJ_D_TiFBai3fN/en/series/${seriesId}.json?seriesId=${seriesId}`);
+    const response = await fetch(`${API_BASE_URL}/_next/data/BjlbvsvhOs341OfXajJWv/en/series/${seriesId}.json?seriesId=${seriesId}`);
     const data = await response.json();
     
     if (data.pageProps && data.pageProps.series) {

@@ -2,7 +2,7 @@
 import { BaseCacheService } from './BaseCacheService';
 
 const RIB_API_BASE_URL = 'https://corsproxy.io/?url=https://be-prod.rib.gg/v1';
-const RIB_NEXT_BASE_URL = 'https://corsproxy.io/?url=https://www.rib.gg/_next/data/npASm5vnJ_D_TiFBai3fN/en';
+const RIB_NEXT_BASE_URL = 'https://corsproxy.io/?url=https://www.rib.gg/_next/data/BjlbvsvhOs341OfXajJWv/en';
 
 class ValorantService extends BaseCacheService {
   // Smart live event detection for Valorant

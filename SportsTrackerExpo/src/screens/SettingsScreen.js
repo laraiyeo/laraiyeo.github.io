@@ -615,6 +615,7 @@ What word do you send?
                 source={require('../../assets/x.png')} 
                 style={styles.contactIcon}
                 resizeMode="contain"
+                tintColor={theme.text}
               />
               <Text allowFontScaling={false} style={[styles.contactLabel, { color: theme.text }]}>
                 X (Twitter)
