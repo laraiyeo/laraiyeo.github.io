@@ -15,7 +15,7 @@
   <meta property="og:url" content="https://sportsheart.ca/" />
   <meta property="og:image" content="https://sportsheart.ca/assets/33115791.png" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:site" content="@laraiyeo" />
+  <meta name="twitter:site" content="@sportsheart_" />
   <meta name="twitter:title" content="SportsHeart - Live Sports Tracker" />
   <meta name="twitter:description" content="Track live sports scores for MLB, NBA, NFL, NHL, F1, Soccer and more." />
   <meta name="twitter:image" content="https://sportsheart.ca/assets/33115791.png" />
@@ -30,14 +30,123 @@
     "name": "SportsHeart",
     "url": "https://sportsheart.ca",
     "description": "Live sports tracker providing real-time scores and updates for MLB, NBA, NFL, NHL, WNBA, F1, Soccer and more.",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://sportsheart.ca/?s={search_term_string}"
+      },
+      "query-input": "required name=search_term_string"
+    },
     "publisher": {
       "@type": "Organization",
-      "name": "SportsHeart"
+      "name": "SportsHeart",
+      "url": "https://sportsheart.ca",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://sportsheart.ca/assets/33115791.png",
+        "width": 512,
+        "height": 512
+      },
+      "sameAs": [
+        "https://twitter.com/sportsheart_"
+      ]
     }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "SportsHeart",
+    "url": "https://sportsheart.ca",
+    "logo": "https://sportsheart.ca/assets/33115791.png",
+    "description": "Live sports tracker providing real-time scores and updates for MLB, NBA, NFL, NHL, WNBA, F1, Soccer and more.",
+    "sameAs": [
+      "https://twitter.com/sportsheart_"
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "itemListElement": [
+      {
+        "@type": "SiteNavigationElement",
+        "position": 1,
+        "name": "MLB Live Scores",
+        "description": "View all live MLB games happening right now",
+        "url": "https://sportsheart.ca/mlb/live.html"
+      },
+      {
+        "@type": "SiteNavigationElement",
+        "position": 2,
+        "name": "NBA Live Scores",
+        "description": "View all live NBA games happening right now",
+        "url": "https://sportsheart.ca/nba/live.html"
+      },
+      {
+        "@type": "SiteNavigationElement",
+        "position": 3,
+        "name": "NFL Live Scores",
+        "description": "View all live NFL games happening right now",
+        "url": "https://sportsheart.ca/nfl/live.html"
+      },
+      {
+        "@type": "SiteNavigationElement",
+        "position": 4,
+        "name": "NHL Live Scores",
+        "description": "View all live NHL games happening right now",
+        "url": "https://sportsheart.ca/nhl/live.html"
+      },
+      {
+        "@type": "SiteNavigationElement",
+        "position": 5,
+        "name": "Soccer Live Scores",
+        "description": "View all live Soccer matches happening right now",
+        "url": "https://sportsheart.ca/soccer/live.html"
+      },
+      {
+        "@type": "SiteNavigationElement",
+        "position": 6,
+        "name": "F1 Results",
+        "description": "View all F1 race results and standings",
+        "url": "https://sportsheart.ca/f1/results.html"
+      },
+      {
+        "@type": "SiteNavigationElement",
+        "position": 7,
+        "name": "WNBA Live Scores",
+        "description": "View all live WNBA games happening right now",
+        "url": "https://sportsheart.ca/wnba/live.html"
+      },
+      {
+        "@type": "SiteNavigationElement",
+        "position": 8,
+        "name": "NCAA Live Scores",
+        "description": "View all live NCAA games happening right now",
+        "url": "https://sportsheart.ca/ncaa/ncaaf/live.html"
+      }
+    ]
   }
   </script>
 </head>
 <body>
+  <!-- App Download Popup Modal -->
+  <div id="appDownloadModal" class="app-modal">
+    <div class="app-modal-content">
+      <span class="app-modal-close">&times;</span>
+      <img src="assets/red.png" alt="SportsHeart App" class="app-modal-icon">
+      <div class="app-modal-brand">
+        SportsHeart <span style="color: #dc2626;">❤</span>
+      </div>
+      <img src="assets/sports-banner.jpg" alt="Sports Banner" class="app-modal-banner">
+      <h2 class="app-modal-title">Download Now for iOS</h2>
+      <a href="https://apps.apple.com/app/sportsheart/id6754208862" target="_blank" class="app-download-btn">Download</a>
+    </div>
+  </div>
+
   <div id="navbar-container"></div> <!-- Navbar container -->
   <br><br>
   <div class="main-container">
@@ -98,6 +207,176 @@
       </div>
     </div>
   <script src="navbarLoader.js"></script>
+  
+  <style>
+    /* App Download Modal Styles */
+    .app-modal {
+      display: none;
+      position: fixed;
+      z-index: 10000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .app-modal-content {
+      background-color: #ffffff;
+      margin: 10% auto;
+      padding: 40px 30px;
+      border-radius: 20px;
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+      position: relative;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      animation: slideDown 0.4s ease;
+    }
+
+    @keyframes slideDown {
+      from {
+        transform: translateY(-50px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .app-modal-close {
+      position: absolute;
+      right: 15px;
+      top: 15px;
+      font-size: 28px;
+      font-weight: bold;
+      color: #999;
+      cursor: pointer;
+      transition: color 0.3s ease;
+    }
+
+    .app-modal-close:hover,
+    .app-modal-close:focus {
+      color: #333;
+    }
+
+    .app-modal-icon {
+      width: 100px;
+      height: 100px;
+      margin-bottom: 20px;
+      border-radius: 20px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .app-modal-brand {
+      color: #333;
+      font-size: 22px;
+      font-weight: bold;
+      margin: 10px 0 20px 0;
+      font-family: Arial, sans-serif;
+    }
+
+    .app-modal-banner {
+      width: 100%;
+      max-width: 350px;
+      height: auto;
+      margin: 20px auto;
+      border-radius: 12px;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+      display: block;
+    }
+
+    .app-modal-title {
+      color: #333;
+      font-size: 24px;
+      font-weight: bold;
+      margin: 20px 0;
+      font-family: Arial, sans-serif;
+    }
+
+    .app-download-btn {
+      display: inline-block;
+      background: #dc2626;
+      color: white;
+      padding: 15px 50px;
+      text-decoration: none;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: 600;
+      margin-top: 15px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px #dc26264d;
+      font-family: Arial, sans-serif;
+    }
+
+    .app-download-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px #b91c1c66;
+      background: #b91c1c;
+    }
+
+    @media (max-width: 480px) {
+      .app-modal-content {
+        margin: 20% auto;
+        padding: 30px 20px;
+      }
+
+      .app-modal-icon {
+        width: 80px;
+        height: 80px;
+      }
+
+      .app-modal-brand {
+        font-size: 18px;
+        margin: 8px 0 15px 0;
+      }
+
+      .app-modal-banner {
+        max-width: 100%;
+        margin: 15px auto;
+      }
+
+      .app-modal-title {
+        font-size: 20px;
+      }
+
+      .app-download-btn {
+        padding: 12px 40px;
+        font-size: 16px;
+      }
+    }
+  </style>
+
+  <script>
+    // App Download Modal Script
+    window.addEventListener('load', function() {
+      var modal = document.getElementById('appDownloadModal');
+      var span = document.getElementsByClassName('app-modal-close')[0];
+
+      // Show modal on page load
+      modal.style.display = 'block';
+
+      // Close modal when X is clicked
+      span.onclick = function() {
+        modal.style.display = 'none';
+      }
+
+      // Close modal when clicking outside of it
+      window.onclick = function(event) {
+        if (event.target == modal) {
+          modal.style.display = 'none';
+        }
+      }
+    });
+  </script>
+
   <script>
     document.querySelectorAll('.block').forEach(block => {
     block.addEventListener('click', () => {
