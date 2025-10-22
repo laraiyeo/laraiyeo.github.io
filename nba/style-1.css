@@ -374,6 +374,10 @@ body {
   transform: translateX(310px);
 }
 
+.stream-embed {
+  display: block;
+}
+
 .content-section.active {
   display: block;
 }

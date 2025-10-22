@@ -285,11 +285,11 @@ const LOLDiscoverScreen = ({ navigation }) => {
           {event.imageUrl || event.logoUrl ? (
             <Image
               source={{ uri: getSafeImageUri(event.imageUrl || event.logoUrl) }}
-              style={styles.featuredImage}
+              style={[styles.featuredImage, { backgroundColor: theme.surface }]}
               resizeMode="contain"
             />
           ) : (
-            <View style={[styles.featuredImage, { backgroundColor: '#C89B3C' }]} />
+            <View style={[styles.featuredImage, { backgroundColor: colors.primary }]} />
           )}
           
           <View style={styles.featuredOverlay}>

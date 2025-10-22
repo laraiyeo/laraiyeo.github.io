@@ -19,7 +19,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.sportsheart.app",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
@@ -117,7 +117,9 @@
       }
     },
     "updates": {
-      "url": "https://u.expo.dev/fb066229-1442-4efb-b65c-4588b95b115c"
+      "url": "https://u.expo.dev/fb066229-1442-4efb-b65c-4588b95b115c",
+      "fallbackToCacheTimeout": 30000,
+      "checkAutomatically": "ON_LOAD"
     },
     "owner": "laraiyeo"
   }

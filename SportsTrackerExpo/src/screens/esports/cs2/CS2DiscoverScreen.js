@@ -177,7 +177,7 @@ const CS2DiscoverScreen = ({ navigation }) => {
           {event.imageUrl || event.logoUrl ? (
             <Image
               source={{ uri: event.imageUrl || event.logoUrl }}
-              style={styles.featuredImage}
+              style={[styles.featuredImage, { backgroundColor: theme.surface }]}
               resizeMode="contain"
             />
           ) : (
