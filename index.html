@@ -359,20 +359,83 @@
     window.addEventListener('load', function() {
       var modal = document.getElementById('appDownloadModal');
       var span = document.getElementsByClassName('app-modal-close')[0];
+      var downloadBtn = document.querySelector('.app-download-btn');
+
+      console.log('[SportsHeart Popup] Modal initialized');
 
       // Show modal on page load
       modal.style.display = 'block';
+      console.log('[SportsHeart Popup] Modal displayed on page load');
+
+      // Track modal view
+      if (typeof gtag !== 'undefined') {
+        gtag('event', 'popup_view', {
+          'event_category': 'App Download Popup',
+          'event_label': 'Modal Opened',
+          'value': 1
+        });
+        console.log('[SportsHeart Analytics] Event tracked: popup_view');
+      } else {
+        console.warn('[SportsHeart Analytics] gtag not available for popup_view event');
+      }
 
       // Close modal when X is clicked
       span.onclick = function() {
         modal.style.display = 'none';
+        console.log('[SportsHeart Popup] Modal closed via X button');
+        
+        // Track close button click
+        if (typeof gtag !== 'undefined') {
+          gtag('event', 'popup_close', {
+            'event_category': 'App Download Popup',
+            'event_label': 'Close Button Clicked',
+            'value': 1
+          });
+          console.log('[SportsHeart Analytics] Event tracked: popup_close (X button)');
+        } else {
+          console.warn('[SportsHeart Analytics] gtag not available for close button event');
+        }
       }
 
       // Close modal when clicking outside of it
       window.onclick = function(event) {
         if (event.target == modal) {
           modal.style.display = 'none';
+          console.log('[SportsHeart Popup] Modal closed via outside click');
+          
+          // Track outside click
+          if (typeof gtag !== 'undefined') {
+            gtag('event', 'popup_close', {
+              'event_category': 'App Download Popup',
+              'event_label': 'Clicked Outside Modal',
+              'value': 1
+            });
+            console.log('[SportsHeart Analytics] Event tracked: popup_close (outside click)');
+          } else {
+            console.warn('[SportsHeart Analytics] gtag not available for outside click event');
+          }
         }
+      }
+
+      // Track download button click
+      if (downloadBtn) {
+        downloadBtn.addEventListener('click', function() {
+          console.log('[SportsHeart Popup] Download button clicked');
+          
+          if (typeof gtag !== 'undefined') {
+            gtag('event', 'download_click', {
+              'event_category': 'App Download Popup',
+              'event_label': 'iOS Download Button',
+              'value': 1
+            });
+            console.log('[SportsHeart Analytics] Event tracked: download_click');
+          } else {
+            console.warn('[SportsHeart Analytics] gtag not available for download click event');
+          }
+        });
+        console.log('[SportsHeart Popup] Download button event listener attached');
+      } else {
+        console.error('[SportsHeart Popup] Download button not found in DOM');
       }
     });
   </script>
