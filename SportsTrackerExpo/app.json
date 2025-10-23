@@ -2,12 +2,12 @@
   "expo": {
     "name": "SportsHeart",
     "slug": "sportsheart",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": "1.0.1",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -19,7 +19,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.sportsheart.app",
-      "buildNumber": "4",
+      "buildNumber": "5",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
@@ -32,7 +32,7 @@
         "backgroundColor": "#000000"
       },
       "package": "com.sportsheart.app",
-      "versionCode": 1,
+      "versionCode": 2,
       "edgeToEdgeEnabled": true,
       "permissions": [
         "INTERNET",

@@ -51,6 +51,26 @@ export class NFLService extends BaseCacheService {
     return positionGroups[position] || 'OTHER';
   }
 
+  // Global team cache to prevent duplicate team API calls
+  static teamCache = new Map();
+  
+  // Get team data with global caching
+  static async getTeamData(teamUrl) {
+    if (this.teamCache.has(teamUrl)) {
+      return this.teamCache.get(teamUrl);
+    }
+    
+    try {
+      const response = await fetch(this.convertToHttps(teamUrl));
+      const teamInfo = await response.json();
+      this.teamCache.set(teamUrl, teamInfo);
+      return teamInfo;
+    } catch (error) {
+      console.warn('Error fetching team info:', error);
+      return null;
+    }
+  }
+
   // Fetch NFL teams
   // Convert any URL to HTTPS (for compatibility)
   static convertToHttps(url) {
@@ -102,26 +122,16 @@ export class NFLService extends BaseCacheService {
     }, 'game_details');
   }
 
-  // Get boxscore data for team stats
+  // Get boxscore data for team stats - use cached game details to avoid duplicate API call
   static async getBoxScore(gameId) {
-    const cacheKey = `nfl_boxscore_${gameId}`;
-    return this.getCachedData(cacheKey, async () => {
-      const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
-      const response = await fetch(url, { headers: this.getBrowserHeaders() });
-      const data = await response.json();
-      return data.boxscore || null;
-    }, 'boxscore');
+    const gameDetails = await this.getGameDetails(gameId);
+    return gameDetails.boxscore || null;
   }
 
-  // Get leaders data
+  // Get leaders data - use cached game details to avoid duplicate API call
   static async getLeaders(gameId) {
-    const cacheKey = `nfl_leaders_${gameId}`;
-    return this.getCachedData(cacheKey, async () => {
-      const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
-      const response = await fetch(url, { headers: this.getBrowserHeaders() });
-      const data = await response.json();
-      return data.leaders || null;
-    }, 'leaders');
+    const gameDetails = await this.getGameDetails(gameId);
+    return gameDetails.leaders || null;
   }
 
   // Get position stats for card (simplified version of your existing function)
@@ -355,10 +365,7 @@ export class NFLService extends BaseCacheService {
       
       const drives = drivesData.items || [];
       
-      // Cache for team data to avoid redundant fetches within the same request
-      const teamCache = new Map();
-      
-      // Process all drives in batches to get team information and plays data for ALL drives
+      // Process all drives in batches to get team information
       const batchSize = 10; // Process 10 drives at a time
       const detailedDrives = [];
       
@@ -366,42 +373,22 @@ export class NFLService extends BaseCacheService {
         const batch = drives.slice(i, i + batchSize);
         const batchResults = await Promise.all(batch.map(async (drive, driveIndex) => {
           try {
-            // Get team information (always fetch for all drives to show proper team names)
+            // Get team information using global cache to prevent duplicate API calls
             let teamInfo = null;
             if (drive.team && drive.team.$ref) {
-              const teamUrl = drive.team.$ref;
-              if (teamCache.has(teamUrl)) {
-                teamInfo = teamCache.get(teamUrl);
-              } else {
-                try {
-                  const teamResponse = await fetch(this.convertToHttps(teamUrl));
-                  teamInfo = await teamResponse.json();
-                  teamCache.set(teamUrl, teamInfo);
-                } catch (error) {
-                  console.warn('Error fetching team info:', error);
-                }
-              }
+              teamInfo = await this.getTeamData(drive.team.$ref);
             }
 
-            // Fetch plays data for ALL drives (complete data for game details)
+            // Use the inline plays data that's already included in the drives response
+            // No need to make additional API calls - the plays.items array is already there!
             let playsData = [];
-            const actualDriveIndex = i + driveIndex; // Actual position in the full drives array
+            const actualDriveIndex = i + driveIndex;
             
-            console.log(`[Complete] Drive ${actualDriveIndex + 1}/${drives.length}: Fetching all plays data`);
-            
-            const playsRef = drive.plays?.$ref || drive.plays?.href;
-            if (playsRef) {
-              try {
-                console.log(`[Complete] Fetching plays for drive ${actualDriveIndex + 1}`);
-                const playsResponse = await fetch(this.convertToHttps(playsRef));
-                const playsResult = await playsResponse.json();
-                playsData = playsResult.items || [];
-                console.log(`[Complete] Loaded ${playsData.length} plays for drive ${actualDriveIndex + 1}`);
-              } catch (error) {
-                console.warn('Error fetching plays for drive:', error);
-              }
+            if (drive.plays && drive.plays.items) {
+              playsData = drive.plays.items;
+              console.log(`[Complete] Drive ${actualDriveIndex + 1}/${drives.length}: Using inline plays data (${playsData.length} plays)`);
             } else {
-              console.log(`[Complete] No plays reference for drive ${actualDriveIndex + 1}`);
+              console.log(`[Complete] Drive ${actualDriveIndex + 1}/${drives.length}: No inline plays data available`);
             }
 
             return {
@@ -411,7 +398,7 @@ export class NFLService extends BaseCacheService {
                 logo: teamInfo.logos?.[1]?.href || teamInfo.logos?.[0]?.href
               } : null,
               plays: playsData,
-              hasPlaysData: true // Always true since we fetch plays for all drives
+              hasPlaysData: playsData.length > 0
             };
           } catch (error) {
             console.error('Error processing drive:', error);
@@ -607,18 +594,14 @@ export class NFLService extends BaseCacheService {
     }
   }
 
-  // Get current game situation (possession, down, distance, field position)
+  // Get current game situation (possession, down, distance, field position) - use cached game details
   static async getGameSituation(gameId, gameDate = null) {
     try {
+      // Use cached game details instead of making another API call
+      const gameDetails = await this.getGameDetails(gameId);
       
-      // Use the game summary endpoint directly instead of searching through scoreboard
-      const summaryUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
-      
-      const response = await fetch(this.convertToHttps(summaryUrl));
-      const data = await response.json();
-      
-      // Extract game situation from summary data
-      const event = data.header || data;
+      // Extract game situation from cached summary data
+      const event = gameDetails.header || gameDetails;
       if (event && event.competitions && event.competitions[0]) {
         return this.extractGameSituation({ ...event, competitions: event.competitions });
       }

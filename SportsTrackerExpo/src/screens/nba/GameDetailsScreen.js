@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { View, Text, ActivityIndicator, ScrollView, Image, StyleSheet, TouchableOpacity, Modal, Animated, Alert } from 'react-native';
+import { View, Text, ActivityIndicator, ScrollView, Image, StyleSheet, TouchableOpacity, Modal, Animated, Alert, Share, Platform } from 'react-native';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, Defs, LinearGradient, Stop, Path, G } from 'react-native-svg';
 import { WebView } from 'react-native-webview';
@@ -9,6 +9,9 @@ import { useNavigation } from '@react-navigation/native';
 import { NBAService } from '../../services/NBAService';
 import ChatComponent from '../../components/ChatComponent';
 import { useStreamingAccess } from '../../utils/streamingUtils';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library';
 
 // Color similarity detection utility
 const calculateColorSimilarity = (color1, color2) => {
@@ -210,7 +213,7 @@ const BasketballCourt = React.memo(({ coordinate, isScoring, teamSide, teamColor
 
 const NBAGameDetailsScreen = ({ route }) => {
   const { gameId } = route.params || {};
-  const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
+  const { theme, colors, getTeamLogoUrl, isDarkMode, currentColorPalette } = useTheme();
   const { isFavorite, toggleFavorite } = useFavorites();
   const navigation = useNavigation();
   const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
@@ -220,6 +223,8 @@ const NBAGameDetailsScreen = ({ route }) => {
   const [activeTab, setActiveTab] = useState('stats');
 
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [shareCardPlayer, setShareCardPlayer] = useState(null);
+  const shareCardRef = useRef(null);
 
   // Lightweight plays state (kept to avoid runtime errors from residual UI references)
   const [playsData, setPlaysData] = useState(null);
@@ -242,6 +247,27 @@ const NBAGameDetailsScreen = ({ route }) => {
 
   // Streaming access check
   const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
+
+  // Function to get the current app icon image source
+  const getCurrentAppIconSource = () => {
+    const themeType = isDarkMode ? 'dark' : 'light';
+    const palette = currentColorPalette || 'red'; // Default to red if not available
+    const iconMap = {
+      'dark-blue': require('../../../assets/dark/blue.png'),
+      'dark-red': require('../../../assets/dark/red.png'),
+      'dark-green': require('../../../assets/dark/green.png'),
+      'dark-purple': require('../../../assets/dark/purple.png'),
+      'dark-gold': require('../../../assets/dark/gold.png'),
+      'light-blue': require('../../../assets/light/blue.png'),
+      'light-red': require('../../../assets/light/red.png'),
+      'light-green': require('../../../assets/light/green.png'),
+      'light-purple': require('../../../assets/light/purple.png'),
+      'light-gold': require('../../../assets/light/gold.png'),
+    };
+    
+    const iconKey = `${themeType}-${palette}`;
+    return iconMap[iconKey] || iconMap['dark-red']; // fallback to default
+  };
 
   // Memoized team IDs for performance - prevents repeated calculations
   const awayTeamId = useMemo(() => {
@@ -2011,8 +2037,20 @@ const NBAGameDetailsScreen = ({ route }) => {
         setSelectedPlayer({ player, meta, displayName });
       };
 
+      const handleLongPress = () => {
+        // Get the team info for this player
+        const meta = player.meta || findPlayerStatsMeta(player);
+        setShareCardPlayer({ player, meta, displayName });
+      };
+
       return (
-        <TouchableOpacity key={`${keyPrefix}-${idx}`} onPress={openPlayer} activeOpacity={0.8}>
+        <TouchableOpacity 
+          key={`${keyPrefix}-${idx}`} 
+          onPress={openPlayer} 
+          onLongPress={handleLongPress}
+          activeOpacity={0.8}
+          delayLongPress={500}
+        >
           <View style={[styles.modernPlayerRow, { backgroundColor: theme.surfaceSecondary || theme.surface }]}>
             <View style={styles.playerInfo}>
               <View style={styles.playerNameSection}>
@@ -2680,6 +2718,235 @@ const NBAGameDetailsScreen = ({ route }) => {
                 </>
               );
             })()}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Shareable Player Card Modal */}
+      <Modal visible={!!shareCardPlayer} animationType="fade" transparent onRequestClose={() => setShareCardPlayer(null)}>
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.85)' }]}>
+          <View style={{ alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+            <View 
+              ref={shareCardRef}
+              collapsable={false}
+              style={[styles.shareCard, { backgroundColor: theme.surface }]}
+            >
+              {shareCardPlayer && (() => {
+                const player = shareCardPlayer.player;
+                const athlete = player?.athlete;
+                const meta = shareCardPlayer.meta || {};
+                const labels = meta.labels || [];
+                const keys = meta.keys || [];
+                const stats = player?.stats || [];
+                
+                // Player info
+                const headshot = athlete?.headshot?.href;
+                const fullName = athlete?.displayName || athlete?.fullName || '';
+                const jersey = athlete?.jersey;
+                const position = athlete?.position?.abbreviation || athlete?.position?.name || '';
+                
+                // Team info
+                let team = null;
+                let teamName = '';
+                let teamLogo = null;
+                let teamColor = null;
+                
+                const playersBox = details?.boxscore?.players || [];
+                for (const teamBox of playersBox) {
+                  if (teamBox?.statistics) {
+                    for (const group of teamBox.statistics) {
+                      if (group?.athletes) {
+                        const found = group.athletes.find(a => String(a?.athlete?.id) === String(athlete?.id));
+                        if (found) {
+                          team = teamBox.team;
+                          break;
+                        }
+                      }
+                    }
+                    if (team) break;
+                  }
+                }
+                teamName = team?.displayName || team?.name || '';
+                teamLogo = team?.logo || (team?.abbreviation ? getTeamLogoUrl('nba', team.abbreviation) : null);
+                teamColor = team?.color || null;
+                
+                // Get game info for score display
+                const competition = details?.header?.competitions?.[0];
+                const competitors = competition?.competitors || [];
+                const awayTeam = competitors.find(c => c.homeAway === 'away');
+                const homeTeam = competitors.find(c => c.homeAway === 'home');
+                const awayScore = awayTeam?.score || '0';
+                const homeScore = homeTeam?.score || '0';
+                const awayLogo = awayTeam?.team?.logos?.[isDarkMode ? '1' : '0']?.href || awayTeam?.team?.logo;
+                const homeLogo = homeTeam?.team?.logos?.[isDarkMode ? '1' : '0']?.href || homeTeam?.team?.logo;
+                const leadingTeam = parseInt(homeScore) > parseInt(awayScore) ? 'home' : 'away';
+                
+                // Define important stats
+                let importantStatIndices = [];
+                let importantLabels = [];
+                
+                const basketballStats = ['minutes', 'points', 'rebounds', 'assists', 'plusMinus', 'fouls', 'steals', 'blocks', 'turnovers',
+                   'fieldGoalsMade-fieldGoalsAttempted', 'threePointFieldGoalsMade-threePointFieldGoalsAttempted', 'freeThrowsMade-freeThrowsAttempted'];
+                basketballStats.forEach(statKey => {
+                  const idx = keys.indexOf(statKey);
+                  if (idx >= 0) {
+                    importantStatIndices.push(idx);
+                    importantLabels.push(labels[idx] || statKey);
+                  }
+                });
+                
+                if (importantStatIndices.length === 0 && stats.length > 0) {
+                  importantStatIndices = stats.map((_, idx) => idx).slice(0, 6);
+                  importantLabels = labels.slice(0, 6);
+                }
+
+                return (
+                  <>
+                    <View style={styles.shareCardHeader}>
+                      <View style={styles.shareCardPlayerInfo}>
+                        {headshot ? (
+                          <Image source={{ uri: headshot }} style={[styles.shareCardHeadshot, {backgroundColor: teamColor ? `#${teamColor}88` : theme.surfaceSecondary }]} />
+                        ) : (
+                          <View style={[styles.shareCardHeadshotPlaceholder, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.shareCardInitials, { color: theme.textSecondary }]}>
+                              {fullName.split(' ').map(n => n.charAt(0)).join('').toUpperCase().slice(0, 2)}
+                            </Text>
+                          </View>
+                        )}
+                        <View style={styles.shareCardPlayerDetails}>
+                          <Text style={[styles.shareCardName, { color: theme.text }]} numberOfLines={1}>{fullName}</Text>
+                          <Text style={[styles.shareCardPlayerMeta, { color: theme.textSecondary }]} numberOfLines={1}>
+                            {jersey && position ? `#${jersey} • ${position}` : 
+                             jersey ? `#${jersey}` : 
+                             position ? position : ''}
+                          </Text>
+                          <View style={styles.shareCardTeamRow}>
+                            {teamLogo && <Image source={{ uri: teamLogo }} style={styles.shareCardTeamLogo} />}
+                            <Text style={[styles.shareCardTeam, { color: theme.textSecondary }]} numberOfLines={1}>{teamName}</Text>
+                          </View>
+                        </View>
+                      </View>
+                      {/* App Logo instead of close button */}
+                      <View style={[styles.shareCardAppLogoContainer, { backgroundColor: theme.surface }]}>
+                        <Image 
+                          source={getCurrentAppIconSource()} 
+                          style={styles.shareCardAppLogo}
+                          resizeMode="contain"
+                        />
+                      </View>
+                    </View>
+
+                    <View style={styles.shareCardStatsHeader}>
+                      <Text style={[styles.shareCardStatsTitle, { color: theme.text }]}>Game Statistics</Text>
+                      {/* Score display with team logos */}
+                      <View style={styles.shareCardScoreDisplay}>
+                        {awayLogo && <Image source={{ uri: awayLogo }} style={styles.shareCardScoreLogo} />}
+                        <Text style={[
+                          styles.shareCardScore, 
+                          { color: leadingTeam === 'away' ? colors.primary : theme.text }
+                        ]}>
+                          {awayScore}
+                        </Text>
+                        <Text style={[styles.shareCardScoreSeparator, { color: theme.textSecondary }]}>-</Text>
+                        <Text style={[
+                          styles.shareCardScore, 
+                          { color: leadingTeam === 'home' ? colors.primary : theme.text }
+                        ]}>
+                          {homeScore}
+                        </Text>
+                        {homeLogo && <Image source={{ uri: homeLogo }} style={styles.shareCardScoreLogo} />}
+                      </View>
+                    </View>
+
+                    <View style={styles.shareCardStatsContainer}>
+                      {importantStatIndices.length > 0 ? (
+                        <View style={styles.shareCardStatsGrid}>
+                          {importantStatIndices.map((statIdx, i) => (
+                            <View key={i} style={[styles.shareCardStatBox, { backgroundColor: theme.surfaceSecondary || theme.surface }]}>
+                              <Text style={[styles.shareCardStatBoxValue, { color: theme.text }]}>{stats[statIdx] ?? '-'}</Text>
+                              <Text style={[styles.shareCardStatBoxLabel, { color: theme.textSecondary }]}>{importantLabels[i]}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      ) : (
+                        <Text style={{ color: theme.textSecondary, textAlign: 'center', marginTop: 20 }}>No stats available</Text>
+                      )}
+                    </View>
+                  </>
+                );
+              })()}
+            </View>
+            
+            {/* Share buttons below the card */}
+            <View style={styles.shareCardActions}>
+              <View style={styles.shareCardTopButtons}>
+                <TouchableOpacity 
+                  style={[styles.shareCardButton, { backgroundColor: colors.secondary }]}
+                  onPress={async () => {
+                    try {
+                      const uri = await captureRef(shareCardRef, {
+                        format: 'png',
+                        quality: 2,
+                      });
+                      
+                      if (Platform.OS === 'ios') {
+                        await Sharing.shareAsync(uri, {
+                          mimeType: 'image/png',
+                          UTI: 'public.png',
+                          dialogTitle: 'Share Player Stats',
+                        });
+                      } else {
+                        await Share.share({
+                          url: uri,
+                          title: 'Player Stats',
+                        });
+                      }
+                    } catch (error) {
+                      console.error('Error sharing:', error);
+                      Alert.alert('Error', 'Failed to share player stats');
+                    }
+                  }}
+                >
+                  <Ionicons name="share-outline" size={24} color="white" />
+                  <Text style={styles.shareCardButtonText}>Share</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.shareCardButton, { backgroundColor: colors.secondary }]}
+                  onPress={async () => {
+                    try {
+                      const { status } = await MediaLibrary.requestPermissionsAsync();
+                      if (status !== 'granted') {
+                        Alert.alert('Permission needed', 'Please grant permission to save photos');
+                        return;
+                      }
+                      
+                      const uri = await captureRef(shareCardRef, {
+                        format: 'png',
+                        quality: 2,
+                      });
+                      
+                      await MediaLibrary.saveToLibraryAsync(uri);
+                      Alert.alert('Success', 'Player stats saved to camera roll!');
+                    } catch (error) {
+                      console.error('Error saving:', error);
+                      Alert.alert('Error', 'Failed to save player stats');
+                    }
+                  }}
+                >
+                  <Ionicons name="download-outline" size={24} color="white" />
+                  <Text style={styles.shareCardButtonText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <TouchableOpacity 
+                style={[styles.shareCardCancelButton, { backgroundColor: theme.surfaceSecondary }]}
+                onPress={() => setShareCardPlayer(null)}
+              >
+                <Ionicons name="close" size={24} color={theme.text} />
+                <Text style={[styles.shareCardButtonText, { color: theme.text }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -4795,6 +5062,176 @@ const styles = StyleSheet.create({
   loadMoreText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Shareable Card Styles
+  shareCard: {
+    width: 350,
+    borderRadius: 20,
+    padding: 20,
+    marginHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  shareCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  shareCardPlayerInfo: {
+    flexDirection: 'row',
+    flex: 1,
+  },
+  shareCardHeadshot: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    marginRight: 12,
+  },
+  shareCardHeadshotPlaceholder: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shareCardInitials: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  shareCardPlayerDetails: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  shareCardName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  shareCardPlayerMeta: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  shareCardTeamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  shareCardTeamLogo: {
+    width: 20,
+    height: 20,
+    marginRight: 6,
+  },
+  shareCardTeam: {
+    fontSize: 13,
+  },
+  shareCardAppLogoContainer: {
+    width: 50,
+    height: 50,
+    marginLeft: 8,
+    borderRadius: 6,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  shareCardAppLogo: {
+    width: '100%',
+    height: '100%',
+  },
+  shareCardStatsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(128, 128, 128, 0.2)',
+  },
+  shareCardStatsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  shareCardScoreDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  shareCardScoreLogo: {
+    width: 20,
+    height: 20,
+  },
+  shareCardScore: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  shareCardScoreSeparator: {
+    fontSize: 14,
+    marginHorizontal: 2,
+  },
+  shareCardStatsContainer: {
+    paddingBottom: 0,
+  },
+  shareCardStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+  },
+  shareCardStatBox: {
+    width: '31%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    padding: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  shareCardStatBoxValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    transform: [{ translateY: -3 }],
+  },
+  shareCardStatBoxLabel: {
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  shareCardActions: {
+    alignItems: 'center',
+    marginTop: 20,
+    paddingHorizontal: 20,
+  },
+  shareCardTopButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  shareCardButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    gap: 8,
+  },
+  shareCardCancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 12,
+    gap: 8,
+  },
+  shareCardButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
   },
 });
 

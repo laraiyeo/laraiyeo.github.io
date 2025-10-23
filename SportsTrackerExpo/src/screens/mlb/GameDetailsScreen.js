@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 import { MLBService } from '../../services/MLBService';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
@@ -114,6 +116,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   const [loadingPlayerStats, setLoadingPlayerStats] = useState(false);
   const [selectedStatsType, setSelectedStatsType] = useState('batting'); // 'batting' or 'pitching'
   const [chatModalVisible, setChatModalVisible] = useState(false);
+  const [shareCardPlay, setShareCardPlay] = useState(null);
+  const [shareCardPlayer, setShareCardPlayer] = useState(null); // { player, statsType, teamName, teamLogo, teamColor }
+  const mlbPlaysShareCardRef = useRef(null);
+  const mlbPlayerShareCardRef = useRef(null);
   const [awayRoster, setAwayRoster] = useState(null);
   const [homeRoster, setHomeRoster] = useState(null);
   const [loadingRoster, setLoadingRoster] = useState(false);
@@ -1809,6 +1815,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   key={player.person?.id || index} 
                   style={[styles.statTableRow, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}
                   onPress={() => handlePlayerPress(player, team, 'batting')}
+                  onLongPress={() => handlePlayerLongPress(player, team, 'batting')}
+                  delayLongPress={500}
                 >
                   <View style={styles.statTablePlayerCell}>
                     <Text allowFontScaling={false} style={[styles.statTablePlayerName, { color: rowColor }]}>
@@ -1850,6 +1858,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 key={pitcherId} 
                 style={[styles.statTableRow, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}
                 onPress={() => handlePlayerPress(player, team, 'pitching')}
+                onLongPress={() => handlePlayerLongPress(player, team, 'pitching')}
+                delayLongPress={500}
               >
                 <View style={styles.statTablePlayerCell}>
                   <Text allowFontScaling={false} style={[styles.statTablePlayerName, { color: theme.text }]}>
@@ -2315,8 +2325,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             const finalYPercent = Math.max(5, Math.min(95, yPercent));
 
             // Convert percentages to pixel positions for React Native (120px container)
-            const finalX = (finalXPercent / 100) * 120 - 5; // Center the 12px dot
-            const finalY = (finalYPercent / 100) * 120 + 12.5; // Center the 12px dot
+            const finalX = (finalXPercent / 100) * 145 - 5; // Center the 12px dot
+            const finalY = (finalYPercent / 100) * 125 + 5; // Center the 12px dot
 
             // Determine pitch color based on call
             let pitchColor = '#4CAF50'; // Green for balls
@@ -2446,6 +2456,29 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     );
   };
 
+  // Handler for long press on plays
+  const handlePlayLongPress = (play) => {
+    setShareCardPlay(play);
+  };
+
+  // Handler for long press on players
+  const handlePlayerLongPress = async (player, team, statsType) => {
+    // Capture team info
+    const teamName = team?.name || 'Unknown Team';
+    const teamAbbrev = team?.abbreviation || team?.team?.abbreviation || '';
+    const teamLogo = getTeamLogoUrl('mlb', teamAbbrev);
+    const teamColor = MLBService.getTeamColor(teamName);
+
+    // Set the selected player with all necessary info
+    setShareCardPlayer({
+      ...player,
+      teamName,
+      teamLogo,
+      teamColor,
+      statsType, // 'batting' or 'pitching'
+    });
+  };
+
   const renderPlayItem = (play, playKey, index) => {
     const isOpen = openPlays.has(playKey);
     const inning = play.about?.inning || 0;
@@ -2494,6 +2527,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             }
             setOpenPlays(newOpenPlays);
           }}
+          onLongPress={() => handlePlayLongPress(play)}
+          delayLongPress={500}
         >
           <View style={styles.playInfo}>
             <Image
@@ -3869,6 +3904,608 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   hideHeader={true}
                 />
               )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MLB Shareable Play Card Modal */}
+      <Modal visible={!!shareCardPlay} animationType="fade" transparent onRequestClose={() => setShareCardPlay(null)}>
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.85)' }]}>
+          <View style={{ alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+            <View 
+              ref={mlbPlaysShareCardRef}
+              collapsable={false}
+              style={[styles.mlbPlaysShareCard, { backgroundColor: theme.surface }]}
+            >
+              {shareCardPlay && (() => {
+                const play = shareCardPlay;
+                const pitches = play.playEvents?.filter(event => event.isPitch) || [];
+                const last4Pitches = pitches.slice(-4);
+                
+                // Get batter and pitcher info
+                const batter = play.matchup?.batter;
+                const pitcher = play.matchup?.pitcher;
+                
+                // Get game info for scores
+                const inning = play.about?.inning || 0;
+                const halfInning = play.about?.halfInning || 'top';
+                const isTopInning = halfInning.toLowerCase() === 'top';
+                const awayScore = play.result?.awayScore || 0;
+                const homeScore = play.result?.homeScore || 0;
+                
+                // Get team info
+                const awayTeam = gameData?.gameData?.teams?.away;
+                const homeTeam = gameData?.gameData?.teams?.home;
+                const awayLogo = getTeamLogoUrl('mlb', awayTeam?.abbreviation);
+                const homeLogo = getTeamLogoUrl('mlb', homeTeam?.abbreviation);
+                
+                // Get ordinal suffix for inning
+                const getOrdinalSuffix = (n) => {
+                  if (n > 3 && n < 21) return n + 'th';
+                  switch (n % 10) {
+                    case 1: return n + 'st';
+                    case 2: return n + 'nd';
+                    case 3: return n + 'rd';
+                    default: return n + 'th';
+                  }
+                };
+                
+                // Get runners on base
+                const runners = {
+                  first: play.matchup?.postOnFirst?.fullName || false,
+                  second: play.matchup?.postOnSecond?.fullName || false,
+                  third: play.matchup?.postOnThird?.fullName || false
+                };
+                
+                // Get hit data from last pitch
+                const lastPitch = pitches[pitches.length - 1];
+                const hitData = lastPitch?.hitData;
+                
+                // Get player stats from boxscore
+                let batterStats = null;
+                let pitcherStats = null;
+                
+                if (gameData?.liveData?.boxscore) {
+                  const boxscore = gameData.liveData.boxscore;
+                  // Find batter stats
+                  const batterTeam = isTopInning ? boxscore.teams.away : boxscore.teams.home;
+                  const batterPlayer = batterTeam?.players?.[`ID${batter?.id}`];
+                  if (batterPlayer?.stats?.batting) {
+                    batterStats = batterPlayer.stats.batting;
+                  }
+                  
+                  // Find pitcher stats
+                  const pitcherTeam = isTopInning ? boxscore.teams.home : boxscore.teams.away;
+                  const pitcherPlayer = pitcherTeam?.players?.[`ID${pitcher?.id}`];
+                  if (pitcherPlayer?.stats?.pitching) {
+                    pitcherStats = pitcherPlayer.stats.pitching;
+                  }
+                }
+                
+                return (
+                  <>
+                    {/* Score Header with team logos and inning */}
+                    <View style={styles.mlbPlaysShareCardScoreHeader}>
+                      {/* Away Team */}
+                      <View style={styles.mlbPlaysShareCardTeamScoreBlock}>
+                        <Image source={{ uri: awayLogo }} style={styles.mlbPlaysShareCardTeamLogoSmall} />
+                        <Text style={[styles.mlbPlaysShareCardTeamScore, { color: awayScore > homeScore ? colors.primary : theme.text }]}>{awayScore}</Text>
+                      </View>
+                      
+                      {/* Inning Info */}
+                      <View style={styles.mlbPlaysShareCardInningBlock}>
+                        <Text style={[styles.mlbPlaysShareCardInningIndicator, { color: colors.primary }]}>
+                          {isTopInning ? '▲' : ''}
+                        </Text>
+                        <Text style={[styles.mlbPlaysShareCardInningText, { color: colors.secondary }]}>
+                          {getOrdinalSuffix(inning)}
+                        </Text>
+                        <Text style={[styles.mlbPlaysShareCardInningIndicator, { color: colors.primary }]}>
+                          {isTopInning ? '' : '▼'}
+                        </Text>
+                      </View>
+                      
+                      {/* Home Team */}
+                      <View style={styles.mlbPlaysShareCardTeamScoreBlock}>
+                        <Text style={[styles.mlbPlaysShareCardTeamScore, { color: homeScore > awayScore ? colors.primary : theme.text }]}>{homeScore}</Text>
+                        <Image source={{ uri: homeLogo }} style={styles.mlbPlaysShareCardTeamLogoSmall} />
+                      </View>
+                    </View>
+
+                    {/* Top Section: Pitch visualization and pitch list */}
+                    <View style={styles.mlbPlaysShareCardTopSection}>
+                      {/* Left: Last 4 Pitches */}
+                      <View style={styles.mlbPlaysShareCardPitchesList}>
+                        <Text style={[styles.mlbPlaysShareCardSectionTitle, { color: theme.text }]}>Pitches</Text>
+                        {last4Pitches.length > 0 ? (
+                          last4Pitches.map((pitch, index) => {
+                            let pitchColor = '#4CAF50';
+                            if (pitch.details?.isStrike) {
+                              pitchColor = '#f44336';
+                            } else if (pitch.details?.isInPlay) {
+                              pitchColor = '#2196F3';
+                            }
+                            
+                            return (
+                              <View key={index} style={styles.mlbPlaysShareCardPitchItem}>
+                                <View style={[styles.mlbPlaysShareCardPitchBadge, { backgroundColor: pitchColor }]}>
+                                  <Text style={styles.mlbPlaysShareCardPitchNumber}>{pitches.indexOf(pitch) + 1}</Text>
+                                </View>
+                                <View style={styles.mlbPlaysShareCardPitchDetails}>
+                                  <Text style={[styles.mlbPlaysShareCardPitchType, { color: theme.text }]}>
+                                    {pitch.details?.type?.description || 'Unknown'}
+                                  </Text>
+                                  <Text style={[styles.mlbPlaysShareCardPitchCount, { color: theme.textSecondary }]}>
+                                    {pitch.count?.balls || 0}-{pitch.count?.strikes || 0}
+                                  </Text>
+                                </View>
+                                {pitch.pitchData?.startSpeed && (
+                                  <Text style={[styles.mlbPlaysShareCardPitchSpeed, { color: theme.textSecondary }]}>
+                                    {Math.round(pitch.pitchData.startSpeed)} mph
+                                  </Text>
+                                )}
+                              </View>
+                            );
+                          })
+                        ) : (
+                          <Text style={[styles.mlbPlaysShareCardNoPitches, { color: theme.textSecondary }]}>
+                            No pitches
+                          </Text>
+                        )}
+                      </View>
+                      
+                      {/* Right: Pitch Container (Visualization) - Strike Zone Only */}
+                      <View style={styles.mlbPlaysShareCardPitchContainer}>
+                        <View style={[styles.strikeZoneContainer, { backgroundColor: theme.surface }]}>
+                          <View style={[styles.strikeZoneOutline, { borderColor: theme.border }]} />
+                          {pitches.map((pitch, index) => {
+                            // Try multiple coordinate sources
+                            let pitchData = null;
+                            
+                            if (pitch.pitchData?.coordinates) {
+                              pitchData = pitch.pitchData;
+                            } else if (pitch.coordinates) {
+                              pitchData = { coordinates: pitch.coordinates };
+                            } else if (pitch.pitchData?.pX !== undefined && pitch.pitchData?.pZ !== undefined) {
+                              pitchData = { coordinates: { pX: pitch.pitchData.pX, pZ: pitch.pitchData.pZ } };
+                            } else if (pitch.pitchNumber?.pX !== undefined && pitch.pitchNumber?.pZ !== undefined) {
+                              pitchData = { coordinates: { pX: pitch.pitchNumber.pX, pZ: pitch.pitchNumber.pZ } };
+                            } else if (pitch.pX !== undefined && pitch.pZ !== undefined) {
+                              pitchData = { coordinates: { pX: pitch.pX, pZ: pitch.pZ } };
+                            }
+                            
+                            if (!pitchData?.coordinates || (pitchData.coordinates.pX === undefined || pitchData.coordinates.pZ === undefined)) {
+                              return null;
+                            }
+
+                            // Convert plate coordinates to percentage
+                            const xPercent = ((pitchData.coordinates.pX + 2.0) / 3.75) * 100;
+                            const yPercent = pitchData.strikeZoneTop && pitchData.strikeZoneBottom ? 
+                              ((pitchData.strikeZoneTop - pitchData.coordinates.pZ) / 
+                               (pitchData.strikeZoneTop - pitchData.strikeZoneBottom)) * 60 + 20 : 50;
+
+                            // Constrain to visualization area
+                            const finalXPercent = Math.max(5, Math.min(95, xPercent));
+                            const finalYPercent = Math.max(5, Math.min(95, yPercent));
+
+                            // Convert percentages to pixel positions
+                            const finalX = (finalXPercent / 100) * 145 - 5;
+                            const finalY = (finalYPercent / 100) * 125 + 5;
+
+                            // Determine pitch color based on call
+                            let pitchColor = '#4CAF50';
+                            if (pitch.details?.isStrike) {
+                              pitchColor = '#f44336';
+                            } else if (pitch.details?.isInPlay) {
+                              pitchColor = '#2196F3';
+                            }
+
+                            return (
+                              <View
+                                key={index}
+                                style={[
+                                  styles.pitchLocation,
+                                  { 
+                                    backgroundColor: pitchColor,
+                                    borderColor: pitchColor,
+                                    left: finalX,
+                                    top: finalY,
+                                    position: 'absolute',
+                                    zIndex: 10,
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                  }
+                                ]}
+                              >
+                                <Text allowFontScaling={false} style={styles.pitchNumberOnBall}>{index + 1}</Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Player Info Section */}
+                    <View style={styles.mlbPlaysShareCardPlayersSection}>
+                      {/* Batter (Left) */}
+                      <View style={styles.mlbPlaysShareCardPlayerInfo}>
+                        <Image
+                          source={{ uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${batter?.id}/headshot/67/current` }}
+                          style={styles.mlbPlaysShareCardPlayerImage}
+                        />
+                        <Text style={[styles.mlbPlaysShareCardPlayerName, { color: theme.text }]} numberOfLines={1}>
+                          {batter?.fullName || 'Batter'}
+                        </Text>
+                        {batterStats && (
+                          <Text style={[styles.mlbPlaysShareCardPlayerStats, { color: theme.textSecondary }]}>
+                            {batterStats.hits || 0}-{batterStats.atBats || 0}, {batterStats.rbi || 0} RBI
+                          </Text>
+                        )}
+                        <Text style={[styles.mlbPlaysShareCardPlayerRole, { color: theme.textSecondary }]}>Batter</Text>
+                      </View>
+
+                      {/* VS Text */}
+                      <Text style={[styles.mlbPlaysShareCardVsText, { color: theme.textSecondary }]}>vs</Text>
+
+                      {/* Pitcher (Right) */}
+                      <View style={styles.mlbPlaysShareCardPlayerInfo}>
+                        <Image
+                          source={{ uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${pitcher?.id}/headshot/67/current` }}
+                          style={styles.mlbPlaysShareCardPlayerImage}
+                        />
+                        <Text style={[styles.mlbPlaysShareCardPlayerName, { color: theme.text }]} numberOfLines={1}>
+                          {pitcher?.fullName || 'Pitcher'}
+                        </Text>
+                        {pitcherStats && (
+                          <Text style={[styles.mlbPlaysShareCardPlayerStats, { color: theme.textSecondary }]}>
+                            {pitcherStats.inningsPitched || '0.0'} IP, {pitcherStats.strikeOuts || 0} K
+                          </Text>
+                        )}
+                        <Text style={[styles.mlbPlaysShareCardPlayerRole, { color: theme.textSecondary }]}>Pitcher</Text>
+                      </View>
+                    </View>
+
+                    {/* Play Text */}
+                    <View style={[styles.mlbPlaysShareCardPlayText, { backgroundColor: theme.surfaceSecondary }]}>
+                      <Text style={[styles.mlbPlaysShareCardPlayDescription, { color: theme.text }]}>
+                        {play.result?.description || 'Play result'}
+                      </Text>
+                    </View>
+
+                    {/* Bases and Hit Data Section */}
+                    <View style={styles.mlbPlaysShareCardBottomSection}>
+                      {/* Bases Visualizer */}
+                      <View style={styles.mlbPlaysShareCardBasesContainer}>
+                        <Text style={[styles.mlbPlaysShareCardSectionTitle, { color: theme.text, marginBottom: 20 }]}>Bases</Text>
+                        <View style={styles.mlbPlaysShareCardDiamond}>
+                          <View style={[styles.mlbPlaysShareCardBase, styles.mlbPlaysShareCardSecondBase, runners.second && { backgroundColor: colors.primary }]} />
+                          <View style={[styles.mlbPlaysShareCardBase, styles.mlbPlaysShareCardThirdBase, runners.third && { backgroundColor: colors.primary }]} />
+                          <View style={[styles.mlbPlaysShareCardBase, styles.mlbPlaysShareCardFirstBase, runners.first && { backgroundColor: colors.primary }]} />
+                        </View>
+                      </View>
+
+                      {/* Hit Data (if available) */}
+                      {hitData && (hitData.launchSpeed || hitData.launchAngle || hitData.totalDistance) && (
+                        <View style={styles.mlbPlaysShareCardHitDataContainer}>
+                          <Text style={[styles.mlbPlaysShareCardSectionTitle, { color: theme.text, marginBottom: 8 }]}>Hit Data</Text>
+                          {hitData.launchSpeed && (
+                            <Text style={[styles.mlbPlaysShareCardHitDataItem, { color: theme.textSecondary }]}>
+                              Launch Speed: {hitData.launchSpeed.toFixed(1)} mph
+                            </Text>
+                          )}
+                          {hitData.launchAngle && (
+                            <Text style={[styles.mlbPlaysShareCardHitDataItem, { color: theme.textSecondary }]}>
+                              Launch Angle: {hitData.launchAngle.toFixed(1)}°
+                            </Text>
+                          )}
+                          {hitData.totalDistance && (
+                            <Text style={[styles.mlbPlaysShareCardHitDataItem, { color: theme.textSecondary }]}>
+                              Total Distance: {hitData.totalDistance.toFixed(0)} ft
+                            </Text>
+                          )}
+                          {hitData.trajectory && (
+                            <Text style={[styles.mlbPlaysShareCardHitDataItem, { color: theme.textSecondary }]}>
+                              Trajectory: {hitData.trajectory.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
+                            </Text>
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  </>
+                );
+              })()}
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.mlbPlaysShareCardActions}>
+              <View style={styles.mlbPlaysShareCardTopButtons}>
+                <TouchableOpacity
+                  style={[styles.mlbPlaysShareCardButton, { backgroundColor: colors.secondary }]}
+                  onPress={async () => {
+                    try {
+                      const uri = await captureRef(mlbPlaysShareCardRef, {
+                        format: 'png',
+                        quality: 2,
+                      });
+                      await Sharing.shareAsync(uri, {
+                        mimeType: 'image/png',
+                        dialogTitle: 'Share Play',
+                      });
+                    } catch (error) {
+                      console.error('Error sharing play:', error);
+                    }
+                  }}
+                >
+                  <Ionicons name="share-outline" size={24} color="#fff" />
+                  <Text style={[styles.mlbPlaysShareCardButtonText, { color: '#fff' }]}>Share</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.mlbPlaysShareCardButton, { backgroundColor: colors.secondary }]}
+                  onPress={async () => {
+                    try {
+                      const uri = await captureRef(mlbPlaysShareCardRef, {
+                        format: 'png',
+                        quality: 2,
+                      });
+                      await Sharing.shareAsync(uri, {
+                        mimeType: 'image/png',
+                        dialogTitle: 'Save Play',
+                      });
+                    } catch (error) {
+                      console.error('Error saving play:', error);
+                    }
+                  }}
+                >
+                  <Ionicons name="download-outline" size={24} color="#fff" />
+                  <Text style={[styles.mlbPlaysShareCardButtonText, { color: '#fff' }]}>Save</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.mlbPlaysShareCardButton, styles.mlbPlaysShareCardCancelButton, { backgroundColor: theme.surfaceSecondary }]}
+                onPress={() => setShareCardPlay(null)}
+              >
+                <Ionicons name="close" size={24} color={theme.text} />
+                <Text style={[styles.mlbPlaysShareCardButtonText, { color: theme.text }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MLB Player Share Card Modal */}
+      <Modal visible={!!shareCardPlayer} animationType="fade" transparent onRequestClose={() => setShareCardPlayer(null)}>
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.85)' }]}>
+          <View style={{ alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+            <View 
+              ref={mlbPlayerShareCardRef}
+              collapsable={false}
+              style={[styles.mlbPlayerShareCard, { backgroundColor: theme.surface }]}
+            >
+              {shareCardPlayer && (() => {
+                const player = shareCardPlayer;
+                const statsType = player.statsType; // 'batting' or 'pitching'
+                const battingStats = player.stats?.batting || {};
+                const pitchingStats = player.stats?.pitching || {};
+                const stats = statsType === 'batting' ? battingStats : pitchingStats;
+                
+                // Get game date
+                const formatGameDate = (dateStr) => {
+                  const [year, month, day] = dateStr.split('-').map(Number);
+                  const date = new Date(year, month - 1, day);
+                  const dayNum = date.getDate();
+                  const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+                  const yearNum = date.getFullYear();
+                  return `${dayNum} ${monthName} ${yearNum}`;
+                };
+
+                const gameDate = gameData?.gameData?.datetime?.originalDate 
+                  ? formatGameDate(gameData.gameData.datetime.originalDate)
+                  : formatGameDate(new Date().toISOString().split('T')[0]);
+
+                return (
+                  <>
+                    {/* Team Header */}
+                    <View style={[styles.mlbPlayerShareCardHeader, { backgroundColor: player.teamColor }]}>
+                      <Image 
+                        source={{ uri: player.teamLogo }}
+                        style={[styles.mlbPlayerShareCardTeamLogo]}
+                      />
+                      <Text style={[styles.mlbPlayerShareCardTeamName, { color: '#fff' }]}>{player.teamName}</Text>
+                    </View>
+
+                    {/* Player Image */}
+                    <View style={styles.mlbPlayerShareCardPlayerImageContainer}>
+                      <Image
+                        source={{ uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${player.person?.id}/headshot/67/current` }}
+                        style={[styles.mlbPlayerShareCardPlayerImage, {borderColor: player.teamColor }]}
+                      />
+                    </View>
+
+                    {/* Player Info */}
+                    <View style={styles.mlbPlayerShareCardPlayerInfo}>
+                      <Text style={[styles.mlbPlayerShareCardPlayerName, { color: theme.text }]}>
+                        {player.person?.fullName}
+                      </Text>
+                      <Text style={[styles.mlbPlayerShareCardPlayerPosition, { color: theme.textSecondary }]}>
+                        #{player.jerseyNumber} • {player.position?.name}
+                      </Text>
+                    </View>
+
+                    {/* Game Date */}
+                    <Text style={[styles.mlbPlayerShareCardGameDate, { color: theme.textSecondary }]}>
+                      {gameDate}
+                    </Text>
+
+                    {/* Stats Type Label */}
+                    <Text style={[styles.mlbPlayerShareCardStatsType, { color: colors.primary }]}>
+                      {statsType === 'batting' ? '⚾ Batting Stats' : '🥎 Pitching Stats'}
+                    </Text>
+
+                    {/* Stats Grid */}
+                    {statsType === 'batting' ? (
+                      <View style={styles.mlbPlayerShareCardStatsGrid}>
+                        {/* Row 1 */}
+                        <View style={styles.mlbPlayerShareCardStatsRow}>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>
+                              {stats.hits || 0}/{stats.atBats || 0}
+                            </Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>H/AB</Text>
+                          </View>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>{stats.runs || 0}</Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>R</Text>
+                          </View>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>{stats.rbi || 0}</Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>RBI</Text>
+                          </View>
+                        </View>
+                        
+                        {/* Row 2 */}
+                        <View style={styles.mlbPlayerShareCardStatsRow}>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>{stats.homeRuns || 0}</Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>HR</Text>
+                          </View>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>{stats.baseOnBalls || 0}</Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>BB</Text>
+                          </View>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>{stats.strikeOuts || 0}</Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>SO</Text>
+                          </View>
+                        </View>
+                        
+                        {/* Row 3 */}
+                        <View style={styles.mlbPlayerShareCardStatsRow}>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>{stats.totalBases || 0}</Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>TB</Text>
+                          </View>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>{stats.stolenBases || 0}</Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>SB</Text>
+                          </View>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>{stats.leftOnBase || 0}</Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>LOB</Text>
+                          </View>
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.mlbPlayerShareCardStatsGrid}>
+                        {/* Row 1 */}
+                        <View style={styles.mlbPlayerShareCardStatsRow}>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>{stats.inningsPitched || '0.0'}</Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>IP</Text>
+                          </View>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>{stats.hits || 0}</Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>H</Text>
+                          </View>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>{stats.runs || 0}</Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>R</Text>
+                          </View>
+                        </View>
+                        
+                        {/* Row 2 */}
+                        <View style={styles.mlbPlayerShareCardStatsRow}>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>{stats.earnedRuns || 0}</Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>ER</Text>
+                          </View>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>{stats.baseOnBalls || 0}</Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>BB</Text>
+                          </View>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>{stats.strikeOuts || 0}</Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>K</Text>
+                          </View>
+                        </View>
+                        
+                        {/* Row 3 */}
+                        <View style={styles.mlbPlayerShareCardStatsRow}>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>{stats.numberOfPitches || 0}</Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>P</Text>
+                          </View>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>{stats.strikes || 0}</Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>ST</Text>
+                          </View>
+                          <View style={[styles.mlbPlayerShareCardStatBox, { backgroundColor: theme.surfaceSecondary }]}>
+                            <Text style={[styles.mlbPlayerShareCardStatValue, { color: theme.text }]}>{stats.strikePercentage || '0.00'}</Text>
+                            <Text style={[styles.mlbPlayerShareCardStatLabel, { color: theme.textSecondary }]}>K%</Text>
+                          </View>
+                        </View>
+                      </View>
+                    )}
+                  </>
+                );
+              })()}
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.mlbPlayerShareCardActions}>
+              <View style={styles.mlbPlayerShareCardTopButtons}>
+                <TouchableOpacity
+                  style={[styles.mlbPlayerShareCardButton, { backgroundColor: colors.secondary }]}
+                  onPress={async () => {
+                    try {
+                      const uri = await captureRef(mlbPlayerShareCardRef, {
+                        format: 'png',
+                        quality: 2,
+                      });
+                      await Sharing.shareAsync(uri, {
+                        mimeType: 'image/png',
+                        dialogTitle: 'Share Player Stats',
+                      });
+                    } catch (error) {
+                      console.error('Error sharing player stats:', error);
+                    }
+                  }}
+                >
+                  <Ionicons name="share-outline" size={24} color="#fff" />
+                  <Text style={[styles.mlbPlayerShareCardButtonText, { color: '#fff' }]}>Share</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.mlbPlayerShareCardButton, { backgroundColor: colors.secondary }]}
+                  onPress={async () => {
+                    try {
+                      const uri = await captureRef(mlbPlayerShareCardRef, {
+                        format: 'png',
+                        quality: 2,
+                      });
+                      await Sharing.shareAsync(uri, {
+                        mimeType: 'image/png',
+                        dialogTitle: 'Save Player Stats',
+                      });
+                    } catch (error) {
+                      console.error('Error saving player stats:', error);
+                    }
+                  }}
+                >
+                  <Ionicons name="download-outline" size={24} color="#fff" />
+                  <Text style={[styles.mlbPlayerShareCardButtonText, { color: '#fff' }]}>Save</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.mlbPlayerShareCardButton, styles.mlbPlayerShareCardCancelButton, { backgroundColor: theme.surfaceSecondary }]}
+                onPress={() => setShareCardPlayer(null)}
+              >
+                <Ionicons name="close" size={24} color={theme.text} />
+                <Text style={[styles.mlbPlayerShareCardButtonText, { color: theme.text }]}>Cancel</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -5800,6 +6437,362 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+  },
+
+  // MLB Plays Share Card Styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mlbPlaysShareCard: {
+    width: 380,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  mlbPlaysShareCardTopSection: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    gap: 12,
+  },
+  mlbPlaysShareCardPitchesList: {
+    flex: 1,
+  },
+  mlbPlaysShareCardSectionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  mlbPlaysShareCardPitchItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  mlbPlaysShareCardPitchBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mlbPlaysShareCardPitchNumber: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  mlbPlaysShareCardPitchDetails: {
+    flex: 1,
+  },
+  mlbPlaysShareCardPitchType: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  mlbPlaysShareCardPitchCount: {
+    fontSize: 10,
+    marginTop: 2,
+  },
+  mlbPlaysShareCardPitchSpeed: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  mlbPlaysShareCardNoPitches: {
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  mlbPlaysShareCardPitchContainer: {
+    marginTop: 27.5,
+    width: 150,
+    height: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mlbPlaysShareCardPlayersSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingHorizontal: 8,
+  },
+  mlbPlaysShareCardPlayerInfo: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  mlbPlaysShareCardPlayerImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginBottom: 8,
+  },
+  mlbPlaysShareCardPlayerName: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  mlbPlaysShareCardPlayerRole: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  mlbPlaysShareCardVsText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginHorizontal: 12,
+  },
+  mlbPlaysShareCardPlayText: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  mlbPlaysShareCardPlayDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  mlbPlaysShareCardActions: {
+    marginTop: 20,
+    width: '100%',
+    alignItems: 'center',
+    gap: 12,
+  },
+  mlbPlaysShareCardTopButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  mlbPlaysShareCardButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    gap: 8,
+  },
+  mlbPlaysShareCardCancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 12,
+    gap: 8,
+  },
+  mlbPlaysShareCardButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  // Score Header Styles
+  mlbPlaysShareCardScoreHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingHorizontal: 8,
+  },
+  mlbPlaysShareCardTeamScoreBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  mlbPlaysShareCardTeamLogoSmall: {
+    width: 32,
+    height: 32,
+  },
+  mlbPlaysShareCardTeamScore: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  mlbPlaysShareCardInningBlock: {
+    alignItems: 'center',
+  },
+  mlbPlaysShareCardInningIndicator: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  mlbPlaysShareCardInningText: {
+    fontSize: 14,
+    marginTop: 2,
+  },
+  // Player Stats
+  mlbPlaysShareCardPlayerStats: {
+    fontSize: 10,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  // Bases and Hit Data Section
+  mlbPlaysShareCardBottomSection: {
+    flexDirection: 'row',
+    marginTop: 16,
+    gap: 16,
+  },
+  mlbPlaysShareCardBasesContainer: {
+    flex: 1,
+  },
+  mlbPlaysShareCardDiamond: {
+    width: 60,
+    height: 60,
+    position: 'relative',
+    alignSelf: 'center',
+  },
+  mlbPlaysShareCardBase: {
+    width: 20,
+    height: 20,
+    backgroundColor: '#666',
+    position: 'absolute',
+    transform: [{ rotate: '45deg' }],
+  },
+  mlbPlaysShareCardSecondBase: {
+    top: 0,
+    left: 24,
+  },
+  mlbPlaysShareCardThirdBase: {
+    top: 24,
+    left: 0,
+  },
+  mlbPlaysShareCardFirstBase: {
+    top: 24,
+    left: 48,
+  },
+  mlbPlaysShareCardHitDataContainer: {
+    flex: 1,
+  },
+  mlbPlaysShareCardHitDataItem: {
+    fontSize: 11,
+    marginBottom: 4,
+  },
+
+  // MLB Player Share Card Styles
+  mlbPlayerShareCard: {
+    width: 340,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  mlbPlayerShareCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 12,
+  },
+  mlbPlayerShareCardTeamLogo: {
+    width: 36,
+    height: 36,
+  },
+  mlbPlayerShareCardTeamName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  mlbPlayerShareCardPlayerImageContainer: {
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  mlbPlayerShareCardPlayerImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+  mlbPlayerShareCardPlayerInfo: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  mlbPlayerShareCardPlayerName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  mlbPlayerShareCardPlayerPosition: {
+    fontSize: 14,
+    marginTop: 4,
+  },
+  mlbPlayerShareCardGameDate: {
+    textAlign: 'center',
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  mlbPlayerShareCardStatsType: {
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  mlbPlayerShareCardStatsGrid: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+    gap: 12,
+  },
+  mlbPlayerShareCardStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  mlbPlayerShareCardStatBox: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+  },
+  mlbPlayerShareCardStatValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  mlbPlayerShareCardStatLabel: {
+    fontSize: 11,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+  },
+  mlbPlayerShareCardActions: {
+    marginTop: 24,
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+  mlbPlayerShareCardTopButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 12,
+  },
+  mlbPlayerShareCardButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    gap: 8,
+  },
+  mlbPlayerShareCardCancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 12,
+    gap: 8,
+  },
+  mlbPlayerShareCardButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
   },
 });
 
