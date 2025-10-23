@@ -4241,28 +4241,6 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   <Text style={[styles.mlbPlaysShareCardButtonText, { color: '#fff' }]}>Share</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.mlbPlaysShareCardButton, { backgroundColor: colors.secondary }]}
-                  onPress={async () => {
-                    try {
-                      const uri = await captureRef(mlbPlaysShareCardRef, {
-                        format: 'png',
-                        quality: 2,
-                      });
-                      await Sharing.shareAsync(uri, {
-                        mimeType: 'image/png',
-                        dialogTitle: 'Save Play',
-                      });
-                    } catch (error) {
-                      console.error('Error saving play:', error);
-                    }
-                  }}
-                >
-                  <Ionicons name="download-outline" size={24} color="#fff" />
-                  <Text style={[styles.mlbPlaysShareCardButtonText, { color: '#fff' }]}>Save</Text>
-                </TouchableOpacity>
-              </View>
-
               <TouchableOpacity
                 style={[styles.mlbPlaysShareCardButton, styles.mlbPlaysShareCardCancelButton, { backgroundColor: theme.surfaceSecondary }]}
                 onPress={() => setShareCardPlay(null)}
@@ -4270,6 +4248,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 <Ionicons name="close" size={24} color={theme.text} />
                 <Text style={[styles.mlbPlaysShareCardButtonText, { color: theme.text }]}>Cancel</Text>
               </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -6582,7 +6561,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 30,
+    paddingHorizontal: 20,
     borderRadius: 12,
     gap: 8,
   },

@@ -1011,6 +1011,8 @@ const GameDetailsScreen = ({ route }) => {
   const handlePlayLongPress = async (play) => {
     console.log('Long press detected on play:', play);
     
+    try {
+    
     // Get team information for the scoring team
     const driveTeam = selectedDrive?.team;
     const teamLogo = driveTeam?.logos?.[0]?.href || '';
@@ -1176,6 +1178,17 @@ const GameDetailsScreen = ({ route }) => {
       participants: enrichedParticipants,
       gameDetails: gameDetails,
     });
+    
+    console.log('Share card play set successfully:', {
+      playText: play.text,
+      teamName,
+      participants: enrichedParticipants.length
+    });
+    
+    } catch (error) {
+      console.error('Error in handlePlayLongPress:', error);
+      // Don't set shareCardPlay if there's an error
+    }
   };
 
   // Helper function to create drive summary text
@@ -3411,7 +3424,11 @@ const GameDetailsScreen = ({ route }) => {
                   <Text allowFontScaling={false} style={[styles.driveModalPlaysTitle, { color: colors.primary }]}>
                     Plays ({selectedDrive.plays?.length || 0})
                   </Text>
-                  <ScrollView style={styles.driveModalPlaysList}>
+                  <ScrollView 
+                    style={styles.driveModalPlaysList}
+                    scrollEventThrottle={16}
+                    showsVerticalScrollIndicator={false}
+                  >
                     {/* Show loading if drive doesn't have plays data and plays array is empty */}
                     {!selectedDrive.hasPlaysData && (!selectedDrive.plays || selectedDrive.plays.length === 0) ? (
                       <View style={styles.playerStatsLoading}>
@@ -3423,8 +3440,13 @@ const GameDetailsScreen = ({ route }) => {
                         <TouchableOpacity
                           key={index}
                           style={[styles.driveModalPlayItem, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                          onLongPress={() => handlePlayLongPress(play)}
-                          delayLongPress={250}
+                          onLongPress={() => {
+                            console.log('TouchableOpacity onLongPress triggered for play:', index);
+                            handlePlayLongPress(play);
+                          }}
+                          onPress={() => console.log('TouchableOpacity onPress triggered for play:', index)}
+                          delayLongPress={500}
+                          activeOpacity={0.7}
                         >
                           <View style={styles.driveModalPlayHeader}>
                             <Text allowFontScaling={false} style={[styles.driveModalPlayNumber, { color: colors.primary }]}>Play {selectedDrive.plays.length - index}</Text>
@@ -3469,6 +3491,479 @@ const GameDetailsScreen = ({ route }) => {
               </>
             )}
           </View>
+          
+          {/* NFL Play Share Card Overlay - Render inside drive modal */}
+          {shareCardPlay && (
+          <View 
+            style={[styles.modalOverlay, { 
+              backgroundColor: 'rgba(0,0,0,0.85)', 
+              position: 'absolute', 
+              top: 0, 
+              left: 0, 
+              right: 0, 
+              bottom: 0, 
+              zIndex: 1000,
+              alignItems: 'center', 
+              justifyContent: 'center' 
+            }]}
+          >
+            <TouchableOpacity 
+              style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+              activeOpacity={1}
+              onPress={() => {
+                console.log('Modal overlay tapped - closing share card');
+                setShareCardPlay(null);
+              }}
+            />
+            <View 
+              ref={nflPlayShareCardRef}
+              collapsable={false}
+              style={[styles.nflPlayShareCard, { backgroundColor: theme.surface }]}
+            >
+                {shareCardPlay && (() => {
+                  console.log('Rendering share card modal with play data:', shareCardPlay);
+                  const play = shareCardPlay;
+                  const teamLogo = NFLService.convertToHttps(play.teamLogo || '');
+                  const teamColor = play.teamColor || '#000000';
+                  const teamName = play.teamName || '';
+                  const teamAbbr = play.teamAbbr || '';
+                  const clock = play.clock?.displayValue || '';
+                  const period = play.period?.number || '';
+                  const playText = play.text || '';
+                  const downDistanceText = play.start?.downDistanceText || play.end?.downDistanceText || '';
+                  const yardLine = play.end?.yardLine || play.end?.yardLine || 0;
+                  const possession = play.start?.possessionText || play.start?.yardLine || '';
+                  
+                  // Get scores
+                  const homeScore = parseInt(play.homeScore) || 0;
+                  const awayScore = parseInt(play.awayScore) || 0;
+
+                  // Get team logos
+                  const homeTeamLogo = NFLService.convertToHttps(play.homeTeam?.team?.logos?.[0]?.href || '');
+                  const awayTeamLogo = NFLService.convertToHttps(play.awayTeam?.team?.logos?.[0]?.href || '');
+                  
+                  // Get win probability - use winProbability that was fetched and set in handlePlayLongPress
+                  const winProbability = play.winProbability || 50;
+                  const awayWinProbability = 100 - winProbability;
+                  
+                  console.log('Win probability in modal:', winProbability);
+                  
+                  // Extract players from play (similar to scoreboard.js)
+                  const players = play.participants || [];
+                  
+                  return (
+                    <>
+                      {/* Team Header with Name */}
+                      <View style={[styles.nflPlayShareCardHeader, { backgroundColor: teamColor }]}>
+                        {teamLogo ? (
+                          <Image 
+                            source={{ uri: teamLogo }}
+                            style={styles.nflPlayShareCardTeamLogo}
+                          />
+                        ) : null}
+                        <Text style={[styles.nflPlayShareCardTeamName, { color: '#fff' }]}>
+                          {teamName}
+                        </Text>
+                      </View>
+
+                      {/* Quarter/Time and Down/Location Bar */}
+                      <View style={[styles.nflPlayShareCardInfoBar, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]}>
+                        <Text style={[styles.nflPlayShareCardQuarter, { color: theme.text }]}>
+                          Q{period} {clock} • {downDistanceText || possession}
+                        </Text>
+                      </View>
+
+                      {/* Score and Win Percentage Row */}
+                      <View style={[styles.nflPlayShareCardScoreRow, { borderBottomColor: theme.border }]}>
+                        <View style={styles.nflPlayShareCardScoreBlock}>
+                          <View style={styles.nflPlayShareCardScoreTeam}>
+                            {awayTeamLogo ? (
+                              <Image source={{ uri: awayTeamLogo }} style={styles.nflPlayShareCardScoreLogo} />
+                            ) : null}
+                            <Text style={[styles.nflPlayShareCardScore, { color: awayScore > homeScore ? theme.text : theme.textSecondary }]}>{awayScore}</Text>
+                          </View>
+                          <Text style={[styles.nflPlayShareCardScoreSeparator, { color: theme.textSecondary }]}>-</Text>
+                          <View style={styles.nflPlayShareCardScoreTeam}>
+                            <Text style={[styles.nflPlayShareCardScore, { color: homeScore > awayScore ? theme.text : theme.textSecondary }]}>{homeScore}</Text>
+                            {homeTeamLogo ? (
+                              <Image source={{ uri: homeTeamLogo }} style={styles.nflPlayShareCardScoreLogo} />
+                            ) : null}
+                          </View>
+                        </View>
+                        <View style={[styles.nflPlayShareCardWinProbability, { backgroundColor: teamColor }]}>
+                          <Text style={[styles.nflPlayShareCardWinProbText, { color: '#fff' }]}>
+                            W {winProbability.toFixed(1)}%
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Drive Indicator */}
+                      {selectedDrive && (
+                        <View style={[styles.nflPlayShareCardDriveIndicator, { backgroundColor: theme.surfaceSecondary }]}>
+                          <View style={[styles.nflPlayShareCardDriveField, { backgroundColor: theme.border }]}>
+                            {/* Field markers */}
+                            <View style={[styles.nflPlayShareCardFieldLine, { left: '10%', backgroundColor : theme.surfaceSecondary }]} />
+                            <View style={[styles.nflPlayShareCardFieldLine, { left: '50%', backgroundColor : theme.surfaceSecondary }]} />
+                            <View style={[styles.nflPlayShareCardFieldLine, { left: '90%', backgroundColor : theme.surfaceSecondary }]} />
+
+                            {/* Drive progress bar */}
+                            {(() => {
+                              const startYard = selectedDrive.start?.yardLine || 0;
+                              const currentYard = yardLine;
+                              const startPercent = (startYard / 100) * 100;
+                              const currentPercent = (currentYard / 100) * 100;
+                              const driveWidth = Math.abs(currentPercent - startPercent);
+                              
+                              // Flip horizontally: convert left position to right position
+                              const driveLeft = Math.min(startPercent, currentPercent);
+                              const flippedLeft = 100 - driveLeft - driveWidth;
+                              
+                              return (
+                                <View 
+                                  style={[
+                                    styles.nflPlayShareCardDriveProgress, 
+                                    { 
+                                      left: `${flippedLeft}%`, 
+                                      width: `${driveWidth}%`,
+                                      backgroundColor: teamColor 
+                                    }
+                                  ]} 
+                                />
+                              );
+                            })()}
+                          </View>
+                          <Text style={[styles.nflPlayShareCardDriveText, { color: theme.textSecondary }]}>
+                            {selectedDrive.plays?.length || 0} plays, {selectedDrive.yards || 0} yards, {selectedDrive.timeElapsed?.displayValue || '0:00'}
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Play Description */}
+                      <View style={[styles.nflPlayShareCardPlayDescription, { backgroundColor: theme.surfaceSecondary }]}>
+                        <Text style={[styles.nflPlayShareCardPlayText, { color: theme.text }]}>
+                          {playText}
+                        </Text>
+                      </View>
+
+                      {/* Players Section (like scoreboard.js) */}
+                      {players.length > 0 && (() => {
+                        // Remove duplicates based on athlete ID
+                        const uniquePlayers = [];
+                        const seenIds = new Set();
+                        
+                        players.forEach(player => {
+                          const athleteId = player?.athlete?.id;
+                          if (athleteId && !seenIds.has(athleteId)) {
+                            seenIds.add(athleteId);
+                            uniquePlayers.push(player);
+                          }
+                        });
+                        
+                        // If no unique players found, return null
+                        if (uniquePlayers.length === 0) return null;
+                        
+                        // Sort participants by order first
+                        let participantsList = [...uniquePlayers].sort((a, b) => (a.order || 0) - (b.order || 0));
+                        
+                        // Check for special cases using play type ID (like scoreboard.js)
+                        const playTypeId = play.type?.id;
+                        const isSpecialPlayType = ['53', '26', '52', '29', '7'].includes(playTypeId); // Kickoff, Interception, Punt, Fumble, Sack
+                        const isRushingPlay = playTypeId === '5'; // Rush
+                        const isPassingPlay = playTypeId === '24'; // Pass Reception
+                        const isScoringPlay = play.scoringPlay || play.text?.toLowerCase().includes('touchdown');
+                        
+                        console.log('Play type ID:', playTypeId, 'Is special:', isSpecialPlayType, 'Is scoring:', isScoringPlay);
+                        console.log('Available participant types:', participantsList.map(p => `${p.athlete?.displayName}: ${p.type}`));
+                        
+                        // Get main participant using same logic as scoreboard.js
+                        let mainPlayer;
+                        
+                        // First check if it's a scoring play and prioritize the scorer
+                        if (isScoringPlay) {
+                          const scorer = participantsList.find(p => 
+                            p.type === 'scorer' || p.type === 'rusher' || p.type === 'receiver'
+                          );
+                          if (scorer) {
+                            console.log('Found scoring participant:', scorer?.athlete?.displayName, 'Type:', scorer?.type);
+                            mainPlayer = scorer;
+                          }
+                        }
+                        
+                        // If no scorer found or not a scoring play, use regular logic
+                        if (!mainPlayer) {
+                          if (isSpecialPlayType && participantsList.length > 1) {
+                            // For special play types, look for recoverer, returner, or sackedBy participant type
+                            const specialParticipant = participantsList.find(p => 
+                              p.type === 'recoverer' || p.type === 'returner' || p.type === 'sackedBy' || p.type === 'passDefender'
+                            );
+                            console.log('Found special participant:', specialParticipant?.athlete?.displayName, 'Type:', specialParticipant?.type);
+                            mainPlayer = specialParticipant || participantsList[0];
+                          } else if (isRushingPlay) {
+                            // For rushing plays, prioritize the rusher
+                            const rusher = participantsList.find(p => p.type === 'rusher');
+                            mainPlayer = rusher || participantsList[0];
+                          } else if (isPassingPlay) {
+                            // For passing plays, prioritize the receiver
+                            const receiver = participantsList.find(p => p.type === 'receiver');
+                            mainPlayer = receiver || participantsList[0];
+                          } else {
+                            mainPlayer = participantsList[0]; // Use first participant normally
+                          }
+                        }
+                        
+                        console.log('Selected main participant:', mainPlayer?.athlete?.displayName, 'Type:', mainPlayer?.type);
+                        
+                        // Reorder participants array to put main participant first
+                        if (mainPlayer && (isSpecialPlayType || isRushingPlay || isPassingPlay || isScoringPlay)) {
+                          const otherParticipants = participantsList.filter(p => p.athlete?.displayName !== mainPlayer.athlete?.displayName);
+                          participantsList = [mainPlayer, ...otherParticipants];
+                        }
+                        
+                        // Safety check - ensure mainPlayer exists
+                        if (!mainPlayer || !mainPlayer.athlete) return null;
+                        
+                        // Helper function to get player stats from cached boxscore data
+                        const getPlayerStats = (player, playTypeId, participantType) => {
+                          if (!gameDetails?.boxscore?.players || !player?.athlete?.id) return [];
+                          
+                          // Find player in boxscore
+                          let playerBoxscoreData = null;
+                          for (const teamData of gameDetails.boxscore.players) {
+                            if (teamData.statistics) {
+                              for (const statCategory of teamData.statistics) {
+                                if (statCategory.athletes) {
+                                  for (const athleteData of statCategory.athletes) {
+                                    const athlete = athleteData.athlete;
+                                    if (athlete && (athlete.id === player.athlete.id || athlete.id === player.athlete.id.toString())) {
+                                      if (!playerBoxscoreData) playerBoxscoreData = {};
+                                      playerBoxscoreData[statCategory.name] = athleteData.stats || [];
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                          
+                          if (!playerBoxscoreData) return [];
+                          
+                          // Define stat display logic based on play type and participant type
+                          const stats = [];
+                          
+                          // Special case: Interception (type 26)
+                          if (playTypeId === '26') {
+                            if (participantType === 'passer') {
+                              // Show yards and interceptions
+                              const passing = playerBoxscoreData.passing || [];
+                              if (passing[1]) stats.push(`${passing[1]} yds`);
+                              if (passing[4]) stats.push(`${passing[4]} INT`);
+                            } else if (participantType === 'passDefender') {
+                              // Show interceptions and interception yards
+                              const defensive = playerBoxscoreData.interceptions || [];
+                              if (defensive[0]) stats.push(`${defensive[0]} INT`);
+                              if (defensive[1]) stats.push(`${defensive[1]} INT yds`);
+                            } else if (participantType === 'returner') {
+                              // Show targets and yards
+                              const receiving = playerBoxscoreData.receiving || [];
+                              if (receiving[5]) stats.push(`${receiving[5]} tgt`);
+                              if (receiving[1]) stats.push(`${receiving[1]} yds`);
+                            } else if (participantType === 'tackler') {
+                              // Show total tackles
+                              const defensive = playerBoxscoreData.defensive || [];
+                              if (defensive[0]) stats.push(`${defensive[0]} tkl`);
+                            }
+                          }
+                          // Special case: Kickoff (type 53)
+                          else if (playTypeId === '53') {
+                            if (participantType === 'returner') {
+                              // Show kick returns and yards
+                              const returning = playerBoxscoreData.kickReturns || [];
+                              if (returning[0]) stats.push(`${returning[0]} ret`);
+                              if (returning[1]) stats.push(`${returning[1]} yds`);
+                            } else if (participantType === 'tackler') {
+                              // Show total tackles
+                              const defensive = playerBoxscoreData.defensive || [];
+                              if (defensive[0]) stats.push(`${defensive[0]} tkl`);
+                            }
+                            // Don't show stats for kicker
+                          }
+                          // Special case: Punt (type 52)
+                          else if (playTypeId === '52') {
+                            if (participantType === 'returner') {
+                              // Show punt returns and yards
+                              const returning = playerBoxscoreData.puntReturns || [];
+                              if (returning[0]) stats.push(`${returning[0]} ret`);
+                              if (returning[1]) stats.push(`${returning[1]} yds`);
+                            } else if (participantType === 'tackler') {
+                              // Show total tackles
+                              const defensive = playerBoxscoreData.defensive || [];
+                              if (defensive[0]) stats.push(`${defensive[0]} tkl`);
+                            }
+                            // Don't show stats for kicker
+                          }
+                          else if (playTypeId === '29') {
+                            if (participantType === 'fumbler') {
+                              // Show fumbles
+                              const fumbles = playerBoxscoreData.fumbles || [];
+                              if (fumbles[0]) stats.push(`${fumbles[0]} fum`);
+                            } else if (participantType === 'recoverer') {
+                              // Show fumbles recovered
+                              const defensive = playerBoxscoreData.fumbles || [];
+                              if (defensive[4]) stats.push(`${defensive[2]} rec`);
+                            } else if (participantType === 'tackler') {
+                              // Show total tackles
+                              const defensive = playerBoxscoreData.defensive || [];
+                              if (defensive[0]) stats.push(`${defensive[0]} tkl`);
+                            }
+                          }
+                          // Special case: Sack (type 7)
+                          else if (playTypeId === '7') {
+                            if (participantType === 'passer') {
+                              // Show sacks and yards
+                              const passing = playerBoxscoreData.passing || [];
+                              if (passing[5]) stats.push(`${passing[5]} sck`);
+                              if (passing[1]) stats.push(`${passing[1]} yds`);
+                            } else if (participantType === 'sackedBy') {
+                              // Show sacks and total tackles
+                              const defensive = playerBoxscoreData.defensive || [];
+                              if (defensive[2]) stats.push(`${defensive[2]} sck`);
+                              if (defensive[0]) stats.push(`${defensive[0]} tkl`);
+                            }
+                          }
+                          // Special case: Field Goal (type 59)
+                          else if (playTypeId === '59') {
+                            if (participantType === 'kicker') {
+                              // Show field goals made and percentage
+                              const kicking = playerBoxscoreData.kicking || [];
+                              if (kicking[0]) stats.push(`${kicking[0]} FG`);
+                              if (kicking[1]) stats.push(`${kicking[1]}%`);
+                            }
+                          }
+                          // Regular cases
+                          else {
+                            if (participantType === 'rusher') {
+                              // Show attempts, yards, touchdowns
+                              const rushing = playerBoxscoreData.rushing || [];
+                              if (rushing[0]) stats.push(`${rushing[0]} att`);
+                              if (rushing[1]) stats.push(`${rushing[1]} yds`);
+                              if (rushing[3]) stats.push(`${rushing[3]} TD`);
+                            } else if (participantType === 'passer') {
+                              // Show completions/attempts, yards, touchdowns
+                              const passing = playerBoxscoreData.passing || [];
+                              if (passing[0]) stats.push(`${passing[0]} c/att`);
+                              if (passing[1]) stats.push(`${passing[1]} yds`);
+                              if (passing[3]) stats.push(`${passing[3]} TD`);
+                            } else if (participantType === 'receiver') {
+                              // Show receptions, yards, touchdowns
+                              const receiving = playerBoxscoreData.receiving || [];
+                              if (receiving[0]) stats.push(`${receiving[0]} rec`);
+                              if (receiving[1]) stats.push(`${receiving[1]} yds`);
+                              if (receiving[3]) stats.push(`${receiving[3]} TD`);
+                            } else if (participantType === 'assistedBy' || participantType === 'tackler') {
+                              // Show total tackles
+                              const defensive = playerBoxscoreData.defensive || [];
+                              if (defensive[0]) stats.push(`${defensive[0]} tkl`);
+                            } else if (participantType === 'passDefender') {
+                              // Show passes defended
+                              const defensive = playerBoxscoreData.defensive || [];
+                              if (defensive[4]) stats.push(`${defensive[4]} PD`);
+                            }
+                          }
+                          
+                          return stats;
+                        };
+
+                        // Format main player name (abbreviate first name) with stats
+                        const formatPlayerNameWithStats = (player, playTypeId, isMain = false) => {
+                          const fullName = player.athlete?.displayName || player.athlete?.fullName;
+                          if (!fullName) return 'Unknown';
+                          
+                          const nameParts = fullName.split(' ');
+                          const formattedName = nameParts.length === 1 ? fullName : `${nameParts[0][0]}. ${nameParts.slice(1).join(' ')}`;
+                          
+                          // Get stats for this player
+                          const stats = getPlayerStats(player, playTypeId, player.type);
+                          
+                          if (stats.length > 0) {
+                            return `${formattedName} • ${stats.join(', ')}`;
+                          }
+                          
+                          return formattedName;
+                        };
+
+                        const mainPlayerDisplay = formatPlayerNameWithStats(mainPlayer, playTypeId, true);
+                        const mainPlayerId = mainPlayer.athlete?.id;
+                        const mainPlayerHeadshot = mainPlayer.athlete?.headshot?.href || `https://a.espncdn.com/i/headshots/nfl/players/full/${mainPlayerId}.png`;
+                        const mainTeamAbbr = mainPlayer.team?.abbreviation || '';
+                        const otherPlayers = participantsList.slice(1);
+                        
+                        return (
+                          <View style={[styles.nflPlayShareCardPlayersSection, { borderTopColor: theme.border }]}>
+                            {/* Main Player Row with Image */}
+                            <View style={[styles.nflPlayShareCardPlayerRow, { borderBottomColor: theme.border }]}>
+                              <View style={styles.nflPlayShareCardPlayerInfo}>
+                                <Image
+                                  source={{ uri: mainPlayerHeadshot }}
+                                  style={[styles.nflPlayShareCardPlayerImage, { backgroundColor: teamColor + '88' }]}
+                                />
+                                <View style={styles.nflPlayShareCardPlayerDetails}>
+                                  <Text style={[styles.nflPlayShareCardPlayerName, { color: theme.text }]}>
+                                    {mainPlayerDisplay}
+                                  </Text>
+                                  {/* Other players listed below main player name with stats */}
+                                  {otherPlayers.map((player, idx) => {
+                                    const otherPlayerDisplay = formatPlayerNameWithStats(player, playTypeId, false);
+                                    return (
+                                      <Text key={idx} style={[styles.nflPlayShareCardOtherPlayerName, { color: theme.textSecondary }]}>
+                                        {otherPlayerDisplay}
+                                      </Text>
+                                    );
+                                  })}
+                                </View>
+                              </View>
+                            </View>
+                          </View>
+                        );
+                      })()}
+                    </>
+                  );
+                })()}
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.nflPlayShareCardActions}>
+                <View style={styles.nflPlayShareCardTopButtons}>
+                  <TouchableOpacity
+                    style={[styles.nflPlayShareCardButton, { backgroundColor: colors.secondary }]}
+                    onPress={async () => {
+                      try {
+                        const uri = await captureRef(nflPlayShareCardRef, {
+                          format: 'png',
+                          quality: 2,
+                        });
+                        await Sharing.shareAsync(uri, {
+                          mimeType: 'image/png',
+                          dialogTitle: 'Share Play',
+                        });
+                      } catch (error) {
+                        console.error('Error sharing play:', error);
+                      }
+                    }}
+                  >
+                    <Ionicons name="share-outline" size={24} color="#fff" />
+                    <Text style={[styles.nflPlayShareCardButtonText, { color: '#fff' }]}>Share</Text>
+                  </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.nflPlayShareCardButton, styles.nflPlayShareCardCancelButton, { backgroundColor: theme.surfaceSecondary }]}
+                  onPress={() => setShareCardPlay(null)}
+                >
+                  <Ionicons name="close" size={24} color={theme.text} />
+                  <Text style={[styles.nflPlayShareCardButtonText, { color: theme.text }]}>Cancel</Text>
+                </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )}
         </View>
       </Modal>
 
@@ -3646,481 +4141,6 @@ const GameDetailsScreen = ({ route }) => {
                 hideHeader={true}
               />
             )}
-          </View>
-        </View>
-      </View>
-    </Modal>
-
-    {/* NFL Play Share Card Modal */}
-    <Modal visible={!!shareCardPlay} animationType="fade" transparent onRequestClose={() => setShareCardPlay(null)}>
-      <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.85)' }]}>
-        <View style={{ alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-          <View 
-            ref={nflPlayShareCardRef}
-            collapsable={false}
-            style={[styles.nflPlayShareCard, { backgroundColor: theme.surface }]}
-          >
-            {shareCardPlay && (() => {
-              const play = shareCardPlay;
-              const teamLogo = NFLService.convertToHttps(play.teamLogo || '');
-              const teamColor = play.teamColor || '#000000';
-              const teamName = play.teamName || '';
-              const teamAbbr = play.teamAbbr || '';
-              const clock = play.clock?.displayValue || '';
-              const period = play.period?.number || '';
-              const playText = play.text || '';
-              const downDistanceText = play.start?.downDistanceText || play.end?.downDistanceText || '';
-              const yardLine = play.end?.yardLine || play.end?.yardLine || 0;
-              const possession = play.start?.possessionText || play.start?.yardLine || '';
-              
-              // Get scores
-              const homeScore = parseInt(play.homeScore) || 0;
-              const awayScore = parseInt(play.awayScore) || 0;
-
-              // Get team logos
-              const homeTeamLogo = NFLService.convertToHttps(play.homeTeam?.team?.logos?.[0]?.href || '');
-              const awayTeamLogo = NFLService.convertToHttps(play.awayTeam?.team?.logos?.[0]?.href || '');
-              
-              // Get win probability - use winProbability that was fetched and set in handlePlayLongPress
-              const winProbability = play.winProbability || 50;
-              const awayWinProbability = 100 - winProbability;
-              
-              console.log('Win probability in modal:', winProbability);
-              
-              // Extract players from play (similar to scoreboard.js)
-              const players = play.participants || [];
-              
-              return (
-                <>
-                  {/* Team Header with Name */}
-                  <View style={[styles.nflPlayShareCardHeader, { backgroundColor: teamColor }]}>
-                    {teamLogo ? (
-                      <Image 
-                        source={{ uri: teamLogo }}
-                        style={styles.nflPlayShareCardTeamLogo}
-                      />
-                    ) : null}
-                    <Text style={[styles.nflPlayShareCardTeamName, { color: '#fff' }]}>
-                      {teamName}
-                    </Text>
-                  </View>
-
-                  {/* Quarter/Time and Down/Location Bar */}
-                  <View style={[styles.nflPlayShareCardInfoBar, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]}>
-                    <Text style={[styles.nflPlayShareCardQuarter, { color: theme.text }]}>
-                      Q{period} {clock} • {downDistanceText || possession}
-                    </Text>
-                  </View>
-
-                  {/* Score and Win Percentage Row */}
-                  <View style={[styles.nflPlayShareCardScoreRow, { borderBottomColor: theme.border }]}>
-                    <View style={styles.nflPlayShareCardScoreBlock}>
-                      <View style={styles.nflPlayShareCardScoreTeam}>
-                        {awayTeamLogo ? (
-                          <Image source={{ uri: awayTeamLogo }} style={styles.nflPlayShareCardScoreLogo} />
-                        ) : null}
-                        <Text style={[styles.nflPlayShareCardScore, { color: awayScore > homeScore ? theme.text : theme.textSecondary }]}>{awayScore}</Text>
-                      </View>
-                      <Text style={[styles.nflPlayShareCardScoreSeparator, { color: theme.textSecondary }]}>-</Text>
-                      <View style={styles.nflPlayShareCardScoreTeam}>
-                        <Text style={[styles.nflPlayShareCardScore, { color: homeScore > awayScore ? theme.text : theme.textSecondary }]}>{homeScore}</Text>
-                        {homeTeamLogo ? (
-                          <Image source={{ uri: homeTeamLogo }} style={styles.nflPlayShareCardScoreLogo} />
-                        ) : null}
-                      </View>
-                    </View>
-                    <View style={[styles.nflPlayShareCardWinProbability, { backgroundColor: teamColor }]}>
-                      <Text style={[styles.nflPlayShareCardWinProbText, { color: '#fff' }]}>
-                        W {winProbability.toFixed(1)}%
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Drive Indicator */}
-                  {selectedDrive && (
-                    <View style={[styles.nflPlayShareCardDriveIndicator, { backgroundColor: theme.surfaceSecondary }]}>
-                      <View style={[styles.nflPlayShareCardDriveField, { backgroundColor: theme.surfaceTertiary }]}>
-                        {/* Field markers */}
-                        <View style={[styles.nflPlayShareCardFieldLine, { left: '10%', backgroundColor : theme.surfaceSecondary }]} />
-                        <View style={[styles.nflPlayShareCardFieldLine, { left: '50%', backgroundColor : theme.surfaceSecondary }]} />
-                        <View style={[styles.nflPlayShareCardFieldLine, { left: '90%', backgroundColor : theme.surfaceSecondary }]} />
-
-                        {/* Drive progress bar */}
-                        {(() => {
-                          const startYard = selectedDrive.start?.yardLine || 0;
-                          const currentYard = yardLine;
-                          const startPercent = (startYard / 100) * 100;
-                          const currentPercent = (currentYard / 100) * 100;
-                          const driveWidth = Math.abs(currentPercent - startPercent);
-                          
-                          // Flip horizontally: convert left position to right position
-                          const driveLeft = Math.min(startPercent, currentPercent);
-                          const flippedLeft = 100 - driveLeft - driveWidth;
-                          
-                          return (
-                            <View 
-                              style={[
-                                styles.nflPlayShareCardDriveProgress, 
-                                { 
-                                  left: `${flippedLeft}%`, 
-                                  width: `${driveWidth}%`,
-                                  backgroundColor: teamColor 
-                                }
-                              ]} 
-                            />
-                          );
-                        })()}
-                      </View>
-                      <Text style={[styles.nflPlayShareCardDriveText, { color: theme.textSecondary }]}>
-                        {selectedDrive.plays?.length || 0} plays, {selectedDrive.yards || 0} yards, {selectedDrive.timeElapsed?.displayValue || '0:00'}
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Play Description */}
-                  <View style={[styles.nflPlayShareCardPlayDescription, { backgroundColor: theme.surfaceSecondary }]}>
-                    <Text style={[styles.nflPlayShareCardPlayText, { color: theme.text }]}>
-                      {playText}
-                    </Text>
-                  </View>
-
-                  {/* Players Section (like scoreboard.js) */}
-                  {players.length > 0 && (() => {
-                    // Remove duplicates based on athlete ID
-                    const uniquePlayers = [];
-                    const seenIds = new Set();
-                    
-                    players.forEach(player => {
-                      const athleteId = player?.athlete?.id;
-                      if (athleteId && !seenIds.has(athleteId)) {
-                        seenIds.add(athleteId);
-                        uniquePlayers.push(player);
-                      }
-                    });
-                    
-                    // If no unique players found, return null
-                    if (uniquePlayers.length === 0) return null;
-                    
-                    // Sort participants by order first
-                    let participantsList = [...uniquePlayers].sort((a, b) => (a.order || 0) - (b.order || 0));
-                    
-                    // Check for special cases using play type ID (like scoreboard.js)
-                    const playTypeId = play.type?.id;
-                    const isSpecialPlayType = ['53', '26', '52', '29', '7'].includes(playTypeId); // Kickoff, Interception, Punt, Fumble, Sack
-                    const isRushingPlay = playTypeId === '5'; // Rush
-                    const isPassingPlay = playTypeId === '24'; // Pass Reception
-                    const isScoringPlay = play.scoringPlay || play.text?.toLowerCase().includes('touchdown');
-                    
-                    console.log('Play type ID:', playTypeId, 'Is special:', isSpecialPlayType, 'Is scoring:', isScoringPlay);
-                    console.log('Available participant types:', participantsList.map(p => `${p.athlete?.displayName}: ${p.type}`));
-                    
-                    // Get main participant using same logic as scoreboard.js
-                    let mainPlayer;
-                    
-                    // First check if it's a scoring play and prioritize the scorer
-                    if (isScoringPlay) {
-                      const scorer = participantsList.find(p => 
-                        p.type === 'scorer' || p.type === 'rusher' || p.type === 'receiver'
-                      );
-                      if (scorer) {
-                        console.log('Found scoring participant:', scorer?.athlete?.displayName, 'Type:', scorer?.type);
-                        mainPlayer = scorer;
-                      }
-                    }
-                    
-                    // If no scorer found or not a scoring play, use regular logic
-                    if (!mainPlayer) {
-                      if (isSpecialPlayType && participantsList.length > 1) {
-                        // For special play types, look for recoverer, returner, or sackedBy participant type
-                        const specialParticipant = participantsList.find(p => 
-                          p.type === 'recoverer' || p.type === 'returner' || p.type === 'sackedBy' || p.type === 'passDefender'
-                        );
-                        console.log('Found special participant:', specialParticipant?.athlete?.displayName, 'Type:', specialParticipant?.type);
-                        mainPlayer = specialParticipant || participantsList[0];
-                      } else if (isRushingPlay) {
-                        // For rushing plays, prioritize the rusher
-                        const rusher = participantsList.find(p => p.type === 'rusher');
-                        mainPlayer = rusher || participantsList[0];
-                      } else if (isPassingPlay) {
-                        // For passing plays, prioritize the receiver
-                        const receiver = participantsList.find(p => p.type === 'receiver');
-                        mainPlayer = receiver || participantsList[0];
-                      } else {
-                        mainPlayer = participantsList[0]; // Use first participant normally
-                      }
-                    }
-                    
-                    console.log('Selected main participant:', mainPlayer?.athlete?.displayName, 'Type:', mainPlayer?.type);
-                    
-                    // Reorder participants array to put main participant first
-                    if (mainPlayer && (isSpecialPlayType || isRushingPlay || isPassingPlay || isScoringPlay)) {
-                      const otherParticipants = participantsList.filter(p => p.athlete?.displayName !== mainPlayer.athlete?.displayName);
-                      participantsList = [mainPlayer, ...otherParticipants];
-                    }
-                    
-                    // Safety check - ensure mainPlayer exists
-                    if (!mainPlayer || !mainPlayer.athlete) return null;
-                    
-                    // Helper function to get player stats from cached boxscore data
-                    const getPlayerStats = (player, playTypeId, participantType) => {
-                      if (!gameDetails?.boxscore?.players || !player?.athlete?.id) return [];
-                      
-                      // Find player in boxscore
-                      let playerBoxscoreData = null;
-                      for (const teamData of gameDetails.boxscore.players) {
-                        if (teamData.statistics) {
-                          for (const statCategory of teamData.statistics) {
-                            if (statCategory.athletes) {
-                              for (const athleteData of statCategory.athletes) {
-                                const athlete = athleteData.athlete;
-                                if (athlete && (athlete.id === player.athlete.id || athlete.id === player.athlete.id.toString())) {
-                                  if (!playerBoxscoreData) playerBoxscoreData = {};
-                                  playerBoxscoreData[statCategory.name] = athleteData.stats || [];
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                      
-                      if (!playerBoxscoreData) return [];
-                      
-                      // Define stat display logic based on play type and participant type
-                      const stats = [];
-                      
-                      // Special case: Interception (type 26)
-                      if (playTypeId === '26') {
-                        if (participantType === 'passer') {
-                          // Show yards and interceptions
-                          const passing = playerBoxscoreData.passing || [];
-                          if (passing[1]) stats.push(`${passing[1]} yds`);
-                          if (passing[4]) stats.push(`${passing[4]} INT`);
-                        } else if (participantType === 'passDefender') {
-                          // Show interceptions and interception yards
-                          const defensive = playerBoxscoreData.interceptions || [];
-                          if (defensive[0]) stats.push(`${defensive[0]} INT`);
-                          if (defensive[1]) stats.push(`${defensive[1]} INT yds`);
-                        } else if (participantType === 'returner') {
-                          // Show targets and yards
-                          const receiving = playerBoxscoreData.receiving || [];
-                          if (receiving[5]) stats.push(`${receiving[5]} tgt`);
-                          if (receiving[1]) stats.push(`${receiving[1]} yds`);
-                        } else if (participantType === 'tackler') {
-                          // Show total tackles
-                          const defensive = playerBoxscoreData.defensive || [];
-                          if (defensive[0]) stats.push(`${defensive[0]} tkl`);
-                        }
-                      }
-                      // Special case: Kickoff (type 53)
-                      else if (playTypeId === '53') {
-                        if (participantType === 'returner') {
-                          // Show kick returns and yards
-                          const returning = playerBoxscoreData.kickReturns || [];
-                          if (returning[0]) stats.push(`${returning[0]} ret`);
-                          if (returning[1]) stats.push(`${returning[1]} yds`);
-                        } else if (participantType === 'tackler') {
-                          // Show total tackles
-                          const defensive = playerBoxscoreData.defensive || [];
-                          if (defensive[0]) stats.push(`${defensive[0]} tkl`);
-                        }
-                        // Don't show stats for kicker
-                      }
-                      // Special case: Punt (type 52)
-                      else if (playTypeId === '52') {
-                        if (participantType === 'returner') {
-                          // Show punt returns and yards
-                          const returning = playerBoxscoreData.puntReturns || [];
-                          if (returning[0]) stats.push(`${returning[0]} ret`);
-                          if (returning[1]) stats.push(`${returning[1]} yds`);
-                        } else if (participantType === 'tackler') {
-                          // Show total tackles
-                          const defensive = playerBoxscoreData.defensive || [];
-                          if (defensive[0]) stats.push(`${defensive[0]} tkl`);
-                        }
-                        // Don't show stats for kicker
-                      }
-                      else if (playTypeId === '29') {
-                        if (participantType === 'fumbler') {
-                          // Show fumbles
-                          const fumbles = playerBoxscoreData.fumbles || [];
-                          if (fumbles[0]) stats.push(`${fumbles[0]} fum`);
-                        } else if (participantType === 'recoverer') {
-                          // Show fumbles recovered
-                          const defensive = playerBoxscoreData.fumbles || [];
-                          if (defensive[4]) stats.push(`${defensive[2]} rec`);
-                        } else if (participantType === 'tackler') {
-                          // Show total tackles
-                          const defensive = playerBoxscoreData.defensive || [];
-                          if (defensive[0]) stats.push(`${defensive[0]} tkl`);
-                        }
-                      }
-                      // Special case: Sack (type 7)
-                      else if (playTypeId === '7') {
-                        if (participantType === 'passer') {
-                          // Show sacks and yards
-                          const passing = playerBoxscoreData.passing || [];
-                          if (passing[5]) stats.push(`${passing[5]} sck`);
-                          if (passing[1]) stats.push(`${passing[1]} yds`);
-                        } else if (participantType === 'sackedBy') {
-                          // Show sacks and total tackles
-                          const defensive = playerBoxscoreData.defensive || [];
-                          if (defensive[2]) stats.push(`${defensive[2]} sck`);
-                          if (defensive[0]) stats.push(`${defensive[0]} tkl`);
-                        }
-                      }
-                      // Special case: Field Goal (type 59)
-                      else if (playTypeId === '59') {
-                        if (participantType === 'kicker') {
-                          // Show field goals made and percentage
-                          const kicking = playerBoxscoreData.kicking || [];
-                          if (kicking[0]) stats.push(`${kicking[0]} FG`);
-                          if (kicking[1]) stats.push(`${kicking[1]}%`);
-                        }
-                      }
-                      // Regular cases
-                      else {
-                        if (participantType === 'rusher') {
-                          // Show attempts, yards, touchdowns
-                          const rushing = playerBoxscoreData.rushing || [];
-                          if (rushing[0]) stats.push(`${rushing[0]} att`);
-                          if (rushing[1]) stats.push(`${rushing[1]} yds`);
-                          if (rushing[3]) stats.push(`${rushing[3]} TD`);
-                        } else if (participantType === 'passer') {
-                          // Show completions/attempts, yards, touchdowns
-                          const passing = playerBoxscoreData.passing || [];
-                          if (passing[0]) stats.push(`${passing[0]} c/att`);
-                          if (passing[1]) stats.push(`${passing[1]} yds`);
-                          if (passing[3]) stats.push(`${passing[3]} TD`);
-                        } else if (participantType === 'receiver') {
-                          // Show receptions, yards, touchdowns
-                          const receiving = playerBoxscoreData.receiving || [];
-                          if (receiving[0]) stats.push(`${receiving[0]} rec`);
-                          if (receiving[1]) stats.push(`${receiving[1]} yds`);
-                          if (receiving[3]) stats.push(`${receiving[3]} TD`);
-                        } else if (participantType === 'assistedBy' || participantType === 'tackler') {
-                          // Show total tackles
-                          const defensive = playerBoxscoreData.defensive || [];
-                          if (defensive[0]) stats.push(`${defensive[0]} tkl`);
-                        } else if (participantType === 'passDefender') {
-                          // Show passes defended
-                          const defensive = playerBoxscoreData.defensive || [];
-                          if (defensive[4]) stats.push(`${defensive[4]} PD`);
-                        }
-                      }
-                      
-                      return stats;
-                    };
-
-                    // Format main player name (abbreviate first name) with stats
-                    const formatPlayerNameWithStats = (player, playTypeId, isMain = false) => {
-                      const fullName = player.athlete?.displayName || player.athlete?.fullName;
-                      if (!fullName) return 'Unknown';
-                      
-                      const nameParts = fullName.split(' ');
-                      const formattedName = nameParts.length === 1 ? fullName : `${nameParts[0][0]}. ${nameParts.slice(1).join(' ')}`;
-                      
-                      // Get stats for this player
-                      const stats = getPlayerStats(player, playTypeId, player.type);
-                      
-                      if (stats.length > 0) {
-                        return `${formattedName} • ${stats.join(', ')}`;
-                      }
-                      
-                      return formattedName;
-                    };
-
-                    const mainPlayerDisplay = formatPlayerNameWithStats(mainPlayer, playTypeId, true);
-                    const mainPlayerId = mainPlayer.athlete?.id;
-                    const mainPlayerHeadshot = mainPlayer.athlete?.headshot?.href || `https://a.espncdn.com/i/headshots/nfl/players/full/${mainPlayerId}.png`;
-                    const mainTeamAbbr = mainPlayer.team?.abbreviation || '';
-                    const otherPlayers = participantsList.slice(1);
-                    
-                    return (
-                      <View style={[styles.nflPlayShareCardPlayersSection, { borderTopColor: theme.border }]}>
-                        {/* Main Player Row with Image */}
-                        <View style={[styles.nflPlayShareCardPlayerRow, { borderBottomColor: theme.border }]}>
-                          <View style={styles.nflPlayShareCardPlayerInfo}>
-                            <Image
-                              source={{ uri: mainPlayerHeadshot }}
-                              style={styles.nflPlayShareCardPlayerImage}
-                            />
-                            <View style={styles.nflPlayShareCardPlayerDetails}>
-                              <Text style={[styles.nflPlayShareCardPlayerName, { color: theme.text }]}>
-                                {mainPlayerDisplay}
-                              </Text>
-                              {/* Other players listed below main player name with stats */}
-                              {otherPlayers.map((player, idx) => {
-                                const otherPlayerDisplay = formatPlayerNameWithStats(player, playTypeId, false);
-                                return (
-                                  <Text key={idx} style={[styles.nflPlayShareCardOtherPlayerName, { color: theme.textSecondary }]}>
-                                    {otherPlayerDisplay}
-                                  </Text>
-                                );
-                              })}
-                            </View>
-                          </View>
-                        </View>
-                      </View>
-                    );
-                  })()}
-                </>
-              );
-            })()}
-          </View>
-
-          {/* Action Buttons */}
-          <View style={styles.nflPlayShareCardActions}>
-            <View style={styles.nflPlayShareCardTopButtons}>
-              <TouchableOpacity
-                style={[styles.nflPlayShareCardButton, { backgroundColor: colors.secondary }]}
-                onPress={async () => {
-                  try {
-                    const uri = await captureRef(nflPlayShareCardRef, {
-                      format: 'png',
-                      quality: 2,
-                    });
-                    await Sharing.shareAsync(uri, {
-                      mimeType: 'image/png',
-                      dialogTitle: 'Share Play',
-                    });
-                  } catch (error) {
-                    console.error('Error sharing play:', error);
-                  }
-                }}
-              >
-                <Ionicons name="share-outline" size={24} color="#fff" />
-                <Text style={[styles.nflPlayShareCardButtonText, { color: '#fff' }]}>Share</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.nflPlayShareCardButton, { backgroundColor: colors.secondary }]}
-                onPress={async () => {
-                  try {
-                    const uri = await captureRef(nflPlayShareCardRef, {
-                      format: 'png',
-                      quality: 2,
-                    });
-                    await Sharing.shareAsync(uri, {
-                      mimeType: 'image/png',
-                      dialogTitle: 'Save Play',
-                    });
-                  } catch (error) {
-                    console.error('Error saving play:', error);
-                  }
-                }}
-              >
-                <Ionicons name="download-outline" size={24} color="#fff" />
-                <Text style={[styles.nflPlayShareCardButtonText, { color: '#fff' }]}>Save</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.nflPlayShareCardButton, styles.nflPlayShareCardCancelButton, { backgroundColor: theme.surfaceSecondary }]}
-              onPress={() => setShareCardPlay(null)}
-            >
-              <Ionicons name="close" size={24} color={theme.text} />
-              <Text style={[styles.nflPlayShareCardButtonText, { color: theme.text }]}>Cancel</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -6055,7 +6075,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 30,
+    paddingHorizontal: 20,
     borderRadius: 12,
     gap: 8,
   },

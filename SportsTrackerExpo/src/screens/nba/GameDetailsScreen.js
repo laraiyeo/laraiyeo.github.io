@@ -2743,7 +2743,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                 const headshot = athlete?.headshot?.href;
                 const fullName = athlete?.displayName || athlete?.fullName || '';
                 const jersey = athlete?.jersey;
-                const position = athlete?.position?.abbreviation || athlete?.position?.name || '';
+                const position = athlete?.position?.name || athlete?.position?.abbreviation || '';
                 
                 // Team info
                 let team = null;
@@ -2826,14 +2826,6 @@ const NBAGameDetailsScreen = ({ route }) => {
                           </View>
                         </View>
                       </View>
-                      {/* App Logo instead of close button */}
-                      <View style={[styles.shareCardAppLogoContainer, { backgroundColor: theme.surface }]}>
-                        <Image 
-                          source={getCurrentAppIconSource()} 
-                          style={styles.shareCardAppLogo}
-                          resizeMode="contain"
-                        />
-                      </View>
                     </View>
 
                     <View style={styles.shareCardStatsHeader}>
@@ -2910,34 +2902,6 @@ const NBAGameDetailsScreen = ({ route }) => {
                   <Ionicons name="share-outline" size={24} color="white" />
                   <Text style={styles.shareCardButtonText}>Share</Text>
                 </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={[styles.shareCardButton, { backgroundColor: colors.secondary }]}
-                  onPress={async () => {
-                    try {
-                      const { status } = await MediaLibrary.requestPermissionsAsync();
-                      if (status !== 'granted') {
-                        Alert.alert('Permission needed', 'Please grant permission to save photos');
-                        return;
-                      }
-                      
-                      const uri = await captureRef(shareCardRef, {
-                        format: 'png',
-                        quality: 2,
-                      });
-                      
-                      await MediaLibrary.saveToLibraryAsync(uri);
-                      Alert.alert('Success', 'Player stats saved to camera roll!');
-                    } catch (error) {
-                      console.error('Error saving:', error);
-                      Alert.alert('Error', 'Failed to save player stats');
-                    }
-                  }}
-                >
-                  <Ionicons name="download-outline" size={24} color="white" />
-                  <Text style={styles.shareCardButtonText}>Save</Text>
-                </TouchableOpacity>
-              </View>
               
               <TouchableOpacity 
                 style={[styles.shareCardCancelButton, { backgroundColor: theme.surfaceSecondary }]}
@@ -2946,6 +2910,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                 <Ionicons name="close" size={24} color={theme.text} />
                 <Text style={[styles.shareCardButtonText, { color: theme.text }]}>Cancel</Text>
               </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -5179,6 +5144,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     justifyContent: 'center',
+    marginBottom: -60,
   },
   shareCardStatBox: {
     width: '31%',
@@ -5224,7 +5190,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 30,
+    paddingHorizontal: 20,
     borderRadius: 12,
     gap: 8,
   },
