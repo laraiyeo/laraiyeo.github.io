@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -113,6 +113,22 @@ const RaceDetailsScreen = ({ route }) => {
   const [raceStatus, setRaceStatus] = useState(null);
   const [driverModalVisible, setDriverModalVisible] = useState(false);
   const [selectedDriverDetails, setSelectedDriverDetails] = useState(null);
+  const [overtakeModalVisible, setOvertakeModalVisible] = useState(false);
+  const [selectedOvertake, setSelectedOvertake] = useState(null);
+  const [overtakeCarData, setOvertakeCarData] = useState({ initiator: [], participant: [] });
+  const [carDataIndex, setCarDataIndex] = useState(0);
+  const [carDataInterval, setCarDataInterval] = useState(null);
+  
+  // Animation states for progressive overtake
+  const [overtakeAnimation, setOvertakeAnimation] = useState({
+    isAnimating: false,
+    progress: 0, // 0 to 1
+    currentStats: { initiator: null, participant: null },
+    targetStats: { initiator: null, participant: null },
+    allDataPoints: { initiator: [], participant: [] }, // All data points for smooth transitions
+    carPositions: { initiator: 0, participant: 2 }, // Start at original stacked positions
+    isDataLoaded: false
+  });
   const { width: windowWidth } = useWindowDimensions();
 
   // Streaming access check
@@ -153,6 +169,15 @@ const RaceDetailsScreen = ({ route }) => {
     }, [])
   );
 
+  // Cleanup intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (carDataInterval) {
+        clearInterval(carDataInterval);
+      }
+    };
+  }, [carDataInterval]);
+
   // OpenF1 API related state
   const [openF1Data, setOpenF1Data] = useState({
     meetingKey: null,
@@ -166,12 +191,63 @@ const RaceDetailsScreen = ({ route }) => {
     stints: [] // array of stints for the current selected session
   });
 
+  // Events pagination state
+  const [currentPage, setCurrentPage] = useState(0); // Page 0 = most recent events
+  const [eventsPerPage] = useState(30);
+  const eventsScrollViewRef = useRef(null);
+
   const tabs = [
     { key: 'INFO', name: 'Info' },
     { key: 'RESULTS', name: 'Results' },
     { key: 'GRID', name: 'Grid' },
     { key: 'EVENTS', name: 'Events' }
   ];
+
+  // Function to scroll to top of events
+  const scrollToTop = () => {
+    if (eventsScrollViewRef.current) {
+      eventsScrollViewRef.current.scrollTo({ y: 0, animated: true });
+    }
+  };
+
+  // Helper function to get filtered events
+  const getFilteredEvents = useCallback(() => {
+    return openF1Data.selectedDriverFilter 
+      ? openF1Data.events.filter(event => {
+          const eventDriverNumber = event.driver_number || event.driver_1_number || event.driver_2_number;
+          return eventDriverNumber && Number(eventDriverNumber) === Number(openF1Data.selectedDriverFilter);
+        })
+      : openF1Data.events;
+  }, [openF1Data.events, openF1Data.selectedDriverFilter]);
+
+  // Pagination functions
+  const goToNextPage = useCallback(() => {
+    const filteredEvents = getFilteredEvents();
+    const totalPages = Math.ceil(filteredEvents.length / eventsPerPage);
+    
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(prev => prev + 1);
+      // Small delay to ensure state update happens before scroll
+      setTimeout(() => {
+        scrollToTop();
+      }, 100);
+    }
+  }, [currentPage, eventsPerPage, getFilteredEvents]);
+
+  const goToPrevPage = useCallback(() => {
+    if (currentPage > 0) {
+      setCurrentPage(prev => prev - 1);
+      // Small delay to ensure state update happens before scroll
+      setTimeout(() => {
+        scrollToTop();
+      }, 100);
+    }
+  }, [currentPage]);
+
+  // Reset to first page when driver filter changes or events change
+  const resetEventsPage = useCallback(() => {
+    setCurrentPage(0);
+  }, []);
 
   // Helper to extract live position from gapToLeader statistics
   const getLivePosition = (competitor) => {
@@ -362,6 +438,11 @@ const RaceDetailsScreen = ({ route }) => {
       loadEventsForSession(openF1Data.selectedSessionKey);
     }
   }, [openF1Data.selectedSessionKey]);
+
+  // Reset to first page when driver filter changes
+  useEffect(() => {
+    resetEventsPage();
+  }, [openF1Data.selectedDriverFilter, resetEventsPage]);
 
   // Sync OpenF1 session selection with ESPN competition selection
   useEffect(() => {
@@ -894,6 +975,33 @@ const RaceDetailsScreen = ({ route }) => {
     return filtered.sort((a,b) => (a.lap_start || 0) - (b.lap_start || 0));
   };
 
+  // Get tire compound for a specific lap, falling back to last stint if no data for that lap
+  const getTireForLap = (driverNumber, lapNumber) => {
+    const stints = getStintsForDriver(driverNumber);
+    if (!stints || stints.length === 0) return null;
+
+    // Find stint that contains this lap
+    const currentStint = stints.find(stint => {
+      const startLap = stint.lap_start || 0;
+      const endLap = stint.lap_end || Number.MAX_SAFE_INTEGER;
+      return lapNumber >= startLap && lapNumber <= endLap;
+    });
+
+    if (currentStint) {
+      return currentStint.compound;
+    }
+
+    // If no stint found for that lap, use the last stint before that lap
+    const previousStints = stints.filter(stint => (stint.lap_start || 0) <= lapNumber);
+    if (previousStints.length > 0) {
+      const lastStint = previousStints[previousStints.length - 1];
+      return lastStint.compound;
+    }
+
+    // If no previous stint, use the first stint
+    return stints[0]?.compound || null;
+  };
+
   // Render Tires UI: each stint row shows tire icon and lap range, with arrows between
   const renderTiresForDriver = (driverNumber) => {
     console.log('renderTiresForDriver called with driverNumber:', driverNumber);
@@ -946,6 +1054,62 @@ const RaceDetailsScreen = ({ route }) => {
           })}
         </View>
       </View>
+    );
+  };
+
+  // Render tire for a specific lap (used in overtake modal)
+  const renderTireForLap = (driverNumber, lapNumber) => {
+    const compound = getTireForLap(driverNumber, lapNumber);
+    if (!compound) {
+      return (
+        <View style={{ alignItems: 'center' }}>
+          <View style={{ width: 32, height: 32, backgroundColor: '#ddd', borderRadius: 16 }} />
+          <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text, fontSize: 11, marginTop: 2 }]}>
+            Lap {lapNumber}
+          </Text>
+        </View>
+      );
+    }
+
+    const compoundUpper = compound.toUpperCase();
+    const icon = TIRE_IMAGES[compoundUpper] || null;
+    
+    return (
+      <View style={{ alignItems: 'center' }}>
+        {icon ? (
+          icon.toLowerCase().endsWith('.svg') ? (
+            <SvgUri uri={icon} width={32} height={32} />
+          ) : (
+            <Image source={{ uri: icon }} style={{ width: 32, height: 32 }} />
+          )
+        ) : (
+          <View style={{ width: 32, height: 32, backgroundColor: '#ddd', borderRadius: 16 }} />
+        )}
+        <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text, fontSize: 11, marginTop: 2 }]}>
+          {compoundUpper} - L{lapNumber}
+        </Text>
+      </View>
+    );
+  };
+
+  // Render tire for car data row (just the tire image)
+  const renderTireForCarData = (driverNumber, lapNumber) => {
+    const compound = getTireForLap(driverNumber, lapNumber);
+    if (!compound) {
+      return <View style={{ width: 24, height: 24, backgroundColor: '#ddd', borderRadius: 12 }} />;
+    }
+
+    const compoundUpper = compound.toUpperCase();
+    const icon = TIRE_IMAGES[compoundUpper] || null;
+    
+    return icon ? (
+      icon.toLowerCase().endsWith('.svg') ? (
+        <SvgUri uri={icon} width={24} height={24} />
+      ) : (
+        <Image source={{ uri: icon }} style={{ width: 24, height: 24 }} />
+      )
+    ) : (
+      <View style={{ width: 24, height: 24, backgroundColor: '#ddd', borderRadius: 12 }} />
     );
   };
 
@@ -1267,6 +1431,31 @@ const RaceDetailsScreen = ({ route }) => {
     }
   };
 
+  const fetchCarData = async (driverNumber, sessionKey, overtakeDate) => {
+    try {
+      // Convert overtake date to nearest second and create range
+      const overtakeTime = new Date(overtakeDate);
+      const baseTime = new Date(overtakeTime.getFullYear(), overtakeTime.getMonth(), overtakeTime.getDate(), 
+                               overtakeTime.getHours(), overtakeTime.getMinutes(), overtakeTime.getSeconds());
+      
+      const startTime = new Date(baseTime.getTime() - 1000); // -1 second
+      const endTime = new Date(baseTime.getTime() + 1000);   // +1 second
+      
+      const startISO = startTime.toISOString().replace('Z', '+00:00');
+      const endISO = endTime.toISOString().replace('Z', '+00:00');
+      
+      const url = `https://api.openf1.org/v1/car_data?driver_number=${driverNumber}&session_key=${sessionKey}&date>${startISO}&date<${endISO}`;
+      console.log('Fetching car data:', url);
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching car data:', error);
+      return [];
+    }
+  };
+
   const matchRaceWithOpenF1Meeting = async (raceName, raceDate) => {
     try {
       const meetings = await fetchOpenF1Meetings();
@@ -1463,6 +1652,270 @@ const RaceDetailsScreen = ({ route }) => {
     setStreamModalVisible(false);
     setIsStreamLoading(true);
     setGrandPrixStreamUrl(null); // Reset Grand Prix stream URL
+  };
+
+  const handleOvertakeClick = async (event) => {
+    console.log('Overtake click handler called with event:', event);
+    
+    // Check for valid overtake based on actual structure
+    const isValidOvertake = event.category === 'driver-action' && 
+                           event.cause === 'overtake' &&
+                           event.details && 
+                           event.details.driver_roles;
+    
+    if (!isValidOvertake) {
+      console.log('Event is not a valid overtake, skipping');
+      return;
+    }
+    
+    // Extract driver numbers from driver_roles
+    const driverRoles = event.details.driver_roles;
+    const initiatorDriver = Object.keys(driverRoles).find(key => driverRoles[key] === 'initiator');
+    const participantDriver = Object.keys(driverRoles).find(key => driverRoles[key] === 'participant');
+    
+    console.log('Processing overtake click:', {
+      initiator: initiatorDriver,
+      participant: participantDriver,
+      event: event
+    });
+    
+    if (!initiatorDriver || !participantDriver) {
+      console.log('Could not find both initiator and participant drivers');
+      return;
+    }
+    
+    // Create a normalized event object with the driver numbers in the expected format
+    const normalizedEvent = {
+      ...event,
+      driver_number: parseInt(initiatorDriver),
+      overtake_participant_number: parseInt(participantDriver)
+    };
+    
+    setSelectedOvertake(normalizedEvent);
+    
+    // Reset animation state
+    setOvertakeAnimation({
+      isAnimating: false,
+      progress: 0,
+      currentStats: { initiator: null, participant: null },
+      targetStats: { initiator: null, participant: null },
+      allDataPoints: { initiator: [], participant: [] },
+      carPositions: { initiator: 0, participant: 2 }, // Start at original stacked positions
+      isDataLoaded: false
+    });
+    
+    // Fetch car data for both drivers simultaneously
+    console.log('Fetching car data...');
+    const [initiatorData, participantData] = await Promise.all([
+      fetchCarData(parseInt(initiatorDriver), openF1Data.selectedSessionKey, event.date),
+      fetchCarData(parseInt(participantDriver), openF1Data.selectedSessionKey, event.date)
+    ]);
+    
+    setOvertakeCarData({
+      initiator: initiatorData,
+      participant: participantData
+    });
+    
+    // Setup animation with loaded data
+    if (initiatorData.length > 0 && participantData.length > 0) {
+      const startStats = {
+        initiator: initiatorData[0],
+        participant: participantData[0]
+      };
+      const endStats = {
+        initiator: initiatorData[initiatorData.length - 1],
+        participant: participantData[participantData.length - 1]
+      };
+      
+      setOvertakeAnimation({
+        isAnimating: false,
+        progress: 0,
+        currentStats: startStats,
+        targetStats: endStats,
+        allDataPoints: {
+          initiator: initiatorData,
+          participant: participantData
+        },
+        carPositions: { initiator: 0, participant: 2 }, // Start at static positions (pixel values that match left: 0 and left: 10)
+        isDataLoaded: true
+      });
+      
+      // Now show the modal
+      setOvertakeModalVisible(true);
+      
+      // Start animation after a brief delay
+      setTimeout(() => {
+        startOvertakeAnimation();
+      }, 500);
+    } else {
+      console.log('No car data available, showing modal without animation');
+      setOvertakeModalVisible(true);
+    }
+  };
+
+  const startOvertakeAnimation = () => {
+    setOvertakeAnimation(prev => {
+      if (!prev.allDataPoints?.initiator || !prev.allDataPoints?.participant) {
+        console.log('No data points available for animation');
+        return prev;
+      }
+
+      const newState = { ...prev, isAnimating: true };
+      const initiatorData = prev.allDataPoints.initiator;
+      const participantData = prev.allDataPoints.participant;
+      const dataPointCount = Math.max(initiatorData.length, participantData.length);
+      
+      if (dataPointCount <= 1) {
+        console.log('Insufficient data points for animation');
+        return newState;
+      }
+
+      const animationDuration = 5000; // 5 seconds total
+      const segmentDuration = animationDuration / (dataPointCount - 1); // Time per data point transition
+      let currentSegment = 0;
+      let segmentStartTime = Date.now();
+      
+      const animationInterval = setInterval(() => {
+        const now = Date.now();
+        const segmentElapsed = now - segmentStartTime;
+        const segmentProgress = Math.min(segmentElapsed / segmentDuration, 1);
+        const totalProgress = (currentSegment + segmentProgress) / (dataPointCount - 1);
+        
+        setOvertakeAnimation(prev => {
+          if (!prev.isAnimating) return prev;
+          
+          // Get current and next data points for smooth interpolation
+          const currentInitiatorData = initiatorData[currentSegment] || initiatorData[initiatorData.length - 1];
+          const nextInitiatorData = initiatorData[currentSegment + 1] || currentInitiatorData;
+          const currentParticipantData = participantData[currentSegment] || participantData[participantData.length - 1];
+          const nextParticipantData = participantData[currentSegment + 1] || currentParticipantData;
+          
+          // Animate car positions starting from original stacked positions
+          const initiatorStartPercent = 0;   // Start at left edge (matches left: 0)
+          const participantStartPercent = 2;  // Start slightly offset (matches left: 10px ≈ 2%)
+          const trackProgressPercent = 75;    // Can move 75% across track
+          
+          // Calculate speed-based movement - handle '-' as 0 speed (no movement)
+          const initiatorCurrentSpeed = currentInitiatorData.speed === '-' || !currentInitiatorData.speed ? 0 : currentInitiatorData.speed;
+          const participantCurrentSpeed = currentParticipantData.speed === '-' || !currentParticipantData.speed ? 0 : currentParticipantData.speed;
+          
+          // If both have 0 speed, use default progression. Otherwise use speed ratio with 1.1x multiplier for faster car
+          let initiatorSpeedMultiplier, participantSpeedMultiplier;
+          if (initiatorCurrentSpeed === 0 && participantCurrentSpeed === 0) {
+            // Both stopped - no movement
+            initiatorSpeedMultiplier = 0;
+            participantSpeedMultiplier = 0;
+          } else if (initiatorCurrentSpeed === 0) {
+            // Initiator stopped, participant moves
+            initiatorSpeedMultiplier = 0;
+            participantSpeedMultiplier = 1.0;
+          } else if (participantCurrentSpeed === 0) {
+            // Participant stopped, initiator moves (with overtaking bonus)
+            initiatorSpeedMultiplier = 1.1;
+            participantSpeedMultiplier = 0;
+          } else {
+            // Both moving - use speed ratio with overtaking bonus
+            const speedRatio = initiatorCurrentSpeed / participantCurrentSpeed;
+            initiatorSpeedMultiplier = speedRatio * 1.1; // 10% bonus for overtaking
+            participantSpeedMultiplier = 1.0;
+          }
+          
+          const newInitiatorPercent = initiatorStartPercent + (totalProgress * trackProgressPercent * initiatorSpeedMultiplier);
+          const newParticipantPercent = participantStartPercent + (totalProgress * trackProgressPercent * participantSpeedMultiplier);
+          
+          // Interpolate between current and next data points with easing
+          const easeProgress = 0.5 - 0.5 * Math.cos(Math.PI * segmentProgress);
+          
+          const interpolateValue = (current, next) => {
+            if (typeof current !== 'number' || typeof next !== 'number') return current;
+            return Math.round(current + (next - current) * easeProgress);
+          };
+          
+          const interpolatedStats = {
+            initiator: {
+              speed: interpolateValue(currentInitiatorData.speed, nextInitiatorData.speed),
+              rpm: interpolateValue(currentInitiatorData.rpm, nextInitiatorData.rpm),
+              n_gear: interpolateValue(currentInitiatorData.n_gear, nextInitiatorData.n_gear),
+              brake: interpolateValue(currentInitiatorData.brake, nextInitiatorData.brake),
+            },
+            participant: {
+              speed: interpolateValue(currentParticipantData.speed, nextParticipantData.speed),
+              rpm: interpolateValue(currentParticipantData.rpm, nextParticipantData.rpm),
+              n_gear: interpolateValue(currentParticipantData.n_gear, nextParticipantData.n_gear),
+              brake: interpolateValue(currentParticipantData.brake, nextParticipantData.brake),
+            }
+          };
+          
+          return {
+            ...prev,
+            progress: totalProgress,
+            currentStats: interpolatedStats,
+            carPositions: {
+              initiator: Math.min(newInitiatorPercent, 85), // Cap at 85%
+              participant: Math.min(newParticipantPercent, 85)
+            }
+          };
+        });
+        
+        // Move to next segment when current one completes
+        if (segmentProgress >= 1 && currentSegment < dataPointCount - 2) {
+          currentSegment++;
+          segmentStartTime = now;
+        }
+        
+        // End animation when all segments complete
+        if (totalProgress >= 1) {
+          clearInterval(animationInterval);
+          // Animation complete - set final state to show replay button with final stats
+          setOvertakeAnimation(prev => ({ 
+            ...prev, 
+            isAnimating: false, // Set to false to show "Animation Complete" 
+            progress: 1, // Keep progress at 1 to maintain final positions
+            currentStats: {
+              initiator: initiatorData[initiatorData.length - 1], // Show final stats
+              participant: participantData[participantData.length - 1] // Show final stats
+            }
+          }));
+        }
+      }, 16); // ~60fps
+      
+      return newState;
+    });
+  };
+
+  const resetAnimation = () => {
+    setOvertakeAnimation(prev => {
+      if (!prev.allDataPoints?.initiator || !prev.allDataPoints?.participant) {
+        return prev;
+      }
+      
+      return {
+        ...prev,
+        isAnimating: false,
+        progress: 0,
+        currentStats: {
+          initiator: prev.allDataPoints.initiator[0],
+          participant: prev.allDataPoints.participant[0]
+        },
+        carPositions: { initiator: 0, participant: 2 } // Reset to original stacked positions
+      };
+    });
+  };
+
+  const startCarDataCycling = () => {
+    // Legacy function - no longer used with new animation system
+    return;
+  };
+
+  const closeOvertakeModal = () => {
+    setOvertakeModalVisible(false);
+    setSelectedOvertake(null);
+    setOvertakeCarData({ initiator: [], participant: [] });
+    setCarDataIndex(0);
+    if (carDataInterval) {
+      clearInterval(carDataInterval);
+      setCarDataInterval(null);
+    }
   };
 
   const fetchRaceWinner = async (eventData) => {
@@ -3229,7 +3682,7 @@ const RaceDetailsScreen = ({ route }) => {
       
       {openF1Data.eventsError && (
         <View style={[styles.errorContainer, { backgroundColor: theme.surface }]}>
-          <Text allowFontScaling={false} style={[styles.errorText, { color: colors.error || '#F44336' }]}>
+          <Text allowFontScaling={false} style={[styles.errorText, { color: theme.error || '#F44336' }]}>
             {openF1Data.eventsError}
           </Text>
           <Text allowFontScaling={false} style={[styles.errorSubtext, { color: theme.textSecondary }]}>
@@ -3257,19 +3710,50 @@ const RaceDetailsScreen = ({ route }) => {
       )}
       
       {!openF1Data.eventsLoading && !openF1Data.eventsError && filteredEvents.length > 0 && (
-        <ScrollView style={styles.eventsScrollView} showsVerticalScrollIndicator={false}>
-          {filteredEvents.map((event, index) => {
+        <ScrollView ref={eventsScrollViewRef} style={styles.eventsScrollView} showsVerticalScrollIndicator={false}>
+          {(() => {
+            const startIndex = currentPage * eventsPerPage;
+            const endIndex = startIndex + eventsPerPage;
+            return filteredEvents.slice(startIndex, endIndex);
+          })().map((event, index) => {
             const isSessionEnd = event.category === 'session-notification' && event.cause === 'session-end';
             
-            return (
+            // Check for overtake based on actual event structure
+            const isOvertake = event.category === 'driver-action' && 
+                              event.cause === 'overtake' &&
+                              event.details && 
+                              event.details.driver_roles;
+            
+            // Debug logging for overtake detection
+            if (event.cause === 'overtake') {
+              console.log('Overtake event found:', {
+                event_type: event.event_type,
+                category: event.category,
+                cause: event.cause,
+                message: event.message,
+                details: event.details,
+                isOvertake: isOvertake
+              });
+            }
+            
+            const eventContent = (
               <View 
-                key={`event-${event.session_key}-${index}`} 
                 style={[
                   styles.eventItem,
                   { 
                     backgroundColor: isSessionEnd ? 'transparent' : theme.surface,
                     borderLeftColor: getEventBorderColor(event),
-                    borderColor: theme.border
+                    borderColor: theme.border,
+                    // Add visual indication for clickable overtake events
+                    ...(isOvertake && {
+                      borderWidth: 2,
+                      borderColor: colors.primary,
+                      shadowColor: colors.primary,
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.3,
+                      shadowRadius: 4,
+                      elevation: 4
+                    })
                   }
                 ]}
               >
@@ -3329,12 +3813,81 @@ const RaceDetailsScreen = ({ route }) => {
                   }
                 </View>
                 
-                <Text allowFontScaling={false} style={[styles.eventDescription, { color: theme.text }]}>
-                  {formatEventDescription(event)}
-                </Text>
+                <View>
+                  <Text allowFontScaling={false} style={[styles.eventDescription, { color: theme.text }]}>
+                    {formatEventDescription(event)}
+                  </Text>
+                  {isOvertake && (
+                    <Text allowFontScaling={false} style={[styles.overtakeIndicator, { color: colors.primary, marginTop: 4 }]}>
+                      📱 Tap to view overtake details
+                    </Text>
+                  )}
+                </View>
+              </View>
+            );
+
+            // Wrap in TouchableOpacity if it's an overtake event
+            if (isOvertake) {
+              return (
+                <TouchableOpacity 
+                  key={`event-${event.session_key}-${index}`}
+                  onPress={() => {
+                    console.log('TouchableOpacity pressed for overtake event');
+                    handleOvertakeClick(event);
+                  }}
+                  activeOpacity={0.6}
+                  style={{ marginHorizontal: 4 }} // Add slight margin to make it more obvious
+                >
+                  {eventContent}
+                </TouchableOpacity>
+              );
+            }
+
+            return (
+              <View key={`event-${event.session_key}-${index}`}>
+                {eventContent}
               </View>
             );
           })}
+
+          {/* Pagination Controls */}
+          {filteredEvents.length > eventsPerPage && (
+            <View style={styles.paginationContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.paginationButton, 
+                  { backgroundColor: currentPage > 0 ? colors.primary : theme.surfaceSecondary },
+                  { opacity: currentPage > 0 ? 1 : 0.5 }
+                ]}
+                onPress={goToPrevPage}
+                disabled={currentPage === 0}
+              >
+                <Text style={[styles.paginationButtonText, { color: currentPage > 0 ? '#fff' : theme.textSecondary }]}>
+                  Prev
+                </Text>
+              </TouchableOpacity>
+
+              <View style={[styles.pageIndicator, { backgroundColor: theme.surfaceSecondary }]}>
+                <Text style={[styles.pageIndicatorText, { color: theme.text }]}>
+                  Page {currentPage + 1} of {Math.ceil(filteredEvents.length / eventsPerPage)}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.paginationButton, 
+                  { backgroundColor: currentPage < Math.ceil(filteredEvents.length / eventsPerPage) - 1 ? colors.primary : theme.surfaceSecondary },
+                  { opacity: currentPage < Math.ceil(filteredEvents.length / eventsPerPage) - 1 ? 1 : 0.5 }
+                ]}
+                onPress={goToNextPage}
+                disabled={currentPage >= Math.ceil(filteredEvents.length / eventsPerPage) - 1}
+              >
+                <Text style={[styles.paginationButtonText, { color: currentPage < Math.ceil(filteredEvents.length / eventsPerPage) - 1 ? '#fff' : theme.textSecondary }]}>
+                  Next
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </ScrollView>
       )}
     </View>
@@ -4127,6 +4680,195 @@ const RaceDetailsScreen = ({ route }) => {
       fontSize: 14,
       fontWeight: '600',
     },
+    // Overtake Modal Styles
+    overtakeModalCard: {
+      width: '90%',
+      maxWidth: 500,
+      borderRadius: 16,
+      padding: 20,
+      borderWidth: 1,
+      maxHeight: '80%',
+    },
+    overtakeModalHeader: {
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    overtakeModalTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+    },
+    overtakeModalTime: {
+      fontSize: 14,
+      marginTop: 4,
+    },
+    // Top Section: Driver Images with F1 Track
+    overtakeTopSection: {
+      marginBottom: 24,
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+    },
+    overtakeTrackContainer: {
+      width: '100%',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    f1TrackSection: {
+      width: '100%',
+      height: 150,
+      justifyContent: 'center',
+      borderWidth: 4,
+      borderRadius: 12,
+      overflow: 'hidden',
+      position: 'relative',
+    },
+    overtakeDriverBehind: {
+      position: 'absolute',
+      left: 0,
+      top: '50%',
+      marginTop: -45,
+      zIndex: 9,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.7,
+      shadowRadius: 4,
+      elevation: 7,
+    },
+    overtakeDriverAhead: {
+      position: 'absolute',
+      left: 10,
+      top: '50%',
+      marginTop: 5,
+      zIndex: 10,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.8,
+      shadowRadius: 5,
+      elevation: 8,
+    },
+    overtakeDriverCircle: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    overtakeDriverInitials: {
+      fontSize: 12,
+      fontWeight: 'bold',
+    },
+    f1CurbContainer: {
+      flexDirection: 'row',
+      height: 22,
+    },
+    f1CurbStripe: {
+      flex: 1,
+      height: '100%',
+    },
+    f1TrackSurface: {
+      height: 100,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    // Bottom Section: Car Data
+    overtakeCarDataSection: {
+      flexDirection: 'row',
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: 'rgba(255,255,255,0.1)',
+    },
+    overtakeCarDataColumn: {
+      flex: 1,
+      paddingHorizontal: 8,
+    },
+    overtakeCarDataDriverNameContainer: {
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    overtakeCarDataDriverName: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      textAlign: 'center',
+    },
+    overtakeDriverUnderline: {
+      height: 2,
+      width: '100%',
+      marginTop: 4,
+      borderRadius: 1,
+    },
+    overtakeCarDataList: {
+      backgroundColor: 'rgba(0,0,0,0.05)',
+      borderRadius: 8,
+      padding: 12,
+    },
+    overtakeCarDataRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 6,
+    },
+    overtakeCarDataLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    overtakeCarDataValue: {
+      fontSize: 13,
+      fontWeight: 'bold',
+    },
+    overtakeCarDataTireValue: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    overtakeDataIndicator: {
+      alignItems: 'center',
+      marginTop: 16,
+      marginBottom: 16,
+    },
+    overtakeDataText: {
+      fontSize: 12,
+      fontStyle: 'italic',
+    },
+    replayButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    replayButtonText: {
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    // Pagination Styles
+    paginationContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginHorizontal: 16,
+      marginTop: 16,
+      marginBottom: 32, // Added more bottom padding
+      gap: 12,
+    },
+    paginationButton: {
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 70,
+    },
+    paginationButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    pageIndicator: {
+      flex: 1,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    pageIndicatorText: {
+      fontSize: 14,
+      fontWeight: '500',
+    },
   });
 
   if (loading) {
@@ -4325,6 +5067,280 @@ const RaceDetailsScreen = ({ route }) => {
                 </TouchableOpacity>
               </View>
             ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Overtake Modal */}
+      <Modal
+        visible={overtakeModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeOvertakeModal}
+      >
+        <View style={[styles.modalOverlay]}>
+          <View style={[styles.overtakeModalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            {selectedOvertake && (
+              <View>
+                {/* Header */}
+                <View style={styles.overtakeModalHeader}>
+                  <Text allowFontScaling={false} style={[styles.overtakeModalTitle, { color: theme.text }]}>
+                    Overtake - Lap {selectedOvertake.details?.lap_number || 'N/A'}
+                  </Text>
+                  <Text allowFontScaling={false} style={[styles.overtakeModalTime, { color: theme.textSecondary }]}>
+                    {formatEventTime(selectedOvertake.date)}
+                  </Text>
+                </View>
+
+                {/* Top Section: Driver Images with F1 Track */}
+                <View style={styles.overtakeTopSection}>
+                  {(() => {
+                    // Helper to get driver name from OpenF1 data (same as events)
+                    const getOvertakeDriverName = (driverNumber) => {
+                      const driver = getDriverByNumber(driverNumber);
+                      return driver ? driver.broadcast_name : `#${driverNumber}`;
+                    };
+
+                    const initiatorName = getOvertakeDriverName(selectedOvertake.driver_number);
+                    const participantName = getOvertakeDriverName(selectedOvertake.overtake_participant_number || selectedOvertake.driver_number_2);
+
+                    return (
+                      <View style={styles.overtakeTrackContainer}>
+                        {/* F1 Track Section - Full Width */}
+                        <View style={[styles.f1TrackSection, { borderColor: theme.text }]}>
+                          {/* Top Curb */}
+                          <View style={styles.f1CurbContainer}>
+                            {Array.from({ length: 40 }, (_, i) => (
+                              <View
+                                key={`top-${i}`}
+                                style={[
+                                  styles.f1CurbStripe,
+                                  { 
+                                    backgroundColor: i % 2 === 0 ? '#FF0000' : '#FFFFFF'
+                                  }
+                                ]}
+                              />
+                            ))}
+                          </View>
+                          
+                          {/* Track Surface */}
+                          <View style={[styles.f1TrackSurface, { backgroundColor: '#2C2C2C' }]} />
+                          
+                          {/* Bottom Curb */}
+                          <View style={styles.f1CurbContainer}>
+                            {Array.from({ length: 40 }, (_, i) => (
+                              <View
+                                key={`bottom-${i}`}
+                                style={[
+                                  styles.f1CurbStripe,
+                                  { 
+                                    backgroundColor: i % 2 === 0 ? '#FFFFFF' : '#FF0000'
+                                  }
+                                ]}
+                              />
+                            ))}
+                          </View>
+
+                          {/* Driver 1 (Initiator) - Animated position */}
+                          <View style={[
+                            {
+                              position: 'absolute',
+                              left: (overtakeAnimation.isAnimating || overtakeAnimation.progress > 0)
+                                ? `${overtakeAnimation.carPositions.initiator}%`
+                                : 0, // Always start at left edge (static position)
+                              top: '50%',
+                              marginTop: -45, // Keep original marginTop for consistent positioning
+                              zIndex: (overtakeAnimation.isAnimating || overtakeAnimation.progress > 0) ? 2 : 9,
+                              shadowOffset: { width: 0, height: 2 },
+                              shadowOpacity: (overtakeAnimation.isAnimating || overtakeAnimation.progress > 0) ? 0.3 : 0.7,
+                              shadowRadius: 4,
+                              elevation: (overtakeAnimation.isAnimating || overtakeAnimation.progress > 0) ? 5 : 7,
+                            },
+                            { shadowColor: theme.text }
+                          ]}>
+                            <View style={[
+                              styles.overtakeDriverCircle,
+                              { 
+                                backgroundColor: getDriverTeamColor(selectedOvertake.driver_number),
+                                borderColor: theme.text
+                              }
+                            ]}>
+                              <Text allowFontScaling={false} style={[styles.overtakeDriverInitials, { color: '#fff' }]}>
+                                {initiatorName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* Driver 2 (Participant) - Animated position */}
+                          <View style={[
+                            {
+                              position: 'absolute',
+                              left: (overtakeAnimation.isAnimating || overtakeAnimation.progress > 0)
+                                ? `${overtakeAnimation.carPositions.participant}%`
+                                : 10, // Always start at offset position (static position)
+                              top: '50%',
+                              marginTop: 5, // Keep original marginTop for consistent positioning
+                              zIndex: (overtakeAnimation.isAnimating || overtakeAnimation.progress > 0) ? 1 : 10,
+                              shadowOffset: { width: 0, height: 2 },
+                              shadowOpacity: (overtakeAnimation.isAnimating || overtakeAnimation.progress > 0) ? 0.3 : 0.8,
+                              shadowRadius: 4,
+                              elevation: (overtakeAnimation.isAnimating || overtakeAnimation.progress > 0) ? 4 : 7,
+                            },
+                            { shadowColor: theme.text }
+                          ]}>
+                            <View style={[
+                              styles.overtakeDriverCircle,
+                              { 
+                                backgroundColor: getDriverTeamColor(selectedOvertake.overtake_participant_number || selectedOvertake.driver_number_2),
+                                borderColor: theme.text
+                              }
+                            ]}>
+                              <Text allowFontScaling={false} style={[styles.overtakeDriverInitials, { color: '#fff' }]}>
+                                {participantName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })()}
+                </View>
+
+                {/* Bottom Section: Car Data */}
+                <View style={styles.overtakeCarDataSection}>
+                  {(() => {
+                    // Helper to get driver name from OpenF1 data (same as events)
+                    const getOvertakeDriverName = (driverNumber) => {
+                      const driver = getDriverByNumber(driverNumber);
+                      return driver ? driver.broadcast_name : `#${driverNumber}`;
+                    };
+
+                    const initiatorName = getOvertakeDriverName(selectedOvertake.driver_number);
+                    const participantName = getOvertakeDriverName(selectedOvertake.overtake_participant_number || selectedOvertake.driver_number_2);
+                    
+                    // Use animated values if animation is active, otherwise use cycling data
+                    const currentInitiatorData = overtakeAnimation.isAnimating 
+                      ? overtakeAnimation.currentStats.initiator 
+                      : overtakeCarData.initiator[carDataIndex];
+                    const currentParticipantData = overtakeAnimation.isAnimating 
+                      ? overtakeAnimation.currentStats.participant 
+                      : overtakeCarData.participant[carDataIndex];
+
+                    return (
+                      <>
+                        {/* Initiator Car Data (Left) */}
+                        <View style={styles.overtakeCarDataColumn}>
+                          <View style={styles.overtakeCarDataDriverNameContainer}>
+                            <Text allowFontScaling={false} style={[styles.overtakeCarDataDriverName, { color: theme.text }]}>
+                              {initiatorName}
+                            </Text>
+                            <View style={[styles.overtakeDriverUnderline, { backgroundColor: getDriverTeamColor(selectedOvertake.driver_number) }]} />
+                          </View>
+                          {currentInitiatorData ? (
+                            <View style={styles.overtakeCarDataList}>
+                              <View style={styles.overtakeCarDataRow}>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>Speed</Text>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataValue, { color: theme.text }]}>{currentInitiatorData.speed === '-' || !currentInitiatorData.speed ? 0 : currentInitiatorData.speed} km/h</Text>
+                              </View>
+                              <View style={styles.overtakeCarDataRow}>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>RPM</Text>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataValue, { color: theme.text }]}>{currentInitiatorData.rpm || '-'}</Text>
+                              </View>
+                              <View style={styles.overtakeCarDataRow}>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>Gear</Text>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataValue, { color: theme.text }]}>{currentInitiatorData.n_gear || '-'}</Text>
+                              </View>
+                              <View style={styles.overtakeCarDataRow}>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>Brake</Text>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataValue, { color: currentInitiatorData.brake > 0 ? theme.error : theme.text }]}>{currentInitiatorData.brake || 0}%</Text>
+                              </View>
+                              <View style={styles.overtakeCarDataRow}>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>Tire</Text>
+                                <View style={styles.overtakeCarDataTireValue}>
+                                  {renderTireForCarData(selectedOvertake.driver_number, selectedOvertake.details?.lap_number || 1)}
+                                </View>
+                              </View>
+                            </View>
+                          ) : (
+                            <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>No car data available</Text>
+                          )}
+                        </View>
+
+                        {/* Participant Car Data (Right) */}
+                        <View style={styles.overtakeCarDataColumn}>
+                          <View style={styles.overtakeCarDataDriverNameContainer}>
+                            <Text allowFontScaling={false} style={[styles.overtakeCarDataDriverName, { color: theme.text }]}>
+                              {participantName}
+                            </Text>
+                            <View style={[styles.overtakeDriverUnderline, { backgroundColor: getDriverTeamColor(selectedOvertake.overtake_participant_number || selectedOvertake.driver_number_2) }]} />
+                          </View>
+                          {currentParticipantData ? (
+                            <View style={styles.overtakeCarDataList}>
+                              <View style={styles.overtakeCarDataRow}>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>Speed</Text>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataValue, { color: theme.text }]}>{currentParticipantData.speed === '-' || !currentParticipantData.speed ? 0 : currentParticipantData.speed} km/h</Text>
+                              </View>
+                              <View style={styles.overtakeCarDataRow}>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>RPM</Text>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataValue, { color: theme.text }]}>{currentParticipantData.rpm || '-'}</Text>
+                              </View>
+                              <View style={styles.overtakeCarDataRow}>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>Gear</Text>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataValue, { color: theme.text }]}>{currentParticipantData.n_gear || '-'}</Text>
+                              </View>
+                              <View style={styles.overtakeCarDataRow}>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>Brake</Text>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataValue, { color: currentParticipantData.brake > 0 ? theme.error : theme.text }]}>{currentParticipantData.brake || 0}%</Text>
+                              </View>
+                              <View style={styles.overtakeCarDataRow}>
+                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>Tire</Text>
+                                <View style={styles.overtakeCarDataTireValue}>
+                                  {renderTireForCarData(selectedOvertake.overtake_participant_number || selectedOvertake.driver_number_2, selectedOvertake.details?.lap_number || 1)}
+                                </View>
+                              </View>
+                            </View>
+                          ) : (
+                            <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>No car data available</Text>
+                          )}
+                        </View>
+                      </>
+                    );
+                  })()}
+                </View>
+
+                {/* Animation or data cycling indicator */}
+                {overtakeAnimation.isAnimating ? (
+                  <View style={styles.overtakeDataIndicator}>
+                    <Text allowFontScaling={false} style={[styles.overtakeDataText, { color: theme.textSecondary }]}>
+                      Overtake Animation: {Math.round(overtakeAnimation.progress * 100)}%
+                    </Text>
+                  </View>
+                ) : overtakeAnimation.progress > 0 ? (
+                  <View style={[styles.overtakeDataIndicator, { flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
+                    <Text allowFontScaling={false} style={[styles.overtakeDataText, { color: theme.textSecondary }]}>
+                      Animation Complete
+                    </Text>
+                    <TouchableOpacity 
+                      onPress={() => {
+                        resetAnimation();
+                        setTimeout(() => startOvertakeAnimation(), 300);
+                      }}
+                      style={[styles.replayButton, { backgroundColor: colors.primary }]}
+                    >
+                      <Text allowFontScaling={false} style={[styles.replayButtonText, { color: '#fff' }]}>Replay</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (overtakeCarData.initiator.length > 0 || overtakeCarData.participant.length > 0) && (
+                  <View style={styles.overtakeDataIndicator}>
+                  </View>
+                )}
+
+                {/* Close Button */}
+                <TouchableOpacity onPress={closeOvertakeModal} style={[styles.modalCloseButton, { backgroundColor: colors.primary }]}>
+                  <Text allowFontScaling={false} style={{ color: '#fff', fontWeight: '700' }}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
       </Modal>

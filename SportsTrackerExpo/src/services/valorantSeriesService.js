@@ -1,12 +1,15 @@
 // Service for handling Valorant series API calls
 // Based on the API structure from specific series.txt
 
+import { RibBuildIdService } from './RibBuildIdService';
+
 const API_BASE_URL = 'https://corsproxy.io/?url=https://www.rib.gg';
 const API_V1_BASE_URL = 'https://corsproxy.io/?url=https://be-prod.rib.gg/v1';
 
 export const getSeriesDetails = async (seriesId) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/_next/data/BjlbvsvhOs341OfXajJWv/en/series/${seriesId}.json?seriesId=${seriesId}`);
+    const url = await RibBuildIdService.getNextDataUrl(`/en/series/${seriesId}.json?seriesId=${seriesId}`);
+    const response = await fetch(url);
     const data = await response.json();
     
     if (data.pageProps && data.pageProps.series) {

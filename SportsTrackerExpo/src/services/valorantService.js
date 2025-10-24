@@ -1,8 +1,8 @@
 // Valorant API Service using rib.gg API
 import { BaseCacheService } from './BaseCacheService';
+import { RibBuildIdService } from './RibBuildIdService';
 
 const RIB_API_BASE_URL = 'https://corsproxy.io/?url=https://be-prod.rib.gg/v1';
-const RIB_NEXT_BASE_URL = 'https://corsproxy.io/?url=https://www.rib.gg/_next/data/BjlbvsvhOs341OfXajJWv/en';
 
 class ValorantService extends BaseCacheService {
   // Smart live event detection for Valorant
@@ -87,7 +87,7 @@ export const ribNextApiCall = async (endpoint, params = {}, options = {}) => {
         const queryString = Object.keys(params).length > 0 
             ? '?' + Object.entries(params).map(([key, value]) => `${key}=${value}`).join('&')
             : '';
-        const url = `${RIB_NEXT_BASE_URL}${endpoint}.json${queryString}`;
+        const url = await RibBuildIdService.getNextDataUrl(`/en${endpoint}.json${queryString}`);
         
         const headers = {
             ...ValorantService.getBrowserHeaders(),
