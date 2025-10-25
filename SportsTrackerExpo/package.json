@@ -34,6 +34,7 @@
     "expo-font": "~14.0.9",
     "expo-media-library": "^18.2.0",
     "expo-sharing": "^14.0.7",
+    "expo-splash-screen": "^31.0.10",
     "expo-status-bar": "~3.0.8",
     "expo-updates": "~29.0.12",
     "firebase": "^12.3.0",

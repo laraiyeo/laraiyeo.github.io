@@ -68,9 +68,9 @@ const SplashScreen = ({ onFinish }) => {
     
     // Build the asset key: mode/color
     const assetKey = `${mode}/${colorTheme}`;
-    
-    // Return specific theme assets, fallback to light/blue if not found
-    return assetSets[assetKey] || assetSets['light/blue'];
+
+    // Return specific theme assets, fallback to dark/red if not found
+    return assetSets[assetKey] || assetSets['dark/red'];
   };
 
   const splashAssets = getSplashAssets();

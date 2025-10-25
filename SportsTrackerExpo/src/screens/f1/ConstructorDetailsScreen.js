@@ -415,7 +415,22 @@ const ConstructorDetailsScreen = ({ route }) => {
 
           const isCompleted = endPlusOne ? nowMs > endPlusOne : false;
           const isUpcoming = startMs ? nowMs < startMs : false;
-          const isInProgress = !isCompleted && !isUpcoming;
+          
+          // Special handling for F1 events: if today's date falls within the event dates, it's current
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+          const todayEnd = new Date();
+          todayEnd.setHours(23, 59, 59, 999);
+          const eventStartDate = startMs ? new Date(startMs) : null;
+          const eventEndDate = endMs ? new Date(endMs) : null;
+          
+          // Check if today falls within the event period
+          const isTodayInEventPeriod = eventStartDate && eventEndDate && 
+            (todayStart <= eventEndDate && todayEnd >= eventStartDate);
+          
+          // Override isUpcoming if today is within the event period and event isn't completed
+          const finalIsUpcoming = isCompleted ? false : (isTodayInEventPeriod ? false : isUpcoming);
+          const isInProgress = !isCompleted && !finalIsUpcoming;
 
           // Only keep finished & in-progress races per request
           if (!isCompleted && !isInProgress) return null;

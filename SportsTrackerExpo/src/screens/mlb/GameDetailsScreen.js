@@ -3309,7 +3309,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
             {/* Close Button */}
-            <TouchableOpacity style={styles.modalCloseButton} onPress={closePlayerModal}>
+            <TouchableOpacity style={[styles.modalCloseButton, {backgroundColor: theme.error}]} onPress={closePlayerModal}>
               <Text allowFontScaling={false} style={styles.modalCloseText}>×</Text>
             </TouchableOpacity>
 
@@ -4242,7 +4242,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.mlbPlaysShareCardButton, styles.mlbPlaysShareCardCancelButton, { backgroundColor: theme.surfaceSecondary }]}
+                style={[styles.mlbPlaysShareCardCancelButton, { backgroundColor: theme.surfaceSecondary }]}
                 onPress={() => setShareCardPlay(null)}
               >
                 <Ionicons name="close" size={24} color={theme.text} />
@@ -4456,35 +4456,14 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   <Text style={[styles.mlbPlayerShareCardButtonText, { color: '#fff' }]}>Share</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.mlbPlayerShareCardButton, { backgroundColor: colors.secondary }]}
-                  onPress={async () => {
-                    try {
-                      const uri = await captureRef(mlbPlayerShareCardRef, {
-                        format: 'png',
-                        quality: 2,
-                      });
-                      await Sharing.shareAsync(uri, {
-                        mimeType: 'image/png',
-                        dialogTitle: 'Save Player Stats',
-                      });
-                    } catch (error) {
-                      console.error('Error saving player stats:', error);
-                    }
-                  }}
-                >
-                  <Ionicons name="download-outline" size={24} color="#fff" />
-                  <Text style={[styles.mlbPlayerShareCardButtonText, { color: '#fff' }]}>Save</Text>
-                </TouchableOpacity>
-              </View>
-
               <TouchableOpacity
-                style={[styles.mlbPlayerShareCardButton, styles.mlbPlayerShareCardCancelButton, { backgroundColor: theme.surfaceSecondary }]}
+                style={[styles.mlbPlayerShareCardCancelButton, { backgroundColor: theme.surfaceSecondary }]}
                 onPress={() => setShareCardPlayer(null)}
               >
                 <Ionicons name="close" size={24} color={theme.text} />
                 <Text style={[styles.mlbPlayerShareCardButtonText, { color: theme.text }]}>Cancel</Text>
               </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -5562,7 +5541,7 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: 'white',
     borderRadius: 12,
-    width: '100%',
+    width: '90%',
     maxHeight: '80%',
     padding: 20,
     shadowColor: '#000',
@@ -5586,7 +5565,7 @@ const styles = StyleSheet.create({
   modalCloseText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#666',
+    color: '#fff',
   },
   playerHeader: {
     flexDirection: 'row',
@@ -6536,15 +6515,12 @@ const styles = StyleSheet.create({
   },
   mlbPlaysShareCardActions: {
     marginTop: 20,
-    width: '100%',
     alignItems: 'center',
-    gap: 12,
+    paddingHorizontal: 20,
   },
   mlbPlaysShareCardTopButtons: {
     flexDirection: 'row',
     gap: 12,
-    width: '100%',
-    justifyContent: 'center',
   },
   mlbPlaysShareCardButton: {
     flex: 1,
@@ -6739,13 +6715,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   mlbPlayerShareCardActions: {
-    marginTop: 24,
-    width: '100%',
+    alignItems: 'center',
+    marginTop: 20,
     paddingHorizontal: 20,
   },
   mlbPlayerShareCardTopButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: 12,
     gap: 12,
   },
@@ -6764,7 +6739,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 30,
+    paddingHorizontal: 40,
     borderRadius: 12,
     gap: 8,
   },

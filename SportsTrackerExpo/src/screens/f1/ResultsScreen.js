@@ -92,9 +92,24 @@ const ResultsScreen = ({ route }) => {
           }
 
           // Determine event status based on timestamps
+          // For F1 events, consider them current if we're within the event weekend (from start to end+1day)
           const isCompleted = nowMs > endPlusOneMs;
           const isUpcoming = nowMs < startMs;
-          const isInProgress = !isCompleted && !isUpcoming;
+          
+          // Special handling for F1 events: if today's date falls within the event dates, it's current
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+          const todayEnd = new Date();
+          todayEnd.setHours(23, 59, 59, 999);
+          const eventStartDate = new Date(startMs);
+          const eventEndDate = new Date(endMs);
+          
+          // Check if today falls within the event period
+          const isTodayInEventPeriod = (todayStart <= eventEndDate && todayEnd >= eventStartDate);
+          
+          // Override isUpcoming if today is within the event period and event isn't completed
+          const finalIsUpcoming = isCompleted ? false : (isTodayInEventPeriod ? false : isUpcoming);
+          const isInProgress = !isCompleted && !finalIsUpcoming;
 
           const enriched = {
             ...eventData,
@@ -103,7 +118,7 @@ const ResultsScreen = ({ route }) => {
             countryFlag,
             venueName,
             isCompleted,
-            isUpcoming,
+            isUpcoming: finalIsUpcoming,
             competitionWinners: {},
             winnerName: '',
             winnerTeam: '',

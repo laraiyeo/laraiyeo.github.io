@@ -24,6 +24,8 @@ import { useFavorites } from '../../../context/FavoritesContext';
 import ChatComponent from '../../../components/ChatComponent';
 import { Ionicons } from '@expo/vector-icons';
 import { useStreamingAccess } from '../../../utils/streamingUtils';
+import ViewShot, { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 
 const { width } = Dimensions.get('window');
 
@@ -171,6 +173,19 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
 
   // Streaming access check
   const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
+
+  // Goal Share Card state
+  const [shareCardPlay, setShareCardPlay] = useState(null);
+  const [shareCardPlayerNames, setShareCardPlayerNames] = useState({ scorer: null, assister: null });
+  const [shareCardPlayerStats, setShareCardPlayerStats] = useState({
+    goals: 0,
+    assists: 0,
+    shots: 0,
+    shotsOnTarget: 0,
+    yellowCards: 0,
+    redCards: 0
+  });
+  const goalShareCardRef = useRef(null);
   
   const scrollViewRef = useRef(null);
   const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
@@ -548,6 +563,225 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       }
     }
   }, [showStreamModal]);
+
+  // Goal Share Card - Fetch player statistics when shareCardPlay changes
+  // Fetch player names and stats when shareCardPlay changes
+  useEffect(() => {
+    const fetchPlayerData = async () => {
+      if (!shareCardPlay?.participants) {
+        setShareCardPlayerNames({ scorer: null, assister: null });
+        setShareCardPlayerStats({
+          goals: 0,
+          assists: 0,
+          shots: 0,
+          shotsOnTarget: 0,
+          yellowCards: 0,
+          redCards: 0
+        });
+        return;
+      }
+
+      const names = { scorer: null, assister: null };
+      let stats = {
+        goals: 0,
+        assists: 0,
+        shots: 0,
+        shotsOnTarget: 0,
+        yellowCards: 0,
+        redCards: 0
+      };
+
+      // Find and fetch scorer
+      const scorerParticipant = shareCardPlay.participants.find(p => p.type === "scorer");
+      let scorerData = null;
+      
+      if (scorerParticipant?.athlete?.$ref) {
+        try {
+          const scorerUrl = convertToHttps(scorerParticipant.athlete.$ref);
+          const scorerResponse = await fetch(scorerUrl);
+          if (scorerResponse.ok) {
+            scorerData = await scorerResponse.json();
+            names.scorer = scorerData.displayName || 
+                          scorerData.shortName ||
+                          scorerData.lastName || 
+                          scorerData.fullName ||
+                          'Unknown Player';
+          }
+        } catch (error) {
+          console.error('Error fetching scorer:', error);
+        }
+      }
+
+      // Find and fetch assister
+      const assisterParticipant = shareCardPlay.participants.find(p => p.type === "assister");
+      if (assisterParticipant?.athlete?.$ref) {
+        try {
+          const assisterUrl = convertToHttps(assisterParticipant.athlete.$ref);
+          const assisterResponse = await fetch(assisterUrl);
+          if (assisterResponse.ok) {
+            const assisterData = await assisterResponse.json();
+            names.assister = assisterData.displayName || 
+                            assisterData.shortName ||
+                            assisterData.lastName || 
+                            assisterData.fullName;
+          }
+        } catch (error) {
+          console.error('Error fetching assister:', error);
+        }
+      }
+
+      // Fetch player stats for the scorer (like web scoreboard does)
+      if (scorerData?.id && shareCardPlay.team?.$ref) {
+        try {
+          const teamUrl = convertToHttps(shareCardPlay.team.$ref);
+          const teamResponse = await fetch(teamUrl);
+          
+          if (teamResponse.ok) {
+            const teamData = await teamResponse.json();
+            const teamId = teamData.id;
+            
+            // Construct stats URL like web scoreboard - extract gameId from route params
+            const gameId = route?.params?.gameId;
+            if (gameId) {
+              const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${gameId}/competitions/${gameId}/competitors/${teamId}/roster/${scorerData.id}/statistics/0?lang=en&region=us`;
+              
+              console.log('Fetching player stats from:', statsUrl);
+              const statsResponse = await fetch(convertToHttps(statsUrl));
+              
+              if (statsResponse.ok) {
+                const statsData = await statsResponse.json();
+                console.log('Player stats response:', statsData);
+                
+                // Parse nested structure like web scoreboard
+                if (statsData.splits?.categories) {
+                  const allStats = {};
+                  
+                  statsData.splits.categories.forEach(category => {
+                    if (category.stats && Array.isArray(category.stats)) {
+                      category.stats.forEach(stat => {
+                        if (stat.name && stat.value !== undefined) {
+                          allStats[stat.name] = stat.value;
+                        }
+                      });
+                    }
+                  });
+                  
+                  console.log('All parsed stats:', allStats);
+                  
+                  // Map to display stats like web scoreboard
+                  stats = {
+                    goals: allStats.totalGoals || allStats.goalsScored || 0,
+                    assists: allStats.goalAssists || allStats.assistsProvided || 0,
+                    shots: allStats.totalShots || allStats.shots || allStats.shotsTotal || 0,
+                    shotsOnTarget: allStats.shotsOnTarget || allStats.shotsOnGoal || allStats.shotsOnTargetTotal || 0,
+                    yellowCards: allStats.yellowCards || allStats.yellowCardsReceived || 0,
+                    redCards: allStats.redCards || allStats.redCardsReceived || 0
+                  };
+                  
+                  console.log('Mapped player stats:', stats);
+                }
+              } else {
+                console.warn('Failed to fetch player stats:', statsResponse.status);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching player stats:', error);
+        }
+      }
+
+      setShareCardPlayerNames(names);
+      setShareCardPlayerStats(stats);
+    };
+
+    if (shareCardPlay) {
+      fetchPlayerData();
+    }
+  }, [shareCardPlay, route?.params?.gameId]);
+
+  // Goal Share Card - Handle long press on scoring plays
+  const handleGoalLongPress = useCallback((play) => {
+    console.log('UECL: Goal long press triggered:', play);
+    
+    // Get team context for proper team color and data
+    let homeTeamData = null;
+    let awayTeamData = null;
+    
+    if (gameData?.competitions?.[0]?.competitors) {
+      const competitors = gameData.competitions[0].competitors;
+      homeTeamData = competitors.find(c => c.homeAway === 'home')?.team;
+      awayTeamData = competitors.find(c => c.homeAway === 'away')?.team;
+    } else if (gameData?.homeCompetitor && gameData?.awayCompetitor) {
+      homeTeamData = gameData.homeCompetitor;
+      awayTeamData = gameData.awayCompetitor;
+    }
+    
+    // Fallback to route params
+    if (!homeTeamData) homeTeamData = homeTeam;
+    if (!awayTeamData) awayTeamData = awayTeam;
+    
+    // Determine which team scored and get their color
+    let playTeamId = null;
+    let teamColor = '#007bff'; // Default blue
+    
+    if (play.team?.id) {
+      playTeamId = play.team.id;
+    } else if (play.team?.$ref) {
+      const refParts = play.team.$ref.split('/');
+      const teamIdWithParams = refParts[refParts.length - 1];
+      playTeamId = teamIdWithParams.split('?')[0];
+    } else if (play.participants?.length > 0) {
+      const scorer = play.participants.find(p => p.type === "scorer");
+      if (scorer?.athlete?.team?.id) {
+        playTeamId = scorer.athlete.team.id;
+      } else if (scorer?.athlete?.team?.$ref) {
+        const refParts = scorer.athlete.team.$ref.split('/');
+        const teamIdWithParams = refParts[refParts.length - 1];
+        playTeamId = teamIdWithParams.split('?')[0];
+      }
+    }
+    
+    // Get team color using EuropaConferenceLeagueServiceEnhanced
+    const homeId = homeTeamData?.id || homeTeamData?.team?.id;
+    const awayId = awayTeamData?.id || awayTeamData?.team?.id;
+    
+    let scoringTeam = null;
+    if (String(playTeamId) === String(homeId)) {
+      scoringTeam = homeTeamData;
+      // Try nested team data first, then fallback to direct data
+      const teamForColor = homeTeamData?.team || homeTeamData;
+      teamColor = EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(teamForColor) || '#007bff';
+    } else if (String(playTeamId) === String(awayId)) {
+      scoringTeam = awayTeamData;
+      // Try nested team data first, then fallback to direct data
+      const teamForColor = awayTeamData?.team || awayTeamData;
+      teamColor = EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(teamForColor) || '#007bff';
+    }
+    
+    console.log('UECL: Team color calculation:', { 
+      playTeamId, 
+      homeId, 
+      awayId, 
+      teamColor, 
+      scoringTeam: scoringTeam?.name || scoringTeam?.displayName,
+      homeTeamName: homeTeamData?.name || homeTeamData?.displayName,
+      awayTeamName: awayTeamData?.name || awayTeamData?.displayName
+    });
+    
+    // Enhance play object with context data
+    const enhancedPlay = {
+      ...play,
+      _contextTeams: {
+        homeTeam: homeTeamData,
+        awayTeam: awayTeamData,
+        teamColor: teamColor,
+        playTeamId: playTeamId
+      }
+    };
+    
+    console.log('UECL: Setting share card play with context:', enhancedPlay);
+    setShareCardPlay(enhancedPlay);
+  }, [gameData, homeTeam, awayTeam]);
 
   const loadGameDetails = async (silentUpdate = false) => {
     try {
@@ -3726,6 +3960,8 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
               <TouchableOpacity 
                 style={styles.playHeader}
                 onPress={() => togglePlay(playKey)}
+                onLongPress={isScoring ? () => handleGoalLongPress(play) : undefined}
+                delayLongPress={isScoring ? 500 : undefined}
               >
                 <View style={styles.playMainInfo}>
                   <View style={styles.playTeamsScore}>
@@ -4339,6 +4575,417 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Goal Share Card Modal */}
+      {shareCardPlay && (
+        <Modal
+          visible={!!shareCardPlay}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShareCardPlay(null)}
+        >
+          <View style={[styles.goalShareCardOverlay, { 
+            alignItems: 'center', 
+            justifyContent: 'center' 
+          }]}>
+            <TouchableOpacity 
+              style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+              activeOpacity={1}
+              onPress={() => {
+                console.log('Modal overlay tapped - closing goal card');
+                setShareCardPlay(null);
+              }}
+            />
+            
+            <View style={{ alignItems: 'center' }}>
+              {/* Goal card content - what gets captured */}
+              <ViewShot 
+                ref={goalShareCardRef}
+                options={{
+                  format: 'png',
+                  quality: 1.0,
+                }}
+                style={{ width: 320 }}
+              >
+                <View style={[styles.goalShareCard, { backgroundColor: theme.surface, width: 320 }]}>
+                {shareCardPlay && (() => {
+                  console.log('Rendering goal share card modal with play data:', shareCardPlay);
+                  const play = shareCardPlay;
+                  
+                  // Get team info from the context passed by long press handler
+                  let homeTeamData = play._contextTeams?.homeTeam;
+                  let awayTeamData = play._contextTeams?.awayTeam;
+                  let contextTeamColor = play._contextTeams?.teamColor;
+                  let contextPlayTeamId = play._contextTeams?.playTeamId;
+                  
+                  // Fallbacks if context data is not available
+                  if (!homeTeamData || !awayTeamData) {
+                    // Try route params as fallback
+                    homeTeamData = homeTeamData || homeTeam;
+                    awayTeamData = awayTeamData || awayTeam;
+                    
+                    // Try gameData as additional fallback
+                    if (!homeTeamData && gameData?.competitions?.[0]?.competitors) {
+                      const competitors = gameData.competitions[0].competitors;
+                      homeTeamData = competitors.find(c => c.homeAway === 'home')?.team;
+                      awayTeamData = competitors.find(c => c.homeAway === 'away')?.team;
+                    }
+                    
+                    // Try direct gameData structure
+                    if (!homeTeamData && gameData?.homeCompetitor) {
+                      homeTeamData = gameData.homeCompetitor;
+                      awayTeamData = gameData.awayCompetitor;
+                    }
+                  }
+                  
+                  console.log('Team data from context:', { 
+                    homeTeamData, 
+                    awayTeamData,
+                    contextTeamColor,
+                    contextPlayTeamId,
+                    playContextTeams: play._contextTeams
+                  });
+                  
+                  // Determine which team scored - more robust detection
+                  const homeId = homeTeamData?.id || homeTeamData?.team?.id;
+                  const awayId = awayTeamData?.id || awayTeamData?.team?.id;
+                  
+                  // Use context team ID first, then try multiple fallback methods
+                  let playTeamId = contextPlayTeamId;
+                  
+                  if (!playTeamId) {
+                    if (play.team?.id) {
+                      playTeamId = play.team.id;
+                    } else if (play.team?.$ref) {
+                      // Extract team ID from $ref and remove URL parameters
+                      const refParts = play.team.$ref.split('/');
+                      const teamIdWithParams = refParts[refParts.length - 1];
+                      playTeamId = teamIdWithParams.split('?')[0]; // Remove ?lang=en&region=us
+                    } else if (play.participants?.length > 0) {
+                      // Try to get team from scorer's team
+                      const scorer = play.participants.find(p => p.type === "scorer");
+                      if (scorer?.athlete?.team?.id) {
+                        playTeamId = scorer.athlete.team.id;
+                      } else if (scorer?.athlete?.team?.$ref) {
+                        const refParts = scorer.athlete.team.$ref.split('/');
+                        const teamIdWithParams = refParts[refParts.length - 1];
+                        playTeamId = teamIdWithParams.split('?')[0]; // Remove URL parameters
+                      }
+                    }
+                  }
+                  
+                  let scoringTeam = null;
+                  let scoringTeamSide = '';
+                  let teamAbbr = '';
+                  
+                  console.log('Trying to match team IDs:', { playTeamId, homeId, awayId, fromContext: !!contextPlayTeamId });
+                  
+                  if (String(playTeamId) === String(homeId)) {
+                    scoringTeam = homeTeamData;
+                    scoringTeamSide = 'home';
+                    teamAbbr = homeTeamData?.abbreviation || homeTeamData?.team?.abbreviation || 'HOME';
+                  } else if (String(playTeamId) === String(awayId)) {
+                    scoringTeam = awayTeamData;
+                    scoringTeamSide = 'away';
+                    teamAbbr = awayTeamData?.abbreviation || awayTeamData?.team?.abbreviation || 'AWAY';
+                  }
+                  
+                  // Fallback: use text analysis to determine team
+                  if (!scoringTeam && play.text) {
+                    const homeTeamName = homeTeamData?.name || homeTeamData?.displayName || '';
+                    const awayTeamName = awayTeamData?.name || awayTeamData?.displayName || '';
+                    
+                    console.log('Fallback text analysis:', { homeTeamName, awayTeamName, playText: play.text });
+                    
+                    if (homeTeamName && play.text.includes(homeTeamName)) {
+                      scoringTeam = homeTeamData;
+                      scoringTeamSide = 'home';
+                      teamAbbr = homeTeamData?.abbreviation || 'HOME';
+                    } else if (awayTeamName && play.text.includes(awayTeamName)) {
+                      scoringTeam = awayTeamData;
+                      scoringTeamSide = 'away';
+                      teamAbbr = awayTeamData?.abbreviation || 'AWAY';
+                    } else {
+                      // Advanced fallback - parse team names from play text
+                      // Format: "Goal! Manchester City 5, Burnley 1. Player..."
+                      const textMatch = play.text.match(/Goal!\s+(.+?)\s+\d+,\s+(.+?)\s+\d+\./);
+                      if (textMatch) {
+                        const [, team1Name, team2Name] = textMatch;
+                        console.log('Parsed team names from text:', { team1Name, team2Name });
+                        
+                        // Create mock team objects from text
+                        const team1 = { name: team1Name.trim(), abbreviation: team1Name.split(' ')[0].substring(0, 3).toUpperCase() };
+                        const team2 = { name: team2Name.trim(), abbreviation: team2Name.split(' ')[0].substring(0, 3).toUpperCase() };
+                        
+                        // Determine which team scored based on player mention
+                        if (play.text.includes(`(${team1Name})`)) {
+                          scoringTeam = team1;
+                          scoringTeamSide = 'home';  // Assume first team is home
+                          teamAbbr = team1.abbreviation;
+                          // Set team data for later use
+                          if (!homeTeamData) homeTeamData = team1;
+                          if (!awayTeamData) awayTeamData = team2;
+                        } else if (play.text.includes(`(${team2Name})`)) {
+                          scoringTeam = team2;
+                          scoringTeamSide = 'away';  // Assume second team is away
+                          teamAbbr = team2.abbreviation;
+                          // Set team data for later use
+                          if (!homeTeamData) homeTeamData = team1;
+                          if (!awayTeamData) awayTeamData = team2;
+                        }
+                      }
+                      
+                      // Final fallback - use available team data
+                      if (!scoringTeam) {
+                        scoringTeam = homeTeamData || awayTeamData || { name: 'Unknown Team', abbreviation: 'UNK' };
+                        scoringTeamSide = 'home';
+                        teamAbbr = scoringTeam?.abbreviation || 'UNK';
+                      }
+                    }
+                  }
+                  
+                  console.log('Final scoring team:', { scoringTeam, scoringTeamSide, teamAbbr });
+                  
+                  // Get team color - use context color first
+                  let teamColor = contextTeamColor || '#007bff'; // Use context color or default blue
+                  
+                  if (!contextTeamColor && scoringTeam) {
+                    // Try the existing service if context color not available
+                    teamColor = EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(scoringTeam) || teamColor;
+                    
+                    // Fallback to direct color properties
+                    if (teamColor === '#007bff') {
+                      teamColor = scoringTeam.color || 
+                                 scoringTeam.alternateColor || 
+                                 scoringTeam.team?.color || 
+                                 scoringTeam.team?.alternateColor || 
+                                 '#007bff';
+                    }
+                  }
+                  
+                  const finalTeamColor = teamColor.startsWith('#') ? teamColor : `#${teamColor}`;
+                  const textColor = getContrastColor(finalTeamColor);
+                  
+                  // Get scorer and assister info from state (fetched via useEffect)
+                  const scorerName = shareCardPlayerNames.scorer || 'Loading...';
+                  const assisterName = shareCardPlayerNames.assister;
+                  
+                  console.log('Using player names from state:', { scorerName, assisterName });
+                  
+                  // Get time info
+                  const period = play.period ? play.period.number || 1 : 1;
+                  const clock = play.clock?.displayValue || '';
+                  const periodText = period === 1 ? '1st Half' : '2nd Half';
+                  
+                  // Get current scores
+                  const homeScore = play.homeScore || 0;
+                  const awayScore = play.awayScore || 0;
+                  
+                  // Determine goal type and situation
+                  const playText = play.text || play.shortText || '';
+                  const isOwnGoal = play.ownGoal || playText.toLowerCase().includes('own goal');
+                  const isPenalty = playText.toLowerCase().includes('penalty');
+                  
+                  let goalType = 'Goal';
+                  if (isOwnGoal) {
+                    goalType = 'Own Goal';
+                  } else if (isPenalty) {
+                    goalType = 'Penalty Goal';
+                  }
+                  
+                  // Determine goal situation (opening, equalizer, go-ahead, etc.)
+                  let goalSituation = '';
+                  if (scoringTeamSide === 'home') {
+                    if (homeScore > awayScore) {
+                      if (homeScore - awayScore === 1) {
+                        goalSituation = awayScore === 0 ? 'Opening Goal' : 'Go-ahead Goal';
+                      } else {
+                        goalSituation = 'Extends Lead';
+                      }
+                    } else if (homeScore === awayScore) {
+                      goalSituation = 'Equalizer';
+                    }
+                  } else {
+                    if (awayScore > homeScore) {
+                      if (awayScore - homeScore === 1) {
+                        goalSituation = homeScore === 0 ? 'Opening Goal' : 'Go-ahead Goal';
+                      } else {
+                        goalSituation = 'Extends Lead';
+                      }
+                    } else if (awayScore === homeScore) {
+                      goalSituation = 'Equalizer';
+                    }
+                  }
+                  
+                  // Use real player stats from API (fetched via useEffect)
+                  const playerStats = shareCardPlayerStats;
+                  console.log('Using player stats from API:', playerStats);
+
+                  return (
+                    <View style={[styles.goalCardContent, { backgroundColor: finalTeamColor }]}>
+                      {/* Header: Team logo + Goal text + Close button */}
+                      <View style={styles.goalCardHeader}>
+                        <View style={styles.goalCardHeaderLeft}>
+                          <TeamLogoImage 
+                            teamId={scoringTeam?.id || scoringTeam?.team?.id}
+                            style={styles.goalCardTeamLogo}
+                            isDarkMode={true} // Always use dark logos on dark background
+                          />
+                          <View style={styles.goalCardHeaderText}>
+                            <Text style={[styles.goalCardGoalText, { color: textColor }]}>
+                              ⚽ Goal{goalSituation ? ` • ${goalSituation}` : ''}
+                            </Text>
+                            <Text style={[styles.goalCardTime, { color: textColor }]}>
+                              {clock || periodText}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Mini field - centered */}
+                      <View style={styles.goalCardFieldContainer}>
+                        {(play.fieldPositionX !== undefined && play.fieldPositionY !== undefined) ? (
+                          renderMiniField(
+                            { x: play.fieldPositionX, y: play.fieldPositionY }, 
+                            play.fieldPosition2X !== undefined && play.fieldPosition2Y !== undefined ?
+                              { x: play.fieldPosition2X, y: play.fieldPosition2Y } : null, 
+                            'goal', 
+                            scoringTeamSide, 
+                            finalTeamColor
+                          )
+                        ) : (
+                          // Default field with goal marker
+                          <View style={styles.goalCardMiniField}>
+                            <View style={[styles.miniFieldBackground, { backgroundColor: '#4a5c3a' }]}>
+                              <View style={styles.miniFieldLines}>
+                                <View style={styles.miniFieldBorder} />
+                                <View style={styles.miniFieldCenterLine} />
+                                <View style={styles.miniFieldCenterCircle} />
+                                <View style={[styles.miniFieldGoalBox, styles.miniFieldGoalBoxLeft]} />
+                                <View style={[styles.miniFieldGoalBox, styles.miniFieldGoalBoxRight]} />
+                                <View style={[styles.miniFieldGoal, styles.miniFieldGoalLeft]} />
+                                <View style={[styles.miniFieldGoal, styles.miniFieldGoalRight]} />
+                                
+                                {/* Goal marker */}
+                                <View style={[
+                                  styles.goalMarker,
+                                  scoringTeamSide === 'home' 
+                                    ? { right: 8, top: '45%' } 
+                                    : { left: 8, top: '45%' }
+                                ]}>
+                                  <View style={[styles.goalMarkerDot, { backgroundColor: textColor }]} />
+                                </View>
+                              </View>
+                            </View>
+                          </View>
+                        )}
+                      </View>
+
+                      {/* Scorer name and team */}
+                      <View style={styles.goalCardScorer}>
+                        <Text style={[styles.goalCardScorerName, { color: textColor }]}>
+                          {scorerName} - {teamAbbr}
+                        </Text>
+                        {assisterName && (
+                          <Text style={[styles.goalCardAssist, { color: textColor }]}>
+                            Assist: {assisterName}
+                          </Text>
+                        )}
+                      </View>
+
+                      {/* Score line with team logos */}
+                      <View style={styles.goalCardScoreLine}>
+                        <View style={styles.goalCardScoreTeams}>
+                          <TeamLogoImage 
+                            teamId={homeTeamData?.id || homeTeamData?.team?.id}
+                            style={styles.goalCardScoreLogoSmall}
+                            isDarkMode={true}
+                          />
+                          <Text style={[styles.goalCardScoreText, { color: textColor }]}>
+                            {homeScore} - {awayScore}
+                          </Text>
+                          <TeamLogoImage 
+                            teamId={awayTeamData?.id || awayTeamData?.team?.id}
+                            style={styles.goalCardScoreLogoSmall}
+                            isDarkMode={true}
+                          />
+                        </View>
+                        
+                        <View style={[styles.goalCardBadge, { backgroundColor: 'rgba(0,0,0,0.2)' }]}>
+                          <Text style={[styles.goalCardBadgeText, { color: textColor }]}>
+                            GOAL
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Player stats grid - exactly like web */}
+                      <View style={styles.goalCardStatsGrid}>
+                        <View style={[styles.goalCardStatItem, { backgroundColor: 'rgba(0,0,0,0.2)' }]}>
+                          <Text style={[styles.goalCardStatValue, { color: textColor }]}>{playerStats.goals}</Text>
+                          <Text style={[styles.goalCardStatLabel, { color: textColor }]}>Goals</Text>
+                        </View>
+                        <View style={[styles.goalCardStatItem, { backgroundColor: 'rgba(0,0,0,0.2)' }]}>
+                          <Text style={[styles.goalCardStatValue, { color: textColor }]}>{playerStats.assists}</Text>
+                          <Text style={[styles.goalCardStatLabel, { color: textColor }]}>Assists</Text>
+                        </View>
+                        <View style={[styles.goalCardStatItem, { backgroundColor: 'rgba(0,0,0,0.2)' }]}>
+                          <Text style={[styles.goalCardStatValue, { color: textColor }]}>{playerStats.shots}</Text>
+                          <Text style={[styles.goalCardStatLabel, { color: textColor }]}>Shots</Text>
+                        </View>
+                        <View style={[styles.goalCardStatItem, { backgroundColor: 'rgba(0,0,0,0.2)' }]}>
+                          <Text style={[styles.goalCardStatValue, { color: textColor }]}>{playerStats.shotsOnTarget}</Text>
+                          <Text style={[styles.goalCardStatLabel, { color: textColor }]}>SOT</Text>
+                        </View>
+                        <View style={[styles.goalCardStatItem, { backgroundColor: 'rgba(0,0,0,0.2)' }]}>
+                          <Text style={[styles.goalCardStatValue, { color: textColor }]}>{playerStats.yellowCards}</Text>
+                          <Text style={[styles.goalCardStatLabel, { color: textColor }]}>YC</Text>
+                        </View>
+                        <View style={[styles.goalCardStatItem, { backgroundColor: 'rgba(0,0,0,0.2)' }]}>
+                          <Text style={[styles.goalCardStatValue, { color: textColor }]}>{playerStats.redCards}</Text>
+                          <Text style={[styles.goalCardStatLabel, { color: textColor }]}>RC</Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })()}
+                </View>
+              </ViewShot>
+
+              {/* Action Buttons - Outside ViewShot like MLB */}
+              <View style={styles.goalShareCardActions}>
+                <TouchableOpacity
+                  style={[styles.goalShareCardButton, { backgroundColor: colors.primary }]}
+                  onPress={async () => {
+                    try {
+                      const uri = await captureRef(goalShareCardRef, {
+                        format: 'png',
+                        quality: 2,
+                      });
+                      await Sharing.shareAsync(uri, {
+                        mimeType: 'image/png',
+                        dialogTitle: 'Share Goal',
+                      });
+                    } catch (error) {
+                      console.error('Error sharing goal:', error);
+                    }
+                  }}
+                >
+                  <Ionicons name="share-outline" size={24} color="#fff" />
+                  <Text style={styles.goalShareCardButtonText}>Share</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.goalShareCardButton, { backgroundColor: theme.surfaceSecondary }]}
+                  onPress={() => setShareCardPlay(null)}
+                >
+                  <Ionicons name="close" size={24} color={theme.text} />
+                  <Text style={[styles.goalShareCardButtonText, { color: theme.text }]}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -5667,6 +6314,273 @@ const styles = StyleSheet.create({
   loadMoreText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+
+  // Goal Share Card Styles
+  goalShareCardOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: 20,
+  },
+  goalShareCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    width: 320,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 16,
+  },
+  goalCardContent: {
+    padding: 20,
+    borderRadius: 12,
+    minHeight: 400, // Increased to prevent cutoff
+  },
+  goalShareCardActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    marginTop: 16,
+  },
+  goalShareCardButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    minWidth: 120,
+    justifyContent: 'center',
+  },
+  goalShareCardButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+    color: '#fff',
+  },
+  goalCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  goalCardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  goalCardTeamLogo: {
+    width: 48,
+    height: 48,
+    marginRight: 16,
+  },
+  goalCardHeaderText: {
+    flex: 1,
+  },
+  goalCardGoalText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    lineHeight: 22,
+  },
+  goalCardTime: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 2,
+    opacity: 0.9,
+  },
+  goalCardCloseButton: {
+    padding: 8,
+  },
+  goalCardFieldContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+    marginTop: -15,
+  },
+  goalCardMiniField: {
+    width: 240,
+    height: 120,
+  },
+  miniFieldBackground: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+    position: 'relative',
+  },
+  miniFieldLines: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  miniFieldBorder: {
+    position: 'absolute',
+    top: 2,
+    left: 2,
+    right: 2,
+    bottom: 2,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    borderRadius: 4,
+  },
+  miniFieldCenterLine: {
+    position: 'absolute',
+    left: '50%',
+    top: 2,
+    bottom: 2,
+    width: 2,
+    backgroundColor: '#ffffff',
+    marginLeft: -1,
+  },
+  miniFieldCenterCircle: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    width: 40,
+    height: 40,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    borderRadius: 20,
+    marginTop: -20,
+    marginLeft: -20,
+  },
+  miniFieldGoalBox: {
+    position: 'absolute',
+    top: '25%',
+    bottom: '25%',
+    width: 30,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  miniFieldGoalBoxLeft: {
+    left: 2,
+    borderRightWidth: 2,
+    borderLeftWidth: 0,
+  },
+  miniFieldGoalBoxRight: {
+    right: 2,
+    borderLeftWidth: 2,
+    borderRightWidth: 0,
+  },
+  miniFieldGoal: {
+    position: 'absolute',
+    top: '40%',
+    bottom: '40%',
+    width: 8,
+    backgroundColor: '#ffffff',
+  },
+  miniFieldGoalLeft: {
+    left: 2,
+  },
+  miniFieldGoalRight: {
+    right: 2,
+  },
+  goalMarker: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  goalMarkerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  goalCardScorer: {
+    marginTop: -15,
+    marginBottom: 22.5,
+    alignItems: 'center',
+  },
+  goalCardScorerName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    lineHeight: 28,
+    textAlign: 'center',
+  },
+  goalCardAssist: {
+    fontSize: 16,
+    opacity: 0.9,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  goalCardScoreLine: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  goalCardScoreTeams: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  goalCardScoreLogoSmall: {
+    width: 24,
+    height: 24,
+    marginHorizontal: 8,
+  },
+  goalCardScoreText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  goalCardBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  goalCardBadgeText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  goalCardStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  goalCardStatItem: {
+    width: '31%',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    marginBottom: 8,
+    borderRadius: 12,
+    minHeight: 70,
+  },
+  goalCardStatValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    lineHeight: 24,
+  },
+  goalCardStatLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
+    opacity: 0.8,
+  },
+  goalShareCardActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+    gap: 15,
+  },
+  goalShareCardButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    minWidth: 120,
+    justifyContent: 'center',
+  },
+  goalShareCardButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+    color: '#fff',
   },
 });
 

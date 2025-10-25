@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ExpoSplashScreen from 'expo-splash-screen';
 
 // Import SplashScreen component
 import SplashScreen from './src/components/SplashScreen';
@@ -1568,6 +1569,9 @@ const MainStackNavigator = () => {
   );
 };
 
+// Keep the native splash screen visible until we're ready
+ExpoSplashScreen.preventAutoHideAsync();
+
 const AppContent = () => {
   const [showSplash, setShowSplash] = useState(true);
 
@@ -1614,9 +1618,27 @@ const AppContent = () => {
     checkForUpdates();
   }, []);
 
-  const handleSplashFinish = () => {
+  const handleSplashFinish = async () => {
     setShowSplash(false);
+    // Hide the native splash screen after our custom splash finishes
+    await ExpoSplashScreen.hideAsync();
   };
+
+  // Hide the native splash screen as soon as our app is ready to show custom splash
+  useEffect(() => {
+    const hideSplash = async () => {
+      // Small delay to ensure our custom splash screen is mounted
+      setTimeout(async () => {
+        try {
+          await ExpoSplashScreen.hideAsync();
+        } catch (error) {
+          console.log('Native splash screen already hidden');
+        }
+      }, 100);
+    };
+    
+    hideSplash();
+  }, []);
 
   if (showSplash) {
     return <SplashScreen onFinish={handleSplashFinish} />;
