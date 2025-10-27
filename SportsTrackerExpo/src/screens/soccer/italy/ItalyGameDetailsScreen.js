@@ -1840,6 +1840,9 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
       const isPenalty = play.penaltyKick || 
                        play.text?.toLowerCase().includes('penalty') ||
                        play.shortText?.toLowerCase().includes('penalty');
+      const isFreeKick = play.freeKick || 
+                       play.text?.toLowerCase().includes('free-kick') ||
+                       play.shortText?.toLowerCase().includes('free-kick');
       
       // Format time with appropriate suffix
       let timeWithSuffix = time;
@@ -1847,6 +1850,8 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
         timeWithSuffix = `${time} (OG.)`;
       } else if (isPenalty) {
         timeWithSuffix = `${time} (P.)`;
+      } else if (isFreeKick) {
+        timeWithSuffix = `${time} (FK.)`;
       }
       
       // Parse clock value for proper sorting, especially for extra time
@@ -1902,6 +1907,9 @@ const ItalyGameDetailsScreen = ({ route, navigation }) => {
         // For own goals, shortText might be "Álex Berenguer Own Goal" 
         else if (isOwnGoal) {
           playerName = play.shortText.replace(/\s*(Own|Goal)\s*/gi, '').trim();
+        }
+        else if (isFreeKick) {
+          playerName = play.shortText.replace(/\s*([-] Free[-]Kick|Goal)\s*/gi, '').trim();
         }
         // Regular goals: "Player Name Goal"
         else {

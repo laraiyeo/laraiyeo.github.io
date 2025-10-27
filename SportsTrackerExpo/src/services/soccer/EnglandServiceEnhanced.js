@@ -6,7 +6,7 @@ import React from 'react';
 import { normalizeLeagueCodeForStorage } from '../../utils/TeamIdMapping';
 import { BaseCacheService } from '../BaseCacheService';
 
-const ENGLAND_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1';
+const ENGLAND_BASE_URL = 'https://corsproxy.io/?url=https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1';
 
 // Helper function for general soccer year logic
 // For domestic leagues: July-December uses current year, else previous year
@@ -97,8 +97,8 @@ export const EnglandServiceEnhanced = {
     }
 
     return new Promise((resolve) => {
-      const primaryUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
-      const fallbackUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
+      const primaryUrl = `https://corsproxy.io/?url=https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
+      const fallbackUrl = `https://corsproxy.io/?url=https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
       
       // Try primary URL first
       fetch(primaryUrl, { method: 'HEAD' })
@@ -123,7 +123,7 @@ export const EnglandServiceEnhanced = {
             })
             .catch(() => {
               // Use default soccer ball
-              const defaultLogo = 'https://a.espncdn.com/i/teamlogos/soccer/500/default-team.png';
+              const defaultLogo = 'https://corsproxy.io/?url=https://a.espncdn.com/i/teamlogos/soccer/500/default-team.png';
               this.logoCache.set(teamId, defaultLogo);
               resolve(defaultLogo);
             });
@@ -223,7 +223,7 @@ export const EnglandServiceEnhanced = {
     const fetchPromises = allCompetitionsToCheck.map(async (competition) => {
       try {
         console.log(`Starting fetch for ${competition.code}...`);
-        const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition.code}/scoreboard?dates=${dateRange}`, { 
+        const response = await fetch(`https://corsproxy.io/?url=https://site.api.espn.com/apis/site/v2/sports/soccer/${competition.code}/scoreboard?dates=${dateRange}`, { 
           headers: this.getBrowserHeaders() 
         });
         
@@ -306,7 +306,7 @@ export const EnglandServiceEnhanced = {
           // Try each England competition to find the right one
           for (const comp of ['eng.1', 'eng.fa', 'eng.league_cup']) {
             const headers = this.getBrowserHeaders();
-            const coreResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${comp}/events/${gameId}?lang=en&region=us`, { headers });
+            const coreResponse = await fetch(`https://corsproxy.io/?url=https://sports.core.api.espn.com/v2/sports/soccer/leagues/${comp}/events/${gameId}?lang=en&region=us`, { headers });
             if (coreResponse.ok) {
               const coreData = await coreResponse.json();
               // Try to read season.$ref or seasonType.$ref which include the league code
@@ -343,7 +343,7 @@ export const EnglandServiceEnhanced = {
       const headers = this.getBrowserHeaders();
       for (const competition of competitionOrder) {
         try {
-          const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${gameId}`, { headers });
+          const response = await fetch(`https://corsproxy.io/?url=https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${gameId}`, { headers });
           if (response.ok) {
             const data = await response.json();
             // For England competitions, always use our mapping instead of API-provided names
@@ -368,7 +368,7 @@ export const EnglandServiceEnhanced = {
       const leagueCode = 'eng.1'; // Premier League
       
       // Use the same CDN endpoint that works in soccer web app
-      const STANDINGS_URL = `https://cdn.espn.com/core/soccer/table?xhr=1&league=${leagueCode}&season=${currentSeason}`;
+      const STANDINGS_URL = `https://corsproxy.io/?url=https://cdn.espn.com/core/soccer/table?xhr=1&league=${leagueCode}&season=${currentSeason}`;
       
       console.log('Fetching standings from:', STANDINGS_URL);
       const headers = this.getBrowserHeaders();
@@ -412,7 +412,7 @@ export const EnglandServiceEnhanced = {
     const cacheKey = `england_team_${teamId}`;
     return this.getCachedData(cacheKey, async () => {
       const headers = this.getBrowserHeaders();
-      const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/teams/${teamId}`, { headers });
+      const response = await fetch(`https://corsproxy.io/?url=https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/teams/${teamId}`, { headers });
       const data = await response.json();
       return data;
     }, 'team');
@@ -423,7 +423,7 @@ export const EnglandServiceEnhanced = {
     const cacheKey = `england_player_${playerId}`;
     return this.getCachedData(cacheKey, async () => {
       const headers = this.getBrowserHeaders();
-      const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/players/${playerId}`, { headers });
+      const response = await fetch(`https://corsproxy.io/?url=https://site.api.espn.com/apis/site/v2/sports/soccer/players/${playerId}`, { headers });
       const data = await response.json();
       return data;
     }, 'player');
@@ -558,7 +558,7 @@ export const EnglandServiceEnhanced = {
       name: 'England',
       fullName: 'Premier League',
       country: 'England',
-      flag: 'https://a.espncdn.com/i/teamlogos/countries/500/eng.png',
+      flag: 'https://corsproxy.io/?url=https://a.espncdn.com/i/teamlogos/countries/500/eng.png',
       apiCode: 'eng.1'
     };
   },
