@@ -4658,6 +4658,15 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
                       </Text>
                     </View>
                   </View>
+                  <TouchableOpacity 
+                    style={[styles.playerCloseButton, { backgroundColor: theme.error || '#FF3B30' }]}
+                    onPress={() => {
+                      setPlayerPopupVisible(false);
+                      setSelectedPlayer(null);
+                    }}
+                  >
+                    <Text allowFontScaling={false} style={styles.playerCloseText}>×</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
   
@@ -6836,7 +6845,7 @@ const styles = StyleSheet.create({
   },
   goalCardContent: {
     padding: 20,
-    borderRadius: 12,
+    borderRadius: 0,
     minHeight: 400, // Increased to prevent cutoff
   },
   goalShareCardActions: {
@@ -7122,6 +7131,7 @@ const styles = StyleSheet.create({
   playerHeaderInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   playerModalCircle: {
     width: 50,
@@ -7130,6 +7140,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
+  },
+  playerCloseButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  playerCloseText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    lineHeight: 16,
   },
   playerModalNumber: {
     fontSize: 18,
@@ -7199,7 +7227,6 @@ const styles = StyleSheet.create({
   statBox: {
     width: '32%',
     height: '31%',
-    aspectRatio: 1.1,
     padding: 6,
     alignItems: 'center',
     justifyContent: 'center',
