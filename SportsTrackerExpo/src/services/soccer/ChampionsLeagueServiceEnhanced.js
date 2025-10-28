@@ -13,7 +13,7 @@ const CHAMPIONS_LEAGUE_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports
 const getChampionsLeagueYear = () => {
   const now = new Date();
   const currentMonth = now.getMonth() + 1; // getMonth() returns 0-11
-  return (currentMonth >= 7 && currentMonth <= 12) ? now.getFullYear() + 1 : now.getFullYear();
+  return (currentMonth >= 7 && currentMonth <= 12) ? now.getFullYear() : now.getFullYear() - 1;
 };
 
 // Competition configurations

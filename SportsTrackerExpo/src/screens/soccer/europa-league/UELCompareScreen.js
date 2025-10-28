@@ -23,14 +23,20 @@ const convertToHttps = (url) => {
   return url;
 };
 
+const getSoccerYear = () => {
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1; // getMonth() returns 0-11
+  return (currentMonth >= 7 && currentMonth <= 12) ? now.getFullYear() : now.getFullYear() - 1;
+};
+
 const UECLCompareScreen = ({ navigation, route }) => {
   const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
   
   // State for player comparison
   const [player1, setPlayer1] = useState(null);
   const [player2, setPlayer2] = useState(null);
-  const [player1Year, setPlayer1Year] = useState(new Date().getFullYear());
-  const [player2Year, setPlayer2Year] = useState(new Date().getFullYear());
+  const [player1Year, setPlayer1Year] = useState(getSoccerYear());
+  const [player2Year, setPlayer2Year] = useState(getSoccerYear());
   const [comparisonStats, setComparisonStats] = useState(null);
   const [loading, setLoading] = useState(false);
   
@@ -49,7 +55,7 @@ const UECLCompareScreen = ({ navigation, route }) => {
   const [allEuropaLeaguePlayers, setAllEuropaLeaguePlayers] = useState([]);
 
   // Generate year options
-  const currentYear = new Date().getFullYear();
+  const currentYear = getSoccerYear();
   const startYear = 2021;
   const yearOptions = Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i);
 

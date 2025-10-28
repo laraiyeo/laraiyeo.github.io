@@ -6406,13 +6406,8 @@ const styles = StyleSheet.create({
   mlbPlaysShareCard: {
     width: 380,
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: 0,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
   mlbPlaysShareCardTopSection: {
     flexDirection: 'row',
@@ -6629,13 +6624,7 @@ const styles = StyleSheet.create({
   // MLB Player Share Card Styles
   mlbPlayerShareCard: {
     width: 340,
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 10,
+    borderRadius: 0,
   },
   mlbPlayerShareCardHeader: {
     flexDirection: 'row',

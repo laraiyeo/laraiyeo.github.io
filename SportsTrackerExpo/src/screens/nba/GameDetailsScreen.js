@@ -5031,14 +5031,9 @@ const styles = StyleSheet.create({
   // Shareable Card Styles
   shareCard: {
     width: 350,
-    borderRadius: 20,
+    borderRadius: 0,
     padding: 20,
     marginHorizontal: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 10,
   },
   shareCardHeader: {
     flexDirection: 'row',

@@ -14,6 +14,20 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import NFLDataService from '../../services/NFLDataService';
 
+const getNFLYear = () => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const month = now.getMonth(); // 0-based: 0=January, 6=July, 11=December
+  
+  // If current month is July (6) to December (11), use current year
+  if (month >= 6) { // July to December
+    return currentYear;
+  }
+  
+  // Otherwise use previous year (January to June)
+  return currentYear - 1;
+};
+
 const CompareScreen = ({ route }) => {
   const { sport } = route.params;
   const { theme, colors, isDarkMode, getTeamLogoUrl } = useTheme();
@@ -21,8 +35,8 @@ const CompareScreen = ({ route }) => {
   // State for player comparison
   const [player1, setPlayer1] = useState(null);
   const [player2, setPlayer2] = useState(null);
-  const [player1Year, setPlayer1Year] = useState(new Date().getFullYear());
-  const [player2Year, setPlayer2Year] = useState(new Date().getFullYear());
+  const [player1Year, setPlayer1Year] = useState(getNFLYear());
+  const [player2Year, setPlayer2Year] = useState(getNFLYear());
   const [comparisonStats, setComparisonStats] = useState(null);
   const [loading, setLoading] = useState(false);
   
@@ -42,7 +56,7 @@ const CompareScreen = ({ route }) => {
   const [allNFLPlayers, setAllNFLPlayers] = useState([]);
 
   // Generate year options
-  const currentYear = new Date().getFullYear();
+  const currentYear = getNFLYear();
   const startYear = 2020;
   const yearOptions = Array.from({length: currentYear - startYear + 1}, (_, i) => currentYear - i);
 

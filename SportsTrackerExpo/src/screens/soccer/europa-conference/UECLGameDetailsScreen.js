@@ -160,6 +160,8 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
   });
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [playerPopupVisible, setPlayerPopupVisible] = useState(false);
+  const [playerGameStats, setPlayerGameStats] = useState(null);
+  const [loadingPlayerStats, setLoadingPlayerStats] = useState(false);
   const [statsData, setStatsData] = useState(null);
   const [loadingMatchStats, setLoadingMatchStats] = useState(false);
   
@@ -937,6 +939,105 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       homeCompetitor,
       awayCompetitor
     };
+  };
+
+  const fetchPlayerGameStats = async (playerId, teamId) => {
+    if (!playerId || !teamId) {
+      console.error('Missing playerId or teamId:', { playerId, teamId });
+      return;
+    }
+    
+    setLoadingPlayerStats(true);
+    setPlayerGameStats(null);
+    
+    try {
+      const gameId = route?.params?.gameId;
+      if (!gameId) {
+        console.error('No gameId available for player stats');
+        return;
+      }
+      
+      const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${gameId}/competitions/${gameId}/competitors/${teamId}/roster/${playerId}/statistics/0?lang=en&region=us`;
+      
+      console.log('Fetching player game stats from:', statsUrl);
+      console.log('Parameters:', { gameId, teamId, playerId });
+      
+      const response = await fetch(convertToHttps(statsUrl));
+      
+      console.log('API Response status:', response.status);
+      
+      if (response.ok) {
+        const statsData = await response.json();
+        console.log('Player game stats response:', JSON.stringify(statsData, null, 2));
+        
+        // Parse the stats structure
+        let parsedStats = {
+          goals: 0,
+          assists: 0,
+          shots: 0,
+          shotsOnTarget: 0,
+          yellowCards: 0,
+          redCards: 0,
+          totalPasses: 0,
+          foulsDrawn: 0,
+          accuratePasses: 0,
+          tackles: 0,
+          clearances: 0,
+          minutes: 0,
+          saves: 0,
+          goalsConceded: 0
+        };
+        
+        if (statsData.splits?.categories) {
+          const allStats = {};
+          
+          statsData.splits.categories.forEach(category => {
+            console.log('Processing category:', category.name || 'unnamed');
+            if (category.stats && Array.isArray(category.stats)) {
+              category.stats.forEach(stat => {
+                if (stat.name && stat.value !== undefined) {
+                  allStats[stat.name] = stat.value;
+                  console.log(`Stat: ${stat.name} = ${stat.value}`);
+                }
+              });
+            }
+          });
+          
+          console.log('All parsed player stats:', allStats);
+          
+          // Map to display stats - try multiple possible field names  
+          parsedStats = {
+            goals: allStats.totalGoals || 0,
+            assists: allStats.goalAssists || 0,
+            shots: allStats.totalShots || 0,
+            shotsOnTarget: allStats.shotsOnTarget || 0,
+            yellowCards: allStats.yellowCards || 0,
+            redCards: allStats.redCards || allStats.redCardsReceived || 0,
+            totalPasses: allStats.totalPasses || 0,
+            foulsDrawn: allStats.foulsDrawn || allStats.foulsWon || 0,
+            accuratePasses: allStats.accuratePasses || 0,
+            tackles: allStats.totalTackles || 0,
+            clearances: allStats.totalClearance || 0,
+            minutes: allStats.minutes || 0,
+            saves: allStats.saves || allStats.totalSaves || 0,
+            goalsConceded: allStats.goalsConceded || allStats.goalsAllowed || 0
+          };
+        } else {
+          console.log('No splits.categories found in response');
+        }
+        
+        setPlayerGameStats(parsedStats);
+        console.log('Final processed player game stats:', parsedStats);
+      } else {
+        console.warn('Failed to fetch player game stats:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.log('Error response body:', errorText);
+      }
+    } catch (error) {
+      console.error('Error fetching player game stats:', error);
+    } finally {
+      setLoadingPlayerStats(false);
+    }
   };
 
   // Toggle function for plays (track by stable play key/id instead of index)
@@ -3105,7 +3206,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     const yellowCard = stats["YC"] === "1";
     const redCard = stats["RC"] === "1";
 
-    const handlePlayerPress = () => {
+    const handlePlayerPress = async () => {
       setSelectedPlayer({
         ...player,
         stats,
@@ -3116,6 +3217,13 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         redCard
       });
       setPlayerPopupVisible(true);
+      
+      // Fetch player game stats - use athlete.id instead of player.id
+      const athleteId = player.athlete?.id || player.id;
+      console.log('Fetching stats for athlete ID:', athleteId, 'team ID:', teamId);
+      if (athleteId && teamId) {
+        await fetchPlayerGameStats(athleteId, teamId);
+      }
     };
 
     return (
@@ -3184,17 +3292,25 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
             const yellowCard = stats["YC"] === "1";
             const redCard = stats["RC"] === "1";
 
-            const handleSubPress = () => {
+            const handleSubPress = async () => {
+              const subTeamId = teamType === 'home' ? gameData?.homeCompetitor?.team?.id : gameData?.awayCompetitor?.team?.id;
               setSelectedPlayer({
                 ...sub,
                 stats,
                 teamLogo,
-                teamId: teamType === 'home' ? gameData?.homeCompetitor?.team?.id : gameData?.awayCompetitor?.team?.id,
+                teamId: subTeamId,
                 teamType, // Add team type for color determination
                 yellowCard,
                 redCard
               });
               setPlayerPopupVisible(true);
+              
+              // Fetch player game stats - use athlete.id instead of sub.id
+              const athleteId = sub.athlete?.id || sub.id;
+              console.log('Fetching stats for sub athlete ID:', athleteId, 'team ID:', subTeamId);
+              if (athleteId && subTeamId) {
+                await fetchPlayerGameStats(athleteId, subTeamId);
+              }
             };
             
             return (
@@ -4283,92 +4399,514 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       </View>
     );
   };
-
-  const renderPlayerPopup = () => {
-    if (!selectedPlayer) return null;
-    
-    const name = selectedPlayer.athlete?.displayName || selectedPlayer.athlete?.lastName || 'Unknown Player';
-    const jersey = selectedPlayer.jersey || 'N/A';
-    const stats = selectedPlayer.stats || {};
-    const yellowCard = selectedPlayer.yellowCard;
-    const redCard = selectedPlayer.redCard;
-    const playerNameColor = redCard ? '#ff0000' : yellowCard ? '#ffff00' : theme.text;
-    const isGoalkeeper = selectedPlayer.position?.abbreviation === "G";
-
-    // Get team color based on team type
-    const competition = gameData.header?.competitions?.[0];
-    const homeTeam = gameData.homeCompetitor || competition?.competitors?.find(comp => comp.homeAway === 'home');
-    const awayTeam = gameData.awayCompetitor || competition?.competitors?.find(comp => comp.homeAway === 'away');
-    
-    let teamColor = '#000'; // Default black
-    if (selectedPlayer.teamType === 'home') {
-      teamColor = EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(homeTeam?.team) || '#007bff';
-    } else if (selectedPlayer.teamType === 'away') {
-      teamColor = EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(awayTeam?.team) || '#28a745';
-    }
-
-    // Ensure the color has a # prefix
-    const finalTeamColor = (teamColor && typeof teamColor === 'string') ? 
-      (teamColor.startsWith('#') ? teamColor : `#${teamColor}`) : '#000';
-
-    return (
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={playerPopupVisible}
-        onRequestClose={() => setPlayerPopupVisible(false)}
-      >
-        <TouchableOpacity 
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setPlayerPopupVisible(false)}
-        >
-          <TouchableOpacity
-            style={[
-              styles.playerHoverCard, 
-              { 
-                backgroundColor: theme.surface,
-                shadowColor: finalTeamColor // Use team color for shadow
-              }
-            ]}
-            activeOpacity={1}
-            onPress={() => {}} // Prevent modal close when tapping on card
-          >
-            <TeamLogoImage 
-              teamId={selectedPlayer.teamId}
-              isDarkMode={isDarkMode}
-              style={styles.hoverTeamLogo}
-            />
-            <View style={styles.hoverPlayerName}>
-              <Text allowFontScaling={false} style={[styles.hoverJersey, { color: theme.textSecondary }]}>
-                {jersey}
-              </Text>
-              <Text allowFontScaling={false} style={[styles.hoverName, { color: playerNameColor }]}>
-                {name}
-              </Text>
-            </View>
+  
+    const renderPlayerShotsField = (player, teamColor) => {
+      if (!player || !playsData) {
+        return (
+          <View style={[styles.halfField, { borderColor: '#fff' }]}>
+            {/* Goal area */}
+            <View style={[styles.goal, { backgroundColor: '#fff' }]} />
+            {/* Goal area */}
+            <View style={[styles.goalArea, { borderColor: '#fff' }]} />
+            {/* Penalty area */}
+            <View style={[styles.penaltyArea, { borderColor: '#fff'  }]} />
+            {/* Center circle (half) */}
+            <View style={[styles.centerCircleHalf, { borderColor: '#fff' }]} />
+          </View>
+        );
+      }
+  
+      // Get player's shots from plays data
+      const playerShots = [];
+      const playerId = player.athlete?.id || player.id;
+  
+      if (playerId && Array.isArray(playsData)) {
+        playsData.forEach(play => {
+          // Check if this play is a shot/goal based on type
+          const isShot = play.type?.text?.toLowerCase().includes('shot') || 
+                        play.type?.text?.toLowerCase().includes('goal') ||
+                        play.type?.text?.toLowerCase().includes('attempt') ||
+                        play.scoringPlay;
+  
+          if (isShot && play.participants && 
+              (play.fieldPositionX !== undefined && play.fieldPositionY !== undefined &&
+               play.fieldPosition2X !== undefined && play.fieldPosition2Y !== undefined)) {
             
-            {isGoalkeeper ? (
-              <View style={styles.playerStatsContainer}>
-                <Text allowFontScaling={false} style={[styles.playerStat, { color: theme.text }]}>
-                  SV: {stats["SV"] || "0"} | GA: {stats["GA"] || "0"}
-                </Text>
+            // For goals, look for "scorer" type participant
+            // For shots, look for order 1 participant (the shooter)
+            let shooterParticipant = null;
+            
+            if (play.scoringPlay) {
+              // For goals, find the scorer
+              shooterParticipant = play.participants.find(p => p.type === "scorer");
+            } else {
+              // For shots, find the participant with order 1
+              shooterParticipant = play.participants.find(p => p.order === 1);
+            }
+  
+            if (shooterParticipant && shooterParticipant.athlete?.$ref) {
+              // Extract athlete ID from the $ref URL
+              const athleteIdMatch = shooterParticipant.athlete.$ref.match(/athletes\/(\d+)/);
+              const participantAthleteId = athleteIdMatch ? athleteIdMatch[1] : null;
+              
+              console.log(`Comparing player ID ${playerId} with participant ID ${participantAthleteId}`);
+              
+              if (participantAthleteId && (participantAthleteId === String(playerId) || participantAthleteId === playerId)) {
+                // Skip shots with (0,0) coordinates
+                if (play.fieldPositionX === 0 && play.fieldPositionY === 0) {
+                  console.log(`Skipping shot with (0,0) coordinates`);
+                  return;
+                }
+                
+                playerShots.push({
+                  x: play.fieldPositionX,
+                  y: play.fieldPositionY,
+                  x2: play.fieldPosition2X,
+                  y2: play.fieldPosition2Y,
+                  isGoal: play.scoringPlay || false,
+                  text: play.text || play.shortText || '',
+                  clock: play.clock?.displayValue || '',
+                  type: play.type?.text || ''
+                });
+                console.log(`Found shot for player: ${play.type?.text} at ${play.clock?.displayValue}`);
+              }
+            }
+          }
+        });
+      }
+  
+      console.log(`Found ${playerShots.length} shots for player ${player.athlete?.displayName}`);
+  
+      // Field dimensions
+      const FIELD_WIDTH = 320;
+      const FIELD_HEIGHT = 180;
+  
+      // Coordinate conversion - ESPN field to half-field display
+      const convertCoordinates = (shot) => {
+        const espnX = shot.x; // 0 to 1
+        const espnY = shot.y; // 0 to 1
+        
+        // Direct mapping without margins:
+        // ESPN Y (0-1) maps to field width (left-right) 0% to 100%
+        // ESPN X (0-1) maps to field height 0% to 100%
+        const leftPercent = espnY * 100; // 0% to 100% horizontally
+        const topPercent = espnX * 100; // 0% to 100% vertically
+  
+        console.log(`Shot coordinates: ESPN(${espnX}, ${espnY}) → Screen(${leftPercent}%, ${topPercent}%)`);
+  
+        return {
+          left: leftPercent,
+          top: topPercent
+        };
+      };
+  
+      // Convert second coordinates if available
+      const convertSecondCoordinates = (shot) => {
+        if (shot.x2 === undefined || shot.y2 === undefined || 
+            (shot.x2 === 0 && shot.y2 === 0)) return null;
+        
+        const espnX2 = shot.x2;
+        const espnY2 = shot.y2;
+        
+        const leftPercent2 = espnY2 * 100; // 0% to 100% horizontally  
+        const topPercent2 = espnX2 * 100; // 0% to 100% vertically
+  
+        console.log(`Shot end coordinates: ESPN(${espnX2}, ${espnY2}) → Screen(${leftPercent2}%, ${topPercent2}%)`);
+  
+        return {
+          left: leftPercent2,
+          top: topPercent2
+        };
+      };
+  
+      // Sort shots so goals appear on top
+      const sortedShots = [...playerShots].sort((a, b) => a.isGoal ? 1 : -1);
+  
+      return (
+        <View style={[styles.halfField, { borderColor: theme.border }]}>
+          {/* Goal area */}
+          <View style={[styles.goal, { backgroundColor: '#fff' }]} />
+          {/* Goal area */}
+          <View style={[styles.goalArea, { borderColor: '#fff' }]} />
+          {/* Penalty area */}
+          <View style={[styles.penaltyArea, { borderColor: '#fff' }]} />
+          {/* Center circle (half) */}
+          <View style={[styles.centerCircleHalf, { borderColor: '#fff' }]} />
+          
+          {/* SVG for trajectory lines */}
+          {FIELD_WIDTH && FIELD_HEIGHT && (
+            <Svg
+              width={FIELD_WIDTH}
+              height={FIELD_HEIGHT}
+              style={{ position: 'absolute', left: 0, top: 0, zIndex: 0 }}
+              pointerEvents="none"
+            >
+              {sortedShots.map((shot, index) => {
+                const startPos = convertCoordinates(shot);
+                const endPos = convertSecondCoordinates(shot);
+                
+                if (endPos) {
+                  const x1 = (startPos.left / 100) * FIELD_WIDTH;
+                  const y1 = (startPos.top / 100) * FIELD_HEIGHT;
+                  const x2 = (endPos.left / 100) * FIELD_WIDTH;
+                  const y2 = (endPos.top / 100) * FIELD_HEIGHT;
+                  
+                  return (
+                    <Line
+                      key={`line-${index}`}
+                      x1={x1}
+                      y1={y1}
+                      x2={x2}
+                      y2={y2}
+                      stroke={teamColor}
+                      strokeWidth={2}
+                      strokeOpacity={0.7}
+                    />
+                  );
+                }
+                return null;
+              }).filter(Boolean)}
+            </Svg>
+          )}
+  
+          {/* Shot markers */}
+          {sortedShots.map((shot, index) => {
+            const startPos = convertCoordinates(shot);
+            const endPos = convertSecondCoordinates(shot);
+            
+            // Convert percentages to absolute positions
+            const startLeft = (startPos.left / 100) * FIELD_WIDTH;
+            const startTop = (startPos.top / 100) * FIELD_HEIGHT;
+            const endLeft = endPos ? (endPos.left / 100) * FIELD_WIDTH : 0;
+            const endTop = endPos ? (endPos.top / 100) * FIELD_HEIGHT : 0;
+            
+            return (
+              <View key={`shot-${index}`}>
+                {/* Start position marker (player position) */}
+                <View
+                  style={[
+                    styles.shotMarker,
+                    {
+                      left: startLeft,
+                      top: startTop,
+                      backgroundColor: shot.isGoal ? teamColor : 'white',
+                      borderColor: teamColor,
+                      borderWidth: shot.isGoal ? 0 : 2,
+                      zIndex: shot.isGoal ? 10 : 5,
+                    }
+                  ]}
+                />
+                
+                {/* End position marker (ball destination) */}
+                {endPos && (
+                  <View
+                    style={[
+                      styles.shotMarker,
+                      {
+                        left: endLeft,
+                        top: endTop,
+                        backgroundColor: shot.isGoal ? teamColor : 'white',
+                        borderColor: teamColor,
+                        borderWidth: shot.isGoal ? 0 : 2,
+                        zIndex: shot.isGoal ? 10 : 5,
+                      }
+                    ]}
+                  />
+                )}
               </View>
-            ) : (
-              <View style={styles.playerStatsContainer}>
-                <Text allowFontScaling={false} style={[styles.playerStat, { color: theme.text }]}>
-                  Goals: {stats["G"] || "0"} | Assists: {stats["A"] || "0"}
-                </Text>
-                <Text allowFontScaling={false} style={[styles.playerStat, { color: theme.text }]}>
-                  Shots: {stats["SH"] || "0"} | SOG: {stats["ST"] || "0"}
-                </Text>
+            );
+          })}
+        </View>
+      );
+    };
+  
+    const renderPlayerPopup = () => {
+      if (!selectedPlayer) return null;
+      
+      const name = selectedPlayer.athlete?.displayName || selectedPlayer.athlete?.lastName || 'Unknown Player';
+      const jersey = selectedPlayer.jersey || 'N/A';
+      const stats = selectedPlayer.stats || {};
+      const yellowCard = selectedPlayer.yellowCard;
+      const redCard = selectedPlayer.redCard;
+      const playerNameColor = redCard ? theme.error : yellowCard ? theme.warning : theme.text;
+      const isGoalkeeper = selectedPlayer.position?.abbreviation === "G";
+  
+      // Get team info and color
+      const competition = gameData.header?.competitions?.[0];
+      const homeTeamData = gameData.homeCompetitor || competition?.competitors?.find(comp => comp.homeAway === 'home');
+      const awayTeamData = gameData.awayCompetitor || competition?.competitors?.find(comp => comp.homeAway === 'away');
+      
+      let teamColor = '#000'; // Default black
+      if (selectedPlayer.teamType === 'home') {
+        teamColor = EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(homeTeamData?.team) || '#007bff';
+      } else if (selectedPlayer.teamType === 'away') {
+        teamColor = EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(awayTeamData?.team) || '#28a745';
+      }
+  
+      // Ensure the color has a # prefix
+      const finalTeamColor = (teamColor && typeof teamColor === 'string') ? 
+        (teamColor.startsWith('#') ? teamColor : `#${teamColor}`) : '#000';
+  
+      // Get current match scores
+      const homeScore = getTeamScore('home');
+      const awayScore = getTeamScore('away');
+      
+      // Get team names
+      const homeTeamName = homeTeamData?.team?.displayName || homeTeamData?.team?.name || 'Home';
+      const awayTeamName = awayTeamData?.team?.displayName || awayTeamData?.team?.name || 'Away';
+      
+      return (
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={playerPopupVisible}
+          onRequestClose={() => {
+            setPlayerPopupVisible(false);
+            setPlayerGameStats(null);
+          }}
+        >
+          <View style={styles.enhancedModalOverlay}>
+            <TouchableOpacity 
+              style={styles.enhancedModalBackground}
+              activeOpacity={1}
+              onPress={() => {
+                setPlayerPopupVisible(false);
+                setPlayerGameStats(null);
+              }}
+            />
+            
+            <View style={[styles.enhancedPlayerModal, { backgroundColor: theme.surface }]}>
+              {/* Header Section with Player Info */}
+              <View style={styles.playerModalHeader}>
+                {/* Player Circle and Info */}
+                <View style={styles.playerHeaderInfo}>
+                  <View style={[styles.playerModalCircle, { backgroundColor: finalTeamColor }]}>
+                    <Text allowFontScaling={false} style={[styles.playerModalNumber, { color: 'white' }]}>
+                      {jersey}
+                    </Text>
+                  </View>
+                  <View style={styles.playerModalNameSection}>
+                    <Text allowFontScaling={false} style={[styles.playerModalName, { color: playerNameColor }]}>
+                      {name}
+                    </Text>
+                    <View style={styles.playerTeamInfo}>
+                      <TeamLogoImage 
+                        teamId={selectedPlayer.teamId}
+                        style={styles.playerModalTeamLogo}
+                        isDarkMode={isDarkMode}
+                      />
+                      <Text allowFontScaling={false} style={[styles.playerTeamName, { color: theme.textSecondary }]}>
+                        {selectedPlayer.teamType === 'home' ? homeTeamName : awayTeamName}
+                      </Text>
+                      <Text allowFontScaling={false} style={[styles.playerPosition, { color: theme.textSecondary }]}>
+                        • {selectedPlayer.position?.abbreviation || 'N/A'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
               </View>
-            )}
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
-    );
-  };
+  
+              {/* Current Score Section */}
+              <View style={styles.playerModalScoreSection}>
+                <View style={styles.scoreTeamContainer}>
+                  <TeamLogoImage 
+                    teamId={homeTeamData?.team?.id}
+                    style={styles.scoreTeamLogo}
+                    isDarkMode={isDarkMode}
+                  />
+                  <Text allowFontScaling={false} style={[styles.scoreTeamScore, { color: theme.text }]}>
+                    {homeScore}
+                  </Text>
+                </View>
+                
+                <Text allowFontScaling={false} style={[styles.scoreDash, { color: theme.textSecondary }]}>
+                  -
+                </Text>
+                
+                <View style={styles.scoreTeamContainer}>
+                  <Text allowFontScaling={false} style={[styles.scoreTeamScore, { color: theme.text }]}>
+                    {awayScore}
+                  </Text>
+                  <TeamLogoImage 
+                    teamId={awayTeamData?.team?.id}
+                    style={styles.scoreTeamLogo}
+                    isDarkMode={isDarkMode}
+                  />
+                </View>
+              </View>
+  
+              {/* Stats Grid - 9 boxes for players, 6 for goalkeepers */}
+              <View style={[styles.playerModalStatsGrid, { height: isGoalkeeper ? 200 : 275 }]}>
+                {loadingPlayerStats ? (
+                  <View style={styles.statsLoadingContainer}>
+                    <ActivityIndicator size="large" color={finalTeamColor} />
+                    <Text allowFontScaling={false} style={[styles.statsLoadingText, { color: theme.textSecondary }]}>
+                      Loading player stats...
+                    </Text>
+                  </View>
+                ) : playerGameStats ? (
+                  isGoalkeeper ? (
+                    // Goalkeeper-specific stats (6 boxes)
+                    <>
+                      <View style={[styles.statBox, { backgroundColor: theme.surfaceSecondary, height: '46%' }]}>
+                        <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
+                          {playerGameStats.saves}
+                        </Text>
+                        <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
+                          Saves
+                        </Text>
+                      </View>
+                      
+                      <View style={[styles.statBox, { backgroundColor: theme.surfaceSecondary, height: '46%' }]}>
+                        <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
+                          {playerGameStats.goalsConceded}
+                        </Text>
+                        <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
+                          Goals Conceded
+                        </Text>
+                      </View>
+                      
+                      <View style={[styles.statBox, { backgroundColor: theme.surfaceSecondary, height: '46%' }]}>
+                        <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
+                          {playerGameStats.totalPasses}
+                        </Text>
+                        <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
+                          Passes
+                        </Text>
+                      </View>
+                      
+                      <View style={[styles.statBox, { backgroundColor: theme.surfaceSecondary, height: '46%' }]}>
+                        <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
+                          {playerGameStats.totalPasses > 0 ? ((playerGameStats.accuratePasses / playerGameStats.totalPasses) * 100).toFixed(1) + '%' : '0%'}
+                        </Text>
+                        <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
+                          Pass Acc.
+                        </Text>
+                      </View>
+                      
+                      <View style={[styles.statBox, { backgroundColor: theme.surfaceSecondary, height: '46%' }]}>
+                        <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
+                          {playerGameStats.clearances}
+                        </Text>
+                        <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
+                          Clearances
+                        </Text>
+                      </View>
+                      
+                      <View style={[styles.statBox, { backgroundColor: theme.surfaceSecondary, height: '46%' }]}>
+                        <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
+                          {playerGameStats.minutes}
+                        </Text>
+                        <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
+                          Minutes
+                        </Text>
+                      </View>
+                    </>
+                  ) : (
+                    // Regular player stats (9 boxes)
+                    <>
+                      <View style={[styles.statBox, { backgroundColor: theme.surfaceSecondary || theme.card }]}>
+                        <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
+                          {playerGameStats.goals}
+                        </Text>
+                        <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
+                          Goals
+                        </Text>
+                      </View>
+                      
+                      <View style={[styles.statBox, { backgroundColor: theme.surfaceSecondary || theme.card }]}>
+                        <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
+                          {playerGameStats.assists}
+                        </Text>
+                        <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
+                          Assists
+                        </Text>
+                      </View>
+                      
+                      <View style={[styles.statBox, { backgroundColor: theme.surfaceSecondary || theme.card }]}>
+                        <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
+                          {playerGameStats.shots}
+                        </Text>
+                        <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
+                          Shots
+                        </Text>
+                      </View>
+                      
+                      <View style={[styles.statBox, { backgroundColor: theme.surfaceSecondary || theme.card }]}>
+                        <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
+                          {playerGameStats.shotsOnTarget}
+                        </Text>
+                        <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
+                          On Target
+                        </Text>
+                      </View>
+                      
+                      <View style={[styles.statBox, { backgroundColor: theme.surfaceSecondary || theme.card }]}>
+                        <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
+                          {playerGameStats.totalPasses}
+                        </Text>
+                        <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
+                          Passes
+                        </Text>
+                      </View>
+                      
+                      <View style={[styles.statBox, { backgroundColor: theme.surfaceSecondary || theme.card }]}>
+                        <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
+                          {playerGameStats.totalPasses > 0 ? ((playerGameStats.accuratePasses / playerGameStats.totalPasses) * 100).toFixed(1) + '%' : '0%'}
+                        </Text>
+                        <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
+                          Pass Acc.
+                        </Text>
+                      </View>
+                      
+                      <View style={[styles.statBox, { backgroundColor: theme.surfaceSecondary || theme.card }]}>
+                        <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
+                          {playerGameStats.tackles}
+                        </Text>
+                        <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
+                          Tackles
+                        </Text>
+                      </View>
+                      
+                      <View style={[styles.statBox, { backgroundColor: theme.surfaceSecondary || theme.card }]}>
+                        <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
+                          {playerGameStats.clearances}
+                        </Text>
+                        <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
+                          Clearances
+                        </Text>
+                      </View>
+                      
+                      <View style={[styles.statBox, { backgroundColor: theme.surfaceSecondary || theme.card }]}>
+                        <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>
+                          {playerGameStats.minutes}
+                        </Text>
+                        <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>
+                          Minutes
+                        </Text>
+                      </View>
+                    </>
+                  )
+                ) : (
+                  <View style={styles.statsErrorContainer}>
+                    <Text allowFontScaling={false} style={[styles.statsErrorText, { color: theme.textSecondary }]}>
+                      No stats available
+                    </Text>
+                  </View>
+                )}
+              </View>
+  
+              {/* Half Field Display - Only show for non-goalkeepers */}
+              {!isGoalkeeper && (
+                <View style={styles.playerModalFieldContainer}>
+                  {renderPlayerShotsField(selectedPlayer, finalTeamColor)}
+                </View>
+              )}
+            </View>
+          </View>
+        </Modal>
+      );
+    };
 
   if (loading && !gameData) {
     return (
@@ -6331,14 +6869,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   goalShareCard: {
-    borderRadius: 16,
+    borderRadius: 0,
     overflow: 'hidden',
     width: 320,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 16,
   },
   goalCardContent: {
     padding: 20,
@@ -6589,6 +7122,214 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
     color: '#fff',
+  },
+  
+  // Enhanced Player Modal Styles
+  enhancedModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  enhancedModalBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  enhancedPlayerModal: {
+    width: '90%',
+    maxWidth: 400,
+    borderRadius: 16,
+    padding: 0,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.44,
+    shadowRadius: 10.32,
+    elevation: 16,
+    overflow: 'hidden',
+  },
+  playerModalHeader: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  playerHeaderInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  playerModalCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  playerModalNumber: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  playerModalNameSection: {
+    flex: 1,
+  },
+  playerModalName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 6,
+  },
+  playerTeamInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  playerTeamName: {
+    fontSize: 14,
+    marginLeft: 8,
+    fontWeight: 'bold',
+  },
+  playerPosition: {
+    fontSize: 14,
+    marginLeft: 4,
+  },
+  playerModalTeamLogo: {
+    width: 20,
+    height: 20,
+  },
+  playerModalScoreSection: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  scoreTeamContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  scoreTeamLogo: {
+    width: 24,
+    height: 24,
+    marginHorizontal: 8,
+  },
+  scoreTeamScore: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  scoreDash: {
+    fontSize: 20,
+    marginHorizontal: 16,
+  },
+  playerModalStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'space-between',
+    height: 275,
+  },
+  statBox: {
+    width: '32%',
+    height: '31%',
+    aspectRatio: 1.1,
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  statsLoadingContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  statsLoadingText: {
+    marginTop: 8,
+    fontSize: 14,
+  },
+  statsErrorContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  statsErrorText: {
+    fontSize: 14,
+  },
+  playerModalFieldContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  halfField: {
+    width: 320,
+    height: 180,
+    borderWidth: 2,
+    borderRadius: 4,
+    position: 'relative',
+    backgroundColor: '#006400',
+  },
+  goal: {
+    position: 'absolute',
+    top: 0,
+    left: 137.5,
+    width: 45,
+    height: 4,
+    backgroundColor: '#ffffff',
+  },
+  goalArea: {
+    position: 'absolute',
+    top: -2,
+    left: 105,
+    width: 110,
+    height: 40,
+    borderWidth: 2,
+    borderTopWidth: 0,
+  },
+  penaltyArea: {
+    position: 'absolute',
+    top: -2,
+    left: 70,
+    width: 180,
+    height: 70,
+    borderWidth: 2,
+    borderTopWidth: 0,
+  },
+  centerCircleHalf: {
+    position: 'absolute',
+    bottom: -2,
+    left: 105,
+    width: 110,
+    height: 50,
+    borderTopLeftRadius: 90,
+    borderTopRightRadius: 90,
+    borderWidth: 2,
+    borderBottomWidth: 0,
+  },
+  shotMarker: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    transform: [{ translateX: -7 }, { translateY: -7 }],
   },
 });
 
