@@ -4,7 +4,7 @@ const withSimpleFirebase = (config) => {
   // Configure Android
   config = withProjectBuildGradle(config, (config) => {
     // Ensure Google services are available
-    if (!config.modResults.contents.includes('google-services')) {
+    if (!config.modResults.contents.includes("google-services")) {
       config.modResults.contents = config.modResults.contents.replace(
         /dependencies\s*{/,
         `dependencies {
@@ -19,8 +19,8 @@ const withSimpleFirebase = (config) => {
   config = withPodfile(config, (config) => {
     // Add Firebase pods without trying to modify AppDelegate
     const podfileContent = config.modResults.contents;
-    
-    if (!podfileContent.includes('Firebase/Analytics')) {
+
+    if (!podfileContent.includes("Firebase/Analytics")) {
       config.modResults.contents = podfileContent.replace(
         /use_react_native!/,
         `use_react_native!
