@@ -59,7 +59,13 @@ class AnalyticsService {
     try {
       if (!this.analyticsAvailable || !this.initialized || this.isExpoGo) {
         console.log(
-          `Analytics Event (${this.isExpoGo ? "Expo Go" : this.analyticsAvailable ? "Not Initialized" : "Not Available"}):`,
+          `Analytics Event (${
+            this.isExpoGo
+              ? "Expo Go"
+              : this.analyticsAvailable
+              ? "Not Initialized"
+              : "Not Available"
+          }):`,
           eventName,
           parameters
         );
@@ -75,7 +81,8 @@ class AnalyticsService {
 
   async setUserId(userId) {
     try {
-      if (!this.analyticsAvailable || !this.initialized || this.isExpoGo) return;
+      if (!this.analyticsAvailable || !this.initialized || this.isExpoGo)
+        return;
 
       await analytics().setUserId(userId);
       console.log("Analytics User ID set:", userId);
@@ -86,7 +93,8 @@ class AnalyticsService {
 
   async setUserProperty(name, value) {
     try {
-      if (!this.analyticsAvailable || !this.initialized || this.isExpoGo) return;
+      if (!this.analyticsAvailable || !this.initialized || this.isExpoGo)
+        return;
 
       await analytics().setUserProperty(name, value);
       console.log("Analytics User Property set:", name, value);
@@ -99,7 +107,13 @@ class AnalyticsService {
     try {
       if (!this.analyticsAvailable || !this.initialized || this.isExpoGo) {
         console.log(
-          `Screen View (${this.isExpoGo ? "Expo Go" : this.analyticsAvailable ? "Not Initialized" : "Not Available"}):`,
+          `Screen View (${
+            this.isExpoGo
+              ? "Expo Go"
+              : this.analyticsAvailable
+              ? "Not Initialized"
+              : "Not Available"
+          }):`,
           screenName
         );
         return;
