@@ -101,6 +101,7 @@
         }
       ],
       "@react-native-firebase/app",
+      "./plugins/withFirebaseWarningFix.js",
       [
         "expo-build-properties",
         {
