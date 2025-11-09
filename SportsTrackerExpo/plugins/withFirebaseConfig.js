@@ -1,4 +1,4 @@
-const { withPodfile } = require('@expo/config-plugins');
+const { withPodfile } = require("@expo/config-plugins");
 
 module.exports = function withFirebaseConfig(config) {
   return withPodfile(config, (config) => {
@@ -39,20 +39,27 @@ pre_install do |installer|
 end`;
 
     // Add the pre_install block before any existing post_install
-    if (contents.includes('post_install')) {
-      contents = contents.replace(/post_install/, preInstallFix + '\n\npost_install');
+    if (contents.includes("post_install")) {
+      contents = contents.replace(
+        /post_install/,
+        preInstallFix + "\n\npost_install"
+      );
     } else {
       // Add before the last 'end'
-      const lastEndIndex = contents.lastIndexOf('end');
+      const lastEndIndex = contents.lastIndexOf("end");
       if (lastEndIndex > -1) {
-        contents = contents.slice(0, lastEndIndex) + preInstallFix + '\n' + contents.slice(lastEndIndex);
+        contents =
+          contents.slice(0, lastEndIndex) +
+          preInstallFix +
+          "\n" +
+          contents.slice(lastEndIndex);
       } else {
         contents += preInstallFix;
       }
     }
 
     // Enhance the existing post_install block with Firebase warning suppressions
-    if (contents.includes('post_install do |installer|')) {
+    if (contents.includes("post_install do |installer|")) {
       const firebasePostInstallFix = `
   # Firebase modular header warning suppressions
   installer.pods_project.targets.each do |target|
@@ -66,7 +73,7 @@ end`;
       end
     end
   end`;
-      
+
       // Insert Firebase fixes before the closing 'end' of post_install
       contents = contents.replace(
         /(post_install do \|installer\|[^]*?)(end)/m,
