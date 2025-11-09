@@ -1,20 +1,40 @@
-const { withProjectBuildGradle } = require("@expo/config-plugins");
+const { withProjectBuildGradle, withPodfile } = require("@expo/config-plugins");
 
 const withSimpleFirebase = (config) => {
-  return withProjectBuildGradle(config, (config) => {
-    // Simple Firebase setup without complex modular header modifications
-    config.modResults.contents = config.modResults.contents.replace(
-      /allprojects\s*{[\s\S]*?repositories\s*{/,
-      `allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url "https://www.jitpack.io" }
-`
-    );
+  // Configure Android
+  config = withProjectBuildGradle(config, (config) => {
+    // Ensure Google services are available
+    if (!config.modResults.contents.includes('google-services')) {
+      config.modResults.contents = config.modResults.contents.replace(
+        /dependencies\s*{/,
+        `dependencies {
+        classpath 'com.google.gms:google-services:4.3.15'`
+      );
+    }
 
     return config;
   });
+
+  // Configure iOS Podfile
+  config = withPodfile(config, (config) => {
+    // Add Firebase pods without trying to modify AppDelegate
+    const podfileContent = config.modResults.contents;
+    
+    if (!podfileContent.includes('Firebase/Analytics')) {
+      config.modResults.contents = podfileContent.replace(
+        /use_react_native!/,
+        `use_react_native!
+  
+  # Firebase pods
+  pod 'Firebase/Analytics'
+  pod 'Firebase/Database'`
+      );
+    }
+
+    return config;
+  });
+
+  return config;
 };
 
 module.exports = withSimpleFirebase;

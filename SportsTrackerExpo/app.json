@@ -100,8 +100,6 @@
           }
         }
       ],
-      "@react-native-firebase/app",
-      "./plugins/withSimpleFirebase.js",
       [
         "expo-build-properties",
         {
