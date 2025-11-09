@@ -9,7 +9,7 @@
       "distribution": "internal",
       "env": {
         "npm_config_legacy_peer_deps": "true",
-        "RCT_NEW_ARCH_ENABLED": "1"
+        "RCT_NEW_ARCH_ENABLED": "0"
       },
       "ios": {
         "resourceClass": "m-medium"
@@ -37,7 +37,7 @@
     "production": {
       "env": {
         "npm_config_legacy_peer_deps": "true",
-        "RCT_NEW_ARCH_ENABLED": "1"
+        "RCT_NEW_ARCH_ENABLED": "0"
       },
       "ios": {
         "resourceClass": "m-medium"

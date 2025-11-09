@@ -1,13 +1,20 @@
-import analytics from "@react-native-firebase/analytics";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 import app from "../config/firebase"; // Import Firebase app
+
+let analytics = null;
+try {
+  analytics = require("@react-native-firebase/analytics").default;
+} catch (error) {
+  console.warn("React Native Firebase Analytics not available:", error.message);
+}
 
 class AnalyticsService {
   constructor() {
     this.initialized = false;
     this.isDevelopment = __DEV__;
     this.isExpoGo = Constants.executionEnvironment === "storeClient";
+    this.analyticsAvailable = !!analytics;
   }
 
   async initialize() {
@@ -15,6 +22,12 @@ class AnalyticsService {
       // Only initialize in production builds (not Expo Go)
       if (this.isExpoGo) {
         console.log("Firebase Analytics: Skipping initialization in Expo Go");
+        return;
+      }
+
+      // Check if analytics is available
+      if (!this.analyticsAvailable) {
+        console.warn("Firebase Analytics not available, analytics disabled");
         return;
       }
 
@@ -44,9 +57,9 @@ class AnalyticsService {
 
   async logEvent(eventName, parameters = {}) {
     try {
-      if (!this.initialized || this.isExpoGo) {
+      if (!this.analyticsAvailable || !this.initialized || this.isExpoGo) {
         console.log(
-          `Analytics Event (${this.isExpoGo ? "Expo Go" : "Not Initialized"}):`,
+          `Analytics Event (${this.isExpoGo ? "Expo Go" : this.analyticsAvailable ? "Not Initialized" : "Not Available"}):`,
           eventName,
           parameters
         );
@@ -62,7 +75,7 @@ class AnalyticsService {
 
   async setUserId(userId) {
     try {
-      if (!this.initialized || this.isExpoGo) return;
+      if (!this.analyticsAvailable || !this.initialized || this.isExpoGo) return;
 
       await analytics().setUserId(userId);
       console.log("Analytics User ID set:", userId);
@@ -73,7 +86,7 @@ class AnalyticsService {
 
   async setUserProperty(name, value) {
     try {
-      if (!this.initialized || this.isExpoGo) return;
+      if (!this.analyticsAvailable || !this.initialized || this.isExpoGo) return;
 
       await analytics().setUserProperty(name, value);
       console.log("Analytics User Property set:", name, value);
@@ -84,9 +97,9 @@ class AnalyticsService {
 
   async logScreenView(screenName, screenClass) {
     try {
-      if (!this.initialized || this.isExpoGo) {
+      if (!this.analyticsAvailable || !this.initialized || this.isExpoGo) {
         console.log(
-          `Screen View (${this.isExpoGo ? "Expo Go" : "Not Initialized"}):`,
+          `Screen View (${this.isExpoGo ? "Expo Go" : this.analyticsAvailable ? "Not Initialized" : "Not Available"}):`,
           screenName
         );
         return;
