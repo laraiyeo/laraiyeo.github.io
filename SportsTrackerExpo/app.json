@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "runtimeVersion": "1.1.0",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -106,16 +106,10 @@
         {
           "ios": {
             "useFrameworks": "static",
-            "newArchEnabled": true,
-            "xcodeProjectSettings": {
-              "CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES": "YES",
-              "CLANG_WARN_NON_MODULAR_INCLUDE_IN_FRAMEWORK_MODULE": "NO",
-              "GCC_TREAT_WARNINGS_AS_ERRORS": "NO",
-              "OTHER_CFLAGS": "$(inherited) -Wno-error -Wno-non-modular-include-in-framework-module"
-            }
+            "newArchEnabled": false
           },
           "android": {
-            "newArchEnabled": true,
+            "newArchEnabled": false,
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
             "minSdkVersion": 24,

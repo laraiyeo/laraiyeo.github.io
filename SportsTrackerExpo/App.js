@@ -18,7 +18,6 @@ import { FavoritesProvider } from "./src/context/FavoritesContext";
 import { ChatProvider } from "./src/context/ChatContext";
 import { EmoteProvider } from "./src/context/EmoteContext";
 import { MutedUsersProvider } from "./src/context/MutedUsersContext";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 
 // Import Analytics Service
 import analyticsService from "./src/services/AnalyticsService";
@@ -1858,7 +1857,6 @@ const AppContent = () => {
 
 export default function App() {
   return (
-    <KeyboardProvider>
       <ThemeProvider>
         <FavoritesProvider>
           <ChatProvider>
@@ -1870,7 +1868,6 @@ export default function App() {
           </ChatProvider>
         </FavoritesProvider>
       </ThemeProvider>
-    </KeyboardProvider>
   );
 }
 

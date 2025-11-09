@@ -8,8 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "npm_config_legacy_peer_deps": "true",
-        "RCT_NEW_ARCH_ENABLED": "1"
+        "npm_config_legacy_peer_deps": "true"
       },
       "ios": {
         "resourceClass": "m-medium"
@@ -22,8 +21,7 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "npm_config_legacy_peer_deps": "true",
-        "RCT_NEW_ARCH_ENABLED": "1"
+        "npm_config_legacy_peer_deps": "true"
       },
       "ios": {
         "resourceClass": "m-medium",
@@ -36,8 +34,7 @@
     },
     "production": {
       "env": {
-        "npm_config_legacy_peer_deps": "true",
-        "RCT_NEW_ARCH_ENABLED": "1"
+        "npm_config_legacy_peer_deps": "true"
       },
       "ios": {
         "resourceClass": "m-medium"
