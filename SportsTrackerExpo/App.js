@@ -1771,12 +1771,18 @@ const AppContent = () => {
       try {
         console.log("👁️ App.js - Starting PresenceService initialization...");
         PresenceService.init();
-        
+
         // Test the service by getting a user ID
         const userId = await PresenceService.getUserId();
-        console.log("👁️ App.js - PresenceService initialized successfully with userId:", userId);
+        console.log(
+          "👁️ App.js - PresenceService initialized successfully with userId:",
+          userId
+        );
       } catch (error) {
-        console.warn("👁️ App.js - Failed to initialize PresenceService:", error);
+        console.warn(
+          "👁️ App.js - Failed to initialize PresenceService:",
+          error
+        );
       }
     };
 

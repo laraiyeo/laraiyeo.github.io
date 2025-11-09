@@ -1,5 +1,5 @@
-import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -10,7 +10,7 @@ const firebaseConfig = {
   storageBucket: "live-sports-tracker-chat.firebasestorage.app",
   messagingSenderId: "228719774397",
   appId: "1:228719774397:web:66321ba2003c060fdc05d4",
-  measurementId: "G-2KKX8TNQB9"
+  measurementId: "G-2KKX8TNQB9",
 };
 
 // Initialize Firebase

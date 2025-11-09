@@ -1,20 +1,24 @@
 # Keyboard Controller Implementation
 
 ## Overview
+
 The chat system now uses `react-native-keyboard-controller` for smooth keyboard handling. This provides a much better user experience compared to manual keyboard event handling.
 
 ## Key Changes
 
 ### 1. Package Installation
+
 - Added `react-native-keyboard-controller` dependency
 - Wrapped main App component with `KeyboardProvider`
 
 ### 2. Chat Component Updates
+
 - Replaced manual keyboard handling with `KeyboardStickyView`
 - The entire message input section (text input + emote button + send button) now sticks to the keyboard
 - Removed complex keyboard event listeners and animations
 
 ### 3. MessageInput Simplification
+
 - Removed manual keyboard height tracking
 - Removed floating input animations
 - Removed focus/blur handlers that managed keyboard position
@@ -30,6 +34,7 @@ The chat system now uses `react-native-keyboard-controller` for smooth keyboard 
 ```
 
 The `KeyboardStickyView` automatically:
+
 - Moves the input section along with keyboard movements
 - Maintains smooth animations during keyboard show/hide
 - Handles different keyboard heights on different devices
@@ -49,14 +54,14 @@ The `KeyboardProvider` is configured in `App.js`:
 
 ```jsx
 <KeyboardProvider>
-  <ThemeProvider>
-    {/* Rest of app */}
-  </ThemeProvider>
+  <ThemeProvider>{/* Rest of app */}</ThemeProvider>
 </KeyboardProvider>
 ```
 
 ## Testing
+
 To test the keyboard behavior:
+
 1. Open any game details screen
 2. Tap on the chat input
 3. Verify the input section smoothly follows the keyboard
@@ -64,6 +69,7 @@ To test the keyboard behavior:
 5. Test with emote picker
 
 ## Notes
+
 - Requires development build (not compatible with Expo Go)
 - Native dependency requires proper linking (handled by autolinking)
 - iOS requires pod install (done automatically in Expo managed workflow)

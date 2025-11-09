@@ -614,10 +614,13 @@ const NHLScoreboardScreen = ({ navigation }) => {
             )}
           </View>
           <View style={styles.gameFooterRight}>
-            {console.log('🔍 ScoreboardScreen - Rendering game card:', {
+            {console.log("🔍 ScoreboardScreen - Rendering game card:", {
               gameId: item.id,
               hasGameId: !!item.id,
-              gameTitle: item.awayTeam?.displayName + ' vs ' + item.homeTeam?.displayName
+              gameTitle:
+                item.awayTeam?.displayName +
+                " vs " +
+                item.homeTeam?.displayName,
             })}
             <LiveViewerBadge gameId={item.id} style={styles.viewerBadge} />
           </View>

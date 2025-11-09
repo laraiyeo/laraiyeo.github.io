@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import {
   View,
   Text,
@@ -10,16 +16,16 @@ import {
   RefreshControl,
   Alert,
   Platform,
-  Modal
-} from 'react-native';
-import { WebView } from 'react-native-webview';
-import { SvgUri } from 'react-native-svg';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { useTheme } from '../../context/ThemeContext';
-import { useFavorites } from '../../context/FavoritesContext';
-import { useWindowDimensions } from 'react-native';
-import { useStreamingAccess } from '../../utils/streamingUtils';
-import { useGamePresence } from '../../hooks/useGamePresence';
+  Modal,
+} from "react-native";
+import { WebView } from "react-native-webview";
+import { SvgUri } from "react-native-svg";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useTheme } from "../../context/ThemeContext";
+import { useFavorites } from "../../context/FavoritesContext";
+import { useWindowDimensions } from "react-native";
+import { useStreamingAccess } from "../../utils/streamingUtils";
+import { useGamePresence } from "../../hooks/useGamePresence";
 
 // Global image cache to persist across component re-renders
 const loadedImages = new Set();
@@ -27,71 +33,89 @@ const imageComponentCache = new Map(); // Cache actual Image components
 
 // Helper function for initials (extracted to avoid recreation)
 const getInitials = (firstName, lastName) => {
-  if (!firstName && !lastName) return '';
-  const first = (firstName || '').trim();
-  const last = (lastName || '').trim();
-  return ((first[0] || '') + (last[0] || '')).toUpperCase();
+  if (!firstName && !lastName) return "";
+  const first = (firstName || "").trim();
+  const last = (lastName || "").trim();
+  return ((first[0] || "") + (last[0] || "")).toUpperCase();
 };
 
 // Grid driver image component (moved outside to prevent recreation)
-const GridDriverImage = React.memo(({ headshot, athlete, driverName, teamColor, theme, styles }) => {
-  const [imageError, setImageError] = useState(() => {
-    // Initialize with error state if we know this image failed before
-    return headshot ? !loadedImages.has(headshot) : false;
-  });
+const GridDriverImage = React.memo(
+  ({ headshot, athlete, driverName, teamColor, theme, styles }) => {
+    const [imageError, setImageError] = useState(() => {
+      // Initialize with error state if we know this image failed before
+      return headshot ? !loadedImages.has(headshot) : false;
+    });
 
-  // Only reset error state when headshot URL actually changes
-  useEffect(() => {
-    if (headshot) {
-      if (loadedImages.has(headshot)) {
-        // This image loaded successfully before, don't show error
-        setImageError(false);
-      } else {
-        // New/unknown image, reset error state to try loading
-        setImageError(false);
-      }
-    }
-  }, [headshot]);
-
-  if (!headshot || imageError) {
-    return (
-      <View style={[
-        styles.gridDriverAvatarEmpty, 
-        { 
-          borderColor: teamColor || theme.border,
-          backgroundColor: teamColor || theme.border 
+    // Only reset error state when headshot URL actually changes
+    useEffect(() => {
+      if (headshot) {
+        if (loadedImages.has(headshot)) {
+          // This image loaded successfully before, don't show error
+          setImageError(false);
+        } else {
+          // New/unknown image, reset error state to try loading
+          setImageError(false);
         }
-      ]}>
-        <Text allowFontScaling={false} style={[styles.gridDriverInitials, { color: '#fff' }]}>
-          {athlete ? getInitials(athlete.firstName, athlete.lastName) : (driverName || '').split(' ').map(n=>n[0]).slice(0,2).join('').toUpperCase()}
-        </Text>
-      </View>
-    );
-  }
+      }
+    }, [headshot]);
 
-  // Use cached Image component or create new one
-  const cacheKey = `${headshot}_${teamColor || theme.border}`;
-  if (!imageComponentCache.has(cacheKey)) {
-    imageComponentCache.set(cacheKey, (
-      <Image
-        source={{ uri: headshot, cache: 'force-cache' }}
-        style={[styles.gridDriverAvatar, { borderColor: teamColor || theme.border }]}
-        onError={() => {
-          setImageError(true);
-          if (headshot) {
-            loadedImages.delete(headshot);
-            imageComponentCache.delete(cacheKey);
-          }
-        }}
-        onLoad={() => {
-          if (headshot) loadedImages.add(headshot);
-        }}
-      />
-    ));
-  }
+    if (!headshot || imageError) {
+      return (
+        <View
+          style={[
+            styles.gridDriverAvatarEmpty,
+            {
+              borderColor: teamColor || theme.border,
+              backgroundColor: teamColor || theme.border,
+            },
+          ]}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[styles.gridDriverInitials, { color: "#fff" }]}
+          >
+            {athlete
+              ? getInitials(athlete.firstName, athlete.lastName)
+              : (driverName || "")
+                  .split(" ")
+                  .map((n) => n[0])
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase()}
+          </Text>
+        </View>
+      );
+    }
 
-  return imageComponentCache.get(cacheKey);
-});
+    // Use cached Image component or create new one
+    const cacheKey = `${headshot}_${teamColor || theme.border}`;
+    if (!imageComponentCache.has(cacheKey)) {
+      imageComponentCache.set(
+        cacheKey,
+        <Image
+          source={{ uri: headshot, cache: "force-cache" }}
+          style={[
+            styles.gridDriverAvatar,
+            { borderColor: teamColor || theme.border },
+          ]}
+          onError={() => {
+            setImageError(true);
+            if (headshot) {
+              loadedImages.delete(headshot);
+              imageComponentCache.delete(cacheKey);
+            }
+          }}
+          onLoad={() => {
+            if (headshot) loadedImages.add(headshot);
+          }}
+        />
+      );
+    }
+
+    return imageComponentCache.get(cacheKey);
+  }
+);
 
 const RaceDetailsScreen = ({ route }) => {
   const { raceId, eventId, raceName, raceDate } = route.params || {};
@@ -99,13 +123,16 @@ const RaceDetailsScreen = ({ route }) => {
   const navigation = useNavigation();
   const { isFavorite, toggleFavorite } = useFavorites();
 
-  const [selectedTab, setSelectedTab] = useState('INFO');
+  const [selectedTab, setSelectedTab] = useState("INFO");
   const [raceData, setRaceData] = useState(null);
   const [circuitInfo, setCircuitInfo] = useState(null);
   const [winnerDriver, setWinnerDriver] = useState(null);
   // allow Results screen to pass the nextCompetitionType so details header and list match
-  const passedNextCompetitionType = (route.params && route.params.nextCompetitionType) || null;
-  const [nextCompetitionLabel, setNextCompetitionLabel] = useState(passedNextCompetitionType);
+  const passedNextCompetitionType =
+    (route.params && route.params.nextCompetitionType) || null;
+  const [nextCompetitionLabel, setNextCompetitionLabel] = useState(
+    passedNextCompetitionType
+  );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [competitionResults, setCompetitionResults] = useState({});
@@ -116,13 +143,16 @@ const RaceDetailsScreen = ({ route }) => {
   const [selectedDriverDetails, setSelectedDriverDetails] = useState(null);
   const [overtakeModalVisible, setOvertakeModalVisible] = useState(false);
   const [selectedOvertake, setSelectedOvertake] = useState(null);
-  const [overtakeCarData, setOvertakeCarData] = useState({ initiator: [], participant: [] });
+  const [overtakeCarData, setOvertakeCarData] = useState({
+    initiator: [],
+    participant: [],
+  });
   const [carDataIndex, setCarDataIndex] = useState(0);
   const [carDataInterval, setCarDataInterval] = useState(null);
-  
+
   // Game presence tracking
   const { viewerData, isJoined } = useGamePresence(raceId || eventId);
-  
+
   // Animation states for progressive overtake
   const [overtakeAnimation, setOvertakeAnimation] = useState({
     isAnimating: false,
@@ -131,7 +161,7 @@ const RaceDetailsScreen = ({ route }) => {
     targetStats: { initiator: null, participant: null },
     allDataPoints: { initiator: [], participant: [] }, // All data points for smooth transitions
     carPositions: { initiator: 0, participant: 2 }, // Start at original stacked positions
-    isDataLoaded: false
+    isDataLoaded: false,
   });
   const { width: windowWidth } = useWindowDimensions();
 
@@ -157,17 +187,23 @@ const RaceDetailsScreen = ({ route }) => {
   const competitionResultsRef = useRef(competitionResults);
 
   // Keep refs updated with current values
-  useEffect(() => { selectedTabRef.current = selectedTab; }, [selectedTab]);
-  useEffect(() => { selectedCompetitionIdRef.current = selectedCompetitionId; }, [selectedCompetitionId]);
-  useEffect(() => { competitionResultsRef.current = competitionResults; }, [competitionResults]);
+  useEffect(() => {
+    selectedTabRef.current = selectedTab;
+  }, [selectedTab]);
+  useEffect(() => {
+    selectedCompetitionIdRef.current = selectedCompetitionId;
+  }, [selectedCompetitionId]);
+  useEffect(() => {
+    competitionResultsRef.current = competitionResults;
+  }, [competitionResults]);
 
   // Handle screen focus/blur to stop updates when not on screen
   useFocusEffect(
     React.useCallback(() => {
-      console.log('[useFocusEffect] Screen focused');
+      console.log("[useFocusEffect] Screen focused");
       setIsScreenFocused(true);
       return () => {
-        console.log('[useFocusEffect] Screen blurred');
+        console.log("[useFocusEffect] Screen blurred");
         setIsScreenFocused(false);
       };
     }, [])
@@ -192,7 +228,7 @@ const RaceDetailsScreen = ({ route }) => {
     eventsLoading: false,
     eventsError: null,
     selectedDriverFilter: null, // null means show all drivers, otherwise driver number
-    stints: [] // array of stints for the current selected session
+    stints: [], // array of stints for the current selected session
   });
 
   // Events pagination state
@@ -201,10 +237,10 @@ const RaceDetailsScreen = ({ route }) => {
   const eventsScrollViewRef = useRef(null);
 
   const tabs = [
-    { key: 'INFO', name: 'Info' },
-    { key: 'RESULTS', name: 'Results' },
-    { key: 'GRID', name: 'Grid' },
-    { key: 'EVENTS', name: 'Events' }
+    { key: "INFO", name: "Info" },
+    { key: "RESULTS", name: "Results" },
+    { key: "GRID", name: "Grid" },
+    { key: "EVENTS", name: "Events" },
   ];
 
   // Function to scroll to top of events
@@ -216,10 +252,17 @@ const RaceDetailsScreen = ({ route }) => {
 
   // Helper function to get filtered events
   const getFilteredEvents = useCallback(() => {
-    return openF1Data.selectedDriverFilter 
-      ? openF1Data.events.filter(event => {
-          const eventDriverNumber = event.driver_number || event.driver_1_number || event.driver_2_number;
-          return eventDriverNumber && Number(eventDriverNumber) === Number(openF1Data.selectedDriverFilter);
+    return openF1Data.selectedDriverFilter
+      ? openF1Data.events.filter((event) => {
+          const eventDriverNumber =
+            event.driver_number ||
+            event.driver_1_number ||
+            event.driver_2_number;
+          return (
+            eventDriverNumber &&
+            Number(eventDriverNumber) ===
+              Number(openF1Data.selectedDriverFilter)
+          );
         })
       : openF1Data.events;
   }, [openF1Data.events, openF1Data.selectedDriverFilter]);
@@ -228,9 +271,9 @@ const RaceDetailsScreen = ({ route }) => {
   const goToNextPage = useCallback(() => {
     const filteredEvents = getFilteredEvents();
     const totalPages = Math.ceil(filteredEvents.length / eventsPerPage);
-    
+
     if (currentPage < totalPages - 1) {
-      setCurrentPage(prev => prev + 1);
+      setCurrentPage((prev) => prev + 1);
       // Small delay to ensure state update happens before scroll
       setTimeout(() => {
         scrollToTop();
@@ -240,7 +283,7 @@ const RaceDetailsScreen = ({ route }) => {
 
   const goToPrevPage = useCallback(() => {
     if (currentPage > 0) {
-      setCurrentPage(prev => prev - 1);
+      setCurrentPage((prev) => prev - 1);
       // Small delay to ensure state update happens before scroll
       setTimeout(() => {
         scrollToTop();
@@ -255,75 +298,105 @@ const RaceDetailsScreen = ({ route }) => {
 
   // Helper to extract live position from gapToLeader statistics
   const getLivePosition = (competitor) => {
-    if (!competitor.liveStats || !competitor.liveStats.splits || !competitor.liveStats.splits.categories) {
+    if (
+      !competitor.liveStats ||
+      !competitor.liveStats.splits ||
+      !competitor.liveStats.splits.categories
+    ) {
       return competitor.order;
     }
-    
+
     // gapToLeader is categories[1]
     const gapToLeaderSplit = competitor.liveStats.splits.categories[1];
-    if (!gapToLeaderSplit || gapToLeaderSplit.name !== 'gapToLeader') {
+    if (!gapToLeaderSplit || gapToLeaderSplit.name !== "gapToLeader") {
       return competitor.order;
     }
-    
-    const positionStat = gapToLeaderSplit.stats?.find(stat => stat.name === 'position');
+
+    const positionStat = gapToLeaderSplit.stats?.find(
+      (stat) => stat.name === "position"
+    );
     if (positionStat) {
       return positionStat.value;
     }
-    
+
     return competitor.order;
   };
 
   // Helper to extract live gap to leader from statistics
   const getLiveGapToLeader = (competitor) => {
-    if (!competitor.liveStats || !competitor.liveStats.splits || !competitor.liveStats.splits.categories) {
-      return competitor.behindTime || (competitor.behindLaps != null ? `+${competitor.behindLaps} Laps` : competitor.totalTime);
+    if (
+      !competitor.liveStats ||
+      !competitor.liveStats.splits ||
+      !competitor.liveStats.splits.categories
+    ) {
+      return (
+        competitor.behindTime ||
+        (competitor.behindLaps != null
+          ? `+${competitor.behindLaps} Laps`
+          : competitor.totalTime)
+      );
     }
-    
+
     const categories = competitor.liveStats.splits.categories;
-    
+
     // Priority 1: categories[1].gapToLeader (if exists and valid)
-    if (categories[1] && categories[1].name === 'gapToLeader') {
-      const gapStat = categories[1].stats?.find(stat => stat.name === 'gapToLeader');
+    if (categories[1] && categories[1].name === "gapToLeader") {
+      const gapStat = categories[1].stats?.find(
+        (stat) => stat.name === "gapToLeader"
+      );
       if (gapStat) {
         if (gapStat.value === 0) {
-          return 'Leader';
+          return "Leader";
         }
         return gapStat.displayValue || gapStat.value;
       } else {
         // gapToLeader category exists but no gapToLeader stat - check if this is position 1
-        const positionStat = categories[1].stats?.find(stat => stat.name === 'position');
+        const positionStat = categories[1].stats?.find(
+          (stat) => stat.name === "position"
+        );
         if (positionStat && positionStat.value === 1) {
-          return 'Leader';
+          return "Leader";
         }
       }
     }
-    
+
     // Priority 2: categories[0].behindTime (if exists)
     if (categories[0] && categories[0].stats) {
-      const behindTimeStat = categories[0].stats.find(stat => stat.name === 'behindTime');
+      const behindTimeStat = categories[0].stats.find(
+        (stat) => stat.name === "behindTime"
+      );
       if (behindTimeStat && behindTimeStat.displayValue) {
         return behindTimeStat.displayValue;
       }
     }
-    
+
     // Priority 3: categories[0].behindLaps (if exists)
     if (categories[0] && categories[0].stats) {
-      const behindLapsStat = categories[0].stats.find(stat => stat.name === 'behindLaps');
+      const behindLapsStat = categories[0].stats.find(
+        (stat) => stat.name === "behindLaps"
+      );
       if (behindLapsStat && behindLapsStat.value != null) {
         return `+${behindLapsStat.value} Laps`;
       }
     }
-    
+
     // Priority 4: categories[0].totalTime (if exists)
     if (categories[0] && categories[0].stats) {
-      const totalTimeStat = categories[0].stats.find(stat => stat.name === 'totalTime');
+      const totalTimeStat = categories[0].stats.find(
+        (stat) => stat.name === "totalTime"
+      );
       if (totalTimeStat && totalTimeStat.displayValue) {
         return totalTimeStat.displayValue;
       }
     }
-    
+
     // Fallback to original competitor data
-    return competitor.behindTime || (competitor.behindLaps != null ? `+${competitor.behindLaps} Laps` : competitor.totalTime);
+    return (
+      competitor.behindTime ||
+      (competitor.behindLaps != null
+        ? `+${competitor.behindLaps} Laps`
+        : competitor.totalTime)
+    );
   };
 
   // Memoized sorted competitors for Results tab
@@ -331,21 +404,19 @@ const RaceDetailsScreen = ({ route }) => {
     if (!selectedCompetitionId || !competitionResults[selectedCompetitionId]) {
       return [];
     }
-    
+
     const competitors = competitionResults[selectedCompetitionId].competitors;
-    const hasAnyLiveStats = competitors.some(c => !!c.liveStats);
-    
-    return competitors
-      .slice()
-      .sort((a, b) => {
-        // Only sort by live position if race is live AND we have live stats
-        if (isLiveRace && hasAnyLiveStats) {
-          const aPos = getLivePosition(a) || 999;
-          const bPos = getLivePosition(b) || 999;
-          return aPos - bPos;
-        }
-        return (a.order || 999) - (b.order || 999);
-      });
+    const hasAnyLiveStats = competitors.some((c) => !!c.liveStats);
+
+    return competitors.slice().sort((a, b) => {
+      // Only sort by live position if race is live AND we have live stats
+      if (isLiveRace && hasAnyLiveStats) {
+        const aPos = getLivePosition(a) || 999;
+        const bPos = getLivePosition(b) || 999;
+        return aPos - bPos;
+      }
+      return (a.order || 999) - (b.order || 999);
+    });
   }, [competitionResults, selectedCompetitionId, isLiveRace]);
 
   // Memoized sorted competitors for Grid tab
@@ -353,18 +424,29 @@ const RaceDetailsScreen = ({ route }) => {
     if (!selectedCompetitionId || !competitionResults[selectedCompetitionId]) {
       return [];
     }
-    
-    const competitors = competitionResults[selectedCompetitionId].competitors || [];
-    const hasAnyLiveStats = competitors.some(c => !!c.liveStats);
-    
-    return competitors.slice().sort((a,b) => {
+
+    const competitors =
+      competitionResults[selectedCompetitionId].competitors || [];
+    const hasAnyLiveStats = competitors.some((c) => !!c.liveStats);
+
+    return competitors.slice().sort((a, b) => {
       if (isLiveRace && hasAnyLiveStats) {
         const aPos = getLivePosition(a) || 999;
         const bPos = getLivePosition(b) || 999;
         return aPos - bPos;
       } else {
-        const aOrder = (a.order != null ? Number(a.order) : (a.startOrder != null ? Number(a.startOrder) : Number(a.startPosition ?? 0)) ) || 0;
-        const bOrder = (b.order != null ? Number(b.order) : (b.startOrder != null ? Number(b.startOrder) : Number(b.startPosition ?? 0)) ) || 0;
+        const aOrder =
+          (a.order != null
+            ? Number(a.order)
+            : a.startOrder != null
+            ? Number(a.startOrder)
+            : Number(a.startPosition ?? 0)) || 0;
+        const bOrder =
+          (b.order != null
+            ? Number(b.order)
+            : b.startOrder != null
+            ? Number(b.startOrder)
+            : Number(b.startPosition ?? 0)) || 0;
         return aOrder - bOrder;
       }
     });
@@ -373,15 +455,21 @@ const RaceDetailsScreen = ({ route }) => {
   // Helper to get F1 team ID for favorites
   const getF1TeamId = (teamName) => {
     if (!teamName) return null;
-    return `f1_${teamName.toLowerCase().replace(/\s+/g, '_')}`;
+    return `f1_${teamName.toLowerCase().replace(/\s+/g, "_")}`;
   };
 
   const handleTeamFavoriteToggle = async (teamName, teamColor) => {
     if (!teamName) return;
     try {
-      await toggleFavorite({ teamId: getF1TeamId(teamName), teamName, sport: 'f1', leagueCode: 'f1', teamColor });
+      await toggleFavorite({
+        teamId: getF1TeamId(teamName),
+        teamName,
+        sport: "f1",
+        leagueCode: "f1",
+        teamColor,
+      });
     } catch (e) {
-      console.error('Error toggling favorite from RaceDetailsScreen', e);
+      console.error("Error toggling favorite from RaceDetailsScreen", e);
     }
   };
 
@@ -399,8 +487,8 @@ const RaceDetailsScreen = ({ route }) => {
     // Get current time in EST
     const now = new Date();
     const estOffset = -5 * 60; // EST is UTC-5 (in minutes)
-    const nowEST = new Date(now.getTime() + (estOffset * 60 * 1000));
-    
+    const nowEST = new Date(now.getTime() + estOffset * 60 * 1000);
+
     // Get race weekend start and end dates
     const raceStartDate = raceData.date ? new Date(raceData.date) : null;
     const raceEndDate = raceData.endDate ? new Date(raceData.endDate) : null;
@@ -410,15 +498,31 @@ const RaceDetailsScreen = ({ route }) => {
     }
 
     // Convert race dates to EST for comparison
-    const raceStartEST = new Date(raceStartDate.getTime() + (estOffset * 60 * 1000));
-    const raceEndEST = new Date(raceEndDate.getTime() + (estOffset * 60 * 1000));
-    
+    const raceStartEST = new Date(
+      raceStartDate.getTime() + estOffset * 60 * 1000
+    );
+    const raceEndEST = new Date(raceEndDate.getTime() + estOffset * 60 * 1000);
+
     // Check if current EST date is within race weekend
-    const currentESTDateOnly = new Date(nowEST.getFullYear(), nowEST.getMonth(), nowEST.getDate());
-    const raceStartDateOnly = new Date(raceStartEST.getFullYear(), raceStartEST.getMonth(), raceStartEST.getDate());
-    const raceEndDateOnly = new Date(raceEndEST.getFullYear(), raceEndEST.getMonth(), raceEndEST.getDate());
-    
-    const isWithinRaceWeekend = currentESTDateOnly >= raceStartDateOnly && currentESTDateOnly <= raceEndDateOnly;
+    const currentESTDateOnly = new Date(
+      nowEST.getFullYear(),
+      nowEST.getMonth(),
+      nowEST.getDate()
+    );
+    const raceStartDateOnly = new Date(
+      raceStartEST.getFullYear(),
+      raceStartEST.getMonth(),
+      raceStartEST.getDate()
+    );
+    const raceEndDateOnly = new Date(
+      raceEndEST.getFullYear(),
+      raceEndEST.getMonth(),
+      raceEndEST.getDate()
+    );
+
+    const isWithinRaceWeekend =
+      currentESTDateOnly >= raceStartDateOnly &&
+      currentESTDateOnly <= raceEndDateOnly;
 
     return isWithinRaceWeekend;
   }, [isStreamingUnlocked, raceData]);
@@ -427,13 +531,15 @@ const RaceDetailsScreen = ({ route }) => {
     fetchRaceDetails();
     loadOpenF1Data();
     // Pre-fetch Grand Prix stream URL for better UX
-    fetchGrandPrixStream().then(url => {
-      if (url) {
-        setGrandPrixStreamUrl(url);
-      }
-    }).catch(error => {
-      console.error('Failed to pre-fetch Grand Prix stream:', error);
-    });
+    fetchGrandPrixStream()
+      .then((url) => {
+        if (url) {
+          setGrandPrixStreamUrl(url);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to pre-fetch Grand Prix stream:", error);
+      });
   }, [raceId]);
 
   // Load events when selected session changes
@@ -450,42 +556,64 @@ const RaceDetailsScreen = ({ route }) => {
 
   // Sync OpenF1 session selection with ESPN competition selection
   useEffect(() => {
-    if (!selectedCompetitionId || !openF1Data.sessions || openF1Data.sessions.length === 0) return;
+    if (
+      !selectedCompetitionId ||
+      !openF1Data.sessions ||
+      openF1Data.sessions.length === 0
+    )
+      return;
 
     // Try to map ESPN competition to OpenF1 session
     const competition = competitionResults[selectedCompetitionId];
     if (!competition) return;
 
     let targetSession = null;
-    const competitionName = competition.name?.toLowerCase() || '';
+    const competitionName = competition.name?.toLowerCase() || "";
 
     // Map ESPN competition types to OpenF1 session types
     // Also check the type abbreviation for more reliable mapping
-    const compTypeAbbrev = competition.type?.abbreviation?.toLowerCase() || '';
-    const compTypeName = competition.type?.name?.toLowerCase() || '';
-    const compDisplayName = competition.type?.displayName?.toLowerCase() || '';
-    
-    if (compTypeAbbrev === 'race') {
-      targetSession = openF1Data.sessions.find(s => s.session_name === 'Race');
-    } else if (compTypeAbbrev === 'qual') {
-      targetSession = openF1Data.sessions.find(s => s.session_name === 'Qualifying');
-    } else if (compTypeAbbrev === 'fp3') {
-      targetSession = openF1Data.sessions.find(s => s.session_name === 'Practice 3');
-    } else if (compTypeAbbrev === 'fp2') {
-      targetSession = openF1Data.sessions.find(s => s.session_name === 'Practice 2');
-    } else if (compTypeAbbrev === 'fp1') {
-      targetSession = openF1Data.sessions.find(s => s.session_name === 'Practice 1');
-    } else if (compTypeAbbrev === 'ss') {
-      targetSession = openF1Data.sessions.find(s => s.session_name === 'Sprint Qualifying');
-    } else if (compTypeAbbrev === 'sr') {
-      targetSession = openF1Data.sessions.find(s => s.session_name === 'Sprint');
+    const compTypeAbbrev = competition.type?.abbreviation?.toLowerCase() || "";
+    const compTypeName = competition.type?.name?.toLowerCase() || "";
+    const compDisplayName = competition.type?.displayName?.toLowerCase() || "";
+
+    if (compTypeAbbrev === "race") {
+      targetSession = openF1Data.sessions.find(
+        (s) => s.session_name === "Race"
+      );
+    } else if (compTypeAbbrev === "qual") {
+      targetSession = openF1Data.sessions.find(
+        (s) => s.session_name === "Qualifying"
+      );
+    } else if (compTypeAbbrev === "fp3") {
+      targetSession = openF1Data.sessions.find(
+        (s) => s.session_name === "Practice 3"
+      );
+    } else if (compTypeAbbrev === "fp2") {
+      targetSession = openF1Data.sessions.find(
+        (s) => s.session_name === "Practice 2"
+      );
+    } else if (compTypeAbbrev === "fp1") {
+      targetSession = openF1Data.sessions.find(
+        (s) => s.session_name === "Practice 1"
+      );
+    } else if (compTypeAbbrev === "ss") {
+      targetSession = openF1Data.sessions.find(
+        (s) => s.session_name === "Sprint Qualifying"
+      );
+    } else if (compTypeAbbrev === "sr") {
+      targetSession = openF1Data.sessions.find(
+        (s) => s.session_name === "Sprint"
+      );
     }
 
     // If we found a matching session, switch to it
-    if (targetSession && targetSession.session_key !== openF1Data.selectedSessionKey) {
-      setOpenF1Data(prev => ({
+    if (
+      targetSession &&
+      targetSession.session_key !== openF1Data.selectedSessionKey
+    ) {
+      setOpenF1Data((prev) => ({
         ...prev,
-        selectedSessionKey: targetSession.session_key
+        selectedSessionKey: targetSession.session_key,
       }));
     }
   }, [selectedCompetitionId, competitionResults, openF1Data.sessions]);
@@ -495,40 +623,59 @@ const RaceDetailsScreen = ({ route }) => {
     let mounted = true;
     const loadResults = async () => {
       if (!raceData) return;
-      const { results: res, order } = await fetchCompetitionResultsForEvent(raceData);
+      const { results: res, order } = await fetchCompetitionResultsForEvent(
+        raceData
+      );
       if (!mounted) return;
-      
+
       // Preserve existing liveStats when updating competition results
-      setCompetitionResults(prev => {
+      setCompetitionResults((prev) => {
         const merged = { ...res };
-        
+
         // For each competition, preserve liveStats from previous state if they exist
-        Object.keys(merged).forEach(compId => {
+        Object.keys(merged).forEach((compId) => {
           if (prev[compId] && prev[compId].competitors) {
-            merged[compId].competitors = merged[compId].competitors.map(newCompetitor => {
-              const existingCompetitor = prev[compId].competitors.find(c => c.id === newCompetitor.id);
-              if (existingCompetitor && existingCompetitor.liveStats) {
-                return { ...newCompetitor, liveStats: existingCompetitor.liveStats };
+            merged[compId].competitors = merged[compId].competitors.map(
+              (newCompetitor) => {
+                const existingCompetitor = prev[compId].competitors.find(
+                  (c) => c.id === newCompetitor.id
+                );
+                if (existingCompetitor && existingCompetitor.liveStats) {
+                  return {
+                    ...newCompetitor,
+                    liveStats: existingCompetitor.liveStats,
+                  };
+                }
+                return newCompetitor;
               }
-              return newCompetitor;
-            });
+            );
           }
         });
-        
+
         return merged;
       });
-      
+
       setCompetitionOrder(order);
 
       // pick default competition - prefer current (nextCompetitionLabel) or last completed competition
       if (order && order.length > 0) {
         let preferred = null;
         if (nextCompetitionLabel) {
-          preferred = order.find(id => {
+          preferred = order.find((id) => {
             const r = res[id];
             const t = r?.type || {};
-            const label = (t.abbreviation || t.displayName || t.text || r.name || '').toString().toLowerCase();
-            return label === ('' + nextCompetitionLabel).toString().toLowerCase();
+            const label = (
+              t.abbreviation ||
+              t.displayName ||
+              t.text ||
+              r.name ||
+              ""
+            )
+              .toString()
+              .toLowerCase();
+            return (
+              label === ("" + nextCompetitionLabel).toString().toLowerCase()
+            );
           });
         }
 
@@ -538,91 +685,128 @@ const RaceDetailsScreen = ({ route }) => {
           let nextUpcomingCompetition = null;
           let nextUpcomingDate = null;
           let lastCompletedCompetition = null;
-          
+
           const now = new Date();
-          console.log('[Competition Selection] Current time:', now.toISOString());
-          console.log('[Competition Selection] Raw raceData.competitions:', raceData.competitions);
-          
+          console.log(
+            "[Competition Selection] Current time:",
+            now.toISOString()
+          );
+          console.log(
+            "[Competition Selection] Raw raceData.competitions:",
+            raceData.competitions
+          );
+
           // Create array of competitions with their dates for better sorting
-          const competitionsWithDates = await Promise.all(order.map(async (competitionId) => {
-            const r = res[competitionId];
-            if (!r) return null;
-            
-            // Try to find corresponding competition in original raceData for date/status info
-            const originalComp = raceData.competitions.find(comp => {
-              const compId = comp.id || (comp.$ref && comp.$ref.split('/').pop());
-              return compId === competitionId;
-            });
-            
-            const compDate = originalComp?.date ? new Date(originalComp.date) : (r.date ? new Date(r.date) : null);
-            const endDate = originalComp?.endDate ? new Date(originalComp.endDate) : (r.endDate ? new Date(r.endDate) : (compDate ? new Date(compDate.getTime() + 3 * 60 * 60 * 1000) : null));
-            
-            // Fetch status from $ref if available
-            let status = null;
-            const statusRef = originalComp?.status?.$ref || r.status?.$ref;
-            if (statusRef) {
-              try {
-                const statusResponse = await fetch(convertToHttps(statusRef));
-                if (statusResponse.ok) {
-                  const statusData = await statusResponse.json();
-                  status = statusData.type;
-                } else {
-                  console.warn(`Failed to fetch status for ${competitionId}:`, statusResponse.status);
+          const competitionsWithDates = await Promise.all(
+            order.map(async (competitionId) => {
+              const r = res[competitionId];
+              if (!r) return null;
+
+              // Try to find corresponding competition in original raceData for date/status info
+              const originalComp = raceData.competitions.find((comp) => {
+                const compId =
+                  comp.id || (comp.$ref && comp.$ref.split("/").pop());
+                return compId === competitionId;
+              });
+
+              const compDate = originalComp?.date
+                ? new Date(originalComp.date)
+                : r.date
+                ? new Date(r.date)
+                : null;
+              const endDate = originalComp?.endDate
+                ? new Date(originalComp.endDate)
+                : r.endDate
+                ? new Date(r.endDate)
+                : compDate
+                ? new Date(compDate.getTime() + 3 * 60 * 60 * 1000)
+                : null;
+
+              // Fetch status from $ref if available
+              let status = null;
+              const statusRef = originalComp?.status?.$ref || r.status?.$ref;
+              if (statusRef) {
+                try {
+                  const statusResponse = await fetch(convertToHttps(statusRef));
+                  if (statusResponse.ok) {
+                    const statusData = await statusResponse.json();
+                    status = statusData.type;
+                  } else {
+                    console.warn(
+                      `Failed to fetch status for ${competitionId}:`,
+                      statusResponse.status
+                    );
+                  }
+                } catch (error) {
+                  console.warn(
+                    `Error fetching status for ${competitionId}:`,
+                    error
+                  );
                 }
-              } catch (error) {
-                console.warn(`Error fetching status for ${competitionId}:`, error);
               }
-            }
-            
-            // Fallback to direct status if no $ref or fetch failed
-            if (!status) {
-              status = originalComp?.status?.type || r.status?.type;
-            }
-            
-            // ESPN status can be confusing - "End of Session" means completed even if completed: false
-            const isCompleted = status?.completed === true || 
-                                status?.state === 'post' || 
-                                status?.description === 'End of Session' ||
-                                status?.detail === 'End of Session' ||
-                                status?.name === 'STATUS_SESSION_COMPLETE';
-            const isLive = !isCompleted && compDate && endDate && now >= compDate && now <= endDate && 
-                          (status?.state === 'in' || status?.state === 'active');
-            const isUpcoming = !isCompleted && compDate && now < compDate;
-            
-            const competitorCount = r.competitors?.length || 0;
-            const hasResults = r.competitors?.some(c => c.winner || c.order) || false;
-            
-            console.log(`[Competition Status] ${r.name || r.type?.displayName || competitionId}:`, {
-              id: competitionId,
-              date: compDate?.toISOString(),
-              endDate: endDate?.toISOString(),
-              originalCompDate: originalComp?.date,
-              originalCompStatus: originalComp?.status,
-              processedStatus: r.status,
-              isCompleted,
-              isLive,
-              isUpcoming,
-              competitorCount,
-              hasResults,
-              statusState: status?.state,
-              statusCompleted: status?.completed,
-              statusDescription: status?.description,
-              competitionType: r.type?.displayName || r.type?.abbreviation,
-              originalComp: originalComp ? 'found' : 'not found'
-            });
-            
-            return {
-              id: competitionId,
-              competition: r,
-              date: compDate,
-              endDate,
-              isCompleted,
-              isLive,
-              isUpcoming,
-              hasResults
-            };
-          })).then(results => results.filter(Boolean));
-          
+
+              // Fallback to direct status if no $ref or fetch failed
+              if (!status) {
+                status = originalComp?.status?.type || r.status?.type;
+              }
+
+              // ESPN status can be confusing - "End of Session" means completed even if completed: false
+              const isCompleted =
+                status?.completed === true ||
+                status?.state === "post" ||
+                status?.description === "End of Session" ||
+                status?.detail === "End of Session" ||
+                status?.name === "STATUS_SESSION_COMPLETE";
+              const isLive =
+                !isCompleted &&
+                compDate &&
+                endDate &&
+                now >= compDate &&
+                now <= endDate &&
+                (status?.state === "in" || status?.state === "active");
+              const isUpcoming = !isCompleted && compDate && now < compDate;
+
+              const competitorCount = r.competitors?.length || 0;
+              const hasResults =
+                r.competitors?.some((c) => c.winner || c.order) || false;
+
+              console.log(
+                `[Competition Status] ${
+                  r.name || r.type?.displayName || competitionId
+                }:`,
+                {
+                  id: competitionId,
+                  date: compDate?.toISOString(),
+                  endDate: endDate?.toISOString(),
+                  originalCompDate: originalComp?.date,
+                  originalCompStatus: originalComp?.status,
+                  processedStatus: r.status,
+                  isCompleted,
+                  isLive,
+                  isUpcoming,
+                  competitorCount,
+                  hasResults,
+                  statusState: status?.state,
+                  statusCompleted: status?.completed,
+                  statusDescription: status?.description,
+                  competitionType: r.type?.displayName || r.type?.abbreviation,
+                  originalComp: originalComp ? "found" : "not found",
+                }
+              );
+
+              return {
+                id: competitionId,
+                competition: r,
+                date: compDate,
+                endDate,
+                isCompleted,
+                isLive,
+                isUpcoming,
+                hasResults,
+              };
+            })
+          ).then((results) => results.filter(Boolean));
+
           // Sort by date to find chronologically next sessions
           competitionsWithDates.sort((a, b) => {
             if (!a.date && !b.date) return 0;
@@ -630,70 +814,111 @@ const RaceDetailsScreen = ({ route }) => {
             if (!b.date) return -1;
             return a.date.getTime() - b.date.getTime();
           });
-          
+
           // Find live session first
           for (const comp of competitionsWithDates) {
             if (comp.isLive) {
               liveCompetition = comp.id;
-              console.log('[Competition Selection] Found live competition:', comp.competition.name);
+              console.log(
+                "[Competition Selection] Found live competition:",
+                comp.competition.name
+              );
               break;
             }
           }
-          
+
           // Find next upcoming session (chronologically next)
           if (!liveCompetition) {
             for (const comp of competitionsWithDates) {
               if (comp.isUpcoming) {
                 nextUpcomingCompetition = comp.id;
                 nextUpcomingDate = comp.date;
-                console.log('[Competition Selection] Found next upcoming competition:', comp.competition.name, 'at', comp.date?.toISOString());
+                console.log(
+                  "[Competition Selection] Found next upcoming competition:",
+                  comp.competition.name,
+                  "at",
+                  comp.date?.toISOString()
+                );
                 break;
               }
             }
           }
-          
+
           // Find last completed with results
           if (!liveCompetition && !nextUpcomingCompetition) {
             for (let i = competitionsWithDates.length - 1; i >= 0; i--) {
               const comp = competitionsWithDates[i];
               if (comp.isCompleted && comp.hasResults) {
                 lastCompletedCompetition = comp.id;
-                console.log('[Competition Selection] Found last completed competition:', comp.competition.name);
+                console.log(
+                  "[Competition Selection] Found last completed competition:",
+                  comp.competition.name
+                );
                 break;
               }
             }
           }
-          
+
           // Select in priority order: live > next upcoming > last completed > last in order
-          preferred = liveCompetition || nextUpcomingCompetition || lastCompletedCompetition || order[order.length - 1];
-          
-          const selectedCompetitionName = res[preferred]?.name || res[preferred]?.type?.displayName || preferred;
-          console.log('=== COMPETITION SELECTION SUMMARY ===');
-          console.log('Available options:', {
-            live: liveCompetition ? `${res[liveCompetition]?.name || liveCompetition}` : null,
-            nextUpcoming: nextUpcomingCompetition ? `${res[nextUpcomingCompetition]?.name || nextUpcomingCompetition}` : null,
-            lastCompleted: lastCompletedCompetition ? `${res[lastCompletedCompetition]?.name || lastCompletedCompetition}` : null,
-            fallback: `${res[order[order.length - 1]]?.name || order[order.length - 1]}`
+          preferred =
+            liveCompetition ||
+            nextUpcomingCompetition ||
+            lastCompletedCompetition ||
+            order[order.length - 1];
+
+          const selectedCompetitionName =
+            res[preferred]?.name ||
+            res[preferred]?.type?.displayName ||
+            preferred;
+          console.log("=== COMPETITION SELECTION SUMMARY ===");
+          console.log("Available options:", {
+            live: liveCompetition
+              ? `${res[liveCompetition]?.name || liveCompetition}`
+              : null,
+            nextUpcoming: nextUpcomingCompetition
+              ? `${
+                  res[nextUpcomingCompetition]?.name || nextUpcomingCompetition
+                }`
+              : null,
+            lastCompleted: lastCompletedCompetition
+              ? `${
+                  res[lastCompletedCompetition]?.name ||
+                  lastCompletedCompetition
+                }`
+              : null,
+            fallback: `${
+              res[order[order.length - 1]]?.name || order[order.length - 1]
+            }`,
           });
-          console.log('FINAL SELECTION:', selectedCompetitionName, `(ID: ${preferred})`);
-          console.log('Selection reason:', 
-            liveCompetition ? 'Live competition found' :
-            nextUpcomingCompetition ? 'Next upcoming competition' :
-            lastCompletedCompetition ? 'Last completed competition with results' :
-            'Fallback to last in order'
+          console.log(
+            "FINAL SELECTION:",
+            selectedCompetitionName,
+            `(ID: ${preferred})`
           );
-          console.log('=====================================');
+          console.log(
+            "Selection reason:",
+            liveCompetition
+              ? "Live competition found"
+              : nextUpcomingCompetition
+              ? "Next upcoming competition"
+              : lastCompletedCompetition
+              ? "Last completed competition with results"
+              : "Fallback to last in order"
+          );
+          console.log("=====================================");
         }
         setSelectedCompetitionId(preferred);
       }
     };
     loadResults();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [raceData]);
 
   const convertToHttps = (url) => {
-    if (url && url.startsWith('http://')) {
-      return url.replace('http://', 'https://');
+    if (url && url.startsWith("http://")) {
+      return url.replace("http://", "https://");
     }
     return url;
   };
@@ -704,7 +929,11 @@ const RaceDetailsScreen = ({ route }) => {
     const loadStatus = async () => {
       setRaceStatus(null);
       try {
-        if (!selectedCompetitionId || !competitionResults[selectedCompetitionId]) return;
+        if (
+          !selectedCompetitionId ||
+          !competitionResults[selectedCompetitionId]
+        )
+          return;
         const comp = competitionResults[selectedCompetitionId];
         // status may be at comp.status.$ref or comp.raw.status.$ref or comp.$ref/status
         let statusRef = comp?.status?.$ref || comp?.raw?.status?.$ref || null;
@@ -712,7 +941,7 @@ const RaceDetailsScreen = ({ route }) => {
         // try to derive status URL from competition $ref if missing
         if (!statusRef && comp.$ref) {
           // common status path: {comp.$ref}/status?lang=en&region=us
-          const base = ('' + comp.$ref).split('?')[0].replace(/\/$/, '');
+          const base = ("" + comp.$ref).split("?")[0].replace(/\/$/, "");
           statusRef = `${base}/status?lang=en&region=us`;
         }
 
@@ -731,7 +960,9 @@ const RaceDetailsScreen = ({ route }) => {
       }
     };
     loadStatus();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [selectedCompetitionId, competitionResults]);
 
   // Component to render SVG using WebView on mobile
@@ -776,7 +1007,9 @@ const RaceDetailsScreen = ({ route }) => {
         scalesPageToFit={false}
         startInLoadingState={true}
         renderLoading={() => (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <View
+            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+          >
             <ActivityIndicator size="small" color={colors.primary} />
           </View>
         )}
@@ -789,13 +1022,15 @@ const RaceDetailsScreen = ({ route }) => {
     if (!Array.isArray(diagrams) || diagrams.length === 0) return null;
 
     // prefer day-dark when darkMode, otherwise day. Prefer .svg over other types.
-    const preferRel = darkMode ? 'day-dark' : 'day';
+    const preferRel = darkMode ? "day-dark" : "day";
 
     // look for exact rel match with 'full' and prefer svg
-    const candidates = diagrams.filter(d => Array.isArray(d.rel) && d.rel.includes(preferRel));
+    const candidates = diagrams.filter(
+      (d) => Array.isArray(d.rel) && d.rel.includes(preferRel)
+    );
     const svgPrefer = (arr) => {
       if (!arr || arr.length === 0) return null;
-      const svg = arr.find(d => d.href && d.href.endsWith('.svg'));
+      const svg = arr.find((d) => d.href && d.href.endsWith(".svg"));
       if (svg) return svg.href;
       return arr[0].href || null;
     };
@@ -811,34 +1046,34 @@ const RaceDetailsScreen = ({ route }) => {
 
   // Predefined team color map (matches StandingsScreen constructorColors)
   const PREDEFINED_TEAM_COLORS = {
-    'Mercedes': '#27F4D2',
-    'Red Bull': '#3671C6',
-    'Ferrari': '#E8002D',
-    'McLaren': '#FF8000',
-    'Alpine': '#FF87BC',
-    'Racing Bulls': '#6692FF',
-    'Aston Martin': '#229971',
-    'Williams': '#64C4FF',
-    'Sauber': '#52E252',
-    'Haas': '#B6BABD'
+    Mercedes: "#27F4D2",
+    "Red Bull": "#3671C6",
+    Ferrari: "#E8002D",
+    McLaren: "#FF8000",
+    Alpine: "#FF87BC",
+    "Racing Bulls": "#6692FF",
+    "Aston Martin": "#229971",
+    Williams: "#64C4FF",
+    Sauber: "#52E252",
+    Haas: "#B6BABD",
   };
 
   // Tire image mapping (from c2.txt)
   const TIRE_IMAGES = {
-    SOFT: 'https://upload.wikimedia.org/wikipedia/commons/d/df/F1_tire_Pirelli_PZero_Red.svg',
-    MEDIUM: 'https://upload.wikimedia.org/wikipedia/commons/4/4d/F1_tire_Pirelli_PZero_Yellow.svg',
-    HARD: 'https://upload.wikimedia.org/wikipedia/commons/d/d6/F1_tire_Pirelli_PZero_White.svg',
-    INTERMEDIATE: 'https://upload.wikimedia.org/wikipedia/commons/8/86/F1_tire_Pirelli_Cinturato_Green.svg',
-    WET: 'https://upload.wikimedia.org/wikipedia/commons/6/63/F1_tire_Pirelli_Cinturato_Blue.svg'
+    SOFT: "https://upload.wikimedia.org/wikipedia/commons/d/df/F1_tire_Pirelli_PZero_Red.svg",
+    MEDIUM:
+      "https://upload.wikimedia.org/wikipedia/commons/4/4d/F1_tire_Pirelli_PZero_Yellow.svg",
+    HARD: "https://upload.wikimedia.org/wikipedia/commons/d/d6/F1_tire_Pirelli_PZero_White.svg",
+    INTERMEDIATE:
+      "https://upload.wikimedia.org/wikipedia/commons/8/86/F1_tire_Pirelli_Cinturato_Green.svg",
+    WET: "https://upload.wikimedia.org/wikipedia/commons/6/63/F1_tire_Pirelli_Cinturato_Blue.svg",
   };
 
   // Helper to format color (adds # if missing, like StandingsScreen)
   const formatColor = (color) => {
-    if (!color) return '#000000';
-    return color.startsWith('#') ? color : `#${color}`;
+    if (!color) return "#000000";
+    return color.startsWith("#") ? color : `#${color}`;
   };
-
-
 
   const resolveTeamColor = (manufacturer) => {
     if (manufacturer) {
@@ -846,46 +1081,48 @@ const RaceDetailsScreen = ({ route }) => {
       if (PREDEFINED_TEAM_COLORS[manufacturer]) {
         return PREDEFINED_TEAM_COLORS[manufacturer];
       }
-      
+
       // Handle common manufacturer name variations
       const normalizedManufacturer = manufacturer.toString().trim();
-      
+
       // Common team name mappings to handle API variations
       const teamNameMappings = {
-        'Red Bull Racing': 'Red Bull',
-        'Scuderia Ferrari': 'Ferrari',
-        'Mercedes-AMG Petronas': 'Mercedes',
-        'Mercedes-AMG': 'Mercedes',
-        'McLaren F1 Team': 'McLaren',
-        'Aston Martin Aramco': 'Aston Martin',
-        'Alpine F1 Team': 'Alpine',
-        'Williams Racing': 'Williams',
-        'MoneyGram Haas F1': 'Haas',
-        'Haas F1 Team': 'Haas',
-        'Kick Sauber': 'Sauber',
-        'Sauber': 'Sauber',
-        'Visa Cash App RB': 'Racing Bulls',
-        'RB': 'Racing Bulls',
-        'AlphaTauri': 'Racing Bulls',
-        'Scuderia AlphaTauri': 'Racing Bulls'
+        "Red Bull Racing": "Red Bull",
+        "Scuderia Ferrari": "Ferrari",
+        "Mercedes-AMG Petronas": "Mercedes",
+        "Mercedes-AMG": "Mercedes",
+        "McLaren F1 Team": "McLaren",
+        "Aston Martin Aramco": "Aston Martin",
+        "Alpine F1 Team": "Alpine",
+        "Williams Racing": "Williams",
+        "MoneyGram Haas F1": "Haas",
+        "Haas F1 Team": "Haas",
+        "Kick Sauber": "Sauber",
+        Sauber: "Sauber",
+        "Visa Cash App RB": "Racing Bulls",
+        RB: "Racing Bulls",
+        AlphaTauri: "Racing Bulls",
+        "Scuderia AlphaTauri": "Racing Bulls",
       };
-      
+
       // Try mapped name
       const mappedName = teamNameMappings[normalizedManufacturer];
       if (mappedName && PREDEFINED_TEAM_COLORS[mappedName]) {
         return PREDEFINED_TEAM_COLORS[mappedName];
       }
-      
+
       // Try partial matching for manufacturer names
       for (const [key, color] of Object.entries(PREDEFINED_TEAM_COLORS)) {
-        if (normalizedManufacturer.toLowerCase().includes(key.toLowerCase()) || 
-            key.toLowerCase().includes(normalizedManufacturer.toLowerCase())) {
+        if (
+          normalizedManufacturer.toLowerCase().includes(key.toLowerCase()) ||
+          key.toLowerCase().includes(normalizedManufacturer.toLowerCase())
+        ) {
           return color;
         }
       }
     }
-    
-    return '#000000';
+
+    return "#000000";
   };
 
   // Function to fetch driver standings (needed to get event log)
@@ -895,15 +1132,15 @@ const RaceDetailsScreen = ({ route }) => {
       const url = `https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/seasons/${currentYear}/types/2/standings/0`;
       const response = await fetch(url);
       const data = await response.json();
-      
+
       // Validate that we have relevant data
       if (data.standings && data.standings.length > 0) {
         return { data, year: currentYear };
       }
-      
-      throw new Error('No standings data found');
+
+      throw new Error("No standings data found");
     } catch (error) {
-      console.error('Error fetching driver standings:', error);
+      console.error("Error fetching driver standings:", error);
       return null;
     }
   };
@@ -915,7 +1152,7 @@ const RaceDetailsScreen = ({ route }) => {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error fetching athlete data:', error);
+      console.error("Error fetching athlete data:", error);
       return null;
     }
   };
@@ -925,23 +1162,31 @@ const RaceDetailsScreen = ({ route }) => {
     try {
       // Get driver standings
       const standingsData = await fetchDriverStandings();
-      if (!standingsData || !standingsData.standings || standingsData.standings.length === 0) {
+      if (
+        !standingsData ||
+        !standingsData.standings ||
+        standingsData.standings.length === 0
+      ) {
         return null;
       }
 
       // Get event log from first driver
-      const firstDriverData = await fetchAthleteData(standingsData.standings[0].athlete.$ref);
-      
+      const firstDriverData = await fetchAthleteData(
+        standingsData.standings[0].athlete.$ref
+      );
+
       if (!firstDriverData || !firstDriverData.eventLog?.$ref) {
         return null;
       }
 
-      const eventLogResponse = await fetch(convertToHttps(firstDriverData.eventLog.$ref));
+      const eventLogResponse = await fetch(
+        convertToHttps(firstDriverData.eventLog.$ref)
+      );
       const eventLogData = await eventLogResponse.json();
-      
+
       return eventLogData;
     } catch (error) {
-      console.error('Error fetching event log data:', error);
+      console.error("Error fetching event log data:", error);
       return null;
     }
   };
@@ -954,7 +1199,8 @@ const RaceDetailsScreen = ({ route }) => {
   const fetchAthleteCached = async (athleteRef) => {
     if (!athleteRef) return null;
     const now = Date.now();
-    if (athleteCache[athleteRef] && athleteCacheExpiry[athleteRef] > now) return athleteCache[athleteRef];
+    if (athleteCache[athleteRef] && athleteCacheExpiry[athleteRef] > now)
+      return athleteCache[athleteRef];
     try {
       const data = await fetchAthleteData(athleteRef);
       athleteCache[athleteRef] = data;
@@ -967,16 +1213,18 @@ const RaceDetailsScreen = ({ route }) => {
 
   // Get stints for a given driver number from openF1Data.stints
   const getStintsForDriver = (driverNumber) => {
-    console.log('getStintsForDriver called with driverNumber:', driverNumber);
-    console.log('openF1Data.stints:', openF1Data.stints);
+    console.log("getStintsForDriver called with driverNumber:", driverNumber);
+    console.log("openF1Data.stints:", openF1Data.stints);
     if (!driverNumber || !openF1Data || !Array.isArray(openF1Data.stints)) {
-      console.log('Early return from getStintsForDriver - missing data');
+      console.log("Early return from getStintsForDriver - missing data");
       return [];
     }
     // openf1 stints use driver_number field
-    const filtered = openF1Data.stints.filter(s => Number(s.driver_number) === Number(driverNumber));
-    console.log('Filtered stints for driver', driverNumber, ':', filtered);
-    return filtered.sort((a,b) => (a.lap_start || 0) - (b.lap_start || 0));
+    const filtered = openF1Data.stints.filter(
+      (s) => Number(s.driver_number) === Number(driverNumber)
+    );
+    console.log("Filtered stints for driver", driverNumber, ":", filtered);
+    return filtered.sort((a, b) => (a.lap_start || 0) - (b.lap_start || 0));
   };
 
   // Get tire compound for a specific lap, falling back to last stint if no data for that lap
@@ -985,7 +1233,7 @@ const RaceDetailsScreen = ({ route }) => {
     if (!stints || stints.length === 0) return null;
 
     // Find stint that contains this lap
-    const currentStint = stints.find(stint => {
+    const currentStint = stints.find((stint) => {
       const startLap = stint.lap_start || 0;
       const endLap = stint.lap_end || Number.MAX_SAFE_INTEGER;
       return lapNumber >= startLap && lapNumber <= endLap;
@@ -996,7 +1244,9 @@ const RaceDetailsScreen = ({ route }) => {
     }
 
     // If no stint found for that lap, use the last stint before that lap
-    const previousStints = stints.filter(stint => (stint.lap_start || 0) <= lapNumber);
+    const previousStints = stints.filter(
+      (stint) => (stint.lap_start || 0) <= lapNumber
+    );
     if (previousStints.length > 0) {
       const lastStint = previousStints[previousStints.length - 1];
       return lastStint.compound;
@@ -1008,17 +1258,28 @@ const RaceDetailsScreen = ({ route }) => {
 
   // Render Tires UI: each stint row shows tire icon and lap range, with arrows between
   const renderTiresForDriver = (driverNumber) => {
-    console.log('renderTiresForDriver called with driverNumber:', driverNumber);
+    console.log("renderTiresForDriver called with driverNumber:", driverNumber);
     const stints = getStintsForDriver(driverNumber);
-    console.log('Got stints for rendering:', stints);
+    console.log("Got stints for rendering:", stints);
     if (!stints || stints.length === 0) {
-      console.log('No stints found, showing debug message');
+      console.log("No stints found, showing debug message");
       // Show debug message instead of null for now
       return (
         <View style={{ marginTop: 8 }}>
-          <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary, marginBottom: 6 }]}>Tires</Text>
-          <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text, fontSize: 12 }]}>
-            No stints data (Driver: {driverNumber || 'unknown'})
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.modalStatLabel,
+              { color: theme.textSecondary, marginBottom: 6 },
+            ]}
+          >
+            Tires
+          </Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.modalStatValue, { color: theme.text, fontSize: 12 }]}
+          >
+            No stints data (Driver: {driverNumber || "unknown"})
           </Text>
         </View>
       );
@@ -1027,30 +1288,71 @@ const RaceDetailsScreen = ({ route }) => {
     // Build rows: display each stint as [icon lap_start - lap_end] -> between
     return (
       <View style={{ marginTop: 8 }}>
-        <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary, marginBottom: 6 }]}>Tires</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'nowrap' }}>
+        <Text
+          allowFontScaling={false}
+          style={[
+            styles.modalStatLabel,
+            { color: theme.textSecondary, marginBottom: 6 },
+          ]}
+        >
+          Tires
+        </Text>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            flexWrap: "nowrap",
+          }}
+        >
           {stints.map((s, idx) => {
-            const comp = (s.compound || '').toUpperCase();
+            const comp = (s.compound || "").toUpperCase();
             const icon = TIRE_IMAGES[comp] || null;
-            const lapStart = s.lap_start != null ? s.lap_start : '-';
-            const lapEnd = s.lap_end != null ? s.lap_end : '-';
+            const lapStart = s.lap_start != null ? s.lap_start : "-";
+            const lapEnd = s.lap_end != null ? s.lap_end : "-";
             return (
               <React.Fragment key={`stint-${idx}`}>
-                <View style={{ alignItems: 'center', marginRight: 6 }}>
+                <View style={{ alignItems: "center", marginRight: 6 }}>
                   {icon ? (
-                    icon.toLowerCase().endsWith('.svg') ? (
+                    icon.toLowerCase().endsWith(".svg") ? (
                       <SvgUri uri={icon} width={28} height={28} />
                     ) : (
-                      <Image source={{ uri: icon }} style={{ width: 28, height: 28 }} />
+                      <Image
+                        source={{ uri: icon }}
+                        style={{ width: 28, height: 28 }}
+                      />
                     )
                   ) : (
-                    <View style={{ width: 28, height: 28, backgroundColor: '#ddd', borderRadius: 14 }} />
+                    <View
+                      style={{
+                        width: 28,
+                        height: 28,
+                        backgroundColor: "#ddd",
+                        borderRadius: 14,
+                      }}
+                    />
                   )}
-                  <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text, fontSize: 12, marginTop: 2 }]}>{`${lapStart} - ${lapEnd}`}</Text>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.modalStatValue,
+                      { color: theme.text, fontSize: 12, marginTop: 2 },
+                    ]}
+                  >{`${lapStart} - ${lapEnd}`}</Text>
                 </View>
                 {idx !== stints.length - 1 ? (
-                  <View style={{ width: 18, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text allowFontScaling={false} style={{ color: theme.textSecondary }}>{'→'}</Text>
+                  <View
+                    style={{
+                      width: 18,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Text
+                      allowFontScaling={false}
+                      style={{ color: theme.textSecondary }}
+                    >
+                      {"→"}
+                    </Text>
                   </View>
                 ) : null}
               </React.Fragment>
@@ -1066,9 +1368,22 @@ const RaceDetailsScreen = ({ route }) => {
     const compound = getTireForLap(driverNumber, lapNumber);
     if (!compound) {
       return (
-        <View style={{ alignItems: 'center' }}>
-          <View style={{ width: 32, height: 32, backgroundColor: '#ddd', borderRadius: 16 }} />
-          <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text, fontSize: 11, marginTop: 2 }]}>
+        <View style={{ alignItems: "center" }}>
+          <View
+            style={{
+              width: 32,
+              height: 32,
+              backgroundColor: "#ddd",
+              borderRadius: 16,
+            }}
+          />
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.modalStatValue,
+              { color: theme.text, fontSize: 11, marginTop: 2 },
+            ]}
+          >
             Lap {lapNumber}
           </Text>
         </View>
@@ -1077,19 +1392,32 @@ const RaceDetailsScreen = ({ route }) => {
 
     const compoundUpper = compound.toUpperCase();
     const icon = TIRE_IMAGES[compoundUpper] || null;
-    
+
     return (
-      <View style={{ alignItems: 'center' }}>
+      <View style={{ alignItems: "center" }}>
         {icon ? (
-          icon.toLowerCase().endsWith('.svg') ? (
+          icon.toLowerCase().endsWith(".svg") ? (
             <SvgUri uri={icon} width={32} height={32} />
           ) : (
             <Image source={{ uri: icon }} style={{ width: 32, height: 32 }} />
           )
         ) : (
-          <View style={{ width: 32, height: 32, backgroundColor: '#ddd', borderRadius: 16 }} />
+          <View
+            style={{
+              width: 32,
+              height: 32,
+              backgroundColor: "#ddd",
+              borderRadius: 16,
+            }}
+          />
         )}
-        <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text, fontSize: 11, marginTop: 2 }]}>
+        <Text
+          allowFontScaling={false}
+          style={[
+            styles.modalStatValue,
+            { color: theme.text, fontSize: 11, marginTop: 2 },
+          ]}
+        >
           {compoundUpper} - L{lapNumber}
         </Text>
       </View>
@@ -1100,20 +1428,36 @@ const RaceDetailsScreen = ({ route }) => {
   const renderTireForCarData = (driverNumber, lapNumber) => {
     const compound = getTireForLap(driverNumber, lapNumber);
     if (!compound) {
-      return <View style={{ width: 24, height: 24, backgroundColor: '#ddd', borderRadius: 12 }} />;
+      return (
+        <View
+          style={{
+            width: 24,
+            height: 24,
+            backgroundColor: "#ddd",
+            borderRadius: 12,
+          }}
+        />
+      );
     }
 
     const compoundUpper = compound.toUpperCase();
     const icon = TIRE_IMAGES[compoundUpper] || null;
-    
+
     return icon ? (
-      icon.toLowerCase().endsWith('.svg') ? (
+      icon.toLowerCase().endsWith(".svg") ? (
         <SvgUri uri={icon} width={24} height={24} />
       ) : (
         <Image source={{ uri: icon }} style={{ width: 24, height: 24 }} />
       )
     ) : (
-      <View style={{ width: 24, height: 24, backgroundColor: '#ddd', borderRadius: 12 }} />
+      <View
+        style={{
+          width: 24,
+          height: 24,
+          backgroundColor: "#ddd",
+          borderRadius: 12,
+        }}
+      />
     );
   };
 
@@ -1129,32 +1473,77 @@ const RaceDetailsScreen = ({ route }) => {
     }
 
     return (
-      <View style={{ flexDirection: 'column', alignItems: 'flex-end' }}>
+      <View style={{ flexDirection: "column", alignItems: "flex-end" }}>
         {rows.map((row, rowIdx) => (
-          <View key={`stint-row-${rowIdx}`} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: rowIdx === 0 ? 0 : 6 }}>
+          <View
+            key={`stint-row-${rowIdx}`}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              marginTop: rowIdx === 0 ? 0 : 6,
+            }}
+          >
             {row.map((s, idx) => {
-              const comp = (s.compound || '').toUpperCase();
+              const comp = (s.compound || "").toUpperCase();
               const icon = TIRE_IMAGES[comp] || null;
-              const lapStart = s.lap_start != null ? s.lap_start : '-';
-              const lapEnd = s.lap_end != null ? s.lap_end : '-';
+              const lapStart = s.lap_start != null ? s.lap_start : "-";
+              const lapEnd = s.lap_end != null ? s.lap_end : "-";
               const globalIdx = rowIdx * chunkSize + idx;
               return (
                 <React.Fragment key={`stint-inline-${globalIdx}`}>
-                  <View style={{ alignItems: 'center', marginLeft: idx === 0 ? 0 : 8 }}>
+                  <View
+                    style={{
+                      alignItems: "center",
+                      marginLeft: idx === 0 ? 0 : 8,
+                    }}
+                  >
                     {icon ? (
-                      icon.toLowerCase().endsWith('.svg') ? (
+                      icon.toLowerCase().endsWith(".svg") ? (
                         <SvgUri uri={icon} width={28} height={28} />
                       ) : (
-                        <Image source={{ uri: icon }} style={{ width: 28, height: 28 }} />
+                        <Image
+                          source={{ uri: icon }}
+                          style={{ width: 28, height: 28 }}
+                        />
                       )
                     ) : (
-                      <View style={{ width: 28, height: 28, backgroundColor: '#ddd', borderRadius: 10 }} />
+                      <View
+                        style={{
+                          width: 28,
+                          height: 28,
+                          backgroundColor: "#ddd",
+                          borderRadius: 10,
+                        }}
+                      />
                     )}
-                    <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text, fontSize: 11, marginTop: 2 }]}>{`${lapStart} - ${lapEnd}`}</Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.modalStatValue,
+                        { color: theme.text, fontSize: 11, marginTop: 2 },
+                      ]}
+                    >{`${lapStart} - ${lapEnd}`}</Text>
                   </View>
                   {idx !== row.length - 1 ? (
-                    <View style={{ width: 18, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text allowFontScaling={false} style={{ color: theme.textSecondary, fontSize: 12, marginLeft: 8, marginBottom: 8 }}>{'→'}</Text>
+                    <View
+                      style={{
+                        width: 18,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        style={{
+                          color: theme.textSecondary,
+                          fontSize: 12,
+                          marginLeft: 8,
+                          marginBottom: 8,
+                        }}
+                      >
+                        {"→"}
+                      </Text>
                     </View>
                   ) : null}
                 </React.Fragment>
@@ -1171,9 +1560,20 @@ const RaceDetailsScreen = ({ route }) => {
     if (!competitor) return null;
     try {
       // competitor.raw may have statistics.$ref or the statistics endpoint can be constructed
-      let statRef = competitor.raw?.statistics?.$ref || competitor.raw?.statistics?.href || null;
-      if (!statRef && competitor.raw && competitor.id && competitionResults[selectedCompetitionId] && competitionResults[selectedCompetitionId].raw) {
-        const base = ('' + competitionResults[selectedCompetitionId].raw.$ref).split('?')[0].replace(/\/$/, '');
+      let statRef =
+        competitor.raw?.statistics?.$ref ||
+        competitor.raw?.statistics?.href ||
+        null;
+      if (
+        !statRef &&
+        competitor.raw &&
+        competitor.id &&
+        competitionResults[selectedCompetitionId] &&
+        competitionResults[selectedCompetitionId].raw
+      ) {
+        const base = ("" + competitionResults[selectedCompetitionId].raw.$ref)
+          .split("?")[0]
+          .replace(/\/$/, "");
         statRef = `${base}/competitors/${competitor.id}/statistics?lang=en&region=us`;
       }
       if (!statRef) return null;
@@ -1191,179 +1591,304 @@ const RaceDetailsScreen = ({ route }) => {
     if (ms == null) return null;
     const m = Number(ms);
     if (isNaN(m)) return String(ms);
-    const sign = m < 0 ? '-' : '';
+    const sign = m < 0 ? "-" : "";
     const abs = Math.abs(m);
     const hours = Math.floor(abs / 3600000);
     const minutes = Math.floor((abs % 3600000) / 60000);
     const seconds = Math.floor((abs % 60000) / 1000);
     const millis = Math.floor(abs % 1000);
-    const pad = (v, l = 2) => String(v).padStart(l, '0');
-    if (hours > 0) return `${sign}${hours}:${pad(minutes)}:${pad(seconds)}.${String(millis).padStart(3,'0')}`;
-    return `${sign}${minutes}:${pad(seconds)}.${String(millis).padStart(3,'0')}`;
+    const pad = (v, l = 2) => String(v).padStart(l, "0");
+    if (hours > 0)
+      return `${sign}${hours}:${pad(minutes)}:${pad(seconds)}.${String(
+        millis
+      ).padStart(3, "0")}`;
+    return `${sign}${minutes}:${pad(seconds)}.${String(millis).padStart(
+      3,
+      "0"
+    )}`;
   };
 
   // Fetch competition results for the eventData competitions (optimized)
   const fetchCompetitionResultsForEvent = async (eventData) => {
-    if (!eventData || !Array.isArray(eventData.competitions)) return { results: {}, order: [] };
+    if (!eventData || !Array.isArray(eventData.competitions))
+      return { results: {}, order: [] };
 
     const results = {};
     const order = [];
 
     // Process competitions in parallel but record order serially
-    await Promise.all(eventData.competitions.map(async (comp) => {
-      try {
-        const compId = comp.id || (comp.$ref && comp.$ref.split('/').pop());
-        const compType = comp.type || {};
-        const compName = compType.displayName || compType.text || compType.abbreviation || compType.name || 'Competition';
+    await Promise.all(
+      eventData.competitions.map(async (comp) => {
+        try {
+          const compId = comp.id || (comp.$ref && comp.$ref.split("/").pop());
+          const compType = comp.type || {};
+          const compName =
+            compType.displayName ||
+            compType.text ||
+            compType.abbreviation ||
+            compType.name ||
+            "Competition";
 
-        order.push(compId);
+          order.push(compId);
 
-        const competitors = Array.isArray(comp.competitors) ? comp.competitors : [];
+          const competitors = Array.isArray(comp.competitors)
+            ? comp.competitors
+            : [];
 
-        const competitorPromises = competitors.map(async (c) => {
-          const athleteRef = c.athlete && c.athlete.$ref ? c.athlete.$ref : null;
-          let athleteData = null;
-          if (athleteRef) athleteData = await fetchAthleteCached(athleteRef);
+          const competitorPromises = competitors.map(async (c) => {
+            const athleteRef =
+              c.athlete && c.athlete.$ref ? c.athlete.$ref : null;
+            let athleteData = null;
+            if (athleteRef) athleteData = await fetchAthleteCached(athleteRef);
 
-          const name = athleteData?.displayName || athleteData?.shortName || c.athlete?.displayName || c.athlete?.shortName || '';
-          const id = c.id || c.uid || (athleteRef ? athleteRef.split('/').pop() : null);
-          const manufacturer = c.vehicle?.manufacturer || c.team?.displayName || '';
-          const teamColor = resolveTeamColor(manufacturer);
-          
-          // Debug logging to help identify manufacturer name mismatches
-          if (manufacturer && teamColor === '#000000') {
-            console.log('No team color found for manufacturer:', manufacturer, 'for driver:', name);
-          }
-          const winner = c.winner === true;
-          const orderPos = c.rank || c.order || null;
-          const startOrderPos = c.startOrder ?? c.startPosition ?? null;
+            const name =
+              athleteData?.displayName ||
+              athleteData?.shortName ||
+              c.athlete?.displayName ||
+              c.athlete?.shortName ||
+              "";
+            const id =
+              c.id ||
+              c.uid ||
+              (athleteRef ? athleteRef.split("/").pop() : null);
+            const manufacturer =
+              c.vehicle?.manufacturer || c.team?.displayName || "";
+            const teamColor = resolveTeamColor(manufacturer);
 
-          // Try to get timing and laps from embedded fields
-          let totalTime = null;
-          let laps = null;
-          if (c.result) {
-            if (c.result.time) totalTime = c.result.time.displayValue || c.result.time.text || (c.result.time.value ? String(c.result.time.value) : null);
-            if (c.result.laps != null) laps = c.result.laps;
-          }
-          if (Array.isArray(c.statistics) && (!totalTime || !laps)) {
-            for (const s of c.statistics) {
-              const key = (s.name || s.displayName || '').toString().toLowerCase();
-              const val = s.value ?? s.displayValue ?? s.text ?? s.rank ?? null;
-              if (!totalTime && key.includes('time')) totalTime = val;
-              if (!laps && (key.includes('lapsCompleted'))) laps = val;
+            // Debug logging to help identify manufacturer name mismatches
+            if (manufacturer && teamColor === "#000000") {
+              console.log(
+                "No team color found for manufacturer:",
+                manufacturer,
+                "for driver:",
+                name
+              );
             }
-          }
+            const winner = c.winner === true;
+            const orderPos = c.rank || c.order || null;
+            const startOrderPos = c.startOrder ?? c.startPosition ?? null;
 
-          return {
-            id,
-            name,
-            manufacturer,
-            teamColor,
-            winner,
-            order: orderPos,
-            startOrder: startOrderPos,
-            totalTime,
-            laps,
-            statistics: c.statistics, // Preserve statistics array with $ref for live updates
-            raw: c
-          };
-        });
-
-        let resolved = await Promise.all(competitorPromises);
-
-        // If some competitors lack timing/lap/qual data, fetch competitor-level statistics endpoints in parallel
-        const needIndexes = resolved.map((r, i) => (!r.totalTime && !r.laps && !r.qual1 && !r.qual2 && !r.qual3) ? i : -1).filter(i => i >= 0);
-        if (needIndexes.length > 0) {
-          // base competition url without query string
-          const baseComp = comp.$ref ? ('' + comp.$ref).split('?')[0] : null;
-
-          const statFetches = needIndexes.map(async (idx) => {
-            const r = resolved[idx];
-            // try explicit stat ref on the competitor
-            let statRef = r.raw?.statistics?.$ref || r.raw?.statistics?.href || null;
-            if (!statRef && baseComp && r.id) {
-              statRef = `${baseComp}/competitors/${r.id}/statistics?lang=en&region=us`;
+            // Try to get timing and laps from embedded fields
+            let totalTime = null;
+            let laps = null;
+            if (c.result) {
+              if (c.result.time)
+                totalTime =
+                  c.result.time.displayValue ||
+                  c.result.time.text ||
+                  (c.result.time.value ? String(c.result.time.value) : null);
+              if (c.result.laps != null) laps = c.result.laps;
             }
-            if (!statRef) return null;
-            try {
-              const resp = await fetch(convertToHttps(statRef));
-              if (!resp || !resp.ok) return null;
-              const statsJson = await resp.json();
-              // parse statsJson for totalTime, laps, qual times, behindTime
-              const parsed = { totalTime: null, laps: null, qual1: null, qual2: null, qual3: null, behindTime: null, fastestLap: null, behindLaps: null };
-              const splits = statsJson?.splits;
-                    if (splits && Array.isArray(splits.categories)) {
-                for (const cat of splits.categories) {
-                  if (!cat || !Array.isArray(cat.stats)) continue;
-                  for (const s of cat.stats) {
-                    const key = (s.name || s.displayName || s.abbreviation || '').toString().toLowerCase();
-                    const val = s.displayValue ?? s.value ?? s.text ?? s.rank ?? null;
-                    if (!parsed.laps && key.includes('lapscompleted')) parsed.laps = val;
-                    if (!parsed.totalTime && (key.includes('totaltime') || key.includes('total race time') || key.includes('total_time') || key.includes('total'))) parsed.totalTime = val;
-                    if (!parsed.qual1 && (key.includes('qual1') || key.includes('q1') || key.includes('qual1timems') || key.includes('qual1time'))) parsed.qual1 = val;
-                    if (!parsed.qual2 && (key.includes('qual2') || key.includes('q2') || key.includes('qual2timems') || key.includes('qual2time'))) parsed.qual2 = val;
-                    if (!parsed.qual3 && (key.includes('qual3') || key.includes('q3') || key.includes('qual3timems') || key.includes('qual3time'))) parsed.qual3 = val;
-                          if (!parsed.behindTime && key.includes('behind') && !key.includes('behindlaps')) parsed.behindTime = val;
-                          // behindLaps is provided as a separate stat in some feeds (e.g., behindLaps or LH)
-                          if (!parsed.behindLaps && (key.includes('behindlaps') || key === 'behindlaps')) parsed.behindLaps = val;
-                          // place may be provided in the competitor statistics and should be used as the authoritative order
-                          if (!parsed.place && key.includes('place') && key !== 'pitsplace') parsed.place = val;
-                    // also check abbreviation matches
-                    const ab = (s.abbreviation || '').toString().toLowerCase();
-                    if (!parsed.totalTime && (ab === 'tot' || ab === 'totaltime')) parsed.totalTime = val;
-                    if (!parsed.laps && (ab === 'lc' || ab === 'laps')) parsed.laps = val;
-                          if (!parsed.behindLaps && (ab === 'lh' || ab === 'behindlaps')) parsed.behindLaps = val;
-                          if (!parsed.place && (ab === 'p' || ab === 'place')) parsed.place = val;
-                    if (!parsed.fastestLap && (ab === 'fl' || ab === 'flt')) parsed.fastestLap = val;
-                  }
-                }
+            if (Array.isArray(c.statistics) && (!totalTime || !laps)) {
+              for (const s of c.statistics) {
+                const key = (s.name || s.displayName || "")
+                  .toString()
+                  .toLowerCase();
+                const val =
+                  s.value ?? s.displayValue ?? s.text ?? s.rank ?? null;
+                if (!totalTime && key.includes("time")) totalTime = val;
+                if (!laps && key.includes("lapsCompleted")) laps = val;
               }
-
-              // fallback: if statsJson has direct fields
-              if (!parsed.totalTime && statsJson?.totalTime) parsed.totalTime = statsJson.totalTime.displayValue ?? statsJson.totalTime;
-              if (!parsed.laps && statsJson?.lapsCompleted) parsed.laps = statsJson.lapsCompleted.displayValue ?? statsJson.lapsCompleted;
-
-              // normalize times: prefer display string, else convert ms numbers
-              const normalizeTime = (v) => {
-                if (v == null) return null;
-                if (typeof v === 'string') return v;
-                if (typeof v === 'number') return formatMs(v);
-                return String(v);
-              };
-
-              r.totalTime = normalizeTime(parsed.totalTime);
-              r.laps = parsed.laps != null ? parsed.laps : r.laps;
-              r.qual1 = normalizeTime(parsed.qual1);
-              r.qual2 = normalizeTime(parsed.qual2);
-              r.qual3 = normalizeTime(parsed.qual3);
-              r.behindTime = normalizeTime(parsed.behindTime);
-              r.fastestLap = normalizeTime(parsed.fastestLap);
-              r.behindLaps = normalizeTime(parsed.behindLaps);
-              // assign behindLaps and place if available
-              if (parsed.behindLaps != null) r.behindLaps = parsed.behindLaps;
-              if (parsed.place != null) r.order = parsed.place;
-            } catch (e) {
-              // ignore per-competitor stat fetch errors
             }
-            return null;
+
+            return {
+              id,
+              name,
+              manufacturer,
+              teamColor,
+              winner,
+              order: orderPos,
+              startOrder: startOrderPos,
+              totalTime,
+              laps,
+              statistics: c.statistics, // Preserve statistics array with $ref for live updates
+              raw: c,
+            };
           });
 
-          try {
-            await Promise.all(statFetches);
-          } catch (pf) { /* ignore */ }
-        }
+          let resolved = await Promise.all(competitorPromises);
 
-        results[compId] = {
-          id: compId,
-          name: compName,
-          type: compType,
-          competitors: resolved,
-          raw: comp
-        };
-      } catch (e) {
-        // ignore per-competition errors
-      }
-    }));
+          // If some competitors lack timing/lap/qual data, fetch competitor-level statistics endpoints in parallel
+          const needIndexes = resolved
+            .map((r, i) =>
+              !r.totalTime && !r.laps && !r.qual1 && !r.qual2 && !r.qual3
+                ? i
+                : -1
+            )
+            .filter((i) => i >= 0);
+          if (needIndexes.length > 0) {
+            // base competition url without query string
+            const baseComp = comp.$ref ? ("" + comp.$ref).split("?")[0] : null;
+
+            const statFetches = needIndexes.map(async (idx) => {
+              const r = resolved[idx];
+              // try explicit stat ref on the competitor
+              let statRef =
+                r.raw?.statistics?.$ref || r.raw?.statistics?.href || null;
+              if (!statRef && baseComp && r.id) {
+                statRef = `${baseComp}/competitors/${r.id}/statistics?lang=en&region=us`;
+              }
+              if (!statRef) return null;
+              try {
+                const resp = await fetch(convertToHttps(statRef));
+                if (!resp || !resp.ok) return null;
+                const statsJson = await resp.json();
+                // parse statsJson for totalTime, laps, qual times, behindTime
+                const parsed = {
+                  totalTime: null,
+                  laps: null,
+                  qual1: null,
+                  qual2: null,
+                  qual3: null,
+                  behindTime: null,
+                  fastestLap: null,
+                  behindLaps: null,
+                };
+                const splits = statsJson?.splits;
+                if (splits && Array.isArray(splits.categories)) {
+                  for (const cat of splits.categories) {
+                    if (!cat || !Array.isArray(cat.stats)) continue;
+                    for (const s of cat.stats) {
+                      const key = (
+                        s.name ||
+                        s.displayName ||
+                        s.abbreviation ||
+                        ""
+                      )
+                        .toString()
+                        .toLowerCase();
+                      const val =
+                        s.displayValue ?? s.value ?? s.text ?? s.rank ?? null;
+                      if (!parsed.laps && key.includes("lapscompleted"))
+                        parsed.laps = val;
+                      if (
+                        !parsed.totalTime &&
+                        (key.includes("totaltime") ||
+                          key.includes("total race time") ||
+                          key.includes("total_time") ||
+                          key.includes("total"))
+                      )
+                        parsed.totalTime = val;
+                      if (
+                        !parsed.qual1 &&
+                        (key.includes("qual1") ||
+                          key.includes("q1") ||
+                          key.includes("qual1timems") ||
+                          key.includes("qual1time"))
+                      )
+                        parsed.qual1 = val;
+                      if (
+                        !parsed.qual2 &&
+                        (key.includes("qual2") ||
+                          key.includes("q2") ||
+                          key.includes("qual2timems") ||
+                          key.includes("qual2time"))
+                      )
+                        parsed.qual2 = val;
+                      if (
+                        !parsed.qual3 &&
+                        (key.includes("qual3") ||
+                          key.includes("q3") ||
+                          key.includes("qual3timems") ||
+                          key.includes("qual3time"))
+                      )
+                        parsed.qual3 = val;
+                      if (
+                        !parsed.behindTime &&
+                        key.includes("behind") &&
+                        !key.includes("behindlaps")
+                      )
+                        parsed.behindTime = val;
+                      // behindLaps is provided as a separate stat in some feeds (e.g., behindLaps or LH)
+                      if (
+                        !parsed.behindLaps &&
+                        (key.includes("behindlaps") || key === "behindlaps")
+                      )
+                        parsed.behindLaps = val;
+                      // place may be provided in the competitor statistics and should be used as the authoritative order
+                      if (
+                        !parsed.place &&
+                        key.includes("place") &&
+                        key !== "pitsplace"
+                      )
+                        parsed.place = val;
+                      // also check abbreviation matches
+                      const ab = (s.abbreviation || "")
+                        .toString()
+                        .toLowerCase();
+                      if (
+                        !parsed.totalTime &&
+                        (ab === "tot" || ab === "totaltime")
+                      )
+                        parsed.totalTime = val;
+                      if (!parsed.laps && (ab === "lc" || ab === "laps"))
+                        parsed.laps = val;
+                      if (
+                        !parsed.behindLaps &&
+                        (ab === "lh" || ab === "behindlaps")
+                      )
+                        parsed.behindLaps = val;
+                      if (!parsed.place && (ab === "p" || ab === "place"))
+                        parsed.place = val;
+                      if (!parsed.fastestLap && (ab === "fl" || ab === "flt"))
+                        parsed.fastestLap = val;
+                    }
+                  }
+                }
+
+                // fallback: if statsJson has direct fields
+                if (!parsed.totalTime && statsJson?.totalTime)
+                  parsed.totalTime =
+                    statsJson.totalTime.displayValue ?? statsJson.totalTime;
+                if (!parsed.laps && statsJson?.lapsCompleted)
+                  parsed.laps =
+                    statsJson.lapsCompleted.displayValue ??
+                    statsJson.lapsCompleted;
+
+                // normalize times: prefer display string, else convert ms numbers
+                const normalizeTime = (v) => {
+                  if (v == null) return null;
+                  if (typeof v === "string") return v;
+                  if (typeof v === "number") return formatMs(v);
+                  return String(v);
+                };
+
+                r.totalTime = normalizeTime(parsed.totalTime);
+                r.laps = parsed.laps != null ? parsed.laps : r.laps;
+                r.qual1 = normalizeTime(parsed.qual1);
+                r.qual2 = normalizeTime(parsed.qual2);
+                r.qual3 = normalizeTime(parsed.qual3);
+                r.behindTime = normalizeTime(parsed.behindTime);
+                r.fastestLap = normalizeTime(parsed.fastestLap);
+                r.behindLaps = normalizeTime(parsed.behindLaps);
+                // assign behindLaps and place if available
+                if (parsed.behindLaps != null) r.behindLaps = parsed.behindLaps;
+                if (parsed.place != null) r.order = parsed.place;
+              } catch (e) {
+                // ignore per-competitor stat fetch errors
+              }
+              return null;
+            });
+
+            try {
+              await Promise.all(statFetches);
+            } catch (pf) {
+              /* ignore */
+            }
+          }
+
+          results[compId] = {
+            id: compId,
+            name: compName,
+            type: compType,
+            competitors: resolved,
+            raw: comp,
+          };
+        } catch (e) {
+          // ignore per-competition errors
+        }
+      })
+    );
 
     return { results, order };
   };
@@ -1371,44 +1896,57 @@ const RaceDetailsScreen = ({ route }) => {
   // OpenF1 API functions
   const fetchOpenF1Meetings = async (year = new Date().getFullYear()) => {
     try {
-      const response = await fetch(`https://timestampedforf1.jeffreyjpz.com/api/v1/meetings?year=${year}`);
-      if (!response.ok) throw new Error(`Failed to fetch meetings: ${response.status}`);
+      const response = await fetch(
+        `https://timestampedforf1.jeffreyjpz.com/api/v1/meetings?year=${year}`
+      );
+      if (!response.ok)
+        throw new Error(`Failed to fetch meetings: ${response.status}`);
       return await response.json();
     } catch (error) {
-      console.error('Error fetching OpenF1 meetings:', error);
+      console.error("Error fetching OpenF1 meetings:", error);
       return [];
     }
   };
 
   const fetchOpenF1Sessions = async (meetingKey) => {
     try {
-      const response = await fetch(`https://timestampedforf1.jeffreyjpz.com/api/v1/sessions?meeting_key=${meetingKey}`);
-      if (!response.ok) throw new Error(`Failed to fetch sessions: ${response.status}`);
+      const response = await fetch(
+        `https://timestampedforf1.jeffreyjpz.com/api/v1/sessions?meeting_key=${meetingKey}`
+      );
+      if (!response.ok)
+        throw new Error(`Failed to fetch sessions: ${response.status}`);
       return await response.json();
     } catch (error) {
-      console.error('Error fetching OpenF1 sessions:', error);
+      console.error("Error fetching OpenF1 sessions:", error);
       return [];
     }
   };
 
   const fetchOpenF1Drivers = async (sessionKey) => {
     try {
-      const response = await fetch(`https://timestampedforf1.jeffreyjpz.com/api/v1/drivers?session_key=${sessionKey}`);
-      if (!response.ok) throw new Error(`Failed to fetch drivers: ${response.status}`);
+      const response = await fetch(
+        `https://timestampedforf1.jeffreyjpz.com/api/v1/drivers?session_key=${sessionKey}`
+      );
+      if (!response.ok)
+        throw new Error(`Failed to fetch drivers: ${response.status}`);
       return await response.json();
     } catch (error) {
-      console.error('Error fetching OpenF1 drivers:', error);
+      console.error("Error fetching OpenF1 drivers:", error);
       return [];
     }
   };
 
   const fetchOpenF1Events = async (sessionKey) => {
     try {
-      const response = await fetch(`https://timestampedforf1.jeffreyjpz.com/api/v1/events?session_key=${sessionKey}`);
+      const response = await fetch(
+        `https://timestampedforf1.jeffreyjpz.com/api/v1/events?session_key=${sessionKey}`
+      );
       if (!response.ok) {
         // Check if it's a temporary unavailability (during live session)
         if (response.status === 403 || response.status === 429) {
-          throw new Error('Events data not yet ready - API access is restricted during live sessions');
+          throw new Error(
+            "Events data not yet ready - API access is restricted during live sessions"
+          );
         }
         throw new Error(`Failed to fetch events: ${response.status}`);
       }
@@ -1416,21 +1954,24 @@ const RaceDetailsScreen = ({ route }) => {
       // Sort events by date (newest first, which means bottom first for display)
       return events.sort((a, b) => new Date(b.date) - new Date(a.date));
     } catch (error) {
-      console.error('Error fetching OpenF1 events:', error);
+      console.error("Error fetching OpenF1 events:", error);
       throw error; // Re-throw to handle UI state
     }
   };
 
   const fetchOpenF1Stints = async (sessionKey) => {
     try {
-      console.log('Fetching stints for session key:', sessionKey);
-      const response = await fetch(`https://api.openf1.org/v1/stints?session_key=${sessionKey}`);
-      if (!response.ok) throw new Error(`Failed to fetch stints: ${response.status}`);
+      console.log("Fetching stints for session key:", sessionKey);
+      const response = await fetch(
+        `https://api.openf1.org/v1/stints?session_key=${sessionKey}`
+      );
+      if (!response.ok)
+        throw new Error(`Failed to fetch stints: ${response.status}`);
       const stints = await response.json();
-      console.log('Fetched stints:', stints);
+      console.log("Fetched stints:", stints);
       return stints;
     } catch (error) {
-      console.error('Error fetching OpenF1 stints:', error);
+      console.error("Error fetching OpenF1 stints:", error);
       return [];
     }
   };
@@ -1439,23 +1980,29 @@ const RaceDetailsScreen = ({ route }) => {
     try {
       // Convert overtake date to nearest second and create range
       const overtakeTime = new Date(overtakeDate);
-      const baseTime = new Date(overtakeTime.getFullYear(), overtakeTime.getMonth(), overtakeTime.getDate(), 
-                               overtakeTime.getHours(), overtakeTime.getMinutes(), overtakeTime.getSeconds());
-      
+      const baseTime = new Date(
+        overtakeTime.getFullYear(),
+        overtakeTime.getMonth(),
+        overtakeTime.getDate(),
+        overtakeTime.getHours(),
+        overtakeTime.getMinutes(),
+        overtakeTime.getSeconds()
+      );
+
       const startTime = new Date(baseTime.getTime() - 1000); // -1 second
-      const endTime = new Date(baseTime.getTime() + 1000);   // +1 second
-      
-      const startISO = startTime.toISOString().replace('Z', '+00:00');
-      const endISO = endTime.toISOString().replace('Z', '+00:00');
-      
+      const endTime = new Date(baseTime.getTime() + 1000); // +1 second
+
+      const startISO = startTime.toISOString().replace("Z", "+00:00");
+      const endISO = endTime.toISOString().replace("Z", "+00:00");
+
       const url = `https://api.openf1.org/v1/car_data?driver_number=${driverNumber}&session_key=${sessionKey}&date>${startISO}&date<${endISO}`;
-      console.log('Fetching car data:', url);
-      
+      console.log("Fetching car data:", url);
+
       const response = await fetch(url);
       const data = await response.json();
       return data || [];
     } catch (error) {
-      console.error('Error fetching car data:', error);
+      console.error("Error fetching car data:", error);
       return [];
     }
   };
@@ -1472,18 +2019,28 @@ const RaceDetailsScreen = ({ route }) => {
 
       for (const meeting of meetings) {
         const meetingDate = new Date(meeting.date_start);
-        const daysDiff = Math.abs((targetDate - meetingDate) / (1000 * 60 * 60 * 24));
-        
+        const daysDiff = Math.abs(
+          (targetDate - meetingDate) / (1000 * 60 * 60 * 24)
+        );
+
         // Only consider meetings within 7 days
         if (daysDiff > 7) continue;
 
         // Score based on name similarity and date proximity
-        const nameScore = raceName.toLowerCase().includes(meeting.meeting_name.toLowerCase().split(' ')[0]) ? 1 : 0;
-        const locationScore = raceName.toLowerCase().includes(meeting.location.toLowerCase()) ? 1 : 0;
-        const dateScore = Math.max(0, 1 - (daysDiff / 7)); // Higher score for closer dates
-        
+        const nameScore = raceName
+          .toLowerCase()
+          .includes(meeting.meeting_name.toLowerCase().split(" ")[0])
+          ? 1
+          : 0;
+        const locationScore = raceName
+          .toLowerCase()
+          .includes(meeting.location.toLowerCase())
+          ? 1
+          : 0;
+        const dateScore = Math.max(0, 1 - daysDiff / 7); // Higher score for closer dates
+
         const totalScore = nameScore * 2 + locationScore * 2 + dateScore;
-        
+
         if (totalScore > bestScore) {
           bestScore = totalScore;
           bestMatch = meeting;
@@ -1492,7 +2049,7 @@ const RaceDetailsScreen = ({ route }) => {
 
       return bestMatch;
     } catch (error) {
-      console.error('Error matching race with OpenF1 meeting:', error);
+      console.error("Error matching race with OpenF1 meeting:", error);
       return null;
     }
   };
@@ -1503,25 +2060,25 @@ const RaceDetailsScreen = ({ route }) => {
 
       const meeting = await matchRaceWithOpenF1Meeting(raceName, raceDate);
       if (!meeting) {
-        console.log('No matching OpenF1 meeting found for race:', raceName);
+        console.log("No matching OpenF1 meeting found for race:", raceName);
         return;
       }
 
       const sessions = await fetchOpenF1Sessions(meeting.meeting_key);
-      const raceSession = sessions.find(s => s.session_name === 'Race');
-      
-      setOpenF1Data(prev => ({
+      const raceSession = sessions.find((s) => s.session_name === "Race");
+
+      setOpenF1Data((prev) => ({
         ...prev,
         meetingKey: meeting.meeting_key,
         sessions: sessions,
-        selectedSessionKey: raceSession?.session_key || sessions[0]?.session_key || null
+        selectedSessionKey:
+          raceSession?.session_key || sessions[0]?.session_key || null,
       }));
-
     } catch (error) {
-      console.error('Error loading OpenF1 data:', error);
-      setOpenF1Data(prev => ({
+      console.error("Error loading OpenF1 data:", error);
+      setOpenF1Data((prev) => ({
         ...prev,
-        eventsError: 'Failed to load OpenF1 data'
+        eventsError: "Failed to load OpenF1 data",
       }));
     }
   };
@@ -1529,41 +2086,40 @@ const RaceDetailsScreen = ({ route }) => {
   const loadEventsForSession = async (sessionKey) => {
     if (!sessionKey) return;
 
-    setOpenF1Data(prev => ({
+    setOpenF1Data((prev) => ({
       ...prev,
       eventsLoading: true,
-      eventsError: null
+      eventsError: null,
     }));
 
     try {
       const [events, drivers, stints] = await Promise.all([
         fetchOpenF1Events(sessionKey),
         fetchOpenF1Drivers(sessionKey),
-        fetchOpenF1Stints(sessionKey)
+        fetchOpenF1Stints(sessionKey),
       ]);
 
       // Create a driver lookup map
       const driverMap = {};
-      drivers.forEach(driver => {
+      drivers.forEach((driver) => {
         driverMap[driver.driver_number] = driver;
       });
 
-      setOpenF1Data(prev => ({
+      setOpenF1Data((prev) => ({
         ...prev,
         events: events,
         drivers: driverMap,
         stints: Array.isArray(stints) ? stints : [],
         eventsLoading: false,
-        eventsError: null
+        eventsError: null,
       }));
-
     } catch (error) {
-      setOpenF1Data(prev => ({
+      setOpenF1Data((prev) => ({
         ...prev,
         events: [],
         drivers: {},
         eventsLoading: false,
-        eventsError: error.message
+        eventsError: error.message,
       }));
     }
   };
@@ -1571,81 +2127,96 @@ const RaceDetailsScreen = ({ route }) => {
   // Function to fetch Grand Prix stream from streaming API
   const fetchGrandPrixStream = async () => {
     try {
-      console.log('Fetching Grand Prix stream from streaming API...');
-      const response = await fetch('https://streamed.pk/api/matches/motor-sports/popular');
-      const data = await response.json();
-      
-      // Find the first match with "Grand Prix" in the title
-      const grandPrixMatch = data.find(match => 
-        match.title && match.title.toLowerCase().includes('grand prix')
+      console.log("Fetching Grand Prix stream from streaming API...");
+      const response = await fetch(
+        "https://streamed.pk/api/matches/motor-sports/popular"
       );
-      
+      const data = await response.json();
+
+      // Find the first match with "Grand Prix" in the title
+      const grandPrixMatch = data.find(
+        (match) =>
+          match.title && match.title.toLowerCase().includes("grand prix")
+      );
+
       if (!grandPrixMatch) {
-        console.log('No Grand Prix match found');
+        console.log("No Grand Prix match found");
         return null;
       }
-      
-      console.log('Found Grand Prix match:', grandPrixMatch.title);
-      
+
+      console.log("Found Grand Prix match:", grandPrixMatch.title);
+
       // Look for admin source
-      const adminSource = grandPrixMatch.sources?.find(source => source.source === 'admin');
-      
+      const adminSource = grandPrixMatch.sources?.find(
+        (source) => source.source === "admin"
+      );
+
       if (!adminSource) {
-        console.log('No admin source found for Grand Prix match');
+        console.log("No admin source found for Grand Prix match");
         // Look for next Grand Prix match with admin source
-        const alternativeMatch = data.find(match => 
-          match.title && 
-          match.title.toLowerCase().includes('grand prix') &&
-          match.sources?.some(source => source.source === 'admin') &&
-          match.id !== grandPrixMatch.id
+        const alternativeMatch = data.find(
+          (match) =>
+            match.title &&
+            match.title.toLowerCase().includes("grand prix") &&
+            match.sources?.some((source) => source.source === "admin") &&
+            match.id !== grandPrixMatch.id
         );
-        
+
         if (alternativeMatch) {
-          const altAdminSource = alternativeMatch.sources.find(source => source.source === 'admin');
+          const altAdminSource = alternativeMatch.sources.find(
+            (source) => source.source === "admin"
+          );
           const streamUrl = `https://embedsports.top/embed/admin/${altAdminSource.id}/1`;
-          console.log('Found alternative Grand Prix stream:', streamUrl);
+          console.log("Found alternative Grand Prix stream:", streamUrl);
           return streamUrl;
         }
-        
+
         return null;
       }
-      
+
       // Build the embed URL
       const streamUrl = `https://embedsports.top/embed/admin/${adminSource.id}/1`;
-      console.log('Grand Prix stream URL:', streamUrl);
+      console.log("Grand Prix stream URL:", streamUrl);
       return streamUrl;
-      
     } catch (error) {
-      console.error('Failed to fetch Grand Prix stream:', error);
+      console.error("Failed to fetch Grand Prix stream:", error);
       return null;
     }
   };
 
   // Stream modal functions
   const openStreamModal = async () => {
-    console.log('Header clicked! Opening stream modal...');
-    
+    console.log("Header clicked! Opening stream modal...");
+
     if (!isStreamingAvailable) {
-      console.log('Stream not available, showing alert');
+      console.log("Stream not available, showing alert");
       if (!isStreamingUnlocked) {
-        Alert.alert('Stream Unavailable', 'Please unlock streaming access in Settings first.');
+        Alert.alert(
+          "Stream Unavailable",
+          "Please unlock streaming access in Settings first."
+        );
       } else {
-        Alert.alert('Stream Unavailable', 'Streaming is only available during the race weekend (Oct 3-5, 2025 EST).');
+        Alert.alert(
+          "Stream Unavailable",
+          "Streaming is only available during the race weekend (Oct 3-5, 2025 EST)."
+        );
       }
       return;
     }
 
-    console.log('Stream available, opening modal');
+    console.log("Stream available, opening modal");
     setStreamModalVisible(true);
     setIsStreamLoading(true);
-    
+
     // Fetch Grand Prix stream URL in the background
-    fetchGrandPrixStream().then(url => {
-      setGrandPrixStreamUrl(url);
-    }).catch(error => {
-      console.error('Failed to fetch Grand Prix stream in modal:', error);
-    });
-    
+    fetchGrandPrixStream()
+      .then((url) => {
+        setGrandPrixStreamUrl(url);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch Grand Prix stream in modal:", error);
+      });
+
     // Simulate loading time for stream
     setTimeout(() => {
       setIsStreamLoading(false);
@@ -1659,44 +2230,49 @@ const RaceDetailsScreen = ({ route }) => {
   };
 
   const handleOvertakeClick = async (event) => {
-    console.log('Overtake click handler called with event:', event);
-    
+    console.log("Overtake click handler called with event:", event);
+
     // Check for valid overtake based on actual structure
-    const isValidOvertake = event.category === 'driver-action' && 
-                           event.cause === 'overtake' &&
-                           event.details && 
-                           event.details.driver_roles;
-    
+    const isValidOvertake =
+      event.category === "driver-action" &&
+      event.cause === "overtake" &&
+      event.details &&
+      event.details.driver_roles;
+
     if (!isValidOvertake) {
-      console.log('Event is not a valid overtake, skipping');
+      console.log("Event is not a valid overtake, skipping");
       return;
     }
-    
+
     // Extract driver numbers from driver_roles
     const driverRoles = event.details.driver_roles;
-    const initiatorDriver = Object.keys(driverRoles).find(key => driverRoles[key] === 'initiator');
-    const participantDriver = Object.keys(driverRoles).find(key => driverRoles[key] === 'participant');
-    
-    console.log('Processing overtake click:', {
+    const initiatorDriver = Object.keys(driverRoles).find(
+      (key) => driverRoles[key] === "initiator"
+    );
+    const participantDriver = Object.keys(driverRoles).find(
+      (key) => driverRoles[key] === "participant"
+    );
+
+    console.log("Processing overtake click:", {
       initiator: initiatorDriver,
       participant: participantDriver,
-      event: event
+      event: event,
     });
-    
+
     if (!initiatorDriver || !participantDriver) {
-      console.log('Could not find both initiator and participant drivers');
+      console.log("Could not find both initiator and participant drivers");
       return;
     }
-    
+
     // Create a normalized event object with the driver numbers in the expected format
     const normalizedEvent = {
       ...event,
       driver_number: parseInt(initiatorDriver),
-      overtake_participant_number: parseInt(participantDriver)
+      overtake_participant_number: parseInt(participantDriver),
     };
-    
+
     setSelectedOvertake(normalizedEvent);
-    
+
     // Reset animation state
     setOvertakeAnimation({
       isAnimating: false,
@@ -1705,32 +2281,40 @@ const RaceDetailsScreen = ({ route }) => {
       targetStats: { initiator: null, participant: null },
       allDataPoints: { initiator: [], participant: [] },
       carPositions: { initiator: 0, participant: 2 }, // Start at original stacked positions
-      isDataLoaded: false
+      isDataLoaded: false,
     });
-    
+
     // Fetch car data for both drivers simultaneously
-    console.log('Fetching car data...');
+    console.log("Fetching car data...");
     const [initiatorData, participantData] = await Promise.all([
-      fetchCarData(parseInt(initiatorDriver), openF1Data.selectedSessionKey, event.date),
-      fetchCarData(parseInt(participantDriver), openF1Data.selectedSessionKey, event.date)
+      fetchCarData(
+        parseInt(initiatorDriver),
+        openF1Data.selectedSessionKey,
+        event.date
+      ),
+      fetchCarData(
+        parseInt(participantDriver),
+        openF1Data.selectedSessionKey,
+        event.date
+      ),
     ]);
-    
+
     setOvertakeCarData({
       initiator: initiatorData,
-      participant: participantData
+      participant: participantData,
     });
-    
+
     // Setup animation with loaded data
     if (initiatorData.length > 0 && participantData.length > 0) {
       const startStats = {
         initiator: initiatorData[0],
-        participant: participantData[0]
+        participant: participantData[0],
       };
       const endStats = {
         initiator: initiatorData[initiatorData.length - 1],
-        participant: participantData[participantData.length - 1]
+        participant: participantData[participantData.length - 1],
       };
-      
+
       setOvertakeAnimation({
         isAnimating: false,
         progress: 0,
@@ -1738,39 +2322,42 @@ const RaceDetailsScreen = ({ route }) => {
         targetStats: endStats,
         allDataPoints: {
           initiator: initiatorData,
-          participant: participantData
+          participant: participantData,
         },
         carPositions: { initiator: 0, participant: 2 }, // Start at static positions (pixel values that match left: 0 and left: 10)
-        isDataLoaded: true
+        isDataLoaded: true,
       });
-      
+
       // Now show the modal
       setOvertakeModalVisible(true);
-      
+
       // Start animation after a brief delay
       setTimeout(() => {
         startOvertakeAnimation();
       }, 500);
     } else {
-      console.log('No car data available, showing modal without animation');
+      console.log("No car data available, showing modal without animation");
       setOvertakeModalVisible(true);
     }
   };
 
   const startOvertakeAnimation = () => {
-    setOvertakeAnimation(prev => {
+    setOvertakeAnimation((prev) => {
       if (!prev.allDataPoints?.initiator || !prev.allDataPoints?.participant) {
-        console.log('No data points available for animation');
+        console.log("No data points available for animation");
         return prev;
       }
 
       const newState = { ...prev, isAnimating: true };
       const initiatorData = prev.allDataPoints.initiator;
       const participantData = prev.allDataPoints.participant;
-      const dataPointCount = Math.max(initiatorData.length, participantData.length);
-      
+      const dataPointCount = Math.max(
+        initiatorData.length,
+        participantData.length
+      );
+
       if (dataPointCount <= 1) {
-        console.log('Insufficient data points for animation');
+        console.log("Insufficient data points for animation");
         return newState;
       }
 
@@ -1778,31 +2365,45 @@ const RaceDetailsScreen = ({ route }) => {
       const segmentDuration = animationDuration / (dataPointCount - 1); // Time per data point transition
       let currentSegment = 0;
       let segmentStartTime = Date.now();
-      
+
       const animationInterval = setInterval(() => {
         const now = Date.now();
         const segmentElapsed = now - segmentStartTime;
         const segmentProgress = Math.min(segmentElapsed / segmentDuration, 1);
-        const totalProgress = (currentSegment + segmentProgress) / (dataPointCount - 1);
-        
-        setOvertakeAnimation(prev => {
+        const totalProgress =
+          (currentSegment + segmentProgress) / (dataPointCount - 1);
+
+        setOvertakeAnimation((prev) => {
           if (!prev.isAnimating) return prev;
-          
+
           // Get current and next data points for smooth interpolation
-          const currentInitiatorData = initiatorData[currentSegment] || initiatorData[initiatorData.length - 1];
-          const nextInitiatorData = initiatorData[currentSegment + 1] || currentInitiatorData;
-          const currentParticipantData = participantData[currentSegment] || participantData[participantData.length - 1];
-          const nextParticipantData = participantData[currentSegment + 1] || currentParticipantData;
-          
+          const currentInitiatorData =
+            initiatorData[currentSegment] ||
+            initiatorData[initiatorData.length - 1];
+          const nextInitiatorData =
+            initiatorData[currentSegment + 1] || currentInitiatorData;
+          const currentParticipantData =
+            participantData[currentSegment] ||
+            participantData[participantData.length - 1];
+          const nextParticipantData =
+            participantData[currentSegment + 1] || currentParticipantData;
+
           // Animate car positions starting from original stacked positions
-          const initiatorStartPercent = 0;   // Start at left edge (matches left: 0)
-          const participantStartPercent = 2;  // Start slightly offset (matches left: 10px ≈ 2%)
-          const trackProgressPercent = 75;    // Can move 75% across track
-          
+          const initiatorStartPercent = 0; // Start at left edge (matches left: 0)
+          const participantStartPercent = 2; // Start slightly offset (matches left: 10px ≈ 2%)
+          const trackProgressPercent = 75; // Can move 75% across track
+
           // Calculate speed-based movement - handle '-' as 0 speed (no movement)
-          const initiatorCurrentSpeed = currentInitiatorData.speed === '-' || !currentInitiatorData.speed ? 0 : currentInitiatorData.speed;
-          const participantCurrentSpeed = currentParticipantData.speed === '-' || !currentParticipantData.speed ? 0 : currentParticipantData.speed;
-          
+          const initiatorCurrentSpeed =
+            currentInitiatorData.speed === "-" || !currentInitiatorData.speed
+              ? 0
+              : currentInitiatorData.speed;
+          const participantCurrentSpeed =
+            currentParticipantData.speed === "-" ||
+            !currentParticipantData.speed
+              ? 0
+              : currentParticipantData.speed;
+
           // If both have 0 speed, use default progression. Otherwise use speed ratio with 1.1x multiplier for faster car
           let initiatorSpeedMultiplier, participantSpeedMultiplier;
           if (initiatorCurrentSpeed === 0 && participantCurrentSpeed === 0) {
@@ -1823,85 +2424,114 @@ const RaceDetailsScreen = ({ route }) => {
             initiatorSpeedMultiplier = speedRatio * 1.1; // 10% bonus for overtaking
             participantSpeedMultiplier = 1.0;
           }
-          
-          const newInitiatorPercent = initiatorStartPercent + (totalProgress * trackProgressPercent * initiatorSpeedMultiplier);
-          const newParticipantPercent = participantStartPercent + (totalProgress * trackProgressPercent * participantSpeedMultiplier);
-          
+
+          const newInitiatorPercent =
+            initiatorStartPercent +
+            totalProgress * trackProgressPercent * initiatorSpeedMultiplier;
+          const newParticipantPercent =
+            participantStartPercent +
+            totalProgress * trackProgressPercent * participantSpeedMultiplier;
+
           // Interpolate between current and next data points with easing
           const easeProgress = 0.5 - 0.5 * Math.cos(Math.PI * segmentProgress);
-          
+
           const interpolateValue = (current, next) => {
-            if (typeof current !== 'number' || typeof next !== 'number') return current;
+            if (typeof current !== "number" || typeof next !== "number")
+              return current;
             return Math.round(current + (next - current) * easeProgress);
           };
-          
+
           const interpolatedStats = {
             initiator: {
-              speed: interpolateValue(currentInitiatorData.speed, nextInitiatorData.speed),
-              rpm: interpolateValue(currentInitiatorData.rpm, nextInitiatorData.rpm),
-              n_gear: interpolateValue(currentInitiatorData.n_gear, nextInitiatorData.n_gear),
-              brake: interpolateValue(currentInitiatorData.brake, nextInitiatorData.brake),
+              speed: interpolateValue(
+                currentInitiatorData.speed,
+                nextInitiatorData.speed
+              ),
+              rpm: interpolateValue(
+                currentInitiatorData.rpm,
+                nextInitiatorData.rpm
+              ),
+              n_gear: interpolateValue(
+                currentInitiatorData.n_gear,
+                nextInitiatorData.n_gear
+              ),
+              brake: interpolateValue(
+                currentInitiatorData.brake,
+                nextInitiatorData.brake
+              ),
             },
             participant: {
-              speed: interpolateValue(currentParticipantData.speed, nextParticipantData.speed),
-              rpm: interpolateValue(currentParticipantData.rpm, nextParticipantData.rpm),
-              n_gear: interpolateValue(currentParticipantData.n_gear, nextParticipantData.n_gear),
-              brake: interpolateValue(currentParticipantData.brake, nextParticipantData.brake),
-            }
+              speed: interpolateValue(
+                currentParticipantData.speed,
+                nextParticipantData.speed
+              ),
+              rpm: interpolateValue(
+                currentParticipantData.rpm,
+                nextParticipantData.rpm
+              ),
+              n_gear: interpolateValue(
+                currentParticipantData.n_gear,
+                nextParticipantData.n_gear
+              ),
+              brake: interpolateValue(
+                currentParticipantData.brake,
+                nextParticipantData.brake
+              ),
+            },
           };
-          
+
           return {
             ...prev,
             progress: totalProgress,
             currentStats: interpolatedStats,
             carPositions: {
               initiator: Math.min(newInitiatorPercent, 85), // Cap at 85%
-              participant: Math.min(newParticipantPercent, 85)
-            }
+              participant: Math.min(newParticipantPercent, 85),
+            },
           };
         });
-        
+
         // Move to next segment when current one completes
         if (segmentProgress >= 1 && currentSegment < dataPointCount - 2) {
           currentSegment++;
           segmentStartTime = now;
         }
-        
+
         // End animation when all segments complete
         if (totalProgress >= 1) {
           clearInterval(animationInterval);
           // Animation complete - set final state to show replay button with final stats
-          setOvertakeAnimation(prev => ({ 
-            ...prev, 
-            isAnimating: false, // Set to false to show "Animation Complete" 
+          setOvertakeAnimation((prev) => ({
+            ...prev,
+            isAnimating: false, // Set to false to show "Animation Complete"
             progress: 1, // Keep progress at 1 to maintain final positions
             currentStats: {
               initiator: initiatorData[initiatorData.length - 1], // Show final stats
-              participant: participantData[participantData.length - 1] // Show final stats
-            }
+              participant: participantData[participantData.length - 1], // Show final stats
+            },
           }));
         }
       }, 16); // ~60fps
-      
+
       return newState;
     });
   };
 
   const resetAnimation = () => {
-    setOvertakeAnimation(prev => {
+    setOvertakeAnimation((prev) => {
       if (!prev.allDataPoints?.initiator || !prev.allDataPoints?.participant) {
         return prev;
       }
-      
+
       return {
         ...prev,
         isAnimating: false,
         progress: 0,
         currentStats: {
           initiator: prev.allDataPoints.initiator[0],
-          participant: prev.allDataPoints.participant[0]
+          participant: prev.allDataPoints.participant[0],
         },
-        carPositions: { initiator: 0, participant: 2 } // Reset to original stacked positions
+        carPositions: { initiator: 0, participant: 2 }, // Reset to original stacked positions
       };
     });
   };
@@ -1925,32 +2555,42 @@ const RaceDetailsScreen = ({ route }) => {
   const fetchRaceWinner = async (eventData) => {
     try {
       // Look for the Race competition in the competitions array
-      const raceCompetition = eventData.competitions?.find(comp => 
-        comp.type?.name?.toLowerCase().includes('race') || 
-        comp.type?.displayName?.toLowerCase().includes('race') ||
-        comp.type?.abbreviation?.toLowerCase().includes('race')
+      const raceCompetition = eventData.competitions?.find(
+        (comp) =>
+          comp.type?.name?.toLowerCase().includes("race") ||
+          comp.type?.displayName?.toLowerCase().includes("race") ||
+          comp.type?.abbreviation?.toLowerCase().includes("race")
       );
-      
+
       if (raceCompetition && raceCompetition.competitors) {
         // Find the winner (winner: true)
-        const winnerCompetitor = raceCompetition.competitors.find(c => c.winner === true);
-        
+        const winnerCompetitor = raceCompetition.competitors.find(
+          (c) => c.winner === true
+        );
+
         if (winnerCompetitor && winnerCompetitor.athlete?.$ref) {
           // Get driver info
-          const athleteData = await fetchAthleteData(winnerCompetitor.athlete.$ref);
+          const athleteData = await fetchAthleteData(
+            winnerCompetitor.athlete.$ref
+          );
           if (athleteData) {
             return {
-              name: athleteData.shortName || athleteData.displayName || athleteData.fullName || 'Unknown',
-              lastName: athleteData.lastName || athleteData.shortName || 'Unknown',
+              name:
+                athleteData.shortName ||
+                athleteData.displayName ||
+                athleteData.fullName ||
+                "Unknown",
+              lastName:
+                athleteData.lastName || athleteData.shortName || "Unknown",
               headshot: buildESPNHeadshotUrl(athleteData.id),
-              team: winnerCompetitor.vehicle?.manufacturer || 'Unknown Team'
+              team: winnerCompetitor.vehicle?.manufacturer || "Unknown Team",
             };
           }
         }
       }
       return null;
     } catch (error) {
-      console.error('Error fetching race winner:', error);
+      console.error("Error fetching race winner:", error);
       return null;
     }
   };
@@ -1969,7 +2609,10 @@ const RaceDetailsScreen = ({ route }) => {
             eventData = await evResp.json();
           }
         } catch (e) {
-          console.warn('Direct event fetch failed, falling back to event log approach', e);
+          console.warn(
+            "Direct event fetch failed, falling back to event log approach",
+            e
+          );
         }
       }
 
@@ -1982,8 +2625,8 @@ const RaceDetailsScreen = ({ route }) => {
         }
 
         // Find the specific race by competition ID
-        const raceEvent = eventLogData.events?.items?.find(event => 
-          event.competitionId === raceId
+        const raceEvent = eventLogData.events?.items?.find(
+          (event) => event.competitionId === raceId
         );
 
         if (!raceEvent) {
@@ -1994,96 +2637,96 @@ const RaceDetailsScreen = ({ route }) => {
         const eventResponse = await fetch(convertToHttps(raceEvent.event.$ref));
         eventData = await eventResponse.json();
       }
-      
+
       setRaceData(eventData);
-      
+
       // Fetch venue, circuit, and race winner data in parallel
       const parallelFetches = [];
-      
+
       // Add venue fetch if venues exist
       if (eventData.venues && eventData.venues.length > 0) {
         parallelFetches.push(
           fetch(convertToHttps(eventData.venues[0].$ref))
-            .then(response => response.json())
-            .then(venueData => ({ type: 'venue', data: venueData }))
-            .catch(error => {
-              console.error('Error fetching venue data:', error);
+            .then((response) => response.json())
+            .then((venueData) => ({ type: "venue", data: venueData }))
+            .catch((error) => {
+              console.error("Error fetching venue data:", error);
               return null;
             })
         );
       }
-      
+
       // Add circuit fetch if circuit exists
       const circuitRef = eventData.circuit?.$ref || eventData.circuit;
-      if (circuitRef && typeof circuitRef === 'string') {
+      if (circuitRef && typeof circuitRef === "string") {
         parallelFetches.push(
           fetch(convertToHttps(circuitRef))
-            .then(response => response.json())
-            .then(circuitData => ({ type: 'circuit', data: circuitData }))
-            .catch(error => {
-              console.error('Error fetching circuit data:', error);
+            .then((response) => response.json())
+            .then((circuitData) => ({ type: "circuit", data: circuitData }))
+            .catch((error) => {
+              console.error("Error fetching circuit data:", error);
               return null;
             })
         );
       }
-      
+
       // Add race winner fetch
       parallelFetches.push(
         fetchRaceWinner(eventData)
-          .then(winner => ({ type: 'winner', data: winner }))
-          .catch(error => {
-            console.error('Error fetching race winner:', error);
+          .then((winner) => ({ type: "winner", data: winner }))
+          .catch((error) => {
+            console.error("Error fetching race winner:", error);
             return null;
           })
       );
-      
+
       // Execute all fetches in parallel
       const results = await Promise.all(parallelFetches);
-      
+
       // Process results
       let venueData = null;
       let circuitData = null;
       let winner = null;
-      
-      results.forEach(result => {
+
+      results.forEach((result) => {
         if (!result) return;
-        
+
         switch (result.type) {
-          case 'venue':
+          case "venue":
             venueData = result.data;
             break;
-          case 'circuit':
+          case "circuit":
             circuitData = result.data;
             break;
-          case 'winner':
+          case "winner":
             winner = result.data;
             break;
         }
       });
-      
+
       // Process venue data
       if (venueData) {
         setCircuitInfo({
-          name: venueData.fullName || 'Unknown Circuit',
-          city: venueData.address?.city || '',
-          country: venueData.address?.country || '',
-          countryFlag: venueData.countryFlag?.href || ''
+          name: venueData.fullName || "Unknown Circuit",
+          city: venueData.address?.city || "",
+          country: venueData.address?.country || "",
+          countryFlag: venueData.countryFlag?.href || "",
         });
       }
-      
+
       // Process circuit data
       if (circuitData) {
         const mapHref = getCircuitMapHref(circuitData.diagrams, isDarkMode);
         const circuitFields = {
-          type: circuitData.type || circuitData.type?.text || '',
-          length: circuitData.length || '',
-          distance: circuitData.distance || '',
-          laps: circuitData.laps || '',
-          turns: circuitData.turns || '',
-          direction: circuitData.direction || '',
-          established: circuitData.established || '',
-          fastestLapTime: circuitData.fastestLapTime || '',
-          fastestLapYear: circuitData.fastestLapYear || ''
+          type: circuitData.type || circuitData.type?.text || "",
+          length: circuitData.length || "",
+          distance: circuitData.distance || "",
+          laps: circuitData.laps || "",
+          turns: circuitData.turns || "",
+          direction: circuitData.direction || "",
+          established: circuitData.established || "",
+          fastestLapTime: circuitData.fastestLapTime || "",
+          fastestLapYear: circuitData.fastestLapYear || "",
         };
 
         if (mapHref) {
@@ -2091,34 +2734,42 @@ const RaceDetailsScreen = ({ route }) => {
         }
 
         // Fetch fastest lap driver if available
-        const fastestRef = circuitData.fastestLapDriver?.$ref || circuitData.fastestLapDriver;
-        if (fastestRef && typeof fastestRef === 'string') {
+        const fastestRef =
+          circuitData.fastestLapDriver?.$ref || circuitData.fastestLapDriver;
+        if (fastestRef && typeof fastestRef === "string") {
           try {
             const athlete = await fetchAthleteData(fastestRef);
             if (athlete) {
-              circuitFields.fastestDriverName = athlete.displayName || athlete.shortName || athlete.fullName || '';
+              circuitFields.fastestDriverName =
+                athlete.displayName ||
+                athlete.shortName ||
+                athlete.fullName ||
+                "";
             }
           } catch (fdErr) {
             // ignore fastest driver fetch errors
           }
         }
 
-        setCircuitInfo(prev => ({ ...(prev || {}), ...circuitFields }));
+        setCircuitInfo((prev) => ({ ...(prev || {}), ...circuitFields }));
       }
-      
+
       // Process race winner
       if (winner) {
         setWinnerDriver(winner);
-      }      // Determine current/next competition label, but only when the event is in-progress
+      } // Determine current/next competition label, but only when the event is in-progress
       try {
-  const nowMs = Date.now();
-  const startMs = Date.parse(eventData.date || '');
-  const endMs = Date.parse(eventData.endDate || eventData.end || eventData.date || '') || 0;
-  // Base completion by end time (don't add an arbitrary +24h here)
-  const isCompletedByTime = endMs ? nowMs > endMs : false;
-  const isUpcoming = startMs ? nowMs < startMs : false;
-  // We'll also inspect competition status objects for an authoritative 'final'/'post' state
-  let anyCompetitionFinal = false;
+        const nowMs = Date.now();
+        const startMs = Date.parse(eventData.date || "");
+        const endMs =
+          Date.parse(
+            eventData.endDate || eventData.end || eventData.date || ""
+          ) || 0;
+        // Base completion by end time (don't add an arbitrary +24h here)
+        const isCompletedByTime = endMs ? nowMs > endMs : false;
+        const isUpcoming = startMs ? nowMs < startMs : false;
+        // We'll also inspect competition status objects for an authoritative 'final'/'post' state
+        let anyCompetitionFinal = false;
 
         if (isInProgress) {
           const comps = eventData.competitions || [];
@@ -2127,28 +2778,65 @@ const RaceDetailsScreen = ({ route }) => {
 
           for (const comp of comps) {
             try {
-              const compData = comp.$ref ? await (await fetch(convertToHttps(comp.$ref))).json() : comp;
+              const compData = comp.$ref
+                ? await (await fetch(convertToHttps(comp.$ref))).json()
+                : comp;
               const compType = compData?.type || comp.type || {};
-              const compLabel = compType.text || compType.displayName || compType.abbreviation || compType.name || null;
-              const statusRef = compData?.status?.$ref || comp.status?.$ref || compData?.status;
+              const compLabel =
+                compType.text ||
+                compType.displayName ||
+                compType.abbreviation ||
+                compType.name ||
+                null;
+              const statusRef =
+                compData?.status?.$ref || comp.status?.$ref || compData?.status;
               let statusData = null;
-              if (typeof statusRef === 'string') {
+              if (typeof statusRef === "string") {
                 try {
-                  statusData = await (await fetch(convertToHttps(statusRef))).json();
+                  statusData = await (
+                    await fetch(convertToHttps(statusRef))
+                  ).json();
                 } catch (se) {
                   statusData = null;
                 }
-              } else if (statusRef && typeof statusRef === 'object') {
+              } else if (statusRef && typeof statusRef === "object") {
                 statusData = statusRef;
               }
 
-                // Prefer active/in-progress competitions
-                const isActive = statusData && (statusData.type?.state === 'in' || statusData.type?.state === 'active' || (statusData.type?.name && statusData.type?.name.toString().toLowerCase().includes('in')));
-                const isScheduled = statusData && (statusData.type?.state === 'pre' || (statusData.type?.name && statusData.type?.name.toString().toLowerCase().includes('scheduled')));
-                const isFinal = statusData && (statusData.type?.state === 'post' || (statusData.type?.name && statusData.type?.name.toString().toLowerCase().includes('final')) || (statusData.type?.name && statusData.type?.name.toString().toLowerCase().includes('status_final')));
-                if (isFinal) anyCompetitionFinal = true;
+              // Prefer active/in-progress competitions
+              const isActive =
+                statusData &&
+                (statusData.type?.state === "in" ||
+                  statusData.type?.state === "active" ||
+                  (statusData.type?.name &&
+                    statusData.type?.name
+                      .toString()
+                      .toLowerCase()
+                      .includes("in")));
+              const isScheduled =
+                statusData &&
+                (statusData.type?.state === "pre" ||
+                  (statusData.type?.name &&
+                    statusData.type?.name
+                      .toString()
+                      .toLowerCase()
+                      .includes("scheduled")));
+              const isFinal =
+                statusData &&
+                (statusData.type?.state === "post" ||
+                  (statusData.type?.name &&
+                    statusData.type?.name
+                      .toString()
+                      .toLowerCase()
+                      .includes("final")) ||
+                  (statusData.type?.name &&
+                    statusData.type?.name
+                      .toString()
+                      .toLowerCase()
+                      .includes("status_final")));
+              if (isFinal) anyCompetitionFinal = true;
 
-              const compStartMs = Date.parse(compData?.date || comp.date || '');
+              const compStartMs = Date.parse(compData?.date || comp.date || "");
 
               if (isActive) {
                 chosen = compLabel || compType.displayName || compType.name;
@@ -2166,15 +2854,15 @@ const RaceDetailsScreen = ({ route }) => {
             }
           }
 
-            // Determine in-progress: either by time window (between start and end) or by active competition status
-            const isInProgress = (!isUpcoming && !isCompletedByTime) || !!chosen;
+          // Determine in-progress: either by time window (between start and end) or by active competition status
+          const isInProgress = (!isUpcoming && !isCompletedByTime) || !!chosen;
 
-            // Don't show a nextCompetitionLabel for events that are clearly completed
-            if (isInProgress && chosen) {
-              setNextCompetitionLabel(passedNextCompetitionType || chosen);
-            } else {
-              setNextCompetitionLabel(null);
-            }
+          // Don't show a nextCompetitionLabel for events that are clearly completed
+          if (isInProgress && chosen) {
+            setNextCompetitionLabel(passedNextCompetitionType || chosen);
+          } else {
+            setNextCompetitionLabel(null);
+          }
         } else {
           // ensure label is cleared for non in-progress events
           setNextCompetitionLabel(null);
@@ -2182,10 +2870,9 @@ const RaceDetailsScreen = ({ route }) => {
       } catch (ncErr) {
         // ignore
       }
-      
     } catch (error) {
-      console.error('Error fetching race details:', error);
-      Alert.alert('Error', 'Failed to fetch race details');
+      console.error("Error fetching race details:", error);
+      Alert.alert("Error", "Failed to fetch race details");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -2205,24 +2892,32 @@ const RaceDetailsScreen = ({ route }) => {
     if (raceStatus && raceStatus.type) {
       const statusState = raceStatus.type.state;
       const completed = raceStatus.type.completed;
-      
+
       // If explicitly completed, not live
       if (completed === true) {
-        console.log('[checkIfRaceIsLive] Not live - session completed:', completed);
+        console.log(
+          "[checkIfRaceIsLive] Not live - session completed:",
+          completed
+        );
         return false;
       }
-      
+
       // If state is post/final, not live
-      if (statusState === 'post' || statusState === 'final') {
-        console.log('[checkIfRaceIsLive] Not live - state:', statusState);
+      if (statusState === "post" || statusState === "final") {
+        console.log("[checkIfRaceIsLive] Not live - state:", statusState);
         return false;
       }
-      
+
       // If status state indicates active/in-progress, it's live
-      const isLiveByStatus = statusState === 'in' || statusState === 'active';
-      
+      const isLiveByStatus = statusState === "in" || statusState === "active";
+
       if (isLiveByStatus) {
-        console.log('[checkIfRaceIsLive] Live by status - state:', statusState, 'completed:', completed);
+        console.log(
+          "[checkIfRaceIsLive] Live by status - state:",
+          statusState,
+          "completed:",
+          completed
+        );
         return true;
       }
     }
@@ -2233,14 +2928,24 @@ const RaceDetailsScreen = ({ route }) => {
       if (competition.status?.type) {
         const statusState = competition.status.type.state;
         const completed = competition.status.type.completed;
-        
-        if (completed === true || statusState === 'post' || statusState === 'final') {
-          console.log('[checkIfRaceIsLive] Not live - selected competition completed:', statusState);
+
+        if (
+          completed === true ||
+          statusState === "post" ||
+          statusState === "final"
+        ) {
+          console.log(
+            "[checkIfRaceIsLive] Not live - selected competition completed:",
+            statusState
+          );
           return false;
         }
-        
-        if (statusState === 'in' || statusState === 'active') {
-          console.log('[checkIfRaceIsLive] Live - selected competition active:', statusState);
+
+        if (statusState === "in" || statusState === "active") {
+          console.log(
+            "[checkIfRaceIsLive] Live - selected competition active:",
+            statusState
+          );
           return true;
         }
       }
@@ -2249,29 +2954,39 @@ const RaceDetailsScreen = ({ route }) => {
     // Fallback: Use time-based check if no status available or status is inconclusive
     // But be more strict - only consider live if we have evidence it's not completed
     const now = new Date();
-    
+
     for (const competition of raceData.competitions) {
       const compStart = new Date(competition.date);
-      const compEnd = competition.endDate ? new Date(competition.endDate) : new Date(compStart.getTime() + 3 * 60 * 60 * 1000); // Default 3 hours if no end time
-      
+      const compEnd = competition.endDate
+        ? new Date(competition.endDate)
+        : new Date(compStart.getTime() + 3 * 60 * 60 * 1000); // Default 3 hours if no end time
+
       if (now >= compStart && now <= compEnd) {
         // Check if this competition has results indicating it's completed
-        const compId = competition.id || (competition.$ref && competition.$ref.split('/').pop());
+        const compId =
+          competition.id ||
+          (competition.$ref && competition.$ref.split("/").pop());
         const compResults = competitionResults[compId];
-        const hasResults = compResults?.competitors?.some(c => c.winner || c.order) || false;
-        
+        const hasResults =
+          compResults?.competitors?.some((c) => c.winner || c.order) || false;
+
         if (hasResults) {
-          console.log('[checkIfRaceIsLive] Not live - competition has results despite time window:', compId);
+          console.log(
+            "[checkIfRaceIsLive] Not live - competition has results despite time window:",
+            compId
+          );
           continue; // Skip this competition, it's completed
         }
-        
+
         setCurrentLiveSession(competition);
-        console.log('[checkIfRaceIsLive] Live by time window (fallback) - no results found');
+        console.log(
+          "[checkIfRaceIsLive] Live by time window (fallback) - no results found"
+        );
         return true;
       }
     }
-    
-    console.log('[checkIfRaceIsLive] Not live - no active sessions found');
+
+    console.log("[checkIfRaceIsLive] Not live - no active sessions found");
     return false;
   };
 
@@ -2284,7 +2999,7 @@ const RaceDetailsScreen = ({ route }) => {
 
     for (const competition of raceData.competitions) {
       const compStart = new Date(competition.date);
-      
+
       if (compStart > now) {
         if (!earliestTime || compStart < earliestTime) {
           earliestTime = compStart;
@@ -2305,11 +3020,11 @@ const RaceDetailsScreen = ({ route }) => {
     const isLive = checkIfRaceIsLive();
     setIsLiveRace(isLive);
 
-    console.log('[updateLiveRaceStatus]', {
+    console.log("[updateLiveRaceStatus]", {
       isLive,
       selectedTab: currentTab,
       selectedCompetitionId: currentCompetitionId,
-      hasCompetitionResults: !!currentCompetitionResults[currentCompetitionId]
+      hasCompetitionResults: !!currentCompetitionResults[currentCompetitionId],
     });
 
     if (!isLive) {
@@ -2319,40 +3034,65 @@ const RaceDetailsScreen = ({ route }) => {
     }
 
     // Update competitor statistics and status when live and on Results or Grid tab
-    if (isLive && (currentTab === 'RESULTS' || currentTab === 'GRID') && currentCompetitionId) {
+    if (
+      isLive &&
+      (currentTab === "RESULTS" || currentTab === "GRID") &&
+      currentCompetitionId
+    ) {
       try {
         const selectedComp = currentCompetitionResults[currentCompetitionId];
         if (!selectedComp || !selectedComp.competitors) {
           return;
         }
 
-        console.log('[updateLiveRaceStatus] Updating', selectedComp.competitors.length, 'competitors with live stats');
+        console.log(
+          "[updateLiveRaceStatus] Updating",
+          selectedComp.competitors.length,
+          "competitors with live stats"
+        );
 
         // First, update the competition status to check if still live
         if (selectedComp.status && selectedComp.status.$ref) {
           try {
             // Use occasional cache-busting to avoid CORS preflight issues
-            const statusUrl = selectedComp.status.$ref + (Math.random() > 0.7 ? (selectedComp.status.$ref.includes('?') ? '&' : '?') + '_=' + Date.now() : '');
+            const statusUrl =
+              selectedComp.status.$ref +
+              (Math.random() > 0.7
+                ? (selectedComp.status.$ref.includes("?") ? "&" : "?") +
+                  "_=" +
+                  Date.now()
+                : "");
             const statusResponse = await fetch(convertToHttps(statusUrl));
             const statusData = await statusResponse.json();
             setRaceStatus(statusData);
-            console.log('[updateLiveRaceStatus] Updated race status:', statusData.type?.name);
-            
+            console.log(
+              "[updateLiveRaceStatus] Updated race status:",
+              statusData.type?.name
+            );
+
             // Check if session has ended - if so, stop live updates
             const statusState = statusData.type?.state;
             const completed = statusData.type?.completed;
-            
+
             // Session is complete if explicitly marked as completed OR state is post/final
-            const isComplete = completed === true || statusState === 'post' || statusState === 'final';
-            
+            const isComplete =
+              completed === true ||
+              statusState === "post" ||
+              statusState === "final";
+
             if (isComplete) {
-              console.log('[updateLiveRaceStatus] Session complete, stopping live updates - state:', statusState, 'completed:', completed);
+              console.log(
+                "[updateLiveRaceStatus] Session complete, stopping live updates - state:",
+                statusState,
+                "completed:",
+                completed
+              );
               stopLiveUpdates();
               setIsLiveRace(false);
               return;
             }
           } catch (statusError) {
-            console.error('Error updating race status:', statusError);
+            console.error("Error updating race status:", statusError);
           }
         }
 
@@ -2363,69 +3103,84 @@ const RaceDetailsScreen = ({ route }) => {
               if (competitor.statistics && competitor.statistics.$ref) {
                 // Append /0 to get the detailed split statistics
                 // Use minimal cache-busting to avoid CORS preflight issues
-                const statsRef = competitor.statistics.$ref + '/0' + (Math.random() > 0.5 ? '?_=' + Date.now() : '');
+                const statsRef =
+                  competitor.statistics.$ref +
+                  "/0" +
+                  (Math.random() > 0.5 ? "?_=" + Date.now() : "");
                 const response = await fetch(convertToHttps(statsRef));
                 const statsData = await response.json();
-                
+
                 // Extract laps and other data from live stats
                 let liveUpdatedLaps = competitor.laps;
                 let liveUpdatedTotalTime = competitor.totalTime;
-                
+
                 if (statsData?.splits?.categories) {
                   const categories = statsData.splits.categories;
-                  
+
                   // Extract laps from various possible locations in the stats
                   for (const category of categories) {
                     if (category.stats) {
                       for (const stat of category.stats) {
-                        const statName = (stat.name || '').toLowerCase();
+                        const statName = (stat.name || "").toLowerCase();
                         const statValue = stat.displayValue || stat.value;
-                        
+
                         // Update laps if found
-                        if (!liveUpdatedLaps && (statName.includes('lapscompleted') || statName.includes('laps'))) {
+                        if (
+                          !liveUpdatedLaps &&
+                          (statName.includes("lapscompleted") ||
+                            statName.includes("laps"))
+                        ) {
                           liveUpdatedLaps = statValue;
                         }
-                        
+
                         // Update total time if found
-                        if (!liveUpdatedTotalTime && (statName.includes('totaltime') || statName.includes('total'))) {
+                        if (
+                          !liveUpdatedTotalTime &&
+                          (statName.includes("totaltime") ||
+                            statName.includes("total"))
+                        ) {
                           liveUpdatedTotalTime = statValue;
                         }
                       }
                     }
                   }
                 }
-                
+
                 const updatedCompetitor = {
                   ...competitor,
                   liveStats: statsData,
                   laps: liveUpdatedLaps || competitor.laps,
-                  totalTime: liveUpdatedTotalTime || competitor.totalTime
+                  totalTime: liveUpdatedTotalTime || competitor.totalTime,
                 };
-                
+
                 // Successfully updated with live stats
                 return updatedCompetitor;
               }
               return competitor;
             } catch (error) {
-              console.error('Error updating competitor stats:', error);
+              console.error("Error updating competitor stats:", error);
               return competitor;
             }
           })
         );
 
-        const competitorsWithLiveStats = updatedCompetitors.filter(c => !!c.liveStats).length;
-        console.log(`[updateLiveRaceStatus] Updating state: ${competitorsWithLiveStats}/${updatedCompetitors.length} competitors have live stats`);
+        const competitorsWithLiveStats = updatedCompetitors.filter(
+          (c) => !!c.liveStats
+        ).length;
+        console.log(
+          `[updateLiveRaceStatus] Updating state: ${competitorsWithLiveStats}/${updatedCompetitors.length} competitors have live stats`
+        );
 
         // Update only the selected competition with new competitor data
-        setCompetitionResults(prev => ({
+        setCompetitionResults((prev) => ({
           ...prev,
           [currentCompetitionId]: {
             ...prev[currentCompetitionId],
-            competitors: updatedCompetitors
-          }
+            competitors: updatedCompetitors,
+          },
         }));
       } catch (error) {
-        console.error('Error updating live race data:', error);
+        console.error("Error updating live race data:", error);
       }
     }
   };
@@ -2433,10 +3188,10 @@ const RaceDetailsScreen = ({ route }) => {
   const startLiveUpdates = () => {
     if (liveUpdateInterval) return; // Already running
 
-    console.log('[startLiveUpdates] Starting live updates every 5 seconds');
+    console.log("[startLiveUpdates] Starting live updates every 5 seconds");
     const interval = setInterval(() => {
       // Update live race status - conditions already checked at useEffect level
-      console.log('[liveUpdateInterval] Running scheduled update');
+      console.log("[liveUpdateInterval] Running scheduled update");
       updateLiveRaceStatus();
     }, 5000); // Update every 5 seconds
 
@@ -2445,7 +3200,7 @@ const RaceDetailsScreen = ({ route }) => {
 
   const stopLiveUpdates = () => {
     if (liveUpdateInterval) {
-      console.log('[stopLiveUpdates] Stopping live updates');
+      console.log("[stopLiveUpdates] Stopping live updates");
       clearInterval(liveUpdateInterval);
       setLiveUpdateInterval(null);
     }
@@ -2454,12 +3209,15 @@ const RaceDetailsScreen = ({ route }) => {
   // Check for live status on component mount and data changes
   useEffect(() => {
     if (raceData) {
-      console.log('[useEffect] Checking live status - raceData exists, selectedCompetitionId:', selectedCompetitionId);
-      
+      console.log(
+        "[useEffect] Checking live status - raceData exists, selectedCompetitionId:",
+        selectedCompetitionId
+      );
+
       const isLive = checkIfRaceIsLive();
-      console.log('[useEffect] checkIfRaceIsLive result:', isLive);
+      console.log("[useEffect] checkIfRaceIsLive result:", isLive);
       setIsLiveRace(isLive); // Immediately update the live status
-      
+
       // Always trigger an immediate update when switching competitions
       if (isLive) {
         updateLiveRaceStatus(); // Update stats immediately for live competitions
@@ -2479,34 +3237,40 @@ const RaceDetailsScreen = ({ route }) => {
     // 4. Race is live OR has live competitions in results
     if (isScreenFocused && !streamModalVisible && raceData) {
       const isLive = checkIfRaceIsLive();
-      
+
       // Check if ANY competition is live in competition results
-      const hasAnyLiveCompetition = competitionResults && raceData.competitions?.some(comp => {
-        const competition = competitionResults[comp.id];
-        if (!competition) return false;
-        
-        const statusState = competition.status?.type?.state;
-        const completed = competition.status?.type?.completed;
-        return !(completed === true || statusState === 'post' || statusState === 'final');
-      });
+      const hasAnyLiveCompetition =
+        competitionResults &&
+        raceData.competitions?.some((comp) => {
+          const competition = competitionResults[comp.id];
+          if (!competition) return false;
+
+          const statusState = competition.status?.type?.state;
+          const completed = competition.status?.type?.completed;
+          return !(
+            completed === true ||
+            statusState === "post" ||
+            statusState === "final"
+          );
+        });
 
       if (isLive || hasAnyLiveCompetition) {
-        console.log('[useEffect] Starting live updates - conditions met:', {
+        console.log("[useEffect] Starting live updates - conditions met:", {
           isScreenFocused,
           streamModalVisible: !streamModalVisible,
           hasRaceData: !!raceData,
           isLive,
-          hasAnyLiveCompetition
+          hasAnyLiveCompetition,
         });
         startLiveUpdates();
       } else {
-        console.log('[useEffect] Race not live and no live competitions');
+        console.log("[useEffect] Race not live and no live competitions");
       }
     } else {
-      console.log('[useEffect] Stopping live updates - conditions not met:', {
+      console.log("[useEffect] Stopping live updates - conditions not met:", {
         isScreenFocused,
         streamModalVisible,
-        hasRaceData: !!raceData
+        hasRaceData: !!raceData,
       });
     }
 
@@ -2514,13 +3278,22 @@ const RaceDetailsScreen = ({ route }) => {
     return () => {
       stopLiveUpdates();
     };
-  }, [raceData, competitionResults, streamModalVisible, isScreenFocused])
+  }, [raceData, competitionResults, streamModalVisible, isScreenFocused]);
 
   // Separate effect to handle immediate update when switching to Results/Grid tabs or modal closes
   useEffect(() => {
-    if (isScreenFocused && !streamModalVisible && raceData && checkIfRaceIsLive()) {
-      if (selectedTab === 'RESULTS' || selectedTab === 'GRID') {
-        console.log('[useEffect] Tab switched to', selectedTab, '- triggering immediate update');
+    if (
+      isScreenFocused &&
+      !streamModalVisible &&
+      raceData &&
+      checkIfRaceIsLive()
+    ) {
+      if (selectedTab === "RESULTS" || selectedTab === "GRID") {
+        console.log(
+          "[useEffect] Tab switched to",
+          selectedTab,
+          "- triggering immediate update"
+        );
         updateLiveRaceStatus();
       }
     }
@@ -2531,7 +3304,9 @@ const RaceDetailsScreen = ({ route }) => {
     if (isScreenFocused && !streamModalVisible && raceData) {
       const isLive = checkIfRaceIsLive();
       if (isLive) {
-        console.log('[useEffect] Screen focused/modal closed - immediately fetching F1 race data');
+        console.log(
+          "[useEffect] Screen focused/modal closed - immediately fetching F1 race data"
+        );
         updateLiveRaceStatus();
       }
     }
@@ -2539,14 +3314,14 @@ const RaceDetailsScreen = ({ route }) => {
 
   const formatRaceDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZoneName: 'short'
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short",
     });
   };
 
@@ -2555,40 +3330,55 @@ const RaceDetailsScreen = ({ route }) => {
     const getCurrentCompetitionType = () => {
       if (selectedCompetitionId && competitionResults[selectedCompetitionId]) {
         const comp = competitionResults[selectedCompetitionId];
-        return comp.type?.displayName || comp.type?.name || comp.name || '';
+        return comp.type?.displayName || comp.type?.name || comp.name || "";
       }
-      return '';
+      return "";
     };
 
     const currentCompType = getCurrentCompetitionType();
-    
+
     // Get selected competition data for header display
-    const selectedCompetition = selectedCompetitionId && competitionResults[selectedCompetitionId] 
-      ? competitionResults[selectedCompetitionId] 
-      : null;
-    
+    const selectedCompetition =
+      selectedCompetitionId && competitionResults[selectedCompetitionId]
+        ? competitionResults[selectedCompetitionId]
+        : null;
+
     // Find corresponding original competition data for date/status
-    const selectedOriginalComp = selectedCompetition && raceData?.competitions?.find(comp => {
-      const compId = comp.id || (comp.$ref && comp.$ref.split('/').pop());
-      return compId === selectedCompetitionId;
-    });
-    
+    const selectedOriginalComp =
+      selectedCompetition &&
+      raceData?.competitions?.find((comp) => {
+        const compId = comp.id || (comp.$ref && comp.$ref.split("/").pop());
+        return compId === selectedCompetitionId;
+      });
+
     // Determine color based on selected competition status, not global live status
     let compTypeColor = theme.textSecondary;
     if (selectedCompetition && selectedOriginalComp) {
-      const compDate = selectedOriginalComp.date ? new Date(selectedOriginalComp.date) : null;
-      const endDate = selectedOriginalComp.endDate ? new Date(selectedOriginalComp.endDate) : 
-                     (compDate ? new Date(compDate.getTime() + 3 * 60 * 60 * 1000) : null);
+      const compDate = selectedOriginalComp.date
+        ? new Date(selectedOriginalComp.date)
+        : null;
+      const endDate = selectedOriginalComp.endDate
+        ? new Date(selectedOriginalComp.endDate)
+        : compDate
+        ? new Date(compDate.getTime() + 3 * 60 * 60 * 1000)
+        : null;
       const now = new Date();
-      
+
       // Check if session is completed (either by time or by having results)
-      const hasResults = selectedCompetition.competitors?.some(c => c.winner || c.order) || false;
+      const hasResults =
+        selectedCompetition.competitors?.some((c) => c.winner || c.order) ||
+        false;
       const isTimeCompleted = endDate && now > endDate;
       const isCompleted = hasResults || isTimeCompleted;
-      
-      const isSelectedLive = !isCompleted && compDate && endDate && now >= compDate && now <= endDate;
+
+      const isSelectedLive =
+        !isCompleted &&
+        compDate &&
+        endDate &&
+        now >= compDate &&
+        now <= endDate;
       const isSelectedUpcoming = !isCompleted && compDate && now < compDate;
-      
+
       if (isCompleted) {
         compTypeColor = theme.success; // Green for completed
       } else if (isSelectedLive) {
@@ -2598,108 +3388,171 @@ const RaceDetailsScreen = ({ route }) => {
       }
     }
 
-    const compNum = selectedCompetition?.type?.abbreviation === 'FP1' ? '1' :
-                    selectedCompetition?.type?.abbreviation === 'FP2' ? '2' :
-                    selectedCompetition?.type?.abbreviation === 'FP3' ? '3' : '';
+    const compNum =
+      selectedCompetition?.type?.abbreviation === "FP1"
+        ? "1"
+        : selectedCompetition?.type?.abbreviation === "FP2"
+        ? "2"
+        : selectedCompetition?.type?.abbreviation === "FP3"
+        ? "3"
+        : "";
 
     return (
       <View style={styles.headerContainer}>
-        
         {/* Only show streaming interface when streaming is unlocked */}
-        <TouchableOpacity 
-          style={[styles.headerCard, { 
-            backgroundColor: theme.surface, 
-            borderColor: 'transparent',
-            opacity: isStreamingAvailable ? 1 : 0.8
-          }]}
+        <TouchableOpacity
+          style={[
+            styles.headerCard,
+            {
+              backgroundColor: theme.surface,
+              borderColor: "transparent",
+              opacity: isStreamingAvailable ? 1 : 0.8,
+            },
+          ]}
           onPress={isStreamingUnlocked ? openStreamModal : undefined}
           activeOpacity={isStreamingAvailable ? 0.7 : 1}
           disabled={!isStreamingAvailable}
         >
           <View style={styles.headerCardContent}>
-          <View style={styles.headerCardLeft}>
-            <Text allowFontScaling={false} style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
-              {raceName || 'F1 Race'}
-            </Text>
-
-            {selectedCompetition && selectedOriginalComp ? (
-              <View>
-                <Text allowFontScaling={false} style={[styles.headerMeta, { color: theme.textSecondary, fontSize: 12 }]}>
-                  {formatRaceDate(selectedOriginalComp.date)}
-                </Text>
-              </View>
-            ) : raceDate ? (
-              <Text allowFontScaling={false} style={[styles.headerMeta, { color: theme.textSecondary }]}>
-                {formatRaceDate(raceDate)}
+            <View style={styles.headerCardLeft}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.headerTitle, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {raceName || "F1 Race"}
               </Text>
-            ) : (
-              <Text allowFontScaling={false} style={[styles.headerMeta, { color: theme.textSecondary }]}>TBD</Text>
-            )}
 
-            {circuitInfo && (
-              <View style={styles.headerCardBottom}>
-                <View style={styles.headerCircuitRow}>
-                  {circuitInfo.countryFlag ? (
-                    <Image
-                      source={{ uri: convertToHttps(circuitInfo.countryFlag) }}
-                      style={styles.headerCountryFlag}
-                    />
-                  ) : null}
-                  <Text allowFontScaling={false} style={[styles.circuitName, { color: theme.text }]} numberOfLines={1}>
-                    {circuitInfo.name}
+              {selectedCompetition && selectedOriginalComp ? (
+                <View>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.headerMeta,
+                      { color: theme.textSecondary, fontSize: 12 },
+                    ]}
+                  >
+                    {formatRaceDate(selectedOriginalComp.date)}
                   </Text>
                 </View>
-                <Text allowFontScaling={false} style={[styles.circuitLocation, { color: theme.textSecondary }]} numberOfLines={1}>
-                  {circuitInfo.city}{circuitInfo.city && circuitInfo.country ? ', ' : ''}{circuitInfo.country}
+              ) : raceDate ? (
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.headerMeta, { color: theme.textSecondary }]}
+                >
+                  {formatRaceDate(raceDate)}
                 </Text>
-              </View>
-            )}
-          </View>
+              ) : (
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.headerMeta, { color: theme.textSecondary }]}
+                >
+                  TBD
+                </Text>
+              )}
 
-          {winnerDriver && (
-            <View style={styles.headerCardRight}>
-              <View style={styles.winnerContainer}>
-                {winnerDriver.headshot ? (
-                  <Image
-                    source={{ uri: winnerDriver.headshot }}
-                    style={styles.winnerImage}
-                  />
-                ) : (
-                  <View style={[styles.winnerImagePlaceholder, { backgroundColor: colors.primary }]}>
-                    <Text allowFontScaling={false} style={styles.winnerInitials}>
-                      {(winnerDriver.firstName?.[0] || '') + (winnerDriver.lastName?.[0] || '')}
+              {circuitInfo && (
+                <View style={styles.headerCardBottom}>
+                  <View style={styles.headerCircuitRow}>
+                    {circuitInfo.countryFlag ? (
+                      <Image
+                        source={{
+                          uri: convertToHttps(circuitInfo.countryFlag),
+                        }}
+                        style={styles.headerCountryFlag}
+                      />
+                    ) : null}
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.circuitName, { color: theme.text }]}
+                      numberOfLines={1}
+                    >
+                      {circuitInfo.name}
                     </Text>
                   </View>
-                )}
-                <Text allowFontScaling={false} style={[styles.winnerName, { color: theme.text }]} numberOfLines={1}>
-                  {winnerDriver.lastName || winnerDriver.name}
-                </Text>
-                <Text allowFontScaling={false} style={[styles.winnerLabel, { color: theme.textSecondary }]}>
-                  WINNER
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.circuitLocation,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {circuitInfo.city}
+                    {circuitInfo.city && circuitInfo.country ? ", " : ""}
+                    {circuitInfo.country}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {winnerDriver && (
+              <View style={styles.headerCardRight}>
+                <View style={styles.winnerContainer}>
+                  {winnerDriver.headshot ? (
+                    <Image
+                      source={{ uri: winnerDriver.headshot }}
+                      style={styles.winnerImage}
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.winnerImagePlaceholder,
+                        { backgroundColor: colors.primary },
+                      ]}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        style={styles.winnerInitials}
+                      >
+                        {(winnerDriver.firstName?.[0] || "") +
+                          (winnerDriver.lastName?.[0] || "")}
+                      </Text>
+                    </View>
+                  )}
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.winnerName, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {winnerDriver.lastName || winnerDriver.name}
+                  </Text>
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.winnerLabel, { color: theme.textSecondary }]}
+                  >
+                    WINNER
+                  </Text>
+                </View>
+              </View>
+            )}
+            {/* Show next/current competition label on the right of circuit info when available */}
+            {nextCompetitionLabel ? (
+              <View style={styles.nextCompContainer}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.nextCompText, { color: compTypeColor }]}
+                  numberOfLines={1}
+                >
+                  {currentCompType} {compNum}
                 </Text>
               </View>
-            </View>
-          )}
-          {/* Show next/current competition label on the right of circuit info when available */}
-          {nextCompetitionLabel ? (
-            <View style={styles.nextCompContainer}>
-              <Text allowFontScaling={false} style={[styles.nextCompText, { color: compTypeColor }]} numberOfLines={1}>
-                {currentCompType} {compNum}
+            ) : null}
+          </View>
+
+          {/* Streaming availability indicator */}
+          {isStreamingAvailable && (
+            <View style={styles.streamingIndicator}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.streamingText, { color: colors.primary }]}
+              >
+                Tap to view stream
               </Text>
             </View>
-          ) : null}
-        </View>
-        
-        {/* Streaming availability indicator */}
-        {isStreamingAvailable && (
-          <View style={styles.streamingIndicator}>
-            <Text allowFontScaling={false} style={[styles.streamingText, { color: colors.primary }]}>
-              Tap to view stream
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    </View>
+          )}
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -2710,7 +3563,10 @@ const RaceDetailsScreen = ({ route }) => {
           key={tab.key}
           style={[
             styles.tabButton,
-            selectedTab === tab.key && [styles.activeTab, { backgroundColor: colors.primary }]
+            selectedTab === tab.key && [
+              styles.activeTab,
+              { backgroundColor: colors.primary },
+            ],
           ]}
           onPress={() => setSelectedTab(tab.key)}
         >
@@ -2718,9 +3574,9 @@ const RaceDetailsScreen = ({ route }) => {
             allowFontScaling={false}
             style={[
               styles.tabText,
-              selectedTab === tab.key 
-                ? styles.activeTabText 
-                : { color: theme.textSecondary }
+              selectedTab === tab.key
+                ? styles.activeTabText
+                : { color: theme.textSecondary },
             ]}
           >
             {tab.name}
@@ -2732,24 +3588,33 @@ const RaceDetailsScreen = ({ route }) => {
 
   const renderInfoTab = () => (
     <View style={styles.tabContent}>
-      <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>
+      <Text
+        allowFontScaling={false}
+        style={[styles.sectionTitle, { color: theme.text }]}
+      >
         Race Information
       </Text>
-      
+
       {/* show race map if available */}
       {circuitInfo?.mapHref ? (
         <View style={[styles.mapContainer, { backgroundColor: theme.surface }]}>
-          {Platform.OS === 'web' ? (
+          {Platform.OS === "web" ? (
             <Image
               source={{ uri: circuitInfo.mapHref }}
-              style={[styles.circuitMap, { width: windowWidth - 60, height: Math.round((windowWidth) * 0.8) }]}
+              style={[
+                styles.circuitMap,
+                {
+                  width: windowWidth - 60,
+                  height: Math.round(windowWidth * 0.8),
+                },
+              ]}
               resizeMode="contain"
             />
           ) : (
             <SvgViewer
               uri={circuitInfo.mapHref}
               width={windowWidth - 60}
-              height={Math.round((windowWidth) * 0.8)}
+              height={Math.round(windowWidth * 0.8)}
               style={styles.circuitMap}
             />
           )}
@@ -2759,76 +3624,210 @@ const RaceDetailsScreen = ({ route }) => {
       {raceData && (
         <View style={[styles.infoSection, { backgroundColor: theme.surface }]}>
           <View style={styles.infoRow}>
-            <Text allowFontScaling={false} style={[styles.infoLabel, { color: theme.textSecondary }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.infoLabel, { color: theme.textSecondary }]}
+            >
               Race Name:
             </Text>
-            <Text allowFontScaling={false} style={[styles.infoValue, { color: theme.text }]}>
-              {raceData.name || 'Unknown'}
+            <Text
+              allowFontScaling={false}
+              style={[styles.infoValue, { color: theme.text }]}
+            >
+              {raceData.name || "Unknown"}
             </Text>
           </View>
-          
+
           <View style={styles.infoRow}>
-            <Text allowFontScaling={false} style={[styles.infoLabel, { color: theme.textSecondary }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.infoLabel, { color: theme.textSecondary }]}
+            >
               Start Date:
             </Text>
-            <Text allowFontScaling={false} style={[styles.infoValue, { color: theme.text }]}>
-              {raceData.date ? formatRaceDate(raceData.date) : 'TBD'}
+            <Text
+              allowFontScaling={false}
+              style={[styles.infoValue, { color: theme.text }]}
+            >
+              {raceData.date ? formatRaceDate(raceData.date) : "TBD"}
             </Text>
           </View>
         </View>
       )}
-      
+
       {/* Circuit details in its own section/card */}
       {circuitInfo ? (
         <View style={[styles.infoSection, { backgroundColor: theme.surface }]}>
-          <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text, marginBottom: 8 }]}>Circuit Details</Text>
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.sectionTitle,
+              { color: theme.text, marginBottom: 8 },
+            ]}
+          >
+            Circuit Details
+          </Text>
 
           <View style={styles.circuitGrid}>
             <View style={styles.circuitCell}>
-              <Text allowFontScaling={false} style={[styles.cellLabel, { color: theme.textSecondary }]}>Type</Text>
-              <Text allowFontScaling={false} style={[styles.cellValueSmall, { color: theme.text }]}>{circuitInfo.type || '-'}</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.cellLabel, { color: theme.textSecondary }]}
+              >
+                Type
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.cellValueSmall, { color: theme.text }]}
+              >
+                {circuitInfo.type || "-"}
+              </Text>
             </View>
             <View style={styles.circuitCell}>
-              <Text allowFontScaling={false} style={[styles.cellLabel, { color: theme.textSecondary }]}>Length</Text>
-              <Text allowFontScaling={false} style={[styles.cellValueSmall, { color: theme.text }]}>{circuitInfo.length || '-'}</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.cellLabel, { color: theme.textSecondary }]}
+              >
+                Length
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.cellValueSmall, { color: theme.text }]}
+              >
+                {circuitInfo.length || "-"}
+              </Text>
             </View>
 
             <View style={styles.circuitCell}>
-              <Text allowFontScaling={false} style={[styles.cellLabel, { color: theme.textSecondary }]}>Distance</Text>
-              <Text allowFontScaling={false} style={[styles.cellValueSmall, { color: theme.text }]}>{circuitInfo.distance || '-'}</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.cellLabel, { color: theme.textSecondary }]}
+              >
+                Distance
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.cellValueSmall, { color: theme.text }]}
+              >
+                {circuitInfo.distance || "-"}
+              </Text>
             </View>
             <View style={styles.circuitCell}>
-              <Text allowFontScaling={false} style={[styles.cellLabel, { color: theme.textSecondary }]}>Laps</Text>
-              <Text allowFontScaling={false} style={[styles.cellValueSmall, { color: theme.text }]}>{circuitInfo.laps || '-'}</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.cellLabel, { color: theme.textSecondary }]}
+              >
+                Laps
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.cellValueSmall, { color: theme.text }]}
+              >
+                {circuitInfo.laps || "-"}
+              </Text>
             </View>
 
             <View style={styles.circuitCell}>
-              <Text allowFontScaling={false} style={[styles.cellLabel, { color: theme.textSecondary }]}>Turns</Text>
-              <Text allowFontScaling={false} style={[styles.cellValueSmall, { color: theme.text }]}>{circuitInfo.turns || '-'}</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.cellLabel, { color: theme.textSecondary }]}
+              >
+                Turns
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.cellValueSmall, { color: theme.text }]}
+              >
+                {circuitInfo.turns || "-"}
+              </Text>
             </View>
             <View style={styles.circuitCell}>
-              <Text allowFontScaling={false} style={[styles.cellLabel, { color: theme.textSecondary }]}>Direction</Text>
-              <Text allowFontScaling={false} style={[styles.cellValueSmall, { color: theme.text }]}>{circuitInfo.direction || '-'}</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.cellLabel, { color: theme.textSecondary }]}
+              >
+                Direction
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.cellValueSmall, { color: theme.text }]}
+              >
+                {circuitInfo.direction || "-"}
+              </Text>
             </View>
 
             <View style={styles.circuitCell}>
-              <Text allowFontScaling={false} style={[styles.cellLabel, { color: theme.textSecondary }]}>Established</Text>
-              <Text allowFontScaling={false} style={[styles.cellValueSmall, { color: theme.text }]}>{circuitInfo.established || '-'}</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.cellLabel, { color: theme.textSecondary }]}
+              >
+                Established
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.cellValueSmall, { color: theme.text }]}
+              >
+                {circuitInfo.established || "-"}
+              </Text>
             </View>
             <View style={styles.circuitCell} />
           </View>
 
-          <View style={[styles.fastestRow, { borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.06)', marginTop: 12, paddingTop: 12 }]}>
+          <View
+            style={[
+              styles.fastestRow,
+              {
+                borderTopWidth: 1,
+                borderTopColor: "rgba(0,0,0,0.06)",
+                marginTop: 12,
+                paddingTop: 12,
+              },
+            ]}
+          >
             <View style={styles.fastestLeft}>
-              <Text allowFontScaling={false} style={[styles.cellLabel, { color: theme.textSecondary }]}>Fastest Lap</Text>
-              <Text allowFontScaling={false} style={[styles.fastestDriverName, { color: theme.text }]}>{circuitInfo.fastestDriverName || '-'}</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.cellLabel, { color: theme.textSecondary }]}
+              >
+                Fastest Lap
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.fastestDriverName, { color: theme.text }]}
+              >
+                {circuitInfo.fastestDriverName || "-"}
+              </Text>
               {circuitInfo.fastestLapTime ? (
-                <Text allowFontScaling={false} style={[styles.fastestLapTime, { color: theme.textSecondary }]}>{circuitInfo.fastestLapTime}</Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.fastestLapTime,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {circuitInfo.fastestLapTime}
+                </Text>
               ) : null}
             </View>
             <View style={styles.fastestRight}>
-              <Text allowFontScaling={false} style={[styles.cellLabel, { color: theme.textSecondary, textAlign: 'right' }]}>Year</Text>
-              <Text allowFontScaling={false} style={[styles.fastestYear, { color: theme.text, textAlign: 'right' }]}>{circuitInfo.fastestLapYear || ''}</Text>
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.cellLabel,
+                  { color: theme.textSecondary, textAlign: "right" },
+                ]}
+              >
+                Year
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.fastestYear,
+                  { color: theme.text, textAlign: "right" },
+                ]}
+              >
+                {circuitInfo.fastestLapYear || ""}
+              </Text>
             </View>
           </View>
         </View>
@@ -2838,29 +3837,59 @@ const RaceDetailsScreen = ({ route }) => {
 
   const renderResultsTab = () => (
     <View style={styles.tabContent}>
-      <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>
+      <Text
+        allowFontScaling={false}
+        style={[styles.sectionTitle, { color: theme.text }]}
+      >
         Race Results
       </Text>
-      {(!competitionResults || Object.keys(competitionResults).length === 0) ? (
-        <Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.textSecondary }]}>Loading results...</Text>
+      {!competitionResults || Object.keys(competitionResults).length === 0 ? (
+        <Text
+          allowFontScaling={false}
+          style={[styles.placeholderText, { color: theme.textSecondary }]}
+        >
+          Loading results...
+        </Text>
       ) : (
         <>
           {/* Horizontal sliding competition buttons */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }} contentContainerStyle={{ paddingHorizontal: 8 }}>
-            {(competitionOrder && competitionOrder.length ? competitionOrder : Object.keys(competitionResults)).map((compId) => {
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ marginBottom: 12 }}
+            contentContainerStyle={{ paddingHorizontal: 8 }}
+          >
+            {(competitionOrder && competitionOrder.length
+              ? competitionOrder
+              : Object.keys(competitionResults)
+            ).map((compId) => {
               const comp = competitionResults[compId];
               if (!comp) return null;
-              const pillLabel = comp.type?.abbreviation || comp.type?.displayName || comp.name || '';
+              const pillLabel =
+                comp.type?.abbreviation ||
+                comp.type?.displayName ||
+                comp.name ||
+                "";
               return (
                 <TouchableOpacity
                   key={comp.id}
                   onPress={() => setSelectedCompetitionId(comp.id)}
                   style={[
                     styles.compPill,
-                    selectedCompetitionId === comp.id ? { backgroundColor: colors.primary } : { backgroundColor: theme.surface }
+                    selectedCompetitionId === comp.id
+                      ? { backgroundColor: colors.primary }
+                      : { backgroundColor: theme.surface },
                   ]}
                 >
-                  <Text allowFontScaling={false} style={[styles.compPillText, selectedCompetitionId === comp.id ? { color: '#fff' } : { color: theme.text }]}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.compPillText,
+                      selectedCompetitionId === comp.id
+                        ? { color: "#fff" }
+                        : { color: theme.text },
+                    ]}
+                  >
                     {pillLabel}
                   </Text>
                 </TouchableOpacity>
@@ -2869,81 +3898,248 @@ const RaceDetailsScreen = ({ route }) => {
           </ScrollView>
 
           {/* Competitors list for selected competition */}
-          {selectedCompetitionId && competitionResults[selectedCompetitionId] ? (
+          {selectedCompetitionId &&
+          competitionResults[selectedCompetitionId] ? (
             <View style={{ marginTop: 8 }}>
               {sortedCompetitors.map((r) => {
-                const compType = competitionResults[selectedCompetitionId]?.type || {};
-                const isQual = ((compType.abbreviation || '') + ' ' + (compType.text || '') + ' ' + (compType.displayName || '')).toString().toLowerCase().includes('qual');
+                const compType =
+                  competitionResults[selectedCompetitionId]?.type || {};
+                const isQual = (
+                  (compType.abbreviation || "") +
+                  " " +
+                  (compType.text || "") +
+                  " " +
+                  (compType.displayName || "")
+                )
+                  .toString()
+                  .toLowerCase()
+                  .includes("qual");
                 return (
-                <View key={r.id} style={[styles.racerRow, { borderLeftColor: r.teamColor || '#000000', backgroundColor: r.fastestLap ? '#7c3aed5b' : theme.surface }]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                    <View style={{ alignItems: 'center', marginRight: 10, width: 40 }}>
-                      <View style={[styles.positionBadge, { borderColor: theme.border, backgroundColor: theme.surface }]}> 
-                        <Text allowFontScaling={false} style={[styles.positionText, { color: theme.text }]}>{isLiveRace ? getLivePosition(r) : (r.order || '-')}</Text>
-                      </View>
-                      {/* Position delta: show only when we have startOrder and order and competition is a race */}
-                      {(() => {
-                        const compTypeLocal = compType || {};
-                        const isRace = ((compTypeLocal.abbreviation || '') + ' ' + (compTypeLocal.text || '') + ' ' + (compTypeLocal.displayName || '')).toString().toLowerCase().includes('race');
-                        const hasOrder = typeof r.order === 'number' || (r.order && !isNaN(Number(r.order)));
-                        const hasStart = typeof r.startOrder === 'number' || (r.startOrder && !isNaN(Number(r.startOrder)));
-                        if (!isRace || !hasOrder || !hasStart) return null;
-                        const delta = Number(r.startOrder) - Number(r.order);
-                        if (!delta) return null;
-                        const absDelta = Math.abs(delta);
-                        const arrow = delta > 0 ? '▲' : '▼';
-                        const color = delta > 0 ? theme.success : theme.error;
-                        return (
-                          <Text allowFontScaling={false} style={[styles.positionDelta, { color, marginTop: 6 }]}>{arrow} {absDelta}</Text>
-                        );
-                      })()}
-                    </View>
-                    <View style={styles.racerLeft}> 
-                      <Text allowFontScaling={false} style={[styles.racerName, { color: theme.text }]} numberOfLines={1}>{r.name || 'Unknown'}</Text>
-                      <View style={styles.racerManufacturerRow}>
-                        {isFavorite(getF1TeamId(r.manufacturer)) && (
-                          <TouchableOpacity
-                            onPress={() => handleTeamFavoriteToggle(r.manufacturer, r.teamColor)}
-                            activeOpacity={0.7}
-                            style={styles.racerManufacturerFav}
+                  <View
+                    key={r.id}
+                    style={[
+                      styles.racerRow,
+                      {
+                        borderLeftColor: r.teamColor || "#000000",
+                        backgroundColor: r.fastestLap
+                          ? "#7c3aed5b"
+                          : theme.surface,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        flex: 1,
+                      }}
+                    >
+                      <View
+                        style={{
+                          alignItems: "center",
+                          marginRight: 10,
+                          width: 40,
+                        }}
+                      >
+                        <View
+                          style={[
+                            styles.positionBadge,
+                            {
+                              borderColor: theme.border,
+                              backgroundColor: theme.surface,
+                            },
+                          ]}
+                        >
+                          <Text
+                            allowFontScaling={false}
+                            style={[styles.positionText, { color: theme.text }]}
                           >
-                            <Text allowFontScaling={false} style={[styles.racerManufacturerFavIcon, { color: colors.primary }]}>
-                              ★
+                            {isLiveRace ? getLivePosition(r) : r.order || "-"}
+                          </Text>
+                        </View>
+                        {/* Position delta: show only when we have startOrder and order and competition is a race */}
+                        {(() => {
+                          const compTypeLocal = compType || {};
+                          const isRace = (
+                            (compTypeLocal.abbreviation || "") +
+                            " " +
+                            (compTypeLocal.text || "") +
+                            " " +
+                            (compTypeLocal.displayName || "")
+                          )
+                            .toString()
+                            .toLowerCase()
+                            .includes("race");
+                          const hasOrder =
+                            typeof r.order === "number" ||
+                            (r.order && !isNaN(Number(r.order)));
+                          const hasStart =
+                            typeof r.startOrder === "number" ||
+                            (r.startOrder && !isNaN(Number(r.startOrder)));
+                          if (!isRace || !hasOrder || !hasStart) return null;
+                          const delta = Number(r.startOrder) - Number(r.order);
+                          if (!delta) return null;
+                          const absDelta = Math.abs(delta);
+                          const arrow = delta > 0 ? "▲" : "▼";
+                          const color = delta > 0 ? theme.success : theme.error;
+                          return (
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.positionDelta,
+                                { color, marginTop: 6 },
+                              ]}
+                            >
+                              {arrow} {absDelta}
                             </Text>
-                          </TouchableOpacity>
-                        )}
-                        <Text allowFontScaling={false} style={[styles.racerSub, { color: isFavorite(getF1TeamId(r.manufacturer)) ? colors.primary : theme.textSecondary }]} numberOfLines={1}>{r.manufacturer || ''}</Text>
+                          );
+                        })()}
+                      </View>
+                      <View style={styles.racerLeft}>
+                        <Text
+                          allowFontScaling={false}
+                          style={[styles.racerName, { color: theme.text }]}
+                          numberOfLines={1}
+                        >
+                          {r.name || "Unknown"}
+                        </Text>
+                        <View style={styles.racerManufacturerRow}>
+                          {isFavorite(getF1TeamId(r.manufacturer)) && (
+                            <TouchableOpacity
+                              onPress={() =>
+                                handleTeamFavoriteToggle(
+                                  r.manufacturer,
+                                  r.teamColor
+                                )
+                              }
+                              activeOpacity={0.7}
+                              style={styles.racerManufacturerFav}
+                            >
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  styles.racerManufacturerFavIcon,
+                                  { color: colors.primary },
+                                ]}
+                              >
+                                ★
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.racerSub,
+                              {
+                                color: isFavorite(getF1TeamId(r.manufacturer))
+                                  ? colors.primary
+                                  : theme.textSecondary,
+                              },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {r.manufacturer || ""}
+                          </Text>
+                        </View>
                       </View>
                     </View>
+                    <View style={styles.racerRight}>
+                      {r.winner ? (
+                        <View
+                          allowFontScaling={false}
+                          style={[
+                            styles.winnerBadgeContainer,
+                            {
+                              backgroundColor: colors.primary,
+                              borderColor: colors.secondary,
+                            },
+                          ]}
+                        >
+                          <Text
+                            allowFontScaling={false}
+                            style={styles.winnerText}
+                          >
+                            WIN
+                          </Text>
+                        </View>
+                      ) : null}
+                      {isQual ? (
+                        <View style={{ alignItems: "flex-end" }}>
+                          {r.qual1 ? (
+                            <Text
+                              allowFontScaling={false}
+                              style={[styles.totalTime, { color: theme.text }]}
+                            >
+                              Q1: {r.qual1}
+                            </Text>
+                          ) : null}
+                          {r.qual2 ? (
+                            <Text
+                              allowFontScaling={false}
+                              style={[styles.totalTime, { color: theme.text }]}
+                            >
+                              Q2: {r.qual2}
+                            </Text>
+                          ) : null}
+                          {r.qual3 ? (
+                            <Text
+                              allowFontScaling={false}
+                              style={[styles.totalTime, { color: theme.text }]}
+                            >
+                              Q3: {r.qual3}
+                            </Text>
+                          ) : null}
+                          {r.behindTime ? (
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.lapsText,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              Behind: {r.behindTime}
+                            </Text>
+                          ) : null}
+                        </View>
+                      ) : (
+                        <>
+                          {/* Show live gap to leader when race is live, otherwise show total time */}
+                          <Text
+                            allowFontScaling={false}
+                            style={[styles.totalTime, { color: theme.text }]}
+                            numberOfLines={1}
+                          >
+                            {isLiveRace
+                              ? getLiveGapToLeader(r)
+                              : r.totalTime ||
+                                (r.behindLaps != null
+                                  ? `+${r.behindLaps} Laps`
+                                  : r.behindTime || "-")}
+                          </Text>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.lapsText,
+                              { color: theme.textSecondary },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {r.laps ? `${r.laps} laps` : ""}
+                          </Text>
+                        </>
+                      )}
+                    </View>
                   </View>
-                  <View style={styles.racerRight}>
-                    {r.winner ? <View allowFontScaling={false} style={[styles.winnerBadgeContainer, { backgroundColor: colors.primary, borderColor: colors.secondary }]}><Text allowFontScaling={false} style={styles.winnerText}>WIN</Text></View> : null}
-                    {isQual ? (
-                      <View style={{ alignItems: 'flex-end' }}>
-                        {r.qual1 ? <Text allowFontScaling={false} style={[styles.totalTime, { color: theme.text }]}>Q1: {r.qual1}</Text> : null}
-                        {r.qual2 ? <Text allowFontScaling={false} style={[styles.totalTime, { color: theme.text }]}>Q2: {r.qual2}</Text> : null}
-                        {r.qual3 ? <Text allowFontScaling={false} style={[styles.totalTime, { color: theme.text }]}>Q3: {r.qual3}</Text> : null}
-                        {r.behindTime ? <Text allowFontScaling={false} style={[styles.lapsText, { color: theme.textSecondary }]}>Behind: {r.behindTime}</Text> : null}
-                      </View>
-                    ) : (
-                      <>
-                        {/* Show live gap to leader when race is live, otherwise show total time */}
-                        <Text allowFontScaling={false} style={[styles.totalTime, { color: theme.text }]} numberOfLines={1}>
-                          {isLiveRace ? 
-                            getLiveGapToLeader(r) :
-                            (r.totalTime || (r.behindLaps != null ? `+${r.behindLaps} Laps` : r.behindTime || '-'))
-                          }
-                        </Text>
-                        <Text allowFontScaling={false} style={[styles.lapsText, { color: theme.textSecondary }]} numberOfLines={1}>{r.laps ? `${r.laps} laps` : ''}</Text>
-                      </>
-                    )}
-                  </View>
-                </View>
                 );
               })}
             </View>
           ) : (
-            <Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.textSecondary }]}>Select a competition to view competitors</Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.placeholderText, { color: theme.textSecondary }]}
+            >
+              Select a competition to view competitors
+            </Text>
           )}
         </>
       )}
@@ -2952,21 +4148,45 @@ const RaceDetailsScreen = ({ route }) => {
 
   const renderGridTab = () => (
     <View style={styles.tabContent}>
-      <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>
+      <Text
+        allowFontScaling={false}
+        style={[styles.sectionTitle, { color: theme.text }]}
+      >
         Grid
       </Text>
 
       {/* Race status (period/flag/type) */}
       {raceStatus ? (
-        <View style={[styles.raceStatusContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View
+          style={[
+            styles.raceStatusContainer,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
+        >
           <View style={styles.raceStatusLeft}>
-            <Text allowFontScaling={false} style={[styles.raceStatusValue, { color: theme.text }]}>Lap: {raceStatus.period ?? '-'}</Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.raceStatusValue, { color: theme.text }]}
+            >
+              Lap: {raceStatus.period ?? "-"}
+            </Text>
             {raceStatus.flag ? (
-              <Text allowFontScaling={false} style={[styles.raceFlag, { color: theme.textSecondary }]}>Flag: {raceStatus.flag}</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.raceFlag, { color: theme.textSecondary }]}
+              >
+                Flag: {raceStatus.flag}
+              </Text>
             ) : null}
           </View>
           <View style={styles.raceStatusRight}>
-            <Text allowFontScaling={false} style={[styles.raceTypeDescription, { color: theme.text }]} numberOfLines={2}>{raceStatus.type?.description || raceStatus.type?.detail || ''}</Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.raceTypeDescription, { color: theme.text }]}
+              numberOfLines={2}
+            >
+              {raceStatus.type?.description || raceStatus.type?.detail || ""}
+            </Text>
           </View>
         </View>
       ) : null}
@@ -2979,7 +4199,7 @@ const RaceDetailsScreen = ({ route }) => {
               key={i}
               style={[
                 styles.checkeredSquare,
-                { backgroundColor: i % 2 === 0 ? '#FFFFFF' : '#000000' }
+                { backgroundColor: i % 2 === 0 ? "#FFFFFF" : "#000000" },
               ]}
             />
           ))}
@@ -2990,7 +4210,7 @@ const RaceDetailsScreen = ({ route }) => {
               key={`second-${i}`}
               style={[
                 styles.checkeredSquare,
-                { backgroundColor: i % 2 === 0 ? '#000000' : '#FFFFFF' }
+                { backgroundColor: i % 2 === 0 ? "#000000" : "#FFFFFF" },
               ]}
             />
           ))}
@@ -2998,8 +4218,13 @@ const RaceDetailsScreen = ({ route }) => {
       </View>
 
       {selectedCompetitionId && competitionResults[selectedCompetitionId] ? (
-        <View style={[styles.gridContainer, { backgroundColor: theme.surface }]}>
-          <ScrollView style={{ marginTop: 16 }} showsVerticalScrollIndicator={false}>
+        <View
+          style={[styles.gridContainer, { backgroundColor: theme.surface }]}
+        >
+          <ScrollView
+            style={{ marginTop: 16 }}
+            showsVerticalScrollIndicator={false}
+          >
             {(() => {
               // Build grid sorted by live position when race is live, otherwise by order/startOrder
               const comps = sortedGridCompetitors;
@@ -3013,25 +4238,49 @@ const RaceDetailsScreen = ({ route }) => {
               }
 
               return gridRows.map((row, rowIndex) => (
-                <View key={`grid-row-${rowIndex}`} style={styles.gridRowContainer}>
+                <View
+                  key={`grid-row-${rowIndex}`}
+                  style={styles.gridRowContainer}
+                >
                   {/* Left position */}
-                  <View style={[styles.gridPositionSlot, styles.gridPositionLeft]}>
+                  <View
+                    style={[styles.gridPositionSlot, styles.gridPositionLeft]}
+                  >
                     {row.left && (
                       <>
-                        <Text allowFontScaling={false} style={[styles.gridSlotNumber, { color: theme.text }]}>
-                          {isLiveRace ? getLivePosition(row.left) : (row.left.order ?? row.left.startOrder ?? (rowIndex * 2 + 1))}
+                        <Text
+                          allowFontScaling={false}
+                          style={[styles.gridSlotNumber, { color: theme.text }]}
+                        >
+                          {isLiveRace
+                            ? getLivePosition(row.left)
+                            : row.left.order ??
+                              row.left.startOrder ??
+                              rowIndex * 2 + 1}
                         </Text>
                         {(() => {
                           const athleteRef = row.left.raw?.athlete?.$ref;
-                          const athlete = athleteRef ? (athleteCache[athleteRef] || null) : null;
-                          const headshot = athlete?.headshot || buildESPNHeadshotUrl(row.left.id);
-                          
+                          const athlete = athleteRef
+                            ? athleteCache[athleteRef] || null
+                            : null;
+                          const headshot =
+                            athlete?.headshot ||
+                            buildESPNHeadshotUrl(row.left.id);
+
                           return (
-                            <TouchableOpacity onPress={async () => {
-                              const statsJson = await fetchDriverStats(row.left);
-                              setSelectedDriverDetails({ competitor: row.left, athlete, stats: statsJson });
-                              setDriverModalVisible(true);
-                            }}>
+                            <TouchableOpacity
+                              onPress={async () => {
+                                const statsJson = await fetchDriverStats(
+                                  row.left
+                                );
+                                setSelectedDriverDetails({
+                                  competitor: row.left,
+                                  athlete,
+                                  stats: statsJson,
+                                });
+                                setDriverModalVisible(true);
+                              }}
+                            >
                               <GridDriverImage
                                 headshot={headshot}
                                 athlete={athlete}
@@ -3043,37 +4292,71 @@ const RaceDetailsScreen = ({ route }) => {
                             </TouchableOpacity>
                           );
                         })()}
-                        <Text allowFontScaling={false} style={[styles.gridDriverTime, { color: theme.text }]} numberOfLines={1}>
-                          {isLiveRace ? 
-                            getLiveGapToLeader(row.left) :
-                            (row.left.behindTime || (row.left.behindLaps != null ? `+${row.left.behindLaps} Laps` : row.left.totalTime) || '')
-                          }
+                        <Text
+                          allowFontScaling={false}
+                          style={[styles.gridDriverTime, { color: theme.text }]}
+                          numberOfLines={1}
+                        >
+                          {isLiveRace
+                            ? getLiveGapToLeader(row.left)
+                            : row.left.behindTime ||
+                              (row.left.behindLaps != null
+                                ? `+${row.left.behindLaps} Laps`
+                                : row.left.totalTime) ||
+                              ""}
                         </Text>
-                        <Text allowFontScaling={false} style={[styles.gridDriverLaps, { color: theme.textSecondary }]}>
-                          {row.left.laps ? `${row.left.laps} laps` : ''}
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            styles.gridDriverLaps,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {row.left.laps ? `${row.left.laps} laps` : ""}
                         </Text>
                       </>
                     )}
                   </View>
 
                   {/* Right position */}
-                  <View style={[styles.gridPositionSlot, styles.gridPositionRight]}>
+                  <View
+                    style={[styles.gridPositionSlot, styles.gridPositionRight]}
+                  >
                     {row.right && (
                       <>
-                        <Text allowFontScaling={false} style={[styles.gridSlotNumber, { color: theme.text }]}>
-                          {isLiveRace ? getLivePosition(row.right) : (row.right.order ?? row.right.startOrder ?? (rowIndex * 2 + 2))}
+                        <Text
+                          allowFontScaling={false}
+                          style={[styles.gridSlotNumber, { color: theme.text }]}
+                        >
+                          {isLiveRace
+                            ? getLivePosition(row.right)
+                            : row.right.order ??
+                              row.right.startOrder ??
+                              rowIndex * 2 + 2}
                         </Text>
                         {(() => {
                           const athleteRef = row.right.raw?.athlete?.$ref;
-                          const athlete = athleteRef ? (athleteCache[athleteRef] || null) : null;
-                          const headshot = athlete?.headshot || buildESPNHeadshotUrl(row.right.id);
-                          
+                          const athlete = athleteRef
+                            ? athleteCache[athleteRef] || null
+                            : null;
+                          const headshot =
+                            athlete?.headshot ||
+                            buildESPNHeadshotUrl(row.right.id);
+
                           return (
-                            <TouchableOpacity onPress={async () => {
-                              const statsJson = await fetchDriverStats(row.right);
-                              setSelectedDriverDetails({ competitor: row.right, athlete, stats: statsJson });
-                              setDriverModalVisible(true);
-                            }}>
+                            <TouchableOpacity
+                              onPress={async () => {
+                                const statsJson = await fetchDriverStats(
+                                  row.right
+                                );
+                                setSelectedDriverDetails({
+                                  competitor: row.right,
+                                  athlete,
+                                  stats: statsJson,
+                                });
+                                setDriverModalVisible(true);
+                              }}
+                            >
                               <GridDriverImage
                                 headshot={headshot}
                                 athlete={athlete}
@@ -3085,14 +4368,27 @@ const RaceDetailsScreen = ({ route }) => {
                             </TouchableOpacity>
                           );
                         })()}
-                        <Text allowFontScaling={false} style={[styles.gridDriverTime, { color: theme.text }]} numberOfLines={1}>
-                          {isLiveRace ? 
-                            getLiveGapToLeader(row.right) :
-                            (row.right.behindTime || (row.right.behindLaps != null ? `+${row.right.behindLaps} Laps` : row.right.totalTime) || '')
-                          }
+                        <Text
+                          allowFontScaling={false}
+                          style={[styles.gridDriverTime, { color: theme.text }]}
+                          numberOfLines={1}
+                        >
+                          {isLiveRace
+                            ? getLiveGapToLeader(row.right)
+                            : row.right.behindTime ||
+                              (row.right.behindLaps != null
+                                ? `+${row.right.behindLaps} Laps`
+                                : row.right.totalTime) ||
+                              ""}
                         </Text>
-                        <Text allowFontScaling={false} style={[styles.gridDriverLaps, { color: theme.textSecondary }]}>
-                          {row.right.laps ? `${row.right.laps} laps` : ''}
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            styles.gridDriverLaps,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {row.right.laps ? `${row.right.laps} laps` : ""}
                         </Text>
                       </>
                     )}
@@ -3103,20 +4399,25 @@ const RaceDetailsScreen = ({ route }) => {
           </ScrollView>
         </View>
       ) : (
-        <Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.textSecondary }]}>Select a competition to view the starting grid</Text>
+        <Text
+          allowFontScaling={false}
+          style={[styles.placeholderText, { color: theme.textSecondary }]}
+        >
+          Select a competition to view the starting grid
+        </Text>
       )}
     </View>
   );
 
   const renderTabContent = () => {
     switch (selectedTab) {
-      case 'INFO':
+      case "INFO":
         return renderInfoTab();
-      case 'RESULTS':
+      case "RESULTS":
         return renderResultsTab();
-      case 'GRID':
+      case "GRID":
         return renderGridTab();
-      case 'EVENTS':
+      case "EVENTS":
         return renderEventsTab();
       default:
         return renderInfoTab();
@@ -3126,27 +4427,27 @@ const RaceDetailsScreen = ({ route }) => {
   const formatEventTime = (dateString) => {
     try {
       const date = new Date(dateString);
-      return date.toLocaleTimeString('en-US', { 
-        timeZone: 'America/New_York', // EST timezone
-        hour12: false, 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit' 
+      return date.toLocaleTimeString("en-US", {
+        timeZone: "America/New_York", // EST timezone
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
       });
     } catch (error) {
-      return dateString || '';
+      return dateString || "";
     }
   };
 
   const formatElapsedTime = (elapsedTimeString) => {
-    if (!elapsedTimeString) return '';
+    if (!elapsedTimeString) return "";
     // Format like "00:57:27.534000" to readable time
-    const parts = elapsedTimeString.split(':');
+    const parts = elapsedTimeString.split(":");
     if (parts.length >= 3) {
       const hours = parseInt(parts[0]);
       const minutes = parseInt(parts[1]);
       const seconds = parseFloat(parts[2]);
-      
+
       if (hours > 0) {
         return `${hours}h ${minutes}m ${Math.floor(seconds)}s`;
       } else if (minutes > 0) {
@@ -3170,75 +4471,76 @@ const RaceDetailsScreen = ({ route }) => {
   };
 
   const formatCauseName = (cause) => {
-    return cause.split('-').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
+    return cause
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   };
 
   const getEventBorderColor = (event) => {
     const { category, cause, details } = event;
     const key = `${category}:${cause}`;
-    
+
     switch (key) {
       // Yellow flag events
-      case 'sector-notification:yellow-flag':
-      case 'sector-notification:double-yellow-flag':
-        return theme.warning || '#FF9800';
-      
+      case "sector-notification:yellow-flag":
+      case "sector-notification:double-yellow-flag":
+        return theme.warning || "#FF9800";
+
       // Green flag and chequered flag events
-      case 'track-notification:green-flag':
-      case 'sector-notification:green-flag':
-      case 'track-notification:chequered-flag':
-      case 'session-notification:race-end':
-        return theme.success || '#4CAF50';
-      
+      case "track-notification:green-flag":
+      case "sector-notification:green-flag":
+      case "track-notification:chequered-flag":
+      case "session-notification:race-end":
+        return theme.success || "#4CAF50";
+
       // Safety car and incident events
-      case 'track-notification:safety-car-deployed':
-      case 'track-notification:safety-car-ending':
-        return theme.error || '#F44336';
-      
+      case "track-notification:safety-car-deployed":
+      case "track-notification:safety-car-ending":
+        return theme.error || "#F44336";
+
       // Race control and info events
-      case 'other:race-control-message':
+      case "other:race-control-message":
         return theme.info || colors.primary;
-      
+
       // Red flag events
-      case 'track-notification:red-flag':
-        return theme.error || '#F44336';
-      
+      case "track-notification:red-flag":
+        return theme.error || "#F44336";
+
       // Session control events
-      case 'session-notification:session-stop':
-      case 'session-notification:session-resume':
-      case 'session-notification:practice-end':
-      case 'session-notification:q1-start':
-      case 'session-notification:q2-start':
-      case 'session-notification:q3-start':
-      case 'session-notification:q1-end':
-      case 'session-notification:q2-end':
-      case 'session-notification:q3-end':
+      case "session-notification:session-stop":
+      case "session-notification:session-resume":
+      case "session-notification:practice-end":
+      case "session-notification:q1-start":
+      case "session-notification:q2-start":
+      case "session-notification:q3-start":
+      case "session-notification:q1-end":
+      case "session-notification:q2-end":
+      case "session-notification:q3-end":
         return theme.text;
-      
+
       // Driver-specific events use driver's team color
-      case 'driver-action:overtake':
-      case 'driver-notification:overtake':
-      case 'driver-action:out':
-      case 'driver-action:pit':
-      case 'driver-action:incident':
-      case 'driver-action:track-limits':
-      case 'driver-action:personal-best-lap':
-      case 'driver-notification:blue-flag':
-      case 'driver-notification:incident-verdict':
-      case 'driver-notification:provisional-classification':
-      case 'driver-notification:qualifying-stage-classification':
+      case "driver-action:overtake":
+      case "driver-notification:overtake":
+      case "driver-action:out":
+      case "driver-action:pit":
+      case "driver-action:incident":
+      case "driver-action:track-limits":
+      case "driver-action:personal-best-lap":
+      case "driver-notification:blue-flag":
+      case "driver-notification:incident-verdict":
+      case "driver-notification:provisional-classification":
+      case "driver-notification:qualifying-stage-classification":
         if (details?.driver_roles) {
-          const driverNumber = Object.keys(details.driver_roles).find(num => 
-            details.driver_roles[num] === 'initiator'
+          const driverNumber = Object.keys(details.driver_roles).find(
+            (num) => details.driver_roles[num] === "initiator"
           );
           if (driverNumber) {
             return getDriverTeamColor(driverNumber);
           }
         }
         return theme.textSecondary;
-      
+
       default:
         return theme.textSecondary;
     }
@@ -3247,91 +4549,91 @@ const RaceDetailsScreen = ({ route }) => {
   const getEventSectionName = (event) => {
     const { category, cause } = event;
     const key = `${category}:${cause}`;
-    
+
     switch (key) {
-      case 'sector-notification:yellow-flag':
-      case 'sector-notification:double-yellow-flag':
-      case 'track-notification:green-flag':
-      case 'sector-notification:green-flag':
-      case 'track-notification:chequered-flag':
-      case 'track-notification:safety-car-deployed':
-      case 'track-notification:safety-car-ending':
-      case 'other:race-control-message':
+      case "sector-notification:yellow-flag":
+      case "sector-notification:double-yellow-flag":
+      case "track-notification:green-flag":
+      case "sector-notification:green-flag":
+      case "track-notification:chequered-flag":
+      case "track-notification:safety-car-deployed":
+      case "track-notification:safety-car-ending":
+      case "other:race-control-message":
         return formatCauseName(cause);
-      
-      case 'driver-action:overtake':
-      case 'driver-notification:overtake':
-        return 'Overtake';
-      
-      case 'session-notification:session-start':
-        return 'Session Start';
-      
-      case 'session-notification:race-start':
-        return 'Race Start';
-      
-      case 'driver-action:out':
-        return 'Driver Out';
-      
-      case 'driver-action:pit':
-        return 'Driver Pit';
-      
-      case 'driver-action:incident':
-        return 'Driver Incident';
-      
-      case 'driver-notification:incident-verdict':
-        return 'Driver Incident Verdict';
-      
-      case 'driver-action:track-limits':
-        return 'Track Limits';
-      
-      case 'driver-notification:blue-flag':
-        return 'Blue Flag';
-      
-      case 'session-notification:race-end':
-        return 'Race End';
-      
-      case 'driver-notification:provisional-classification':
-        return 'Driver Finish';
-      
-      case 'session-notification:session-end':
-        return 'Session End';
-      
-      case 'driver-action:personal-best-lap':
-        return 'Personal Best';
-      
-      case 'session-notification:session-stop':
-        return 'Session Stop';
-      
-      case 'track-notification:red-flag':
+
+      case "driver-action:overtake":
+      case "driver-notification:overtake":
+        return "Overtake";
+
+      case "session-notification:session-start":
+        return "Session Start";
+
+      case "session-notification:race-start":
+        return "Race Start";
+
+      case "driver-action:out":
+        return "Driver Out";
+
+      case "driver-action:pit":
+        return "Driver Pit";
+
+      case "driver-action:incident":
+        return "Driver Incident";
+
+      case "driver-notification:incident-verdict":
+        return "Driver Incident Verdict";
+
+      case "driver-action:track-limits":
+        return "Track Limits";
+
+      case "driver-notification:blue-flag":
+        return "Blue Flag";
+
+      case "session-notification:race-end":
+        return "Race End";
+
+      case "driver-notification:provisional-classification":
+        return "Driver Finish";
+
+      case "session-notification:session-end":
+        return "Session End";
+
+      case "driver-action:personal-best-lap":
+        return "Personal Best";
+
+      case "session-notification:session-stop":
+        return "Session Stop";
+
+      case "track-notification:red-flag":
         return formatCauseName(cause);
-      
-      case 'session-notification:session-resume':
-        return 'Session Resume';
-      
-      case 'session-notification:practice-end':
-        return 'Practice End';
-      
-      case 'session-notification:q1-start':
-        return 'Qualifying 1 Starts';
-      
-      case 'session-notification:q2-start':
-        return 'Qualifying 2 Starts';
-      
-      case 'session-notification:q3-start':
-        return 'Qualifying 3 Starts';
-      
-      case 'driver-notification:qualifying-stage-classification':
-        return 'Qualifying Stage Finish';
-      
-      case 'session-notification:q1-end':
-        return 'Qualifying 1 Ends';
-      
-      case 'session-notification:q2-end':
-        return 'Qualifying 2 Ends';
-      
-      case 'session-notification:q3-end':
-        return 'Qualifying 3 Ends';
-      
+
+      case "session-notification:session-resume":
+        return "Session Resume";
+
+      case "session-notification:practice-end":
+        return "Practice End";
+
+      case "session-notification:q1-start":
+        return "Qualifying 1 Starts";
+
+      case "session-notification:q2-start":
+        return "Qualifying 2 Starts";
+
+      case "session-notification:q3-start":
+        return "Qualifying 3 Starts";
+
+      case "driver-notification:qualifying-stage-classification":
+        return "Qualifying Stage Finish";
+
+      case "session-notification:q1-end":
+        return "Qualifying 1 Ends";
+
+      case "session-notification:q2-end":
+        return "Qualifying 2 Ends";
+
+      case "session-notification:q3-end":
+        return "Qualifying 3 Ends";
+
       default:
         return formatCauseName(cause);
     }
@@ -3340,256 +4642,278 @@ const RaceDetailsScreen = ({ route }) => {
   const formatEventDescription = (event) => {
     const { category, cause, details } = event;
     const key = `${category}:${cause}`;
-    
+
     // Helper to get driver names
     const getDriverName = (driverNumber) => {
       const driver = getDriverByNumber(driverNumber);
       return driver ? driver.broadcast_name : `#${driverNumber}`;
     };
-    
+
     switch (key) {
-      case 'sector-notification:yellow-flag':
-      case 'sector-notification:double-yellow-flag':
-      case 'track-notification:green-flag':
-      case 'sector-notification:green-flag':
-      case 'track-notification:chequered-flag':
-      case 'track-notification:safety-car-deployed':
-      case 'track-notification:safety-car-ending':
-      case 'other:race-control-message':
+      case "sector-notification:yellow-flag":
+      case "sector-notification:double-yellow-flag":
+      case "track-notification:green-flag":
+      case "sector-notification:green-flag":
+      case "track-notification:chequered-flag":
+      case "track-notification:safety-car-deployed":
+      case "track-notification:safety-car-ending":
+      case "other:race-control-message":
         return details?.message || formatCauseName(cause);
-      
-      case 'driver-action:overtake':
-      case 'driver-notification:overtake':
+
+      case "driver-action:overtake":
+      case "driver-notification:overtake":
         if (details?.driver_roles) {
-          const initiatorNum = Object.keys(details.driver_roles).find(num => 
-            details.driver_roles[num] === 'initiator'
+          const initiatorNum = Object.keys(details.driver_roles).find(
+            (num) => details.driver_roles[num] === "initiator"
           );
-          const participantNum = Object.keys(details.driver_roles).find(num => 
-            details.driver_roles[num] === 'participant'
+          const participantNum = Object.keys(details.driver_roles).find(
+            (num) => details.driver_roles[num] === "participant"
           );
-          
+
           if (initiatorNum && participantNum) {
             const initiator = getDriverName(initiatorNum);
             const participant = getDriverName(participantNum);
-            return `${initiator} OVERTAKES ${participant} FOR P${details.position || '?'}`;
+            return `${initiator} OVERTAKES ${participant} FOR P${
+              details.position || "?"
+            }`;
           }
         }
-        return 'Overtake';
-      
-      case 'session-notification:session-start':
-        return `${raceData?.name || 'Session'} has officially started`;
-      
-      case 'session-notification:race-start':
-        return `${raceData?.name || 'Event'} race has officially started`;
-      
-      case 'driver-action:out':
+        return "Overtake";
+
+      case "session-notification:session-start":
+        return `${raceData?.name || "Session"} has officially started`;
+
+      case "session-notification:race-start":
+        return `${raceData?.name || "Event"} race has officially started`;
+
+      case "driver-action:out":
         if (details?.driver_roles) {
-          const initiatorNum = Object.keys(details.driver_roles).find(num => 
-            details.driver_roles[num] === 'initiator'
+          const initiatorNum = Object.keys(details.driver_roles).find(
+            (num) => details.driver_roles[num] === "initiator"
           );
           if (initiatorNum) {
             const initiator = getDriverName(initiatorNum);
             return `${initiator} OUT OF THE SESSION`;
           }
         }
-        return 'Driver out of session';
-      
-      case 'driver-action:pit':
+        return "Driver out of session";
+
+      case "driver-action:pit":
         if (details?.driver_roles) {
-          const initiatorNum = Object.keys(details.driver_roles).find(num => 
-            details.driver_roles[num] === 'initiator'
+          const initiatorNum = Object.keys(details.driver_roles).find(
+            (num) => details.driver_roles[num] === "initiator"
           );
           if (initiatorNum) {
             const initiator = getDriverName(initiatorNum);
-            const duration = (details.pit_stop_duration !== null ? ` ${details.pit_stop_duration}S` : '') || '';
-            const tyreType = details.tyre_age_at_start === 0 ? 'NEW' : 'USED';
-            const compound = details.compound || 'Unknown';
+            const duration =
+              (details.pit_stop_duration !== null
+                ? ` ${details.pit_stop_duration}S`
+                : "") || "";
+            const tyreType = details.tyre_age_at_start === 0 ? "NEW" : "USED";
+            const compound = details.compound || "Unknown";
             return `${initiator}:${duration} PIT FOR ${tyreType} ${compound.toUpperCase()} TIRES`;
           }
         }
-        return 'Pit stop';
-      
-      case 'driver-action:incident':
+        return "Pit stop";
+
+      case "driver-action:incident":
         if (details?.driver_roles) {
-          const initiatorNum = Object.keys(details.driver_roles).find(num => 
-            details.driver_roles[num] === 'initiator'
+          const initiatorNum = Object.keys(details.driver_roles).find(
+            (num) => details.driver_roles[num] === "initiator"
           );
-          const participantNum = Object.keys(details.driver_roles).find(num => 
-            details.driver_roles[num] === 'participant'
+          const participantNum = Object.keys(details.driver_roles).find(
+            (num) => details.driver_roles[num] === "participant"
           );
-          
+
           if (initiatorNum) {
             const initiator = getDriverName(initiatorNum);
-            const reason = details.reason || 'Incident';
-            
+            const reason = details.reason || "Incident";
+
             if (participantNum) {
               const participant = getDriverName(participantNum);
-              const marker = details.marker ? ` AT ${details.marker}` : '';
+              const marker = details.marker ? ` AT ${details.marker}` : "";
               return `${initiator}: ${reason} WITH ${participant}${marker}`;
             } else {
               return `${initiator}: ${reason}`;
             }
           }
         }
-        return details?.reason || 'Incident';
-      
-      case 'driver-notification:incident-verdict':
+        return details?.reason || "Incident";
+
+      case "driver-notification:incident-verdict":
         if (details?.driver_roles) {
-          const initiatorNum = Object.keys(details.driver_roles).find(num => 
-            details.driver_roles[num] === 'initiator'
+          const initiatorNum = Object.keys(details.driver_roles).find(
+            (num) => details.driver_roles[num] === "initiator"
           );
-          const participantNum = Object.keys(details.driver_roles).find(num => 
-            details.driver_roles[num] === 'participant'
+          const participantNum = Object.keys(details.driver_roles).find(
+            (num) => details.driver_roles[num] === "participant"
           );
-          
+
           if (initiatorNum) {
             const initiator = getDriverName(initiatorNum);
-            const verdict = details.verdict || 'Verdict';
-            const reason = details.reason || '';
-            
+            const verdict = details.verdict || "Verdict";
+            const reason = details.reason || "";
+
             if (participantNum) {
               const participant = getDriverName(participantNum);
-              const marker = details.marker || 'Incident';
+              const marker = details.marker || "Incident";
               return `${marker} INCIDENT INVOLVING ${initiator} AND ${participant} ${verdict} - ${reason}`;
             } else {
               return `${verdict} FOR ${initiator} - ${reason}`;
             }
           }
         }
-        return details?.verdict || 'Incident verdict';
-      
-      case 'driver-action:track-limits':
+        return details?.verdict || "Incident verdict";
+
+      case "driver-action:track-limits":
         if (details?.driver_roles) {
-          const initiatorNum = Object.keys(details.driver_roles).find(num => 
-            details.driver_roles[num] === 'initiator'
+          const initiatorNum = Object.keys(details.driver_roles).find(
+            (num) => details.driver_roles[num] === "initiator"
           );
           if (initiatorNum) {
             const initiator = getDriverName(initiatorNum);
-            const marker = details.marker || 'track limits';
+            const marker = details.marker || "track limits";
             return `${initiator} EXCEEDED THE TRACK LIMITS ON ${marker}`;
           }
         }
-        return 'Track limits exceeded';
-      
-      case 'driver-notification:blue-flag':
+        return "Track limits exceeded";
+
+      case "driver-notification:blue-flag":
         if (details?.driver_roles) {
-          const initiatorNum = Object.keys(details.driver_roles).find(num => 
-            details.driver_roles[num] === 'initiator'
+          const initiatorNum = Object.keys(details.driver_roles).find(
+            (num) => details.driver_roles[num] === "initiator"
           );
           if (initiatorNum) {
             const initiator = getDriverName(initiatorNum);
             return `WAVED BLUE FLAG FOR ${initiator}`;
           }
         }
-        return 'Blue flag waved';
-      
-      case 'session-notification:race-end':
-        return 'Race has ended';
-      
-      case 'driver-notification:provisional-classification':
+        return "Blue flag waved";
+
+      case "session-notification:race-end":
+        return "Race has ended";
+
+      case "driver-notification:provisional-classification":
         if (details?.driver_roles) {
-          const initiatorNum = Object.keys(details.driver_roles).find(num => 
-            details.driver_roles[num] === 'initiator'
+          const initiatorNum = Object.keys(details.driver_roles).find(
+            (num) => details.driver_roles[num] === "initiator"
           );
           if (initiatorNum) {
             const initiator = getDriverName(initiatorNum);
-            const position = details.position || '?';
+            const position = details.position || "?";
             return `${initiator} FINISHES THE SESSION IN P${position}`;
           }
         }
-        return 'Driver finished session';
-      
-      case 'session-notification:session-end':
-        return 'Session has ended';
-      
-      case 'driver-action:personal-best-lap':
+        return "Driver finished session";
+
+      case "session-notification:session-end":
+        return "Session has ended";
+
+      case "driver-action:personal-best-lap":
         if (details?.driver_roles) {
-          const initiatorNum = Object.keys(details.driver_roles).find(num => 
-            details.driver_roles[num] === 'initiator'
+          const initiatorNum = Object.keys(details.driver_roles).find(
+            (num) => details.driver_roles[num] === "initiator"
           );
           if (initiatorNum) {
             const initiator = getDriverName(initiatorNum);
-            const compound = details.compound || 'Unknown';
-            const position = details.position ? ` FOR P${details.position}` : '';
-            
+            const compound = details.compound || "Unknown";
+            const position = details.position
+              ? ` FOR P${details.position}`
+              : "";
+
             // Convert lap_duration from seconds (like 107.422) to M:S.MS format (1:47.422)
-            let lapTimeFormatted = details.lap_duration || '0.000';
-            if (typeof details.lap_duration === 'number' || typeof details.lap_duration === 'string') {
+            let lapTimeFormatted = details.lap_duration || "0.000";
+            if (
+              typeof details.lap_duration === "number" ||
+              typeof details.lap_duration === "string"
+            ) {
               const totalSeconds = parseFloat(details.lap_duration);
               const minutes = Math.floor(totalSeconds / 60);
               const seconds = (totalSeconds % 60).toFixed(3);
-              lapTimeFormatted = `${minutes}:${seconds.padStart(6, '0')}`;
+              lapTimeFormatted = `${minutes}:${seconds.padStart(6, "0")}`;
             }
-            
+
             return `${initiator} ACHIEVES PERSONAL BEST ON ${compound.toUpperCase()} TIRES${position}: ${lapTimeFormatted}`;
           }
         }
-        return 'Personal best lap achieved';
-      
-      case 'session-notification:session-stop':
-        return 'Session has been stopped';
-      
-      case 'track-notification:red-flag':
-        return details?.message || 'Red flag deployed';
-      
-      case 'session-notification:session-resume':
-        return 'Session has resumed';
-      
-      case 'session-notification:practice-end':
-        return 'Practice session has ended';
-      
-      case 'session-notification:q1-start':
-        return 'Qualifying 1 has started';
-      
-      case 'session-notification:q2-start':
-        return 'Qualifying 2 has started';
-      
-      case 'session-notification:q3-start':
-        return 'Qualifying 3 has started';
-      
-      case 'driver-notification:qualifying-stage-classification':
+        return "Personal best lap achieved";
+
+      case "session-notification:session-stop":
+        return "Session has been stopped";
+
+      case "track-notification:red-flag":
+        return details?.message || "Red flag deployed";
+
+      case "session-notification:session-resume":
+        return "Session has resumed";
+
+      case "session-notification:practice-end":
+        return "Practice session has ended";
+
+      case "session-notification:q1-start":
+        return "Qualifying 1 has started";
+
+      case "session-notification:q2-start":
+        return "Qualifying 2 has started";
+
+      case "session-notification:q3-start":
+        return "Qualifying 3 has started";
+
+      case "driver-notification:qualifying-stage-classification":
         if (details?.driver_roles) {
-          const initiatorNum = Object.keys(details.driver_roles).find(num => 
-            details.driver_roles[num] === 'initiator'
+          const initiatorNum = Object.keys(details.driver_roles).find(
+            (num) => details.driver_roles[num] === "initiator"
           );
           if (initiatorNum) {
             const initiator = getDriverName(initiatorNum);
-            const stage = details.qualifying_stage_number || '?';
-            const position = details.position || '?';
+            const stage = details.qualifying_stage_number || "?";
+            const position = details.position || "?";
             return `${initiator} FINISHES QUALIFYING ${stage} IN P${position}`;
           }
         }
-        return 'Qualifying stage finished';
-      
-      case 'session-notification:q1-end':
-        return 'Qualifying 1 has ended';
-      
-      case 'session-notification:q2-end':
-        return 'Qualifying 2 has ended';
-      
-      case 'session-notification:q3-end':
-        return 'Qualifying 3 has ended';
-      
+        return "Qualifying stage finished";
+
+      case "session-notification:q1-end":
+        return "Qualifying 1 has ended";
+
+      case "session-notification:q2-end":
+        return "Qualifying 2 has ended";
+
+      case "session-notification:q3-end":
+        return "Qualifying 3 has ended";
+
       default:
         return details?.message || formatCauseName(cause);
     }
   };
 
-
-
   const renderDriverFilter = () => {
-    if (!openF1Data.drivers || Object.keys(openF1Data.drivers).length === 0) return null;
+    if (!openF1Data.drivers || Object.keys(openF1Data.drivers).length === 0)
+      return null;
 
     // Get sorted list of drivers by full_name
-    const driversList = Object.values(openF1Data.drivers)
-      .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+    const driversList = Object.values(openF1Data.drivers).sort((a, b) =>
+      (a.full_name || "").localeCompare(b.full_name || "")
+    );
 
     return (
-      <View style={[styles.driverFilterContainer, { backgroundColor: theme.surface }]}>
-        <Text allowFontScaling={false} style={[styles.driverFilterLabel, { color: theme.textSecondary }]}>
+      <View
+        style={[
+          styles.driverFilterContainer,
+          { backgroundColor: theme.surface },
+        ]}
+      >
+        <Text
+          allowFontScaling={false}
+          style={[styles.driverFilterLabel, { color: theme.textSecondary }]}
+        >
           Driver Filter:
         </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.driverFilterScrollView}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.driverFilterScrollView}
+        >
           {/* "Show All" option */}
           <TouchableOpacity
             style={[
@@ -3597,13 +4921,16 @@ const RaceDetailsScreen = ({ route }) => {
               { borderColor: theme.border },
               openF1Data.selectedDriverFilter === null && [
                 styles.selectedDriverFilterButton,
-                { backgroundColor: colors.primary, borderColor: colors.primary }
-              ]
+                {
+                  backgroundColor: colors.primary,
+                  borderColor: colors.primary,
+                },
+              ],
             ]}
             onPress={() => {
-              setOpenF1Data(prev => ({
+              setOpenF1Data((prev) => ({
                 ...prev,
-                selectedDriverFilter: null
+                selectedDriverFilter: null,
               }));
             }}
           >
@@ -3612,7 +4939,9 @@ const RaceDetailsScreen = ({ route }) => {
               style={[
                 styles.driverFilterButtonText,
                 { color: theme.text },
-                openF1Data.selectedDriverFilter === null && { color: '#FFFFFF' }
+                openF1Data.selectedDriverFilter === null && {
+                  color: "#FFFFFF",
+                },
               ]}
             >
               --
@@ -3628,13 +4957,16 @@ const RaceDetailsScreen = ({ route }) => {
                 { borderColor: theme.border },
                 openF1Data.selectedDriverFilter === driver.driver_number && [
                   styles.selectedDriverFilterButton,
-                  { backgroundColor: colors.primary, borderColor: colors.primary }
-                ]
+                  {
+                    backgroundColor: colors.primary,
+                    borderColor: colors.primary,
+                  },
+                ],
               ]}
               onPress={() => {
-                setOpenF1Data(prev => ({
+                setOpenF1Data((prev) => ({
                   ...prev,
-                  selectedDriverFilter: driver.driver_number
+                  selectedDriverFilter: driver.driver_number,
                 }));
               }}
             >
@@ -3643,7 +4975,9 @@ const RaceDetailsScreen = ({ route }) => {
                 style={[
                   styles.driverFilterButtonText,
                   { color: theme.text },
-                  openF1Data.selectedDriverFilter === driver.driver_number && { color: '#FFFFFF' }
+                  openF1Data.selectedDriverFilter === driver.driver_number && {
+                    color: "#FFFFFF",
+                  },
                 ]}
                 numberOfLines={1}
               >
@@ -3658,11 +4992,13 @@ const RaceDetailsScreen = ({ route }) => {
 
   const renderEventsTab = () => {
     // Filter events based on selected driver
-    const filteredEvents = openF1Data.selectedDriverFilter 
-      ? openF1Data.events.filter(event => {
+    const filteredEvents = openF1Data.selectedDriverFilter
+      ? openF1Data.events.filter((event) => {
           // Check if the event involves the selected driver
           if (event.details?.driver_roles) {
-            return Object.keys(event.details.driver_roles).includes(openF1Data.selectedDriverFilter.toString());
+            return Object.keys(event.details.driver_roles).includes(
+              openF1Data.selectedDriverFilter.toString()
+            );
           }
           return false;
         })
@@ -3670,231 +5006,381 @@ const RaceDetailsScreen = ({ route }) => {
 
     return (
       <View style={styles.tabContent}>
-        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.sectionTitle, { color: theme.text }]}
+        >
           Event Timeline
         </Text>
-        
+
         {renderDriverFilter()}
-      
-      {openF1Data.eventsLoading && (
-        <View style={styles.loadingContainer}>
-          <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>
-            Loading events...
-          </Text>
-        </View>
-      )}
-      
-      {openF1Data.eventsError && (
-        <View style={[styles.errorContainer, { backgroundColor: theme.surface }]}>
-          <Text allowFontScaling={false} style={[styles.errorText, { color: theme.error || '#F44336' }]}>
-            {openF1Data.eventsError}
-          </Text>
-          <Text allowFontScaling={false} style={[styles.errorSubtext, { color: theme.textSecondary }]}>
-            {openF1Data.eventsError.includes('not yet ready') 
-              ? 'Events data becomes available approximately 20 minutes after a session ends.'
-              : 'Please try again later or select a different session.'}
-          </Text>
-        </View>
-      )}
-      
-      {!openF1Data.eventsLoading && !openF1Data.eventsError && filteredEvents.length === 0 && openF1Data.events.length > 0 && (
-        <View style={[styles.noDataContainer, { backgroundColor: theme.surface }]}>
-          <Text allowFontScaling={false} style={[styles.noDataText, { color: theme.textSecondary }]}>
-            No events found for the selected driver.
-          </Text>
-        </View>
-      )}
-      
-      {!openF1Data.eventsLoading && !openF1Data.eventsError && openF1Data.events.length === 0 && (
-        <View style={[styles.noDataContainer, { backgroundColor: theme.surface }]}>
-          <Text allowFontScaling={false} style={[styles.noDataText, { color: theme.textSecondary }]}>
-            No events data available for this session.
-          </Text>
-        </View>
-      )}
-      
-      {!openF1Data.eventsLoading && !openF1Data.eventsError && filteredEvents.length > 0 && (
-        <ScrollView ref={eventsScrollViewRef} style={styles.eventsScrollView} showsVerticalScrollIndicator={false}>
-          {(() => {
-            const startIndex = currentPage * eventsPerPage;
-            const endIndex = startIndex + eventsPerPage;
-            return filteredEvents.slice(startIndex, endIndex);
-          })().map((event, index) => {
-            const isSessionEnd = event.category === 'session-notification' && event.cause === 'session-end';
-            
-            // Check for overtake based on actual event structure
-            const isOvertake = event.category === 'driver-action' && 
-                              event.cause === 'overtake' &&
-                              event.details && 
-                              event.details.driver_roles;
-            
-            // Debug logging for overtake detection
-            if (event.cause === 'overtake') {
-              console.log('Overtake event found:', {
-                event_type: event.event_type,
-                category: event.category,
-                cause: event.cause,
-                message: event.message,
-                details: event.details,
-                isOvertake: isOvertake
-              });
-            }
-            
-            const eventContent = (
-              <View 
-                style={[
-                  styles.eventItem,
-                  { 
-                    backgroundColor: isSessionEnd ? 'transparent' : theme.surface,
-                    borderLeftColor: getEventBorderColor(event),
-                    borderColor: theme.border,
-                    // Add visual indication for clickable overtake events
-                    ...(isOvertake && {
-                      borderWidth: 2,
-                      borderColor: colors.primary,
-                      shadowColor: colors.primary,
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.3,
-                      shadowRadius: 4,
-                      elevation: 4
-                    })
-                  }
-                ]}
+
+        {openF1Data.eventsLoading && (
+          <View style={styles.loadingContainer}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.loadingText, { color: theme.textSecondary }]}
+            >
+              Loading events...
+            </Text>
+          </View>
+        )}
+
+        {openF1Data.eventsError && (
+          <View
+            style={[styles.errorContainer, { backgroundColor: theme.surface }]}
+          >
+            <Text
+              allowFontScaling={false}
+              style={[styles.errorText, { color: theme.error || "#F44336" }]}
+            >
+              {openF1Data.eventsError}
+            </Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.errorSubtext, { color: theme.textSecondary }]}
+            >
+              {openF1Data.eventsError.includes("not yet ready")
+                ? "Events data becomes available approximately 20 minutes after a session ends."
+                : "Please try again later or select a different session."}
+            </Text>
+          </View>
+        )}
+
+        {!openF1Data.eventsLoading &&
+          !openF1Data.eventsError &&
+          filteredEvents.length === 0 &&
+          openF1Data.events.length > 0 && (
+            <View
+              style={[
+                styles.noDataContainer,
+                { backgroundColor: theme.surface },
+              ]}
+            >
+              <Text
+                allowFontScaling={false}
+                style={[styles.noDataText, { color: theme.textSecondary }]}
               >
-                {/* Striped pattern background for session-end */}
-                {isSessionEnd && (
-                  <View style={styles.stripedBackground}>
-                    {Array.from({ length: 10 }, (_, index) => (
-                      <View
-                        key={index}
-                        style={[
-                          styles.stripe,
-                          { 
-                            backgroundColor: index % 2 === 0 ? 'rgba(255, 255, 255, 0.44)' : 'rgba(0,0,0,0.1)' 
-                          }
-                        ]}
-                      />
-                    ))}
-                  </View>
-                )}
-                <View style={styles.eventHeader}>
-                  <View style={styles.eventTimeInfo}>
-                    <Text allowFontScaling={false} style={[styles.eventSectionName, { color: theme.text }]}>
-                      {getEventSectionName(event)}
-                    </Text>
-                    {/* For provisional-classification, we do NOT show the date/time in the body; it will be shown in the top-right badge */}
-                    {!(event.category === 'driver-notification' && event.cause === 'provisional-classification') && (
-                      <>
-                        <Text allowFontScaling={false} style={[styles.eventTime, { color: theme.textSecondary }]}> 
-                          {formatEventTime(event.date)}
-                        </Text>
-                        {event.elapsed_time && (
-                          <Text allowFontScaling={false} style={[styles.eventElapsed, { color: theme.textSecondary }]}> 
-                            +{formatElapsedTime(event.elapsed_time)}
-                          </Text>
-                        )}
-                      </>
-                    )}
-                  </View>
-                  
-                  {
-                    // For provisional classification show the event time (date) in the top-right circle
-                    event.category === 'driver-notification' && event.cause === 'provisional-classification' ? (
-                      <View style={[styles.lapNumberCircle, { backgroundColor: getEventBorderColor(event) }]}> 
-                        <Text allowFontScaling={false} style={[styles.lapNumberText, { color: '#FFFFFF', fontSize: 10 }]}>
-                          {formatEventTime(event.date)}
-                        </Text>
-                      </View>
-                    ) : (
-                      event.details?.lap_number && (
-                        <View style={[styles.lapNumberCircle, { backgroundColor: getEventBorderColor(event) }]}> 
-                          <Text allowFontScaling={false} style={[styles.lapNumberText, { color: '#FFFFFF' }]}>
-                            Lap {event.details.lap_number}
-                          </Text>
-                        </View>
-                      )
-                    )
-                  }
-                </View>
-                
-                <View>
-                  <Text allowFontScaling={false} style={[styles.eventDescription, { color: theme.text }]}>
-                    {formatEventDescription(event)}
-                  </Text>
-                  {isOvertake && (
-                    <Text allowFontScaling={false} style={[styles.overtakeIndicator, { color: colors.primary, marginTop: 4 }]}>
-                      📱 Tap to view overtake details
-                    </Text>
-                  )}
-                </View>
-              </View>
-            );
-
-            // Wrap in TouchableOpacity if it's an overtake event
-            if (isOvertake) {
-              return (
-                <TouchableOpacity 
-                  key={`event-${event.session_key}-${index}`}
-                  onPress={() => {
-                    console.log('TouchableOpacity pressed for overtake event');
-                    handleOvertakeClick(event);
-                  }}
-                  activeOpacity={0.6}
-                  style={{ marginHorizontal: 4 }} // Add slight margin to make it more obvious
-                >
-                  {eventContent}
-                </TouchableOpacity>
-              );
-            }
-
-            return (
-              <View key={`event-${event.session_key}-${index}`}>
-                {eventContent}
-              </View>
-            );
-          })}
-
-          {/* Pagination Controls */}
-          {filteredEvents.length > eventsPerPage && (
-            <View style={styles.paginationContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.paginationButton, 
-                  { backgroundColor: currentPage > 0 ? colors.primary : theme.surfaceSecondary },
-                  { opacity: currentPage > 0 ? 1 : 0.5 }
-                ]}
-                onPress={goToPrevPage}
-                disabled={currentPage === 0}
-              >
-                <Text style={[styles.paginationButtonText, { color: currentPage > 0 ? '#fff' : theme.textSecondary }]}>
-                  Prev
-                </Text>
-              </TouchableOpacity>
-
-              <View style={[styles.pageIndicator, { backgroundColor: theme.surfaceSecondary }]}>
-                <Text style={[styles.pageIndicatorText, { color: theme.text }]}>
-                  Page {currentPage + 1} of {Math.ceil(filteredEvents.length / eventsPerPage)}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={[
-                  styles.paginationButton, 
-                  { backgroundColor: currentPage < Math.ceil(filteredEvents.length / eventsPerPage) - 1 ? colors.primary : theme.surfaceSecondary },
-                  { opacity: currentPage < Math.ceil(filteredEvents.length / eventsPerPage) - 1 ? 1 : 0.5 }
-                ]}
-                onPress={goToNextPage}
-                disabled={currentPage >= Math.ceil(filteredEvents.length / eventsPerPage) - 1}
-              >
-                <Text style={[styles.paginationButtonText, { color: currentPage < Math.ceil(filteredEvents.length / eventsPerPage) - 1 ? '#fff' : theme.textSecondary }]}>
-                  Next
-                </Text>
-              </TouchableOpacity>
+                No events found for the selected driver.
+              </Text>
             </View>
           )}
-        </ScrollView>
-      )}
-    </View>
+
+        {!openF1Data.eventsLoading &&
+          !openF1Data.eventsError &&
+          openF1Data.events.length === 0 && (
+            <View
+              style={[
+                styles.noDataContainer,
+                { backgroundColor: theme.surface },
+              ]}
+            >
+              <Text
+                allowFontScaling={false}
+                style={[styles.noDataText, { color: theme.textSecondary }]}
+              >
+                No events data available for this session.
+              </Text>
+            </View>
+          )}
+
+        {!openF1Data.eventsLoading &&
+          !openF1Data.eventsError &&
+          filteredEvents.length > 0 && (
+            <ScrollView
+              ref={eventsScrollViewRef}
+              style={styles.eventsScrollView}
+              showsVerticalScrollIndicator={false}
+            >
+              {(() => {
+                const startIndex = currentPage * eventsPerPage;
+                const endIndex = startIndex + eventsPerPage;
+                return filteredEvents.slice(startIndex, endIndex);
+              })().map((event, index) => {
+                const isSessionEnd =
+                  event.category === "session-notification" &&
+                  event.cause === "session-end";
+
+                // Check for overtake based on actual event structure
+                const isOvertake =
+                  event.category === "driver-action" &&
+                  event.cause === "overtake" &&
+                  event.details &&
+                  event.details.driver_roles;
+
+                // Debug logging for overtake detection
+                if (event.cause === "overtake") {
+                  console.log("Overtake event found:", {
+                    event_type: event.event_type,
+                    category: event.category,
+                    cause: event.cause,
+                    message: event.message,
+                    details: event.details,
+                    isOvertake: isOvertake,
+                  });
+                }
+
+                const eventContent = (
+                  <View
+                    style={[
+                      styles.eventItem,
+                      {
+                        backgroundColor: isSessionEnd
+                          ? "transparent"
+                          : theme.surface,
+                        borderLeftColor: getEventBorderColor(event),
+                        borderColor: theme.border,
+                        // Add visual indication for clickable overtake events
+                        ...(isOvertake && {
+                          borderWidth: 2,
+                          borderColor: colors.primary,
+                          shadowColor: colors.primary,
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.3,
+                          shadowRadius: 4,
+                          elevation: 4,
+                        }),
+                      },
+                    ]}
+                  >
+                    {/* Striped pattern background for session-end */}
+                    {isSessionEnd && (
+                      <View style={styles.stripedBackground}>
+                        {Array.from({ length: 10 }, (_, index) => (
+                          <View
+                            key={index}
+                            style={[
+                              styles.stripe,
+                              {
+                                backgroundColor:
+                                  index % 2 === 0
+                                    ? "rgba(255, 255, 255, 0.44)"
+                                    : "rgba(0,0,0,0.1)",
+                              },
+                            ]}
+                          />
+                        ))}
+                      </View>
+                    )}
+                    <View style={styles.eventHeader}>
+                      <View style={styles.eventTimeInfo}>
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            styles.eventSectionName,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {getEventSectionName(event)}
+                        </Text>
+                        {/* For provisional-classification, we do NOT show the date/time in the body; it will be shown in the top-right badge */}
+                        {!(
+                          event.category === "driver-notification" &&
+                          event.cause === "provisional-classification"
+                        ) && (
+                          <>
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.eventTime,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {formatEventTime(event.date)}
+                            </Text>
+                            {event.elapsed_time && (
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  styles.eventElapsed,
+                                  { color: theme.textSecondary },
+                                ]}
+                              >
+                                +{formatElapsedTime(event.elapsed_time)}
+                              </Text>
+                            )}
+                          </>
+                        )}
+                      </View>
+
+                      {
+                        // For provisional classification show the event time (date) in the top-right circle
+                        event.category === "driver-notification" &&
+                        event.cause === "provisional-classification" ? (
+                          <View
+                            style={[
+                              styles.lapNumberCircle,
+                              { backgroundColor: getEventBorderColor(event) },
+                            ]}
+                          >
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.lapNumberText,
+                                { color: "#FFFFFF", fontSize: 10 },
+                              ]}
+                            >
+                              {formatEventTime(event.date)}
+                            </Text>
+                          </View>
+                        ) : (
+                          event.details?.lap_number && (
+                            <View
+                              style={[
+                                styles.lapNumberCircle,
+                                { backgroundColor: getEventBorderColor(event) },
+                              ]}
+                            >
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  styles.lapNumberText,
+                                  { color: "#FFFFFF" },
+                                ]}
+                              >
+                                Lap {event.details.lap_number}
+                              </Text>
+                            </View>
+                          )
+                        )
+                      }
+                    </View>
+
+                    <View>
+                      <Text
+                        allowFontScaling={false}
+                        style={[styles.eventDescription, { color: theme.text }]}
+                      >
+                        {formatEventDescription(event)}
+                      </Text>
+                      {isOvertake && (
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            styles.overtakeIndicator,
+                            { color: colors.primary, marginTop: 4 },
+                          ]}
+                        >
+                          📱 Tap to view overtake details
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                );
+
+                // Wrap in TouchableOpacity if it's an overtake event
+                if (isOvertake) {
+                  return (
+                    <TouchableOpacity
+                      key={`event-${event.session_key}-${index}`}
+                      onPress={() => {
+                        console.log(
+                          "TouchableOpacity pressed for overtake event"
+                        );
+                        handleOvertakeClick(event);
+                      }}
+                      activeOpacity={0.6}
+                      style={{ marginHorizontal: 4 }} // Add slight margin to make it more obvious
+                    >
+                      {eventContent}
+                    </TouchableOpacity>
+                  );
+                }
+
+                return (
+                  <View key={`event-${event.session_key}-${index}`}>
+                    {eventContent}
+                  </View>
+                );
+              })}
+
+              {/* Pagination Controls */}
+              {filteredEvents.length > eventsPerPage && (
+                <View style={styles.paginationContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.paginationButton,
+                      {
+                        backgroundColor:
+                          currentPage > 0
+                            ? colors.primary
+                            : theme.surfaceSecondary,
+                      },
+                      { opacity: currentPage > 0 ? 1 : 0.5 },
+                    ]}
+                    onPress={goToPrevPage}
+                    disabled={currentPage === 0}
+                  >
+                    <Text
+                      style={[
+                        styles.paginationButtonText,
+                        {
+                          color: currentPage > 0 ? "#fff" : theme.textSecondary,
+                        },
+                      ]}
+                    >
+                      Prev
+                    </Text>
+                  </TouchableOpacity>
+
+                  <View
+                    style={[
+                      styles.pageIndicator,
+                      { backgroundColor: theme.surfaceSecondary },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.pageIndicatorText, { color: theme.text }]}
+                    >
+                      Page {currentPage + 1} of{" "}
+                      {Math.ceil(filteredEvents.length / eventsPerPage)}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.paginationButton,
+                      {
+                        backgroundColor:
+                          currentPage <
+                          Math.ceil(filteredEvents.length / eventsPerPage) - 1
+                            ? colors.primary
+                            : theme.surfaceSecondary,
+                      },
+                      {
+                        opacity:
+                          currentPage <
+                          Math.ceil(filteredEvents.length / eventsPerPage) - 1
+                            ? 1
+                            : 0.5,
+                      },
+                    ]}
+                    onPress={goToNextPage}
+                    disabled={
+                      currentPage >=
+                      Math.ceil(filteredEvents.length / eventsPerPage) - 1
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.paginationButtonText,
+                        {
+                          color:
+                            currentPage <
+                            Math.ceil(filteredEvents.length / eventsPerPage) - 1
+                              ? "#fff"
+                              : theme.textSecondary,
+                        },
+                      ]}
+                    >
+                      Next
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </ScrollView>
+          )}
+      </View>
     );
   };
 
@@ -3910,48 +5396,48 @@ const RaceDetailsScreen = ({ route }) => {
     },
     raceName: {
       fontSize: 24,
-    eventRow: {
-      paddingVertical: 10,
-      paddingHorizontal: 12,
-      borderBottomWidth: 1,
-      marginBottom: 8,
-      borderRadius: 8,
-    },
-    eventTime: {
-      fontSize: 12,
-      marginBottom: 4,
-    },
-    eventText: {
-      fontSize: 14,
-    },
-      fontWeight: 'bold',
-      textAlign: 'center',
+      eventRow: {
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderBottomWidth: 1,
+        marginBottom: 8,
+        borderRadius: 8,
+      },
+      eventTime: {
+        fontSize: 12,
+        marginBottom: 4,
+      },
+      eventText: {
+        fontSize: 14,
+      },
+      fontWeight: "bold",
+      textAlign: "center",
       marginBottom: 8,
     },
     raceDate: {
       fontSize: 14,
-      textAlign: 'center',
+      textAlign: "center",
       opacity: 0.9,
       marginBottom: 4,
     },
     circuitInfo: {
       fontSize: 12,
-      textAlign: 'center',
+      textAlign: "center",
       opacity: 0.8,
     },
     headerContainer: {
       paddingHorizontal: 20,
       paddingTop: 16,
       paddingBottom: 8,
-      alignItems: 'center'
+      alignItems: "center",
     },
     headerCard: {
-      width: '100%',
+      width: "100%",
       borderRadius: 12,
       padding: 16,
       borderWidth: 1,
       // shadow for iOS
-      shadowColor: '#000',
+      shadowColor: "#000",
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.12,
       shadowRadius: 12,
@@ -3959,9 +5445,9 @@ const RaceDetailsScreen = ({ route }) => {
       elevation: 6,
     },
     headerCardContent: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
     },
     headerCardLeft: {
       flex: 1,
@@ -3970,15 +5456,15 @@ const RaceDetailsScreen = ({ route }) => {
       marginLeft: 16,
     },
     nextCompContainer: {
-      position: 'absolute',
+      position: "absolute",
       right: 16,
       top: 72,
       maxWidth: 160,
-      alignItems: 'flex-end'
+      alignItems: "flex-end",
     },
     racerManufacturerRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       marginTop: 2,
     },
     racerManufacturerFav: {
@@ -3988,70 +5474,70 @@ const RaceDetailsScreen = ({ route }) => {
     },
     racerManufacturerFavIcon: {
       fontSize: 14,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     nextCompText: {
       fontSize: 12,
-      fontStyle: 'italic'
+      fontStyle: "italic",
     },
     streamingIndicator: {
-      position: 'absolute',
+      position: "absolute",
       bottom: 2,
       left: 16,
       right: 16,
-      alignItems: 'center',
+      alignItems: "center",
     },
     streamingText: {
       fontSize: 12,
-      fontStyle: 'italic',
+      fontStyle: "italic",
       opacity: 0.8,
     },
     headerCardTop: {
       marginBottom: 6,
-      alignItems: 'center'
+      alignItems: "center",
     },
     headerCardMiddle: {
       marginBottom: 8,
-      alignItems: 'center'
+      alignItems: "center",
     },
     headerCardBottom: {
-      alignItems: 'flex-start',
+      alignItems: "flex-start",
       marginTop: 8,
     },
     competitionTypeText: {
       fontSize: 16,
-      fontWeight: '600',
-      textAlign: 'center',
+      fontWeight: "600",
+      textAlign: "center",
       marginHorizontal: 16,
     },
     headerTitle: {
       fontSize: 20,
-      fontWeight: '700'
+      fontWeight: "700",
     },
     headerMeta: {
       fontSize: 13,
     },
     circuitName: {
       fontSize: 14,
-      fontWeight: '600'
+      fontWeight: "600",
     },
     circuitLocation: {
       fontSize: 12,
-      marginTop: 2
+      marginTop: 2,
     },
     headerCircuitRow: {
-      flexDirection: 'row',
-      alignItems: 'center'
+      flexDirection: "row",
+      alignItems: "center",
     },
     headerCountryFlag: {
       width: 20,
       height: 14,
       marginRight: 8,
       borderRadius: 2,
-      backgroundColor: '#fff'
+      backgroundColor: "#fff",
     },
     winnerContainer: {
-      alignItems: 'center',
+      alignItems: "center",
     },
     winnerImage: {
       width: 50,
@@ -4063,28 +5549,28 @@ const RaceDetailsScreen = ({ route }) => {
       width: 50,
       height: 50,
       borderRadius: 25,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     winnerInitials: {
       fontSize: 16,
-      fontWeight: 'bold',
-      color: '#fff',
+      fontWeight: "bold",
+      color: "#fff",
     },
     winnerName: {
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: "600",
       marginTop: 6,
-      textAlign: 'center',
+      textAlign: "center",
     },
     winnerLabel: {
       fontSize: 10,
-      fontWeight: '500',
+      fontWeight: "500",
       marginTop: 2,
-      textAlign: 'center',
+      textAlign: "center",
     },
     tabContainer: {
-      flexDirection: 'row',
+      flexDirection: "row",
       marginHorizontal: 20,
       marginVertical: 15,
       borderRadius: 8,
@@ -4093,7 +5579,7 @@ const RaceDetailsScreen = ({ route }) => {
     tabButton: {
       flex: 1,
       paddingVertical: 12,
-      alignItems: 'center',
+      alignItems: "center",
       borderRadius: 6,
     },
     activeTab: {
@@ -4101,24 +5587,24 @@ const RaceDetailsScreen = ({ route }) => {
     },
     tabText: {
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     /* Grid styles */
     checkeredHeaderContainer: {
       marginTop: 16,
-      alignItems: 'center',
+      alignItems: "center",
     },
     checkeredBar: {
-      width: '90%',
+      width: "90%",
       height: 12,
-      flexDirection: 'row',
+      flexDirection: "row",
       borderRadius: 2,
-      overflow: 'hidden',
+      overflow: "hidden",
       marginBottom: 2,
     },
     checkeredSquare: {
       flex: 1,
-      height: '100%',
+      height: "100%",
     },
     gridContainer: {
       marginTop: 16,
@@ -4127,16 +5613,16 @@ const RaceDetailsScreen = ({ route }) => {
       marginHorizontal: 10,
     },
     gridRowContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
+      flexDirection: "row",
+      justifyContent: "space-between",
       marginBottom: 25,
       paddingHorizontal: 20,
       minHeight: 120,
     },
     gridPositionSlot: {
-      width: '45%',
-      alignItems: 'center',
-      backgroundColor: 'transparent',
+      width: "45%",
+      alignItems: "center",
+      backgroundColor: "transparent",
     },
     gridPositionLeft: {
       marginTop: 0,
@@ -4146,7 +5632,7 @@ const RaceDetailsScreen = ({ route }) => {
     },
     gridSlotNumber: {
       fontSize: 18,
-      fontWeight: '700',
+      fontWeight: "700",
       marginBottom: 8,
     },
     gridDriverAvatar: {
@@ -4161,35 +5647,35 @@ const RaceDetailsScreen = ({ route }) => {
       height: 64,
       borderRadius: 32,
       borderWidth: 3,
-      backgroundColor: 'transparent',
+      backgroundColor: "transparent",
       marginBottom: 8,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     gridDriverInitials: {
       fontSize: 16,
-      fontWeight: '700',
-      color: '#fff',
+      fontWeight: "700",
+      color: "#fff",
     },
     gridDriverTime: {
       fontSize: 12,
-      fontWeight: '600',
-      textAlign: 'center',
+      fontWeight: "600",
+      textAlign: "center",
       marginBottom: 2,
     },
     gridDriverLaps: {
       fontSize: 10,
-      textAlign: 'center',
+      textAlign: "center",
     },
     raceStatusContainer: {
-      width: '100%',
+      width: "100%",
       borderRadius: 10,
       padding: 12,
       marginTop: 12,
       marginBottom: 8,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
       borderWidth: 1,
     },
     raceStatusLeft: {
@@ -4197,28 +5683,28 @@ const RaceDetailsScreen = ({ route }) => {
       paddingRight: 8,
     },
     raceStatusRight: {
-      width: '40%'
+      width: "40%",
     },
     raceStatusLabel: {
       fontSize: 12,
-      fontWeight: '600'
+      fontWeight: "600",
     },
     raceStatusValue: {
       fontSize: 16,
-      fontWeight: '700',
-      marginTop: 4
+      fontWeight: "700",
+      marginTop: 4,
     },
     raceFlag: {
       fontSize: 12,
-      marginTop: 6
+      marginTop: 6,
     },
     raceTypeDescription: {
       fontSize: 14,
-      fontWeight: '600',
-      textAlign: 'right'
+      fontWeight: "600",
+      textAlign: "right",
     },
     activeTabText: {
-      color: '#fff',
+      color: "#fff",
     },
     content: {
       flex: 1,
@@ -4229,7 +5715,7 @@ const RaceDetailsScreen = ({ route }) => {
     },
     sectionTitle: {
       fontSize: 18,
-      fontWeight: 'bold',
+      fontWeight: "bold",
       marginBottom: 16,
     },
     infoSection: {
@@ -4237,62 +5723,62 @@ const RaceDetailsScreen = ({ route }) => {
       padding: 16,
       marginBottom: 16,
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: "transparent",
     },
     mapContainer: {
       borderRadius: 12,
       padding: 8,
       marginBottom: 12,
-      overflow: 'hidden',
-      alignItems: 'center',
-      justifyContent: 'center'
+      overflow: "hidden",
+      alignItems: "center",
+      justifyContent: "center",
     },
     circuitMap: {
       borderRadius: 8,
-      backgroundColor: 'transparent'
+      backgroundColor: "transparent",
     },
     circuitSection: {
       marginTop: 8,
     },
     circuitGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'space-between'
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "space-between",
     },
     circuitCell: {
-      width: '48%',
-      marginBottom: 10
+      width: "48%",
+      marginBottom: 10,
     },
     cellLabel: {
       fontSize: 12,
-      fontWeight: '600'
+      fontWeight: "600",
     },
     cellValueSmall: {
       fontSize: 14,
-      marginTop: 2
+      marginTop: 2,
     },
     fastestRow: {
-      flexDirection: 'row',
-      alignItems: 'center'
+      flexDirection: "row",
+      alignItems: "center",
     },
     fastestLeft: {
-      flex: 1
+      flex: 1,
     },
     fastestRight: {
-      width: 80
+      width: 80,
     },
     fastestDriverName: {
       fontSize: 16,
-      fontWeight: '700',
-      marginTop: 4
+      fontWeight: "700",
+      marginTop: 4,
     },
     fastestLapTime: {
       fontSize: 13,
-      marginTop: 2
+      marginTop: 2,
     },
     fastestYear: {
       fontSize: 16,
-      fontWeight: '700'
+      fontWeight: "700",
     },
     compPill: {
       paddingVertical: 8,
@@ -4300,110 +5786,110 @@ const RaceDetailsScreen = ({ route }) => {
       borderRadius: 20,
       marginRight: 8,
       borderWidth: 1,
-      borderColor: 'rgba(0,0,0,0.06)'
+      borderColor: "rgba(0,0,0,0.06)",
     },
     compPillText: {
       fontSize: 13,
-      fontWeight: '600'
+      fontWeight: "600",
     },
     racerRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
       padding: 12,
       marginBottom: 8,
       borderRadius: 8,
       borderLeftWidth: 6,
-      backgroundColor: 'transparent'
+      backgroundColor: "transparent",
     },
     racerLeft: {
       flex: 1,
-      paddingRight: 8
+      paddingRight: 8,
     },
     racerRight: {
-      alignItems: 'flex-end',
-      minWidth: 56
+      alignItems: "flex-end",
+      minWidth: 56,
     },
     positionBadge: {
       width: 40,
       height: 40,
       borderRadius: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 1
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 1,
     },
     positionText: {
       fontSize: 14,
-      fontWeight: '700'
+      fontWeight: "700",
     },
     positionDelta: {
       fontSize: 11,
       marginTop: 2,
-      fontWeight: '700',
-      textAlign: 'center'
+      fontWeight: "700",
+      textAlign: "center",
     },
     totalTime: {
       fontSize: 13,
-      fontWeight: '600'
+      fontWeight: "600",
     },
     lapsText: {
       fontSize: 12,
-      marginTop: 2
+      marginTop: 2,
     },
     racerName: {
       fontSize: 15,
-      fontWeight: '700'
+      fontWeight: "700",
     },
     racerSub: {
       fontSize: 12,
-      marginTop: 3
+      marginTop: 3,
     },
     winnerBadgeContainer: {
       paddingVertical: 4,
       paddingHorizontal: 8,
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: '#fff',
-      justifyContent: 'center', // to center text vertically
-      alignItems: 'center', // to center text horizontally
+      borderColor: "#fff",
+      justifyContent: "center", // to center text vertically
+      alignItems: "center", // to center text horizontally
     },
     winnerText: {
-      color: '#fff',
-      fontWeight: '700',
+      color: "#fff",
+      fontWeight: "700",
       fontSize: 12,
     },
     orderText: {
       fontSize: 13,
-      fontWeight: '600'
+      fontWeight: "600",
     },
     infoRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
       paddingVertical: 8,
       borderBottomWidth: 1,
-      borderBottomColor: 'rgba(0,0,0,0.1)',
+      borderBottomColor: "rgba(0,0,0,0.1)",
     },
     infoLabel: {
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: "600",
       flex: 1,
     },
     infoValue: {
       fontSize: 14,
       flex: 2,
-      textAlign: 'right',
+      textAlign: "right",
     },
     placeholderText: {
       fontSize: 14,
-      textAlign: 'center',
-      fontStyle: 'italic',
+      textAlign: "center",
+      fontStyle: "italic",
       marginTop: 20,
     },
     loadingContainer: {
       flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     loadingText: {
       marginTop: 10,
@@ -4411,56 +5897,56 @@ const RaceDetailsScreen = ({ route }) => {
       color: theme.textSecondary,
     },
     modalOverlay: {
-      position: 'absolute',
+      position: "absolute",
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: 'rgba(0,0,0,0.5)'
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: "rgba(0,0,0,0.5)",
     },
     modalCard: {
-      width: '90%',
+      width: "90%",
       borderRadius: 12,
       padding: 16,
       borderWidth: 1,
     },
     modalTopRow: {
-      flexDirection: 'row',
-      alignItems: 'center'
+      flexDirection: "row",
+      alignItems: "center",
     },
     modalFirstName: {
       fontSize: 14,
-      fontWeight: '600'
+      fontWeight: "600",
     },
     modalLastName: {
       fontSize: 18,
-      fontWeight: '800'
+      fontWeight: "800",
     },
     modalStatsGrid: {
-      marginTop: 8
+      marginTop: 8,
     },
     modalStatRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
+      flexDirection: "row",
+      justifyContent: "space-between",
       paddingVertical: 6,
       borderBottomWidth: 1,
-      borderBottomColor: 'rgba(0,0,0,0.06)'
+      borderBottomColor: "rgba(0,0,0,0.06)",
     },
     modalStatLabel: {
       fontSize: 13,
-      fontWeight: '600'
+      fontWeight: "600",
     },
     modalStatValue: {
       fontSize: 13,
-      fontWeight: '700'
+      fontWeight: "700",
     },
     modalCloseButton: {
       paddingVertical: 10,
-      alignItems: 'center',
+      alignItems: "center",
       borderRadius: 8,
-      marginTop: 8
+      marginTop: 8,
     },
     // Events tab styles
     // Driver filter styles
@@ -4469,15 +5955,15 @@ const RaceDetailsScreen = ({ route }) => {
       marginBottom: 16,
       borderRadius: 12,
       borderWidth: 1,
-      backgroundColor: 'transparent',
+      backgroundColor: "transparent",
     },
     driverFilterLabel: {
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: "600",
       marginBottom: 8,
     },
     driverFilterScrollView: {
-      flexDirection: 'row',
+      flexDirection: "row",
     },
     driverFilterButton: {
       paddingHorizontal: 12,
@@ -4486,19 +5972,19 @@ const RaceDetailsScreen = ({ route }) => {
       borderWidth: 1,
       marginRight: 8,
       minWidth: 50,
-      alignItems: 'center',
+      alignItems: "center",
     },
     selectedDriverFilterButton: {
       borderWidth: 1,
     },
     driverFilterButtonText: {
       fontSize: 13,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     loadingContainer: {
       padding: 40,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     loadingText: {
       fontSize: 16,
@@ -4508,11 +5994,11 @@ const RaceDetailsScreen = ({ route }) => {
       borderRadius: 12,
       marginBottom: 16,
       borderWidth: 1,
-      borderColor: '#F44336',
+      borderColor: "#F44336",
     },
     errorText: {
       fontSize: 16,
-      fontWeight: '600',
+      fontWeight: "600",
       marginBottom: 8,
     },
     errorSubtext: {
@@ -4521,14 +6007,14 @@ const RaceDetailsScreen = ({ route }) => {
     },
     noDataContainer: {
       padding: 40,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       borderRadius: 12,
       borderWidth: 1,
     },
     noDataText: {
       fontSize: 16,
-      textAlign: 'center',
+      textAlign: "center",
     },
     eventsScrollView: {
       flex: 1,
@@ -4541,9 +6027,9 @@ const RaceDetailsScreen = ({ route }) => {
       borderLeftWidth: 4,
     },
     eventHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
       marginBottom: 8,
     },
     eventTimeInfo: {
@@ -4551,12 +6037,12 @@ const RaceDetailsScreen = ({ route }) => {
     },
     eventSectionName: {
       fontSize: 16,
-      fontWeight: '700',
+      fontWeight: "700",
       marginBottom: 4,
     },
     eventTime: {
       fontSize: 12,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     eventElapsed: {
       fontSize: 12,
@@ -4566,26 +6052,26 @@ const RaceDetailsScreen = ({ route }) => {
       width: 55,
       height: 32,
       borderRadius: 16,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
       marginLeft: 12,
     },
     lapNumberText: {
       fontSize: 12,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     eventDescription: {
       fontSize: 14,
       lineHeight: 20,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     stripedBackground: {
-      position: 'absolute',
+      position: "absolute",
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      flexDirection: 'row',
+      flexDirection: "row",
     },
     stripe: {
       flex: 1,
@@ -4593,20 +6079,20 @@ const RaceDetailsScreen = ({ route }) => {
     // Stream Modal Styles
     streamModalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      justifyContent: 'center',
-      alignItems: 'center',
+      backgroundColor: "rgba(0, 0, 0, 0.8)",
+      justifyContent: "center",
+      alignItems: "center",
       padding: 20,
     },
     streamModalContainer: {
-      backgroundColor: '#fff',
+      backgroundColor: "#fff",
       borderRadius: 12,
-      width: '95%',
+      width: "95%",
       maxWidth: 800,
-      height: '85%',
+      height: "85%",
       maxHeight: 600,
-      overflow: 'hidden',
-      shadowColor: '#000',
+      overflow: "hidden",
+      shadowColor: "#000",
       shadowOffset: {
         width: 0,
         height: 10,
@@ -4616,49 +6102,49 @@ const RaceDetailsScreen = ({ route }) => {
       elevation: 20,
     },
     streamModalHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
       padding: 15,
-      backgroundColor: '#f8f9fa',
+      backgroundColor: "#f8f9fa",
       borderBottomWidth: 1,
-      borderBottomColor: '#dee2e6',
+      borderBottomColor: "#dee2e6",
     },
     streamModalTitle: {
       fontSize: 18,
-      fontWeight: 'bold',
-      color: '#FF1E00',
+      fontWeight: "bold",
+      color: "#FF1E00",
     },
     streamCloseButton: {
       width: 35,
       height: 35,
       borderRadius: 17.5,
-      backgroundColor: '#e9ecef',
-      justifyContent: 'center',
-      alignItems: 'center',
+      backgroundColor: "#e9ecef",
+      justifyContent: "center",
+      alignItems: "center",
     },
     streamCloseText: {
       fontSize: 20,
-      color: '#FF1E00',
-      fontWeight: 'bold',
+      color: "#FF1E00",
+      fontWeight: "bold",
     },
     streamContent: {
       flex: 1,
-      position: 'relative',
+      position: "relative",
     },
     streamLoadingContainer: {
-      position: 'absolute',
+      position: "absolute",
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.8)',
-      justifyContent: 'center',
-      alignItems: 'center',
+      backgroundColor: "rgba(0,0,0,0.8)",
+      justifyContent: "center",
+      alignItems: "center",
       zIndex: 1000,
     },
     streamLoadingText: {
-      color: '#fff',
+      color: "#fff",
       marginTop: 10,
       fontSize: 16,
     },
@@ -4666,10 +6152,10 @@ const RaceDetailsScreen = ({ route }) => {
       flex: 1,
     },
     streamSelectorContainer: {
-      flexDirection: 'row',
+      flexDirection: "row",
       paddingHorizontal: 16,
       paddingVertical: 12,
-      justifyContent: 'center',
+      justifyContent: "center",
       borderBottomWidth: 1,
     },
     streamSelectorButton: {
@@ -4678,28 +6164,28 @@ const RaceDetailsScreen = ({ route }) => {
       borderRadius: 8,
       marginHorizontal: 8,
       minWidth: 80,
-      alignItems: 'center',
+      alignItems: "center",
     },
     streamSelectorText: {
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     // Overtake Modal Styles
     overtakeModalCard: {
-      width: '90%',
+      width: "90%",
       maxWidth: 500,
       borderRadius: 16,
       padding: 20,
       borderWidth: 1,
-      maxHeight: '80%',
+      maxHeight: "80%",
     },
     overtakeModalHeader: {
-      alignItems: 'center',
+      alignItems: "center",
       marginBottom: 20,
     },
     overtakeModalTitle: {
       fontSize: 18,
-      fontWeight: 'bold',
+      fontWeight: "bold",
     },
     overtakeModalTime: {
       fontSize: 14,
@@ -4712,23 +6198,23 @@ const RaceDetailsScreen = ({ route }) => {
       paddingHorizontal: 16,
     },
     overtakeTrackContainer: {
-      width: '100%',
-      alignItems: 'center',
-      justifyContent: 'center',
+      width: "100%",
+      alignItems: "center",
+      justifyContent: "center",
     },
     f1TrackSection: {
-      width: '100%',
+      width: "100%",
       height: 150,
-      justifyContent: 'center',
+      justifyContent: "center",
       borderWidth: 4,
       borderRadius: 12,
-      overflow: 'hidden',
-      position: 'relative',
+      overflow: "hidden",
+      position: "relative",
     },
     overtakeDriverBehind: {
-      position: 'absolute',
+      position: "absolute",
       left: 0,
-      top: '50%',
+      top: "50%",
       marginTop: -45,
       zIndex: 9,
       shadowOffset: { width: 0, height: 2 },
@@ -4737,9 +6223,9 @@ const RaceDetailsScreen = ({ route }) => {
       elevation: 7,
     },
     overtakeDriverAhead: {
-      position: 'absolute',
+      position: "absolute",
       left: 10,
-      top: '50%',
+      top: "50%",
       marginTop: 5,
       zIndex: 10,
       shadowOffset: { width: 0, height: 3 },
@@ -4751,99 +6237,99 @@ const RaceDetailsScreen = ({ route }) => {
       width: 40,
       height: 40,
       borderRadius: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     overtakeDriverInitials: {
       fontSize: 12,
-      fontWeight: 'bold',
+      fontWeight: "bold",
     },
     f1CurbContainer: {
-      flexDirection: 'row',
+      flexDirection: "row",
       height: 22,
     },
     f1CurbStripe: {
       flex: 1,
-      height: '100%',
+      height: "100%",
     },
     f1TrackSurface: {
       height: 100,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     // Bottom Section: Car Data
     overtakeCarDataSection: {
-      flexDirection: 'row',
+      flexDirection: "row",
       paddingTop: 16,
       borderTopWidth: 1,
-      borderTopColor: 'rgba(255,255,255,0.1)',
+      borderTopColor: "rgba(255,255,255,0.1)",
     },
     overtakeCarDataColumn: {
       flex: 1,
       paddingHorizontal: 8,
     },
     overtakeCarDataDriverNameContainer: {
-      alignItems: 'center',
+      alignItems: "center",
       marginBottom: 12,
     },
     overtakeCarDataDriverName: {
       fontSize: 16,
-      fontWeight: 'bold',
-      textAlign: 'center',
+      fontWeight: "bold",
+      textAlign: "center",
     },
     overtakeDriverUnderline: {
       height: 2,
-      width: '100%',
+      width: "100%",
       marginTop: 4,
       borderRadius: 1,
     },
     overtakeCarDataList: {
-      backgroundColor: 'rgba(0,0,0,0.05)',
+      backgroundColor: "rgba(0,0,0,0.05)",
       borderRadius: 8,
       padding: 12,
     },
     overtakeCarDataRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
+      flexDirection: "row",
+      justifyContent: "space-between",
       marginBottom: 6,
     },
     overtakeCarDataLabel: {
       fontSize: 13,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     overtakeCarDataValue: {
       fontSize: 13,
-      fontWeight: 'bold',
+      fontWeight: "bold",
     },
     overtakeCarDataTireValue: {
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     overtakeDataIndicator: {
-      alignItems: 'center',
+      alignItems: "center",
       marginTop: 16,
       marginBottom: 16,
     },
     overtakeDataText: {
       fontSize: 12,
-      fontStyle: 'italic',
+      fontStyle: "italic",
     },
     replayButton: {
       paddingHorizontal: 12,
       paddingVertical: 6,
       borderRadius: 6,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     replayButtonText: {
       fontSize: 12,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     // Pagination Styles
     paginationContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
       marginHorizontal: 16,
       marginTop: 16,
       marginBottom: 32, // Added more bottom padding
@@ -4853,25 +6339,25 @@ const RaceDetailsScreen = ({ route }) => {
       paddingHorizontal: 20,
       paddingVertical: 10,
       borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       minWidth: 70,
     },
     paginationButtonText: {
       fontSize: 16,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     pageIndicator: {
       flex: 1,
       paddingHorizontal: 16,
       paddingVertical: 10,
       borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     pageIndicatorText: {
       fontSize: 14,
-      fontWeight: '500',
+      fontWeight: "500",
     },
   });
 
@@ -4882,7 +6368,12 @@ const RaceDetailsScreen = ({ route }) => {
         {renderTabButtons()}
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>Loading race details...</Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.loadingText, { color: theme.text }]}
+          >
+            Loading race details...
+          </Text>
         </View>
       </View>
     );
@@ -4892,7 +6383,7 @@ const RaceDetailsScreen = ({ route }) => {
     <View style={styles.container}>
       <RaceDetailsHeader />
       {renderTabButtons()}
-      
+
       <ScrollView
         style={styles.content}
         refreshControl={
@@ -4915,13 +6406,23 @@ const RaceDetailsScreen = ({ route }) => {
         onRequestClose={() => setDriverModalVisible(false)}
       >
         <View style={[styles.modalOverlay]}>
-          <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View
+            style={[
+              styles.modalCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
             {selectedDriverDetails ? (
               <View>
                 <View style={styles.modalTopRow}>
                   <View style={{ marginRight: 12 }}>
                     <GridDriverImage
-                      headshot={selectedDriverDetails.athlete?.headshot || buildESPNHeadshotUrl(selectedDriverDetails.competitor?.id)}
+                      headshot={
+                        selectedDriverDetails.athlete?.headshot ||
+                        buildESPNHeadshotUrl(
+                          selectedDriverDetails.competitor?.id
+                        )
+                      }
                       athlete={selectedDriverDetails.athlete}
                       driverName={selectedDriverDetails.competitor?.name}
                       teamColor={selectedDriverDetails.competitor?.teamColor}
@@ -4930,8 +6431,29 @@ const RaceDetailsScreen = ({ route }) => {
                     />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text allowFontScaling={false} style={[styles.modalFirstName, { color: theme.text }]} numberOfLines={1}>{selectedDriverDetails.athlete?.firstName || (selectedDriverDetails.competitor?.name || '').split(' ')[0] || ''}</Text>
-                    <Text allowFontScaling={false} style={[styles.modalLastName, { color: theme.text }]} numberOfLines={1}>{selectedDriverDetails.athlete?.lastName || ((selectedDriverDetails.competitor?.name || '').split(' ').slice(1).join(' ') || '')}</Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.modalFirstName, { color: theme.text }]}
+                      numberOfLines={1}
+                    >
+                      {selectedDriverDetails.athlete?.firstName ||
+                        (selectedDriverDetails.competitor?.name || "").split(
+                          " "
+                        )[0] ||
+                        ""}
+                    </Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.modalLastName, { color: theme.text }]}
+                      numberOfLines={1}
+                    >
+                      {selectedDriverDetails.athlete?.lastName ||
+                        (selectedDriverDetails.competitor?.name || "")
+                          .split(" ")
+                          .slice(1)
+                          .join(" ") ||
+                        ""}
+                    </Text>
                   </View>
                 </View>
 
@@ -4942,14 +6464,37 @@ const RaceDetailsScreen = ({ route }) => {
                   {(() => {
                     const statsJson = selectedDriverDetails.stats || null;
                     const extractStat = (nameCandidates = []) => {
-                      if (!statsJson || !statsJson.splits || !Array.isArray(statsJson.splits.categories)) return null;
+                      if (
+                        !statsJson ||
+                        !statsJson.splits ||
+                        !Array.isArray(statsJson.splits.categories)
+                      )
+                        return null;
                       for (const cat of statsJson.splits.categories) {
                         if (!cat || !Array.isArray(cat.stats)) continue;
                         for (const s of cat.stats) {
-                          const key = (s.name || s.displayName || s.abbreviation || '').toString().toLowerCase();
+                          const key = (
+                            s.name ||
+                            s.displayName ||
+                            s.abbreviation ||
+                            ""
+                          )
+                            .toString()
+                            .toLowerCase();
                           for (const cand of nameCandidates) {
-                            if (key.includes(cand.toLowerCase()) || (s.abbreviation && s.abbreviation.toLowerCase() === cand.toLowerCase())) {
-                              return s.displayValue ?? s.value ?? s.text ?? s.rank ?? null;
+                            if (
+                              key.includes(cand.toLowerCase()) ||
+                              (s.abbreviation &&
+                                s.abbreviation.toLowerCase() ===
+                                  cand.toLowerCase())
+                            ) {
+                              return (
+                                s.displayValue ??
+                                s.value ??
+                                s.text ??
+                                s.rank ??
+                                null
+                              );
                             }
                           }
                         }
@@ -4957,25 +6502,70 @@ const RaceDetailsScreen = ({ route }) => {
                       return null;
                     };
 
-                    const place = selectedDriverDetails.competitor?.order ?? extractStat(['place','p']);
-                    const lapsCompleted = selectedDriverDetails.competitor?.laps ?? extractStat(['lapsCompleted','lc','laps']);
-                    const totalTime = selectedDriverDetails.competitor?.totalTime ?? extractStat(['totalTime','tot']);
-                    const behindTime = selectedDriverDetails.competitor?.behindTime ?? extractStat(['behindtime']);
-                    const behindLaps = selectedDriverDetails.competitor?.behindLaps ?? extractStat(['behindlaps','lh']);
-                    const championshipPts = extractStat(['championshipPts','cp']);
-                    const pitsTaken = extractStat(['pitsTaken']);
-                    const fastestLapTime = extractStat(['fastestLap']);
-                    const fastestLapNum = extractStat(['fastestLapNum']);
+                    const place =
+                      selectedDriverDetails.competitor?.order ??
+                      extractStat(["place", "p"]);
+                    const lapsCompleted =
+                      selectedDriverDetails.competitor?.laps ??
+                      extractStat(["lapsCompleted", "lc", "laps"]);
+                    const totalTime =
+                      selectedDriverDetails.competitor?.totalTime ??
+                      extractStat(["totalTime", "tot"]);
+                    const behindTime =
+                      selectedDriverDetails.competitor?.behindTime ??
+                      extractStat(["behindtime"]);
+                    const behindLaps =
+                      selectedDriverDetails.competitor?.behindLaps ??
+                      extractStat(["behindlaps", "lh"]);
+                    const championshipPts = extractStat([
+                      "championshipPts",
+                      "cp",
+                    ]);
+                    const pitsTaken = extractStat(["pitsTaken"]);
+                    const fastestLapTime = extractStat(["fastestLap"]);
+                    const fastestLapNum = extractStat(["fastestLapNum"]);
 
                     return (
                       <>
                         <View style={styles.modalStatRow}>
-                          <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary }]}>Place</Text>
-                          <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text }]}>{place ?? '-'}</Text>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.modalStatLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            Place
+                          </Text>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.modalStatValue,
+                              { color: theme.text },
+                            ]}
+                          >
+                            {place ?? "-"}
+                          </Text>
                         </View>
                         <View style={styles.modalStatRow}>
-                          <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary }]}>Laps</Text>
-                          <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text }]}>{lapsCompleted ?? '-'}</Text>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.modalStatLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            Laps
+                          </Text>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.modalStatValue,
+                              { color: theme.text },
+                            ]}
+                          >
+                            {lapsCompleted ?? "-"}
+                          </Text>
                         </View>
                         {/* Tires section under Laps */}
                         {(() => {
@@ -4983,7 +6573,7 @@ const RaceDetailsScreen = ({ route }) => {
                           const athlete = selectedDriverDetails.athlete;
                           const competitor = selectedDriverDetails.competitor;
                           const raw = competitor?.raw;
-                          
+
                           // Try various fields that might contain the driver number
                           let driverNumber = null;
                           const candidates = [
@@ -4998,76 +6588,207 @@ const RaceDetailsScreen = ({ route }) => {
                             competitor?.id,
                             competitor?.number,
                             // Sometimes ESPN uses specific F1 driver numbers - common ones
-                            athlete?.displayName === 'Max Verstappen' ? 1 : null,
-                            athlete?.displayName === 'Sergio Perez' ? 11 : null,
-                            athlete?.displayName === 'Lewis Hamilton' ? 44 : null,
-                            athlete?.displayName === 'George Russell' ? 63 : null,
-                            athlete?.displayName === 'Charles Leclerc' ? 16 : null,
-                            athlete?.displayName === 'Carlos Sainz Jr.' ? 55 : null,
+                            athlete?.displayName === "Max Verstappen"
+                              ? 1
+                              : null,
+                            athlete?.displayName === "Sergio Perez" ? 11 : null,
+                            athlete?.displayName === "Lewis Hamilton"
+                              ? 44
+                              : null,
+                            athlete?.displayName === "George Russell"
+                              ? 63
+                              : null,
+                            athlete?.displayName === "Charles Leclerc"
+                              ? 16
+                              : null,
+                            athlete?.displayName === "Carlos Sainz Jr."
+                              ? 55
+                              : null,
                           ];
-                          
+
                           for (const candidate of candidates) {
-                            if (candidate != null && !isNaN(Number(candidate))) {
+                            if (
+                              candidate != null &&
+                              !isNaN(Number(candidate))
+                            ) {
                               driverNumber = Number(candidate);
                               break;
                             }
                           }
-                          
-                          console.log('Driver number detection:', {
-                            athleteName: athlete?.displayName || athlete?.shortName,
+
+                          console.log("Driver number detection:", {
+                            athleteName:
+                              athlete?.displayName || athlete?.shortName,
                             athleteNumber: athlete?.number,
                             competitorRawNumber: raw?.number,
-                            competitorVehicleNumber: competitor?.vehicle?.number,
+                            competitorVehicleNumber:
+                              competitor?.vehicle?.number,
                             competitorId: competitor?.id,
                             finalDriverNumber: driverNumber,
                             allCandidates: candidates,
-                            selectedDriverDetails: selectedDriverDetails
+                            selectedDriverDetails: selectedDriverDetails,
                           });
 
                           // Render as a standard modalStatRow: label on left, value on right
                           return (
                             <View style={styles.modalStatRow}>
-                              <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary }]}>Tires</Text>
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  styles.modalStatLabel,
+                                  { color: theme.textSecondary },
+                                ]}
+                              >
+                                Tires
+                              </Text>
                               {renderTiresInlineForDriver(driverNumber) || (
-                                <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text }]}>-</Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.modalStatValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  -
+                                </Text>
                               )}
                             </View>
                           );
                         })()}
                         <View style={styles.modalStatRow}>
-                          <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary }]}>Total Time</Text>
-                          <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text }]}>{totalTime ?? (behindLaps != null ? `+${behindLaps} Laps` : '-')}</Text>
-                        </View>
-                        <View style={styles.modalStatRow}>
-                          <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary }]}>Gap</Text>
-                          <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text }]}>
-                            {isLiveRace ? getLiveGapToLeader(selectedDriverDetails.competitor) : (behindTime ?? (behindLaps != null ? `+${behindLaps} Laps` : (selectedDriverDetails.competitor?.totalTime || '-')))}
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.modalStatLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            Total Time
+                          </Text>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.modalStatValue,
+                              { color: theme.text },
+                            ]}
+                          >
+                            {totalTime ??
+                              (behindLaps != null
+                                ? `+${behindLaps} Laps`
+                                : "-")}
                           </Text>
                         </View>
                         <View style={styles.modalStatRow}>
-                          <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary }]}>Champ Pts</Text>
-                          <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text }]}>{championshipPts ?? '-'}</Text>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.modalStatLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            Gap
+                          </Text>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.modalStatValue,
+                              { color: theme.text },
+                            ]}
+                          >
+                            {isLiveRace
+                              ? getLiveGapToLeader(
+                                  selectedDriverDetails.competitor
+                                )
+                              : behindTime ??
+                                (behindLaps != null
+                                  ? `+${behindLaps} Laps`
+                                  : selectedDriverDetails.competitor
+                                      ?.totalTime || "-")}
+                          </Text>
                         </View>
                         <View style={styles.modalStatRow}>
-                          <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary }]}>Pits</Text>
-                          <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text }]}>{pitsTaken ?? '-'}</Text>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.modalStatLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            Champ Pts
+                          </Text>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.modalStatValue,
+                              { color: theme.text },
+                            ]}
+                          >
+                            {championshipPts ?? "-"}
+                          </Text>
+                        </View>
+                        <View style={styles.modalStatRow}>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.modalStatLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            Pits
+                          </Text>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.modalStatValue,
+                              { color: theme.text },
+                            ]}
+                          >
+                            {pitsTaken ?? "-"}
+                          </Text>
                         </View>
                         {fastestLapTime ? (
                           <>
-                        <View style={styles.modalStatRow}>
-                          <Text allowFontScaling={false} style={[styles.modalStatLabel, { color: theme.textSecondary }]}>Fastest Lap</Text>
-                          <Text allowFontScaling={false} style={[styles.modalStatValue, { color: theme.text }]}>{fastestLapTime} - Lap: {fastestLapNum}</Text>
-                        </View>
-                        </>
-                        ) : null }
+                            <View style={styles.modalStatRow}>
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  styles.modalStatLabel,
+                                  { color: theme.textSecondary },
+                                ]}
+                              >
+                                Fastest Lap
+                              </Text>
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  styles.modalStatValue,
+                                  { color: theme.text },
+                                ]}
+                              >
+                                {fastestLapTime} - Lap: {fastestLapNum}
+                              </Text>
+                            </View>
+                          </>
+                        ) : null}
                       </>
                     );
                   })()}
                 </View>
 
                 <View style={{ height: 12 }} />
-                <TouchableOpacity onPress={() => setDriverModalVisible(false)} style={[styles.modalCloseButton, { backgroundColor: colors.primary }]}> 
-                  <Text allowFontScaling={false} style={{ color: '#fff', fontWeight: '700' }}>Close</Text>
+                <TouchableOpacity
+                  onPress={() => setDriverModalVisible(false)}
+                  style={[
+                    styles.modalCloseButton,
+                    { backgroundColor: colors.primary },
+                  ]}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={{ color: "#fff", fontWeight: "700" }}
+                  >
+                    Close
+                  </Text>
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -5083,15 +6804,30 @@ const RaceDetailsScreen = ({ route }) => {
         onRequestClose={closeOvertakeModal}
       >
         <View style={[styles.modalOverlay]}>
-          <View style={[styles.overtakeModalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View
+            style={[
+              styles.overtakeModalCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
             {selectedOvertake && (
               <View>
                 {/* Header */}
                 <View style={styles.overtakeModalHeader}>
-                  <Text allowFontScaling={false} style={[styles.overtakeModalTitle, { color: theme.text }]}>
-                    Overtake - Lap {selectedOvertake.details?.lap_number || 'N/A'}
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.overtakeModalTitle, { color: theme.text }]}
+                  >
+                    Overtake - Lap{" "}
+                    {selectedOvertake.details?.lap_number || "N/A"}
                   </Text>
-                  <Text allowFontScaling={false} style={[styles.overtakeModalTime, { color: theme.textSecondary }]}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.overtakeModalTime,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
                     {formatEventTime(selectedOvertake.date)}
                   </Text>
                 </View>
@@ -5102,16 +6838,28 @@ const RaceDetailsScreen = ({ route }) => {
                     // Helper to get driver name from OpenF1 data (same as events)
                     const getOvertakeDriverName = (driverNumber) => {
                       const driver = getDriverByNumber(driverNumber);
-                      return driver ? driver.broadcast_name : `#${driverNumber}`;
+                      return driver
+                        ? driver.broadcast_name
+                        : `#${driverNumber}`;
                     };
 
-                    const initiatorName = getOvertakeDriverName(selectedOvertake.driver_number);
-                    const participantName = getOvertakeDriverName(selectedOvertake.overtake_participant_number || selectedOvertake.driver_number_2);
+                    const initiatorName = getOvertakeDriverName(
+                      selectedOvertake.driver_number
+                    );
+                    const participantName = getOvertakeDriverName(
+                      selectedOvertake.overtake_participant_number ||
+                        selectedOvertake.driver_number_2
+                    );
 
                     return (
                       <View style={styles.overtakeTrackContainer}>
                         {/* F1 Track Section - Full Width */}
-                        <View style={[styles.f1TrackSection, { borderColor: theme.text }]}>
+                        <View
+                          style={[
+                            styles.f1TrackSection,
+                            { borderColor: theme.text },
+                          ]}
+                        >
                           {/* Top Curb */}
                           <View style={styles.f1CurbContainer}>
                             {Array.from({ length: 40 }, (_, i) => (
@@ -5119,17 +6867,23 @@ const RaceDetailsScreen = ({ route }) => {
                                 key={`top-${i}`}
                                 style={[
                                   styles.f1CurbStripe,
-                                  { 
-                                    backgroundColor: i % 2 === 0 ? '#FF0000' : '#FFFFFF'
-                                  }
+                                  {
+                                    backgroundColor:
+                                      i % 2 === 0 ? "#FF0000" : "#FFFFFF",
+                                  },
                                 ]}
                               />
                             ))}
                           </View>
-                          
+
                           {/* Track Surface */}
-                          <View style={[styles.f1TrackSurface, { backgroundColor: '#2C2C2C' }]} />
-                          
+                          <View
+                            style={[
+                              styles.f1TrackSurface,
+                              { backgroundColor: "#2C2C2C" },
+                            ]}
+                          />
+
                           {/* Bottom Curb */}
                           <View style={styles.f1CurbContainer}>
                             {Array.from({ length: 40 }, (_, i) => (
@@ -5137,70 +6891,134 @@ const RaceDetailsScreen = ({ route }) => {
                                 key={`bottom-${i}`}
                                 style={[
                                   styles.f1CurbStripe,
-                                  { 
-                                    backgroundColor: i % 2 === 0 ? '#FFFFFF' : '#FF0000'
-                                  }
+                                  {
+                                    backgroundColor:
+                                      i % 2 === 0 ? "#FFFFFF" : "#FF0000",
+                                  },
                                 ]}
                               />
                             ))}
                           </View>
 
                           {/* Driver 1 (Initiator) - Animated position */}
-                          <View style={[
-                            {
-                              position: 'absolute',
-                              left: (overtakeAnimation.isAnimating || overtakeAnimation.progress > 0)
-                                ? `${overtakeAnimation.carPositions.initiator}%`
-                                : 0, // Always start at left edge (static position)
-                              top: '50%',
-                              marginTop: -45, // Keep original marginTop for consistent positioning
-                              zIndex: (overtakeAnimation.isAnimating || overtakeAnimation.progress > 0) ? 2 : 9,
-                              shadowOffset: { width: 0, height: 2 },
-                              shadowOpacity: (overtakeAnimation.isAnimating || overtakeAnimation.progress > 0) ? 0.3 : 0.7,
-                              shadowRadius: 4,
-                              elevation: (overtakeAnimation.isAnimating || overtakeAnimation.progress > 0) ? 5 : 7,
-                            },
-                            { shadowColor: theme.text }
-                          ]}>
-                            <View style={[
-                              styles.overtakeDriverCircle,
-                              { 
-                                backgroundColor: getDriverTeamColor(selectedOvertake.driver_number),
-                                borderColor: theme.text
-                              }
-                            ]}>
-                              <Text allowFontScaling={false} style={[styles.overtakeDriverInitials, { color: '#fff' }]}>
-                                {initiatorName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                          <View
+                            style={[
+                              {
+                                position: "absolute",
+                                left:
+                                  overtakeAnimation.isAnimating ||
+                                  overtakeAnimation.progress > 0
+                                    ? `${overtakeAnimation.carPositions.initiator}%`
+                                    : 0, // Always start at left edge (static position)
+                                top: "50%",
+                                marginTop: -45, // Keep original marginTop for consistent positioning
+                                zIndex:
+                                  overtakeAnimation.isAnimating ||
+                                  overtakeAnimation.progress > 0
+                                    ? 2
+                                    : 9,
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity:
+                                  overtakeAnimation.isAnimating ||
+                                  overtakeAnimation.progress > 0
+                                    ? 0.3
+                                    : 0.7,
+                                shadowRadius: 4,
+                                elevation:
+                                  overtakeAnimation.isAnimating ||
+                                  overtakeAnimation.progress > 0
+                                    ? 5
+                                    : 7,
+                              },
+                              { shadowColor: theme.text },
+                            ]}
+                          >
+                            <View
+                              style={[
+                                styles.overtakeDriverCircle,
+                                {
+                                  backgroundColor: getDriverTeamColor(
+                                    selectedOvertake.driver_number
+                                  ),
+                                  borderColor: theme.text,
+                                },
+                              ]}
+                            >
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  styles.overtakeDriverInitials,
+                                  { color: "#fff" },
+                                ]}
+                              >
+                                {initiatorName
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .slice(0, 2)
+                                  .join("")
+                                  .toUpperCase()}
                               </Text>
                             </View>
                           </View>
 
                           {/* Driver 2 (Participant) - Animated position */}
-                          <View style={[
-                            {
-                              position: 'absolute',
-                              left: (overtakeAnimation.isAnimating || overtakeAnimation.progress > 0)
-                                ? `${overtakeAnimation.carPositions.participant}%`
-                                : 10, // Always start at offset position (static position)
-                              top: '50%',
-                              marginTop: 5, // Keep original marginTop for consistent positioning
-                              zIndex: (overtakeAnimation.isAnimating || overtakeAnimation.progress > 0) ? 1 : 10,
-                              shadowOffset: { width: 0, height: 2 },
-                              shadowOpacity: (overtakeAnimation.isAnimating || overtakeAnimation.progress > 0) ? 0.3 : 0.8,
-                              shadowRadius: 4,
-                              elevation: (overtakeAnimation.isAnimating || overtakeAnimation.progress > 0) ? 4 : 7,
-                            },
-                            { shadowColor: theme.text }
-                          ]}>
-                            <View style={[
-                              styles.overtakeDriverCircle,
-                              { 
-                                backgroundColor: getDriverTeamColor(selectedOvertake.overtake_participant_number || selectedOvertake.driver_number_2),
-                                borderColor: theme.text
-                              }
-                            ]}>
-                              <Text allowFontScaling={false} style={[styles.overtakeDriverInitials, { color: '#fff' }]}>
-                                {participantName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                          <View
+                            style={[
+                              {
+                                position: "absolute",
+                                left:
+                                  overtakeAnimation.isAnimating ||
+                                  overtakeAnimation.progress > 0
+                                    ? `${overtakeAnimation.carPositions.participant}%`
+                                    : 10, // Always start at offset position (static position)
+                                top: "50%",
+                                marginTop: 5, // Keep original marginTop for consistent positioning
+                                zIndex:
+                                  overtakeAnimation.isAnimating ||
+                                  overtakeAnimation.progress > 0
+                                    ? 1
+                                    : 10,
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity:
+                                  overtakeAnimation.isAnimating ||
+                                  overtakeAnimation.progress > 0
+                                    ? 0.3
+                                    : 0.8,
+                                shadowRadius: 4,
+                                elevation:
+                                  overtakeAnimation.isAnimating ||
+                                  overtakeAnimation.progress > 0
+                                    ? 4
+                                    : 7,
+                              },
+                              { shadowColor: theme.text },
+                            ]}
+                          >
+                            <View
+                              style={[
+                                styles.overtakeDriverCircle,
+                                {
+                                  backgroundColor: getDriverTeamColor(
+                                    selectedOvertake.overtake_participant_number ||
+                                      selectedOvertake.driver_number_2
+                                  ),
+                                  borderColor: theme.text,
+                                },
+                              ]}
+                            >
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  styles.overtakeDriverInitials,
+                                  { color: "#fff" },
+                                ]}
+                              >
+                                {participantName
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .slice(0, 2)
+                                  .join("")
+                                  .toUpperCase()}
                               </Text>
                             </View>
                           </View>
@@ -5216,95 +7034,322 @@ const RaceDetailsScreen = ({ route }) => {
                     // Helper to get driver name from OpenF1 data (same as events)
                     const getOvertakeDriverName = (driverNumber) => {
                       const driver = getDriverByNumber(driverNumber);
-                      return driver ? driver.broadcast_name : `#${driverNumber}`;
+                      return driver
+                        ? driver.broadcast_name
+                        : `#${driverNumber}`;
                     };
 
-                    const initiatorName = getOvertakeDriverName(selectedOvertake.driver_number);
-                    const participantName = getOvertakeDriverName(selectedOvertake.overtake_participant_number || selectedOvertake.driver_number_2);
-                    
+                    const initiatorName = getOvertakeDriverName(
+                      selectedOvertake.driver_number
+                    );
+                    const participantName = getOvertakeDriverName(
+                      selectedOvertake.overtake_participant_number ||
+                        selectedOvertake.driver_number_2
+                    );
+
                     // Use animated values if animation is active, otherwise use cycling data
-                    const currentInitiatorData = overtakeAnimation.isAnimating 
-                      ? overtakeAnimation.currentStats.initiator 
+                    const currentInitiatorData = overtakeAnimation.isAnimating
+                      ? overtakeAnimation.currentStats.initiator
                       : overtakeCarData.initiator[carDataIndex];
-                    const currentParticipantData = overtakeAnimation.isAnimating 
-                      ? overtakeAnimation.currentStats.participant 
+                    const currentParticipantData = overtakeAnimation.isAnimating
+                      ? overtakeAnimation.currentStats.participant
                       : overtakeCarData.participant[carDataIndex];
 
                     return (
                       <>
                         {/* Initiator Car Data (Left) */}
                         <View style={styles.overtakeCarDataColumn}>
-                          <View style={styles.overtakeCarDataDriverNameContainer}>
-                            <Text allowFontScaling={false} style={[styles.overtakeCarDataDriverName, { color: theme.text }]}>
+                          <View
+                            style={styles.overtakeCarDataDriverNameContainer}
+                          >
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.overtakeCarDataDriverName,
+                                { color: theme.text },
+                              ]}
+                            >
                               {initiatorName}
                             </Text>
-                            <View style={[styles.overtakeDriverUnderline, { backgroundColor: getDriverTeamColor(selectedOvertake.driver_number) }]} />
+                            <View
+                              style={[
+                                styles.overtakeDriverUnderline,
+                                {
+                                  backgroundColor: getDriverTeamColor(
+                                    selectedOvertake.driver_number
+                                  ),
+                                },
+                              ]}
+                            />
                           </View>
                           {currentInitiatorData ? (
                             <View style={styles.overtakeCarDataList}>
                               <View style={styles.overtakeCarDataRow}>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>Speed</Text>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataValue, { color: theme.text }]}>{currentInitiatorData.speed === '-' || !currentInitiatorData.speed ? 0 : currentInitiatorData.speed} km/h</Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  Speed
+                                </Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {currentInitiatorData.speed === "-" ||
+                                  !currentInitiatorData.speed
+                                    ? 0
+                                    : currentInitiatorData.speed}{" "}
+                                  km/h
+                                </Text>
                               </View>
                               <View style={styles.overtakeCarDataRow}>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>RPM</Text>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataValue, { color: theme.text }]}>{currentInitiatorData.rpm || '-'}</Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  RPM
+                                </Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {currentInitiatorData.rpm || "-"}
+                                </Text>
                               </View>
                               <View style={styles.overtakeCarDataRow}>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>Gear</Text>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataValue, { color: theme.text }]}>{currentInitiatorData.n_gear || '-'}</Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  Gear
+                                </Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {currentInitiatorData.n_gear || "-"}
+                                </Text>
                               </View>
                               <View style={styles.overtakeCarDataRow}>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>Brake</Text>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataValue, { color: currentInitiatorData.brake > 0 ? theme.error : theme.text }]}>{currentInitiatorData.brake || 0}%</Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  Brake
+                                </Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataValue,
+                                    {
+                                      color:
+                                        currentInitiatorData.brake > 0
+                                          ? theme.error
+                                          : theme.text,
+                                    },
+                                  ]}
+                                >
+                                  {currentInitiatorData.brake || 0}%
+                                </Text>
                               </View>
                               <View style={styles.overtakeCarDataRow}>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>Tire</Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  Tire
+                                </Text>
                                 <View style={styles.overtakeCarDataTireValue}>
-                                  {renderTireForCarData(selectedOvertake.driver_number, selectedOvertake.details?.lap_number || 1)}
+                                  {renderTireForCarData(
+                                    selectedOvertake.driver_number,
+                                    selectedOvertake.details?.lap_number || 1
+                                  )}
                                 </View>
                               </View>
                             </View>
                           ) : (
-                            <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>No car data available</Text>
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.overtakeCarDataLabel,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              No car data available
+                            </Text>
                           )}
                         </View>
 
                         {/* Participant Car Data (Right) */}
                         <View style={styles.overtakeCarDataColumn}>
-                          <View style={styles.overtakeCarDataDriverNameContainer}>
-                            <Text allowFontScaling={false} style={[styles.overtakeCarDataDriverName, { color: theme.text }]}>
+                          <View
+                            style={styles.overtakeCarDataDriverNameContainer}
+                          >
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.overtakeCarDataDriverName,
+                                { color: theme.text },
+                              ]}
+                            >
                               {participantName}
                             </Text>
-                            <View style={[styles.overtakeDriverUnderline, { backgroundColor: getDriverTeamColor(selectedOvertake.overtake_participant_number || selectedOvertake.driver_number_2) }]} />
+                            <View
+                              style={[
+                                styles.overtakeDriverUnderline,
+                                {
+                                  backgroundColor: getDriverTeamColor(
+                                    selectedOvertake.overtake_participant_number ||
+                                      selectedOvertake.driver_number_2
+                                  ),
+                                },
+                              ]}
+                            />
                           </View>
                           {currentParticipantData ? (
                             <View style={styles.overtakeCarDataList}>
                               <View style={styles.overtakeCarDataRow}>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>Speed</Text>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataValue, { color: theme.text }]}>{currentParticipantData.speed === '-' || !currentParticipantData.speed ? 0 : currentParticipantData.speed} km/h</Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  Speed
+                                </Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {currentParticipantData.speed === "-" ||
+                                  !currentParticipantData.speed
+                                    ? 0
+                                    : currentParticipantData.speed}{" "}
+                                  km/h
+                                </Text>
                               </View>
                               <View style={styles.overtakeCarDataRow}>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>RPM</Text>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataValue, { color: theme.text }]}>{currentParticipantData.rpm || '-'}</Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  RPM
+                                </Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {currentParticipantData.rpm || "-"}
+                                </Text>
                               </View>
                               <View style={styles.overtakeCarDataRow}>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>Gear</Text>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataValue, { color: theme.text }]}>{currentParticipantData.n_gear || '-'}</Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  Gear
+                                </Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {currentParticipantData.n_gear || "-"}
+                                </Text>
                               </View>
                               <View style={styles.overtakeCarDataRow}>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>Brake</Text>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataValue, { color: currentParticipantData.brake > 0 ? theme.error : theme.text }]}>{currentParticipantData.brake || 0}%</Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  Brake
+                                </Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataValue,
+                                    {
+                                      color:
+                                        currentParticipantData.brake > 0
+                                          ? theme.error
+                                          : theme.text,
+                                    },
+                                  ]}
+                                >
+                                  {currentParticipantData.brake || 0}%
+                                </Text>
                               </View>
                               <View style={styles.overtakeCarDataRow}>
-                                <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>Tire</Text>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.overtakeCarDataLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  Tire
+                                </Text>
                                 <View style={styles.overtakeCarDataTireValue}>
-                                  {renderTireForCarData(selectedOvertake.overtake_participant_number || selectedOvertake.driver_number_2, selectedOvertake.details?.lap_number || 1)}
+                                  {renderTireForCarData(
+                                    selectedOvertake.overtake_participant_number ||
+                                      selectedOvertake.driver_number_2,
+                                    selectedOvertake.details?.lap_number || 1
+                                  )}
                                 </View>
                               </View>
                             </View>
                           ) : (
-                            <Text allowFontScaling={false} style={[styles.overtakeCarDataLabel, { color: theme.textSecondary }]}>No car data available</Text>
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.overtakeCarDataLabel,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              No car data available
+                            </Text>
                           )}
                         </View>
                       </>
@@ -5315,33 +7360,72 @@ const RaceDetailsScreen = ({ route }) => {
                 {/* Animation or data cycling indicator */}
                 {overtakeAnimation.isAnimating ? (
                   <View style={styles.overtakeDataIndicator}>
-                    <Text allowFontScaling={false} style={[styles.overtakeDataText, { color: theme.textSecondary }]}>
-                      Overtake Animation: {Math.round(overtakeAnimation.progress * 100)}%
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.overtakeDataText,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      Overtake Animation:{" "}
+                      {Math.round(overtakeAnimation.progress * 100)}%
                     </Text>
                   </View>
                 ) : overtakeAnimation.progress > 0 ? (
-                  <View style={[styles.overtakeDataIndicator, { flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
-                    <Text allowFontScaling={false} style={[styles.overtakeDataText, { color: theme.textSecondary }]}>
+                  <View
+                    style={[
+                      styles.overtakeDataIndicator,
+                      { flexDirection: "row", alignItems: "center", gap: 12 },
+                    ]}
+                  >
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.overtakeDataText,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
                       Animation Complete
                     </Text>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       onPress={() => {
                         resetAnimation();
                         setTimeout(() => startOvertakeAnimation(), 300);
                       }}
-                      style={[styles.replayButton, { backgroundColor: colors.primary }]}
+                      style={[
+                        styles.replayButton,
+                        { backgroundColor: colors.primary },
+                      ]}
                     >
-                      <Text allowFontScaling={false} style={[styles.replayButtonText, { color: '#fff' }]}>Replay</Text>
+                      <Text
+                        allowFontScaling={false}
+                        style={[styles.replayButtonText, { color: "#fff" }]}
+                      >
+                        Replay
+                      </Text>
                     </TouchableOpacity>
                   </View>
-                ) : (overtakeCarData.initiator.length > 0 || overtakeCarData.participant.length > 0) && (
-                  <View style={styles.overtakeDataIndicator}>
-                  </View>
+                ) : (
+                  (overtakeCarData.initiator.length > 0 ||
+                    overtakeCarData.participant.length > 0) && (
+                    <View style={styles.overtakeDataIndicator}></View>
+                  )
                 )}
 
                 {/* Close Button */}
-                <TouchableOpacity onPress={closeOvertakeModal} style={[styles.modalCloseButton, { backgroundColor: colors.primary }]}>
-                  <Text allowFontScaling={false} style={{ color: '#fff', fontWeight: '700' }}>Close</Text>
+                <TouchableOpacity
+                  onPress={closeOvertakeModal}
+                  style={[
+                    styles.modalCloseButton,
+                    { backgroundColor: colors.primary },
+                  ]}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={{ color: "#fff", fontWeight: "700" }}
+                  >
+                    Close
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -5351,119 +7435,206 @@ const RaceDetailsScreen = ({ route }) => {
 
       {/* Stream Modal - Only render when streaming is unlocked */}
       {isStreamingUnlocked && (
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={streamModalVisible}
-        onRequestClose={closeStreamModal}
-      >
-        <View style={styles.streamModalOverlay}>
-          <View style={[styles.streamModalContainer, { backgroundColor: theme.surface }]}>
-            {/* Modal Header */}
-            <View style={[styles.streamModalHeader, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]}>
-              <Text allowFontScaling={false} style={[styles.streamModalTitle, { color: colors.primary }]}>F1 Live Stream</Text>
-              <TouchableOpacity style={[styles.streamCloseButton, { backgroundColor: theme.surfaceSecondary }]} onPress={closeStreamModal}>
-                <Text allowFontScaling={false} style={[styles.streamCloseText, { color: colors.primary }]}>×</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Stream Selection Buttons */}
-            <View style={[styles.streamSelectorContainer, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]}>
-              <TouchableOpacity 
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={streamModalVisible}
+          onRequestClose={closeStreamModal}
+        >
+          <View style={styles.streamModalOverlay}>
+            <View
+              style={[
+                styles.streamModalContainer,
+                { backgroundColor: theme.surface },
+              ]}
+            >
+              {/* Modal Header */}
+              <View
                 style={[
-                  styles.streamSelectorButton, 
-                  { backgroundColor: selectedStream === 3 ? colors.primary : theme.surface }
-                ]} 
-                onPress={() => setSelectedStream(3)}
+                  styles.streamModalHeader,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    borderBottomColor: theme.border,
+                  },
+                ]}
               >
-                <Text allowFontScaling={false} style={[
-                  styles.streamSelectorText, 
-                  { color: selectedStream === 3 ? '#fff' : theme.text }
-                ]}>
-                  Grand Prix {!grandPrixStreamUrl ? '⏳' : ''}
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.streamModalTitle, { color: colors.primary }]}
+                >
+                  F1 Live Stream
                 </Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.streamCloseButton,
+                    { backgroundColor: theme.surfaceSecondary },
+                  ]}
+                  onPress={closeStreamModal}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.streamCloseText, { color: colors.primary }]}
+                  >
+                    ×
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
-              <TouchableOpacity 
+              {/* Stream Selection Buttons */}
+              <View
                 style={[
-                  styles.streamSelectorButton, 
-                  { backgroundColor: selectedStream === 1 ? colors.primary : theme.surface }
-                ]} 
-                onPress={() => setSelectedStream(1)}
+                  styles.streamSelectorContainer,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    borderBottomColor: theme.border,
+                  },
+                ]}
               >
-                <Text allowFontScaling={false} style={[
-                  styles.streamSelectorText, 
-                  { color: selectedStream === 1 ? '#fff' : theme.text }
-                ]}>
-                  Test 2
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[
-                  styles.streamSelectorButton, 
-                  { backgroundColor: selectedStream === 2 ? colors.primary : theme.surface }
-                ]} 
-                onPress={() => setSelectedStream(2)}
-              >
-                <Text allowFontScaling={false} style={[
-                  styles.streamSelectorText, 
-                  { color: selectedStream === 2 ? '#fff' : theme.text }
-                ]}>
-                  Test 3
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Stream Content */}
-            <View style={styles.streamContent}>
-              {(isStreamLoading || (selectedStream === 3 && !grandPrixStreamUrl)) && (
-                <View style={styles.streamLoadingContainer}>
-                  <ActivityIndicator size="large" color={colors.primary} />
-                  <Text allowFontScaling={false} style={[styles.streamLoadingText, { color: theme.text }]}>
-                    {selectedStream === 3 && !grandPrixStreamUrl 
-                      ? 'Loading Grand Prix Stream...' 
-                      : 'Loading F1 Stream...'}
+                <TouchableOpacity
+                  style={[
+                    styles.streamSelectorButton,
+                    {
+                      backgroundColor:
+                        selectedStream === 3 ? colors.primary : theme.surface,
+                    },
+                  ]}
+                  onPress={() => setSelectedStream(3)}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.streamSelectorText,
+                      { color: selectedStream === 3 ? "#fff" : theme.text },
+                    ]}
+                  >
+                    Grand Prix {!grandPrixStreamUrl ? "⏳" : ""}
                   </Text>
-                </View>
-              )}
+                </TouchableOpacity>
 
-              {/* Show error message if Grand Prix stream is selected but failed to load */}
-              {selectedStream === 3 && !isStreamLoading && !grandPrixStreamUrl && (
-                <View style={styles.streamLoadingContainer}>
-                  <Text allowFontScaling={false} style={[styles.streamLoadingText, { color: theme.textSecondary }]}>
-                    Grand Prix stream not available
+                <TouchableOpacity
+                  style={[
+                    styles.streamSelectorButton,
+                    {
+                      backgroundColor:
+                        selectedStream === 1 ? colors.primary : theme.surface,
+                    },
+                  ]}
+                  onPress={() => setSelectedStream(1)}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.streamSelectorText,
+                      { color: selectedStream === 1 ? "#fff" : theme.text },
+                    ]}
+                  >
+                    Test 2
                   </Text>
-                  <Text allowFontScaling={false} style={[styles.streamLoadingText, { color: theme.textSecondary, fontSize: 12, marginTop: 8 }]}>
-                    Try selecting Test 1 or Test 2
-                  </Text>
-                </View>
-              )}
+                </TouchableOpacity>
 
-              {/* F1 Stream WebView - Only show if URL is available or not Grand Prix stream */}
-              {(selectedStream !== 3 || grandPrixStreamUrl) && (
-              <WebView
-                source={{ 
-                  uri: selectedStream === 3 && grandPrixStreamUrl 
-                    ? grandPrixStreamUrl 
-                    : `https://embedsports.top/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}` 
-                }}
-                style={[styles.streamWebView, { opacity: (isStreamLoading || (selectedStream === 3 && !grandPrixStreamUrl)) ? 0 : 1 }]}
-                javaScriptEnabled={true}
-                domStorageEnabled={true}
-                startInLoadingState={true}
-                scalesPageToFit={true}
-                mixedContentMode="compatibility"
-                allowsInlineMediaPlayback={true}
-                mediaPlaybackRequiresUserAction={false}
-                onLoadStart={() => setIsStreamLoading(true)}
-                onLoadEnd={() => setIsStreamLoading(false)}
-                onError={(error) => {
-                  console.error('F1 WebView error:', error);
-                  setIsStreamLoading(false);
-                }}
-                userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
-                injectedJavaScript={`
+                <TouchableOpacity
+                  style={[
+                    styles.streamSelectorButton,
+                    {
+                      backgroundColor:
+                        selectedStream === 2 ? colors.primary : theme.surface,
+                    },
+                  ]}
+                  onPress={() => setSelectedStream(2)}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.streamSelectorText,
+                      { color: selectedStream === 2 ? "#fff" : theme.text },
+                    ]}
+                  >
+                    Test 3
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Stream Content */}
+              <View style={styles.streamContent}>
+                {(isStreamLoading ||
+                  (selectedStream === 3 && !grandPrixStreamUrl)) && (
+                  <View style={styles.streamLoadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.streamLoadingText, { color: theme.text }]}
+                    >
+                      {selectedStream === 3 && !grandPrixStreamUrl
+                        ? "Loading Grand Prix Stream..."
+                        : "Loading F1 Stream..."}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Show error message if Grand Prix stream is selected but failed to load */}
+                {selectedStream === 3 &&
+                  !isStreamLoading &&
+                  !grandPrixStreamUrl && (
+                    <View style={styles.streamLoadingContainer}>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.streamLoadingText,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        Grand Prix stream not available
+                      </Text>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.streamLoadingText,
+                          {
+                            color: theme.textSecondary,
+                            fontSize: 12,
+                            marginTop: 8,
+                          },
+                        ]}
+                      >
+                        Try selecting Test 1 or Test 2
+                      </Text>
+                    </View>
+                  )}
+
+                {/* F1 Stream WebView - Only show if URL is available or not Grand Prix stream */}
+                {(selectedStream !== 3 || grandPrixStreamUrl) && (
+                  <WebView
+                    source={{
+                      uri:
+                        selectedStream === 3 && grandPrixStreamUrl
+                          ? grandPrixStreamUrl
+                          : `https://embedsports.top/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}`,
+                    }}
+                    style={[
+                      styles.streamWebView,
+                      {
+                        opacity:
+                          isStreamLoading ||
+                          (selectedStream === 3 && !grandPrixStreamUrl)
+                            ? 0
+                            : 1,
+                      },
+                    ]}
+                    javaScriptEnabled={true}
+                    domStorageEnabled={true}
+                    startInLoadingState={true}
+                    scalesPageToFit={true}
+                    mixedContentMode="compatibility"
+                    allowsInlineMediaPlayback={true}
+                    mediaPlaybackRequiresUserAction={false}
+                    onLoadStart={() => setIsStreamLoading(true)}
+                    onLoadEnd={() => setIsStreamLoading(false)}
+                    onError={(error) => {
+                      console.error("F1 WebView error:", error);
+                      setIsStreamLoading(false);
+                    }}
+                    userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
+                    injectedJavaScript={`
                   (function() {
                     console.log('F1 stream ad blocker initializing...');
                     
@@ -5542,64 +7713,82 @@ const RaceDetailsScreen = ({ route }) => {
                     true;
                   })();
                 `}
-                onMessage={(event) => {
-                  // Handle messages from injected JavaScript if needed
-                  console.log('F1 WebView message:', event.nativeEvent.data);
-                }}
-                // Block popup navigation within the WebView
-                onShouldStartLoadWithRequest={(request) => {
-                  console.log('F1 WebView navigation request:', request.url);
-                  
-                  // Allow the initial stream URL to load
-                  const streamUrl = selectedStream === 3 && grandPrixStreamUrl 
-                    ? grandPrixStreamUrl 
-                    : `https://embedsports.top/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}`;
-                  if (request.url === streamUrl) {
-                    return true;
-                  }
-                  
-                  // Block navigation to obvious popup/ad URLs
-                  const popupKeywords = ['popup', 'ad', 'ads', 'click', 'redirect', 'promo'];
-                  const hasPopupKeywords = popupKeywords.some(keyword => 
-                    request.url.toLowerCase().includes(keyword)
-                  );
-                  
-                  // Block external navigation attempts (popups trying to navigate within WebView)
-                  const currentDomain = new URL(streamUrl).hostname;
-                  let requestDomain = '';
-                  try {
-                    requestDomain = new URL(request.url).hostname;
-                  } catch (e) {
-                    console.log('Invalid F1 URL:', request.url);
-                    return false;
-                  }
-                  
-                  // Allow same-domain navigation but block cross-domain (likely popups)
-                  if (requestDomain !== currentDomain || hasPopupKeywords) {
-                    console.log('Blocked F1 popup/cross-domain navigation:', request.url);
-                    return false;
-                  }
-                  
-                  return true;
-                }}
-                // Handle when WebView tries to open a new window (popup)
-                onOpenWindow={(syntheticEvent) => {
-                  const { nativeEvent } = syntheticEvent;
-                  console.log('Blocked F1 popup window:', nativeEvent.targetUrl);
-                  // Don't open the popup - just log it
-                  return false;
-                }}
-              />
-              )}
+                    onMessage={(event) => {
+                      // Handle messages from injected JavaScript if needed
+                      console.log(
+                        "F1 WebView message:",
+                        event.nativeEvent.data
+                      );
+                    }}
+                    // Block popup navigation within the WebView
+                    onShouldStartLoadWithRequest={(request) => {
+                      console.log(
+                        "F1 WebView navigation request:",
+                        request.url
+                      );
+
+                      // Allow the initial stream URL to load
+                      const streamUrl =
+                        selectedStream === 3 && grandPrixStreamUrl
+                          ? grandPrixStreamUrl
+                          : `https://embedsports.top/embed/alpha/sky-sports-f1-sky-f1/${selectedStream}`;
+                      if (request.url === streamUrl) {
+                        return true;
+                      }
+
+                      // Block navigation to obvious popup/ad URLs
+                      const popupKeywords = [
+                        "popup",
+                        "ad",
+                        "ads",
+                        "click",
+                        "redirect",
+                        "promo",
+                      ];
+                      const hasPopupKeywords = popupKeywords.some((keyword) =>
+                        request.url.toLowerCase().includes(keyword)
+                      );
+
+                      // Block external navigation attempts (popups trying to navigate within WebView)
+                      const currentDomain = new URL(streamUrl).hostname;
+                      let requestDomain = "";
+                      try {
+                        requestDomain = new URL(request.url).hostname;
+                      } catch (e) {
+                        console.log("Invalid F1 URL:", request.url);
+                        return false;
+                      }
+
+                      // Allow same-domain navigation but block cross-domain (likely popups)
+                      if (requestDomain !== currentDomain || hasPopupKeywords) {
+                        console.log(
+                          "Blocked F1 popup/cross-domain navigation:",
+                          request.url
+                        );
+                        return false;
+                      }
+
+                      return true;
+                    }}
+                    // Handle when WebView tries to open a new window (popup)
+                    onOpenWindow={(syntheticEvent) => {
+                      const { nativeEvent } = syntheticEvent;
+                      console.log(
+                        "Blocked F1 popup window:",
+                        nativeEvent.targetUrl
+                      );
+                      // Don't open the popup - just log it
+                      return false;
+                    }}
+                  />
+                )}
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
       )}
     </View>
   );
 };
-
-
 
 export default RaceDetailsScreen;

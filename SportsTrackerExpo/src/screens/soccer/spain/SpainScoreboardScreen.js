@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import {
   View,
   Text,
@@ -9,15 +15,15 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
-  Dimensions
-} from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { SpainServiceEnhanced } from '../../../services/soccer/SpainServiceEnhanced';
-import { useTheme } from '../../../context/ThemeContext';
-import { useFavorites } from '../../../context/FavoritesContext';
-import { LiveViewerBadge } from '../../../components/ViewerCounter';
+  Dimensions,
+} from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { SpainServiceEnhanced } from "../../../services/soccer/SpainServiceEnhanced";
+import { useTheme } from "../../../context/ThemeContext";
+import { useFavorites } from "../../../context/FavoritesContext";
+import { LiveViewerBadge } from "../../../components/ViewerCounter";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 const SpainScoreboardScreen = ({ navigation, route }) => {
   const { theme, colors, isDarkMode } = useTheme();
@@ -25,28 +31,28 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [lastUpdateHash, setLastUpdateHash] = useState('');
+  const [lastUpdateHash, setLastUpdateHash] = useState("");
   const [updateInterval, setUpdateInterval] = useState(null);
-  const [selectedDateFilter, setSelectedDateFilter] = useState('today'); // 'yesterday', 'today', 'upcoming'
+  const [selectedDateFilter, setSelectedDateFilter] = useState("today"); // 'yesterday', 'today', 'upcoming'
   const [isScreenFocused, setIsScreenFocused] = useState(true);
-  
+
   // Cache for each date filter
   const [gameCache, setGameCache] = useState({
     yesterday: null,
     today: null,
-    upcoming: null
+    upcoming: null,
   });
-  
+
   // Cache timestamps to know when to refresh
   const [cacheTimestamps, setCacheTimestamps] = useState({
     yesterday: 0,
     today: 0,
-    upcoming: 0
+    upcoming: 0,
   });
 
   // Track if preloading has been done to prevent multiple calls
   const hasPreloadedRef = useRef(false);
-  
+
   // TeamLogoImage component with dark mode and fallback support
   const TeamLogoImage = React.memo(({ teamId, style }) => {
     // Initialize with the correct logo source immediately to prevent flashing
@@ -55,7 +61,7 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
         const logos = getTeamLogo(teamId, isDarkMode);
         return { uri: logos.primaryUrl };
       } else {
-        return require('../../../../assets/soccer.png');
+        return require("../../../../assets/soccer.png");
       }
     });
     const [retryCount, setRetryCount] = useState(0);
@@ -63,12 +69,14 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
     useEffect(() => {
       // Only update if teamId or isDarkMode actually changed
       const newLogos = teamId ? getTeamLogo(teamId, isDarkMode) : null;
-      const newSource = teamId ? { uri: newLogos.primaryUrl } : require('../../../../assets/soccer.png');
-      
+      const newSource = teamId
+        ? { uri: newLogos.primaryUrl }
+        : require("../../../../assets/soccer.png");
+
       // Check if the new source is different from current
       const currentUri = logoSource?.uri;
       const newUri = newSource?.uri;
-      
+
       if (currentUri !== newUri) {
         setLogoSource(newSource);
         setRetryCount(0);
@@ -82,7 +90,7 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
         setRetryCount(1);
       } else {
         // Final fallback - use soccer.png asset for all cases
-        setLogoSource(require('../../../../assets/soccer.png'));
+        setLogoSource(require("../../../../assets/soccer.png"));
       }
     };
 
@@ -101,43 +109,45 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
     const primaryUrl = isDarkMode
       ? `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`
       : `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
-    
+
     const fallbackUrl = isDarkMode
       ? `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`
       : `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
 
     return { primaryUrl, fallbackUrl };
   };
-  
+
   // Cache duration: 30 seconds for today and upcoming (live/soon-to-be-live games), 5 minutes for others
   const getCacheDuration = (filter) => {
-    return (filter === 'today' || filter === 'upcoming') ? 30000 : 300000; // 30s for today/upcoming, 5min for others
+    return filter === "today" || filter === "upcoming" ? 30000 : 300000; // 30s for today/upcoming, 5min for others
   };
 
   const getNoGamesMessage = (dateFilter) => {
     switch (dateFilter) {
-      case 'yesterday':
-        return 'No matches scheduled for yesterday';
-      case 'today':
-        return 'No matches scheduled for today';
-      case 'upcoming':
-        return 'No upcoming matches scheduled';
+      case "yesterday":
+        return "No matches scheduled for yesterday";
+      case "today":
+        return "No matches scheduled for today";
+      case "upcoming":
+        return "No upcoming matches scheduled";
       default:
-        return 'No matches scheduled';
+        return "No matches scheduled";
     }
   };
 
   // Track screen focus to pause/resume updates
   useFocusEffect(
     React.useCallback(() => {
-      console.log('SpainScoreboardScreen: Screen focused');
+      console.log("SpainScoreboardScreen: Screen focused");
       setIsScreenFocused(true);
-      
+
       return () => {
-        console.log('SpainScoreboardScreen: Screen unfocused, clearing intervals');
+        console.log(
+          "SpainScoreboardScreen: Screen unfocused, clearing intervals"
+        );
         setIsScreenFocused(false);
         // Clear any existing interval when screen loses focus
-        setUpdateInterval(prevInterval => {
+        setUpdateInterval((prevInterval) => {
           if (prevInterval) clearInterval(prevInterval);
           return null;
         });
@@ -146,18 +156,26 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
   );
 
   useEffect(() => {
-    console.log('SpainScoreboardScreen: Main useEffect triggered for filter:', selectedDateFilter, 'focused:', isScreenFocused);
+    console.log(
+      "SpainScoreboardScreen: Main useEffect triggered for filter:",
+      selectedDateFilter,
+      "focused:",
+      isScreenFocused
+    );
     // Load the current filter first
     loadScoreboard();
-    
+
     // Set up continuous fetching for 'today' and 'upcoming' - only if screen is focused
-    if ((selectedDateFilter === 'today' || selectedDateFilter === 'upcoming') && isScreenFocused) {
+    if (
+      (selectedDateFilter === "today" || selectedDateFilter === "upcoming") &&
+      isScreenFocused
+    ) {
       const interval = setInterval(() => {
         loadScoreboard(true, selectedDateFilter);
       }, 30000); // 30 seconds for soccer
-      
+
       setUpdateInterval(interval);
-      
+
       return () => {
         clearInterval(interval);
       };
@@ -172,43 +190,54 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
 
   // Separate effect for initial preloading - only runs once on mount
   useEffect(() => {
-    console.log('SpainScoreboardScreen: Preload useEffect triggered, hasPreloaded:', hasPreloadedRef.current);
+    console.log(
+      "SpainScoreboardScreen: Preload useEffect triggered, hasPreloaded:",
+      hasPreloadedRef.current
+    );
     // Only preload if we haven't done it before
     if (hasPreloadedRef.current) {
-      console.log('SpainScoreboardScreen: Skipping preload, already done');
+      console.log("SpainScoreboardScreen: Skipping preload, already done");
       return;
     }
-    
+
     // Mark that we're doing preloading
     hasPreloadedRef.current = true;
-    console.log('SpainScoreboardScreen: Starting preload for other filters');
-    
+    console.log("SpainScoreboardScreen: Starting preload for other filters");
+
     // Preload the other filters in the background after initial load
     const preloadTimer = setTimeout(() => {
-      if (selectedDateFilter !== 'yesterday') {
-        console.log('SpainScoreboardScreen: Preloading yesterday data');
-        loadScoreboard(true, 'yesterday');
+      if (selectedDateFilter !== "yesterday") {
+        console.log("SpainScoreboardScreen: Preloading yesterday data");
+        loadScoreboard(true, "yesterday");
       }
-      if (selectedDateFilter !== 'upcoming') {
-        console.log('SpainScoreboardScreen: Preloading upcoming data');
-        loadScoreboard(true, 'upcoming');
+      if (selectedDateFilter !== "upcoming") {
+        console.log("SpainScoreboardScreen: Preloading upcoming data");
+        loadScoreboard(true, "upcoming");
       }
     }, 1000); // Wait 1 second after initial load to preload others
-    
+
     return () => clearTimeout(preloadTimer);
   }, []); // Empty dependency array - only run once on mount
 
-  const loadScoreboard = async (silentUpdate = false, dateFilter = selectedDateFilter) => {
-    console.log('SpainScoreboardScreen: loadScoreboard called - silentUpdate:', silentUpdate, 'dateFilter:', dateFilter);
+  const loadScoreboard = async (
+    silentUpdate = false,
+    dateFilter = selectedDateFilter
+  ) => {
+    console.log(
+      "SpainScoreboardScreen: loadScoreboard called - silentUpdate:",
+      silentUpdate,
+      "dateFilter:",
+      dateFilter
+    );
     const now = Date.now();
     const cachedData = gameCache[dateFilter];
     const cacheTime = cacheTimestamps[dateFilter];
     const cacheDuration = getCacheDuration(dateFilter);
-    const isCacheValid = cachedData && (now - cacheTime) < cacheDuration;
-    
+    const isCacheValid = cachedData && now - cacheTime < cacheDuration;
+
     // If we have valid cached data, show it immediately
     if (isCacheValid && !silentUpdate) {
-      console.log('SpainScoreboardScreen: Using cached data for', dateFilter);
+      console.log("SpainScoreboardScreen: Using cached data for", dateFilter);
       setGames(cachedData);
       setLoading(false);
       return;
@@ -219,21 +248,27 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
         setLoading(true);
       }
 
-      console.log('SpainScoreboardScreen: Fetching fresh data for', dateFilter);
+      console.log("SpainScoreboardScreen: Fetching fresh data for", dateFilter);
       const data = await SpainServiceEnhanced.getScoreboard(dateFilter);
-      
+
       // Process games with enhanced data
-      const processedGames = await Promise.all((data.events || []).map(async (game) => {
-        // Get team logos
-        const awayLogo = await SpainServiceEnhanced.getTeamLogoWithFallback(game.competitions[0]?.competitors[1]?.team?.id);
-        const homeLogo = await SpainServiceEnhanced.getTeamLogoWithFallback(game.competitions[0]?.competitors[0]?.team?.id);
-        
-        return {
-          ...game,
-          awayLogo,
-          homeLogo
-        };
-      }));
+      const processedGames = await Promise.all(
+        (data.events || []).map(async (game) => {
+          // Get team logos
+          const awayLogo = await SpainServiceEnhanced.getTeamLogoWithFallback(
+            game.competitions[0]?.competitors[1]?.team?.id
+          );
+          const homeLogo = await SpainServiceEnhanced.getTeamLogoWithFallback(
+            game.competitions[0]?.competitors[0]?.team?.id
+          );
+
+          return {
+            ...game,
+            awayLogo,
+            homeLogo,
+          };
+        })
+      );
 
       // Stable enhanced sorting: group by day, then by status priority (live/pre/post),
       // then by scheduled start time to keep order stable while live clocks update.
@@ -254,10 +289,14 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
           const statusB = b.status?.type?.state;
           const getStatusPriority = (status) => {
             switch (status) {
-              case 'in': return 1; // Live games first
-              case 'pre': return 2; // Upcoming games second
-              case 'post': return 3; // Finished games last
-              default: return 4; // Unknown status last
+              case "in":
+                return 1; // Live games first
+              case "pre":
+                return 2; // Upcoming games second
+              case "post":
+                return 3; // Finished games last
+              default:
+                return 4; // Unknown status last
             }
           };
 
@@ -271,44 +310,46 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
           // Fall back to original index to ensure stable ordering
           return x.idx - y.idx;
         })
-        .map(x => x.g);
+        .map((x) => x.g);
 
       // Create hash for change detection
-      const currentHash = JSON.stringify(sortedGames.map(g => ({
-        id: g.id,
-        status: g.status?.type?.state,
-        awayScore: g.competitions[0]?.competitors[1]?.score,
-        homeScore: g.competitions[0]?.competitors[0]?.score,
-        clock: g.status?.displayClock
-      })));
+      const currentHash = JSON.stringify(
+        sortedGames.map((g) => ({
+          id: g.id,
+          status: g.status?.type?.state,
+          awayScore: g.competitions[0]?.competitors[1]?.score,
+          homeScore: g.competitions[0]?.competitors[0]?.score,
+          clock: g.status?.displayClock,
+        }))
+      );
 
       // Update cache
-      setGameCache(prev => ({
+      setGameCache((prev) => ({
         ...prev,
-        [dateFilter]: sortedGames
+        [dateFilter]: sortedGames,
       }));
-      setCacheTimestamps(prev => ({
+      setCacheTimestamps((prev) => ({
         ...prev,
-        [dateFilter]: now
+        [dateFilter]: now,
       }));
 
       // Only update state if this is the currently selected filter
       if (dateFilter === selectedDateFilter) {
         setGames(sortedGames);
-        
+
         // Check if there were actual changes
         if (currentHash !== lastUpdateHash) {
           setLastUpdateHash(currentHash);
-          console.log('SpainScoreboardScreen: Data updated for', dateFilter);
+          console.log("SpainScoreboardScreen: Data updated for", dateFilter);
         }
       }
 
       setLoading(false);
     } catch (error) {
-      console.error('SpainScoreboardScreen: Error loading scoreboard:', error);
+      console.error("SpainScoreboardScreen: Error loading scoreboard:", error);
       if (!silentUpdate) {
         setLoading(false);
-        Alert.alert('Error', 'Failed to load matches. Please try again.');
+        Alert.alert("Error", "Failed to load matches. Please try again.");
       }
     }
   };
@@ -316,9 +357,9 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
   const onRefresh = async () => {
     setRefreshing(true);
     // Clear cache for current filter to force fresh data
-    setCacheTimestamps(prev => ({
+    setCacheTimestamps((prev) => ({
       ...prev,
-      [selectedDateFilter]: 0
+      [selectedDateFilter]: 0,
     }));
     await loadScoreboard(false, selectedDateFilter);
     setRefreshing(false);
@@ -326,31 +367,38 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
 
   const handleDateFilterChange = (filter) => {
     if (filter === selectedDateFilter) return;
-    
-    console.log('SpainScoreboardScreen: Changing filter to:', filter);
+
+    console.log("SpainScoreboardScreen: Changing filter to:", filter);
     setSelectedDateFilter(filter);
-    
+
     // Check if we have cached data for this filter
     const now = Date.now();
     const cachedData = gameCache[filter];
     const cacheTime = cacheTimestamps[filter];
     const cacheDuration = getCacheDuration(filter);
-    const isCacheValid = cachedData && (now - cacheTime) < cacheDuration;
-    
+    const isCacheValid = cachedData && now - cacheTime < cacheDuration;
+
     if (isCacheValid) {
-      console.log('SpainScoreboardScreen: Using cached data for filter change to:', filter);
+      console.log(
+        "SpainScoreboardScreen: Using cached data for filter change to:",
+        filter
+      );
       setGames(cachedData);
       setLoading(false);
     } else {
-      console.log('SpainScoreboardScreen: No valid cache for filter:', filter, '- will fetch fresh data');
+      console.log(
+        "SpainScoreboardScreen: No valid cache for filter:",
+        filter,
+        "- will fetch fresh data"
+      );
     }
   };
 
   const getMatchStatus = (game) => {
     const status = game.status;
     const state = status?.type?.state;
-    
-    if (state === 'pre') {
+
+    if (state === "pre") {
       // Match not started - show date and time
       const date = new Date(game.date);
       const today = new Date();
@@ -361,111 +409,125 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
       const tomorrow = new Date(today);
       tomorrow.setDate(today.getDate() + 1);
       const isTomorrow = date.toDateString() === tomorrow.toDateString();
-      
-      let dateText = '';
+
+      let dateText = "";
       if (isToday) {
-        dateText = 'Today';
+        dateText = "Today";
       } else if (isYesterday) {
-        dateText = 'Yesterday';
+        dateText = "Yesterday";
       } else if (isTomorrow) {
-        dateText = 'Tomorrow';
+        dateText = "Tomorrow";
       } else {
-        dateText = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        dateText = date.toLocaleDateString([], {
+          month: "short",
+          day: "numeric",
+        });
       }
-      
-      const timeText = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      
+
+      const timeText = date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
       return {
-        text: 'Scheduled',
+        text: "Scheduled",
         time: timeText,
         detail: dateText,
         isLive: false,
         isPre: true,
-        isPost: false
+        isPost: false,
       };
-    } else if (state === 'in') {
+    } else if (state === "in") {
       // Match in progress - show clock time and half info
       const displayClock = status.displayClock || "0'";
       const period = status.period;
-      
+
       // Check if it's halftime
       if (status.type?.description === "Halftime") {
         return {
-          text: 'Live',
+          text: "Live",
           time: status.type.description, // "Halftime"
           detail: status.type.shortDetail, // "HT"
           isLive: true,
           isPre: false,
-          isPost: false
+          isPost: false,
         };
       }
-      
+
       // Determine half based on period
-      let halfText = '';
+      let halfText = "";
       if (period === 1) {
-        halfText = '1st Half';
+        halfText = "1st Half";
       } else if (period === 2) {
-        halfText = '2nd Half';
+        halfText = "2nd Half";
       } else if (period > 2) {
-        halfText = 'Extra Time';
+        halfText = "Extra Time";
       } else {
-        halfText = 'Live';
+        halfText = "Live";
       }
-      
+
       return {
-        text: 'Live',
+        text: "Live",
         time: displayClock,
         detail: halfText,
         isLive: true,
         isPre: false,
-        isPost: false
+        isPost: false,
       };
     } else {
       // Match finished
       return {
-        text: 'Final',
-        time: '',
-        detail: status.type?.description || '',
+        text: "Final",
+        time: "",
+        detail: status.type?.description || "",
         isLive: false,
         isPre: false,
-        isPost: true
+        isPost: true,
       };
     }
   };
 
   const handleGamePress = (game) => {
-    console.log('SpainScoreboardScreen: Game pressed:', game.id);
-    navigation.navigate('SpainGameDetails', {
+    console.log("SpainScoreboardScreen: Game pressed:", game.id);
+    navigation.navigate("SpainGameDetails", {
       gameId: game.id,
-      sport: 'Spanish',
-      competition: game.competitionName || 'Spain',
+      sport: "Spanish",
+      competition: game.competitionName || "Spain",
       homeTeam: game.competitions[0]?.competitors[0]?.team,
-      awayTeam: game.competitions[0]?.competitors[1]?.team
+      awayTeam: game.competitions[0]?.competitors[1]?.team,
     });
   };
 
   const renderDateFilter = () => {
     const filters = [
-      { key: 'yesterday', label: 'Yesterday' },
-      { key: 'today', label: 'Today' },
-      { key: 'upcoming', label: 'Upcoming' }
+      { key: "yesterday", label: "Yesterday" },
+      { key: "today", label: "Today" },
+      { key: "upcoming", label: "Upcoming" },
     ];
 
     return (
-      <View style={[styles.filterContainer, { backgroundColor: theme.surface }]}>
+      <View
+        style={[styles.filterContainer, { backgroundColor: theme.surface }]}
+      >
         {filters.map((filter) => (
           <TouchableOpacity
             key={filter.key}
             style={[
               styles.filterButton,
-              selectedDateFilter === filter.key && { backgroundColor: colors.primary }
+              selectedDateFilter === filter.key && {
+                backgroundColor: colors.primary,
+              },
             ]}
             onPress={() => handleDateFilterChange(filter.key)}
           >
-            <Text allowFontScaling={false}
+            <Text
+              allowFontScaling={false}
               style={[
                 styles.filterText,
-                { color: selectedDateFilter === filter.key ? '#fff' : theme.text }
+                {
+                  color:
+                    selectedDateFilter === filter.key ? "#fff" : theme.text,
+                },
               ]}
             >
               {filter.label}
@@ -490,8 +552,11 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
       >
         {/* League Header */}
         <View style={[styles.leagueHeader, { backgroundColor: theme.border }]}>
-          <Text allowFontScaling={false} style={[styles.leagueText, { color: colors.primary }]}>
-            {game.competitionName || 'La Liga'}
+          <Text
+            allowFontScaling={false}
+            style={[styles.leagueText, { color: colors.primary }]}
+          >
+            {game.competitionName || "La Liga"}
           </Text>
         </View>
 
@@ -504,45 +569,73 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
                 teamId={homeTeam?.team?.id}
                 style={[
                   styles.teamLogo,
-                  matchStatus.isPost && homeTeam?.score < awayTeam?.score && styles.losingTeamLogo
+                  matchStatus.isPost &&
+                    homeTeam?.score < awayTeam?.score &&
+                    styles.losingTeamLogo,
                 ]}
               />
               {(matchStatus.isLive || matchStatus.isPost) && (
-                <Text allowFontScaling={false} style={[
-                  styles.teamScore, 
-                  { color: theme.text },
-                  matchStatus.isPost && homeTeam?.score < awayTeam?.score && styles.losingScore
-                ]}>
-                  {homeTeam?.score || '0'}
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.teamScore,
+                    { color: theme.text },
+                    matchStatus.isPost &&
+                      homeTeam?.score < awayTeam?.score &&
+                      styles.losingScore,
+                  ]}
+                >
+                  {homeTeam?.score || "0"}
                 </Text>
               )}
             </View>
-            <Text allowFontScaling={false} style={[
-              styles.teamAbbreviation, 
-              { color: isFavorite(homeTeam?.team?.id, 'la liga') ? colors.primary : theme.text },
-              matchStatus.isPost && homeTeam?.score < awayTeam?.score && styles.losingTeamName
-            ]}>
-              {isFavorite(homeTeam?.team?.id, 'la liga') ? '★ ' : ''}{homeTeam?.team?.abbreviation || homeTeam?.team?.displayName || 'TBD'}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamAbbreviation,
+                {
+                  color: isFavorite(homeTeam?.team?.id, "la liga")
+                    ? colors.primary
+                    : theme.text,
+                },
+                matchStatus.isPost &&
+                  homeTeam?.score < awayTeam?.score &&
+                  styles.losingTeamName,
+              ]}
+            >
+              {isFavorite(homeTeam?.team?.id, "la liga") ? "★ " : ""}
+              {homeTeam?.team?.abbreviation ||
+                homeTeam?.team?.displayName ||
+                "TBD"}
             </Text>
           </View>
 
           {/* Status Section */}
           <View style={styles.statusSection}>
-            <Text allowFontScaling={false} style={[
-              styles.gameStatus,
-              { color: matchStatus.isLive ? theme.error : theme.text }
-            ]}>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.gameStatus,
+                { color: matchStatus.isLive ? theme.error : theme.text },
+              ]}
+            >
               {matchStatus.text}
             </Text>
-            
+
             {matchStatus.time && (
-              <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.gameDateTime, { color: theme.textSecondary }]}
+              >
                 {matchStatus.time}
               </Text>
             )}
-            
+
             {matchStatus.detail && (
-              <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.gameDateTime, { color: theme.textSecondary }]}
+              >
                 {matchStatus.detail}
               </Text>
             )}
@@ -552,28 +645,47 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
           <View style={styles.teamSection}>
             <View style={styles.teamLogoRow}>
               {(matchStatus.isLive || matchStatus.isPost) && (
-                <Text allowFontScaling={false} style={[
-                  styles.teamScore, 
-                  { color: theme.text },
-                  matchStatus.isPost && awayTeam?.score < homeTeam?.score && styles.losingScore
-                ]}>
-                  {awayTeam?.score || '0'}
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.teamScore,
+                    { color: theme.text },
+                    matchStatus.isPost &&
+                      awayTeam?.score < homeTeam?.score &&
+                      styles.losingScore,
+                  ]}
+                >
+                  {awayTeam?.score || "0"}
                 </Text>
               )}
               <TeamLogoImage
                 teamId={awayTeam?.team?.id}
                 style={[
                   styles.teamLogo,
-                  matchStatus.isPost && awayTeam?.score < homeTeam?.score && styles.losingTeamLogo
+                  matchStatus.isPost &&
+                    awayTeam?.score < homeTeam?.score &&
+                    styles.losingTeamLogo,
                 ]}
               />
             </View>
-            <Text allowFontScaling={false} style={[
-              styles.teamAbbreviation, 
-              { color: isFavorite(awayTeam?.team?.id, 'la liga') ? colors.primary : theme.text },
-              matchStatus.isPost && awayTeam?.score < homeTeam?.score && styles.losingTeamName
-            ]}>
-              {isFavorite(awayTeam?.team?.id, 'la liga') ? '★ ' : ''}{awayTeam?.team?.abbreviation || awayTeam?.team?.displayName || 'TBD'}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamAbbreviation,
+                {
+                  color: isFavorite(awayTeam?.team?.id, "la liga")
+                    ? colors.primary
+                    : theme.text,
+                },
+                matchStatus.isPost &&
+                  awayTeam?.score < homeTeam?.score &&
+                  styles.losingTeamName,
+              ]}
+            >
+              {isFavorite(awayTeam?.team?.id, "la liga") ? "★ " : ""}
+              {awayTeam?.team?.abbreviation ||
+                awayTeam?.team?.displayName ||
+                "TBD"}
             </Text>
           </View>
         </View>
@@ -581,14 +693,25 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
         {/* Venue Section */}
         {competition?.venue?.fullName && (
           <View style={[styles.venueSection, { borderTopColor: theme.border }]}>
-            <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.venueText, { color: theme.textSecondary }]}
+            >
               {competition.venue.fullName}
             </Text>
           </View>
         )}
 
         {/* Live Viewer Section */}
-        <View style={[styles.viewerSection, { backgroundColor: theme.cardBackground, borderTopColor: theme.border }]}>
+        <View
+          style={[
+            styles.viewerSection,
+            {
+              backgroundColor: theme.cardBackground,
+              borderTopColor: theme.border,
+            },
+          ]}
+        >
           <LiveViewerBadge gameId={competition.id} />
         </View>
       </TouchableOpacity>
@@ -601,7 +724,10 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
         {renderDateFilter()}
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.loadingText, { color: theme.text }]}
+          >
             Loading matches...
           </Text>
         </View>
@@ -612,10 +738,13 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {renderDateFilter()}
-      
+
       {games.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text allowFontScaling={false} style={[styles.emptyText, { color: theme.textSecondary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.emptyText, { color: theme.textSecondary }]}
+          >
             {getNoGamesMessage(selectedDateFilter)}
           </Text>
         </View>
@@ -645,11 +774,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   filterContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
+    borderBottomColor: "rgba(0,0,0,0.1)",
   },
   filterButton: {
     flex: 1,
@@ -657,16 +786,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginHorizontal: 4,
     borderRadius: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   filterText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: 16,
@@ -674,13 +803,13 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 32,
   },
   emptyText: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   listContainer: {
     padding: 16,
@@ -688,7 +817,7 @@ const styles = StyleSheet.create({
   gameCard: {
     borderRadius: 8,
     marginBottom: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -696,10 +825,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   leagueHeader: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderTopLeftRadius: 8,
@@ -707,22 +836,22 @@ const styles = StyleSheet.create({
   },
   leagueText: {
     fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
   },
   matchContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 15,
     paddingHorizontal: 12,
   },
   teamSection: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   teamLogoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 8,
   },
   teamLogo: {
@@ -734,28 +863,28 @@ const styles = StyleSheet.create({
   },
   teamScore: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginHorizontal: 8,
   },
   losingScore: {
-    color: '#999',
+    color: "#999",
   },
   teamAbbreviation: {
     fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
+    fontWeight: "500",
+    textAlign: "center",
   },
   losingTeamName: {
-    color: '#999',
+    color: "#999",
   },
   statusSection: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: 10,
   },
   gameStatus: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 4,
   },
   gameDateTime: {
@@ -766,19 +895,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
+    borderTopColor: "#e9ecef",
   },
   venueText: {
     fontSize: 11,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    textAlign: "center",
+    fontStyle: "italic",
   },
   viewerSection: {
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
-    alignItems: 'center',
+    borderTopColor: "#e9ecef",
+    alignItems: "center",
   },
 });
 

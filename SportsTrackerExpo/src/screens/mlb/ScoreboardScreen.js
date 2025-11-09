@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -8,14 +8,14 @@ import {
   StyleSheet,
   RefreshControl,
   ActivityIndicator,
-  Alert
-} from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { MLBService } from '../../services/MLBService';
-import { useTheme } from '../../context/ThemeContext';
-import { useFavorites } from '../../context/FavoritesContext';
-import { convertMLBIdToESPNId } from '../../utils/TeamIdMapping';
-import { LiveViewerBadge } from '../../components/ViewerCounter';
+  Alert,
+} from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { MLBService } from "../../services/MLBService";
+import { useTheme } from "../../context/ThemeContext";
+import { useFavorites } from "../../context/FavoritesContext";
+import { convertMLBIdToESPNId } from "../../utils/TeamIdMapping";
+import { LiveViewerBadge } from "../../components/ViewerCounter";
 
 const MLBScoreboardScreen = ({ navigation }) => {
   const { theme, colors, getTeamLogoUrl } = useTheme();
@@ -24,7 +24,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false); // Start as false, only show when actually loading
   const [refreshing, setRefreshing] = useState(false);
   const [updateInterval, setUpdateInterval] = useState(null);
-  const [selectedDateFilter, setSelectedDateFilter] = useState('today'); // 'yesterday', 'today', 'upcoming'
+  const [selectedDateFilter, setSelectedDateFilter] = useState("today"); // 'yesterday', 'today', 'upcoming'
   const [isScreenFocused, setIsScreenFocused] = useState(true);
 
   // Helper functions for date management
@@ -46,62 +46,60 @@ const MLBScoreboardScreen = ({ navigation }) => {
 
   const getDateRange = (dateFilter) => {
     switch (dateFilter) {
-      case 'yesterday':
+      case "yesterday":
         const yesterday = getYesterday();
         return {
           startDate: yesterday,
-          endDate: yesterday
+          endDate: yesterday,
         };
-      case 'today':
+      case "today":
         const today = getToday();
         return {
           startDate: today,
-          endDate: today
+          endDate: today,
         };
-      case 'upcoming':
+      case "upcoming":
         const tomorrow = getTomorrow();
         const endDate = new Date(tomorrow);
         endDate.setDate(endDate.getDate() + 5); // +6 days total from tomorrow
         return {
           startDate: tomorrow,
-          endDate: endDate
+          endDate: endDate,
         };
       default:
         const defaultToday = getToday();
         return {
           startDate: defaultToday,
-          endDate: defaultToday
+          endDate: defaultToday,
         };
     }
   };
 
   const formatDateForAPI = (date) => {
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   };
 
   const getNoGamesMessage = (dateFilter) => {
     switch (dateFilter) {
-      case 'yesterday':
-        return 'No games scheduled for yesterday';
-      case 'today':
-        return 'No games scheduled for today';
-      case 'upcoming':
-        return 'No upcoming games scheduled';
+      case "yesterday":
+        return "No games scheduled for yesterday";
+      case "today":
+        return "No games scheduled for today";
+      case "upcoming":
+        return "No upcoming games scheduled";
       default:
-        return 'No games scheduled';
+        return "No games scheduled";
     }
   };
-
-
 
   // Track screen focus to pause/resume updates
   useFocusEffect(
     React.useCallback(() => {
       setIsScreenFocused(true);
-      
+
       return () => {
         setIsScreenFocused(false);
         // Clear any existing interval when screen loses focus
@@ -120,13 +118,16 @@ const MLBScoreboardScreen = ({ navigation }) => {
 
   useEffect(() => {
     // Set up continuous fetching for 'today' and 'upcoming' - only if screen is focused
-    if ((selectedDateFilter === 'today' || selectedDateFilter === 'upcoming') && isScreenFocused) {
+    if (
+      (selectedDateFilter === "today" || selectedDateFilter === "upcoming") &&
+      isScreenFocused
+    ) {
       const interval = setInterval(() => {
         loadScoreboard(true); // Silent update to prevent flickering
       }, 2000); // 2 seconds
-      
+
       setUpdateInterval(interval);
-      
+
       return () => {
         clearInterval(interval);
       };
@@ -145,53 +146,61 @@ const MLBScoreboardScreen = ({ navigation }) => {
       if (!silent) {
         setLoading(true);
       }
-      
+
       // Get date range for the filter
       const { startDate, endDate } = getDateRange(selectedDateFilter);
       const formattedStartDate = formatDateForAPI(startDate);
       const formattedEndDate = formatDateForAPI(endDate);
-      
-      const scoreboardData = await MLBService.getScoreboard(formattedStartDate, formattedEndDate);
-      
+
+      const scoreboardData = await MLBService.getScoreboard(
+        formattedStartDate,
+        formattedEndDate
+      );
+
       let processedGames;
-      
-      if (!scoreboardData || !scoreboardData.events || scoreboardData.events.length === 0) {
-        processedGames = [{
-          type: 'no-games',
-          message: getNoGamesMessage(selectedDateFilter)
-        }];
+
+      if (
+        !scoreboardData ||
+        !scoreboardData.events ||
+        scoreboardData.events.length === 0
+      ) {
+        processedGames = [
+          {
+            type: "no-games",
+            message: getNoGamesMessage(selectedDateFilter),
+          },
+        ];
       } else {
         // Group games by date and add headers
         const gamesByDate = groupGamesByDate(scoreboardData.events);
         processedGames = [];
-        
+
         // Sort dates chronologically
         Object.keys(gamesByDate)
           .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-          .forEach(date => {
+          .forEach((date) => {
             // Add date header
             processedGames.push({
-              type: 'header',
-              date: formatDateHeader(date)
+              type: "header",
+              date: formatDateHeader(date),
             });
-            
+
             // Add games for this date
             processedGames.push(...gamesByDate[date]);
           });
       }
-      
+
       setGames(processedGames);
-      
     } catch (error) {
-      console.error('MLBScoreboardScreen: Error loading games:', error);
+      console.error("MLBScoreboardScreen: Error loading games:", error);
       // Only show error alerts for non-silent updates to avoid interrupting user
       if (!silent) {
         Alert.alert(
-          'Error',
-          'Failed to load MLB games. Please check your connection and try again.',
+          "Error",
+          "Failed to load MLB games. Please check your connection and try again.",
           [
-            { text: 'Retry', onPress: () => loadScoreboard(false) },
-            { text: 'OK' }
+            { text: "Retry", onPress: () => loadScoreboard(false) },
+            { text: "OK" },
           ]
         );
       }
@@ -207,91 +216,102 @@ const MLBScoreboardScreen = ({ navigation }) => {
   // Group games by date
   const groupGamesByDate = (games) => {
     const groups = {};
-    
-    games.forEach(game => {
+
+    games.forEach((game) => {
       const gameDate = new Date(game.date);
       const dateKey = gameDate.toDateString();
-      
+
       if (!groups[dateKey]) {
         groups[dateKey] = [];
       }
-      
+
       groups[dateKey].push(game);
     });
-    
+
     // Sort games within each date group
-    Object.keys(groups).forEach(dateKey => {
+    Object.keys(groups).forEach((dateKey) => {
       console.log(`Sorting games for date: ${dateKey}`);
-      
+
       groups[dateKey].sort((a, b) => {
         // Log game details for debugging
-        console.log('Game A:', {
+        console.log("Game A:", {
           name: `${a.awayTeam?.displayName} vs ${a.homeTeam?.displayName}`,
           status: a.status,
           statusType: a.statusType,
           isLive: a.isLive,
-          date: a.date
+          date: a.date,
         });
-        console.log('Game B:', {
+        console.log("Game B:", {
           name: `${b.awayTeam?.displayName} vs ${b.homeTeam?.displayName}`,
           status: b.status,
           statusType: b.statusType,
           isLive: b.isLive,
-          date: b.date
+          date: b.date,
         });
-        
+
         // Get status priority (Live = 1, Scheduled = 2, Finished = 3)
         const getStatusPriority = (game) => {
           // Check the isLive flag first
-          if (game.isLive || game.statusType === 'I') {
+          if (game.isLive || game.statusType === "I") {
             return 1; // Live games first
           }
-          
+
           // Check for completed games
-          if (game.isCompleted || game.statusType === 'F' || game.statusType === 'O') {
+          if (
+            game.isCompleted ||
+            game.statusType === "F" ||
+            game.statusType === "O"
+          ) {
             return 3; // Finished games last
           }
-          
+
           // Check status text for additional context
-          const status = (game.status || '').toLowerCase();
-          if (status.includes('in progress') || 
-              status.includes('live') || 
-              status.includes('manager challenge')) {
+          const status = (game.status || "").toLowerCase();
+          if (
+            status.includes("in progress") ||
+            status.includes("live") ||
+            status.includes("manager challenge")
+          ) {
             return 1; // Live games first
-          } else if (status.includes('final') || status.includes('completed')) {
+          } else if (status.includes("final") || status.includes("completed")) {
             return 3; // Finished games last
           } else {
             return 2; // Scheduled games (default)
           }
         };
-        
+
         const statusA = getStatusPriority(a);
         const statusB = getStatusPriority(b);
-        
+
         console.log(`Status priorities - A: ${statusA}, B: ${statusB}`);
-        
+
         // First sort by status priority
         if (statusA !== statusB) {
           return statusA - statusB;
         }
-        
+
         // If same status, sort by game time
         const timeA = new Date(a.date).getTime();
         const timeB = new Date(b.date).getTime();
-        
-        console.log(`Time comparison - A: ${timeA}, B: ${timeB}, diff: ${timeA - timeB}`);
-        
+
+        console.log(
+          `Time comparison - A: ${timeA}, B: ${timeB}, diff: ${timeA - timeB}`
+        );
+
         return timeA - timeB;
       });
-      
-      console.log(`Sorted order for ${dateKey}:`, groups[dateKey].map(game => ({
-        teams: `${game.awayTeam?.displayName} vs ${game.homeTeam?.displayName}`,
-        status: game.status,
-        statusType: game.statusType,
-        time: game.date
-      })));
+
+      console.log(
+        `Sorted order for ${dateKey}:`,
+        groups[dateKey].map((game) => ({
+          teams: `${game.awayTeam?.displayName} vs ${game.homeTeam?.displayName}`,
+          status: game.status,
+          statusType: game.statusType,
+          time: game.date,
+        }))
+      );
     });
-    
+
     return groups;
   };
 
@@ -303,18 +323,18 @@ const MLBScoreboardScreen = ({ navigation }) => {
     yesterday.setDate(yesterday.getDate() - 1);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     if (date.toDateString() === today.toDateString()) {
-      return 'Today';
+      return "Today";
     } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
+      return "Yesterday";
     } else if (date.toDateString() === tomorrow.toDateString()) {
-      return 'Tomorrow';
+      return "Tomorrow";
     } else {
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        month: 'long', 
-        day: 'numeric' 
+      return date.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
       });
     }
   };
@@ -331,23 +351,25 @@ const MLBScoreboardScreen = ({ navigation }) => {
 
   const navigateToGameDetails = async (gameId) => {
     if (!gameId) return;
-    
+
     // Start navigation immediately
-    navigation.navigate('GameDetails', { gameId, sport: 'mlb' });
+    navigation.navigate("GameDetails", { gameId, sport: "mlb" });
   };
 
   const getESPNTeamId = (espnTeam) => {
     // Get the team ID from the API response
     const rawTeamId = espnTeam?.id?.toString();
     if (!rawTeamId) return null;
-    
+
     // If this is a MLB ID (from MLB API), convert to ESPN ID for favorites consistency
     const espnId = convertMLBIdToESPNId(rawTeamId);
     if (espnId) {
-      console.log(`ScoreboardScreen: Converting MLB ID ${rawTeamId} -> ESPN ID ${espnId}`);
+      console.log(
+        `ScoreboardScreen: Converting MLB ID ${rawTeamId} -> ESPN ID ${espnId}`
+      );
       return espnId; // Successfully converted MLB ID to ESPN ID
     }
-    
+
     // Otherwise assume it's already an ESPN ID or unknown
     return rawTeamId;
   };
@@ -355,142 +377,213 @@ const MLBScoreboardScreen = ({ navigation }) => {
   const getMLBTeamAbbreviation = (espnTeam) => {
     // ESPN team ID to abbreviation mapping (reverse of what standings does)
     const teamMapping = {
-      '108': 'LAA', '117': 'HOU', '133': 'ATH', '141': 'TOR', '144': 'ATL',
-      '158': 'MIL', '138': 'STL', '112': 'CHC', '109': 'ARI', '119': 'LAD',
-      '137': 'SF', '114': 'CLE', '136': 'SEA', '146': 'MIA', '121': 'NYM',
-      '120': 'WSH', '110': 'BAL', '135': 'SD', '143': 'PHI', '134': 'PIT',
-      '140': 'TEX', '139': 'TB', '111': 'BOS', '113': 'CIN', '115': 'COL',
-      '118': 'KC', '116': 'DET', '142': 'MIN', '145': 'CWS', '147': 'NYY',
+      108: "LAA",
+      117: "HOU",
+      133: "ATH",
+      141: "TOR",
+      144: "ATL",
+      158: "MIL",
+      138: "STL",
+      112: "CHC",
+      109: "ARI",
+      119: "LAD",
+      137: "SF",
+      114: "CLE",
+      136: "SEA",
+      146: "MIA",
+      121: "NYM",
+      120: "WSH",
+      110: "BAL",
+      135: "SD",
+      143: "PHI",
+      134: "PIT",
+      140: "TEX",
+      139: "TB",
+      111: "BOS",
+      113: "CIN",
+      115: "COL",
+      118: "KC",
+      116: "DET",
+      142: "MIN",
+      145: "CWS",
+      147: "NYY",
       // Alternative mappings
-      '11': 'ATH',   // Sometimes Athletics use ESPN ID 11
+      11: "ATH", // Sometimes Athletics use ESPN ID 11
     };
 
-    console.log('Team ID:', espnTeam?.id, 'Team abbreviation from API:', espnTeam?.abbreviation);
-    
+    console.log(
+      "Team ID:",
+      espnTeam?.id,
+      "Team abbreviation from API:",
+      espnTeam?.abbreviation
+    );
+
     // First try direct abbreviation if available
     if (espnTeam?.abbreviation) {
       return espnTeam.abbreviation;
     }
-    
+
     // Then try ID mapping
     const abbr = teamMapping[espnTeam?.id?.toString()];
     if (abbr) {
-      console.log('Using ID mapping for team ID:', espnTeam.id, '-> abbreviation:', abbr);
+      console.log(
+        "Using ID mapping for team ID:",
+        espnTeam.id,
+        "-> abbreviation:",
+        abbr
+      );
       return abbr;
     }
-    
-    console.warn('No abbreviation mapping found for team ID:', espnTeam?.id, 'Using fallback');
-    return espnTeam?.shortDisplayName || 'MLB';
+
+    console.warn(
+      "No abbreviation mapping found for team ID:",
+      espnTeam?.id,
+      "Using fallback"
+    );
+    return espnTeam?.shortDisplayName || "MLB";
   };
 
   const getGameStatusText = (item) => {
-    if (!item.status) return 'Unknown';
-    
+    if (!item.status) return "Unknown";
+
     // For MLB, show inning info for in-progress games
     if (item.isLive && item.inning && item.inningState) {
       const ordinal = MLBService.getOrdinalSuffix(item.inning);
-      return item.inningState === 'Top' ? `Top ${ordinal}` : `Bot ${ordinal}`;
+      return item.inningState === "Top" ? `Top ${ordinal}` : `Bot ${ordinal}`;
     }
-    
+
     return item.status;
   };
 
   const getGameTimeText = (item) => {
     // For live games, don't show start time (status shows inning info)
     if (item.isLive) {
-      return '';
+      return "";
     }
-    
+
     // For both scheduled and finished games, show game start time
     const gameDate = new Date(item.date);
-    return gameDate.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit'
+    return gameDate.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
     });
   };
 
   const renderDateHeader = (date) => (
-    <View style={[styles.dateHeader, { backgroundColor: colors.primary, borderBottomColor: theme.border }]}>
-      <Text allowFontScaling={false} style={[styles.dateHeaderText, { color: 'white' }]}>{date}</Text>
+    <View
+      style={[
+        styles.dateHeader,
+        { backgroundColor: colors.primary, borderBottomColor: theme.border },
+      ]}
+    >
+      <Text
+        allowFontScaling={false}
+        style={[styles.dateHeaderText, { color: "white" }]}
+      >
+        {date}
+      </Text>
     </View>
   );
 
   // Helper functions for determining losing team styles
   const getTeamScoreStyle = (item, isAwayTeam) => {
     if (!item.awayTeam || !item.homeTeam) return styles.teamScore;
-    
-    const isGameFinal = item.isCompleted || item.statusType === 'F' || item.statusType === 'O';
-    const awayScore = parseInt(item.awayTeam.score || '0');
-    const homeScore = parseInt(item.homeTeam.score || '0');
-    const isLosing = isGameFinal && (
-      (isAwayTeam && awayScore < homeScore) || 
-      (!isAwayTeam && homeScore < awayScore)
-    );
-    return isLosing ? [styles.teamScore, styles.losingTeamScore] : styles.teamScore;
+
+    const isGameFinal =
+      item.isCompleted || item.statusType === "F" || item.statusType === "O";
+    const awayScore = parseInt(item.awayTeam.score || "0");
+    const homeScore = parseInt(item.homeTeam.score || "0");
+    const isLosing =
+      isGameFinal &&
+      ((isAwayTeam && awayScore < homeScore) ||
+        (!isAwayTeam && homeScore < awayScore));
+    return isLosing
+      ? [styles.teamScore, styles.losingTeamScore]
+      : styles.teamScore;
   };
 
   const getScoreColor = (item, isAwayTeam) => {
     if (!item.awayTeam || !item.homeTeam) return colors.primary;
-    
-    const isGameFinal = item.isCompleted || item.statusType === 'F' || item.statusType === 'O';
-    const awayScore = parseInt(item.awayTeam.score || '0');
-    const homeScore = parseInt(item.homeTeam.score || '0');
-    const isLosing = isGameFinal && (
-      (isAwayTeam && awayScore < homeScore) || 
-      (!isAwayTeam && homeScore < awayScore)
-    );
+
+    const isGameFinal =
+      item.isCompleted || item.statusType === "F" || item.statusType === "O";
+    const awayScore = parseInt(item.awayTeam.score || "0");
+    const homeScore = parseInt(item.homeTeam.score || "0");
+    const isLosing =
+      isGameFinal &&
+      ((isAwayTeam && awayScore < homeScore) ||
+        (!isAwayTeam && homeScore < awayScore));
     return isLosing ? theme.textSecondary : colors.primary;
   };
 
   const getTeamNameColor = (item, isAwayTeam) => {
     if (!item.awayTeam || !item.homeTeam) return theme.text;
-    
-    const isGameFinal = item.isCompleted || item.statusType === 'F' || item.statusType === 'O';
-    const awayScore = parseInt(item.awayTeam.score || '0');
-    const homeScore = parseInt(item.homeTeam.score || '0');
-    const isLosing = isGameFinal && (
-      (isAwayTeam && awayScore < homeScore) || 
-      (!isAwayTeam && homeScore < awayScore)
-    );
+
+    const isGameFinal =
+      item.isCompleted || item.statusType === "F" || item.statusType === "O";
+    const awayScore = parseInt(item.awayTeam.score || "0");
+    const homeScore = parseInt(item.homeTeam.score || "0");
+    const isLosing =
+      isGameFinal &&
+      ((isAwayTeam && awayScore < homeScore) ||
+        (!isAwayTeam && homeScore < awayScore));
     return isLosing ? theme.textSecondary : theme.text;
   };
 
   const getTeamNameStyle = (item, isAwayTeam) => {
     if (!item.awayTeam || !item.homeTeam) return styles.teamName;
-    
-    const isGameFinal = item.isCompleted || item.statusType === 'F' || item.statusType === 'O';
-    const awayScore = parseInt(item.awayTeam.score || '0');
-    const homeScore = parseInt(item.homeTeam.score || '0');
-    const isLosing = isGameFinal && (
-      (isAwayTeam && awayScore < homeScore) || 
-      (!isAwayTeam && homeScore < awayScore)
-    );
-    return isLosing ? [styles.teamName, styles.losingTeamName] : styles.teamName;
+
+    const isGameFinal =
+      item.isCompleted || item.statusType === "F" || item.statusType === "O";
+    const awayScore = parseInt(item.awayTeam.score || "0");
+    const homeScore = parseInt(item.homeTeam.score || "0");
+    const isLosing =
+      isGameFinal &&
+      ((isAwayTeam && awayScore < homeScore) ||
+        (!isAwayTeam && homeScore < awayScore));
+    return isLosing
+      ? [styles.teamName, styles.losingTeamName]
+      : styles.teamName;
   };
 
   const renderGameCard = ({ item }) => {
-    if (item.type === 'header') {
+    if (item.type === "header") {
       return renderDateHeader(item.date);
     }
 
-    if (item.type === 'no-games') {
+    if (item.type === "no-games") {
       return (
         <View style={styles.emptyContainer}>
-          <Text allowFontScaling={false} style={[styles.emptyText, { color: theme.textSecondary }]}>{item.message}</Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.emptyText, { color: theme.textSecondary }]}
+          >
+            {item.message}
+          </Text>
         </View>
       );
     }
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.gameCard, { backgroundColor: theme.surface }]}
         onPress={() => navigateToGameDetails(item.id)}
       >
         {/* Game Status */}
         <View style={styles.gameHeader}>
-          <Text allowFontScaling={false} style={[styles.gameStatus, { color: theme.text }]}>{getGameStatusText(item)}</Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.gameStatus, { color: theme.text }]}
+          >
+            {getGameStatusText(item)}
+          </Text>
           {getGameTimeText(item) && (
-            <Text allowFontScaling={false} style={[styles.gameClock, { color: theme.textSecondary }]}>{getGameTimeText(item)}</Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.gameClock, { color: theme.textSecondary }]}
+            >
+              {getGameTimeText(item)}
+            </Text>
           )}
         </View>
 
@@ -499,69 +592,143 @@ const MLBScoreboardScreen = ({ navigation }) => {
           {/* Away Team */}
           <View style={styles.teamRow}>
             <View style={styles.teamLogoContainer}>
-              <Image 
-                source={{ uri: getTeamLogoUrl('mlb', getMLBTeamAbbreviation(item.awayTeam)) || item.awayTeam?.logo || 'https://via.placeholder.com/40x40?text=MLB' }} 
+              <Image
+                source={{
+                  uri:
+                    getTeamLogoUrl(
+                      "mlb",
+                      getMLBTeamAbbreviation(item.awayTeam)
+                    ) ||
+                    item.awayTeam?.logo ||
+                    "https://via.placeholder.com/40x40?text=MLB",
+                }}
                 style={styles.teamLogo}
-                defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
+                defaultSource={{
+                  uri: "https://via.placeholder.com/40x40?text=MLB",
+                }}
               />
             </View>
             <View style={styles.teamInfo}>
-              <Text allowFontScaling={false} style={[
-                getTeamNameStyle(item, true), 
-                { 
-                  color: isFavorite(getESPNTeamId(item.awayTeam), 'mlb') ? colors.primary : getTeamNameColor(item, true) 
-                }
-              ]}>
-                {isFavorite(getESPNTeamId(item.awayTeam), 'mlb') && '★ '}
-                {item.awayTeam?.displayName || 'TBD'}
+              <Text
+                allowFontScaling={false}
+                style={[
+                  getTeamNameStyle(item, true),
+                  {
+                    color: isFavorite(getESPNTeamId(item.awayTeam), "mlb")
+                      ? colors.primary
+                      : getTeamNameColor(item, true),
+                  },
+                ]}
+              >
+                {isFavorite(getESPNTeamId(item.awayTeam), "mlb") && "★ "}
+                {item.awayTeam?.displayName || "TBD"}
               </Text>
-              <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.awayTeam?.record || ''}</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.teamRecord, { color: theme.textSecondary }]}
+              >
+                {item.awayTeam?.record || ""}
+              </Text>
             </View>
-            <Text allowFontScaling={false} style={[getTeamScoreStyle(item, true), { color: getScoreColor(item, true) }]}>{(item.isLive || item.isCompleted || item.statusType === 'O') ? item.awayTeam?.score || '0' : ''}</Text>
+            <Text
+              allowFontScaling={false}
+              style={[
+                getTeamScoreStyle(item, true),
+                { color: getScoreColor(item, true) },
+              ]}
+            >
+              {item.isLive || item.isCompleted || item.statusType === "O"
+                ? item.awayTeam?.score || "0"
+                : ""}
+            </Text>
           </View>
 
           {/* Home Team */}
           <View style={styles.teamRow}>
             <View style={styles.teamLogoContainer}>
-              <Image 
-                source={{ uri: getTeamLogoUrl('mlb', getMLBTeamAbbreviation(item.homeTeam)) || item.homeTeam?.logo || 'https://via.placeholder.com/40x40?text=MLB' }} 
+              <Image
+                source={{
+                  uri:
+                    getTeamLogoUrl(
+                      "mlb",
+                      getMLBTeamAbbreviation(item.homeTeam)
+                    ) ||
+                    item.homeTeam?.logo ||
+                    "https://via.placeholder.com/40x40?text=MLB",
+                }}
                 style={styles.teamLogo}
-                defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
+                defaultSource={{
+                  uri: "https://via.placeholder.com/40x40?text=MLB",
+                }}
               />
             </View>
             <View style={styles.teamInfo}>
-              <Text allowFontScaling={false} style={[
-                getTeamNameStyle(item, false), 
-                { 
-                  color: isFavorite(getESPNTeamId(item.homeTeam), 'mlb') ? colors.primary : getTeamNameColor(item, false) 
-                }
-              ]}>
-                {isFavorite(getESPNTeamId(item.homeTeam), 'mlb') && '★ '}
-                {item.homeTeam?.displayName || 'TBD'}
+              <Text
+                allowFontScaling={false}
+                style={[
+                  getTeamNameStyle(item, false),
+                  {
+                    color: isFavorite(getESPNTeamId(item.homeTeam), "mlb")
+                      ? colors.primary
+                      : getTeamNameColor(item, false),
+                  },
+                ]}
+              >
+                {isFavorite(getESPNTeamId(item.homeTeam), "mlb") && "★ "}
+                {item.homeTeam?.displayName || "TBD"}
               </Text>
-              <Text allowFontScaling={false} style={[styles.teamRecord, { color: theme.textSecondary }]}>{item.homeTeam?.record || ''}</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.teamRecord, { color: theme.textSecondary }]}
+              >
+                {item.homeTeam?.record || ""}
+              </Text>
             </View>
-            <Text allowFontScaling={false} style={[getTeamScoreStyle(item, false), { color: getScoreColor(item, false) }]}>{(item.isLive || item.isCompleted || item.statusType === 'O') ? item.homeTeam?.score || '0' : ''}</Text>
+            <Text
+              allowFontScaling={false}
+              style={[
+                getTeamScoreStyle(item, false),
+                { color: getScoreColor(item, false) },
+              ]}
+            >
+              {item.isLive || item.isCompleted || item.statusType === "O"
+                ? item.homeTeam?.score || "0"
+                : ""}
+            </Text>
           </View>
         </View>
 
         {/* Game Info */}
-        <View style={[styles.gameFooter, {borderTopColor : theme.border }]}>
+        <View style={[styles.gameFooter, { borderTopColor: theme.border }]}>
           <View style={styles.gameFooterLeft}>
-            <Text allowFontScaling={false} style={[styles.venue, { color: theme.textSecondary }]}>{item.venue || ''}</Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.venue, { color: theme.textSecondary }]}
+            >
+              {item.venue || ""}
+            </Text>
             {item.broadcasts && item.broadcasts.length > 0 && (
-              <Text allowFontScaling={false} style={[styles.broadcast, { color: theme.textSecondary }]}>{item.broadcasts.join(', ')}</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.broadcast, { color: theme.textSecondary }]}
+              >
+                {item.broadcasts.join(", ")}
+              </Text>
             )}
             {/* Show bases for live games */}
             {item.isLive && item.situation?.bases && (
               <View style={styles.basesContainer}>
-                <Text allowFontScaling={false} style={[styles.basesLabel, { color: theme.textSecondary }]}>
-                  Bases: {(() => {
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.basesLabel, { color: theme.textSecondary }]}
+                >
+                  Bases:{" "}
+                  {(() => {
                     const bases = [];
-                    if (item.situation.bases.first) bases.push('1st');
-                    if (item.situation.bases.second) bases.push('2nd');
-                    if (item.situation.bases.third) bases.push('3rd');
-                    return bases.length > 0 ? bases.join(' ') : 'Empty';
+                    if (item.situation.bases.first) bases.push("1st");
+                    if (item.situation.bases.second) bases.push("2nd");
+                    if (item.situation.bases.third) bases.push("3rd");
+                    return bases.length > 0 ? bases.join(" ") : "Empty";
                   })()}
                 </Text>
               </View>
@@ -577,9 +744,16 @@ const MLBScoreboardScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+      <View
+        style={[styles.loadingContainer, { backgroundColor: theme.background }]}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>Loading MLB Scoreboard...</Text>
+        <Text
+          allowFontScaling={false}
+          style={[styles.loadingText, { color: theme.textSecondary }]}
+        >
+          Loading MLB Scoreboard...
+        </Text>
       </View>
     );
   }
@@ -587,48 +761,78 @@ const MLBScoreboardScreen = ({ navigation }) => {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Date Filter Buttons */}
-      <View style={[styles.dateFilterContainer, { backgroundColor: theme.surface }]}>
-        <TouchableOpacity 
+      <View
+        style={[styles.dateFilterContainer, { backgroundColor: theme.surface }]}
+      >
+        <TouchableOpacity
           style={[
-            styles.dateFilterButton, 
-            { backgroundColor: selectedDateFilter === 'yesterday' ? colors.primary : theme.surfaceSecondary }
+            styles.dateFilterButton,
+            {
+              backgroundColor:
+                selectedDateFilter === "yesterday"
+                  ? colors.primary
+                  : theme.surfaceSecondary,
+            },
           ]}
-          onPress={() => handleDateFilterChange('yesterday')}
+          onPress={() => handleDateFilterChange("yesterday")}
         >
-          <Text allowFontScaling={false} style={[
-            styles.dateFilterText, 
-            { color: selectedDateFilter === 'yesterday' ? '#fff' : theme.text }
-          ]}>
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.dateFilterText,
+              {
+                color: selectedDateFilter === "yesterday" ? "#fff" : theme.text,
+              },
+            ]}
+          >
             Yesterday
           </Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={[
-            styles.dateFilterButton, 
-            { backgroundColor: selectedDateFilter === 'today' ? colors.primary : theme.surfaceSecondary }
+            styles.dateFilterButton,
+            {
+              backgroundColor:
+                selectedDateFilter === "today"
+                  ? colors.primary
+                  : theme.surfaceSecondary,
+            },
           ]}
-          onPress={() => handleDateFilterChange('today')}
+          onPress={() => handleDateFilterChange("today")}
         >
-          <Text allowFontScaling={false} style={[
-            styles.dateFilterText, 
-            { color: selectedDateFilter === 'today' ? '#fff' : theme.text }
-          ]}>
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.dateFilterText,
+              { color: selectedDateFilter === "today" ? "#fff" : theme.text },
+            ]}
+          >
             Today
           </Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={[
-            styles.dateFilterButton, 
-            { backgroundColor: selectedDateFilter === 'upcoming' ? colors.primary : theme.surfaceSecondary }
+            styles.dateFilterButton,
+            {
+              backgroundColor:
+                selectedDateFilter === "upcoming"
+                  ? colors.primary
+                  : theme.surfaceSecondary,
+            },
           ]}
-          onPress={() => handleDateFilterChange('upcoming')}
+          onPress={() => handleDateFilterChange("upcoming")}
         >
-          <Text allowFontScaling={false} style={[
-            styles.dateFilterText, 
-            { color: selectedDateFilter === 'upcoming' ? '#fff' : theme.text }
-          ]}>
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.dateFilterText,
+              {
+                color: selectedDateFilter === "upcoming" ? "#fff" : theme.text,
+              },
+            ]}
+          >
             Upcoming
           </Text>
         </TouchableOpacity>
@@ -638,8 +842,8 @@ const MLBScoreboardScreen = ({ navigation }) => {
         data={games}
         renderItem={renderGameCard}
         keyExtractor={(item, index) => {
-          if (item.type === 'header') return `header-${item.date}`;
-          if (item.type === 'no-games') return `no-games-${index}`;
+          if (item.type === "header") return `header-${item.date}`;
+          if (item.type === "no-games") return `no-games-${index}`;
           return item.id || `game-${index}`;
         }}
         refreshControl={
@@ -651,13 +855,18 @@ const MLBScoreboardScreen = ({ navigation }) => {
         }
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={() => (
+        ListEmptyComponent={() =>
           !loading && (
             <View style={styles.emptyContainer}>
-              <Text allowFontScaling={false} style={[styles.emptyText, { color: theme.textSecondary }]}>No games scheduled</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.emptyText, { color: theme.textSecondary }]}
+              >
+                No games scheduled
+              </Text>
             </View>
           )
-        )}
+        }
       />
     </View>
   );
@@ -669,8 +878,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: 10,
@@ -683,7 +892,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -693,26 +902,26 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   gameHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 12,
   },
   gameStatus: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#002D72',
+    fontWeight: "600",
+    color: "#002D72",
   },
   gameClock: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
   teamsContainer: {
     marginBottom: 12,
   },
   teamRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 8,
   },
   teamLogo: {
@@ -725,61 +934,61 @@ const styles = StyleSheet.create({
   },
   teamName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   teamRecord: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginTop: 2,
   },
   teamScore: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#002D72',
+    fontWeight: "bold",
+    color: "#002D72",
     minWidth: 40,
-    textAlign: 'center',
+    textAlign: "center",
   },
   losingTeamScore: {
-    color: '#999',
+    color: "#999",
   },
   losingTeamName: {
-    color: '#999',
+    color: "#999",
   },
   gameFooter: {
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: "#eee",
     paddingTop: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
   gameFooterLeft: { flex: 1 },
-  gameFooterRight: { alignItems: 'flex-end' },
+  gameFooterRight: { alignItems: "flex-end" },
   viewerBadge: { marginTop: 2 },
   venue: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginBottom: 2,
   },
   broadcast: {
     fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
+    color: "#666",
+    fontStyle: "italic",
   },
   basesContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 4,
   },
   basesLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   teamLogoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    position: 'relative',
+    flexDirection: "row",
+    alignItems: "center",
+    position: "relative",
   },
   dateHeader: {
     paddingVertical: 12,
@@ -789,12 +998,12 @@ const styles = StyleSheet.create({
   },
   dateHeaderText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
   },
   dateFilterContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
@@ -804,27 +1013,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 20,
     minWidth: 80,
-    alignItems: 'center',
+    alignItems: "center",
   },
   activeFilterButton: {
     // Dynamic color applied in render
   },
   dateFilterText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   activeFilterText: {
     // Dynamic color applied in render
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingTop: 50,
   },
   emptyText: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });
 

@@ -69,14 +69,14 @@ const LiveViewerBadge = ({ gameId, style }) => {
   // Use a read-only subscription that doesn't join the game
   const { viewerCount } = useGamePresenceReadOnly(gameId);
 
-  console.log('👁️ LiveViewerBadge Debug (Scoreboard):', {
+  console.log("👁️ LiveViewerBadge Debug (Scoreboard):", {
     gameId,
     viewerCount,
     hasGameId: !!gameId,
     showBadge: !!(gameId && viewerCount > 0),
     gameIdType: typeof gameId,
-    platform: 'scoreboard-readonly',
-    exactMatch: gameId === '401802583'
+    platform: "scoreboard-readonly",
+    exactMatch: gameId === "401802583",
   });
 
   if (!gameId || viewerCount === 0) return null;
@@ -91,13 +91,19 @@ const LiveViewerBadge = ({ gameId, style }) => {
   };
 
   return (
-    <View style={[styles.badge, style, { 
-      backgroundColor: theme.surface, 
-      borderColor: colors.primary,
-      // Temporary: Make it highly visible for debugging
-      minWidth: 40,
-      minHeight: 20,
-    }]}>
+    <View
+      style={[
+        styles.badge,
+        style,
+        {
+          backgroundColor: theme.surface,
+          borderColor: colors.primary,
+          // Temporary: Make it highly visible for debugging
+          minWidth: 40,
+          minHeight: 20,
+        },
+      ]}
+    >
       <Ionicons name="eye" size={18} color={colors.primary} />
       <Text style={[styles.badgeText, { color: colors.primary }]}>
         {formatViewerCount(viewerCount)}

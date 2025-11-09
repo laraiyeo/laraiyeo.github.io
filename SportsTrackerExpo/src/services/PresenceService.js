@@ -47,19 +47,24 @@ export class PresenceService {
    */
   static init() {
     if (!this.database) {
-      console.log('🔧 PresenceService - Initializing Realtime Database...');
+      console.log("🔧 PresenceService - Initializing Realtime Database...");
       try {
         this.database = getRealtimeDatabase();
-        console.log('✅ PresenceService - Realtime Database initialized successfully');
-        
+        console.log(
+          "✅ PresenceService - Realtime Database initialized successfully"
+        );
+
         // Test database connection
         this.testDatabaseConnection();
       } catch (error) {
-        console.error('❌ PresenceService - Failed to initialize database:', error);
+        console.error(
+          "❌ PresenceService - Failed to initialize database:",
+          error
+        );
         throw error;
       }
     } else {
-      console.log('✅ PresenceService - Database already initialized');
+      console.log("✅ PresenceService - Database already initialized");
     }
   }
 
@@ -68,13 +73,18 @@ export class PresenceService {
    */
   static async testDatabaseConnection() {
     try {
-      console.log('🧪 PresenceService - Testing database connection...');
-      const testRef = ref(this.database, 'test/connection');
-      await set(testRef, { timestamp: Date.now(), test: 'success' });
-      console.log('✅ PresenceService - Database connection test successful');
+      console.log("🧪 PresenceService - Testing database connection...");
+      const testRef = ref(this.database, "test/connection");
+      await set(testRef, { timestamp: Date.now(), test: "success" });
+      console.log("✅ PresenceService - Database connection test successful");
     } catch (error) {
-      console.error('❌ PresenceService - Database connection test failed:', error);
-      console.error('❌ PresenceService - This might be a permissions issue. Check Firebase rules.');
+      console.error(
+        "❌ PresenceService - Database connection test failed:",
+        error
+      );
+      console.error(
+        "❌ PresenceService - This might be a permissions issue. Check Firebase rules."
+      );
     }
   }
 
@@ -102,11 +112,11 @@ export class PresenceService {
    */
   static async joinGame(gameId) {
     try {
-      console.log('🎯 PresenceService.joinGame - Starting for gameId:', gameId);
-      
+      console.log("🎯 PresenceService.joinGame - Starting for gameId:", gameId);
+
       this.init();
       const userId = await this.getUserId();
-      console.log('👤 PresenceService.joinGame - Got userId:', userId);
+      console.log("👤 PresenceService.joinGame - Got userId:", userId);
 
       // Create presence object
       const presenceData = {
@@ -116,23 +126,33 @@ export class PresenceService {
         platform: "mobile",
         version: "1.0.0",
       };
-      console.log('📦 PresenceService.joinGame - Created presence data:', presenceData);
+      console.log(
+        "📦 PresenceService.joinGame - Created presence data:",
+        presenceData
+      );
 
       // Reference to this user's presence in this game
       const userGamePresenceRef = ref(
         this.database,
         `presence/games/${gameId}/viewers/${userId}`
       );
-      console.log('📍 PresenceService.joinGame - Database ref path:', `presence/games/${gameId}/viewers/${userId}`);
+      console.log(
+        "📍 PresenceService.joinGame - Database ref path:",
+        `presence/games/${gameId}/viewers/${userId}`
+      );
 
       // Set user as present
-      console.log('🔄 PresenceService.joinGame - About to write presence data to Firebase...');
+      console.log(
+        "🔄 PresenceService.joinGame - About to write presence data to Firebase..."
+      );
       await set(userGamePresenceRef, presenceData);
-      console.log('✅ PresenceService.joinGame - Successfully set presence data');
+      console.log(
+        "✅ PresenceService.joinGame - Successfully set presence data"
+      );
 
       // Set up disconnect handler - remove user when they disconnect
       onDisconnect(userGamePresenceRef).remove();
-      console.log('🔌 PresenceService.joinGame - Disconnect handler set up');
+      console.log("🔌 PresenceService.joinGame - Disconnect handler set up");
 
       // Store reference for later cleanup
       this.userPresenceRefs.set(gameId, {
@@ -162,7 +182,7 @@ export class PresenceService {
       console.error("❌ PresenceService.joinGame - Error details:", {
         code: error.code,
         message: error.message,
-        name: error.name
+        name: error.name,
       });
       return false;
     }
@@ -173,31 +193,48 @@ export class PresenceService {
    */
   static async leaveGame(gameId) {
     try {
-      console.log('🚪 PresenceService.leaveGame - Starting cleanup for gameId:', gameId);
+      console.log(
+        "🚪 PresenceService.leaveGame - Starting cleanup for gameId:",
+        gameId
+      );
       const presenceData = this.userPresenceRefs.get(gameId);
       if (!presenceData) {
-        console.log('🚪 PresenceService.leaveGame - No presence data found for gameId:', gameId);
+        console.log(
+          "🚪 PresenceService.leaveGame - No presence data found for gameId:",
+          gameId
+        );
         return;
       }
 
-      console.log('🚪 PresenceService.leaveGame - Found presence data, cleaning up...');
+      console.log(
+        "🚪 PresenceService.leaveGame - Found presence data, cleaning up..."
+      );
 
       // Clear heartbeat
       if (presenceData.heartbeatInterval) {
-        console.log('🚪 PresenceService.leaveGame - Clearing heartbeat interval');
+        console.log(
+          "🚪 PresenceService.leaveGame - Clearing heartbeat interval"
+        );
         clearInterval(presenceData.heartbeatInterval);
       }
 
       // Remove user's presence
-      console.log('🚪 PresenceService.leaveGame - Removing user presence from Firebase');
+      console.log(
+        "🚪 PresenceService.leaveGame - Removing user presence from Firebase"
+      );
       await set(presenceData.ref, null);
 
       // Clean up
       this.userPresenceRefs.delete(gameId);
 
-      console.log(`✅ PresenceService.leaveGame - Successfully left game: ${gameId}`);
+      console.log(
+        `✅ PresenceService.leaveGame - Successfully left game: ${gameId}`
+      );
     } catch (error) {
-      console.error("❌ PresenceService.leaveGame - Error leaving game:", error);
+      console.error(
+        "❌ PresenceService.leaveGame - Error leaving game:",
+        error
+      );
     }
   }
 
@@ -206,26 +243,53 @@ export class PresenceService {
    */
   static subscribeToGameViewers(gameId, callback) {
     try {
-      console.log('📡 PresenceService.subscribeToGameViewers - Setting up subscription for:', gameId);
-      console.log('📱 PresenceService.subscribeToGameViewers - Platform:', Platform.OS);
+      console.log(
+        "📡 PresenceService.subscribeToGameViewers - Setting up subscription for:",
+        gameId
+      );
+      console.log(
+        "📱 PresenceService.subscribeToGameViewers - Platform:",
+        Platform.OS
+      );
       this.init();
 
       const gameViewersRef = ref(
         this.database,
         `presence/games/${gameId}/viewers`
       );
-      console.log('📍 PresenceService.subscribeToGameViewers - Ref path:', `presence/games/${gameId}/viewers`);
+      console.log(
+        "📍 PresenceService.subscribeToGameViewers - Ref path:",
+        `presence/games/${gameId}/viewers`
+      );
 
       const unsubscribe = onValue(
         gameViewersRef,
         (snapshot) => {
-          console.log('📊 PresenceService.subscribeToGameViewers - Received snapshot for gameId:', gameId);
-          console.log('📱 PresenceService.subscribeToGameViewers - Platform receiving data:', Platform.OS);
-          console.log('📊 PresenceService.subscribeToGameViewers - Snapshot exists?', snapshot.exists());
-          console.log('📊 PresenceService.subscribeToGameViewers - Snapshot key:', snapshot.key);
+          console.log(
+            "📊 PresenceService.subscribeToGameViewers - Received snapshot for gameId:",
+            gameId
+          );
+          console.log(
+            "📱 PresenceService.subscribeToGameViewers - Platform receiving data:",
+            Platform.OS
+          );
+          console.log(
+            "📊 PresenceService.subscribeToGameViewers - Snapshot exists?",
+            snapshot.exists()
+          );
+          console.log(
+            "📊 PresenceService.subscribeToGameViewers - Snapshot key:",
+            snapshot.key
+          );
           const viewers = snapshot.val() || {};
-          console.log('👥 PresenceService.subscribeToGameViewers - Raw viewers data:', viewers);
-          console.log('👥 PresenceService.subscribeToGameViewers - Viewers count:', Object.keys(viewers).length);
+          console.log(
+            "👥 PresenceService.subscribeToGameViewers - Raw viewers data:",
+            viewers
+          );
+          console.log(
+            "👥 PresenceService.subscribeToGameViewers - Viewers count:",
+            Object.keys(viewers).length
+          );
           const currentTime = Date.now();
 
           // Filter out stale viewers (haven't been seen in 2 minutes)
@@ -252,16 +316,25 @@ export class PresenceService {
             })),
           };
 
-          console.log('📈 PresenceService.subscribeToGameViewers - Calling callback with data:', viewerData);
+          console.log(
+            "📈 PresenceService.subscribeToGameViewers - Calling callback with data:",
+            viewerData
+          );
           callback(viewerData);
         },
         (error) => {
-          console.error("❌ PresenceService.subscribeToGameViewers - Firebase subscription error:", error);
-          console.error("❌ PresenceService.subscribeToGameViewers - Error details:", {
-            code: error.code,
-            message: error.message,
-            name: error.name
-          });
+          console.error(
+            "❌ PresenceService.subscribeToGameViewers - Firebase subscription error:",
+            error
+          );
+          console.error(
+            "❌ PresenceService.subscribeToGameViewers - Error details:",
+            {
+              code: error.code,
+              message: error.message,
+              name: error.name,
+            }
+          );
           callback({ count: 0, viewers: [] });
         }
       );

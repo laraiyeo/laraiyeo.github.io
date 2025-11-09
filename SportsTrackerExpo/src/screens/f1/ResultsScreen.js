@@ -1,25 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
   FlatList,
-  TouchableOpacity, 
-  Image, 
+  TouchableOpacity,
+  Image,
   ActivityIndicator,
-  Alert
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '../../context/ThemeContext';
-import { useFavorites } from '../../context/FavoritesContext';
-import { LiveViewerBadge } from '../../components/ViewerCounter';
+  Alert,
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { useTheme } from "../../context/ThemeContext";
+import { useFavorites } from "../../context/FavoritesContext";
+import { LiveViewerBadge } from "../../components/ViewerCounter";
 
 const ResultsScreen = ({ route }) => {
   const { theme, colors } = useTheme();
   const { isFavorite, toggleFavorite } = useFavorites();
   const navigation = useNavigation();
-  
-  const [selectedType, setSelectedType] = useState('CURRENT');
+
+  const [selectedType, setSelectedType] = useState("CURRENT");
   const [results, setResults] = useState([]);
   const [allEvents, setAllEvents] = useState([]);
   const [allEventsLoaded, setAllEventsLoaded] = useState(false);
@@ -27,9 +27,9 @@ const ResultsScreen = ({ route }) => {
   const [refreshing, setRefreshing] = useState(false);
 
   const resultTypes = [
-    { key: 'LAST', name: 'Last' },
-    { key: 'CURRENT', name: 'Current' },
-    { key: 'UPCOMING', name: 'Upcoming' }
+    { key: "LAST", name: "Last" },
+    { key: "CURRENT", name: "Current" },
+    { key: "UPCOMING", name: "Upcoming" },
   ];
 
   useEffect(() => {
@@ -50,20 +50,25 @@ const ResultsScreen = ({ route }) => {
       const nowMs = Date.now();
 
       // Fetch calendar first (efficient approach)
-      const calUrl = 'https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/calendar/ondays?lang=en&region=us';
+      const calUrl =
+        "https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/calendar/ondays?lang=en&region=us";
       const calResp = await fetch(calUrl);
       const calJson = await calResp.json();
 
       if (!calJson || !Array.isArray(calJson.sections)) {
-        throw new Error('Invalid calendar data');
+        throw new Error("Invalid calendar data");
       }
 
       // Process all calendar sections in parallel instead of one by one
       const sectionPromises = calJson.sections.map(async (section) => {
         try {
-          const evName = section.label || section.title || 'Event';
-          const startDate = section.startDate || section.event?.startDate || section.event?.date;
-          const endDate = section.endDate || section.event?.endDate || section.event?.date;
+          const evName = section.label || section.title || "Event";
+          const startDate =
+            section.startDate ||
+            section.event?.startDate ||
+            section.event?.date;
+          const endDate =
+            section.endDate || section.event?.endDate || section.event?.date;
           const eventRef = section.event?.$ref;
 
           if (!startDate || !endDate || !eventRef) {
@@ -80,15 +85,23 @@ const ResultsScreen = ({ route }) => {
           if (!eventData) return null;
 
           // Fetch venue details for circuit name & country flag
-          let venueName = '';
-          let countryFlag = '';
-          if (eventData.venues && eventData.venues.length > 0 && eventData.venues[0].$ref) {
+          let venueName = "";
+          let countryFlag = "";
+          if (
+            eventData.venues &&
+            eventData.venues.length > 0 &&
+            eventData.venues[0].$ref
+          ) {
             try {
               const venueData = await fetchRef(eventData.venues[0].$ref);
-              venueName = venueData?.fullName || '';
-              countryFlag = venueData?.countryFlag?.href || '';
+              venueName = venueData?.fullName || "";
+              countryFlag = venueData?.countryFlag?.href || "";
             } catch (venueErr) {
-              console.warn('Failed to fetch venue info for event', eventData.id, venueErr);
+              console.warn(
+                "Failed to fetch venue info for event",
+                eventData.id,
+                venueErr
+              );
             }
           }
 
@@ -96,7 +109,7 @@ const ResultsScreen = ({ route }) => {
           // For F1 events, consider them current if we're within the event weekend (from start to end+1day)
           const isCompleted = nowMs > endPlusOneMs;
           const isUpcoming = nowMs < startMs;
-          
+
           // Special handling for F1 events: if today's date falls within the event dates, it's current
           const todayStart = new Date();
           todayStart.setHours(0, 0, 0, 0);
@@ -104,12 +117,17 @@ const ResultsScreen = ({ route }) => {
           todayEnd.setHours(23, 59, 59, 999);
           const eventStartDate = new Date(startMs);
           const eventEndDate = new Date(endMs);
-          
+
           // Check if today falls within the event period
-          const isTodayInEventPeriod = (todayStart <= eventEndDate && todayEnd >= eventStartDate);
-          
+          const isTodayInEventPeriod =
+            todayStart <= eventEndDate && todayEnd >= eventStartDate;
+
           // Override isUpcoming if today is within the event period and event isn't completed
-          const finalIsUpcoming = isCompleted ? false : (isTodayInEventPeriod ? false : isUpcoming);
+          const finalIsUpcoming = isCompleted
+            ? false
+            : isTodayInEventPeriod
+            ? false
+            : isUpcoming;
           const isInProgress = !isCompleted && !finalIsUpcoming;
 
           const enriched = {
@@ -121,54 +139,100 @@ const ResultsScreen = ({ route }) => {
             isCompleted,
             isUpcoming: finalIsUpcoming,
             competitionWinners: {},
-            winnerName: '',
-            winnerTeam: '',
-            winnerTeamColor: '#333333'
+            winnerName: "",
+            winnerTeam: "",
+            winnerTeamColor: "#333333",
           };
 
           // For completed races, find the race winner
           if (isCompleted) {
             try {
-              const raceCompetition = (eventData.competitions || []).find(comp => {
-                const type = comp.type || {};
-                const name = (type.name || type.displayName || type.abbreviation || type.text || '').toString().toLowerCase();
-                return name.includes('race') && !name.includes('sprint');
-              });
+              const raceCompetition = (eventData.competitions || []).find(
+                (comp) => {
+                  const type = comp.type || {};
+                  const name = (
+                    type.name ||
+                    type.displayName ||
+                    type.abbreviation ||
+                    type.text ||
+                    ""
+                  )
+                    .toString()
+                    .toLowerCase();
+                  return name.includes("race") && !name.includes("sprint");
+                }
+              );
 
               if (raceCompetition) {
                 // Use competitors directly from the race competition data
                 const competitors = raceCompetition?.competitors || [];
 
-                const winnerComp = Array.isArray(competitors) ? 
-                  (competitors.find(c => c.winner === true) || competitors.find(c => c.rank === 1 || c.order === 1)) : null;
+                const winnerComp = Array.isArray(competitors)
+                  ? competitors.find((c) => c.winner === true) ||
+                    competitors.find((c) => c.rank === 1 || c.order === 1)
+                  : null;
 
                 if (winnerComp) {
                   // Resolve athlete name
-                  let winnerName = '';
+                  let winnerName = "";
                   try {
                     const athleteRef = winnerComp.athlete?.$ref || null;
-                    if (athleteRef && typeof athleteRef === 'string') {
+                    if (athleteRef && typeof athleteRef === "string") {
                       const athleteData = await fetchRef(athleteRef);
-                      winnerName = athleteData?.displayName || athleteData?.shortName || athleteData?.fullName || athleteRef;
-                    } else if (winnerComp.athlete && typeof winnerComp.athlete === 'object') {
-                      winnerName = winnerComp.athlete.displayName || winnerComp.athlete.shortName || winnerComp.athlete.fullName || '';
+                      winnerName =
+                        athleteData?.displayName ||
+                        athleteData?.shortName ||
+                        athleteData?.fullName ||
+                        athleteRef;
+                    } else if (
+                      winnerComp.athlete &&
+                      typeof winnerComp.athlete === "object"
+                    ) {
+                      winnerName =
+                        winnerComp.athlete.displayName ||
+                        winnerComp.athlete.shortName ||
+                        winnerComp.athlete.fullName ||
+                        "";
                     }
                   } catch (aerr) {
-                    winnerName = winnerComp.athlete?.shortName || winnerComp.athlete?.displayName || winnerComp.athlete || '';
+                    winnerName =
+                      winnerComp.athlete?.shortName ||
+                      winnerComp.athlete?.displayName ||
+                      winnerComp.athlete ||
+                      "";
                   }
 
-                  const manufacturer = winnerComp.vehicle?.manufacturer || winnerComp.team?.displayName || '';
+                  const manufacturer =
+                    winnerComp.vehicle?.manufacturer ||
+                    winnerComp.team?.displayName ||
+                    "";
                   enriched.winnerName = winnerName;
                   enriched.winnerTeam = manufacturer;
-                  enriched.winnerTeamColor = manufacturer ? `#${getTeamColor(manufacturer)}` : '#333333';
+                  enriched.winnerTeamColor = manufacturer
+                    ? `#${getTeamColor(manufacturer)}`
+                    : "#333333";
 
                   // Console log for finished race
-                  const winnerTeamColor = manufacturer ? `#${getTeamColor(manufacturer)}` : '';
-                  console.log(`Finished Race: ${evName}${venueName ? ` (${venueName})` : ''}${countryFlag ? ` [flag: ${countryFlag}]` : ''}: Winner: ${winnerName || 'UNKNOWN'} - ${manufacturer || 'UNKNOWN'}${winnerTeamColor ? ` • ${winnerTeamColor}` : ''}`);
+                  const winnerTeamColor = manufacturer
+                    ? `#${getTeamColor(manufacturer)}`
+                    : "";
+                  console.log(
+                    `Finished Race: ${evName}${
+                      venueName ? ` (${venueName})` : ""
+                    }${countryFlag ? ` [flag: ${countryFlag}]` : ""}: Winner: ${
+                      winnerName || "UNKNOWN"
+                    } - ${manufacturer || "UNKNOWN"}${
+                      winnerTeamColor ? ` • ${winnerTeamColor}` : ""
+                    }`
+                  );
                 }
               }
             } catch (winnerErr) {
-              console.warn('Failed to resolve winner for completed event', eventData.id, winnerErr);
+              console.warn(
+                "Failed to resolve winner for completed event",
+                eventData.id,
+                winnerErr
+              );
             }
           }
 
@@ -187,47 +251,72 @@ const ResultsScreen = ({ route }) => {
                   // Use competition data directly - no need to fetch $ref
                   const compData = competition;
                   const compType = compData?.type || {};
-                  const compAbbr = compType.abbreviation || compType.displayName || compType.text || compType.name || 'Competition';
+                  const compAbbr =
+                    compType.abbreviation ||
+                    compType.displayName ||
+                    compType.text ||
+                    compType.name ||
+                    "Competition";
 
                   // Normalize common abbreviations
-                  const abbr = (compType.abbreviation || '').toString();
+                  const abbr = (compType.abbreviation || "").toString();
                   const typeMap = {
-                    'FP1': 'Free Practice 1',
-                    'FP2': 'Free Practice 2',
-                    'FP3': 'Free Practice 3',
-                    'SS': 'Sprint Shootout',
-                    'SR': 'Sprint Race',
-                    'Qual': 'Qualifying',
-                    'Race': 'Race'
+                    FP1: "Free Practice 1",
+                    FP2: "Free Practice 2",
+                    FP3: "Free Practice 3",
+                    SS: "Sprint Shootout",
+                    SR: "Sprint Race",
+                    Qual: "Qualifying",
+                    Race: "Race",
                   };
-                  const compName = (abbr && typeMap[abbr]) ? typeMap[abbr] : 
-                    (compType.displayName || compType.text || compType.name || compType.abbreviation || 'Competition');
+                  const compName =
+                    abbr && typeMap[abbr]
+                      ? typeMap[abbr]
+                      : compType.displayName ||
+                        compType.text ||
+                        compType.name ||
+                        compType.abbreviation ||
+                        "Competition";
 
                   // Check if this competition is scheduled (for display time/type)
                   try {
                     const statusRef = compData?.status?.$ref;
                     let statusData = null;
-                    if (typeof statusRef === 'string') {
+                    if (typeof statusRef === "string") {
                       statusData = await fetchRef(statusRef);
-                    } else if (compData?.status && typeof compData.status === 'object') {
+                    } else if (
+                      compData?.status &&
+                      typeof compData.status === "object"
+                    ) {
                       statusData = compData.status;
                     }
 
-                    const isScheduled = statusData && (
-                      statusData.type?.name === 'STATUS_SCHEDULED' ||
-                      statusData.type?.state === 'pre' ||
-                      statusData.type === 'pre' ||
-                      statusData.type?.name?.toString().toLowerCase().includes('scheduled')
-                    );
+                    const isScheduled =
+                      statusData &&
+                      (statusData.type?.name === "STATUS_SCHEDULED" ||
+                        statusData.type?.state === "pre" ||
+                        statusData.type === "pre" ||
+                        statusData.type?.name
+                          ?.toString()
+                          .toLowerCase()
+                          .includes("scheduled"));
 
-                    const compStartMs = Date.parse(compData?.date || '');
-                    if (isScheduled && compStartMs && (!nextCompetitionMs || compStartMs < nextCompetitionMs)) {
+                    const compStartMs = Date.parse(compData?.date || "");
+                    if (
+                      isScheduled &&
+                      compStartMs &&
+                      (!nextCompetitionMs || compStartMs < nextCompetitionMs)
+                    ) {
                       nextCompetition = {
                         compType,
                         compName,
                         compDate: compData?.date,
-                        compTypeText: compType.text || compType.displayName || compType.abbreviation || compName,
-                        compTypeAbbreviation: compType.abbreviation || compName
+                        compTypeText:
+                          compType.text ||
+                          compType.displayName ||
+                          compType.abbreviation ||
+                          compName,
+                        compTypeAbbreviation: compType.abbreviation || compName,
                       };
                       nextCompetitionMs = compStartMs;
                     }
@@ -236,122 +325,218 @@ const ResultsScreen = ({ route }) => {
                   }
 
                   const competitors = compData?.competitors || [];
-                  const winners = Array.isArray(competitors) ? competitors.filter(c => c.winner === true) : [];
+                  const winners = Array.isArray(competitors)
+                    ? competitors.filter((c) => c.winner === true)
+                    : [];
 
                   if (winners.length > 0) {
                     anyWinners = true;
                     for (const w of winners) {
                       // Resolve athlete name for display
-                      let athleteName = '';
+                      let athleteName = "";
                       try {
                         const athleteRef = w.athlete?.$ref || null;
-                        if (athleteRef && typeof athleteRef === 'string') {
+                        if (athleteRef && typeof athleteRef === "string") {
                           const athleteData = await fetchRef(athleteRef);
-                          athleteName = athleteData?.displayName || athleteData?.shortName || athleteData?.fullName || athleteRef;
-                        } else if (w.athlete && typeof w.athlete === 'object') {
-                          athleteName = w.athlete.displayName || w.athlete.shortName || w.athlete.fullName || '';
+                          athleteName =
+                            athleteData?.displayName ||
+                            athleteData?.shortName ||
+                            athleteData?.fullName ||
+                            athleteRef;
+                        } else if (w.athlete && typeof w.athlete === "object") {
+                          athleteName =
+                            w.athlete.displayName ||
+                            w.athlete.shortName ||
+                            w.athlete.fullName ||
+                            "";
                         }
                       } catch (aerr) {
-                        athleteName = w.athlete?.shortName || w.athlete?.displayName || w.athlete || '';
+                        athleteName =
+                          w.athlete?.shortName ||
+                          w.athlete?.displayName ||
+                          w.athlete ||
+                          "";
                       }
 
-                      const manufacturer = w.vehicle?.manufacturer || w.team?.displayName || '';
-                      const teamColor = manufacturer ? `#${getTeamColor(manufacturer)}` : '';
+                      const manufacturer =
+                        w.vehicle?.manufacturer || w.team?.displayName || "";
+                      const teamColor = manufacturer
+                        ? `#${getTeamColor(manufacturer)}`
+                        : "";
 
                       // Store for UI
                       competitionWinners[compName] = {
-                        winnerName: athleteName || 'TBD',
-                        winnerTeam: manufacturer || '',
-                        winnerTeamColor: teamColor
+                        winnerName: athleteName || "TBD",
+                        winnerTeam: manufacturer || "",
+                        winnerTeamColor: teamColor,
                       };
 
                       // Console log
-                      console.log(`In Progress Race: ${evName}${venueName ? ` (${venueName})` : ''}${countryFlag ? ` [flag: ${countryFlag}]` : ''}: Competition: ${compAbbr} | Winner: ${athleteName || 'UNKNOWN'} - ${manufacturer || 'UNKNOWN'}${teamColor ? ` • ${teamColor}` : ''}`);
+                      console.log(
+                        `In Progress Race: ${evName}${
+                          venueName ? ` (${venueName})` : ""
+                        }${
+                          countryFlag ? ` [flag: ${countryFlag}]` : ""
+                        }: Competition: ${compAbbr} | Winner: ${
+                          athleteName || "UNKNOWN"
+                        } - ${manufacturer || "UNKNOWN"}${
+                          teamColor ? ` • ${teamColor}` : ""
+                        }`
+                      );
                     }
                   } else {
                     // No explicit winner flag; check competition status
                     try {
                       let statusRef = compData?.status?.$ref;
                       let statusData = null;
-                      if (typeof statusRef === 'string') {
+                      if (typeof statusRef === "string") {
                         statusData = await fetchRef(statusRef);
-                      } else if (compData?.status && typeof compData.status === 'object') {
+                      } else if (
+                        compData?.status &&
+                        typeof compData.status === "object"
+                      ) {
                         statusData = compData.status;
                       }
 
-                      const isCompletedStatus = statusData && (
-                        statusData.type?.completed === true ||
-                        statusData.type?.name === 'STATUS_FINAL' ||
-                        statusData.type?.state === 'post' ||
-                        statusData.completed === true ||
-                        statusData.type === 'post'
-                      );
+                      const isCompletedStatus =
+                        statusData &&
+                        (statusData.type?.completed === true ||
+                          statusData.type?.name === "STATUS_FINAL" ||
+                          statusData.type?.state === "post" ||
+                          statusData.completed === true ||
+                          statusData.type === "post");
 
                       if (isCompletedStatus) {
-                        const firstPlace = Array.isArray(competitors) ? 
-                          (competitors.find(c => c.order === 1 || c.rank === 1) || competitors[0]) : null;
+                        const firstPlace = Array.isArray(competitors)
+                          ? competitors.find(
+                              (c) => c.order === 1 || c.rank === 1
+                            ) || competitors[0]
+                          : null;
                         if (firstPlace) {
                           anyWinners = true;
                           // Resolve athlete name and manufacturer
-                          let athleteName = '';
+                          let athleteName = "";
                           try {
                             const athleteRef = firstPlace.athlete?.$ref || null;
-                            if (athleteRef && typeof athleteRef === 'string') {
+                            if (athleteRef && typeof athleteRef === "string") {
                               const athleteData = await fetchRef(athleteRef);
-                              athleteName = athleteData?.displayName || athleteData?.shortName || athleteData?.fullName || athleteRef;
-                            } else if (firstPlace.athlete && typeof firstPlace.athlete === 'object') {
-                              athleteName = firstPlace.athlete.displayName || firstPlace.athlete.shortName || firstPlace.athlete.fullName || '';
+                              athleteName =
+                                athleteData?.displayName ||
+                                athleteData?.shortName ||
+                                athleteData?.fullName ||
+                                athleteRef;
+                            } else if (
+                              firstPlace.athlete &&
+                              typeof firstPlace.athlete === "object"
+                            ) {
+                              athleteName =
+                                firstPlace.athlete.displayName ||
+                                firstPlace.athlete.shortName ||
+                                firstPlace.athlete.fullName ||
+                                "";
                             }
                           } catch (aerr) {
-                            athleteName = firstPlace.athlete?.shortName || firstPlace.athlete?.displayName || firstPlace.athlete || '';
+                            athleteName =
+                              firstPlace.athlete?.shortName ||
+                              firstPlace.athlete?.displayName ||
+                              firstPlace.athlete ||
+                              "";
                           }
 
-                          const manufacturer = firstPlace.vehicle?.manufacturer || firstPlace.team?.displayName || '';
-                          const teamColor = manufacturer ? `#${getTeamColor(manufacturer)}` : '';
+                          const manufacturer =
+                            firstPlace.vehicle?.manufacturer ||
+                            firstPlace.team?.displayName ||
+                            "";
+                          const teamColor = manufacturer
+                            ? `#${getTeamColor(manufacturer)}`
+                            : "";
 
                           // Store for UI
                           competitionWinners[compName] = {
-                            winnerName: athleteName || 'TBD',
-                            winnerTeam: manufacturer || '',
-                            winnerTeamColor: teamColor
+                            winnerName: athleteName || "TBD",
+                            winnerTeam: manufacturer || "",
+                            winnerTeamColor: teamColor,
                           };
 
                           // Console log
-                          console.log(`In Progress Race: ${evName}${venueName ? ` (${venueName})` : ''}${countryFlag ? ` [flag: ${countryFlag}]` : ''}: Competition: ${compAbbr} | Winner: ${athleteName || 'UNKNOWN'} - ${manufacturer || 'UNKNOWN'}${teamColor ? ` • ${teamColor}` : ''}`);
+                          console.log(
+                            `In Progress Race: ${evName}${
+                              venueName ? ` (${venueName})` : ""
+                            }${
+                              countryFlag ? ` [flag: ${countryFlag}]` : ""
+                            }: Competition: ${compAbbr} | Winner: ${
+                              athleteName || "UNKNOWN"
+                            } - ${manufacturer || "UNKNOWN"}${
+                              teamColor ? ` • ${teamColor}` : ""
+                            }`
+                          );
                         }
                       }
                     } catch (statusErr) {
                       // Fallback to order/rank heuristics
                       try {
-                        const firstPlace = Array.isArray(competitors) ? 
-                          (competitors.find(c => c.order === 1 || c.rank === 1) || null) : null;
+                        const firstPlace = Array.isArray(competitors)
+                          ? competitors.find(
+                              (c) => c.order === 1 || c.rank === 1
+                            ) || null
+                          : null;
                         if (firstPlace) {
                           anyWinners = true;
-                          let athleteName = '';
+                          let athleteName = "";
                           try {
                             const athleteRef = firstPlace.athlete?.$ref || null;
-                            if (athleteRef && typeof athleteRef === 'string') {
+                            if (athleteRef && typeof athleteRef === "string") {
                               const athleteData = await fetchRef(athleteRef);
-                              athleteName = athleteData?.displayName || athleteData?.shortName || athleteData?.fullName || athleteRef;
-                            } else if (firstPlace.athlete && typeof firstPlace.athlete === 'object') {
-                              athleteName = firstPlace.athlete.displayName || firstPlace.athlete.shortName || firstPlace.athlete.fullName || '';
+                              athleteName =
+                                athleteData?.displayName ||
+                                athleteData?.shortName ||
+                                athleteData?.fullName ||
+                                athleteRef;
+                            } else if (
+                              firstPlace.athlete &&
+                              typeof firstPlace.athlete === "object"
+                            ) {
+                              athleteName =
+                                firstPlace.athlete.displayName ||
+                                firstPlace.athlete.shortName ||
+                                firstPlace.athlete.fullName ||
+                                "";
                             }
                           } catch (aerr) {
-                            athleteName = firstPlace.athlete?.shortName || firstPlace.athlete?.displayName || firstPlace.athlete || '';
+                            athleteName =
+                              firstPlace.athlete?.shortName ||
+                              firstPlace.athlete?.displayName ||
+                              firstPlace.athlete ||
+                              "";
                           }
 
-                          const manufacturer = firstPlace.vehicle?.manufacturer || firstPlace.team?.displayName || '';
-                          const teamColor = manufacturer ? `#${getTeamColor(manufacturer)}` : '';
+                          const manufacturer =
+                            firstPlace.vehicle?.manufacturer ||
+                            firstPlace.team?.displayName ||
+                            "";
+                          const teamColor = manufacturer
+                            ? `#${getTeamColor(manufacturer)}`
+                            : "";
 
                           // Store for UI
                           competitionWinners[compName] = {
-                            winnerName: athleteName || 'TBD',
-                            winnerTeam: manufacturer || '',
-                            winnerTeamColor: teamColor
+                            winnerName: athleteName || "TBD",
+                            winnerTeam: manufacturer || "",
+                            winnerTeamColor: teamColor,
                           };
 
                           // Console log
-                          console.log(`In Progress Race: ${evName}${venueName ? ` (${venueName})` : ''}${countryFlag ? ` [flag: ${countryFlag}]` : ''}: Competition: ${compAbbr} | Winner(heuristic): ${athleteName || 'UNKNOWN'} - ${manufacturer || 'UNKNOWN'}${teamColor ? ` • ${teamColor}` : ''}`);
+                          console.log(
+                            `In Progress Race: ${evName}${
+                              venueName ? ` (${venueName})` : ""
+                            }${
+                              countryFlag ? ` [flag: ${countryFlag}]` : ""
+                            }: Competition: ${compAbbr} | Winner(heuristic): ${
+                              athleteName || "UNKNOWN"
+                            } - ${manufacturer || "UNKNOWN"}${
+                              teamColor ? ` • ${teamColor}` : ""
+                            }`
+                          );
                         }
                       } catch (fallbackErr) {
                         // ignore and continue
@@ -359,12 +544,14 @@ const ResultsScreen = ({ route }) => {
                     }
                   }
                 } catch (ce) {
-                  console.warn('Error processing competition in-progress', ce);
+                  console.warn("Error processing competition in-progress", ce);
                 }
               }
 
               if (!anyWinners) {
-                console.log(`In Progress Race: ${evName}: No winners found yet`);
+                console.log(
+                  `In Progress Race: ${evName}: No winners found yet`
+                );
               }
 
               // If we found a scheduled competition, use its date/time and type for display
@@ -373,7 +560,8 @@ const ResultsScreen = ({ route }) => {
                   enriched.eventDate = new Date(nextCompetition.compDate);
                   enriched.date = nextCompetition.compDate;
                   enriched.nextCompetitionType = nextCompetition.compTypeText;
-                  enriched.nextCompetitionAbbr = nextCompetition.compTypeAbbreviation;
+                  enriched.nextCompetitionAbbr =
+                    nextCompetition.compTypeAbbreviation;
                   // Don't update isUpcoming - keep the event classified as in-progress
                   // since it's based on the overall event timeframe, not individual competition time
                 } catch (dateSetErr) {
@@ -381,7 +569,7 @@ const ResultsScreen = ({ route }) => {
                 }
               }
             } catch (cwErr) {
-              console.warn('Error building competition winners', cwErr);
+              console.warn("Error building competition winners", cwErr);
             }
 
             enriched.competitionWinners = competitionWinners;
@@ -394,13 +582,15 @@ const ResultsScreen = ({ route }) => {
 
           return enriched;
         } catch (eventErr) {
-          console.warn('Error processing event from calendar', eventErr);
+          console.warn("Error processing event from calendar", eventErr);
           return null;
         }
       });
 
       // Wait for all events to be processed and filter out nulls
-      const eventsWithDetails = (await Promise.all(sectionPromises)).filter(Boolean);
+      const eventsWithDetails = (await Promise.all(sectionPromises)).filter(
+        Boolean
+      );
 
       // Cache all events for tab switching
       setAllEvents(eventsWithDetails);
@@ -408,10 +598,9 @@ const ResultsScreen = ({ route }) => {
 
       const filtered = filterEventsByType(eventsWithDetails, selectedType, now);
       setResults(filtered);
-
     } catch (error) {
-      console.error('Error fetching F1 results:', error);
-      Alert.alert('Error', 'Failed to fetch F1 results');
+      console.error("Error fetching F1 results:", error);
+      Alert.alert("Error", "Failed to fetch F1 results");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -420,17 +609,17 @@ const ResultsScreen = ({ route }) => {
 
   const filterEventsByType = (events, type, now = new Date()) => {
     switch (type) {
-      case 'LAST':
+      case "LAST":
         return events
-          .filter(e => e.isCompleted)
+          .filter((e) => e.isCompleted)
           .sort((a, b) => new Date(b.date) - new Date(a.date));
-      case 'CURRENT':
+      case "CURRENT":
         return events
-          .filter(e => !e.isCompleted && !e.isUpcoming)
+          .filter((e) => !e.isCompleted && !e.isUpcoming)
           .sort((a, b) => new Date(a.date) - new Date(b.date));
-      case 'UPCOMING':
+      case "UPCOMING":
         return events
-          .filter(e => e.isUpcoming)
+          .filter((e) => e.isUpcoming)
           .sort((a, b) => new Date(a.date) - new Date(b.date));
       default:
         return [];
@@ -440,15 +629,15 @@ const ResultsScreen = ({ route }) => {
   const convertToHttps = (url) => {
     if (!url) return url;
     // Handle protocol-relative URLs like //a.espncdn.com/...
-    if (url.startsWith('//')) {
+    if (url.startsWith("//")) {
       return `https:${url}`;
     }
     // Handle root-relative paths like /i/teamlogos/... -- prefix with ESPN CDN host
-    if (url.startsWith('/')) {
+    if (url.startsWith("/")) {
       return `https://a.espncdn.com${url}`;
     }
-    if (url.startsWith('http://')) {
-      return url.replace('http://', 'https://');
+    if (url.startsWith("http://")) {
+      return url.replace("http://", "https://");
     }
     return url;
   };
@@ -465,7 +654,7 @@ const ResultsScreen = ({ route }) => {
       refCache.set(normalized, json);
       return json;
     } catch (err) {
-      console.warn('Failed to fetch ref', normalized, err);
+      console.warn("Failed to fetch ref", normalized, err);
       refCache.set(normalized, null);
       return null;
     }
@@ -473,65 +662,65 @@ const ResultsScreen = ({ route }) => {
 
   // Map constructor/team display names to hex colors (same idea as web results.js)
   const getTeamColor = (constructorName) => {
-    if (!constructorName) return '333333';
+    if (!constructorName) return "333333";
     const colorMap = {
-      'Mercedes': '27F4D2',
-      'Red Bull': '3671C6',
-      'Ferrari': 'E8002D',
-      'McLaren': 'FF8000',
-      'Alpine': 'FF87BC',
-      'Racing Bulls': '6692FF',
-      'Aston Martin': '229971',
-      'Williams': '64C4FF',
-      'Sauber': '52E252',
-      'Haas': 'B6BABD'
+      Mercedes: "27F4D2",
+      "Red Bull": "3671C6",
+      Ferrari: "E8002D",
+      McLaren: "FF8000",
+      Alpine: "FF87BC",
+      "Racing Bulls": "6692FF",
+      "Aston Martin": "229971",
+      Williams: "64C4FF",
+      Sauber: "52E252",
+      Haas: "B6BABD",
     };
-    return colorMap[constructorName] || '333333';
+    return colorMap[constructorName] || "333333";
   };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    const options = { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
+    const options = {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     };
-    return date.toLocaleDateString('en-US', options);
+    return date.toLocaleDateString("en-US", options);
   };
 
   const formatTime = (dateString) => {
     const date = new Date(dateString);
-    const options = { 
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZoneName: 'short'
+    const options = {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short",
     };
-    return date.toLocaleTimeString('en-US', options);
+    return date.toLocaleTimeString("en-US", options);
   };
 
   // Helper to get F1 team ID for favorites (use team name as ID for F1)
   const getF1TeamId = (teamName) => {
     if (!teamName) return null;
     // Use team name as ID for F1 since there's no consistent numeric ID
-    return `f1_${teamName.toLowerCase().replace(/\s+/g, '_')}`;
+    return `f1_${teamName.toLowerCase().replace(/\s+/g, "_")}`;
   };
 
   // Helper to handle team favorite toggle
   const handleTeamFavoriteToggle = async (teamName, teamColor) => {
     if (!teamName) return;
-    
+
     const teamId = getF1TeamId(teamName);
     try {
       await toggleFavorite({
         teamId: teamId,
         teamName: teamName,
-        sport: 'f1',
-        leagueCode: 'f1',
-        teamColor: teamColor
+        sport: "f1",
+        leagueCode: "f1",
+        teamColor: teamColor,
       });
     } catch (error) {
-      console.error('Error toggling F1 team favorite:', error);
+      console.error("Error toggling F1 team favorite:", error);
     }
   };
 
@@ -549,27 +738,38 @@ const ResultsScreen = ({ route }) => {
       style={[
         styles.resultItem,
         { backgroundColor: theme.surface, borderColor: theme.border },
-        event.isCompleted ? { borderLeftWidth: 6, borderLeftColor: event.winnerTeamColor || '#333' } : {}
+        event.isCompleted
+          ? {
+              borderLeftWidth: 6,
+              borderLeftColor: event.winnerTeamColor || "#333",
+            }
+          : {},
       ]}
       onPress={() => {
         // Navigate to F1 race details
-        navigation.navigate('F1RaceDetails', {
+        navigation.navigate("F1RaceDetails", {
           raceId: event.id,
           eventId: event.id, // pass explicit eventId for clarity
           nextCompetitionType: event.nextCompetitionType || null,
           nextCompetitionAbbr: event.nextCompetitionAbbr || null,
           raceName: event.name,
           raceDate: event.date,
-          sport: 'f1'
+          sport: "f1",
         });
       }}
     >
-      
       <View style={styles.resultHeader}>
-        <Text allowFontScaling={false} style={[styles.raceName, { color: theme.text }]} numberOfLines={1}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.raceName, { color: theme.text }]}
+          numberOfLines={1}
+        >
           {event.name}
         </Text>
-        <Text allowFontScaling={false} style={[styles.raceDate, { color: theme.textSecondary }]}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.raceDate, { color: theme.textSecondary }]}
+        >
           {formatDate(event.date)}
         </Text>
       </View>
@@ -581,67 +781,135 @@ const ResultsScreen = ({ route }) => {
             <Image
               source={{ uri: convertToHttps(event.countryFlag) }}
               style={styles.countryFlag}
-              onError={() => { /* fail silently */ }}
+              onError={() => {
+                /* fail silently */
+              }}
             />
           ) : null}
           <View style={styles.circuitInfo}>
-            <Text allowFontScaling={false} style={[styles.circuitName, { color: theme.textSecondary }]} numberOfLines={1}>
-              {event.venueName || event.venue || event.location || 'Circuit Information'}
+            <Text
+              allowFontScaling={false}
+              style={[styles.circuitName, { color: theme.textSecondary }]}
+              numberOfLines={1}
+            >
+              {event.venueName ||
+                event.venue ||
+                event.location ||
+                "Circuit Information"}
             </Text>
-            {selectedType === 'CURRENT' && event.nextCompetitionType ? (
-              <Text allowFontScaling={false} style={[styles.competitionType, { color: theme.textSecondary }]} numberOfLines={1}>
-                {event.nextCompetitionType}{event.nextCompetitionAbbr === 'FP1' ? ' 1' :
-                                           event.nextCompetitionAbbr === 'FP2' ? ' 2' :
-                                           event.nextCompetitionAbbr === 'FP3' ? ' 3' : ''}
+            {selectedType === "CURRENT" && event.nextCompetitionType ? (
+              <Text
+                allowFontScaling={false}
+                style={[styles.competitionType, { color: theme.textSecondary }]}
+                numberOfLines={1}
+              >
+                {event.nextCompetitionType}
+                {event.nextCompetitionAbbr === "FP1"
+                  ? " 1"
+                  : event.nextCompetitionAbbr === "FP2"
+                  ? " 2"
+                  : event.nextCompetitionAbbr === "FP3"
+                  ? " 3"
+                  : ""}
               </Text>
             ) : null}
           </View>
         </View>
 
         <View style={styles.rightColumn}>
-          <Text allowFontScaling={false} style={[styles.raceTime, { color: theme.textSecondary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.raceTime, { color: theme.textSecondary }]}
+          >
             {formatTime(event.date)}
           </Text>
           {/* Status (keep top-right) */}
-          {selectedType === 'LAST' && (
-            <Text allowFontScaling={false} style={[styles.statusText, { color: theme.success, marginTop: 6 }]}>
+          {selectedType === "LAST" && (
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.statusText,
+                { color: theme.success, marginTop: 6 },
+              ]}
+            >
               Completed
             </Text>
           )}
-          {selectedType === 'CURRENT' && (
-            <Text allowFontScaling={false} style={[styles.statusText, { color: theme.error, marginTop: 6 }]}>
+          {selectedType === "CURRENT" && (
+            <Text
+              allowFontScaling={false}
+              style={[styles.statusText, { color: theme.error, marginTop: 6 }]}
+            >
               In Progress
             </Text>
           )}
-          {selectedType === 'UPCOMING' && (
-            <Text allowFontScaling={false} style={[styles.statusText, { color: theme.warning, marginTop: 6 }]}>
+          {selectedType === "UPCOMING" && (
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.statusText,
+                { color: theme.warning, marginTop: 6 },
+              ]}
+            >
               Scheduled
             </Text>
           )}
         </View>
       </View>
-      
-      {selectedType === 'LAST' && event.winnerName ? (
+
+      {selectedType === "LAST" && event.winnerName ? (
         <View style={styles.winnerRow}>
           <View style={styles.winnerLeft}>
-            <Text allowFontScaling={false} style={[styles.winnerLabel, { color: theme.textSecondary }]}>Winner:</Text>
-            <Text allowFontScaling={false} style={[styles.winnerName, { color: theme.text }]}>{event.winnerName}</Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.winnerLabel, { color: theme.textSecondary }]}
+            >
+              Winner:
+            </Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.winnerName, { color: theme.text }]}
+            >
+              {event.winnerName}
+            </Text>
           </View>
           <View style={styles.winnerRight}>
             {event.winnerTeam ? (
               <View style={styles.winnerTeamContainer}>
                 {isFavorite(getF1TeamId(event.winnerTeam)) && (
-                  <TouchableOpacity 
-                    onPress={() => handleTeamFavoriteToggle(event.winnerTeam, event.winnerTeamColor)}
+                  <TouchableOpacity
+                    onPress={() =>
+                      handleTeamFavoriteToggle(
+                        event.winnerTeam,
+                        event.winnerTeamColor
+                      )
+                    }
                     activeOpacity={0.7}
                     style={styles.winnerTeamFavoriteButton}
                   >
-                    <Text allowFontScaling={false} style={[styles.winnerTeamFavoriteIcon, { color: colors.primary }]}>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.winnerTeamFavoriteIcon,
+                        { color: colors.primary },
+                      ]}
+                    >
                       ★
                     </Text>
                   </TouchableOpacity>
                 )}
-                <Text allowFontScaling={false} style={[styles.winnerTeamRight, { color: isFavorite(getF1TeamId(event.winnerTeam)) ? colors.primary : theme.textSecondary }]} numberOfLines={1}>
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.winnerTeamRight,
+                    {
+                      color: isFavorite(getF1TeamId(event.winnerTeam))
+                        ? colors.primary
+                        : theme.textSecondary,
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
                   {event.winnerTeam}
                 </Text>
               </View>
@@ -651,24 +919,38 @@ const ResultsScreen = ({ route }) => {
       ) : null}
 
       {/* For current/in-progress races show winners for each competition (FP1, FP2, Qualifying, Race, etc.) */}
-      {selectedType === 'CURRENT' && event.competitionWinners && Object.keys(event.competitionWinners).length > 0 ? (
+      {selectedType === "CURRENT" &&
+      event.competitionWinners &&
+      Object.keys(event.competitionWinners).length > 0 ? (
         <View style={styles.winnersContainer}>
-          <Text allowFontScaling={false} style={[styles.winnerLabel, { color: theme.textSecondary, marginBottom: 6 }]}>Winners:</Text>
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.winnerLabel,
+              { color: theme.textSecondary, marginBottom: 6 },
+            ]}
+          >
+            Winners:
+          </Text>
 
           {(() => {
             // Sort competitions in logical race weekend order (same as web results.js)
             const competitionOrder = [
-              'Free Practice 1', 'FP1',
-              'Free Practice 2', 'FP2', 
-              'Free Practice 3', 'FP3',
-              'Sprint Shootout',
-              'Sprint Race',
-              'Qualifying', 'Qual',
-              'Race'
+              "Free Practice 1",
+              "FP1",
+              "Free Practice 2",
+              "FP2",
+              "Free Practice 3",
+              "FP3",
+              "Sprint Shootout",
+              "Sprint Race",
+              "Qualifying",
+              "Qual",
+              "Race",
             ];
-            
-            const sortedEntries = Object.entries(event.competitionWinners)
-              .sort(([a], [b]) => {
+
+            const sortedEntries = Object.entries(event.competitionWinners).sort(
+              ([a], [b]) => {
                 const indexA = competitionOrder.indexOf(a);
                 const indexB = competitionOrder.indexOf(b);
                 // If both found in order, use order. If not found, put at end.
@@ -676,52 +958,87 @@ const ResultsScreen = ({ route }) => {
                 if (indexA !== -1) return -1;
                 if (indexB !== -1) return 1;
                 return a.localeCompare(b);
-              });
+              }
+            );
 
             return sortedEntries.map(([compName, winnerObj]) => {
               // winnerObj expected as { winnerName, winnerTeam } but handle strings for safety
-              const winnerName = winnerObj?.winnerName || (typeof winnerObj === 'string' ? winnerObj : 'TBD');
-              const winnerTeam = winnerObj?.winnerTeam || '';
+              const winnerName =
+                winnerObj?.winnerName ||
+                (typeof winnerObj === "string" ? winnerObj : "TBD");
+              const winnerTeam = winnerObj?.winnerTeam || "";
 
               return (
                 <View key={compName} style={styles.winnerRowInProgress}>
                   <View style={styles.winnerLeft}>
-                    <Text allowFontScaling={false} style={[styles.winnerNameSmall, { color: theme.text }]} numberOfLines={1}>{winnerName}</Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.winnerNameSmall, { color: theme.text }]}
+                      numberOfLines={1}
+                    >
+                      {winnerName}
+                    </Text>
                     {winnerTeam ? (
                       <View style={styles.winnerTeamSmallContainer}>
                         {isFavorite(getF1TeamId(winnerTeam)) && (
-                          <TouchableOpacity 
-                            onPress={() => handleTeamFavoriteToggle(winnerTeam, event.winnerTeamColor)}
+                          <TouchableOpacity
+                            onPress={() =>
+                              handleTeamFavoriteToggle(
+                                winnerTeam,
+                                event.winnerTeamColor
+                              )
+                            }
                             activeOpacity={0.7}
                             style={styles.winnerTeamSmallFavoriteButton}
                           >
-                            <Text allowFontScaling={false} style={[styles.winnerTeamSmallFavoriteIcon, { color: colors.primary }]}>
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.winnerTeamSmallFavoriteIcon,
+                                { color: colors.primary },
+                              ]}
+                            >
                               ★
                             </Text>
                           </TouchableOpacity>
                         )}
-                        <Text allowFontScaling={false} style={[styles.winnerTeamSmall, { color: isFavorite(getF1TeamId(winnerTeam)) ? colors.primary : theme.textSecondary }]} numberOfLines={1}>
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            styles.winnerTeamSmall,
+                            {
+                              color: isFavorite(getF1TeamId(winnerTeam))
+                                ? colors.primary
+                                : theme.textSecondary,
+                            },
+                          ]}
+                          numberOfLines={1}
+                        >
                           {winnerTeam}
                         </Text>
                       </View>
                     ) : null}
                   </View>
                   <View style={styles.winnerRight}>
-                    <Text allowFontScaling={false} style={[styles.compName, { color: theme.textSecondary }]} numberOfLines={1}>{compName}</Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.compName, { color: theme.textSecondary }]}
+                      numberOfLines={1}
+                    >
+                      {compName}
+                    </Text>
                   </View>
                 </View>
               );
             });
           })()}
-
         </View>
       ) : null}
-      
+
       {/* Viewer Count Section - Bottom placement as requested */}
       <View style={[styles.viewerSection, { borderTopColor: theme.border }]}>
         <LiveViewerBadge gameId={event.id} style={styles.viewerBadge} />
       </View>
-      
     </TouchableOpacity>
   );
 
@@ -738,12 +1055,12 @@ const ResultsScreen = ({ route }) => {
     },
     headerTitle: {
       fontSize: 24,
-      fontWeight: 'bold',
-      color: '#fff',
-      textAlign: 'center',
+      fontWeight: "bold",
+      color: "#fff",
+      textAlign: "center",
     },
     typeContainer: {
-      flexDirection: 'row',
+      flexDirection: "row",
       backgroundColor: theme.surface,
       marginHorizontal: 20,
       marginVertical: 15,
@@ -753,7 +1070,7 @@ const ResultsScreen = ({ route }) => {
     typeButton: {
       flex: 1,
       paddingVertical: 12,
-      alignItems: 'center',
+      alignItems: "center",
       borderRadius: 6,
     },
     activeTypeButton: {
@@ -761,10 +1078,10 @@ const ResultsScreen = ({ route }) => {
     },
     typeButtonText: {
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     activeTypeButtonText: {
-      color: '#fff',
+      color: "#fff",
     },
     inactiveTypeButtonText: {
       color: theme.textSecondary,
@@ -775,8 +1092,8 @@ const ResultsScreen = ({ route }) => {
     },
     loadingContainer: {
       flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     loadingText: {
       marginTop: 10,
@@ -788,7 +1105,7 @@ const ResultsScreen = ({ route }) => {
       padding: 16,
       marginBottom: 12,
       borderWidth: 1,
-      shadowColor: '#000',
+      shadowColor: "#000",
       shadowOffset: {
         width: 0,
         height: 2,
@@ -798,25 +1115,25 @@ const ResultsScreen = ({ route }) => {
       elevation: 5,
     },
     resultHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
       marginBottom: 8,
     },
     raceName: {
       fontSize: 16,
-      fontWeight: 'bold',
+      fontWeight: "bold",
       flex: 1,
       marginRight: 10,
     },
     raceDate: {
       fontSize: 12,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     resultInfo: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
       marginBottom: 8,
     },
     circuitName: {
@@ -830,56 +1147,56 @@ const ResultsScreen = ({ route }) => {
     },
     competitionType: {
       fontSize: 12,
-      fontStyle: 'italic',
+      fontStyle: "italic",
       marginTop: 2,
     },
     raceTime: {
       fontSize: 12,
     },
     resultStatus: {
-      alignItems: 'flex-end',
+      alignItems: "flex-end",
     },
     statusText: {
       fontSize: 12,
-      fontWeight: '600',
-      textTransform: 'uppercase',
+      fontWeight: "600",
+      textTransform: "uppercase",
     },
     winnerBlock: {
       marginTop: 8,
-      alignItems: 'flex-end',
+      alignItems: "flex-end",
     },
     winnerLabel: {
       fontSize: 12,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     winnerName: {
       fontSize: 14,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     winnerTeam: {
       fontSize: 12,
     },
     winnerRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
       marginTop: 8,
       marginBottom: 4,
     },
     winnerLeft: {
       flex: 1,
-      alignItems: 'flex-start',
+      alignItems: "flex-start",
     },
     winnerRight: {
       flex: 1,
-      alignItems: 'flex-end',
+      alignItems: "flex-end",
     },
     winnerTeamRight: {
       fontSize: 12,
     },
     winnerTeamContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
     },
     winnerTeamFavoriteButton: {
       paddingHorizontal: 4,
@@ -888,11 +1205,11 @@ const ResultsScreen = ({ route }) => {
     },
     winnerTeamFavoriteIcon: {
       fontSize: 12,
-      fontWeight: 'bold',
+      fontWeight: "bold",
     },
     winnerTeamSmallContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       marginTop: 2,
     },
     winnerTeamSmallFavoriteButton: {
@@ -902,36 +1219,36 @@ const ResultsScreen = ({ route }) => {
     },
     winnerTeamSmallFavoriteIcon: {
       fontSize: 10,
-      fontWeight: 'bold',
+      fontWeight: "bold",
     },
     emptyContainer: {
       flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
       paddingVertical: 40,
     },
     emptyText: {
       fontSize: 16,
       color: theme.textSecondary,
-      textAlign: 'center',
+      textAlign: "center",
     },
     flagAndCircuit: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       flex: 1,
       marginRight: 10,
     },
     countryFlag: {
       width: 20,
       height: 14,
-      resizeMode: 'cover',
+      resizeMode: "cover",
       marginRight: 8,
       borderRadius: 2,
-      backgroundColor: '#fff',
+      backgroundColor: "#fff",
     },
     rightColumn: {
-      alignItems: 'flex-end',
-      justifyContent: 'center',
+      alignItems: "flex-end",
+      justifyContent: "center",
       width: 110,
     },
     winnersContainer: {
@@ -940,15 +1257,15 @@ const ResultsScreen = ({ route }) => {
       paddingTop: 4,
     },
     winnerRowInProgress: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
       paddingVertical: 4,
       borderRadius: 6,
     },
     winnerNameSmall: {
       fontSize: 13,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     winnerTeamSmall: {
       fontSize: 11,
@@ -956,17 +1273,17 @@ const ResultsScreen = ({ route }) => {
     },
     compName: {
       fontSize: 12,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     viewerSection: {
       paddingVertical: 8,
       paddingHorizontal: 12,
       borderTopWidth: 1,
-      alignItems: 'center',
+      alignItems: "center",
       marginTop: 8,
     },
     viewerBadge: {
-      alignSelf: 'center',
+      alignSelf: "center",
     },
   });
 
@@ -983,7 +1300,8 @@ const ResultsScreen = ({ route }) => {
               ]}
               onPress={() => setSelectedType(type.key)}
             >
-              <Text allowFontScaling={false}
+              <Text
+                allowFontScaling={false}
                 style={[
                   styles.typeButtonText,
                   selectedType === type.key
@@ -996,10 +1314,12 @@ const ResultsScreen = ({ route }) => {
             </TouchableOpacity>
           ))}
         </View>
-        
+
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text allowFontScaling={false} style={styles.loadingText}>Loading F1 Results...</Text>
+          <Text allowFontScaling={false} style={styles.loadingText}>
+            Loading F1 Results...
+          </Text>
         </View>
       </View>
     );
@@ -1017,7 +1337,8 @@ const ResultsScreen = ({ route }) => {
             ]}
             onPress={() => setSelectedType(type.key)}
           >
-            <Text allowFontScaling={false}
+            <Text
+              allowFontScaling={false}
               style={[
                 styles.typeButtonText,
                 selectedType === type.key
@@ -1030,10 +1351,12 @@ const ResultsScreen = ({ route }) => {
           </TouchableOpacity>
         ))}
       </View>
-      
+
       <FlatList
         data={results}
-        keyExtractor={(item) => item.id?.toString() || item.uid || Math.random().toString()}
+        keyExtractor={(item) =>
+          item.id?.toString() || item.uid || Math.random().toString()
+        }
         renderItem={({ item }) => renderResultItem(item)}
         contentContainerStyle={styles.content}
         refreshing={refreshing}
