@@ -8,7 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { KeyboardStickyView } from "react-native-keyboard-controller";
+// import { KeyboardStickyView } from "react-native-keyboard-controller"; // Removed - requires New Architecture
 import { useChat } from "../context/ChatContext";
 import { useTheme } from "../context/ThemeContext";
 import { useMutedUsers } from "../context/MutedUsersContext";
@@ -294,9 +294,9 @@ const ChatComponent = ({
         />
       </View>
 
-      <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
         <MessageInput onSendMessage={handleSendMessage} />
-      </KeyboardStickyView>
+      </View>
     </View>
   );
 };

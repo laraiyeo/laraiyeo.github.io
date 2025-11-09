@@ -1,31 +1,32 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, StyleSheet } from "react-native";
-import { KeyboardStickyView } from "react-native-keyboard-controller";
+import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform } from "react-native";
+// import { KeyboardStickyView } from "react-native-keyboard-controller"; // Removed - requires New Architecture
 
-// Simple test component to verify keyboard controller works
+// Simple test component to verify keyboard handling works
 const KeyboardTest = () => {
   const [text, setText] = useState("");
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Keyboard Controller Test</Text>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <Text style={styles.title}>Keyboard Test (Standard KeyboardAvoidingView)</Text>
 
       <View style={styles.content}>
-        <Text>This area should not move when keyboard appears</Text>
+        <Text>This area should adjust when keyboard appears</Text>
       </View>
 
-      <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={text}
-            onChangeText={setText}
-            placeholder="Type here to test keyboard behavior..."
-            multiline
-          />
-        </View>
-      </KeyboardStickyView>
-    </View>
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          value={text}
+          onChangeText={setText}
+          placeholder="Type here to test keyboard behavior..."
+          multiline
+        />
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 
