@@ -195,7 +195,10 @@ const ChatBubble = ({
                   </html>
                 `,
               }}
-              style={[styles.emoteInMessage, { backgroundColor: 'transparent' }]}
+              style={[
+                styles.emoteInMessage,
+                { backgroundColor: "transparent" },
+              ]}
               scrollEnabled={false}
               showsHorizontalScrollIndicator={false}
               showsVerticalScrollIndicator={false}
