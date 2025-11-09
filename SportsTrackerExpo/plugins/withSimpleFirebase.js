@@ -1,4 +1,4 @@
-const { withProjectBuildGradle } = require('@expo/config-plugins');
+const { withProjectBuildGradle } = require("@expo/config-plugins");
 
 const withSimpleFirebase = (config) => {
   return withProjectBuildGradle(config, (config) => {
