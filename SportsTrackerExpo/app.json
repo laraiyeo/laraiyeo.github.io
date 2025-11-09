@@ -101,6 +101,7 @@
         }
       ],
       "@react-native-firebase/app",
+      "./plugins/withFirebaseConfig.js",
       [
         "expo-build-properties",
         {

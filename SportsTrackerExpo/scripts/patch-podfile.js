@@ -1,30 +1,30 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
-console.log('🔧 Starting Podfile patching for Firebase modular header fix...');
+console.log("🔧 Starting Podfile patching for Firebase modular header fix...");
 
-const podfile = path.join(__dirname, '..', 'ios', 'Podfile');
+const podfile = path.join(__dirname, "..", "ios", "Podfile");
 if (!fs.existsSync(podfile)) {
-  console.log('❌ Podfile not found, skipping patch.');
+  console.log("❌ Podfile not found, skipping patch.");
   process.exit(0);
 }
 
-let contents = fs.readFileSync(podfile, 'utf8');
-console.log('📄 Found Podfile, applying Firebase static linking patches...');
+let contents = fs.readFileSync(podfile, "utf8");
+console.log("📄 Found Podfile, applying Firebase static linking patches...");
 
 // Check if we've already patched this file
-if (contents.includes('🔧 FIREBASE STATIC LINKING PATCH')) {
-  console.log('✅ Podfile already patched, skipping.');
+if (contents.includes("🔧 FIREBASE STATIC LINKING PATCH")) {
+  console.log("✅ Podfile already patched, skipping.");
   process.exit(0);
 }
 
 // Add static frameworks declaration
-if (!contents.includes('use_frameworks! :linkage => :static')) {
+if (!contents.includes("use_frameworks! :linkage => :static")) {
   contents = contents.replace(
     /platform :ios, ['"][^'"]+['"]/,
     (match) => `${match}\nuse_frameworks! :linkage => :static`
   );
-  console.log('✅ Added static frameworks declaration');
+  console.log("✅ Added static frameworks declaration");
 }
 
 // Add our comprehensive Firebase fixes
@@ -88,10 +88,7 @@ end
 const targetMatch = contents.match(/(target\s+['"][^'"]+['"]\s+do.*?end)/s);
 if (targetMatch) {
   // Insert our patches before the target block ends
-  contents = contents.replace(
-    /(\s+)(end\s*)$/,
-    `$1${firebasePatch}$1$2`
-  );
+  contents = contents.replace(/(\s+)(end\s*)$/, `$1${firebasePatch}$1$2`);
 } else {
   // If we can't find the target block, append to the end
   contents += firebasePatch;
@@ -99,5 +96,9 @@ if (targetMatch) {
 
 // Write the patched Podfile
 fs.writeFileSync(podfile, contents);
-console.log('✅ Successfully patched Podfile with Firebase static linking fixes');
-console.log('🎯 This should resolve modular header conflicts while maintaining New Architecture support');
+console.log(
+  "✅ Successfully patched Podfile with Firebase static linking fixes"
+);
+console.log(
+  "🎯 This should resolve modular header conflicts while maintaining New Architecture support"
+);
