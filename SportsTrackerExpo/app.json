@@ -101,7 +101,7 @@
         }
       ],
       "@react-native-firebase/app",
-      "./plugins/withFirebaseModularHeaders.js",
+      "./plugins/withGlobalModularHeaders.js",
       [
         "expo-build-properties",
         {

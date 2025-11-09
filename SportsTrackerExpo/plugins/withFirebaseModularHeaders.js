@@ -24,13 +24,14 @@ module.exports = function withFirebaseModularHeaders(config) {
     const modularHeadersFix = `
   # FIREBASE_MODULAR_HEADERS_APPLIED - Enable modular headers for Firebase dependencies
   installer.pods_project.targets.each do |target|
+    # Only apply to regular targets, not aggregate targets
+    next unless target.respond_to?(:build_configurations)
+    
     target.build_configurations.each do |config|
       # Enable modular headers for Firebase and Google dependencies
       if ['GoogleUtilities', 'FirebaseCore', 'FirebaseCoreInternal', 'Firebase', 'GoogleAppMeasurement'].include?(target.name)
-        target.build_settings_for_spec(nil).each do |setting|
-          setting.build_settings['DEFINES_MODULE'] = 'YES'
-          setting.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
-        end
+        config.build_settings['DEFINES_MODULE'] = 'YES'
+        config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
       end
       
       # Firebase warning suppressions
