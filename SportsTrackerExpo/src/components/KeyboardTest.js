@@ -1,5 +1,12 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 // import { KeyboardStickyView } from "react-native-keyboard-controller"; // Removed - requires New Architecture
 
 // Simple test component to verify keyboard handling works
@@ -7,11 +14,13 @@ const KeyboardTest = () => {
   const [text, setText] = useState("");
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <Text style={styles.title}>Keyboard Test (Standard KeyboardAvoidingView)</Text>
+      <Text style={styles.title}>
+        Keyboard Test (Standard KeyboardAvoidingView)
+      </Text>
 
       <View style={styles.content}>
         <Text>This area should adjust when keyboard appears</Text>
