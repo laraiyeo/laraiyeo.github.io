@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "runtimeVersion": "1.1.0",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -100,12 +100,14 @@
           }
         }
       ],
+      "@react-native-firebase/app",
+      "./plugins/withSimpleFirebase.js",
       [
         "expo-build-properties",
         {
           "ios": {
             "useFrameworks": "static",
-            "newArchEnabled": false,
+            "newArchEnabled": true,
             "xcodeProjectSettings": {
               "CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES": "YES",
               "CLANG_WARN_NON_MODULAR_INCLUDE_IN_FRAMEWORK_MODULE": "NO",
@@ -114,7 +116,7 @@
             }
           },
           "android": {
-            "newArchEnabled": false,
+            "newArchEnabled": true,
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
             "minSdkVersion": 24,
