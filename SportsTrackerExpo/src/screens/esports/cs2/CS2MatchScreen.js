@@ -47,6 +47,13 @@ const CS2MatchScreen = ({ navigation, route }) => {
     }
   }, [activeTab, selectedRound, matchData]);
 
+  // Reset active tab to overview if using short stats and user is on an unavailable tab
+  useEffect(() => {
+    if (matchData?.useShortStats && (activeTab === 'economy' || activeTab === 'stats')) {
+      setActiveTab('overview');
+    }
+  }, [matchData?.useShortStats, activeTab]);
+
   // Load stats data when stats tab is active
   useEffect(() => {
     if (activeTab === 'stats' && !weaponStats && !hitGroupStats && !loadingStats) {
@@ -147,13 +154,19 @@ const CS2MatchScreen = ({ navigation, route }) => {
     }));
   };
 
-  const renderTabNavigation = () => (
-    <View style={[styles.tabContainer, { backgroundColor: colors.card }]}>
-      {[
-        { key: 'overview', label: 'Overview', icon: 'analytics' },
-        { key: 'economy', label: 'Economy', icon: 'cash' },
-        { key: 'stats', label: 'Stats', icon: 'stats-chart' }
-      ].map((tab) => (
+  const renderTabNavigation = () => {
+    // If using short stats, only show overview tab
+    const availableTabs = matchData?.useShortStats 
+      ? [{ key: 'overview', label: 'Overview', icon: 'analytics' }]
+      : [
+          { key: 'overview', label: 'Overview', icon: 'analytics' },
+          { key: 'economy', label: 'Economy', icon: 'cash' },
+          { key: 'stats', label: 'Stats', icon: 'stats-chart' }
+        ];
+
+    return (
+      <View style={[styles.tabContainer, { backgroundColor: colors.card }]}>
+        {availableTabs.map((tab) => (
         <TouchableOpacity
           key={tab.key}
           style={[
@@ -174,9 +187,10 @@ const CS2MatchScreen = ({ navigation, route }) => {
             {tab.label}
           </Text>
         </TouchableOpacity>
-      ))}
-    </View>
-  );
+        ))}
+      </View>
+    );
+  };
 
   const renderMatchHeader = () => {
     if (!matchData) {
@@ -211,11 +225,19 @@ const CS2MatchScreen = ({ navigation, route }) => {
             {/* Team Score */}
             <View style={styles.teamScoreContainer}>
               <View style={styles.teamSection}>
-                <Image
-                  source={{ uri: team1?.logoUrl || 'https://via.placeholder.com/48' }}
-                  style={styles.teamLogo}
-                  resizeMode="contain"
-                />
+                {team1?.logoUrl ? (
+                  <Image
+                    source={{ uri: team1.logoUrl }}
+                    style={styles.teamLogo}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={[styles.teamLogo, { backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderRadius: 24 }]}>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: 'white' }}>
+                      {(team1?.name || 'T1').substring(0, 2).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
                 <Text style={[styles.teamName, { color: '#fff' }]}>
                   {team1?.name || 'Team 1'}
                 </Text>
@@ -233,11 +255,19 @@ const CS2MatchScreen = ({ navigation, route }) => {
               </View>
               
               <View style={styles.teamSection}>
-                <Image
-                  source={{ uri: team2?.logoUrl || 'https://via.placeholder.com/48' }}
-                  style={styles.teamLogo}
-                  resizeMode="contain"
-                />
+                {team2?.logoUrl ? (
+                  <Image
+                    source={{ uri: team2.logoUrl }}
+                    style={styles.teamLogo}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={[styles.teamLogo, { backgroundColor: colors.secondary, justifyContent: 'center', alignItems: 'center', borderRadius: 24 }]}>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: 'white' }}>
+                      {(team2?.name || 'T2').substring(0, 2).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
                 <Text style={[styles.teamName, { color: '#fff' }]}>
                   {team2?.name || 'Team 2'}
                 </Text>
@@ -613,6 +643,37 @@ const CS2MatchScreen = ({ navigation, route }) => {
     }));
   };
 
+  // Helper function to get formatted player data based on stats format
+  const getFormattedPlayerData = (player) => {
+    if (matchData?.useShortStats) {
+      // Short stats format (from 1.txt)
+      return {
+        id: player.player_id,
+        nickname: player.player?.nickname || 'Unknown',
+        imageUrl: player.player?.image_url,
+        teamId: player.team_id,
+        teamName: player.team?.name,
+        kills: player.kills_sum || 0,
+        deaths: player.deaths_sum || 0,
+        assists: player.assists_sum || 0,
+        adr: null // ADR not available in short stats
+      };
+    } else {
+      // Full stats format (from regular endpoint)
+      return {
+        id: player.steam_profile?.player_id || player.player_id,
+        nickname: player.steam_profile?.nickname || 'Unknown',
+        imageUrl: getCS2PlayerImageUrl(player.steam_profile),
+        teamId: player.steam_profile?.player?.team_id || player.team_clan?.team_id,
+        teamName: player.clan_name,
+        kills: player.kills || 0,
+        deaths: player.death || 0,
+        assists: player.assists || 0,
+        adr: player.adr ? Math.round(player.adr) : 0
+      };
+    }
+  };
+
   const renderOverviewTab = () => (
     <View>
       {/* Roster */}
@@ -627,29 +688,31 @@ const CS2MatchScreen = ({ navigation, route }) => {
               </Text>
               <View style={styles.leftPlayersColumn}>
                 {(matchData.playerStats || [])
-                  .filter(player => 
-                    player.clan_name === matchData.team1?.name || 
-                    player.team_clan?.team_id === matchData.team1?.id ||
-                    player.steam_profile?.player?.team_id === matchData.team1?.id
-                  )
+                  .filter(player => {
+                    const playerData = getFormattedPlayerData(player);
+                    return playerData.teamId === matchData.team1?.id;
+                  })
                   .slice(0, 5)
-                  .map((player, index) => (
-                    <View key={index} style={styles.leftPlayerItem}>
-                      <Image
-                        source={{ uri: getCS2PlayerImageUrl(player.steam_profile) }}
-                        style={styles.playerImage}
-                        resizeMode="cover"
-                      />
-                      <View style={styles.playerInfo}>
-                        <Text style={[styles.playerName, { color: theme.text }]}>
-                          {player.steam_profile?.nickname || 'Unknown'}
-                        </Text>
-                        <Text style={[styles.playerStats, { color: theme.textSecondary }]}>
-                          {player.adr ? Math.round(player.adr) : 0} • {player.kills || 0}/{player.death || 0}/{player.assists || 0}
-                        </Text>
+                  .map((player, index) => {
+                    const playerData = getFormattedPlayerData(player);
+                    return (
+                      <View key={index} style={styles.leftPlayerItem}>
+                        <Image
+                          source={{ uri: playerData.imageUrl || 'https://via.placeholder.com/50' }}
+                          style={styles.playerImage}
+                          resizeMode="cover"
+                        />
+                        <View style={styles.playerInfo}>
+                          <Text style={[styles.playerName, { color: theme.text }]}>
+                            {playerData.nickname}
+                          </Text>
+                          <Text style={[styles.playerStats, { color: theme.textSecondary }]}>
+                            {playerData.adr !== null ? `${playerData.adr} • ` : ''}{playerData.kills}/{playerData.deaths}/{playerData.assists}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
-                  ))}
+                    );
+                  })}
               </View>
             </View>
             
@@ -660,29 +723,31 @@ const CS2MatchScreen = ({ navigation, route }) => {
               </Text>
               <View style={styles.rightPlayersColumn}>
                 {(matchData.playerStats || [])
-                  .filter(player => 
-                    player.clan_name === matchData.team2?.name || 
-                    player.team_clan?.team_id === matchData.team2?.id ||
-                    player.steam_profile?.player?.team_id === matchData.team2?.id
-                  )
+                  .filter(player => {
+                    const playerData = getFormattedPlayerData(player);
+                    return playerData.teamId === matchData.team2?.id;
+                  })
                   .slice(0, 5)
-                  .map((player, index) => (
-                    <View key={index} style={styles.rightPlayerItem}>
-                      <View style={styles.playerInfoRight}>
-                        <Text style={[styles.playerName, { color: theme.text, textAlign: 'right' }]}>
-                          {player.steam_profile?.nickname || 'Unknown'}
-                        </Text>
-                        <Text style={[styles.playerStats, { color: theme.textSecondary, textAlign: 'right' }]}>
-                          {player.adr ? Math.round(player.adr) : 0} • {player.kills || 0}/{player.death || 0}/{player.assists || 0}
-                        </Text>
+                  .map((player, index) => {
+                    const playerData = getFormattedPlayerData(player);
+                    return (
+                      <View key={index} style={styles.rightPlayerItem}>
+                        <View style={styles.playerInfoRight}>
+                          <Text style={[styles.playerName, { color: theme.text, textAlign: 'right' }]}>
+                            {playerData.nickname}
+                          </Text>
+                          <Text style={[styles.playerStats, { color: theme.textSecondary, textAlign: 'right' }]}>
+                            {playerData.adr !== null ? `${playerData.adr} • ` : ''}{playerData.kills}/{playerData.deaths}/{playerData.assists}
+                          </Text>
+                        </View>
+                        <Image
+                          source={{ uri: playerData.imageUrl || 'https://via.placeholder.com/50' }}
+                          style={styles.playerImage}
+                          resizeMode="cover"
+                        />
                       </View>
-                      <Image
-                        source={{ uri: getCS2PlayerImageUrl(player.steam_profile) }}
-                        style={styles.playerImage}
-                        resizeMode="cover"
-                      />
-                    </View>
-                  ))}
+                    );
+                  })}
               </View>
             </View>
           </View>
@@ -769,14 +834,35 @@ const CS2MatchScreen = ({ navigation, route }) => {
                 Round {round.round_number}
               </Text>
               <View style={styles.roundWinnerSection}>
-                <Image
-                  source={{ 
-                    uri: winningTeamNumber === 1 ? matchData.team1?.logoUrl : matchData.team2?.logoUrl
-                  }}
-                  style={styles.roundWinnerLogo}
-                  resizeMode="contain"
-                  defaultSource={{ uri: 'https://via.placeholder.com/24x24' }}
-                />
+                {winningTeamNumber === 1 ? (
+                  matchData.team1?.logoUrl ? (
+                    <Image
+                      source={{ uri: matchData.team1.logoUrl }}
+                      style={styles.roundWinnerLogo}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View style={[styles.roundWinnerLogo, { backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderRadius: 12 }]}>
+                      <Text style={{ fontSize: 8, fontWeight: 'bold', color: 'white' }}>
+                        {(matchData.team1?.name || 'T1').substring(0, 1).toUpperCase()}
+                      </Text>
+                    </View>
+                  )
+                ) : (
+                  matchData.team2?.logoUrl ? (
+                    <Image
+                      source={{ uri: matchData.team2.logoUrl }}
+                      style={styles.roundWinnerLogo}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View style={[styles.roundWinnerLogo, { backgroundColor: colors.secondary, justifyContent: 'center', alignItems: 'center', borderRadius: 12 }]}>
+                      <Text style={{ fontSize: 8, fontWeight: 'bold', color: 'white' }}>
+                        {(matchData.team2?.name || 'T2').substring(0, 1).toUpperCase()}
+                      </Text>
+                    </View>
+                  )
+                )}
                 <View style={[
                   styles.roundWinner,
                   { backgroundColor: theme.surfaceSecondary }
@@ -788,7 +874,7 @@ const CS2MatchScreen = ({ navigation, route }) => {
                       color={theme.text} 
                       style={styles.winConditionIcon}
                     />
-                    <Text style={[styles.roundWinnerText, { color: selectedRound === round.round_number ? '#fff' : theme.text }]}>
+                    <Text style={[styles.roundWinnerText, { color: theme.text }]}>
                       {getCS2EndReasonDisplayText(winCondition)}
                     </Text>
                   </View>
@@ -841,7 +927,15 @@ const CS2MatchScreen = ({ navigation, route }) => {
       return (
         <View style={[styles.teamTableContainer, { backgroundColor: theme.surface, marginHorizontal: 16, marginBottom: 16 }]}>
           <View style={[styles.teamTableHeader, { backgroundColor: theme.surfaceSecondary }]}>
-            <Image source={{ uri: team?.logoUrl || 'https://via.placeholder.com/24x24' }} style={styles.teamHeaderLogo} />
+            {team?.logoUrl ? (
+              <Image source={{ uri: team.logoUrl }} style={styles.teamHeaderLogo} />
+            ) : (
+              <View style={[styles.teamHeaderLogo, { backgroundColor: teamNumber === 1 ? colors.primary : colors.secondary, justifyContent: 'center', alignItems: 'center', borderRadius: 12 }]}>
+                <Text style={{ fontSize: 8, fontWeight: 'bold', color: 'white' }}>
+                  {(team?.name || `T${teamNumber}`).substring(0, 1).toUpperCase()}
+                </Text>
+              </View>
+            )}
             <Text style={[styles.teamHeaderName, { color: theme.text }]}>{team?.name || `Team ${teamNumber}`}</Text>
           </View>
           <View style={styles.teamTable}>
@@ -869,7 +963,15 @@ const CS2MatchScreen = ({ navigation, route }) => {
       <View style={[styles.teamTableContainer, { backgroundColor: theme.surface, marginHorizontal: 16, marginBottom: 16 }]}>
         {/* Team Header */}
         <View style={[styles.teamTableHeader, { backgroundColor: theme.surfaceSecondary }]}>
-          <Image source={{ uri: team.logoUrl }} style={styles.teamHeaderLogo} />
+          {team.logoUrl ? (
+            <Image source={{ uri: team.logoUrl }} style={styles.teamHeaderLogo} />
+          ) : (
+            <View style={[styles.teamHeaderLogo, { backgroundColor: teamNumber === 1 ? colors.primary : colors.secondary, justifyContent: 'center', alignItems: 'center', borderRadius: 12 }]}>
+              <Text style={{ fontSize: 8, fontWeight: 'bold', color: 'white' }}>
+                {(team.name || `T${teamNumber}`).substring(0, 1).toUpperCase()}
+              </Text>
+            </View>
+          )}
           <Text style={[styles.teamHeaderName, { color: theme.text }]}>{team.name}</Text>
         </View>
         

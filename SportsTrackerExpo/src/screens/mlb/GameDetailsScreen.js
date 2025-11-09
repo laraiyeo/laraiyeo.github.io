@@ -22,6 +22,7 @@ import { useFavorites } from '../../context/FavoritesContext';
 import { convertMLBIdToESPNId } from '../../utils/TeamIdMapping';
 import ChatComponent from '../../components/ChatComponent';
 import { useStreamingAccess } from '../../utils/streamingUtils';
+import { useGamePresence } from '../../hooks/useGamePresence';
 
 // Color similarity detection utility
 const calculateColorSimilarity = (color1, color2) => {
@@ -146,6 +147,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
   // Streaming access check
   const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
+  
+  // Game presence tracking
+  const { viewerData, isJoined } = useGamePresence(gameId);
+  
   const scrollViewRef = useRef(null);
   const playsScrollViewRef = useRef(null);
   const [playsScrollPosition, setPlaysScrollPosition] = useState(0);
@@ -164,7 +169,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         return liveMatchesCache;
       }
 
-      const response = await fetch(`${STREAM_API_BASE}/matches/live`);
+      const response = await fetch(`${STREAM_API_BASE}/matches/baseball`);
       if (!response.ok) {
         throw new Error(`API responded with status: ${response.status}`);
       }
@@ -6287,7 +6292,7 @@ const styles = StyleSheet.create({
   // Chat Modal Styles
   chatModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0)',
     justifyContent: 'flex-end',
   },
   chatModalContent: {

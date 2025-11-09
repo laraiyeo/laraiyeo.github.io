@@ -632,6 +632,94 @@ export const getUpcomingSeries = async (date, take = 25) => {
     }
 };
 
+// Get rankings by region
+export const getRankings = async (region = 'AMERICAS') => {
+    const cacheKey = `valorant_rankings_${region}`;
+    return ValorantService.getCachedData(cacheKey, async () => {
+        try {
+            const data = await ribNextApiCall(`/rankings/VCT/${region}`);
+            // The Next.js API returns data in pageProps.rankings structure
+            if (data.pageProps && data.pageProps.rankings) {
+                return data.pageProps.rankings;
+            }
+            return data;
+        } catch (error) {
+            console.error('Error fetching rankings:', error);
+            throw error;
+        }
+    }, 'static');
+};
+
+// Flag to track if team earnings fetch is in progress
+let teamEarningsFetchInProgress = false;
+
+// Get team earnings data (background fetch)
+export const getTeamEarnings = async () => {
+    const cacheKey = 'valorant_team_earnings';
+    
+    // Check if already fetching to prevent duplicate requests
+    if (teamEarningsFetchInProgress) {
+        console.log('Team earnings fetch already in progress, skipping duplicate request');
+        return;
+    }
+    
+    return ValorantService.getCachedData(cacheKey, async () => {
+        try {
+            teamEarningsFetchInProgress = true;
+            console.log('Starting team earnings fetch...');
+            
+            // Define the three API calls with different offsets
+            const apiCalls = [
+                'https://corsproxy.io/?url=https://api.bo3.gg/api/v1/teams/earnings?page[offset]=0&page[limit]=100&filter[tier_rank][in]=1,2,3&filter[teams.discipline_id][eq]=2&filter[end_date][gt]=2025-01-01&filter[end_date][lt]=2025-12-31',
+                'https://corsproxy.io/?url=https://api.bo3.gg/api/v1/teams/earnings?page[offset]=100&page[limit]=100&filter[tier_rank][in]=1,2,3&filter[teams.discipline_id][eq]=2&filter[end_date][gt]=2025-01-01&filter[end_date][lt]=2025-12-31',
+                'https://corsproxy.io/?url=https://api.bo3.gg/api/v1/teams/earnings?page[offset]=200&page[limit]=100&filter[tier_rank][in]=1,2,3&filter[teams.discipline_id][eq]=2&filter[end_date][gt]=2025-01-01&filter[end_date][lt]=2025-12-31'
+            ];
+
+            // Fetch all three endpoints concurrently
+            const responses = await Promise.all(
+                apiCalls.map(async (url) => {
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            ...ValorantService.getBrowserHeaders(),
+                            'Content-Type': 'application/json',
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    return response.json();
+                })
+            );
+
+            // Combine all results into a single array
+            const combinedResults = [];
+            responses.forEach(response => {
+                if (response.results && Array.isArray(response.results)) {
+                    combinedResults.push(...response.results);
+                }
+            });
+
+            console.log(`Fetched ${combinedResults.length} team earnings records for Valorant`);
+            
+            return {
+                data: combinedResults,
+                meta: {
+                    total: combinedResults.length,
+                    fetched_at: new Date().toISOString()
+                }
+            };
+        } catch (error) {
+            console.error('Error fetching team earnings:', error);
+            throw error;
+        } finally {
+            teamEarningsFetchInProgress = false;
+        }
+    }, 'static');
+};
+
 // Export ValorantService for cache management
 export { ValorantService };
 

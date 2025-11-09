@@ -858,7 +858,7 @@ async function fetchAndDisplayConstructors() {
 
         // Add OBS link click handler
         constructorCard.addEventListener("click", async () => {
-          const url = `https://laraiyeo.github.io/f1/team.html?team=${encodeURIComponent(constructor.displayName)}`;
+          const url = `https://sportsheart.ca/f1/team.html?team=${encodeURIComponent(constructor.displayName)}`;
           
           try {
             await navigator.clipboard.writeText(url);
@@ -996,7 +996,7 @@ async function fetchAndDisplayConstructors() {
 
         // Add OBS link click handler
         constructorCard.addEventListener("click", async () => {
-          const url = `https://laraiyeo.github.io/f1/team.html?team=${encodeURIComponent(constructor.displayName)}`;
+          const url = `https://sportsheart.ca/f1/team.html?team=${encodeURIComponent(constructor.displayName)}`;
 
           try {
             await navigator.clipboard.writeText(url);

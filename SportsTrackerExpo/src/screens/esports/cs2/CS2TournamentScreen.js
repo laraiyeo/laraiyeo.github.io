@@ -315,11 +315,19 @@ const TournamentStage = ({ stage, matches, teams, theme, colors, navigation }) =
                       <View key={teamData.team.id} style={[styles.tableRow, { borderBottomColor: theme.border }]}>
                         <Text style={[styles.cellText, { color: theme.text }]}>{index + 1}</Text>
                         <View style={styles.teamCell}>
-                          <Image
-                            source={{ uri: teamData.team.logoUrl || 'https://via.placeholder.com/20' }}
-                            style={styles.teamLogoSmall}
-                            resizeMode="contain"
-                          />
+                          {teamData.team.logoUrl ? (
+                            <Image
+                              source={{ uri: teamData.team.logoUrl }}
+                              style={styles.teamLogoSmall}
+                              resizeMode="contain"
+                            />
+                          ) : (
+                            <View style={[styles.teamLogoSmall, { backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderRadius: 10 }]}>
+                              <Text style={{ fontSize: 8, fontWeight: 'bold', color: 'white' }}>
+                                {(teamData.team.name || 'T').substring(0, 1).toUpperCase()}
+                              </Text>
+                            </View>
+                          )}
                           <Text style={[styles.teamNameText, { color: theme.text }]} numberOfLines={1}>
                             {teamData.team.name}
                           </Text>
@@ -1092,19 +1100,38 @@ const CS2TournamentScreen = ({ navigation, route }) => {
                 </Text>
                 <View style={styles.teamsGrid}>
                   {teams.map((team, index) => (
-                    <View key={team.id || index} style={[styles.teamCard, { backgroundColor: theme.surfaceSecondary }]}>
-                      <Image
-                        source={{ uri: team.logoUrl || 'https://via.placeholder.com/40' }}
-                        style={styles.teamLogo}
-                        resizeMode="contain"
-                      />
+                    <TouchableOpacity 
+                      key={team.id || index} 
+                      style={[styles.teamCard, { backgroundColor: theme.surfaceSecondary }]}
+                      onPress={() => {
+                        navigation.navigate('CS2TeamPage', {
+                          teamId: team.id,
+                          teamName: team.name,
+                          teamSlug: team.name.toLowerCase().replace(/\s+/g, '-')
+                        });
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      {team.logoUrl ? (
+                        <Image
+                          source={{ uri: team.logoUrl }}
+                          style={styles.teamLogo}
+                          resizeMode="contain"
+                        />
+                      ) : (
+                        <View style={[styles.teamLogo, { backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderRadius: 20 }]}>
+                          <Text style={{ fontSize: 12, fontWeight: 'bold', color: 'white' }}>
+                            {(team.name || 'T').substring(0, 2).toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
                       <Text style={[styles.teamName, { color: theme.text }]} numberOfLines={2}>
                         {team.name}
                       </Text>
                       <Text style={[styles.teamCountry, { color: theme.textSecondary }]} numberOfLines={1}>
                         {team.country?.name || 'Unknown'}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               </View>

@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { NBAService } from '../../services/NBAService';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import { LiveViewerBadge } from '../../components/ViewerCounter';
 
 const TeamLogo = ({ teamAbbreviation, size, style, iconStyle }) => {
   const { colors, getTeamLogoUrl } = useTheme();
@@ -287,7 +288,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
       }
 
       if (clock) {
-        return `${clock} - ${periodText}`;
+        return `${clock === '0.0' ? 'End' : clock} - ${periodText}`;
       }
       return `Q${period}`;
     }
@@ -477,8 +478,8 @@ const NBAScoreboardScreen = ({ navigation }) => {
         </View>
 
         {/* Game Info */}
-        {(item.venue || item.broadcast) && (
-          <View style={styles.gameFooter}>
+        <View style={styles.gameFooter}>
+          <View style={styles.gameFooterLeft}>
             {item.venue && (
               <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>
                 {item.venue}
@@ -490,7 +491,10 @@ const NBAScoreboardScreen = ({ navigation }) => {
               </Text>
             )}
           </View>
-        )}
+          <View style={styles.gameFooterRight}>
+            <LiveViewerBadge gameId={item.id} style={styles.viewerBadge} />
+          </View>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -655,8 +659,13 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.1)',
-    gap: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
+  gameFooterLeft: { flex: 1, gap: 4 },
+  gameFooterRight: { alignItems: 'flex-end' },
+  viewerBadge: { marginTop: 2 },
   venueText: {
     fontSize: 12,
   },

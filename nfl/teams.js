@@ -303,7 +303,7 @@ async function fetchAndDisplayTeams() {
           bgOpacity: currentStyles.backgroundOpacity,
           textColor: currentStyles.textColor
         });
-        const url = `https://laraiyeo.github.io/nfl/team.html?${styleParams.toString()}`;
+        const url = `https://sportsheart.ca/nfl/team.html?${styleParams.toString()}`;
         try {
           await navigator.clipboard.writeText(url);
           alert(`OBS link copied for ${team.displayName}: ${url}`);

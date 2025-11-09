@@ -1223,7 +1223,8 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
       'middlesbrough': 'middlesbrough',
       'hull city': 'hull-city',
       'cardiff city': 'cardiff-city',
-      'cardiff': 'cardiff-city'
+      'cardiff': 'cardiff-city',
+      'internazionale': 'inter-milan',
     };
     
     const lowerName = teamName.toLowerCase();
@@ -1267,7 +1268,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
   const fetchLiveMatches = async () => {
     try {
       console.log(`Fetching live matches from API...`);
-      const response = await fetch(convertToHttps(`${STREAM_API_BASE}/matches/live`));
+      const response = await fetch(convertToHttps(`${STREAM_API_BASE}/matches/football/popular`));
 
       if (!response.ok) {
         throw new Error(`API request failed: ${response.status}`);
@@ -1340,7 +1341,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
         // Try fallback: search all matches if no football matches found
         console.log('Trying fallback: searching all matches...');
         try {
-          const allMatchesResponse = await fetch(convertToHttps(`${STREAM_API_BASE}/matches/live`));
+          const allMatchesResponse = await fetch(convertToHttps(`${STREAM_API_BASE}/matches/football/popular`));
           if (allMatchesResponse.ok) {
             const allMatchesData = await allMatchesResponse.json();
             console.log(`Fallback: Found ${allMatchesData.length} total matches`);
@@ -5104,7 +5105,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
             {/* Chat Modal Header */}
             <View style={[styles.chatModalHeader, { borderBottomColor: theme.border }]}>
               <Text allowFontScaling={false} style={[styles.chatModalTitle, { color: theme.text }]}>
-                {gameData ? `${gameData.awayTeam?.name || awayTeam || 'Away'} vs ${gameData.homeTeam?.name || homeTeam || 'Home'}` : 'Chat'}
+                {gameData ? `${gameData.header.competitions[0].competitors.find(c => c.homeAway === 'home')?.team.name || 'Home'} vs ${gameData.header.competitions[0].competitors.find(c => c.homeAway === 'away')?.team.name || 'Away'}` : 'Chat'}
               </Text>
               <TouchableOpacity
                 style={styles.chatModalCloseButton}
@@ -6833,7 +6834,7 @@ const styles = StyleSheet.create({
   // Chat Modal Styles
   chatModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0)',
     justifyContent: 'flex-end',
   },
   chatModalContent: {

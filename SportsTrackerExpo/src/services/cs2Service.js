@@ -104,7 +104,7 @@ const getLiveMatches = async () => {
     const dateString = formatDateForAPI(today);
     const utcOffset = getUTCOffset();
     
-    const url = `${BASE_URL}/api/v2/matches/live?date=${dateString}&utc_offset=${utcOffset}&filter[tier][in]=s,a&filter[discipline_id][eq]=1`;
+    const url = `${BASE_URL}/api/v2/matches/live?date=${dateString}&utc_offset=${utcOffset}&filter[tier][in]=s,a,b&filter[discipline_id][eq]=1`;
     
     const response = await makeRequest(url);
     
@@ -131,7 +131,8 @@ const getLiveMatches = async () => {
                   name: team1Data.name || 'Team 1',
                   logoUrl: team1Data.image_url || null
                 },
-                score: match.team1_score || 0
+                score: match.team1_last_game_score || 0,
+                seriesScore: match.team1_score || 0
               },
               {
                 id: match.team2_id?.toString() || '',
@@ -139,7 +140,8 @@ const getLiveMatches = async () => {
                   name: team2Data.name || 'Team 2',
                   logoUrl: team2Data.image_url || null
                 },
-                score: match.team2_score || 0
+                score: match.team2_last_game_score || 0,
+                seriesScore: match.team2_score || 0
               }
             ],
             tournament: {
@@ -157,8 +159,10 @@ const getLiveMatches = async () => {
             bestOf: match.bo_type || 3,
             liveUpdates: match.live_updates || null,
             // Add team scores at the top level like VAL does
-            team1Score: match.team1_score || 0,
-            team2Score: match.team2_score || 0
+            team1Score: match.team1_last_game_score || 0,
+            team2Score: match.team2_last_game_score || 0,
+            team1SeriesScore: match.team1_score || 0,
+            team2SeriesScore: match.team2_score || 0
           }
         };
       })
@@ -193,7 +197,7 @@ const getUpcomingMatches = async (dateFilter = 'today') => {
     const dateString = formatDateForAPI(targetDate);
     const utcOffset = getUTCOffset();
     
-    const url = `${BASE_URL}/api/v2/matches/upcoming?date=${dateString}&utc_offset=${utcOffset}&filter[tier][in]=s,a&filter[discipline_id][eq]=1`;
+    const url = `${BASE_URL}/api/v2/matches/upcoming?date=${dateString}&utc_offset=${utcOffset}&filter[tier][in]=s,a,b&filter[discipline_id][eq]=1`;
     
     const response = await makeRequest(url);
     
@@ -288,7 +292,7 @@ const getCompletedMatchesForDate = async (dateFilter = 'today', limit = 100) => 
   const dateString = formatDateForAPI(targetDate);
   const utcOffset = getUTCOffset();
   
-  const url = `${BASE_URL}/api/v2/matches/finished?date=${dateString}&utc_offset=${utcOffset}&filter[tier][in]=s,a&filter[discipline_id][eq]=1`;
+  const url = `${BASE_URL}/api/v2/matches/finished?date=${dateString}&utc_offset=${utcOffset}&filter[tier][in]=s,a,b&filter[discipline_id][eq]=1`;
   
   try {
     const response = await makeRequest(url);
@@ -335,7 +339,8 @@ const getCompletedMatchesForDate = async (dateFilter = 'today', limit = 100) => 
                   name: team1Data.name || 'Team 1',
                   logoUrl: team1Data.image_url || null
                 },
-                score: match.team1_score || 0
+                score: match.team1_last_game_score || 0,
+                seriesScore: match.team1_score || 0
               },
               {
                 id: (match.team2_id || match.team2)?.toString() || '',
@@ -343,7 +348,8 @@ const getCompletedMatchesForDate = async (dateFilter = 'today', limit = 100) => 
                   name: team2Data.name || 'Team 2',
                   logoUrl: team2Data.image_url || null
                 },
-                score: match.team2_score || 0
+                score: match.team2_last_game_score || 0,
+                seriesScore: match.team2_score || 0
               }
             ],
             tournament: {
@@ -362,8 +368,10 @@ const getCompletedMatchesForDate = async (dateFilter = 'today', limit = 100) => 
             bestOf: match.bo_type || 3,
             winnerTeamId: match.winner_team_id?.toString(),
             // Add team scores at the top level like VAL does
-            team1Score: match.team1_score || 0,
-            team2Score: match.team2_score || 0
+            team1Score: match.team1_last_game_score || 0,
+            team2Score: match.team2_last_game_score || 0,
+            team1SeriesScore: match.team1_score || 0,
+            team2SeriesScore: match.team2_score || 0
           }
         };
       })
@@ -388,7 +396,7 @@ const getCompletedMatches = async (limit = 100) => {
  */
 const getCurrentAndUpcomingTournaments = async (limit = 100) => {
   const currentYear = new Date().getFullYear();
-  const url = `${BASE_URL}/api/v1/tournaments?scope=index-current-tournaments&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=current,upcoming&filter[tournaments.end_date][gte]=${currentYear}-01-01&filter[tournaments.start_date][lte]=${currentYear}-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
+  const url = `${BASE_URL}/api/v1/tournaments?scope=index-current-tournaments&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=current,upcoming&filter[tournaments.end_date][gte]=${currentYear}-01-01&filter[tournaments.start_date][lte]=${currentYear}-12-31&filter[tournaments.tier][in]=s,a,b&filter[tournaments.discipline_id][eq]=1`;
 
   try {
     const response = await makeRequest(url);
@@ -423,7 +431,7 @@ const getCurrentAndUpcomingTournaments = async (limit = 100) => {
  */
 const getUpcomingTournaments = async (limit = 100) => {
   const currentYear = new Date().getFullYear();
-  const url = `${BASE_URL}/api/v1/tournaments?scope=index-upcoming-tournaments&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=upcoming&filter[tournaments.end_date][gte]=${currentYear}-01-01&filter[tournaments.start_date][lte]=${currentYear}-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
+  const url = `${BASE_URL}/api/v1/tournaments?scope=index-upcoming-tournaments&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=upcoming&filter[tournaments.end_date][gte]=${currentYear}-01-01&filter[tournaments.start_date][lte]=${currentYear}-12-31&filter[tournaments.tier][in]=s,a,b&filter[tournaments.discipline_id][eq]=1`;
 
   try {
     const response = await makeRequest(url);
@@ -459,7 +467,7 @@ const getUpcomingTournaments = async (limit = 100) => {
  */
 const getRecentTournaments = async (limit = 100) => {
   const currentYear = new Date().getFullYear();
-  const url = `${BASE_URL}/api/v1/tournaments?scope=index-finished-tournaments&page[offset]=0&page[limit]=${limit}&sort=-end_date&filter[tournaments.status][in]=finished&filter[tournaments.end_date][gte]=${currentYear}-01-01&filter[tournaments.start_date][lte]=${currentYear}-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
+  const url = `${BASE_URL}/api/v1/tournaments?scope=index-finished-tournaments&page[offset]=0&page[limit]=${limit}&sort=-end_date&filter[tournaments.status][in]=finished&filter[tournaments.end_date][gte]=${currentYear}-01-01&filter[tournaments.start_date][lte]=${currentYear}-12-31&filter[tournaments.tier][in]=s,a,b&filter[tournaments.discipline_id][eq]=1`;
 
   try {
     const response = await makeRequest(url);
@@ -505,7 +513,7 @@ const getTournaments = async (status = 'current', limit = 100) => {
     statusFilter = 'upcoming';
   }
   const currentYear = new Date().getFullYear();
-  const url = `${BASE_URL}/api/v1/tournaments?scope=${scope}&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=${statusFilter}&filter[tournaments.end_date][gte]=${currentYear}-01-01&filter[tournaments.start_date][lte]=${currentYear}-12-31&filter[tournaments.tier][in]=s,a&filter[tournaments.discipline_id][eq]=1`;
+  const url = `${BASE_URL}/api/v1/tournaments?scope=${scope}&page[offset]=0&page[limit]=${limit}&sort=start_date&filter[tournaments.status][in]=${statusFilter}&filter[tournaments.end_date][gte]=${currentYear}-01-01&filter[tournaments.start_date][lte]=${currentYear}-12-31&filter[tournaments.tier][in]=s,a,b&filter[tournaments.discipline_id][eq]=1`;
 
   try {
     const response = await makeRequest(url);
@@ -769,6 +777,39 @@ const formatPrizePool = (amount, currency = 'USD') => {
   return `$${amount.toLocaleString()}`;
 };
 
+// Get team rankings by region
+const getTeamRankings = async (region = null) => {
+  const cacheKey = `cs2_rankings_${region || 'world'}`;
+  return CS2Service.getCachedData(cacheKey, async () => {
+    try {
+      let url = `${BASE_URL}/api/v2/team_rankings?page=1&per_page=20&filter[discipline_id][eq]=1`;
+      
+      // Add region filter if specified
+      if (region) {
+        url += `&filter[region][eq]=${region}`;
+      }
+      
+      const response = await makeRequest(url);
+      
+      // Transform the data to match expected format
+      const rankings = response.data || [];
+      
+      return rankings.map(ranking => ({
+        id: ranking.team.id,
+        name: ranking.team.name,
+        logo_url: ranking.team.image_url,
+        score: Math.ceil(parseFloat(ranking.score)), // Round up to nearest whole number
+        country: ranking.team.country ? ranking.team.country.name : 'Unknown',
+        rank: ranking.rank,
+        slug: ranking.team.slug
+      }));
+    } catch (error) {
+      console.error('Error fetching CS2 rankings:', error);
+      throw error;
+    }
+  }, 'static');
+};
+
 // Export all functions
 export {
   // Matches functions
@@ -791,6 +832,9 @@ export {
   getTournamentMatches,
   formatEventDateRange,
   formatPrizePool,
+  
+  // Rankings functions
+  getTeamRankings,
   
   // Legacy support
   getSeries,

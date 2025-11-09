@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { getTeamEarnings } from '../../services/valorantService';
 
 // Import individual game tab navigators
 import VALTabNavigator from './val/VALTabNavigator';
@@ -10,6 +11,29 @@ import LOLTabNavigator from './lol/LOLTabNavigator';
 const EsportsTabNavigator = ({ navigation, route }) => {
   const { colors, theme } = useTheme();
   const [activeGame, setActiveGame] = useState('VAL');
+  const hasInitialized = useRef(false);
+
+  // Background fetch team earnings data when esports page loads
+  useEffect(() => {
+    if (hasInitialized.current) {
+      return; // Already initialized, skip
+    }
+
+    const fetchTeamEarningsInBackground = async () => {
+      try {
+        console.log('Starting background fetch of Valorant team earnings...');
+        await getTeamEarnings();
+        console.log('Background fetch of Valorant team earnings completed');
+      } catch (error) {
+        console.error('Background fetch of team earnings failed:', error);
+        // Silently fail - don't block the UI
+      }
+    };
+
+    hasInitialized.current = true;
+    // Start the background fetch
+    fetchTeamEarningsInBackground();
+  }, []); // Only run once when component mounts
 
   const games = [
     { key: 'VAL', label: 'VALORANT' },

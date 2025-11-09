@@ -1,83 +1,232 @@
-import React, { useEffect, useRef } from 'react';
-import { View, FlatList, StyleSheet, Text, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
-import { useChat } from '../context/ChatContext';
-import { useTheme } from '../context/ThemeContext';
-import ChatBubble from './ChatBubble';
-import MessageInput from './MessageInput';
-import ChatUtils from '../utils/ChatUtils';
+import React, { useEffect, useRef, useState, useMemo } from "react";
+import {
+  View,
+  FlatList,
+  StyleSheet,
+  Text,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { KeyboardStickyView } from "react-native-keyboard-controller";
+import { useChat } from "../context/ChatContext";
+import { useTheme } from "../context/ThemeContext";
+import { useMutedUsers } from "../context/MutedUsersContext";
+import ChatBubble from "./ChatBubble";
+import MessageInput from "./MessageInput";
+import ChatUtils from "../utils/ChatUtils";
+import ModerationService from "../services/ModerationService";
 
-const ChatComponent = ({ gameId, gameName, gameData, hideHeader = false }) => {
+const ChatComponent = ({
+  gameId,
+  gameName,
+  gameData,
+  hideHeader = false,
+  disableKeyboardAvoidance = false,
+}) => {
   const { theme, colors } = useTheme();
-  const { 
-    subscribeToChatMessages, 
-    unsubscribeFromChatMessages, 
-    getChatMessages, 
+  const { isUserMuted } = useMutedUsers();
+  const {
+    subscribeToChatMessages,
+    unsubscribeFromChatMessages,
+    getChatMessages,
     sendMessage,
-    userName 
+    userName,
   } = useChat();
-  
+
   const flatListRef = useRef(null);
-  const messages = getChatMessages(gameId);
-  const isChatAvailable = ChatUtils.isChatAvailable(gameData);
+  const isSubscribedRef = useRef(false);
+  const prevMessagesRef = useRef([]);
+  const gameIdRef = useRef(gameId);
 
+  // Get messages only once and memoize them
+  const messages = useMemo(() => {
+    return getChatMessages(gameId);
+  }, [gameId, getChatMessages]);
+
+  // Memoize the chat availability check to prevent infinite re-renders
+  const isChatAvailable = useMemo(() => {
+    return ChatUtils.isChatAvailable(gameData);
+  }, [gameData]);
+
+  const [filteredMessages, setFilteredMessages] = useState([]);
+  const [userId] = useState(
+    () => `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  );
+
+  // Cleanup on unmount
   useEffect(() => {
-    if (gameId) {
-      subscribeToChatMessages(gameId);
-    }
-
     return () => {
-      if (gameId) {
+      if (isSubscribedRef.current && gameId) {
+        console.log("Component unmounting, cleaning up subscription");
         unsubscribeFromChatMessages(gameId);
+        isSubscribedRef.current = false;
       }
     };
-  }, [gameId]);
+  }, []);
+
+  useEffect(() => {
+    // Track gameId changes and handle subscription
+    if (gameIdRef.current !== gameId) {
+      // Clean up previous subscription
+      if (isSubscribedRef.current && gameIdRef.current) {
+        console.log(
+          "GameId changed, unsubscribing from old gameId:",
+          gameIdRef.current
+        );
+        unsubscribeFromChatMessages(gameIdRef.current);
+        isSubscribedRef.current = false;
+      }
+      gameIdRef.current = gameId;
+    }
+
+    if (gameId && !isSubscribedRef.current) {
+      console.log("Subscribing to chat for gameId:", gameId);
+      subscribeToChatMessages(gameId);
+      isSubscribedRef.current = true;
+    }
+  }, [gameId]); // Remove function dependencies that cause re-renders
+
+  useEffect(() => {
+    // Only update filtered messages if they actually changed
+    const messagesString = JSON.stringify(messages);
+    const prevMessagesString = JSON.stringify(prevMessagesRef.current);
+
+    if (messagesString !== prevMessagesString) {
+      console.log(
+        "Messages changed, updating filtered messages. Count:",
+        messages.length
+      );
+      prevMessagesRef.current = [...messages]; // Create a new array to avoid reference issues
+
+      // Filter out messages from muted users
+      const nonMutedMessages = messages.filter((message) => {
+        const messageUserName = message.userName;
+        return !isUserMuted(messageUserName);
+      });
+
+      setFilteredMessages([...nonMutedMessages]); // Create a new array for state
+      console.log(
+        "Filtered messages (excluding muted users). Count:",
+        nonMutedMessages.length
+      );
+    }
+
+    // TODO: Re-enable when debugging is complete
+    /*
+    // Filter messages for blocked users and deleted messages
+    const filterMessages = async () => {
+      if (messages.length === 0) {
+        setFilteredMessages([]);
+        return;
+      }
+      
+      try {
+        const filtered = await ModerationService.filterMessages(messages, userId);
+        setFilteredMessages(filtered);
+      } catch (error) {
+        console.error('Error filtering messages:', error);
+        // Fallback to original messages if filtering fails
+        setFilteredMessages(messages);
+      }
+    };
+    
+    filterMessages();
+    */
+  }, [messages]);
 
   useEffect(() => {
     // Auto-scroll to bottom when new messages arrive
-    if (messages.length > 0 && flatListRef.current) {
+    if (filteredMessages.length > 0 && flatListRef.current) {
       flatListRef.current.scrollToEnd({ animated: true });
     }
-  }, [messages]);
+  }, [filteredMessages]);
 
   const handleSendMessage = async (messageText) => {
     if (!gameId || !messageText.trim()) return;
-    
+
     try {
-      await sendMessage(gameId, messageText);
+      // Temporarily disable moderation for debugging
+      await sendMessage(gameId, messageText.trim());
+
+      // TODO: Re-enable when debugging is complete
+      /*
+      // Check rate limit
+      await ModerationService.checkRateLimit(userId, gameId);
+      
+      // Filter profanity
+      const filteredText = ModerationService.filterProfanity(messageText);
+      
+      // Check if user is banned
+      const isBanned = await ModerationService.isUserBanned(userId);
+      if (isBanned) {
+        throw new Error('You are banned from chatting');
+      }
+      
+      await sendMessage(gameId, filteredText);
+      */
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error("Error sending message:", error);
       throw error;
     }
   };
 
+  const handleUserBlocked = async (blockedUserId) => {
+    // Re-filter messages after blocking a user
+    const filtered = messages.filter((msg) => msg.userId !== blockedUserId);
+    setFilteredMessages(filtered);
+  };
+
+  const handleMessageReported = (messageId, reason) => {
+    // You could show a toast or update UI to indicate message was reported
+    console.log(`Message ${messageId} reported for: ${reason}`);
+  };
+
   const renderMessage = ({ item }) => {
     const isOwnMessage = item.userName === userName;
-    
+
     return (
       <ChatBubble
         message={item}
         isOwnMessage={isOwnMessage}
         userName={item.userName}
         userColor={item.userColor}
+        currentUserId={userId}
+        onUserBlocked={handleUserBlocked}
+        onMessageReported={handleMessageReported}
       />
     );
   };
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Text allowFontScaling={false} style={[styles.emptyText, { color: theme.textSecondary }]}>
+      <Text
+        allowFontScaling={false}
+        style={[styles.emptyText, { color: theme.textSecondary }]}
+      >
         No messages yet. Be the first to start the conversation!
       </Text>
     </View>
   );
 
   const renderHeader = () => (
-    <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-      <Text allowFontScaling={false} style={[styles.headerTitle, { color: theme.text }]}>
+    <View
+      style={[
+        styles.header,
+        { backgroundColor: theme.surface, borderBottomColor: theme.border },
+      ]}
+    >
+      <Text
+        allowFontScaling={false}
+        style={[styles.headerTitle, { color: theme.text }]}
+      >
         Chat
       </Text>
       {gameName && (
-        <Text allowFontScaling={false} style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.headerSubtitle, { color: theme.textSecondary }]}
+        >
           {gameName}
         </Text>
       )}
@@ -89,7 +238,10 @@ const ChatComponent = ({ gameId, gameName, gameData, hideHeader = false }) => {
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         {renderHeader()}
         <View style={styles.errorContainer}>
-          <Text allowFontScaling={false} style={[styles.errorText, { color: theme.textSecondary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.errorText, { color: theme.textSecondary }]}
+          >
             Chat not available
           </Text>
         </View>
@@ -103,11 +255,18 @@ const ChatComponent = ({ gameId, gameName, gameData, hideHeader = false }) => {
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         {!hideHeader && renderHeader()}
         <View style={styles.unavailableContainer}>
-          <Text allowFontScaling={false} style={[styles.unavailableText, { color: theme.textSecondary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.unavailableText, { color: theme.textSecondary }]}
+          >
             {ChatUtils.getChatUnavailableMessage(gameData)}
           </Text>
-          <Text allowFontScaling={false} style={[styles.unavailableSubtext, { color: theme.textSecondary }]}>
-            Chat is only available during game day to keep discussions relevant and manage storage efficiently.
+          <Text
+            allowFontScaling={false}
+            style={[styles.unavailableSubtext, { color: theme.textSecondary }]}
+          >
+            Chat is only available during game day to keep discussions relevant
+            and manage storage efficiently.
           </Text>
         </View>
       </View>
@@ -115,32 +274,30 @@ const ChatComponent = ({ gameId, gameName, gameData, hideHeader = false }) => {
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={[styles.container, { backgroundColor: theme.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-    >
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {!hideHeader && renderHeader()}
-      
+
       <View style={styles.messagesContainer}>
         <FlatList
           ref={flatListRef}
-          data={messages}
+          data={filteredMessages}
           renderItem={renderMessage}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.messagesList}
           ListEmptyComponent={renderEmptyState}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() => {
-            if (flatListRef.current && messages.length > 0) {
+            if (flatListRef.current && filteredMessages.length > 0) {
               flatListRef.current.scrollToEnd({ animated: false });
             }
           }}
         />
       </View>
-      
-      <MessageInput onSendMessage={handleSendMessage} />
-    </KeyboardAvoidingView>
+
+      <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
+        <MessageInput onSendMessage={handleSendMessage} />
+      </KeyboardStickyView>
+    </View>
   );
 };
 
@@ -152,11 +309,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   headerSubtitle: {
     fontSize: 12,
@@ -171,42 +328,42 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 32,
   },
   emptyText: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 24,
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 32,
   },
   errorText: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   unavailableContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 32,
   },
   unavailableText: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   unavailableSubtext: {
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 20,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
 });
 

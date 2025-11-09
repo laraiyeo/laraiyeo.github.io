@@ -19,6 +19,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { useWindowDimensions } from 'react-native';
 import { useStreamingAccess } from '../../utils/streamingUtils';
+import { useGamePresence } from '../../hooks/useGamePresence';
 
 // Global image cache to persist across component re-renders
 const loadedImages = new Set();
@@ -118,6 +119,9 @@ const RaceDetailsScreen = ({ route }) => {
   const [overtakeCarData, setOvertakeCarData] = useState({ initiator: [], participant: [] });
   const [carDataIndex, setCarDataIndex] = useState(0);
   const [carDataInterval, setCarDataInterval] = useState(null);
+  
+  // Game presence tracking
+  const { viewerData, isJoined } = useGamePresence(raceId || eventId);
   
   // Animation states for progressive overtake
   const [overtakeAnimation, setOvertakeAnimation] = useState({

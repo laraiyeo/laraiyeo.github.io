@@ -1,0 +1,21 @@
+{
+  "rules": {
+    "test": {
+      ".read": true,
+      ".write": true
+    },
+    "presence": {
+      "games": {
+        "$gameId": {
+          "viewers": {
+            ".read": true,
+            ".write": true,
+            "$userId": {
+              ".validate": "newData.hasChildren(['userId', 'joinedAt', 'lastSeen', 'platform', 'version'])"
+            }
+          }
+        }
+      }
+    }
+  }
+}

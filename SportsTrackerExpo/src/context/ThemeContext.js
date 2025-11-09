@@ -248,7 +248,7 @@ export const ThemeProvider = ({ children }) => {
   // Helper function to get current app icon info
   const getCurrentAppIcon = () => {
     const theme = isDarkMode ? 'dark' : 'light';
-    return `${theme}-${currentColorPalette}`;
+    return `${theme}_${currentColorPalette}`;
   };
 
   const value = {

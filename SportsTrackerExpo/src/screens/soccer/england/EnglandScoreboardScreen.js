@@ -15,6 +15,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { EnglandServiceEnhanced } from '../../../services/soccer/EnglandServiceEnhanced';
 import { useTheme } from '../../../context/ThemeContext';
 import { useFavorites } from '../../../context/FavoritesContext';
+import { LiveViewerBadge } from '../../../components/ViewerCounter';
 
 const { width } = Dimensions.get('window');
 
@@ -585,6 +586,11 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
             </Text>
           </View>
         )}
+
+        {/* Viewer Count Section - Bottom placement as requested */}
+        <View style={[styles.viewerSection, { borderTopColor: theme.border }]}>
+          <LiveViewerBadge gameId={game.id} style={styles.viewerBadge} />
+        </View>
       </TouchableOpacity>
     );
   };
@@ -766,6 +772,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  viewerSection: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderTopWidth: 1,
+    alignItems: 'center',
+  },
+  viewerBadge: {
+    alignSelf: 'center',
   },
 });
 

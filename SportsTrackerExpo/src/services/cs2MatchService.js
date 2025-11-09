@@ -3,6 +3,9 @@ import { BaseCacheService } from './BaseCacheService';
 
 const CS2_API_BASE = 'https://corsproxy.io/?url=https://api.bo3.gg';
 
+// Track ongoing API calls to prevent duplicates
+const ongoingCalls = new Map();
+
 class CS2MatchService extends BaseCacheService {
   // Smart live match detection for CS2 matches
   static hasLiveEvents(data) {
@@ -67,6 +70,57 @@ class CS2MatchService extends BaseCacheService {
 }
 
 /**
+ * Get live match data for currently ongoing matches - fetches live snapshot (2.txt) and round results (3.txt)
+ * @param {number} matchId - The match ID 
+ * @param {Object} basicMatchData - Basic match data from API (1.txt) containing streams and team info
+ * @returns {Promise<Object>} - Live match data with snapshot and rounds
+ */
+export const getLiveMatchData = async (matchId, basicMatchData) => {
+  console.log(`[CS2MatchService] Fetching live data for match ${matchId}`);
+  
+  try {
+    // Get current game number from live_updates if available
+    const currentGameNumber = basicMatchData?.live_updates?.game_number || 1;
+    
+    const [snapshotResponse, gameStateResponse] = await Promise.all([
+      // 2.txt - Live snapshot with current match state and player data
+      BaseCacheService.getCachedData(
+        `live_snapshot_${matchId}`,
+        () => fetch(`https://corsproxy.io/?url=https://api.bo3.gg/api/v1/live/matches/${matchId}/last_snapshot`),
+        true,
+        'live'
+      ),
+      // 3.txt - Round results for current game
+      BaseCacheService.getCachedData(
+        `game_state_${matchId}_${currentGameNumber}`,
+        () => fetch(`https://corsproxy.io/?url=https://api.bo3.gg/api/v1/live/matches/${matchId}/game_state?game_number=${currentGameNumber}`),
+        true,
+        'live'
+      )
+    ]);
+
+    const [snapshotData, gameStateData] = await Promise.all([
+      snapshotResponse ? snapshotResponse.json() : null,
+      gameStateResponse ? gameStateResponse.json() : null
+    ]);
+
+    console.log(`[CS2MatchService] Live snapshot data:`, snapshotData ? 'Available' : 'Missing');
+    console.log(`[CS2MatchService] Game state data:`, gameStateData ? 'Available' : 'Missing');
+
+    return {
+      basicMatch: basicMatchData,
+      snapshot: snapshotData,
+      gameState: gameStateData,
+      matchId,
+      isLive: true
+    };
+  } catch (error) {
+    console.error(`[CS2MatchService] Error fetching live data for match ${matchId}:`, error);
+    throw error;
+  }
+};
+
+/**
  * Get detailed match data including games/maps - fetches all 6 endpoints as shown in txt files
  * @param {number} matchId - The match ID
  * @param {number} team1Id - Team 1 ID
@@ -78,9 +132,31 @@ class CS2MatchService extends BaseCacheService {
  * @returns {Promise<Object>} - Complete formatted match data
  */
 export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team2Slug, matchStartDate, matchSlug) => {
+  const callKey = `${matchId}_${team1Id}_${team2Id}`;
+  
+  console.log('=== getMatchDetails called ===', { 
+    matchId, 
+    team1Id, 
+    team2Id, 
+    callKey,
+    isOngoing: ongoingCalls.has(callKey),
+    timestamp: new Date().toISOString(),
+    stackTrace: new Error().stack?.split('\n').slice(1, 4)
+  });
+  
+  // If there's already an ongoing call for this match, wait for it
+  if (ongoingCalls.has(callKey)) {
+    console.log('Duplicate call detected, waiting for ongoing call to complete...');
+    return await ongoingCalls.get(callKey);
+  }
+  
   const cacheKey = `cs2_match_details_${matchId}_${team1Id}_${team2Id}`;
-  return CS2MatchService.getCachedData(cacheKey, async () => {
+  
+  // Create the promise and store it to prevent duplicates
+  const promise = CS2MatchService.getCachedData(cacheKey, async () => {
     try {
+      console.log('Cache miss - executing API calls for:', cacheKey);
+      
       // Validate required parameters
       if (!matchId || !team1Id || !team2Id) {
         throw new Error(`Missing required parameters: matchId=${matchId}, team1Id=${team1Id}, team2Id=${team2Id}`);
@@ -92,38 +168,50 @@ export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team
       const currentYear = new Date().getFullYear();
       const headers = CS2MatchService.getBrowserHeaders();
       
-      // First, fetch basic data to get team information
-      const [
-        // 1.txt - Head to head matches between teams
-        headToHeadResponse,
-        // 2.txt - Recent matches for team1 analysis
-        team1RecentMatchesResponse,
-        // 2.txt - Recent matches for team2 analysis (fetch for both teams)
-        team2RecentMatchesResponse,
-        // 4.txt - Team1 players/lineup
-        team1PlayersResponse,
-        // 4.txt - Team2 players/lineup (fetch for both teams)
-        team2PlayersResponse,
-        // 5.txt - Detailed game data for this match
-        gameDetailsResponse,
-        // 6.txt - Detailed match info using match slug
-        matchDetailsResponse
-      ] = await Promise.all([
-      // 1. Head to head between the two teams (1.txt)
-      fetch(`${CS2_API_BASE}/api/v1/matches?page[offset]=0&page[limit]=10&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][contains]=${team1Id},${team2Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament`, { headers }),
-      // 2. Recent matches for team1 (2.txt)
-      fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][overlap]=${team1Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`, { headers }),
-      // 2. Recent matches for team2 (2.txt with team2 ID)
-      fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][overlap]=${team2Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`, { headers }),
-      // 4. Team1 players (4.txt)
-      fetch(`${CS2_API_BASE}/api/v1/players?scope=show-match-lineup&page[offset]=0&page[limit]=7&filter[team_id][eq]=${team1Id}`, { headers }),
-      // 4. Team2 players (4.txt with team2 ID)
-      fetch(`${CS2_API_BASE}/api/v1/players?scope=show-match-lineup&page[offset]=0&page[limit]=7&filter[team_id][eq]=${team2Id}`, { headers }),
-      // 5. Game details for this specific match (5.txt)
-      fetch(`${CS2_API_BASE}/api/v1/games?sort=number&filter[games.match_id][eq]=${matchId}&with=winner_team_clan,loser_team_clan,game_side_results,game_rounds`, { headers }),
-      // 6. Detailed match info using match slug (6.txt)
-      matchSlug ? fetch(`${CS2_API_BASE}/api/v1/matches/${matchSlug}?scope=show-match&stream_language=en&with=teams,tournament_deep,stage`, { headers }) : null
-    ]);
+      // Prepare all API calls including map pools if slugs are available
+      const apiCalls = [
+        // 1. Head to head between the two teams (1.txt)
+        fetch(`${CS2_API_BASE}/api/v1/matches?page[offset]=0&page[limit]=10&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][contains]=${team1Id},${team2Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament`, { headers }),
+        // 2. Recent matches for team1 (2.txt)
+        fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[matches.team_ids][overlap]=${team1Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`, { headers }),
+        // 2. Recent matches for team2 (2.txt with team2 ID)
+        fetch(`${CS2_API_BASE}/api/v1/matches?scope=show-match-team-last-maps&page[offset]=0&page[limit]=5&sort=-start_date&filter[matches.status][in]=finished&filter[teams.team_ids][overlap]=${team2Id}&filter[matches.start_date][lt]=${filterDate}&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.discipline_id][eq]=1&with=teams,tournament,games`, { headers }),
+        // 4. Team1 players (4.txt)
+        fetch(`${CS2_API_BASE}/api/v1/players?scope=show-match-lineup&page[offset]=0&page[limit]=7&filter[team_id][eq]=${team1Id}`, { headers }),
+        // 4. Team2 players (4.txt with team2 ID)
+        fetch(`${CS2_API_BASE}/api/v1/players?scope=show-match-lineup&page[offset]=0&page[limit]=7&filter[team_id][eq]=${team2Id}`, { headers }),
+        // 5. Game details for this specific match (5.txt)
+        fetch(`${CS2_API_BASE}/api/v1/games?sort=number&filter[games.match_id][eq]=${matchId}&with=winner_team_clan,loser_team_clan,game_side_results,game_rounds`, { headers }),
+        // 6. Detailed match info using match slug (6.txt)
+        matchSlug ? fetch(`${CS2_API_BASE}/api/v1/matches/${matchSlug}?scope=show-match&stream_language=en&with=teams,tournament_deep,stage`, { headers }) : null,
+        // 3. Team1 map pool data (3.txt) - fetch in parallel if slug is available
+        team1Slug ? fetch(`${CS2_API_BASE}/api/v1/teams/${team1Slug}/map_pool?scope=show-match-team-map-pool&filter[begin_at_from]=${currentYear}-01-01&filter[begin_at_to]=${filterDate}`, { headers }) : null,
+        // 3. Team2 map pool data (3.txt) - fetch in parallel if slug is available  
+        team2Slug ? fetch(`${CS2_API_BASE}/api/v1/teams/${team2Slug}/map_pool?scope=show-match-team-map-pool&filter[begin_at_from]=${currentYear}-01-01&filter[begin_at_to]=${filterDate}`, { headers }) : null
+      ];
+
+      console.log('Fetching API data in parallel:', {
+        totalCalls: apiCalls.filter(Boolean).length,
+        team1SlugAvailable: !!team1Slug,
+        team2SlugAvailable: !!team2Slug,
+        matchSlugAvailable: !!matchSlug
+      });
+
+      // Fetch all data in parallel
+      const responses = await Promise.all(apiCalls);
+
+    // Parse all responses
+    const [
+      headToHeadResponse,
+      team1RecentMatchesResponse, 
+      team2RecentMatchesResponse,
+      team1PlayersResponse,
+      team2PlayersResponse,
+      gameDetailsResponse,
+      matchDetailsResponse,
+      team1MapPoolResponse,
+      team2MapPoolResponse
+    ] = responses;
 
     const [
       headToHeadData, 
@@ -132,7 +220,9 @@ export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team
       team1PlayersData, 
       team2PlayersData, 
       gameDetailsData,
-      matchDetailsData
+      matchDetailsData,
+      team1MapPoolDataDirect,
+      team2MapPoolDataDirect
     ] = await Promise.all([
       headToHeadResponse.json(),
       team1RecentMatchesResponse.json(),
@@ -140,8 +230,26 @@ export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team
       team1PlayersResponse.json(),
       team2PlayersResponse.json(),
       gameDetailsResponse.json(),
-      matchDetailsResponse ? matchDetailsResponse.json() : null
+      matchDetailsResponse ? matchDetailsResponse.json() : null,
+      team1MapPoolResponse ? team1MapPoolResponse.json().catch(err => { console.warn('Team1 map pool failed:', err); return null; }) : null,
+      team2MapPoolResponse ? team2MapPoolResponse.json().catch(err => { console.warn('Team2 map pool failed:', err); return null; }) : null
     ]);
+
+    // Debug live_updates data from link 6 (matchDetailsData)
+    console.log('=== LIVE UPDATES DEBUG FROM MATCH SERVICE ===');
+    console.log('Match Details (6.txt) live_updates:', matchDetailsData?.live_updates);
+    console.log('Match Details full object keys:', matchDetailsData ? Object.keys(matchDetailsData) : 'no matchDetailsData');
+    if (matchDetailsData?.live_updates) {
+      console.log('Live updates game_number:', matchDetailsData.live_updates.game_number);
+      console.log('Live updates map_name:', matchDetailsData.live_updates.map_name);
+      console.log('Live updates team scores:', {
+        team1_game_score: matchDetailsData.live_updates.team_1?.game_score,
+        team2_game_score: matchDetailsData.live_updates.team_2?.game_score,
+        team1_match_score: matchDetailsData.live_updates.team_1?.match_score,
+        team2_match_score: matchDetailsData.live_updates.team_2?.match_score
+      });
+    }
+    console.log('Game Details count:', gameDetailsData?.results?.length);
 
     // Extract team slugs from available data sources
     let extractedTeam1Slug = team1Slug;
@@ -179,25 +287,9 @@ export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team
       }
     }
 
-    // Now fetch map pool data with extracted slugs
-    const [team1MapPoolData, team2MapPoolData] = await Promise.all([
-      // 3. Team1 map pool data (3.txt)
-      extractedTeam1Slug ? 
-        fetch(`${CS2_API_BASE}/api/v1/teams/${extractedTeam1Slug}/map_pool?scope=show-match-team-map-pool&filter[begin_at_from]=${currentYear}-01-01&filter[begin_at_to]=${filterDate}`)
-          .then(res => res.json())
-          .catch(err => {
-            console.warn(`Failed to fetch team1 map pool for slug ${extractedTeam1Slug}:`, err);
-            return null;
-          }) : null,
-      // 3. Team2 map pool data (3.txt with team2 slug)
-      extractedTeam2Slug ? 
-        fetch(`${CS2_API_BASE}/api/v1/teams/${extractedTeam2Slug}/map_pool?scope=show-match-team-map-pool&filter[begin_at_from]=${currentYear}-01-01&filter[begin_at_to]=${filterDate}`)
-          .then(res => res.json())
-          .catch(err => {
-            console.warn(`Failed to fetch team2 map pool for slug ${extractedTeam2Slug}:`, err);
-            return null;
-          }) : null
-    ]);
+    // Map pool data is now included in parallel responses
+    const team1MapPoolData = team1MapPoolDataDirect;
+    const team2MapPoolData = team2MapPoolDataDirect;
     
     return formatCompleteMatchData({
       headToHead: headToHeadData,
@@ -216,6 +308,17 @@ export const getMatchDetails = async (matchId, team1Id, team2Id, team1Slug, team
       throw error;
     }
   }, 'match_details');
+  
+  // Store the promise to prevent duplicates
+  ongoingCalls.set(callKey, promise);
+  
+  try {
+    const result = await promise;
+    return result;
+  } finally {
+    // Clean up the ongoing call tracker
+    ongoingCalls.delete(callKey);
+  }
 };
 
 /**
@@ -318,13 +421,13 @@ export const formatCompleteMatchData = (combinedData) => {
       id: matchDetails.team1.id,
       name: matchDetails.team1.name,
       shortName: matchDetails.team1.name,
-      logoUrl: matchDetails.team1.image_url || 'https://via.placeholder.com/64'
+      logoUrl: matchDetails.team1.image_url
     };
     team2Data = {
       id: matchDetails.team2.id,
       name: matchDetails.team2.name,
       shortName: matchDetails.team2.name,
-      logoUrl: matchDetails.team2.image_url || 'https://via.placeholder.com/64'
+      logoUrl: matchDetails.team2.image_url
     };
   } else if (headToHead && headToHead.results && headToHead.results.length > 0) {
     // Fallback to head to head data
@@ -333,13 +436,13 @@ export const formatCompleteMatchData = (combinedData) => {
       id: matchData.team1_id,
       name: matchData.team1?.name || matchData.team1?.slug,
       shortName: matchData.team1?.name || matchData.team1?.slug,
-      logoUrl: matchData.team1?.image_url || 'https://via.placeholder.com/64'
+      logoUrl: matchData.team1?.image_url
     };
     team2Data = {
       id: matchData.team2_id,
       name: matchData.team2?.name || matchData.team2?.slug,
       shortName: matchData.team2?.name || matchData.team2?.slug,
-      logoUrl: matchData.team2?.image_url || 'https://via.placeholder.com/64'
+      logoUrl: matchData.team2?.image_url
     };
   } else {
     // Final fallback to game details
@@ -347,13 +450,13 @@ export const formatCompleteMatchData = (combinedData) => {
       id: firstGame.winner_team_clan?.team?.id || firstGame.loser_team_clan?.team?.id,
       name: firstGame.winner_team_clan?.clan_name || firstGame.loser_team_clan?.clan_name,
       shortName: firstGame.winner_team_clan?.clan_name || firstGame.loser_team_clan?.clan_name,
-      logoUrl: firstGame.winner_team_clan?.team?.image_url || firstGame.loser_team_clan?.team?.image_url || 'https://via.placeholder.com/64'
+      logoUrl: firstGame.winner_team_clan?.team?.image_url || firstGame.loser_team_clan?.team?.image_url
     };
     team2Data = {
       id: firstGame.loser_team_clan?.team?.id || firstGame.winner_team_clan?.team?.id,
       name: firstGame.loser_team_clan?.clan_name || firstGame.winner_team_clan?.clan_name,
       shortName: firstGame.loser_team_clan?.clan_name || firstGame.winner_team_clan?.clan_name,
-      logoUrl: firstGame.loser_team_clan?.team?.image_url || firstGame.winner_team_clan?.team?.image_url || 'https://via.placeholder.com/64'
+      logoUrl: firstGame.loser_team_clan?.team?.image_url || firstGame.winner_team_clan?.team?.image_url
     };
   }
 
@@ -364,8 +467,9 @@ export const formatCompleteMatchData = (combinedData) => {
     team2: team2Data,
     team1Score: calculateTeamScore(games, team1Data.id),
     team2Score: calculateTeamScore(games, team2Data.id),
-    completed: firstGame.status === 'finished',
-    startDate: firstGame.begin_at,
+    completed: matchDetails?.status === 'finished',
+    live: matchDetails?.status === 'current',
+    startDate: matchDetails?.start_date,
     maps: games.map(game => ({
       id: game.id,
       name: game.map_name,
@@ -374,7 +478,8 @@ export const formatCompleteMatchData = (combinedData) => {
       team2Score: getTeamScoreForGame(game, team2Data.id),
       winner: game.winner_team_clan?.team?.id,
       completed: game.status === 'finished',
-      duration: game.duration
+      duration: game.duration,
+      results: game.game_side_results ? game.game_side_results : [],
     })),
     format: games.length <= 1 ? 'BO1' : games.length <= 3 ? 'BO3' : 'BO5',
     // Pick/ban data from match details (6.txt endpoint)
@@ -414,13 +519,13 @@ export const formatMatchData = (rawData) => {
       id: firstGame.winner_team_clan?.team?.id || firstGame.loser_team_clan?.team?.id,
       name: firstGame.winner_team_clan?.clan_name || firstGame.loser_team_clan?.clan_name,
       shortName: firstGame.winner_team_clan?.clan_name || firstGame.loser_team_clan?.clan_name,
-      logoUrl: firstGame.winner_team_clan?.team?.image_url || firstGame.loser_team_clan?.team?.image_url || 'https://via.placeholder.com/48'
+      logoUrl: firstGame.winner_team_clan?.team?.image_url || firstGame.loser_team_clan?.team?.image_url
     },
     team2: {
       id: firstGame.loser_team_clan?.team?.id || firstGame.winner_team_clan?.team?.id,
       name: firstGame.loser_team_clan?.clan_name || firstGame.winner_team_clan?.clan_name,
       shortName: firstGame.loser_team_clan?.clan_name || firstGame.winner_team_clan?.clan_name,
-      logoUrl: firstGame.loser_team_clan?.team?.image_url || firstGame.winner_team_clan?.team?.image_url || 'https://via.placeholder.com/48'
+      logoUrl: firstGame.loser_team_clan?.team?.image_url || firstGame.winner_team_clan?.team?.image_url
     },
     team1Score: calculateTeamScore(games, firstGame.winner_team_clan?.team?.id),
     team2Score: calculateTeamScore(games, firstGame.loser_team_clan?.team?.id),
@@ -567,13 +672,13 @@ export const formatSeriesData = (matchData) => {
       id: matchData.team1_id || team1Data?.id,
       name: team1Data?.name || team1Data?.baseInfo?.name,
       shortName: team1Data?.name || team1Data?.baseInfo?.name,
-      logoUrl: team1Data?.image_url || team1Data?.baseInfo?.logoUrl || 'https://via.placeholder.com/48'
+      logoUrl: team1Data?.image_url || team1Data?.baseInfo?.logoUrl
     },
     team2: {
       id: matchData.team2_id || team2Data?.id,
       name: team2Data?.name || team2Data?.baseInfo?.name,
       shortName: team2Data?.name || team2Data?.baseInfo?.name,
-      logoUrl: team2Data?.image_url || team2Data?.baseInfo?.logoUrl || 'https://via.placeholder.com/48'
+      logoUrl: team2Data?.image_url || team2Data?.baseInfo?.logoUrl
     },
     team1Score: matchData.team1_score || matchData.team1Score || 0,
     team2Score: matchData.team2_score || matchData.team2Score || 0,
@@ -605,10 +710,26 @@ export const getSpecificMatchDetails = async (gameId, seriesSlug, mapName) => {
         fetch(`${CS2_API_BASE}/api/v1/games/${gameId}?with=winner_team_clan,loser_team_clan,game_side_results,game_rounds`)
     ]);
     
-    const [playerStatsData, gameDetailsData] = await Promise.all([
+    let [playerStatsData, gameDetailsData] = await Promise.all([
       playerStatsResponse.json(),
       gameDetailsResponse.json()
     ]);
+
+    // Check if player stats are empty and fetch fallback data
+    let useShortStats = false;
+    if (!playerStatsData || playerStatsData.length === 0 || (Array.isArray(playerStatsData) && playerStatsData.length === 0)) {
+      console.log('⚠️ Player stats empty, fetching short_players_stats fallback');
+      try {
+        const shortStatsResponse = await fetch(`${CS2_API_BASE}/api/v1/games/${gameId}/short_players_stats`);
+        const shortStatsData = await shortStatsResponse.json();
+        playerStatsData = shortStatsData;
+        useShortStats = true;
+        console.log('✅ Successfully fetched short_players_stats:', shortStatsData);
+      } catch (error) {
+        console.error('❌ Error fetching short_players_stats:', error);
+        playerStatsData = [];
+      }
+    }
     
     // Debug log the data structure
     console.log('🔍 Game Details Data Structure:', JSON.stringify(gameDetailsData, null, 2));
@@ -618,7 +739,8 @@ export const getSpecificMatchDetails = async (gameId, seriesSlug, mapName) => {
     return formatSpecificMatchData({
       playerStats: playerStatsData,
       gameDetails: gameDetailsData,
-      gameId
+      gameId,
+      useShortStats
     });
   } catch (error) {
     console.error('Error fetching specific match details:', error);
@@ -632,7 +754,7 @@ export const getSpecificMatchDetails = async (gameId, seriesSlug, mapName) => {
  * @returns {Object} - Formatted match data
  */
 const formatSpecificMatchData = (combinedData) => {
-  const { playerStats, gameDetails, gameId } = combinedData;
+  const { playerStats, gameDetails, gameId, useShortStats = false } = combinedData;
   
   if (!gameDetails) {
     return null;
@@ -647,12 +769,12 @@ const formatSpecificMatchData = (combinedData) => {
     team1Data = {
       id: matchInfo.team1.id,
       name: matchInfo.team1.name,
-      logoUrl: matchInfo.team1.image_url || 'https://via.placeholder.com/48'
+      logoUrl: matchInfo.team1.image_url
     };
     team2Data = {
       id: matchInfo.team2.id,
       name: matchInfo.team2.name,
-      logoUrl: matchInfo.team2.image_url || 'https://via.placeholder.com/48'
+      logoUrl: matchInfo.team2.image_url
     };
     team1Score = matchInfo.team1_score || 0;
     team2Score = matchInfo.team2_score || 0;
@@ -664,13 +786,13 @@ const formatSpecificMatchData = (combinedData) => {
     
     team1Data = {
       id: winnerClan?.team?.id,
-      name: winnerClan?.clan_name || winnerClan?.team?.name || 'Team 1',
-      logoUrl: winnerClan?.team?.image_url || 'https://via.placeholder.com/48'
+      name: winnerClan?.team?.name || 'Team 1',
+      logoUrl: winnerClan?.team?.image_url
     };
     team2Data = {
       id: loserClan?.team?.id,
-      name: loserClan?.clan_name || loserClan?.team?.name || 'Team 2',
-      logoUrl: loserClan?.team?.image_url || 'https://via.placeholder.com/48'
+      name: loserClan?.team?.name || 'Team 2',
+      logoUrl: loserClan?.team?.image_url
     };
     team1Score = matchInfo.winner_clan_score || 0;
     team2Score = matchInfo.loser_clan_score || 0;
@@ -702,7 +824,8 @@ const formatSpecificMatchData = (combinedData) => {
     
     // Raw data for detailed analysis
     playerStats: playerStats,
-    rounds: matchInfo.game_rounds || []
+    rounds: matchInfo.game_rounds || [],
+    useShortStats: useShortStats
   };
 
   return matchData;

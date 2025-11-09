@@ -12,6 +12,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import { LiveViewerBadge } from '../../components/ViewerCounter';
 
 const ResultsScreen = ({ route }) => {
   const { theme, colors } = useTheme();
@@ -716,6 +717,10 @@ const ResultsScreen = ({ route }) => {
         </View>
       ) : null}
       
+      {/* Viewer Count Section - Bottom placement as requested */}
+      <View style={[styles.viewerSection, { borderTopColor: theme.border }]}>
+        <LiveViewerBadge gameId={event.id} style={styles.viewerBadge} />
+      </View>
       
     </TouchableOpacity>
   );
@@ -952,6 +957,16 @@ const ResultsScreen = ({ route }) => {
     compName: {
       fontSize: 12,
       fontWeight: '600',
+    },
+    viewerSection: {
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderTopWidth: 1,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    viewerBadge: {
+      alignSelf: 'center',
     },
   });
 

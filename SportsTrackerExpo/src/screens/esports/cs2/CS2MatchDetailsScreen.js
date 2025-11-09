@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,94 +8,381 @@ import {
   Image,
   ActivityIndicator,
   RefreshControl,
+  Dimensions,
+  Animated,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { WebView } from 'react-native-webview';
+import { Ionicons, FontAwesome6 } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
-import { getMatchDetails } from '../../../services/cs2MatchService';
+import { getLiveMatchData } from '../../../services/cs2MatchService';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 const CS2MatchDetailsScreen = ({ navigation, route }) => {
   const { colors, theme } = useTheme();
-  const { matchId } = route.params;
-  const [matchData, setMatchData] = useState(null);
-  const [liveData, setLiveData] = useState(null);
+  const { matchId, matchData: basicMatchData } = route.params;
+  const [liveMatchData, setLiveMatchData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('Overview');
+  const [selectedStreamIndex, setSelectedStreamIndex] = useState(0);
+  const [expandedTeam, setExpandedTeam] = useState(null); // null, 'team1', or 'team2'
+  const roundCarouselRef = useRef(null);
+  const streamInitialized = useRef(false);
 
   useEffect(() => {
-    loadMatchData();
+    loadLiveMatchData();
+    
+    // Auto-refresh every 5 seconds for live data
+    const interval = setInterval(loadLiveMatchData, 5000);
+    return () => clearInterval(interval);
   }, [matchId]);
 
-  const loadMatchData = async () => {
+  const loadLiveMatchData = async () => {
     try {
-      setLoading(true);
-      // Note: This screen is deprecated in favor of CS2Results
-      // Just redirect to CS2Results if matchData is available
-      if (route.params?.matchData) {
-        navigation.replace('CS2Results', {
-          matchId: matchId,
-          matchData: route.params.matchData
-        });
-        return;
-      }
+      if (!loading) setRefreshing(true);
       
-      // Legacy support - try to load with just matchId (will likely fail)
-      const match = await getMatchDetails(matchId);
-      setMatchData(match);
+      const liveData = await getLiveMatchData(matchId, basicMatchData);
+      setLiveMatchData(liveData);
+      
+      // Only auto-select first stream on very first load, never reset after user has made a selection
+      if (liveData.basicMatch?.streams?.length > 0 && !streamInitialized.current) {
+        setSelectedStreamIndex(0);
+        streamInitialized.current = true;
+      }
     } catch (error) {
-      console.error('Error loading match data:', error);
-      // Redirect to tournament screen or show error
-      console.warn('CS2MatchDetailsScreen is deprecated. Use CS2Results instead.');
+      console.error('Error loading live match data:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   const onRefresh = async () => {
-    setRefreshing(true);
-    await loadMatchData();
-    setRefreshing(false);
+    await loadLiveMatchData();
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = date - now;
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-
-    if (diffMins > 0) {
-      const diffHours = Math.floor(diffMins / 60);
-      const diffDays = Math.floor(diffHours / 24);
-      
-      if (diffDays > 0) {
-        return `${diffDays}d ${diffHours % 24}h`;
-      } else if (diffHours > 0) {
-        return `${diffHours}h ${diffMins % 60}m`;
-      } else {
-        return `${diffMins}m`;
-      }
-    } else {
-      return 'Live';
+  const formatRoundTime = (timeMs) => {
+    const seconds = Math.floor(timeMs / 1000);
+    if (seconds >= 60) {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
     }
+    return `${(seconds / 10).toFixed(1)}s`;
+  };
+
+  const getHealthBarColor = (health) => {
+    if (health > 75) return '#4CAF50'; // Green
+    if (health > 50) return '#FFC107'; // Yellow  
+    if (health > 25) return '#FF9800'; // Orange
+    return '#F44336'; // Red
+  };
+
+  // CS2 weapon icon mapping - converts weapon names to SVG file names
+  const getCS2WeaponIconName = (weaponName) => {
+    if (!weaponName) return null;
+    
+    // Convert to lowercase and remove spaces/dashes/underscores
+    const cleanWeapon = weaponName.toLowerCase().replace(/[\s\-_]/g, '');
+    
+    // Map weapon names to SVG file names (based on the C++ mapping and available SVGs)
+    const weaponIconMap = {
+      // Pistols
+      'deagle': 'deagle',
+      'deserteagle': 'deagle',
+      'elite': 'elite',
+      'fiveseven': 'fiveseven',
+      'glock18': 'glock',
+      'hkp2000': 'hkp2000',
+      'p2000': 'hkp2000',
+      'p250': 'p250',
+      'cz75auto': 'cz75a',
+      'tec9': 'tec9',
+      'usp': 'usps',
+      'usps': 'usps',
+      'uspsilencer': 'usps',
+      'revolver': 'revolver',
+      
+      // Rifles
+      'ak47': 'ak47',
+      'aug': 'aug',
+      'famas': 'famas',
+      'galilar': 'galilar',
+      'galil': 'galilar',
+      'm4a1': 'm4a1',
+      'm4a4': 'm4a1',
+      'm4a1silencer': 'm4a1silencer',
+      'm4a1s': 'm4a1silencer',
+      'sg556': 'sg556',
+      'sg553': 'sg556',
+      
+      // Sniper Rifles
+      'awp': 'awp',
+      'g3sg1': 'g3sg1',
+      'scar20': 'scar20',
+      'ssg08': 'ssg08',
+      'scout': 'ssg08',
+      
+      // SMGs
+      'bizon': 'bizon',
+      'mac10': 'mac10',
+      'mp5sd': 'mp5sd',
+      'mp7': 'mp7',
+      'mp9': 'mp9',
+      'p90': 'p90',
+      'ump45': 'ump451',
+      'ump': 'ump451',
+      
+      // Shotguns
+      'mag7': 'mag7',
+      'nova': 'nova',
+      'sawedoff': 'sawedoff',
+      'xm1014': 'xm1014',
+      
+      // Machine Guns
+      'm249': 'm249',
+      'negev': 'negev',
+      
+      // Grenades
+      'flashbang': 'flashbang',
+      'hegrenade': 'hegrenade',
+      'he': 'hegrenade',
+      'smokegrenade': 'smokegrenade',
+      'smoke': 'smokegrenade',
+      'molotov': 'molotov',
+      'incgrenade': 'incgrenade0',
+      'incendiarygrenade': 'incgrenade0',
+      'decoy': 'decoy',
+      
+      // Knives
+      'knife': 'knife',
+      'knifet': 'knife_t',
+      'knifebayonet': 'knife_bayonet',
+      'knifebutterfly': 'knife_butterfly',
+      'knifecanis': 'knife_canis',
+      'knifecord': 'knife_cord',
+      'knifecss': 'knife_css',
+      'knifefalchion': 'knife_falchion',
+      'knifeflip': 'knife_flip',
+      'knifegut': 'knife_gut',
+      'knifegypsyjackknife': 'knife_gypsy_jackknife',
+      'knifekarambit': 'knife_karambit',
+      'knifem9bayonet': 'knife_m9_bayonet',
+      'knifeoutdoor': 'knife_outdoor',
+      'knifepush': 'knife_push',
+      'knifeskeleton': 'knife_skeleton',
+      'knifestiletto': 'knife_stiletto',
+      'knifesurvivalbowie': 'knife_survival_bowie',
+      'knifetactical': 'knife_tactical',
+      'knifeursus': 'knife_ursus',
+      'knifewidowmaker': 'knife_widowmaker',
+      
+      // Special
+      'c4': 'c4',
+      'bomb': 'bomb',
+      'taser': 'taser'
+    };
+    
+    return weaponIconMap[cleanWeapon] || null;
+  };
+
+  // CS2 Weapon PNG Images Map
+  const CS2WeaponPNGs = {
+    // Pistols
+    deagle: require('../../../../assets/icons/deagle.png'),
+    elite: require('../../../../assets/icons/elite.png'),
+    fiveseven: require('../../../../assets/icons/fiveseven.png'),
+    glock: require('../../../../assets/icons/glock.png'),
+    hkp2000: require('../../../../assets/icons/hkp2000.png'),
+    p250: require('../../../../assets/icons/p250.png'),
+    cz75a: require('../../../../assets/icons/cz75a.png'),
+    tec9: require('../../../../assets/icons/tec9.png'),
+    usps: require('../../../../assets/icons/usp_silencer.png'),
+    revolver: require('../../../../assets/icons/revolver.png'),
+    
+    // Rifles
+    ak47: require('../../../../assets/icons/ak47.png'),
+    aug: require('../../../../assets/icons/aug.png'),
+    famas: require('../../../../assets/icons/famas.png'),
+    galilar: require('../../../../assets/icons/galilar.png'),
+    m4a1: require('../../../../assets/icons/m4a1.png'),
+    m4a1silencer: require('../../../../assets/icons/m4a1_silencer.png'),
+    sg556: require('../../../../assets/icons/sg556.png'),
+    
+    // Sniper Rifles
+    awp: require('../../../../assets/icons/awp.png'),
+    g3sg1: require('../../../../assets/icons/g3sg1.png'),
+    scar20: require('../../../../assets/icons/scar20.png'),
+    ssg08: require('../../../../assets/icons/ssg08.png'),
+    
+    // SMGs
+    bizon: require('../../../../assets/icons/bizon.png'),
+    mac10: require('../../../../assets/icons/mac10.png'),
+    mp5sd: require('../../../../assets/icons/mp5sd.png'),
+    mp7: require('../../../../assets/icons/mp7.png'),
+    mp9: require('../../../../assets/icons/mp9.png'),
+    p90: require('../../../../assets/icons/p90.png'),
+    ump451: require('../../../../assets/icons/ump451.png'),
+    
+    // Shotguns
+    mag7: require('../../../../assets/icons/mag7.png'),
+    nova: require('../../../../assets/icons/nova.png'),
+    sawedoff: require('../../../../assets/icons/sawedoff.png'),
+    xm1014: require('../../../../assets/icons/xm1014.png'),
+    
+    // Machine Guns
+    m249: require('../../../../assets/icons/m249.png'),
+    negev: require('../../../../assets/icons/negev.png'),
+    
+    // Grenades
+    flashbang: require('../../../../assets/icons/flashbang.png'),
+    hegrenade: require('../../../../assets/icons/hegrenade.png'),
+    smokegrenade: require('../../../../assets/icons/smokegrenade.png'),
+    molotov: require('../../../../assets/icons/molotov.png'),
+    incgrenade0: require('../../../../assets/icons/incgrenade0.png'),
+    decoy: require('../../../../assets/icons/decoy.png'),
+    
+    // Knives
+    knife: require('../../../../assets/icons/knife.png'),
+    knife_t: require('../../../../assets/icons/knife_t.png'),
+    knife_bayonet: require('../../../../assets/icons/knife_bayonet.png'),
+    knife_butterfly: require('../../../../assets/icons/knife_butterfly.png'),
+    knife_canis: require('../../../../assets/icons/knife_canis.png'),
+    knife_cord: require('../../../../assets/icons/knife_cord.png'),
+    knife_css: require('../../../../assets/icons/knife_css.png'),
+    knife_falchion: require('../../../../assets/icons/knife_falchion.png'),
+    knife_flip: require('../../../../assets/icons/knife_flip.png'),
+    knife_gut: require('../../../../assets/icons/knife_gut.png'),
+    knife_gypsy_jackknife: require('../../../../assets/icons/knife_gypsy_jackknife.png'),
+    knife_karambit: require('../../../../assets/icons/knife_karambit.png'),
+    knife_m9_bayonet: require('../../../../assets/icons/knife_m9_bayonet.png'),
+    knife_outdoor: require('../../../../assets/icons/knife_outdoor.png'),
+    knife_push: require('../../../../assets/icons/knife_push.png'),
+    knife_skeleton: require('../../../../assets/icons/knife_skeleton.png'),
+    knife_stiletto: require('../../../../assets/icons/knife_stiletto.png'),
+    knife_survival_bowie: require('../../../../assets/icons/knife_survival_bowie.png'),
+    knife_tactical: require('../../../../assets/icons/knife_tactical.png'),
+    knife_ursus: require('../../../../assets/icons/knife_ursus.png'),
+    knife_widowmaker: require('../../../../assets/icons/knife_widowmaker.png'),
+    
+    // Special
+    c4: require('../../../../assets/icons/c4.png'),
+    bomb: require('../../../../assets/icons/bomb.png'),
+    taser: require('../../../../assets/icons/taser.png')
+  };
+
+  // Get CS2 weapon icon - returns PNG image source or fallback Ionicon
+  const getCS2WeaponIcon = (weaponName) => {
+    const iconName = getCS2WeaponIconName(weaponName);
+    
+    // Return PNG image source if weapon is recognized
+    if (iconName && CS2WeaponPNGs[iconName]) {
+      return { type: 'png', source: CS2WeaponPNGs[iconName] };
+    }
+    
+    // Fallback to generic weapon categories with Ionicons
+    if (!weaponName) return { type: 'ionicon', name: 'help' };
+    
+    const weapon = weaponName.toLowerCase();
+    if (weapon.includes('awp') || weapon.includes('scout') || weapon.includes('ssg08')) {
+      return { type: 'ionicon', name: 'telescope' };
+    }
+    if (weapon.includes('ak') || weapon.includes('m4') || weapon.includes('rifle')) {
+      return { type: 'ionicon', name: 'rifle' };
+    }
+    if (weapon.includes('glock') || weapon.includes('usp') || weapon.includes('p250') || weapon.includes('pistol')) {
+      return { type: 'ionicon', name: 'nuclear' };
+    }
+    if (weapon.includes('knife')) {
+      return { type: 'ionicon', name: 'cut' };
+    }
+    if (weapon.includes('grenade') || weapon.includes('he') || weapon.includes('flash') || weapon.includes('smoke')) {
+      return { type: 'ionicon', name: 'radio-button-on' };
+    }
+    
+    return { type: 'ionicon', name: 'flash' }; // generic weapon icon
+  };
+
+  // Create proper Twitch embed URL based on official Twitch documentation
+  const createTwitchEmbedUrl = (stream) => {
+    if (!stream) return null;
+    
+    // Extract channel name from various possible stream URL formats
+    let channelName = null;
+    
+    // If embed_url is already provided, try to extract channel from it
+    if (stream.embed_url) {
+      const embedUrl = stream.embed_url;
+      
+      // Check if it's already a proper Twitch player URL
+      if (embedUrl.includes('player.twitch.tv')) {
+        // Extract channel parameter if it exists
+        const channelMatch = embedUrl.match(/[?&]channel=([^&]+)/);
+        if (channelMatch) {
+          channelName = channelMatch[1];
+        }
+      }
+      
+      // Check if it's a regular Twitch URL
+      else if (embedUrl.includes('twitch.tv/')) {
+        const urlMatch = embedUrl.match(/twitch\.tv\/([^/?]+)/);
+        if (urlMatch) {
+          channelName = urlMatch[1];
+        }
+      }
+    }
+    
+    // Try to get channel name from stream.name or stream.channel
+    if (!channelName && stream.name) {
+      channelName = stream.name.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    }
+    
+    if (!channelName && stream.channel) {
+      channelName = stream.channel;
+    }
+    
+    // Fallback to a cleaned version of the stream name
+    if (!channelName) {
+      channelName = 'twitchdev'; // Fallback channel
+    }
+    
+    // Create proper Twitch player embed URL according to official documentation
+    // Determine the parent domain based on environment
+    let parentDomain = 'localhost';
+    
+    if (typeof window !== 'undefined' && window.location) {
+      parentDomain = window.location.hostname;
+    }
+    
+    // Handle different development environments
+    const parentDomains = [
+      parentDomain,
+      'localhost',
+      '127.0.0.1',
+      'exp.host', // Expo web
+      'snack.expo.dev' // Expo Snack
+    ].filter(Boolean).join('&parent=');
+    
+    return `https://player.twitch.tv/?channel=${encodeURIComponent(channelName)}&parent=${parentDomains}&muted=false&autoplay=true`;
   };
 
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.text }]}>Loading match details...</Text>
+        <Text style={[styles.loadingText, { color: theme.text }]}>Loading live match...</Text>
       </View>
     );
   }
 
-  if (!matchData) {
+  if (!liveMatchData) {
     return (
       <View style={[styles.errorContainer, { backgroundColor: theme.background }]}>
         <Ionicons name="alert-circle" size={48} color={theme.textSecondary} />
-        <Text style={[styles.errorText, { color: theme.text }]}>Match not found</Text>
+        <Text style={[styles.errorText, { color: theme.text }]}>Unable to load live match data</Text>
         <TouchableOpacity 
           style={[styles.retryButton, { backgroundColor: colors.primary }]}
-          onPress={loadMatchData}
+          onPress={loadLiveMatchData}
         >
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
@@ -103,222 +390,571 @@ const CS2MatchDetailsScreen = ({ navigation, route }) => {
     );
   }
 
-  const team1 = matchData.teams[0];
-  const team2 = matchData.teams[1];
-  const isLive = liveData && liveData.started && !liveData.finished;
+  const { basicMatch, snapshot, gameState } = liveMatchData;
+  const team1Data = snapshot?.team_one;
+  const team2Data = snapshot?.team_two;
+  const streams = basicMatch?.streams || [];
+  const selectedStream = streams[selectedStreamIndex];
+
+  // Debug logging for streams
+  if (streams.length > 0) {
+    console.log('Available streams:', streams.map((s, i) => ({
+      index: i,
+      name: s.name,
+      original_url: s.embed_url,
+      twitch_url: createTwitchEmbedUrl(s)
+    })));
+    console.log('Selected stream index:', selectedStreamIndex);
+  }
 
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.background }]}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.surfaceSecondary }]}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="chevron-back" size={24} color={theme.text} />
-        </TouchableOpacity>
-        
-        <View style={styles.headerContent}>
-          <Text style={[styles.tournamentName, { color: theme.text }]}>
-            {matchData.tournament?.nameShortened || matchData.tournament?.name}
+      {/* Match Header */}
+      <View style={[styles.matchHeader, { backgroundColor: colors.card }]}>
+        <View style={styles.matchHeaderContent}>
+          {/* Map Background */}
+          <Image
+            source={{ uri: `https://bo3.gg/img/maps/backgrounds/${snapshot?.map_name?.replace('de_', '') || 'mirage'}.webp` }}
+            style={styles.mapBackground}
+          />
+          <View style={styles.mapOverlay} />
+          
+          {/* Match Info */}
+          <View style={styles.matchInfo}>
+            <Text style={[styles.mapName, { color: '#fff' }]}>
+              {snapshot?.map_name?.replace('de_', '').charAt(0).toUpperCase() + snapshot?.map_name?.replace('de_', '').slice(1) || 'Unknown'}
+            </Text>
+            
+            {/* Team Score */}
+            <View style={styles.teamScoreContainer}>
+              <View style={styles.teamSection}>
+                {basicMatch?.team1?.image_url ? (
+                  <Image
+                    source={{ uri: basicMatch.team1.image_url }}
+                    style={styles.teamLogo}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={[styles.teamLogo, { backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderRadius: 24 }]}>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: 'white' }}>
+                      {(basicMatch?.team1?.name || 'T1').substring(0, 2).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <Text style={[styles.teamName, { color: '#fff' }]}>
+                  {basicMatch?.team1?.name || 'Team 1'}
+                </Text>
+                
+                {/* Team 1 Players Alive */}
+                <View style={styles.teamPlayersContainer}>
+                  <View style={styles.teamPlayersAlive}>
+                    {[...Array(5)].map((_, i) => (
+                      <Ionicons 
+                        key={`t1-${i}`} 
+                        name="person" 
+                        size={12} 
+                        color={i < (team1Data?.players_alive || 0) ? '#fff' : '#666'}
+                      />
+                    ))}
+                  </View>
+                </View>
+              </View>
+              
+              <View style={styles.scoreSection}>
+                <Text style={[styles.finalScore, { color: '#fff' }]}>
+                  {team1Data?.score || 0} - {team2Data?.score || 0}
+                </Text>
+                <View style={[styles.statusBadge, { backgroundColor: '#ff4444' }]}>
+                  <Text style={styles.statusText}>
+                    {formatRoundTime(snapshot?.round_time_remaining || 0)}
+                  </Text>
+                </View>
+                
+                {/* Players Remaining Text */}
+                <Text style={[styles.playersRemainingText, { color: '#fff' }]}>Players Remaining</Text>
+                
+                {/* Bomb Status */}
+                {snapshot?.is_bomb_planted && (
+                  <View style={styles.bombStatus}>
+                    <Ionicons name="radio" size={14} color="#ff4444" />
+                    <Text style={[styles.bombText, { color: '#ff4444' }]}>Planted</Text>
+                  </View>
+                )}
+              </View>
+              
+              <View style={styles.teamSection}>
+                {basicMatch?.team2?.image_url ? (
+                  <Image
+                    source={{ uri: basicMatch.team2.image_url }}
+                    style={styles.teamLogo}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={[styles.teamLogo, { backgroundColor: colors.secondary, justifyContent: 'center', alignItems: 'center', borderRadius: 24 }]}>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: 'white' }}>
+                      {(basicMatch?.team2?.name || 'T2').substring(0, 2).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <Text style={[styles.teamName, { color: '#fff' }]}>
+                  {basicMatch?.team2?.name || 'Team 2'}
+                </Text>
+                
+                {/* Team 2 Players Alive */}
+                <View style={styles.teamPlayersContainer}>
+                  <View style={[styles.teamPlayersAlive, { flexDirection: 'row-reverse' }]}>
+                    {[...Array(5)].map((_, i) => (
+                      <Ionicons 
+                        key={`t2-${i}`} 
+                        name="person" 
+                        size={12} 
+                        color={i < (team2Data?.players_alive || 0) ? '#fff' : '#666'}
+                      />
+                    ))}
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Round Carousel */}
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false} 
+        style={styles.roundsScroll}
+      >
+        {/* Current Round Box */}
+        <View style={[
+          styles.roundCard, 
+          styles.currentRoundCard,
+          { 
+            backgroundColor: theme.surface,
+            borderColor: colors.primary,
+            borderWidth: 2
+          }
+        ]}>
+          <Text style={[styles.currentRoundText, { color: theme.text }]}>
+            Current Round
           </Text>
-          <View style={styles.matchStatus}>
-            {isLive && <View style={styles.liveDot} />}
-            <Text style={[styles.statusText, { color: isLive ? '#ff4444' : theme.textSecondary }]}>
-              {isLive ? 'LIVE' : formatDate(matchData.startTimeScheduled)}
-            </Text>
-          </View>
+          <Text style={[styles.currentRoundNumber, { color: theme.text }]}>
+            {snapshot?.round_number || 1}
+          </Text>
         </View>
 
-        <TouchableOpacity style={styles.moreButton}>
-          <Ionicons name="ellipsis-vertical" size={20} color={theme.text} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Teams & Score */}
-      <View style={[styles.matchInfo, { backgroundColor: theme.surfaceSecondary }]}>
-        <View style={styles.teamsContainer}>
-          {/* Team 1 */}
-          <View style={styles.teamSection}>
-            <View style={styles.teamHeader}>
-              {team1?.baseInfo?.logoUrl ? (
-                <Image source={{ uri: team1.baseInfo.logoUrl }} style={styles.teamLogo} />
-              ) : (
-                <View style={[styles.placeholderLogo, { backgroundColor: team1?.baseInfo?.colorPrimary || '#666' }]}>
-                  <Text style={styles.placeholderText}>
-                    {team1?.baseInfo?.name?.substring(0, 2).toUpperCase()}
-                  </Text>
-                </View>
-              )}
-              <Text style={[styles.teamName, { color: theme.text }]}>
-                {team1?.baseInfo?.name}
-              </Text>
-            </View>
-            <Text style={[styles.teamScore, { color: theme.text }]}>
-              {liveData?.teams?.[0]?.score ?? team1?.scoreAdvantage ?? 0}
-            </Text>
-          </View>
-
-          {/* VS */}
-          <View style={styles.vsSection}>
-            <Text style={[styles.vsText, { color: theme.textSecondary }]}>VS</Text>
-            <Text style={[styles.formatText, { color: theme.textSecondary }]}>
-              {matchData.format?.nameShortened}
-            </Text>
-          </View>
-
-          {/* Team 2 */}
-          <View style={styles.teamSection}>
-            <View style={styles.teamHeader}>
-              {team2?.baseInfo?.logoUrl ? (
-                <Image source={{ uri: team2.baseInfo.logoUrl }} style={styles.teamLogo} />
-              ) : (
-                <View style={[styles.placeholderLogo, { backgroundColor: team2?.baseInfo?.colorPrimary || '#666' }]}>
-                  <Text style={styles.placeholderText}>
-                    {team2?.baseInfo?.name?.substring(0, 2).toUpperCase()}
-                  </Text>
-                </View>
-              )}
-              <Text style={[styles.teamName, { color: theme.text }]}>
-                {team2?.baseInfo?.name}
-              </Text>
-            </View>
-            <Text style={[styles.teamScore, { color: theme.text }]}>
-              {liveData?.teams?.[1]?.score ?? team2?.scoreAdvantage ?? 0}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Tabs */}
-      <View style={styles.tabsContainer}>
-        {['Overview', 'Stats'].map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[
-              styles.tab,
-              activeTab === tab && [styles.activeTab, { borderBottomColor: colors.primary }]
-            ]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text
+        {/* Previous Rounds */}
+        {gameState?.rounds_results && gameState.rounds_results.map((round, index) => {
+          const winCondition = round.win_reason || 'Elimination';
+          const getCS2EndReasonIcon = (endReason) => {
+            const iconMap = {
+              'BOMB_EXPLODED': 'bomb',
+              'BOMB_DEFUSED': 'wrench',
+              'TEAM_ELIMINATION': 'skull',
+              'TARGET_SAVED': 'clock'
+            };
+            return iconMap[endReason] || 'skull';
+          };
+          
+          const getCS2EndReasonDisplayText = (endReason) => {
+            const textMap = {
+              'BOMB_EXPLODED': 'BOMB',
+              'BOMB_DEFUSED': 'DEFUSED',
+              'TEAM_ELIMINATION': 'KILLS',
+              'TARGET_SAVED': 'TIME'
+            };
+            return textMap[endReason] || 'KILLS';
+          };
+          
+          const winConditionIcon = getCS2EndReasonIcon(winCondition);
+          
+          let winningTeamNumber = 1;
+          if (round.winning_team_name === basicMatch?.team2?.name) {
+            winningTeamNumber = 2;
+          } else if (round.winning_team_name === basicMatch?.team1?.name) {
+            winningTeamNumber = 1;
+          }
+          
+          return (
+            <TouchableOpacity 
+              key={round.id || index} 
               style={[
-                styles.tabText,
-                { color: activeTab === tab ? colors.primary : theme.textSecondary }
+                styles.roundCard, 
+                { 
+                  backgroundColor: theme.surface,
+                }
               ]}
             >
-              {tab}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Content */}
-      <View style={styles.content}>
-        {activeTab === 'Overview' && (
-          <View>
-            {/* Game Details */}
-            {liveData?.games && liveData.games.length > 0 && (
-              <View style={[styles.section, { backgroundColor: theme.surfaceSecondary }]}>
-                <Text style={[styles.sectionTitle, { color: theme.text }]}>Game details</Text>
-                {liveData.games.map((game, index) => (
-                  <View key={index} style={styles.gameCard}>
-                    <View style={styles.gameHeader}>
-                      <View style={styles.gameInfo}>
-                        <Text style={[styles.gameTitle, { color: theme.text }]}>Game {game.sequenceNumber}</Text>
-                        {game.map && (
-                          <Text style={[styles.mapName, { color: theme.textSecondary }]}>
-                            {game.map.name}
-                          </Text>
-                        )}
-                      </View>
-                      <View style={styles.gameStatus}>
-                        <View style={[styles.statusBadge, { 
-                          backgroundColor: game.finished ? '#4CAF50' : (game.started ? '#FF5722' : '#757575')
-                        }]}>
-                          <Text style={styles.statusBadgeText}>
-                            {game.finished ? 'FINISHED' : (game.started ? 'LIVE' : 'PENDING')}
-                          </Text>
-                        </View>
-                      </View>
+              <Text style={[styles.roundNumber, { color: theme.text }]}>
+                Round {round.round_number}
+              </Text>
+              <View style={styles.roundWinnerSection}>
+                {winningTeamNumber === 1 ? (
+                  basicMatch?.team1?.image_url ? (
+                    <Image
+                      source={{ uri: basicMatch.team1.image_url }}
+                      style={styles.roundWinnerLogo}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View style={[styles.roundWinnerLogo, { backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderRadius: 12 }]}>
+                      <Text style={{ fontSize: 8, fontWeight: 'bold', color: 'white' }}>
+                        {(basicMatch?.team1?.name || 'T1').substring(0, 1).toUpperCase()}
+                      </Text>
                     </View>
-                    
-                    {game.teams && (
-                      <View style={styles.gameScore}>
-                        {game.teams.map((team, teamIndex) => (
-                          <View key={teamIndex} style={styles.gameTeam}>
-                            <Text style={[styles.gameTeamName, { color: theme.text }]}>
-                              {team.name}
-                            </Text>
-                            <Text style={[styles.gameTeamScore, { color: theme.text }]}>
-                              {team.score || 0}
-                            </Text>
-                          </View>
-                        ))}
+                  )
+                ) : (
+                  basicMatch?.team2?.image_url ? (
+                    <Image
+                      source={{ uri: basicMatch.team2.image_url }}
+                      style={styles.roundWinnerLogo}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View style={[styles.roundWinnerLogo, { backgroundColor: colors.secondary, justifyContent: 'center', alignItems: 'center', borderRadius: 12 }]}>
+                      <Text style={{ fontSize: 8, fontWeight: 'bold', color: 'white' }}>
+                        {(basicMatch?.team2?.name || 'T2').substring(0, 1).toUpperCase()}
+                      </Text>
+                    </View>
+                  )
+                )}
+                <View style={[
+                  styles.roundWinner,
+                  { backgroundColor: theme.surfaceSecondary }
+                ]}>
+                  <View style={styles.winConditionContainer}>
+                    <FontAwesome6 
+                      name={winConditionIcon} 
+                      size={12} 
+                      color={theme.text} 
+                      style={styles.winConditionIcon}
+                    />
+                    <Text style={[styles.roundWinnerText, { color: theme.text }]}>
+                      {getCS2EndReasonDisplayText(winCondition)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* Stream Section */}
+      {streams.length > 0 && (
+        <View style={[styles.section, styles.sectionWithPadding, { backgroundColor: theme.surfaceSecondary }]}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Live Stream</Text>
+          
+          {/* Stream Player */}
+          <View style={styles.streamContainer}>
+            {selectedStream ? (
+              <WebView
+                source={{ uri: createTwitchEmbedUrl(selectedStream) }}
+                style={styles.streamPlayer}
+                allowsFullscreenVideo={true}
+                mediaPlaybackRequiresUserAction={false}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+                startInLoadingState={true}
+                scalesPageToFit={false}
+                onError={(syntheticEvent) => {
+                  const { nativeEvent } = syntheticEvent;
+                  console.error('WebView error: ', nativeEvent);
+                }}
+                onHttpError={(syntheticEvent) => {
+                  const { nativeEvent } = syntheticEvent;
+                  console.error('WebView HTTP error: ', nativeEvent);
+                }}
+              />
+            ) : (
+              <View style={[styles.streamPlayer, { backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center' }]}>
+                <Text style={[{ color: theme.textSecondary }]}>No stream available</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Stream Selection Buttons */}
+          <View style={[
+            styles.streamButtons, 
+            screenWidth < 400 && styles.streamButtonsSmall
+          ]}>
+            {streams.slice(0, 3).map((stream, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.streamButton,
+                  screenWidth < 400 && styles.streamButtonSmall,
+                  { borderColor: selectedStreamIndex === index ? colors.primary : 'transparent', backgroundColor: theme.surface }
+                ]}
+                onPress={() => setSelectedStreamIndex(index)}
+              >
+                <View style={styles.streamButtonContent}>
+                  {stream.channel_image_url && screenWidth >= 360 && (
+                    <Image 
+                      source={{ uri: stream.channel_image_url }} 
+                      style={[
+                        styles.streamChannelImage,
+                        screenWidth < 400 && styles.streamChannelImageSmall
+                      ]}
+                      resizeMode="cover"
+                    />
+                  )}
+                  <Text 
+                    style={[
+                      styles.streamName, 
+                      screenWidth < 400 && styles.streamNameSmall,
+                      { color: theme.text }
+                    ]} 
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {stream.name}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Team Player Sections */}
+      {team1Data && (
+        <View style={[styles.section, styles.sectionWithPadding, { backgroundColor: theme.surfaceSecondary }]}>
+          <TouchableOpacity 
+            style={styles.teamSectionHeader}
+            onPress={() => setExpandedTeam(expandedTeam === 'team1' ? null : 'team1')}
+          >
+            <View style={styles.teamHeaderContent}>
+              {basicMatch?.team1?.image_url ? (
+                <Image
+                  source={{ uri: basicMatch.team1.image_url }}
+                  style={styles.teamHeaderLogo}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={[styles.teamHeaderLogo, { backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderRadius: 12 }]}>
+                  <Text style={{ fontSize: 8, fontWeight: 'bold', color: 'white' }}>
+                    {(basicMatch?.team1?.name || 'T1').substring(0, 1).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                {basicMatch?.team1?.name} Players
+              </Text>
+            </View>
+            <Ionicons 
+              name={expandedTeam === 'team1' ? 'chevron-up' : 'chevron-down'} 
+              size={20} 
+              color={theme.text} 
+            />
+          </TouchableOpacity>
+          
+          {team1Data.player_states?.map((player, index) => (
+            <View key={index} style={[styles.playerCard, { backgroundColor: theme.surface }]}>
+              {/* Collapsed View */}
+              <View style={styles.playerCardCollapsed}>
+                <View style={styles.playerInfo}>
+                  {/* Player Image with 1:1 crop */}
+                  <View style={[styles.playerImageContainer, { opacity: player.is_alive ? 1 : 0.5 }]}>
+                    {player.fixture?.player_image_url ? (
+                      <Image
+                        source={{ uri: player.fixture.player_image_url }}
+                        style={styles.playerImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={[styles.playerAvatar, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.playerAvatarText}>
+                          {player.fixture.name.substring(0, 2).toUpperCase()}
+                        </Text>
                       </View>
                     )}
                   </View>
-                ))}
-              </View>
-            )}
-
-            {/* Tournament Info */}
-            <View style={[styles.section, { backgroundColor: theme.surfaceSecondary }]}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Tournament</Text>
-              <View style={styles.tournamentCard}>
-                <View style={styles.tournamentInfo}>
-                  <Text style={[styles.tournamentTitle, { color: theme.text }]}>
-                    {matchData.tournament?.name}
-                  </Text>
-                  <Text style={[styles.tournamentFormat, { color: theme.textSecondary }]}>
-                    {matchData.format?.name}
+                  <Text style={[styles.playerName, { color: theme.text, opacity: player.is_alive ? 1 : 0.5 }]}>
+                    {player.fixture.name}
                   </Text>
                 </View>
-                <TouchableOpacity style={styles.followButton}>
-                  <Ionicons name="heart-outline" size={16} color={colors.primary} />
-                  <Text style={[styles.followButtonText, { color: colors.primary }]}>
-                    Follow tournament
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        )}
+                
+                <View style={styles.playerStats}>
+                  {/* Weapon */}
+                  {(() => {
+                    const weaponIcon = getCS2WeaponIcon(player.primary_weapon || player.secondary_weapon);
+                    return weaponIcon.type === 'png' ? (
+                      <Image 
+                        source={weaponIcon.source} 
+                        style={[styles.weaponIcon, { transform: [{ scaleX: -1 }], tintColor: theme.text }]}
+                        resizeMode="contain"
+                      />
+                    ) : (
+                      <Ionicons 
+                        name={weaponIcon.name} 
+                        size={16} 
+                        color={theme.surface} 
+                      />
+                    );
+                  })()}
 
-        {activeTab === 'Stats' && liveData && (
-          <View style={[styles.section, { backgroundColor: theme.surfaceSecondary }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Player Statistics</Text>
-            {liveData.teams?.map((team, teamIndex) => (
-              <View key={teamIndex} style={styles.teamStats}>
-                <Text style={[styles.teamStatsTitle, { color: theme.text }]}>
-                  {team.name}
-                </Text>
-                {team.players?.map((player, playerIndex) => (
-                  <View key={playerIndex} style={styles.playerStat}>
-                    <Text style={[styles.playerName, { color: theme.text }]}>
-                      {player.name}
-                    </Text>
-                    <View style={styles.playerStats}>
-                      <Text style={[styles.statItem, { color: theme.textSecondary }]}>
-                        K: {player.kills || 0}
-                      </Text>
-                      <Text style={[styles.statItem, { color: theme.textSecondary }]}>
-                        D: {player.deaths || 0}
-                      </Text>
-                      <Text style={[styles.statItem, { color: theme.textSecondary }]}>
-                        A: {player.killAssistsGiven || 0}
-                      </Text>
+                  {/* HP Bar */}
+                  <View style={styles.healthContainer}>
+                    <View style={styles.healthBarBackground}>
+                      <View style={[styles.healthBar, { 
+                        width: `${Math.max(0, Math.min(100, player.health))}%`,
+                        backgroundColor: getHealthBarColor(player.health)
+                      }]} />
                     </View>
+                    <Text style={[styles.healthText, { color: theme.text }]}>{player.health}</Text>
                   </View>
-                ))}
+                  
+                  {/* Kills/Assists */}
+                  <View style={styles.killsAssistsContainer}>
+                    <Text style={[styles.killsText, { color: theme.text }]}>
+                      {player.kills_in_round}/{player.assists_in_round}
+                    </Text>
+                    <Text style={[styles.killsAssistsLabel, { color: theme.textSecondary }]}>
+                      K/A
+                    </Text>
+                  </View>
+                </View>
               </View>
-            ))}
-          </View>
-        )}
-      </View>
+
+              {/* Expanded View */}
+              {expandedTeam === 'team1' && (
+                <View style={styles.playerCardExpanded}>
+                  <View style={styles.expandedStats}>
+                    <Text style={[styles.expandedStatText, { color: theme.textSecondary }]}>
+                      Money: ${player.balance}
+                    </Text>
+                    <Text style={[styles.expandedStatText, { color: theme.textSecondary }]}>
+                      K/D/A: {player.kills}/{player.deaths}/{player.assists}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Team 2 Players */}
+      {team2Data && (
+        <View style={[styles.section, styles.sectionWithPadding, { backgroundColor: theme.surfaceSecondary }]}>
+          <TouchableOpacity 
+            style={styles.teamSectionHeader}
+            onPress={() => setExpandedTeam(expandedTeam === 'team2' ? null : 'team2')}
+          >
+            <View style={styles.teamHeaderContent}>
+              {basicMatch?.team2?.image_url ? (
+                <Image
+                  source={{ uri: basicMatch.team2.image_url }}
+                  style={styles.teamHeaderLogo}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={[styles.teamHeaderLogo, { backgroundColor: colors.secondary, justifyContent: 'center', alignItems: 'center', borderRadius: 12 }]}>
+                  <Text style={{ fontSize: 8, fontWeight: 'bold', color: 'white' }}>
+                    {(basicMatch?.team2?.name || 'T2').substring(0, 1).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                {basicMatch?.team2?.name} Players
+              </Text>
+            </View>
+            <Ionicons 
+              name={expandedTeam === 'team2' ? 'chevron-up' : 'chevron-down'} 
+              size={20} 
+              color={theme.text} 
+            />
+          </TouchableOpacity>
+          
+          {team2Data.player_states?.map((player, index) => (
+            <View key={index} style={[styles.playerCard, { backgroundColor: theme.surface }]}>
+              {/* Collapsed View */}
+              <View style={styles.playerCardCollapsed}>
+                <View style={styles.playerInfo}>
+                  {/* Player Image with 1:1 crop */}
+                  <View style={[styles.playerImageContainer, { opacity: player.is_alive ? 1 : 0.5 }]}>
+                    {player.fixture?.player_image_url ? (
+                      <Image
+                        source={{ uri: player.fixture.player_image_url }}
+                        style={styles.playerImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={[styles.playerAvatar, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.playerAvatarText}>
+                          {player.fixture.name.substring(0, 2).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.playerName, { color: theme.text, opacity: player.is_alive ? 1 : 0.5 }]}>
+                    {player.fixture.name}
+                  </Text>
+                </View>
+                
+                <View style={styles.playerStats}>
+                  {/* Weapon */}
+                  {(() => {
+                    const weaponIcon = getCS2WeaponIcon(player.primary_weapon || player.secondary_weapon);
+                    return weaponIcon.type === 'png' ? (
+                      <Image 
+                        source={weaponIcon.source} 
+                        style={[styles.weaponIcon, { transform: [{ scaleX: -1 }], tintColor: theme.text }]}
+                        resizeMode="contain"
+                      />
+                    ) : (
+                      <Ionicons 
+                        name={weaponIcon.name} 
+                        size={16} 
+                        color={theme.surface} 
+                      />
+                    );
+                  })()}
+
+                  {/* HP Bar */}
+                  <View style={styles.healthContainer}>
+                    <View style={styles.healthBarBackground}>
+                      <View style={[styles.healthBar, { 
+                        width: `${Math.max(0, Math.min(100, player.health))}%`,
+                        backgroundColor: getHealthBarColor(player.health)
+                      }]} />
+                    </View>
+                    <Text style={[styles.healthText, { color: theme.text }]}>{player.health}</Text>
+                  </View>
+                  
+                  {/* Kills/Assists */}
+                  <View style={styles.killsAssistsContainer}>
+                    <Text style={[styles.killsText, { color: theme.text }]}>
+                      {player.kills_in_round}/{player.assists_in_round}
+                    </Text>
+                    <Text style={[styles.killsAssistsLabel, { color: theme.textSecondary }]}>
+                      K/A
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Expanded View */}
+              {expandedTeam === 'team2' && (
+                <View style={styles.playerCardExpanded}>
+                  <View style={styles.expandedStats}>
+                    <Text style={[styles.expandedStatText, { color: theme.textSecondary }]}>
+                      Money: ${player.balance}
+                    </Text>
+                    <Text style={[styles.expandedStatText, { color: theme.textSecondary }]}>
+                      K/D/A: {player.kills}/{player.deaths}/{player.assists}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
     </ScrollView>
   );
 };
@@ -355,100 +991,386 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  matchHeader: {
+    margin: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  backButton: {
-    marginRight: 16,
+  matchHeaderContent: {
+    position: 'relative',
+    height: 175,
   },
-  headerContent: {
-    flex: 1,
+  mapBackground: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
   },
-  tournamentName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  matchStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#ff4444',
-    marginRight: 6,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  moreButton: {
-    padding: 8,
+  mapOverlay: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
   matchInfo: {
-    paddingVertical: 24,
+    marginTop: -5,
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
-  teamsContainer: {
+  mapName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  teamScoreContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 32,
+    width: '100%',
   },
   teamSection: {
     alignItems: 'center',
     flex: 1,
   },
-  teamHeader: {
-    alignItems: 'center',
-    marginBottom: 12,
-  },
   teamLogo: {
     width: 48,
     height: 48,
-    borderRadius: 24,
     marginBottom: 8,
-  },
-  placeholderLogo: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginBottom: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  placeholderText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: 'white',
   },
   teamName: {
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
-  teamScore: {
+  scoreSection: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  finalScore: {
     fontSize: 32,
     fontWeight: 'bold',
+    marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
-  vsSection: {
-    alignItems: 'center',
-    marginHorizontal: 16,
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  vsText: {
-    fontSize: 14,
-    fontWeight: '600',
+  statusText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  playersRemainingText: {
+    fontSize: 10,
+    fontWeight: '500',
+    marginBottom: 4,
+    marginTop: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  playersAliveRow: {
+    flexDirection: 'row',
+    gap: 16,
     marginBottom: 4,
   },
-  formatText: {
+  teamPlayersContainer: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  teamPlayersAlive: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  bombStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  bombText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+
+  roundsScroll: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  roundCard: {
+    width: 120,
+    padding: 12,
+    borderRadius: 8,
+    marginRight: 12,
+    alignItems: 'center',
+  },
+  roundNumber: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  roundWinnerSection: {
+    alignItems: 'center',
+  },
+  roundWinnerLogo: {
+    width: 24,
+    height: 24,
+    marginBottom: 4,
+  },
+  roundWinner: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: -4,
+  },
+  winConditionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  winConditionIcon: {
+    marginRight: 2,
+  },
+  roundWinnerText: {
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  currentRoundCard: {
+    width: 120,
+    padding: 12,
+    borderRadius: 8,
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+  },
+  currentRoundText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: -5,
+    marginBottom: 4,
+  },
+  currentRoundNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+
+  section: {
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 8,
+  },
+  sectionWithPadding: {
+    marginHorizontal: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  teamSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  teamHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  teamHeaderLogo: {
+    width: 24,
+    height: 24,
+  },
+
+  streamContainer: {
+    aspectRatio: 16/9,
+    width: '100%',
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  streamPlayer: {
+    flex: 1,
+  },
+  streamButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 4,
+    flexWrap: 'wrap',
+  },
+  streamButtonsSmall: {
+    gap: 2,
+  },
+  streamButton: {
+    flex: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 40,
+    maxWidth: '32%',
+  },
+  streamButtonSmall: {
+    paddingHorizontal: 4,
+    paddingVertical: 6,
+    minHeight: 36,
+  },
+  streamButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    width: '100%',
+    maxWidth: '100%',
+    justifyContent: 'center',
+  },
+  streamChannelImage: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    flexShrink: 0,
+  },
+  streamChannelImageSmall: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+  },
+  streamName: {
+    fontSize: 9,
+    fontWeight: '500',
+    flex: 1,
+    textAlign: 'center',
+    minWidth: 0,
+  },
+  streamNameSmall: {
+    fontSize: 8,
+  },
+  playerCard: {
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  playerCardCollapsed: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  playerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  playerImageContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginRight: 12,
+  },
+  playerImage: {
+    width: 32,
+    height: 32,
+    aspectRatio: 1, // 1:1 aspect ratio to crop the top portion
+  },
+  playerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playerAvatarText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  playerName: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  playerStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  healthContainer: {
+    alignItems: 'center',
+    minWidth: 60,
+  },
+  healthBarBackground: {
+    width: 50,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    marginBottom: 4,
+    overflow: 'hidden',
+  },
+  healthBar: {
+    height: '100%',
+    borderRadius: 3,
+    minWidth: 2,
+  },
+  healthText: {
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  killsAssistsContainer: {
+    alignItems: 'center',
+    minWidth: 40,
+  },
+  killsText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  killsAssistsLabel: {
+    fontSize: 8,
+    fontWeight: '400',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  weaponIcon: {
+    width: 40,
+    height: 30,
+  },
+  playerCardExpanded: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  expandedStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  expandedStatText: {
     fontSize: 12,
   },
+
   tabsContainer: {
     flexDirection: 'row',
     borderBottomWidth: 1,
@@ -496,20 +1418,6 @@ const styles = StyleSheet.create({
   gameTitle: {
     fontSize: 16,
     fontWeight: '600',
-  },
-  mapName: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  statusBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: 'white',
   },
   gameScore: {
     gap: 8,

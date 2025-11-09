@@ -406,7 +406,7 @@ async function displayTeamsData(teams, games) {
         params.set('bgOpacity', currentStyles.backgroundOpacity);
         params.set('textColor', currentStyles.textColor);
 
-        const url = `https://laraiyeo.github.io/soccer/team.html?${params.toString()}`;
+        const url = `https://sportsheart.ca/soccer/team.html?${params.toString()}`;
         try {
           await navigator.clipboard.writeText(url);
           alert(`OBS link copied for ${team.displayName}: ${url}`);

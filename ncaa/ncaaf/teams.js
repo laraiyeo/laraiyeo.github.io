@@ -739,7 +739,7 @@ async function updateGamesDisplay() {
 
       // Add OBS link copying functionality
       teamCard.addEventListener("click", async () => {
-        const url = `https://laraiyeo.github.io/ncaa/ncaaf/team.html?team=${team.id}`;
+        const url = `https://sportsheart.ca/ncaa/ncaaf/team.html?team=${team.id}`;
         try {
           await navigator.clipboard.writeText(url);
           alert(`OBS link copied for ${team.displayName}: ${url}`);

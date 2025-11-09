@@ -296,7 +296,7 @@ async function fetchGames() {
           bgOpacity: currentStyles.backgroundOpacity,
           textColor: currentStyles.textColor
         });
-        const url = `https://laraiyeo.github.io/nhl/team.html?${styleParams.toString()}`;
+        const url = `https://sportsheart.ca/nhl/team.html?${styleParams.toString()}`;
         try {
           await navigator.clipboard.writeText(url);
           alert(`OBS link copied for ${team.fullName}: ${url}`);

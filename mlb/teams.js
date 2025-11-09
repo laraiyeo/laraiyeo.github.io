@@ -268,7 +268,7 @@ const teamAbbrMap = {
       params.set('bgOpacity', currentStyles.backgroundOpacity);
       params.set('textColor', currentStyles.textColor);
       
-      const url = `https://laraiyeo.github.io/mlb/team.html?${params.toString()}`;
+      const url = `https://sportsheart.ca/mlb/team.html?${params.toString()}`;
 
       try {
         await navigator.clipboard.writeText(url);
@@ -671,7 +671,7 @@ const teamAbbrMap = {
         params.set('pageBgOpacity', aioPageStyles.backgroundOpacity);
         params.set('pageTextColor', aioPageStyles.textColor);
         
-        const url = `https://laraiyeo.github.io/mlb/aio-obs.html?${params.toString()}`;
+        const url = `https://sportsheart.ca/mlb/aio-obs.html?${params.toString()}`;
 
         try {
           await navigator.clipboard.writeText(url);

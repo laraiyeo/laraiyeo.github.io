@@ -5,6 +5,7 @@ import { useTheme } from '../../../context/ThemeContext';
 
 import CS2HomeScreen from './CS2HomeScreen';
 import CS2DiscoverScreen from './CS2DiscoverScreen';
+import CS2RankScreen from './CS2RankScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -21,6 +22,8 @@ const CS2TabNavigator = ({ navigation, route }) => {
             iconName = 'home';
           } else if (route.name === 'CS2Discover') {
             iconName = 'compass';
+          } else if (route.name === 'CS2Rank') {
+            iconName = 'trophy';
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -52,6 +55,13 @@ const CS2TabNavigator = ({ navigation, route }) => {
         component={CS2DiscoverScreen}
         options={{
           tabBarLabel: 'Discover',
+        }}
+      />
+      <Tab.Screen 
+        name="CS2Rank" 
+        component={CS2RankScreen}
+        options={{
+          tabBarLabel: 'Ranks',
         }}
       />
     </Tab.Navigator>

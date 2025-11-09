@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import { WNBAService } from '../../services/WNBAService';
 import ChatComponent from '../../components/ChatComponent';
 import { useStreamingAccess } from '../../utils/streamingUtils';
+import { useGamePresence } from '../../hooks/useGamePresence';
 
 // Color similarity detection utility
 const calculateColorSimilarity = (color1, color2) => {
@@ -245,6 +246,9 @@ const WNBAGameDetailsScreen = ({ route }) => {
   const [visiblePlaysCount, setVisiblePlaysCount] = useState(30);
   const [isLoadingMorePlays, setIsLoadingMorePlays] = useState(false);
 
+  // Game presence tracking
+  const { viewerData, isJoined } = useGamePresence(gameId);
+
   // Stream-related state variables
   const [streamModalVisible, setStreamModalVisible] = useState(false);
   const [currentStreamType, setCurrentStreamType] = useState('alpha');
@@ -318,7 +322,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
         return liveMatchesCache;
       }
 
-      const response = await fetch(`${STREAM_API_BASE}/matches/live`);
+      const response = await fetch(`${STREAM_API_BASE}/matches/basketball`);
       if (!response.ok) {
         throw new Error(`API responded with status: ${response.status}`);
       }
@@ -868,6 +872,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
     const state = status?.type?.state;
     const clock = status?.clock || status?.displayClock || '0:00';
     const period = status?.period || 1;
+    const clockFormat = clock === '0.0' ? 'End' : clock;
     
     if (state === 'pre') {
       // Game not started - show date and time
@@ -907,7 +912,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
       else if (period > 4) periodText = 'OT';
 
       return {
-        text: clock || '0:00',
+        text: clockFormat || '0:00',
         detail: `${periodText} Quarter`,
         isLive: true,
         isPre: false,
@@ -1953,7 +1958,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
               
               {renderStatHeaders(['FG','PTS','MIN'])}
               
-              {starterPlayers.map((player, idx) => renderPlayerRow(player, idx, 'starter-player', [1,13,0]))}
+              {starterPlayers.map((player, idx) => renderPlayerRow(player, idx, 'starter-player', [9, 1, 0]))}
             </View>
           )}
           
@@ -1969,7 +1974,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
               
               {renderStatHeaders(['FG','PTS','MIN'])}
               
-              {benchPlayers.map((player, idx) => renderPlayerRow(player, idx, 'bench-player', [1,13,0]))}
+              {benchPlayers.map((player, idx) => renderPlayerRow(player, idx, 'bench-player', [9 , 1 ,0]))}
             </View>
           )}
         </View>
@@ -2083,8 +2088,8 @@ const WNBAGameDetailsScreen = ({ route }) => {
             </View>
             
             {renderStatHeaders(['FG','PTS','MIN'])}
-            
-            {playersOnCourt.map((player, idx) => renderPlayerRow(player, idx, 'oncourt-player', [1,13,0]))}
+
+            {playersOnCourt.map((player, idx) => renderPlayerRow(player, idx, 'oncourt-player', [9, 1, 0]))}
           </View>
         )}
         
@@ -2100,7 +2105,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
             
             {renderStatHeaders(['FG','PTS','MIN'])}
 
-            {playersOnBench.map((player, idx) => renderPlayerRow(player, idx, 'bench-player', [1,13,0]))}
+            {playersOnBench.map((player, idx) => renderPlayerRow(player, idx, 'bench-player', [9, 1, 0]))}
           </View>
         )}
       </View>
@@ -2372,7 +2377,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
       {/* Top header card (matches soccer layout) */}
       <View style={[styles.headerCard, { backgroundColor: theme.surface, borderColor: 'rgba(0,0,0,0.08)' }]}>
         <Text style={[styles.competitionText, { color: theme.textSecondary }]} numberOfLines={1}>
-          {competition?.name || details?.league || 'WNBA'}{details?.gameInfo?.venue?.fullName ? ` - ${details.gameInfo.venue.fullName}` : ''}
+          {details?.header?.gameNote || 'WNBA'}{details?.gameInfo?.venue?.fullName ? ` - ${details.gameInfo.venue.fullName}` : ''}
         </Text>
 
         <View style={styles.soccerMainRow}>
@@ -2625,6 +2630,9 @@ const WNBAGameDetailsScreen = ({ route }) => {
               }
               teamName = team?.displayName || team?.name || '';
               teamLogo = team?.logo || (team?.abbreviation ? getTeamLogoUrl('wnba', team.abbreviation) : null);
+
+              const gameDate = details?.header?.competitions?.[0]?.date;
+              const formattedDate = gameDate ? new Date(gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
               
               // Define most important stats for basketball players
               let importantStatIndices = [];
@@ -2683,7 +2691,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                   <View style={styles.modalStatsHeader}>
                     <Text style={[styles.modalStatsTitle, { color: theme.text }]}>Game Statistics</Text>
                     <Text style={[styles.modalStatsDate, { color: theme.textSecondary }]}>
-                      {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {formattedDate}
                     </Text>
                   </View>
 
@@ -2946,7 +2954,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
             {/* Chat Modal Header */}
             <View style={[styles.chatModalHeader, { borderBottomColor: theme.border }]}>
               <Text allowFontScaling={false} style={[styles.chatModalTitle, { color: theme.text }]}>
-                {details ? `${details.awayTeam?.name?.default || 'Away'} vs ${details.homeTeam?.name?.default || 'Home'}` : 'Chat'}
+                {details ? `${details.header.competitions[0].competitors.find(c => c.homeAway === 'away')?.team.name || 'Away'} vs ${details.header.competitions[0].competitors.find(c => c.homeAway === 'home')?.team.name || 'Home'}` : 'Chat'}
               </Text>
               <TouchableOpacity
                 style={styles.chatModalCloseButton}
@@ -4780,7 +4788,7 @@ const styles = StyleSheet.create({
   // Chat Modal Styles
   chatModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0)',
     justifyContent: 'flex-end',
   },
   chatModalContent: {

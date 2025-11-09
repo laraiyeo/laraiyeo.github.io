@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -32,13 +32,24 @@ const CS2ResultsScreen = ({ navigation, route }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedGameIndex, setSelectedGameIndex] = useState(null);
   const [showRoundsModal, setShowRoundsModal] = useState(false);
+  const loadingRef = useRef(false);
 
-  useEffect(() => {
-    loadSeriesData();
-  }, [matchId]);
-
-  const loadSeriesData = async () => {
+  const loadSeriesData = useCallback(async (forceRefresh = false) => {
+    console.log('=== loadSeriesData called ===', { 
+      matchId, 
+      forceRefresh, 
+      alreadyLoading: loadingRef.current,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Prevent duplicate calls while already loading (unless it's a forced refresh)
+    if (loadingRef.current && !forceRefresh) {
+      console.log('Already loading, skipping duplicate call');
+      return;
+    }
+    
     try {
+      loadingRef.current = true;
       setLoading(true);
       
       if (matchId && matchData) {
@@ -89,13 +100,18 @@ const CS2ResultsScreen = ({ navigation, route }) => {
         setSeries(formattedData);
       }
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
-  };
+  }, [matchId, matchData]);
+
+  useEffect(() => {
+    loadSeriesData();
+  }, [loadSeriesData]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadSeriesData();
+    await loadSeriesData(true); // Force refresh
     setRefreshing(false);
   };
 
@@ -112,9 +128,16 @@ const CS2ResultsScreen = ({ navigation, route }) => {
 
   // Get formatted players data for a specific game from both teams
   const getPlayersForGame = (gameIndex) => {
-    if (!series || !series.maps || !series.maps[gameIndex]) return [];
-    
-    const game = series.maps[gameIndex];
+    // If the requested gameIndex doesn't exist on series.maps (e.g. synthetic live map),
+    // fall back to the last available map so we reuse the same roster as the previous game.
+    if (!series || !series.maps) return [];
+
+    let effectiveIndex = gameIndex;
+    if (!series.maps[gameIndex]) {
+      effectiveIndex = Math.max(0, series.maps.length - 1);
+    }
+
+    const game = series.maps[effectiveIndex];
     const team1Players = series.team1Players?.results || [];
     const team2Players = series.team2Players?.results || [];
     
@@ -326,11 +349,19 @@ const CS2ResultsScreen = ({ navigation, route }) => {
       <View style={[styles.h2hCard, { backgroundColor: theme.surface }]}>
         {/* Team 1 Section */}
         <View style={styles.h2hTeamSection}>
-          <Image
-            source={{ uri: series.team1?.logoUrl }}
-            style={styles.h2hTeamLogo}
-            resizeMode="contain"
-          />
+          {series.team1?.logoUrl ? (
+            <Image
+              source={{ uri: series.team1.logoUrl }}
+              style={styles.h2hTeamLogo}
+              resizeMode="contain"
+            />
+          ) : (
+            <View style={[styles.h2hTeamLogo, { backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderRadius: 20 }]}>
+              <Text style={{ fontSize: 14, fontWeight: 'bold', color: 'white' }}>
+                {(series.team1?.shortName || series.team1?.name || 'T1').substring(0, 1).toUpperCase()}
+              </Text>
+            </View>
+          )}
           <Text style={[styles.h2hTeamName, { color: theme.text }]}>
             {series.team1?.shortName || 'TBD'}
           </Text>
@@ -356,11 +387,19 @@ const CS2ResultsScreen = ({ navigation, route }) => {
 
         {/* Team 2 Section */}
         <View style={styles.h2hTeamSection}>
-          <Image
-            source={{ uri: series.team2?.logoUrl }}
-            style={styles.h2hTeamLogo}
-            resizeMode="contain"
-          />
+          {series.team2?.logoUrl ? (
+            <Image
+              source={{ uri: series.team2.logoUrl }}
+              style={styles.h2hTeamLogo}
+              resizeMode="contain"
+            />
+          ) : (
+            <View style={[styles.h2hTeamLogo, { backgroundColor: colors.secondary, justifyContent: 'center', alignItems: 'center', borderRadius: 20 }]}>
+              <Text style={{ fontSize: 14, fontWeight: 'bold', color: 'white' }}>
+                {(series.team2?.shortName || series.team2?.name || 'T2').substring(0, 1).toUpperCase()}
+              </Text>
+            </View>
+          )}
           <Text style={[styles.h2hTeamName, { color: theme.text }]}>
             {series.team2?.shortName || 'TBD'}
           </Text>
@@ -406,14 +445,31 @@ const CS2ResultsScreen = ({ navigation, route }) => {
               <View style={styles.recentMatchRow}>
                 {/* Team 1 */}
                 <View style={styles.recentMatchTeamLeft}>
-                  <Image
-                    source={{ uri: match.team1?.image_url }}
-                    style={[
+                  {match.team1?.image_url ? (
+                    <Image
+                      source={{ uri: match.team1.image_url }}
+                      style={[
+                        styles.recentMatchTeamLogo,
+                        { opacity: !isTeam1Winner ? 0.6 : 1 }
+                      ]}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View style={[
                       styles.recentMatchTeamLogo,
-                      { opacity: !isTeam1Winner ? 0.6 : 1 }
-                    ]}
-                    resizeMode="contain"
-                  />
+                      { 
+                        backgroundColor: colors.primary, 
+                        justifyContent: 'center', 
+                        alignItems: 'center', 
+                        borderRadius: 12,
+                        opacity: !isTeam1Winner ? 0.6 : 1 
+                      }
+                    ]}>
+                      <Text style={{ fontSize: 8, fontWeight: 'bold', color: 'white' }}>
+                        {(match.team1?.name || 'T1').substring(0, 1).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
                   <Text style={[
                     styles.recentMatchTeamName,
                     { 
@@ -434,14 +490,31 @@ const CS2ResultsScreen = ({ navigation, route }) => {
 
                 {/* Team 2 */}
                 <View style={styles.recentMatchTeamRight}>
-                  <Image
-                    source={{ uri: match.team2?.image_url }}
-                    style={[
+                  {match.team2?.image_url ? (
+                    <Image
+                      source={{ uri: match.team2.image_url }}
+                      style={[
+                        styles.recentMatchTeamLogoRight,
+                        { opacity: !isTeam2Winner ? 0.6 : 1 }
+                      ]}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View style={[
                       styles.recentMatchTeamLogoRight,
-                      { opacity: !isTeam2Winner ? 0.6 : 1 }
-                    ]}
-                    resizeMode="contain"
-                  />
+                      { 
+                        backgroundColor: colors.secondary, 
+                        justifyContent: 'center', 
+                        alignItems: 'center', 
+                        borderRadius: 12,
+                        opacity: !isTeam2Winner ? 0.6 : 1 
+                      }
+                    ]}>
+                      <Text style={{ fontSize: 8, fontWeight: 'bold', color: 'white' }}>
+                        {(match.team2?.name || 'T2').substring(0, 1).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
                   <Text style={[
                     styles.recentMatchTeamName,
                     { 
@@ -629,6 +702,171 @@ const CS2ResultsScreen = ({ navigation, route }) => {
     );
   };
 
+  // Prepare mapsToRender: include existing maps and any synthetic live map from live_updates
+  const mapsToRender = (() => {
+    if (!series) return [];
+    
+    console.log('=== SYNTHETIC MAP GENERATION DEBUG ===');
+    console.log('Series exists:', !!series);
+    console.log('Series.maps count:', series.maps?.length);
+    console.log('Series.matchDetails exists:', !!series.matchDetails);
+    console.log('Series.matchDetails.live_updates:', series.matchDetails?.live_updates);
+    console.log('MatchData.live_updates:', matchData?.live_updates);
+    
+    const baseMaps = Array.isArray(series.maps) ? series.maps.slice() : [];
+    const normalized = baseMaps.map((m, i) => ({ ...(m || {}), originalIndex: i }));
+    
+    console.log('Base maps count:', baseMaps.length);
+    console.log('Base maps detailed:', baseMaps.map((m, i) => ({ 
+      index: i, 
+      name: m?.name, 
+      id: m?.id, 
+      status: m?.status,
+      completed: m?.completed,
+      hasName: !!m?.name,
+      full: m,
+      winner: m.winner
+    })));
+    console.log('Normalized maps:', normalized.map(m => ({ name: m.name, originalIndex: m.originalIndex, hasName: !!m.name })));
+
+    // Check multiple possible sources for live_updates
+    let liveUpdates = null;
+    if (series.matchDetails?.live_updates && typeof series.matchDetails.live_updates === 'object') {
+      liveUpdates = [series.matchDetails.live_updates]; // Single object, wrap in array
+    } else if (Array.isArray(series.matchDetails?.live_updates)) {
+      liveUpdates = series.matchDetails.live_updates;
+    } else if (matchData?.live_updates && typeof matchData.live_updates === 'object') {
+      liveUpdates = [matchData.live_updates]; // Single object, wrap in array
+    } else if (Array.isArray(matchData?.live_updates)) {
+      liveUpdates = matchData.live_updates;
+    }
+    
+    console.log('Live updates found:', !!liveUpdates);
+    console.log('Live updates type:', Array.isArray(liveUpdates) ? 'array' : typeof liveUpdates);
+    console.log('Live updates content:', liveUpdates);
+    
+    if (liveUpdates && Array.isArray(liveUpdates) && liveUpdates.length > 0) {
+      console.log('Processing', liveUpdates.length, 'live update entries');
+      
+      liveUpdates.forEach((update, updateIndex) => {
+        console.log(`Processing update ${updateIndex}:`, update);
+        
+        const gameNumber = update?.game_number ? parseInt(update.game_number, 10) : null;
+        const mapName = update?.map_name || update?.map || null;
+        
+        console.log(`Update ${updateIndex}: gameNumber=${gameNumber}, mapName=${mapName}`);
+        
+        if (!gameNumber || !mapName) {
+          console.log(`Skipping update ${updateIndex}: missing gameNumber or mapName`);
+          return;
+        }
+
+        const desiredIndex = Math.max(0, gameNumber - 1);
+        
+        // Check if a complete map already exists at this index or with this name
+        const existingMaps = normalized.filter(m => m.originalIndex === desiredIndex);
+        const realMapExists = normalized.some(m => {
+          const sameIndexWithName = m.originalIndex === desiredIndex && m.name; // Must have a name to count as existing
+          const sameName = m.name && mapName && m.name.toLowerCase().includes(mapName.toLowerCase());
+          const isComplete = m.begin_at && (m.winner_clan_score !== null || m.loser_clan_score !== null);
+          const isFinished = m.completed === true; // Check if game is actually finished using completed field
+          return (sameIndexWithName || sameName) && (isComplete || isFinished);
+        });
+        
+        console.log(`Update ${updateIndex}: desiredIndex=${desiredIndex}, realMapExists=${realMapExists}`);
+        console.log(`Existing maps at index ${desiredIndex}:`, existingMaps.map(m => ({ 
+          name: m.name, 
+          hasName: !!m.name, 
+          begin_at: m.begin_at,
+          winner_clan_score: m.winner_clan_score,
+          loser_clan_score: m.loser_clan_score,
+          completed: m.completed,
+          isComplete: !!(m.begin_at && (m.winner_clan_score !== null || m.loser_clan_score !== null)),
+          isFinished: m.completed === true
+        })));
+        
+        if (realMapExists) {
+          console.log(`Skipping update ${updateIndex}: complete real map already exists`);
+          return;
+        }
+        
+        // If there's an incomplete map at this index, we'll replace it
+        if (existingMaps.length > 0) {
+          const incompleteMap = existingMaps[0];
+          console.log(`Replacing incomplete map at index ${desiredIndex}:`, {
+            name: incompleteMap.name,
+            begin_at: incompleteMap.begin_at,
+            winner_clan_score: incompleteMap.winner_clan_score,
+            loser_clan_score: incompleteMap.loser_clan_score
+          });
+          
+          // Remove the incomplete map from normalized array
+          const indexToRemove = normalized.findIndex(m => m.originalIndex === desiredIndex);
+          if (indexToRemove !== -1) {
+            normalized.splice(indexToRemove, 1);
+          }
+        }
+
+        // Check if this game is actually finished based on live_updates or series maps data
+        const gameEnded = update.game_ended === true || update.round_phase === 'FINISHED';
+        const correspondingMap = baseMaps.find(m => m.number === gameNumber || (m.name && mapName && m.name.toLowerCase().includes(mapName.toLowerCase())));
+        const mapActuallyFinished = correspondingMap?.completed === true;
+        
+        console.log(`Game ${gameNumber} status check:`, {
+          gameEnded,
+          mapActuallyFinished,
+          correspondingMapCompleted: correspondingMap?.completed,
+          correspondingMapId: correspondingMap?.id,
+          shouldBeFinished: gameEnded || mapActuallyFinished
+        });
+        
+        // If the game is actually finished, don't create a synthetic live map
+        if (gameEnded || mapActuallyFinished) {
+          console.log(`Skipping synthetic map for game ${gameNumber}: game is finished`);
+          return;
+        }
+
+        const synthetic = {
+          id: `live-${gameNumber}`,
+          name: mapName,
+          team1Score: update.team_1?.game_score ?? update.team1_score ?? update.winner_clan_score ?? 0,
+          team2Score: update.team_2?.game_score ?? update.team2_score ?? update.loser_clan_score ?? 0,
+          completed: false,
+          liveBadge: true,
+          originalIndex: desiredIndex,
+          hasRealRounds: false
+        };
+        
+        console.log(`Creating synthetic map for update ${updateIndex}:`, synthetic);
+
+        // If there's a placeholder map at this index (no name), replace it
+        const placeholderIndex = normalized.findIndex(m => m.originalIndex === desiredIndex && !m.name);
+        if (placeholderIndex !== -1) {
+          console.log(`Replacing placeholder at index ${placeholderIndex}`);
+          normalized[placeholderIndex] = synthetic;
+        } else {
+          // Otherwise insert at the appropriate position
+          const insertAt = Math.min(desiredIndex, normalized.length);
+          normalized.splice(insertAt, 0, synthetic);
+          console.log(`Inserted synthetic map at index ${insertAt}`);
+        }
+      });
+    } else {
+      console.log('No valid live updates found for synthetic map generation');
+    }
+    
+    console.log('Final normalized maps:', normalized.map(m => ({ 
+      id: m.id, 
+      name: m.name, 
+      originalIndex: m.originalIndex, 
+      liveBadge: m.liveBadge,
+      team1Score: m.team1Score,
+      team2Score: m.team2Score
+    })));
+
+    return normalized;
+  })();
+
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -684,19 +922,49 @@ const CS2ResultsScreen = ({ navigation, route }) => {
             <View style={styles.teamCompleteSection}>
               {/* Logo and Score Row */}
               <View style={styles.logoScoreRow}>
-                <Image
-                  source={{ uri: series.team1?.logoUrl || 'https://via.placeholder.com/64' }}
-                  style={[
+              <TouchableOpacity
+                onPress={() => {
+                  if (series.team1?.id) {
+                    navigation.navigate('CS2TeamPage', {
+                      teamId: series.team1.id,
+                      teamName: series.team1.name,
+                      teamSlug: series.team1.name.toLowerCase().replace(/\s+/g, '-')
+                    });
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                {series.team1?.logoUrl ? (
+                  <Image
+                    source={{ uri: series.team1.logoUrl }}
+                    style={[
+                      styles.teamLogoHead,
+                      { opacity: series.completed && !series.live && series.team1Score < series.team2Score ? 0.6 : 1 }
+                    ]}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={[
                     styles.teamLogoHead,
-                    { opacity: series.completed && series.team1Score < series.team2Score ? 0.6 : 1 }
-                  ]}
-                  resizeMode="contain"
-                />
+                    { 
+                      backgroundColor: colors.primary, 
+                      justifyContent: 'center', 
+                      alignItems: 'center', 
+                      borderRadius: 32,
+                      opacity: series.completed && !series.live && series.team1Score < series.team2Score ? 0.6 : 1 
+                    }
+                  ]}>
+                    <Text style={{ fontSize: 20, fontWeight: 'bold', color: 'white' }}>
+                      {(series.team1?.shortName || series.team1?.name || 'T1').substring(0, 2).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
                 <Text style={[
                   styles.scoreText, 
                   { 
                     color: theme.text,
-                    opacity: series.completed && series.team1Score < series.team2Score ? 0.6 : 1
+                    opacity: series.completed && !series.live && series.team1Score < series.team2Score ? 0.6 : 1
                   }
                 ]}>
                   {series.team1Score || 0}
@@ -707,7 +975,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                 styles.teamName, 
                 { 
                   color: theme.text,
-                  opacity: series.completed && series.team1Score < series.team2Score ? 0.6 : 1
+                  opacity: series.completed && !series.live && series.team1Score < series.team2Score ? 0.6 : 1
                 }
               ]}>
                 {series.team1?.shortName || 'TBD'}
@@ -725,26 +993,56 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                   styles.scoreText, 
                   { 
                     color: theme.text,
-                    opacity: series.completed && series.team2Score < series.team1Score ? 0.6 : 1
+                    opacity: series.completed && !series.live && series.team2Score < series.team1Score ? 0.6 : 1
                   }
                 ]}>
                   {series.team2Score || 0}
                 </Text>
-                <Image
-                  source={{ uri: series.team2?.logoUrl || 'https://via.placeholder.com/64' }}
-                  style={[
+              <TouchableOpacity
+                onPress={() => {
+                  if (series.team2?.id) {
+                    navigation.navigate('CS2TeamPage', {
+                      teamId: series.team2.id,
+                      teamName: series.team2.name,
+                      teamSlug: series.team2.name.toLowerCase().replace(/\s+/g, '-')
+                    });
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                {series.team2?.logoUrl ? (
+                  <Image
+                    source={{ uri: series.team2.logoUrl }}
+                    style={[
+                      styles.teamLogoHead,
+                      { opacity: series.completed && !series.live && series.team2Score < series.team1Score ? 0.6 : 1 }
+                    ]}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={[
                     styles.teamLogoHead,
-                    { opacity: series.completed && series.team2Score < series.team1Score ? 0.6 : 1 }
-                  ]}
-                  resizeMode="contain"
-                />
+                    { 
+                      backgroundColor: colors.secondary, 
+                      justifyContent: 'center', 
+                      alignItems: 'center', 
+                      borderRadius: 32,
+                      opacity: series.completed && !series.live && series.team2Score < series.team1Score ? 0.6 : 1 
+                    }
+                  ]}>
+                    <Text style={{ fontSize: 20, fontWeight: 'bold', color: 'white' }}>
+                      {(series.team2?.shortName || series.team2?.name || 'T2').substring(0, 2).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
               </View>
               {/* Team Name Below */}
               <Text style={[
                 styles.teamName, 
                 { 
                   color: theme.text,
-                  opacity: series.completed && series.team2Score < series.team1Score ? 0.6 : 1
+                  opacity: series.completed && !series.live && series.team2Score < series.team1Score ? 0.6 : 1
                 }
               ]}>
                 {series.team2?.shortName || 'TBD'}
@@ -757,6 +1055,10 @@ const CS2ResultsScreen = ({ navigation, route }) => {
             {series.completed ? (
               <View style={[styles.statusBadge, { backgroundColor: theme.success }]}>
                 <Text style={styles.statusText}>FINISHED</Text>
+              </View>
+            ) : series.live ? (
+              <View style={[styles.statusBadge, { backgroundColor: theme.error }]}>
+                <Text style={styles.statusText}>LIVE</Text>
               </View>
             ) : (
               <View style={[styles.statusBadge, { backgroundColor: theme.warning }]}>
@@ -829,13 +1131,16 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                   style={styles.gameScrollView}
                   contentContainerStyle={styles.gameScrollContent}
                 >
-                  {series.maps
+                  {mapsToRender
                     .filter(map => map.name) // Only render if map name exists
                     .map((map, index) => {
                     const mapDisplayName = getMapDisplayName(map.name);
-                    const team1Won = map.team1Score > map.team2Score;
-                    const team2Won = map.team2Score > map.team1Score;
-                    const players = getPlayersForGame(index);
+                    const team1Won = (map.team1Score || 0) > (map.team2Score || 0);
+                    const team2Won = (map.team2Score || 0) > (map.team1Score || 0);
+                    console.log(map, 'MAP DATA RENDERING DEBUG');
+                    // Use originalIndex to fetch players; fallback logic in getPlayersForGame will reuse roster
+                    const players = getPlayersForGame(typeof map.originalIndex === 'number' ? map.originalIndex : index);
+                    const hasRounds = map.results && Array.isArray(map.results) && map.results.length > 0;
                     
                     return (
                       <TouchableOpacity
@@ -846,12 +1151,21 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                         ]}
                         activeOpacity={0.8}
                         onPress={() => {
-                          // Navigate to CS2MatchScreen with required parameters
-                          navigation.navigate('CS2Match', {
-                            gameId: map.id,
-                            seriesSlug: series.matchDetails?.slug || `match-${series.id}`,
-                            mapName: map.name || map.displayName?.toLowerCase()
-                          });
+                          // Check if this is a live game
+                          if (map.liveBadge || (series.matchDetails?.live_updates && !map.completed)) {
+                            // Navigate to live match details screen
+                            navigation.navigate('CS2MatchDetails', {
+                              matchId: series.matchDetails?.id || series.id,
+                              matchData: series.matchDetails || matchData
+                            });
+                          } else {
+                            // Navigate to regular match screen for completed games
+                            navigation.navigate('CS2Match', {
+                              gameId: map.id,
+                              seriesSlug: series.matchDetails?.slug || `match-${series.id}`,
+                              mapName: map.name || map.displayName?.toLowerCase()
+                            });
+                          }
                         }}
                       >
                         {/* SECTION 1: Header */}
@@ -859,12 +1173,16 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                           <Text style={[styles.gameTitle, { color: theme.text }]}>
                             Game {index + 1}
                           </Text>
-                          {map.completed ? (
-                            <View style={[styles.gameStatus, { backgroundColor: theme.success }]}>
+                          {map.liveBadge ? (
+                            <View style={[styles.gameStatus, { backgroundColor: theme.error }]}> 
+                              <Text style={styles.gameStatusText}>LIVE</Text>
+                            </View>
+                          ) : map.completed ? (
+                            <View style={[styles.gameStatus, { backgroundColor: theme.success }]}> 
                               <Text style={styles.gameStatusText}>FINISHED</Text>
                             </View>
                           ) : (
-                            <View style={[styles.gameStatus, { backgroundColor: theme.warning }]}>
+                            <View style={[styles.gameStatus, { backgroundColor: theme.warning }]}> 
                               <Text style={styles.gameStatusText}>SCHEDULED</Text>
                             </View>
                           )}
@@ -885,14 +1203,31 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                           {/* Score Content */}
                           <View style={styles.scoreContent}>
                             <View style={styles.teamScoreContainer}>
-                              <Image
-                                source={{ uri: series.team1?.logoUrl }}
-                                style={[
+                              {series.team1?.logoUrl ? (
+                                <Image
+                                  source={{ uri: series.team1.logoUrl }}
+                                  style={[
+                                    styles.teamLogo,
+                                    { opacity: map.completed && !team1Won ? 0.6 : 1 }
+                                  ]}
+                                  resizeMode="contain"
+                                />
+                              ) : (
+                                <View style={[
                                   styles.teamLogo,
-                                  { opacity: map.completed && !team1Won ? 0.6 : 1 }
-                                ]}
-                                resizeMode="contain"
-                              />
+                                  { 
+                                    backgroundColor: colors.primary, 
+                                    justifyContent: 'center', 
+                                    alignItems: 'center', 
+                                    borderRadius: 16,
+                                    opacity: map.completed && !team1Won ? 0.6 : 1 
+                                  }
+                                ]}>
+                                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: 'white' }}>
+                                    {(series.team1?.shortName || series.team1?.name || 'T1').substring(0, 1).toUpperCase()}
+                                  </Text>
+                                </View>
+                              )}
                               <Text style={[
                                 styles.gameScoreText, 
                                 { 
@@ -911,14 +1246,31 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                             </View>
                             
                             <View style={styles.teamScoreContainer}>
-                              <Image
-                                source={{ uri: series.team2?.logoUrl }}
-                                style={[
+                              {series.team2?.logoUrl ? (
+                                <Image
+                                  source={{ uri: series.team2.logoUrl }}
+                                  style={[
+                                    styles.teamLogo,
+                                    { opacity: map.completed && !team2Won ? 0.6 : 1 }
+                                  ]}
+                                  resizeMode="contain"
+                                />
+                              ) : (
+                                <View style={[
                                   styles.teamLogo,
-                                  { opacity: map.completed && !team2Won ? 0.6 : 1 }
-                                ]}
-                                resizeMode="contain"
-                              />
+                                  { 
+                                    backgroundColor: colors.secondary, 
+                                    justifyContent: 'center', 
+                                    alignItems: 'center', 
+                                    borderRadius: 16,
+                                    opacity: map.completed && !team2Won ? 0.6 : 1 
+                                  }
+                                ]}>
+                                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: 'white' }}>
+                                    {(series.team2?.shortName || series.team2?.name || 'T2').substring(0, 1).toUpperCase()}
+                                  </Text>
+                                </View>
+                              )}
                               <Text style={[
                                 styles.gameScoreText, 
                                 { 
@@ -998,14 +1350,16 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                               </View>
 
                               {/* Action Buttons - Only Rounds button for CS2 */}
-                              <View style={styles.gameActions}>
-                                <TouchableOpacity
-                                  style={[styles.actionButton, { backgroundColor: colors.primary }]}
-                                  onPress={() => openRoundsModal(index)}
-                                >
-                                  <Text style={styles.actionButtonText}>Rounds</Text>
-                                </TouchableOpacity>
-                              </View>
+                              {hasRounds && (
+                                <View style={styles.gameActions}>
+                                  <TouchableOpacity
+                                    style={[styles.actionButton, { backgroundColor: colors.primary }]}
+                                    onPress={() => openRoundsModal(map.originalIndex ?? index)}
+                                  >
+                                    <Text style={styles.actionButtonText}>Rounds</Text>
+                                  </TouchableOpacity>
+                                </View>
+                              )}
                             </>
                           )}
                         </View>
@@ -1163,21 +1517,37 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                             </Text>
                             
                             <View style={styles.formMatchup}>
-                              <Image
-                                source={{ uri: series.team1?.logoUrl }}
-                                style={styles.formTeamLogo}
-                                resizeMode="contain"
-                              />
+                              {series.team1?.logoUrl ? (
+                                <Image
+                                  source={{ uri: series.team1.logoUrl }}
+                                  style={styles.formTeamLogo}
+                                  resizeMode="contain"
+                                />
+                              ) : (
+                                <View style={[styles.formTeamLogo, { backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderRadius: 8 }]}>
+                                  <Text style={{ fontSize: 6, fontWeight: 'bold', color: 'white' }}>
+                                    {(series.team1?.shortName || series.team1?.name || 'T1').substring(0, 1).toUpperCase()}
+                                  </Text>
+                                </View>
+                              )}
                               <View style={styles.formScoreContainer}>
                                 <Text style={[styles.formScore, { color: theme.text }]}>
                                   {result.teamScore} - {result.opponentScore}
                                 </Text>
                               </View>
-                              <Image
-                                source={{ uri: opponent?.image_url || 'https://via.placeholder.com/48' }}
-                                style={styles.formTeamLogo}
-                                resizeMode="contain"
-                              />
+                              {opponent?.image_url ? (
+                                <Image
+                                  source={{ uri: opponent.image_url }}
+                                  style={styles.formTeamLogo}
+                                  resizeMode="contain"
+                                />
+                              ) : (
+                                <View style={[styles.formTeamLogo, { backgroundColor: colors.secondary, justifyContent: 'center', alignItems: 'center', borderRadius: 8 }]}>
+                                  <Text style={{ fontSize: 6, fontWeight: 'bold', color: 'white' }}>
+                                    {(opponent?.short_name || opponent?.name || 'T2').substring(0, 1).toUpperCase()}
+                                  </Text>
+                                </View>
+                              )}
                             </View>
                             
                             <Text style={[styles.formDate, { color: theme.textSecondary }]}>
@@ -1228,21 +1598,37 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                             </Text>
                             
                             <View style={styles.formMatchup}>
-                              <Image
-                                source={{ uri: series.team2?.logoUrl }}
-                                style={styles.formTeamLogo}
-                                resizeMode="contain"
-                              />
+                              {series.team2?.logoUrl ? (
+                                <Image
+                                  source={{ uri: series.team2.logoUrl }}
+                                  style={styles.formTeamLogo}
+                                  resizeMode="contain"
+                                />
+                              ) : (
+                                <View style={[styles.formTeamLogo, { backgroundColor: colors.secondary, justifyContent: 'center', alignItems: 'center', borderRadius: 8 }]}>
+                                  <Text style={{ fontSize: 6, fontWeight: 'bold', color: 'white' }}>
+                                    {(series.team2?.shortName || series.team2?.name || 'T2').substring(0, 1).toUpperCase()}
+                                  </Text>
+                                </View>
+                              )}
                               <View style={styles.formScoreContainer}>
                                 <Text style={[styles.formScore, { color: theme.text }]}>
                                   {result.teamScore} - {result.opponentScore}
                                 </Text>
                               </View>
-                              <Image
-                                source={{ uri: opponent?.image_url || 'https://via.placeholder.com/48' }}
-                                style={styles.formTeamLogo}
-                                resizeMode="contain"
-                              />
+                              {opponent?.image_url ? (
+                                <Image
+                                  source={{ uri: opponent.image_url }}
+                                  style={styles.formTeamLogo}
+                                  resizeMode="contain"
+                                />
+                              ) : (
+                                <View style={[styles.formTeamLogo, { backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderRadius: 8 }]}>
+                                  <Text style={{ fontSize: 6, fontWeight: 'bold', color: 'white' }}>
+                                    {(opponent?.short_name || opponent?.name || 'OPP').substring(0, 1).toUpperCase()}
+                                  </Text>
+                                </View>
+                              )}
                             </View>
                             
                             <Text style={[styles.formDate, { color: theme.textSecondary }]}>
@@ -1302,11 +1688,19 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                     <View style={styles.roundsTeamStatsContainer}>
                       {/* Team 1 */}
                       <View style={styles.roundsTeamSection}>
-                        <Image
-                          source={{ uri: series.team1?.logoUrl }}
-                          style={styles.roundsTeamLogo}
-                          resizeMode="contain"
-                        />
+                        {series.team1?.logoUrl ? (
+                          <Image
+                            source={{ uri: series.team1.logoUrl }}
+                            style={styles.roundsTeamLogo}
+                            resizeMode="contain"
+                          />
+                        ) : (
+                          <View style={[styles.roundsTeamLogo, { backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderRadius: 10 }]}>
+                            <Text style={{ fontSize: 8, fontWeight: 'bold', color: 'white' }}>
+                              {(series.team1?.shortName || series.team1?.name || 'T1').substring(0, 1).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
                         <Text style={styles.roundsTeamName}>{series.team1?.shortName || series.team1?.name}</Text>
                         <View style={styles.roundsAttackDefenseStats}>
                           <View style={styles.roundsStatItem}>
@@ -1330,11 +1724,19 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                       
                       {/* Team 2 */}
                       <View style={styles.roundsTeamSection}>
-                        <Image
-                          source={{ uri: series.team2?.logoUrl }}
-                          style={styles.roundsTeamLogo}
-                          resizeMode="contain"
-                        />
+                        {series.team2?.logoUrl ? (
+                          <Image
+                            source={{ uri: series.team2.logoUrl }}
+                            style={styles.roundsTeamLogo}
+                            resizeMode="contain"
+                          />
+                        ) : (
+                          <View style={[styles.roundsTeamLogo, { backgroundColor: colors.secondary, justifyContent: 'center', alignItems: 'center', borderRadius: 10 }]}>
+                            <Text style={{ fontSize: 8, fontWeight: 'bold', color: 'white' }}>
+                              {(series.team2?.shortName || series.team2?.name || 'T2').substring(0, 1).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
                         <Text style={styles.roundsTeamName}>{series.team2?.shortName || series.team2?.name}</Text>
                         <View style={styles.roundsAttackDefenseStats}>
                           <View style={styles.roundsStatItem}>
@@ -1361,18 +1763,34 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                           <View style={styles.fixedTeamLogosStack}>
                             <View style={styles.roundNumberSpace} />
                             <View style={styles.teamLogoAligned}>
-                              <Image
-                                source={{ uri: series.team1?.logoUrl }}
-                                style={styles.roundsRowTeamLogo}
-                                resizeMode="contain"
-                              />
+                              {series.team1?.logoUrl ? (
+                                <Image
+                                  source={{ uri: series.team1.logoUrl }}
+                                  style={styles.roundsRowTeamLogo}
+                                  resizeMode="contain"
+                                />
+                              ) : (
+                                <View style={[styles.roundsRowTeamLogo, { backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderRadius: 6 }]}>
+                                  <Text style={{ fontSize: 6, fontWeight: 'bold', color: 'white' }}>
+                                    {(series.team1?.shortName || series.team1?.name || 'T1').substring(0, 1).toUpperCase()}
+                                  </Text>
+                                </View>
+                              )}
                             </View>
                             <View style={styles.teamLogoAligned}>
-                              <Image
-                                source={{ uri: series.team2?.logoUrl }}
-                                style={styles.roundsRowTeamLogo}
-                                resizeMode="contain"
-                              />
+                              {series.team2?.logoUrl ? (
+                                <Image
+                                  source={{ uri: series.team2.logoUrl }}
+                                  style={styles.roundsRowTeamLogo}
+                                  resizeMode="contain"
+                                />
+                              ) : (
+                                <View style={[styles.roundsRowTeamLogo, { backgroundColor: colors.secondary, justifyContent: 'center', alignItems: 'center', borderRadius: 6 }]}>
+                                  <Text style={{ fontSize: 6, fontWeight: 'bold', color: 'white' }}>
+                                    {(series.team2?.shortName || series.team2?.name || 'T2').substring(0, 1).toUpperCase()}
+                                  </Text>
+                                </View>
+                              )}
                             </View>
                           </View>
                           
@@ -1393,7 +1811,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                   { 
                                     backgroundColor: round.winningTeamNumber === 1 
                                       ? (round.attackingTeamNumber === 1 ? theme.error : theme.success)
-                                      : 'rgba(255,255,255,0.1)',
+                                      : theme.surfaceSecondary + '20',
                                   }
                                 ]}>
                                   {round.winningTeamNumber === 1 && (
@@ -1414,7 +1832,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                   { 
                                     backgroundColor: round.winningTeamNumber === 2 
                                       ? (round.attackingTeamNumber === 2 ? theme.error : theme.success)
-                                      : 'rgba(255,255,255,0.1)',
+                                      : theme.surfaceSecondary + '20',
                                   }
                                 ]}>
                                   {round.winningTeamNumber === 2 && (
@@ -1443,18 +1861,34 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                           <View style={styles.fixedTeamLogosStack}>
                             <View style={styles.roundNumberSpace} />
                             <View style={styles.teamLogoAligned}>
-                              <Image
-                                source={{ uri: series.team1?.logoUrl }}
-                                style={styles.roundsRowTeamLogo}
-                                resizeMode="contain"
-                              />
+                              {series.team1?.logoUrl ? (
+                                <Image
+                                  source={{ uri: series.team1.logoUrl }}
+                                  style={styles.roundsRowTeamLogo}
+                                  resizeMode="contain"
+                                />
+                              ) : (
+                                <View style={[styles.roundsRowTeamLogo, { backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderRadius: 6 }]}>
+                                  <Text style={{ fontSize: 6, fontWeight: 'bold', color: 'white' }}>
+                                    {(series.team1?.shortName || series.team1?.name || 'T1').substring(0, 1).toUpperCase()}
+                                  </Text>
+                                </View>
+                              )}
                             </View>
                             <View style={styles.teamLogoAligned}>
-                              <Image
-                                source={{ uri: series.team2?.logoUrl }}
-                                style={styles.roundsRowTeamLogo}
-                                resizeMode="contain"
-                              />
+                              {series.team2?.logoUrl ? (
+                                <Image
+                                  source={{ uri: series.team2.logoUrl }}
+                                  style={styles.roundsRowTeamLogo}
+                                  resizeMode="contain"
+                                />
+                              ) : (
+                                <View style={[styles.roundsRowTeamLogo, { backgroundColor: colors.secondary, justifyContent: 'center', alignItems: 'center', borderRadius: 6 }]}>
+                                  <Text style={{ fontSize: 6, fontWeight: 'bold', color: 'white' }}>
+                                    {(series.team2?.shortName || series.team2?.name || 'T2').substring(0, 1).toUpperCase()}
+                                  </Text>
+                                </View>
+                              )}
                             </View>
                           </View>
                           
@@ -1475,7 +1909,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                   { 
                                     backgroundColor: round.winningTeamNumber === 1 
                                       ? (round.attackingTeamNumber === 1 ? theme.error : theme.success)
-                                      : 'rgba(255,255,255,0.1)',
+                                      : theme.surfaceSecondary + '20',
                                   }
                                 ]}>
                                   {round.winningTeamNumber === 1 && (
@@ -1495,7 +1929,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                   { 
                                     backgroundColor: round.winningTeamNumber === 2 
                                       ? (round.attackingTeamNumber === 2 ? theme.error : theme.success)
-                                      : 'rgba(255,255,255,0.1)',
+                                      : theme.surfaceSecondary + '20',
                                   }
                                 ]}>
                                   {round.winningTeamNumber === 2 && (

@@ -15,6 +15,7 @@ import { MLBService } from '../../services/MLBService';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { convertMLBIdToESPNId } from '../../utils/TeamIdMapping';
+import { LiveViewerBadge } from '../../components/ViewerCounter';
 
 const MLBScoreboardScreen = ({ navigation }) => {
   const { theme, colors, getTeamLogoUrl } = useTheme();
@@ -546,24 +547,29 @@ const MLBScoreboardScreen = ({ navigation }) => {
 
         {/* Game Info */}
         <View style={[styles.gameFooter, {borderTopColor : theme.border }]}>
-          <Text allowFontScaling={false} style={[styles.venue, { color: theme.textSecondary }]}>{item.venue || ''}</Text>
-          {item.broadcasts && item.broadcasts.length > 0 && (
-            <Text allowFontScaling={false} style={[styles.broadcast, { color: theme.textSecondary }]}>{item.broadcasts.join(', ')}</Text>
-          )}
-          {/* Show bases for live games */}
-          {item.isLive && item.situation?.bases && (
-            <View style={styles.basesContainer}>
-              <Text allowFontScaling={false} style={[styles.basesLabel, { color: theme.textSecondary }]}>
-                Bases: {(() => {
-                  const bases = [];
-                  if (item.situation.bases.first) bases.push('1st');
-                  if (item.situation.bases.second) bases.push('2nd');
-                  if (item.situation.bases.third) bases.push('3rd');
-                  return bases.length > 0 ? bases.join(' ') : 'Empty';
-                })()}
-              </Text>
-            </View>
-          )}
+          <View style={styles.gameFooterLeft}>
+            <Text allowFontScaling={false} style={[styles.venue, { color: theme.textSecondary }]}>{item.venue || ''}</Text>
+            {item.broadcasts && item.broadcasts.length > 0 && (
+              <Text allowFontScaling={false} style={[styles.broadcast, { color: theme.textSecondary }]}>{item.broadcasts.join(', ')}</Text>
+            )}
+            {/* Show bases for live games */}
+            {item.isLive && item.situation?.bases && (
+              <View style={styles.basesContainer}>
+                <Text allowFontScaling={false} style={[styles.basesLabel, { color: theme.textSecondary }]}>
+                  Bases: {(() => {
+                    const bases = [];
+                    if (item.situation.bases.first) bases.push('1st');
+                    if (item.situation.bases.second) bases.push('2nd');
+                    if (item.situation.bases.third) bases.push('3rd');
+                    return bases.length > 0 ? bases.join(' ') : 'Empty';
+                  })()}
+                </Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.gameFooterRight}>
+            <LiveViewerBadge gameId={item.id} style={styles.viewerBadge} />
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -744,7 +750,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#eee',
     paddingTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
+  gameFooterLeft: { flex: 1 },
+  gameFooterRight: { alignItems: 'flex-end' },
+  viewerBadge: { marginTop: 2 },
   venue: {
     fontSize: 12,
     color: '#666',

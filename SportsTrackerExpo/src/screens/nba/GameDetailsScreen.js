@@ -12,6 +12,7 @@ import { useStreamingAccess } from '../../utils/streamingUtils';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
+import { useGamePresence } from '../../hooks/useGamePresence';
 
 // Color similarity detection utility
 const calculateColorSimilarity = (color1, color2) => {
@@ -237,6 +238,9 @@ const NBAGameDetailsScreen = ({ route }) => {
   const [visiblePlaysCount, setVisiblePlaysCount] = useState(30);
   const [isLoadingMorePlays, setIsLoadingMorePlays] = useState(false);
 
+  // Game presence tracking
+  const { viewerData, isJoined } = useGamePresence(gameId);
+
   // Stream-related state variables
   const [streamModalVisible, setStreamModalVisible] = useState(false);
   const [currentStreamType, setCurrentStreamType] = useState('alpha');
@@ -253,20 +257,20 @@ const NBAGameDetailsScreen = ({ route }) => {
     const themeType = isDarkMode ? 'dark' : 'light';
     const palette = currentColorPalette || 'red'; // Default to red if not available
     const iconMap = {
-      'dark-blue': require('../../../assets/dark/blue.png'),
-      'dark-red': require('../../../assets/dark/red.png'),
-      'dark-green': require('../../../assets/dark/green.png'),
-      'dark-purple': require('../../../assets/dark/purple.png'),
-      'dark-gold': require('../../../assets/dark/gold.png'),
-      'light-blue': require('../../../assets/light/blue.png'),
-      'light-red': require('../../../assets/light/red.png'),
-      'light-green': require('../../../assets/light/green.png'),
-      'light-purple': require('../../../assets/light/purple.png'),
-      'light-gold': require('../../../assets/light/gold.png'),
+      'dark_blue': require('../../../assets/dark/blue.png'),
+      'dark_red': require('../../../assets/dark/red.png'),
+      'dark_green': require('../../../assets/dark/green.png'),
+      'dark_purple': require('../../../assets/dark/purple.png'),
+      'dark_gold': require('../../../assets/dark/gold.png'),
+      'light_blue': require('../../../assets/light/blue.png'),
+      'light_red': require('../../../assets/light/red.png'),
+      'light_green': require('../../../assets/light/green.png'),
+      'light_purple': require('../../../assets/light/purple.png'),
+      'light_gold': require('../../../assets/light/gold.png'),
     };
     
-    const iconKey = `${themeType}-${palette}`;
-    return iconMap[iconKey] || iconMap['dark-red']; // fallback to default
+    const iconKey = `${themeType}_${palette}`;
+    return iconMap[iconKey] || iconMap['dark_red']; // fallback to default
   };
 
   // Memoized team IDs for performance - prevents repeated calculations
@@ -331,7 +335,7 @@ const NBAGameDetailsScreen = ({ route }) => {
         return liveMatchesCache;
       }
 
-      const response = await fetch(`${STREAM_API_BASE}/matches/live`);
+      const response = await fetch(`${STREAM_API_BASE}/matches/basketball`);
       if (!response.ok) {
         throw new Error(`API responded with status: ${response.status}`);
       }
@@ -881,6 +885,7 @@ const NBAGameDetailsScreen = ({ route }) => {
     const state = status?.type?.state;
     const clock = status?.clock || status?.displayClock || '0:00';
     const period = status?.period || 1;
+    const clockFormat = clock === '0.0' ? 'End' : clock;
     
     if (state === 'pre') {
       // Game not started - show date and time
@@ -920,7 +925,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       else if (period > 4) periodText = 'OT';
 
       return {
-        text: clock || '0:00',
+        text: clockFormat || '0:00',
         detail: `${periodText} Quarter`,
         isLive: true,
         isPre: false,
@@ -1960,7 +1965,7 @@ const NBAGameDetailsScreen = ({ route }) => {
               
               {renderStatHeaders(['FG','PTS','MIN'])}
               
-              {starterPlayers.map((player, idx) => renderPlayerRow(player, idx, 'starter-player', [1,13,0]))}
+              {starterPlayers.map((player, idx) => renderPlayerRow(player, idx, 'starter-player', [9,1,0]))}
             </View>
           )}
           
@@ -1976,7 +1981,7 @@ const NBAGameDetailsScreen = ({ route }) => {
               
               {renderStatHeaders(['FG','PTS','MIN'])}
               
-              {benchPlayers.map((player, idx) => renderPlayerRow(player, idx, 'bench-player', [1,13,0]))}
+              {benchPlayers.map((player, idx) => renderPlayerRow(player, idx, 'bench-player', [9,1,0]))}
             </View>
           )}
         </View>
@@ -2103,7 +2108,7 @@ const NBAGameDetailsScreen = ({ route }) => {
             
             {renderStatHeaders(['FG','PTS','MIN'])}
             
-            {playersOnCourt.map((player, idx) => renderPlayerRow(player, idx, 'oncourt-player', [1,13,0]))}
+            {playersOnCourt.map((player, idx) => renderPlayerRow(player, idx, 'oncourt-player', [9,1,0]))}
           </View>
         )}
         
@@ -2119,7 +2124,7 @@ const NBAGameDetailsScreen = ({ route }) => {
             
             {renderStatHeaders(['FG','PTS','MIN'])}
 
-            {playersOnBench.map((player, idx) => renderPlayerRow(player, idx, 'bench-player', [1,13,0]))}
+            {playersOnBench.map((player, idx) => renderPlayerRow(player, idx, 'bench-player', [9,1,0]))}
           </View>
         )}
       </View>
@@ -2387,7 +2392,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       {/* Top header card (matches soccer layout) */}
       <View style={[styles.headerCard, { backgroundColor: theme.surface, borderColor: 'rgba(0,0,0,0.08)' }]}>
         <Text style={[styles.competitionText, { color: theme.textSecondary }]} numberOfLines={1}>
-          {competition?.name || details?.league || 'NBA'}{details?.gameInfo?.venue?.fullName ? ` - ${details.gameInfo.venue.fullName}` : ''}
+          {details?.header?.gameNote || 'NBA'}{details?.gameInfo?.venue?.fullName ? ` - ${details.gameInfo.venue.fullName}` : ''}
         </Text>
 
         <View style={styles.soccerMainRow}>
@@ -2639,6 +2644,9 @@ const NBAGameDetailsScreen = ({ route }) => {
               }
               teamName = team?.displayName || team?.name || '';
               teamLogo = team?.logo || (team?.abbreviation ? getTeamLogoUrl('nba', team.abbreviation) : null);
+
+              const gameDate = details?.header?.competitions?.[0]?.date;
+              const formattedDate = gameDate ? new Date(gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
               
               // Define most important stats for basketball players
               let importantStatIndices = [];
@@ -2697,7 +2705,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                   <View style={styles.modalStatsHeader}>
                     <Text style={[styles.modalStatsTitle, { color: theme.text }]}>Game Statistics</Text>
                     <Text style={[styles.modalStatsDate, { color: theme.textSecondary }]}>
-                      {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {formattedDate}
                     </Text>
                   </View>
 
@@ -3154,7 +3162,7 @@ const NBAGameDetailsScreen = ({ route }) => {
             {/* Chat Modal Header */}
             <View style={[styles.chatModalHeader, { borderBottomColor: theme.border }]}>
               <Text allowFontScaling={false} style={[styles.chatModalTitle, { color: theme.text }]}>
-                {details ? `${details.awayTeam?.name?.default || 'Away'} vs ${details.homeTeam?.name?.default || 'Home'}` : 'Chat'}
+                {details ? `${details.header.competitions[0].competitors.find(c => c.homeAway === 'away')?.team.name || 'Away'} vs ${details.header.competitions[0].competitors.find(c => c.homeAway === 'home')?.team.name || 'Home'}` : 'Chat'}
               </Text>
               <TouchableOpacity
                 style={styles.chatModalCloseButton}
@@ -4988,7 +4996,7 @@ const styles = StyleSheet.create({
   // Chat Modal Styles
   chatModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0)',
     justifyContent: 'flex-end',
   },
   chatModalContent: {

@@ -15,6 +15,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { ChampionsLeagueServiceEnhanced } from '../../../services/soccer/ChampionsLeagueServiceEnhanced';
 import { useTheme } from '../../../context/ThemeContext';
 import { useFavorites } from '../../../context/FavoritesContext';
+import LiveViewerBadge from '../../../components/ViewerCounter';
 
 const { width } = Dimensions.get('window');
 
@@ -591,6 +592,11 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
             </Text>
           </View>
         )}
+
+        {/* Live Viewer Section */}
+        <View style={[styles.viewerSection, { borderTopColor: theme.border }]}>
+          <LiveViewerBadge gameId={competition.id} />
+        </View>
       </TouchableOpacity>
     );
   };
@@ -772,6 +778,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  viewerSection: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderTopWidth: 1,
+    alignItems: 'center',
   },
 });
 

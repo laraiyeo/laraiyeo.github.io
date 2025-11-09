@@ -8,6 +8,7 @@ import { useFavorites } from '../../context/FavoritesContext';
 import { useNavigation } from '@react-navigation/native';
 import { NHLService } from '../../services/NHLService';
 import ChatComponent from '../../components/ChatComponent';
+import { useGamePresence } from '../../hooks/useGamePresence';
 import { useStreamingAccess } from '../../utils/streamingUtils';
 
 // Smart color detection utility functions
@@ -75,6 +76,29 @@ const NHLGameDetailsScreen = ({ route }) => {
   const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
   const { isFavorite, toggleFavorite } = useFavorites();
   const navigation = useNavigation();
+  
+  // Track presence for this game (this is what will make the viewer count show on scoreboard)
+  const { viewerCount, isJoined } = useGamePresence(gameId);
+  
+  // Debug logging for presence tracking
+  useEffect(() => {
+    if (gameId) {
+      console.log('🎮 NHL GameDetailsScreen - Tracking presence for gameId:', gameId);
+    }
+    
+    // Cleanup when component unmounts
+    return () => {
+      if (gameId) {
+        console.log('🎮 NHL GameDetailsScreen - Cleaning up presence for gameId:', gameId);
+      }
+    };
+  }, [gameId]);
+  
+  useEffect(() => {
+    console.log('🎮 NHL GameDetailsScreen - Presence state changed:', { gameId, isJoined, viewerCount });
+    console.log('🎮 NHL GameDetailsScreen - isJoined specifically:', isJoined);
+  }, [isJoined, viewerCount, gameId]);
+  
   const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
   const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -135,7 +159,7 @@ const NHLGameDetailsScreen = ({ route }) => {
         return liveMatchesCache;
       }
 
-      const response = await fetch(`${STREAM_API_BASE}/matches/live`);
+      const response = await fetch(`${STREAM_API_BASE}/matches/hockey`);
       if (!response.ok) {
         throw new Error(`API responded with status: ${response.status}`);
       }
@@ -2088,7 +2112,7 @@ const NHLGameDetailsScreen = ({ route }) => {
       {/* Top header card (matches soccer layout) */}
       <View style={[styles.headerCard, { backgroundColor: theme.surface, borderColor: 'rgba(0,0,0,0.08)' }]}>
         <Text style={[styles.competitionText, { color: theme.textSecondary }]} numberOfLines={1}>
-          {competition?.name || details?.league || 'NHL'}{details?.gameInfo?.venue?.fullName ? ` - ${details.gameInfo.venue.fullName}` : ''}
+          {details?.header?.gameNote || 'NHL'}{details?.gameInfo?.venue?.fullName ? ` - ${details.gameInfo.venue.fullName}` : ''}
         </Text>
 
         <View style={styles.soccerMainRow}>
@@ -2374,6 +2398,9 @@ const NHLGameDetailsScreen = ({ route }) => {
                 teamName = team?.displayName || team?.name || '';
                 teamLogo = team?.logo || (team?.abbreviation ? getTeamLogoUrl('nhl', team.abbreviation) : null);
               }
+
+              const gameDate = details?.header?.competitions?.[0]?.date;
+              const formattedDate = gameDate ? new Date(gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
               
               // Define most important stats by position
               const isGoalie = groupName === 'goalies' || position === 'G';
@@ -2445,7 +2472,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                   <View style={styles.modalStatsHeader}>
                     <Text style={[styles.modalStatsTitle, { color: theme.text }]}>Game Statistics</Text>
                     <Text style={[styles.modalStatsDate, { color: theme.textSecondary }]}>
-                      {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {formattedDate}
                     </Text>
                   </View>
 
@@ -2708,7 +2735,7 @@ const NHLGameDetailsScreen = ({ route }) => {
             {/* Chat Modal Header */}
             <View style={[styles.chatModalHeader, { borderBottomColor: theme.border }]}>
               <Text allowFontScaling={false} style={[styles.chatModalTitle, { color: theme.text }]}>
-                {details ? `${details.awayTeam?.name?.default || 'Away'} vs ${details.homeTeam?.name?.default || 'Home'}` : 'Chat'}
+                {details ? `${details.header.competitions[0].competitors.find(c => c.homeAway === 'away')?.team.name || 'Away'} vs ${details.header.competitions[0].competitors.find(c => c.homeAway === 'home')?.team.name || 'Home'}` : 'Chat'}
               </Text>
               <TouchableOpacity
                 style={styles.chatModalCloseButton}
@@ -4282,7 +4309,7 @@ const styles = StyleSheet.create({
   // Chat Modal Styles
   chatModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0)',
     justifyContent: 'flex-end',
   },
   chatModalContent: {

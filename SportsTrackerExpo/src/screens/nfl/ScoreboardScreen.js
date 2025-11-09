@@ -14,6 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { NFLService } from '../../services/NFLService';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import { LiveViewerBadge } from '../../components/ViewerCounter';
 
 const NFLScoreboardScreen = ({ navigation }) => {
   const { theme, colors, getTeamLogoUrl } = useTheme();
@@ -716,16 +717,21 @@ const NFLScoreboardScreen = ({ navigation }) => {
 
         {/* Game Info */}
         <View style={[styles.gameFooter, { borderTopColor: theme.border }]}>
-          <Text allowFontScaling={false} style={[styles.venue, { color: theme.textSecondary }]}>{item.venue || ''}</Text>
-          {item.broadcasts && item.broadcasts.length > 0 && (
-            <Text allowFontScaling={false} style={[styles.broadcast, { color: theme.textSecondary }]}>{item.broadcasts.join(', ')}</Text>
-          )}
-          {/* Show down and distance for in-progress games (but not halftime) */}
-          {item.situation?.downDistanceText && 
-           !item.isCompleted && 
-           item.status && item.status.toLowerCase() !== 'halftime' && (
-            <Text allowFontScaling={false} style={[styles.downDistance, { color: colors.primary }]}>{item.situation.downDistanceText}</Text>
-          )}
+          <View style={styles.gameFooterLeft}>
+            <Text allowFontScaling={false} style={[styles.venue, { color: theme.textSecondary }]}>{item.venue || ''}</Text>
+            {item.broadcasts && item.broadcasts.length > 0 && (
+              <Text allowFontScaling={false} style={[styles.broadcast, { color: theme.textSecondary }]}>{item.broadcasts.join(', ')}</Text>
+            )}
+            {/* Show down and distance for in-progress games (but not halftime) */}
+            {item.situation?.downDistanceText && 
+             !item.isCompleted && 
+             item.status && item.status.toLowerCase() !== 'halftime' && (
+              <Text allowFontScaling={false} style={[styles.downDistance, { color: colors.primary }]}>{item.situation.downDistanceText}</Text>
+            )}
+          </View>
+          <View style={styles.gameFooterRight}>
+            <LiveViewerBadge gameId={item.id} style={styles.viewerBadge} />
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -909,7 +915,13 @@ const styles = StyleSheet.create({
   gameFooter: {
     borderTopWidth: 1,
     paddingTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
+  gameFooterLeft: { flex: 1 },
+  gameFooterRight: { alignItems: 'flex-end' },
+  viewerBadge: { marginTop: 2 },
   venue: {
     fontSize: 12,
     marginBottom: 2,

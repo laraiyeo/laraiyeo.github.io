@@ -50,7 +50,7 @@ class AppIconService {
 
       // Construct the icon name based on theme and color
       const theme = isDarkMode ? 'dark' : 'light';
-      const iconName = `${theme}-${colorPalette}`;
+      const iconName = `${theme}_${colorPalette}`;
       
       // Set the alternate icon using nixa-expo-dynamic-app-icon
       const result = await setAppIcon(iconName, 'DEFAULT');
@@ -99,7 +99,7 @@ class AppIconService {
   }
 
   /**
-   * Resets to the default app icon (dark-red)
+   * Resets to the default app icon (dark_red)
    */
   static async resetToDefaultIcon() {
     try {
@@ -108,15 +108,15 @@ class AppIconService {
         return false;
       }
 
-      // Reset to dark-red as the default icon
-      const result = await setAppIcon('dark-red', 'DEFAULT');
+      // Reset to dark_red as the default icon
+      const result = await setAppIcon('dark_red', 'DEFAULT');
       
       if (result === false) {
         console.log('Failed to reset to default app icon');
         return false;
       }
       
-      console.log('Reset to default app icon (dark-red)');
+      console.log('Reset to default app icon (dark_red)');
       return true;
     } catch (error) {
       console.error('Error resetting to default app icon:', error);

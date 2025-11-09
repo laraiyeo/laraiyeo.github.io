@@ -165,6 +165,60 @@ const CS2HomeScreen = ({ navigation, route }) => {
     return dashIndex !== -1 ? eventName.substring(0, dashIndex) : eventName;
   };
 
+  // Score bars component with glowing effect
+  const ScoreBars = ({ team1Score, team2Score, seriesScore1, seriesScore2, bestOf }) => {
+    const renderBars = (score, seriesScore, isTeam1) => {
+      const bars = [];
+      for (let i = 0; i < bestOf; i++) {
+        const isWon = i < seriesScore;
+        bars.push(
+          <View
+            key={i}
+            style={[
+              styles.scoreBar,
+              {
+                backgroundColor: isWon ? colors.primary : theme.border,
+                shadowColor: isWon ? colors.primary : 'transparent',
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: isWon ? 0.8 : 0,
+                shadowRadius: isWon ? 4 : 0,
+                elevation: isWon ? 8 : 0,
+              }
+            ]}
+          />
+        );
+      }
+      return bars;
+    };
+
+    return (
+      <View style={styles.scoreBarsContainer}>
+        {/* Team 1 Score and Bars */}
+        <View style={styles.teamScoreSection}>
+          <Text style={[styles.liveGameScore, { color: theme.text }]}>
+            {team1Score}
+          </Text>
+          <View style={styles.barsRow}>
+            {renderBars(team1Score, seriesScore1, true)}
+          </View>
+        </View>
+
+        {/* VS Separator */}
+        <Text style={[styles.vsText, { color: theme.textSecondary }]}>-</Text>
+
+        {/* Team 2 Score and Bars */}
+        <View style={styles.teamScoreSection}>
+          <Text style={[styles.liveGameScore, { color: theme.text }]}>
+            {team2Score}
+          </Text>
+          <View style={[styles.barsRow, { flexDirection: 'row-reverse' }]}>
+            {renderBars(team2Score, seriesScore2, false)}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   // Live Series Card - VALORANT style with teams on left/right, score in middle
   const LiveSeriesCard = ({ match }) => {
     const series = match.node;
@@ -223,9 +277,13 @@ const CS2HomeScreen = ({ navigation, route }) => {
           
           {/* Score in Middle */}
           <View style={styles.liveScoreContainer}>
-            <Text style={[styles.liveScore, { color: theme.text }]}>
-              {series.team1Score || 0} - {series.team2Score || 0}
-            </Text>
+            <ScoreBars 
+              team1Score={series.team1Score || 0}
+              team2Score={series.team2Score || 0}
+              seriesScore1={series.team1SeriesScore || 0}
+              seriesScore2={series.team2SeriesScore || 0}
+              bestOf={Math.ceil((series.bestOf || 3) / 2)}
+            />
           </View>
           
           {/* Team 2 - Right Side */}
@@ -469,8 +527,8 @@ const CS2HomeScreen = ({ navigation, route }) => {
                 {team1?.baseInfo?.name || 'Team 1'}
               </Text>
             </View>
-            <Text style={[styles.completedScore, { color: (series.team1Score || 0) > (series.team2Score || 0) ? colors.primary : theme.textSecondary }]}>
-              {series.team1Score || 0}
+            <Text style={[styles.completedScore, { color: (series.team1SeriesScore || 0) > (series.team2SeriesScore || 0) ? colors.primary : theme.textSecondary }]}>
+              {series.team1SeriesScore || 0}
             </Text>
           </View>
           <View style={styles.completedTeamRow}>
@@ -494,8 +552,8 @@ const CS2HomeScreen = ({ navigation, route }) => {
                 {team2?.baseInfo?.name || 'Team 2'}
               </Text>
             </View>
-            <Text style={[styles.completedScore, { color: (series.team2Score || 0) > (series.team1Score || 0) ? colors.primary : theme.textSecondary }]}>
-              {series.team2Score || 0}
+            <Text style={[styles.completedScore, { color: (series.team2SeriesScore || 0) > (series.team1SeriesScore || 0) ? colors.primary : theme.textSecondary }]}>
+              {series.team2SeriesScore || 0}
             </Text>
           </View>
         </View>
@@ -741,6 +799,37 @@ const styles = StyleSheet.create({
   liveScore: {
     fontSize: 25,
     fontWeight: 'bold',
+  },
+
+  // Score Bars Styles
+  scoreBarsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  teamScoreSection: {
+    alignItems: 'center',
+  },
+  liveGameScore: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 6,
+  },
+  barsRow: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  scoreBar: {
+    width: 12,
+    height: 4,
+    borderRadius: 2,
+  },
+  vsText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginHorizontal: 16,
+    marginBottom: 12,
   },
 
   // Upcoming Matches Styles - VALORANT Layout

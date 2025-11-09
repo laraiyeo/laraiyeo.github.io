@@ -1529,7 +1529,17 @@ const VALEventScreen = ({ navigation, route }) => {
                 </Text>
                 <View style={styles.teamsGrid}>
                   {teams.map((team, index) => (
-                    <View key={team.id || index} style={[styles.teamCard, { backgroundColor: theme.surfaceSecondary }]}>
+                    <TouchableOpacity 
+                      key={team.id || index} 
+                      style={[styles.teamCard, { backgroundColor: theme.surfaceSecondary }]}
+                      onPress={() => {
+                        navigation.navigate('VALTeamPage', {
+                          teamId: team.id,
+                          teamName: team.name
+                        });
+                      }}
+                      activeOpacity={0.7}
+                    >
                       <Image
                         source={{ uri: team.logoUrl || 'https://i.imgur.com/BIC4pnO.webp' }}
                         style={styles.teamLogo}
@@ -1538,7 +1548,7 @@ const VALEventScreen = ({ navigation, route }) => {
                       <Text style={[styles.teamName, { color: theme.text }]} numberOfLines={2}>
                         {team.shortName || team.name}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               </View>

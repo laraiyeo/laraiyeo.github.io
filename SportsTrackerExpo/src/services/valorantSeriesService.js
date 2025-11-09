@@ -41,6 +41,7 @@ export const formatSeriesData = (rawSeriesData) => {
     id: rawSeriesData.id,
     eventId: rawSeriesData.eventId,
     eventName: rawSeriesData.eventName,
+    eventLivestreamLink: rawSeriesData.eventLivestreamLink,
     eventChildLabel: rawSeriesData.eventChildLabel,
     eventLogoUrl: rawSeriesData.eventLogoUrl,
     team1: rawSeriesData.team1,

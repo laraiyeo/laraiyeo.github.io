@@ -21,6 +21,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import ChatComponent from '../../components/ChatComponent';
 import { useStreamingAccess } from '../../utils/streamingUtils';
+import { useGamePresence } from '../../hooks/useGamePresence';
 import { Ionicons } from '@expo/vector-icons';
 
 // Color similarity detection utility
@@ -147,6 +148,9 @@ const GameDetailsScreen = ({ route }) => {
   const [homeRosterData, setHomeRosterData] = useState(null);
   const [loadingRoster, setLoadingRoster] = useState(false);
   
+  // Game presence tracking
+  const { viewerData, isJoined } = useGamePresence(gameId);
+  
   // Stream-related state variables
   const [streamModalVisible, setStreamModalVisible] = useState(false);
   const [currentStreamType, setCurrentStreamType] = useState('alpha');
@@ -176,7 +180,7 @@ const GameDetailsScreen = ({ route }) => {
         return liveMatchesCache;
       }
 
-      const response = await fetch(`${STREAM_API_BASE}/matches/live`);
+      const response = await fetch(`${STREAM_API_BASE}/matches/american-football`);
       if (!response.ok) {
         throw new Error(`API responded with status: ${response.status}`);
       }
@@ -2062,10 +2066,10 @@ const GameDetailsScreen = ({ route }) => {
 
               {/* Win Percentages */}
               <View style={styles.predictionPercentages}>
-                <Text allowFontScaling={false} style={[styles.predictionPercentage, { color: awayTeamColor }]}>
+                <Text allowFontScaling={false} style={[styles.predictionPercentage, { color: theme.textSecondary }]}>
                   {awayWinChance.toFixed(1)}%
                 </Text>
-                <Text allowFontScaling={false} style={[styles.predictionPercentage, { color: homeTeamColor }]}>
+                <Text allowFontScaling={false} style={[styles.predictionPercentage, { color: theme.textSecondary }]}>
                   {homeWinChance.toFixed(1)}%
                 </Text>
               </View>
@@ -4122,7 +4126,7 @@ const GameDetailsScreen = ({ route }) => {
           {/* Chat Modal Header */}
           <View style={[styles.chatModalHeader, { borderBottomColor: theme.border }]}>
             <Text allowFontScaling={false} style={[styles.chatModalTitle, { color: theme.text }]}>
-              {gameDetails ? `${gameDetails.competitions?.[0]?.competitors?.[1]?.team?.displayName || 'Away'} vs ${gameDetails.competitions?.[0]?.competitors?.[0]?.team?.displayName || 'Home'}` : 'Chat'}
+              {gameDetails ? `${gameDetails.header.competitions[0].competitors.find(c => c.homeAway === 'away')?.team.name || 'Away'} vs ${gameDetails.header.competitions[0].competitors.find(c => c.homeAway === 'home')?.team.name || 'Home'}` : 'Chat'}
             </Text>
             <TouchableOpacity
               style={styles.chatModalCloseButton}
@@ -5771,7 +5775,7 @@ const styles = StyleSheet.create({
   // Chat Modal Styles
   chatModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0)',
     justifyContent: 'flex-end',
   },
   chatModalContent: {

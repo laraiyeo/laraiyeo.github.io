@@ -1,38 +1,50 @@
-import React, { useState, useEffect } from 'react';
-import { NavigationContainer, getFocusedRouteNameFromRoute } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createStackNavigator } from '@react-navigation/stack';
-import { View, Text, StyleSheet, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import * as ExpoSplashScreen from 'expo-splash-screen';
+import React, { useState, useEffect } from "react";
+import {
+  NavigationContainer,
+  getFocusedRouteNameFromRoute,
+} from "@react-navigation/native";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createStackNavigator } from "@react-navigation/stack";
+import { View, Text, StyleSheet, Image } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import * as ExpoSplashScreen from "expo-splash-screen";
 
 // Import SplashScreen component
-import SplashScreen from './src/components/SplashScreen';
+import SplashScreen from "./src/components/SplashScreen";
 
 // Import theme context
-import { ThemeProvider, useTheme } from './src/context/ThemeContext';
-import { FavoritesProvider } from './src/context/FavoritesContext';
-import { ChatProvider } from './src/context/ChatContext';
+import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
+import { FavoritesProvider } from "./src/context/FavoritesContext";
+import { ChatProvider } from "./src/context/ChatContext";
+import { EmoteProvider } from "./src/context/EmoteContext";
+import { MutedUsersProvider } from "./src/context/MutedUsersContext";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 
 // Import Analytics Service
-import analyticsService from './src/services/AnalyticsService';
+import analyticsService from "./src/services/AnalyticsService";
 
 // Import Update Service
-import UpdateService from './src/services/UpdateService';
+import UpdateService from "./src/services/UpdateService";
+
+// Import Emote Service for preloading
+import EmoteService from "./src/services/EmoteService";
+
+// Import PresenceService for viewer tracking
+import { PresenceService } from "./src/services/PresenceService";
 
 // Custom header title component that disables font scaling
 const HeaderTitle = ({ children, style }) => {
   const { colors } = useTheme();
   return (
-    <Text 
-      allowFontScaling={false} 
+    <Text
+      allowFontScaling={false}
       style={[
         {
           fontSize: 17,
-          fontWeight: 'bold',
-          color: '#fff'
+          fontWeight: "bold",
+          color: "#fff",
         },
-        style
+        style,
       ]}
     >
       {children}
@@ -41,184 +53,187 @@ const HeaderTitle = ({ children, style }) => {
 };
 
 // Import our screens
-import HomeScreen from './src/screens/HomeScreen';
-import FavoritesScreen from './src/screens/FavoritesScreen';
-import SettingsScreen from './src/screens/SettingsScreen';
-import FavoritesManagementScreen from './src/screens/FavoritesManagementScreen';
+import HomeScreen from "./src/screens/HomeScreen";
+import FavoritesScreen from "./src/screens/FavoritesScreen";
+import SettingsScreen from "./src/screens/SettingsScreen";
+import FavoritesManagementScreen from "./src/screens/FavoritesManagementScreen";
+import MutedUsersScreen from "./src/screens/MutedUsersScreen";
 
 // NFL specific screens
-import NFLScoreboardScreen from './src/screens/nfl/ScoreboardScreen';
-import NFLStandingsScreen from './src/screens/nfl/StandingsScreen';
-import NFLSearchScreen from './src/screens/nfl/SearchScreen';
-import NFLCompareScreen from './src/screens/nfl/CompareScreen';
-import NFLStatsScreen from './src/screens/nfl/StatsScreen';
-import NFLGameDetailsScreen from './src/screens/nfl/GameDetailsScreen';
-import NFLTeamPageScreen from './src/screens/nfl/TeamPageScreen';
-import NFLPlayerPageScreen from './src/screens/nfl/NFLPlayerPageScreen';
+import NFLScoreboardScreen from "./src/screens/nfl/ScoreboardScreen";
+import NFLStandingsScreen from "./src/screens/nfl/StandingsScreen";
+import NFLSearchScreen from "./src/screens/nfl/SearchScreen";
+import NFLCompareScreen from "./src/screens/nfl/CompareScreen";
+import NFLStatsScreen from "./src/screens/nfl/StatsScreen";
+import NFLGameDetailsScreen from "./src/screens/nfl/GameDetailsScreen";
+import NFLTeamPageScreen from "./src/screens/nfl/TeamPageScreen";
+import NFLPlayerPageScreen from "./src/screens/nfl/NFLPlayerPageScreen";
 
 // MLB specific screens
-import MLBScoreboardScreen from './src/screens/mlb/ScoreboardScreen';
-import MLBStandingsScreen from './src/screens/mlb/StandingsScreen';
-import MLBSearchScreen from './src/screens/mlb/SearchScreen';
-import MLBCompareScreen from './src/screens/mlb/CompareScreen';
-import MLBStatsScreen from './src/screens/mlb/StatsScreen';
-import MLBGameDetailsScreen from './src/screens/mlb/GameDetailsScreen';
-import MLBTeamPageScreen from './src/screens/mlb/TeamPageScreen';
-import MLBPlayerPageScreen from './src/screens/mlb/PlayerPageScreen';
+import MLBScoreboardScreen from "./src/screens/mlb/ScoreboardScreen";
+import MLBStandingsScreen from "./src/screens/mlb/StandingsScreen";
+import MLBSearchScreen from "./src/screens/mlb/SearchScreen";
+import MLBCompareScreen from "./src/screens/mlb/CompareScreen";
+import MLBStatsScreen from "./src/screens/mlb/StatsScreen";
+import MLBGameDetailsScreen from "./src/screens/mlb/GameDetailsScreen";
+import MLBTeamPageScreen from "./src/screens/mlb/TeamPageScreen";
+import MLBPlayerPageScreen from "./src/screens/mlb/PlayerPageScreen";
 
 // NBA specific screens
-import NBAScoreboardScreen from './src/screens/nba/ScoreboardScreen';
-import NBAStandingsScreen from './src/screens/nba/StandingsScreen';
-import NBASearchScreen from './src/screens/nba/SearchScreen';
-import NBACompareScreen from './src/screens/nba/CompareScreen';
-import NBAStatsScreen from './src/screens/nba/StatsScreen';
-import NBAGameDetailsScreen from './src/screens/nba/GameDetailsScreen';
-import NBATeamPageScreen from './src/screens/nba/TeamPageScreen';
-import NBAPlayerPageScreen from './src/screens/nba/PlayerPageScreen';
+import NBAScoreboardScreen from "./src/screens/nba/ScoreboardScreen";
+import NBAStandingsScreen from "./src/screens/nba/StandingsScreen";
+import NBASearchScreen from "./src/screens/nba/SearchScreen";
+import NBACompareScreen from "./src/screens/nba/CompareScreen";
+import NBAStatsScreen from "./src/screens/nba/StatsScreen";
+import NBAGameDetailsScreen from "./src/screens/nba/GameDetailsScreen";
+import NBATeamPageScreen from "./src/screens/nba/TeamPageScreen";
+import NBAPlayerPageScreen from "./src/screens/nba/PlayerPageScreen";
 
 // WNBA specific screens
-import WNBAScoreboardScreen from './src/screens/wnba/ScoreboardScreen';
-import WNBAStandingsScreen from './src/screens/wnba/StandingsScreen';
-import WNBASearchScreen from './src/screens/wnba/SearchScreen';
-import WNBACompareScreen from './src/screens/wnba/CompareScreen';
-import WNBAStatsScreen from './src/screens/wnba/StatsScreen';
-import WNBAGameDetailsScreen from './src/screens/wnba/GameDetailsScreen';
-import WNBATeamPageScreen from './src/screens/wnba/TeamPageScreen';
-import WNBAPlayerPageScreen from './src/screens/wnba/PlayerPageScreen';
+import WNBAScoreboardScreen from "./src/screens/wnba/ScoreboardScreen";
+import WNBAStandingsScreen from "./src/screens/wnba/StandingsScreen";
+import WNBASearchScreen from "./src/screens/wnba/SearchScreen";
+import WNBACompareScreen from "./src/screens/wnba/CompareScreen";
+import WNBAStatsScreen from "./src/screens/wnba/StatsScreen";
+import WNBAGameDetailsScreen from "./src/screens/wnba/GameDetailsScreen";
+import WNBATeamPageScreen from "./src/screens/wnba/TeamPageScreen";
+import WNBAPlayerPageScreen from "./src/screens/wnba/PlayerPageScreen";
 
 // F1 specific screens
-import F1ResultsScreen from './src/screens/f1/ResultsScreen';
-import F1StandingsScreen from './src/screens/f1/StandingsScreen';
-import F1RaceDetailsScreen from './src/screens/f1/RaceDetailsScreen';
-import F1ConstructorDetailsScreen from './src/screens/f1/ConstructorDetailsScreen';
-import F1RacerDetailsScreen from './src/screens/f1/RacerDetailsScreen';
-import F1VehiclesScreen from './src/screens/f1/VehiclesScreen';
+import F1ResultsScreen from "./src/screens/f1/ResultsScreen";
+import F1StandingsScreen from "./src/screens/f1/StandingsScreen";
+import F1RaceDetailsScreen from "./src/screens/f1/RaceDetailsScreen";
+import F1ConstructorDetailsScreen from "./src/screens/f1/ConstructorDetailsScreen";
+import F1RacerDetailsScreen from "./src/screens/f1/RacerDetailsScreen";
+import F1VehiclesScreen from "./src/screens/f1/VehiclesScreen";
 
 // Soccer specific screens
-import SoccerHomeScreen from './src/screens/soccer/SoccerHomeScreen';
+import SoccerHomeScreen from "./src/screens/soccer/SoccerHomeScreen";
 
 // NHL specific screens (added)
-import NHLScoreboardScreen from './src/screens/nhl/ScoreboardScreen';
-import NHLStandingsScreen from './src/screens/nhl/StandingsScreen';
-import NHLSearchScreen from './src/screens/nhl/SearchScreen';
-import NHLCompareScreen from './src/screens/nhl/CompareScreen';
-import NHLStatsScreen from './src/screens/nhl/StatsScreen';
-import NHLGameDetailsScreen from './src/screens/nhl/GameDetailsScreen';
-import NHLTeamPageScreen from './src/screens/nhl/TeamPageScreen';
-import NHLPlayerPageScreen from './src/screens/nhl/PlayerPageScreen';
+import NHLScoreboardScreen from "./src/screens/nhl/ScoreboardScreen";
+import NHLStandingsScreen from "./src/screens/nhl/StandingsScreen";
+import NHLSearchScreen from "./src/screens/nhl/SearchScreen";
+import NHLCompareScreen from "./src/screens/nhl/CompareScreen";
+import NHLStatsScreen from "./src/screens/nhl/StatsScreen";
+import NHLGameDetailsScreen from "./src/screens/nhl/GameDetailsScreen";
+import NHLTeamPageScreen from "./src/screens/nhl/TeamPageScreen";
+import NHLPlayerPageScreen from "./src/screens/nhl/PlayerPageScreen";
 
 // Esports screens
-import EsportsNavigator from './src/screens/esports/EsportsTabNavigator';
+import EsportsNavigator from "./src/screens/esports/EsportsTabNavigator";
 
 // CS2 Esports screens
-import CS2TabNavigator from './src/screens/esports/cs2/CS2TabNavigator';
-import CS2HomeScreen from './src/screens/esports/cs2/CS2HomeScreen';
-import CS2DiscoverScreen from './src/screens/esports/cs2/CS2DiscoverScreen';
-import CS2MatchDetailsScreen from './src/screens/esports/cs2/CS2MatchDetailsScreen';
-import CS2MatchScreen from './src/screens/esports/cs2/CS2MatchScreen';
-import CS2LiveScreen from './src/screens/esports/cs2/CS2LiveScreen';
-import CS2ResultsScreen from './src/screens/esports/cs2/CS2ResultsScreen';
-import CS2UpcomingScreen from './src/screens/esports/cs2/CS2UpcomingScreen';
-import CS2TournamentScreen from './src/screens/esports/cs2/CS2TournamentScreen';
+import CS2TabNavigator from "./src/screens/esports/cs2/CS2TabNavigator";
+import CS2HomeScreen from "./src/screens/esports/cs2/CS2HomeScreen";
+import CS2DiscoverScreen from "./src/screens/esports/cs2/CS2DiscoverScreen";
+import CS2MatchDetailsScreen from "./src/screens/esports/cs2/CS2MatchDetailsScreen";
+import CS2MatchScreen from "./src/screens/esports/cs2/CS2MatchScreen";
+import CS2LiveScreen from "./src/screens/esports/cs2/CS2LiveScreen";
+import CS2ResultsScreen from "./src/screens/esports/cs2/CS2ResultsScreen";
+import CS2UpcomingScreen from "./src/screens/esports/cs2/CS2UpcomingScreen";
+import CS2TournamentScreen from "./src/screens/esports/cs2/CS2TournamentScreen";
+import CS2TeamPageScreen from "./src/screens/esports/cs2/CS2TeamPageScreen";
 
 // Valorant Esports screens
-import VALTabNavigator from './src/screens/esports/val/VALTabNavigator';
-import VALHomeScreen from './src/screens/esports/val/VALHomeScreen';
-import VALDiscoverScreen from './src/screens/esports/val/VALDiscoverScreen';
-import VALLiveScreen from './src/screens/esports/val/VALLiveScreen';
-import VALResultsScreen from './src/screens/esports/val/VALResultsScreen';
-import VALUpcomingScreen from './src/screens/esports/val/VALUpcomingScreen';
-import VALEventScreen from './src/screens/esports/val/VALEventScreen';
-import VALSeriesScreen from './src/screens/esports/val/VALSeriesScreen';
-import VALMatchScreen from './src/screens/esports/val/VALMatchScreen';
+import VALTabNavigator from "./src/screens/esports/val/VALTabNavigator";
+import VALHomeScreen from "./src/screens/esports/val/VALHomeScreen";
+import VALDiscoverScreen from "./src/screens/esports/val/VALDiscoverScreen";
+import VALLiveScreen from "./src/screens/esports/val/VALLiveScreen";
+import VALResultsScreen from "./src/screens/esports/val/VALResultsScreen";
+import VALUpcomingScreen from "./src/screens/esports/val/VALUpcomingScreen";
+import VALEventScreen from "./src/screens/esports/val/VALEventScreen";
+import VALSeriesScreen from "./src/screens/esports/val/VALSeriesScreen";
+import VALMatchScreen from "./src/screens/esports/val/VALMatchScreen";
+import VALTeamPageScreen from "./src/screens/esports/val/VALTeamPageScreen";
 
 // League of Legends Esports screens
-import LOLTabNavigator from './src/screens/esports/lol/LOLTabNavigator';
-import LOLHomeScreen from './src/screens/esports/lol/LOLHomeScreen';
-import LOLDiscoverScreen from './src/screens/esports/lol/LOLDiscoverScreen';
-import LOLMatchDetailsScreen from './src/screens/esports/lol/LOLMatchDetailsScreen';
-import LOLGameDetailsScreen from './src/screens/esports/lol/LOLGameDetailsScreen';
-import LOLTournamentScreen from './src/screens/esports/lol/LOLTournamentScreen';
+import LOLTabNavigator from "./src/screens/esports/lol/LOLTabNavigator";
+import LOLHomeScreen from "./src/screens/esports/lol/LOLHomeScreen";
+import LOLDiscoverScreen from "./src/screens/esports/lol/LOLDiscoverScreen";
+import LOLMatchDetailsScreen from "./src/screens/esports/lol/LOLMatchDetailsScreen";
+import LOLGameDetailsScreen from "./src/screens/esports/lol/LOLGameDetailsScreen";
+import LOLTournamentScreen from "./src/screens/esports/lol/LOLTournamentScreen";
 
 // Italy enhanced screens
-import ItalyScoreboardScreen from './src/screens/soccer/italy/ItalyScoreboardScreen';
-import ItalyStandingsScreen from './src/screens/soccer/italy/ItalyStandingsScreen';
-import ItalySearchScreen from './src/screens/soccer/italy/ItalySearchScreen';
-import ItalyCompareScreen from './src/screens/soccer/italy/ItalyCompareScreen';
-import ItalyTransferScreen from './src/screens/soccer/italy/ItalyTransferScreen';
-import ItalyGameDetailsScreen from './src/screens/soccer/italy/ItalyGameDetailsScreen';
-import ItalyTeamPageScreen from './src/screens/soccer/italy/ItalyTeamPageScreen';
-import ItalyPlayerPageScreen from './src/screens/soccer/italy/ItalyPlayerPageScreen';
+import ItalyScoreboardScreen from "./src/screens/soccer/italy/ItalyScoreboardScreen";
+import ItalyStandingsScreen from "./src/screens/soccer/italy/ItalyStandingsScreen";
+import ItalySearchScreen from "./src/screens/soccer/italy/ItalySearchScreen";
+import ItalyCompareScreen from "./src/screens/soccer/italy/ItalyCompareScreen";
+import ItalyTransferScreen from "./src/screens/soccer/italy/ItalyTransferScreen";
+import ItalyGameDetailsScreen from "./src/screens/soccer/italy/ItalyGameDetailsScreen";
+import ItalyTeamPageScreen from "./src/screens/soccer/italy/ItalyTeamPageScreen";
+import ItalyPlayerPageScreen from "./src/screens/soccer/italy/ItalyPlayerPageScreen";
 
 // Spain enhanced screens
-import SpainScoreboardScreen from './src/screens/soccer/spain/SpainScoreboardScreen';
-import SpainStandingsScreen from './src/screens/soccer/spain/SpainStandingsScreen';
-import SpainSearchScreen from './src/screens/soccer/spain/SpainSearchScreen';
-import SpainCompareScreen from './src/screens/soccer/spain/SpainCompareScreen';
-import SpainTransferScreen from './src/screens/soccer/spain/SpainTransferScreen';
-import SpainGameDetailsScreen from './src/screens/soccer/spain/SpainGameDetailsScreen';
-import SpainTeamPageScreen from './src/screens/soccer/spain/SpainTeamPageScreen';
-import SpainPlayerPageScreen from './src/screens/soccer/spain/SpainPlayerPageScreen';
+import SpainScoreboardScreen from "./src/screens/soccer/spain/SpainScoreboardScreen";
+import SpainStandingsScreen from "./src/screens/soccer/spain/SpainStandingsScreen";
+import SpainSearchScreen from "./src/screens/soccer/spain/SpainSearchScreen";
+import SpainCompareScreen from "./src/screens/soccer/spain/SpainCompareScreen";
+import SpainTransferScreen from "./src/screens/soccer/spain/SpainTransferScreen";
+import SpainGameDetailsScreen from "./src/screens/soccer/spain/SpainGameDetailsScreen";
+import SpainTeamPageScreen from "./src/screens/soccer/spain/SpainTeamPageScreen";
+import SpainPlayerPageScreen from "./src/screens/soccer/spain/SpainPlayerPageScreen";
 
 // England enhanced screens
-import EnglandScoreboardScreen from './src/screens/soccer/england/EnglandScoreboardScreen';
-import EnglandStandingsScreen from './src/screens/soccer/england/EnglandStandingsScreen';
-import EnglandSearchScreen from './src/screens/soccer/england/EnglandSearchScreen';
-import EnglandCompareScreen from './src/screens/soccer/england/EnglandCompareScreen';
-import EnglandTransferScreen from './src/screens/soccer/england/EnglandTransferScreen';
-import EnglandGameDetailsScreen from './src/screens/soccer/england/EnglandGameDetailsScreen';
-import EnglandTeamPageScreen from './src/screens/soccer/england/EnglandTeamPageScreen';
-import EnglandPlayerPageScreen from './src/screens/soccer/england/EnglandPlayerPageScreen';
+import EnglandScoreboardScreen from "./src/screens/soccer/england/EnglandScoreboardScreen";
+import EnglandStandingsScreen from "./src/screens/soccer/england/EnglandStandingsScreen";
+import EnglandSearchScreen from "./src/screens/soccer/england/EnglandSearchScreen";
+import EnglandCompareScreen from "./src/screens/soccer/england/EnglandCompareScreen";
+import EnglandTransferScreen from "./src/screens/soccer/england/EnglandTransferScreen";
+import EnglandGameDetailsScreen from "./src/screens/soccer/england/EnglandGameDetailsScreen";
+import EnglandTeamPageScreen from "./src/screens/soccer/england/EnglandTeamPageScreen";
+import EnglandPlayerPageScreen from "./src/screens/soccer/england/EnglandPlayerPageScreen";
 
 // France enhanced screens
-import FranceScoreboardScreen from './src/screens/soccer/france/FranceScoreboardScreen';
-import FranceStandingsScreen from './src/screens/soccer/france/FranceStandingsScreen';
-import FranceSearchScreen from './src/screens/soccer/france/FranceSearchScreen';
-import FranceCompareScreen from './src/screens/soccer/france/FranceCompareScreen';
-import FranceTransferScreen from './src/screens/soccer/france/FranceTransferScreen';
-import FranceGameDetailsScreen from './src/screens/soccer/france/FranceGameDetailsScreen';
-import FranceTeamPageScreen from './src/screens/soccer/france/FranceTeamPageScreen';
-import FrancePlayerPageScreen from './src/screens/soccer/france/FrancePlayerPageScreen';
+import FranceScoreboardScreen from "./src/screens/soccer/france/FranceScoreboardScreen";
+import FranceStandingsScreen from "./src/screens/soccer/france/FranceStandingsScreen";
+import FranceSearchScreen from "./src/screens/soccer/france/FranceSearchScreen";
+import FranceCompareScreen from "./src/screens/soccer/france/FranceCompareScreen";
+import FranceTransferScreen from "./src/screens/soccer/france/FranceTransferScreen";
+import FranceGameDetailsScreen from "./src/screens/soccer/france/FranceGameDetailsScreen";
+import FranceTeamPageScreen from "./src/screens/soccer/france/FranceTeamPageScreen";
+import FrancePlayerPageScreen from "./src/screens/soccer/france/FrancePlayerPageScreen";
 
 // Germany enhanced screens
-import GermanyScoreboardScreen from './src/screens/soccer/germany/GermanyScoreboardScreen';
-import GermanyStandingsScreen from './src/screens/soccer/germany/GermanyStandingsScreen';
-import GermanySearchScreen from './src/screens/soccer/germany/GermanySearchScreen';
-import GermanyCompareScreen from './src/screens/soccer/germany/GermanyCompareScreen';
-import GermanyTransferScreen from './src/screens/soccer/germany/GermanyTransferScreen';
-import GermanyGameDetailsScreen from './src/screens/soccer/germany/GermanyGameDetailsScreen';
-import GermanyTeamPageScreen from './src/screens/soccer/germany/GermanyTeamPageScreen';
-import GermanyPlayerPageScreen from './src/screens/soccer/germany/GermanyPlayerPageScreen';
+import GermanyScoreboardScreen from "./src/screens/soccer/germany/GermanyScoreboardScreen";
+import GermanyStandingsScreen from "./src/screens/soccer/germany/GermanyStandingsScreen";
+import GermanySearchScreen from "./src/screens/soccer/germany/GermanySearchScreen";
+import GermanyCompareScreen from "./src/screens/soccer/germany/GermanyCompareScreen";
+import GermanyTransferScreen from "./src/screens/soccer/germany/GermanyTransferScreen";
+import GermanyGameDetailsScreen from "./src/screens/soccer/germany/GermanyGameDetailsScreen";
+import GermanyTeamPageScreen from "./src/screens/soccer/germany/GermanyTeamPageScreen";
+import GermanyPlayerPageScreen from "./src/screens/soccer/germany/GermanyPlayerPageScreen";
 
 // Champions League enhanced screens
-import UCLScoreboardScreen from './src/screens/soccer/champions-league/UCLScoreboardScreen';
-import UCLStandingsScreen from './src/screens/soccer/champions-league/UCLStandingsScreen';
-import UCLSearchScreen from './src/screens/soccer/champions-league/UCLSearchScreen';
-import UCLCompareScreen from './src/screens/soccer/champions-league/UCLCompareScreen';
-import UCLBracketScreen from './src/screens/soccer/champions-league/UCLBracketScreen';
-import UCLGameDetailsScreen from './src/screens/soccer/champions-league/UCLGameDetailsScreen';
-import UCLTeamPageScreen from './src/screens/soccer/champions-league/UCLTeamPageScreen';
-import UCLPlayerPageScreen from './src/screens/soccer/champions-league/UCLPlayerPageScreen';
+import UCLScoreboardScreen from "./src/screens/soccer/champions-league/UCLScoreboardScreen";
+import UCLStandingsScreen from "./src/screens/soccer/champions-league/UCLStandingsScreen";
+import UCLSearchScreen from "./src/screens/soccer/champions-league/UCLSearchScreen";
+import UCLCompareScreen from "./src/screens/soccer/champions-league/UCLCompareScreen";
+import UCLBracketScreen from "./src/screens/soccer/champions-league/UCLBracketScreen";
+import UCLGameDetailsScreen from "./src/screens/soccer/champions-league/UCLGameDetailsScreen";
+import UCLTeamPageScreen from "./src/screens/soccer/champions-league/UCLTeamPageScreen";
+import UCLPlayerPageScreen from "./src/screens/soccer/champions-league/UCLPlayerPageScreen";
 
 // Europa League enhanced screens
-import UELScoreboardScreen from './src/screens/soccer/europa-league/UELScoreboardScreen';
-import UELStandingsScreen from './src/screens/soccer/europa-league/UELStandingsScreen';
-import UELSearchScreen from './src/screens/soccer/europa-league/UELSearchScreen';
-import UELCompareScreen from './src/screens/soccer/europa-league/UELCompareScreen';
-import UELBracketScreen from './src/screens/soccer/europa-league/UELBracketScreen';
-import UELGameDetailsScreen from './src/screens/soccer/europa-league/UELGameDetailsScreen';
-import UELTeamPageScreen from './src/screens/soccer/europa-league/UELTeamPageScreen';
-import UELPlayerPageScreen from './src/screens/soccer/europa-league/UELPlayerPageScreen';
+import UELScoreboardScreen from "./src/screens/soccer/europa-league/UELScoreboardScreen";
+import UELStandingsScreen from "./src/screens/soccer/europa-league/UELStandingsScreen";
+import UELSearchScreen from "./src/screens/soccer/europa-league/UELSearchScreen";
+import UELCompareScreen from "./src/screens/soccer/europa-league/UELCompareScreen";
+import UELBracketScreen from "./src/screens/soccer/europa-league/UELBracketScreen";
+import UELGameDetailsScreen from "./src/screens/soccer/europa-league/UELGameDetailsScreen";
+import UELTeamPageScreen from "./src/screens/soccer/europa-league/UELTeamPageScreen";
+import UELPlayerPageScreen from "./src/screens/soccer/europa-league/UELPlayerPageScreen";
 
 // Europa Conference League enhanced screens
-import UECLScoreboardScreen from './src/screens/soccer/europa-conference/UECLScoreboardScreen';
-import UECLStandingsScreen from './src/screens/soccer/europa-conference/UECLStandingsScreen';
-import UECLSearchScreen from './src/screens/soccer/europa-conference/UECLSearchScreen';
-import UECLCompareScreen from './src/screens/soccer/europa-conference/UECLCompareScreen';
-import UECLBracketScreen from './src/screens/soccer/europa-conference/UECLBracketScreen';
-import UECLGameDetailsScreen from './src/screens/soccer/europa-conference/UECLGameDetailsScreen';
-import UECLTeamPageScreen from './src/screens/soccer/europa-conference/UECLTeamPageScreen';
-import UECLPlayerPageScreen from './src/screens/soccer/europa-conference/UECLPlayerPageScreen';
+import UECLScoreboardScreen from "./src/screens/soccer/europa-conference/UECLScoreboardScreen";
+import UECLStandingsScreen from "./src/screens/soccer/europa-conference/UECLStandingsScreen";
+import UECLSearchScreen from "./src/screens/soccer/europa-conference/UECLSearchScreen";
+import UECLCompareScreen from "./src/screens/soccer/europa-conference/UECLCompareScreen";
+import UECLBracketScreen from "./src/screens/soccer/europa-conference/UECLBracketScreen";
+import UECLGameDetailsScreen from "./src/screens/soccer/europa-conference/UECLGameDetailsScreen";
+import UECLTeamPageScreen from "./src/screens/soccer/europa-conference/UECLTeamPageScreen";
+import UECLPlayerPageScreen from "./src/screens/soccer/europa-conference/UECLPlayerPageScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -226,19 +241,19 @@ const Stack = createStackNavigator();
 // Home Tab Navigator (for main app navigation)
 const HomeTabNavigator = () => {
   const { theme, colors } = useTheme();
-  
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
 
-          if (route.name === 'Home') {
-            iconName = 'home';
-          } else if (route.name === 'Favorites') {
-            iconName = 'star';
-          } else if (route.name === 'Settings') {
-            iconName = 'settings';
+          if (route.name === "Home") {
+            iconName = "home";
+          } else if (route.name === "Favorites") {
+            iconName = "star";
+          } else if (route.name === "Settings") {
+            iconName = "settings";
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -253,42 +268,42 @@ const HomeTabNavigator = () => {
         },
       })}
     >
-      <Tab.Screen 
-        name="Home" 
+      <Tab.Screen
+        name="Home"
         component={HomeScreen}
-        options={{ 
-          title: 'Home',
+        options={{
+          title: "Home",
           headerShown: true,
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Tab.Screen 
-        name="Favorites" 
+      <Tab.Screen
+        name="Favorites"
         component={FavoritesScreen}
-        options={{ 
-          title: 'Favorites',
+        options={{
+          title: "Favorites",
           headerShown: true,
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Tab.Screen 
-        name="Settings" 
+      <Tab.Screen
+        name="Settings"
         component={SettingsScreen}
-        options={{ 
-          title: 'Settings',
+        options={{
+          title: "Settings",
           headerShown: true,
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
@@ -300,11 +315,11 @@ const HomeTabNavigator = () => {
 const SportTabNavigator = ({ route }) => {
   const { sport } = route.params;
   const { theme, colors } = useTheme();
-  
+
   // Get sport-specific components
   const getScreenComponents = (sport) => {
-    switch(sport.toLowerCase()) {
-      case 'nfl':
+    switch (sport.toLowerCase()) {
+      case "nfl":
         return {
           ScoreboardScreen: NFLScoreboardScreen,
           StandingsScreen: NFLStandingsScreen,
@@ -312,7 +327,7 @@ const SportTabNavigator = ({ route }) => {
           CompareScreen: NFLCompareScreen,
           StatsScreen: NFLStatsScreen,
         };
-      case 'mlb':
+      case "mlb":
         return {
           ScoreboardScreen: MLBScoreboardScreen,
           StandingsScreen: MLBStandingsScreen,
@@ -320,7 +335,7 @@ const SportTabNavigator = ({ route }) => {
           CompareScreen: MLBCompareScreen,
           StatsScreen: MLBStatsScreen,
         };
-      case 'nba':
+      case "nba":
         return {
           ScoreboardScreen: NBAScoreboardScreen,
           StandingsScreen: NBAStandingsScreen,
@@ -328,7 +343,7 @@ const SportTabNavigator = ({ route }) => {
           CompareScreen: NBACompareScreen,
           StatsScreen: NBAStatsScreen,
         };
-      case 'wnba':
+      case "wnba":
         return {
           ScoreboardScreen: WNBAScoreboardScreen,
           StandingsScreen: WNBAStandingsScreen,
@@ -336,7 +351,7 @@ const SportTabNavigator = ({ route }) => {
           CompareScreen: WNBACompareScreen,
           StatsScreen: WNBAStatsScreen,
         };
-      case 'nhl':
+      case "nhl":
         return {
           ScoreboardScreen: NHLScoreboardScreen,
           StandingsScreen: NHLStandingsScreen,
@@ -344,15 +359,42 @@ const SportTabNavigator = ({ route }) => {
           CompareScreen: NHLCompareScreen,
           StatsScreen: NHLStatsScreen,
         };
-      case 'f1':
+      case "f1":
         return {
           ScoreboardScreen: F1ResultsScreen, // Using Results screen for Scores tab
           StandingsScreen: F1StandingsScreen,
-          SearchScreen: () => <View style={styles.placeholderContainer}><Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
-          CompareScreen: () => <View style={styles.placeholderContainer}><Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
-          StatsScreen: () => <View style={styles.placeholderContainer}><Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
+          SearchScreen: () => (
+            <View style={styles.placeholderContainer}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.placeholderText, { color: theme.text }]}
+              >
+                Coming Soon
+              </Text>
+            </View>
+          ),
+          CompareScreen: () => (
+            <View style={styles.placeholderContainer}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.placeholderText, { color: theme.text }]}
+              >
+                Coming Soon
+              </Text>
+            </View>
+          ),
+          StatsScreen: () => (
+            <View style={styles.placeholderContainer}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.placeholderText, { color: theme.text }]}
+              >
+                Coming Soon
+              </Text>
+            </View>
+          ),
         };
-      case 'soccer':
+      case "soccer":
         return {
           ScoreboardScreen: SoccerHomeScreen,
           StandingsScreen: SoccerHomeScreen,
@@ -363,33 +405,78 @@ const SportTabNavigator = ({ route }) => {
       default:
         // For other sports, return placeholder components (can be extended later)
         return {
-          ScoreboardScreen: () => <View style={styles.placeholderContainer}><Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
-          StandingsScreen: () => <View style={styles.placeholderContainer}><Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
-          SearchScreen: () => <View style={styles.placeholderContainer}><Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
-          CompareScreen: () => <View style={styles.placeholderContainer}><Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
-          StatsScreen: () => <View style={styles.placeholderContainer}><Text allowFontScaling={false} style={[styles.placeholderText, { color: theme.text }]}>Coming Soon</Text></View>,
+          ScoreboardScreen: () => (
+            <View style={styles.placeholderContainer}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.placeholderText, { color: theme.text }]}
+              >
+                Coming Soon
+              </Text>
+            </View>
+          ),
+          StandingsScreen: () => (
+            <View style={styles.placeholderContainer}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.placeholderText, { color: theme.text }]}
+              >
+                Coming Soon
+              </Text>
+            </View>
+          ),
+          SearchScreen: () => (
+            <View style={styles.placeholderContainer}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.placeholderText, { color: theme.text }]}
+              >
+                Coming Soon
+              </Text>
+            </View>
+          ),
+          CompareScreen: () => (
+            <View style={styles.placeholderContainer}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.placeholderText, { color: theme.text }]}
+              >
+                Coming Soon
+              </Text>
+            </View>
+          ),
+          StatsScreen: () => (
+            <View style={styles.placeholderContainer}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.placeholderText, { color: theme.text }]}
+              >
+                Coming Soon
+              </Text>
+            </View>
+          ),
         };
     }
   };
 
   const screens = getScreenComponents(sport);
-  
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
 
-          if (route.name === 'Scores') {
-            iconName = 'stats-chart';
-          } else if (route.name === 'Standings') {
-            iconName = 'trophy';
-          } else if (route.name === 'Search') {
-            iconName = 'search';
-          } else if (route.name === 'Compare') {
-            iconName = 'git-compare';
-          } else if (route.name === 'Stats') {
-            iconName = 'bar-chart';
+          if (route.name === "Scores") {
+            iconName = "stats-chart";
+          } else if (route.name === "Standings") {
+            iconName = "trophy";
+          } else if (route.name === "Search") {
+            iconName = "search";
+          } else if (route.name === "Compare") {
+            iconName = "git-compare";
+          } else if (route.name === "Stats") {
+            iconName = "bar-chart";
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -404,44 +491,44 @@ const SportTabNavigator = ({ route }) => {
         },
       })}
     >
-      <Tab.Screen 
-        name="Scores" 
+      <Tab.Screen
+        name="Scores"
         component={screens.ScoreboardScreen}
         initialParams={{ sport }}
-        options={{ 
-          title: 'Scores',
+        options={{
+          title: "Scores",
         }}
       />
-      <Tab.Screen 
-        name="Standings" 
+      <Tab.Screen
+        name="Standings"
         component={screens.StandingsScreen}
         initialParams={{ sport }}
-        options={{ 
-          title: 'Standings',
+        options={{
+          title: "Standings",
         }}
       />
-      <Tab.Screen 
-        name="Search" 
+      <Tab.Screen
+        name="Search"
         component={screens.SearchScreen}
         initialParams={{ sport }}
-        options={{ 
-          title: 'Search',
+        options={{
+          title: "Search",
         }}
       />
-      <Tab.Screen 
-        name="Compare" 
+      <Tab.Screen
+        name="Compare"
         component={screens.CompareScreen}
         initialParams={{ sport }}
-        options={{ 
-          title: 'Compare',
+        options={{
+          title: "Compare",
         }}
       />
-      <Tab.Screen 
-        name="Stats" 
+      <Tab.Screen
+        name="Stats"
         component={screens.StatsScreen}
         initialParams={{ sport }}
-        options={{ 
-          title: 'Stats',
+        options={{
+          title: "Stats",
         }}
       />
     </Tab.Navigator>
@@ -452,25 +539,37 @@ const SportTabNavigator = ({ route }) => {
 const F1TabNavigator = ({ route }) => {
   const { sport } = route.params;
   const { theme, colors } = useTheme();
-  
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           // Use the local SVG asset for the Vehicles tab. If your bundler
           // supports importing SVGs as images, this will render the SVG.
-          if (route.name === 'Vehicles') {
+          if (route.name === "Vehicles") {
             // Wrap the image so we can control background/tint safely.
             // Avoid relying solely on tintColor which can make the icon invisible
             // when the tint matches the tab background. Provide a subtle fallback
             // color and fixed sizing for consistency.
             const iconSize = 50;
-            const safeTint = color || (focused ? colors.primary : theme.textTertiary);
+            const safeTint =
+              color || (focused ? colors.primary : theme.textTertiary);
             return (
-              <View style={{ width: iconSize, height: iconSize, alignItems: 'center', justifyContent: 'center' }}>
+              <View
+                style={{
+                  width: iconSize,
+                  height: iconSize,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 <Image
-                  source={require('./assets/f1-car-svgrepo-com.png')}
-                  style={{ width: iconSize, height: iconSize, tintColor: safeTint }}
+                  source={require("./assets/f1-car-svgrepo-com.png")}
+                  style={{
+                    width: iconSize,
+                    height: iconSize,
+                    tintColor: safeTint,
+                  }}
                   resizeMode="contain"
                 />
               </View>
@@ -478,10 +577,10 @@ const F1TabNavigator = ({ route }) => {
           }
 
           let iconName;
-          if (route.name === 'Calendar') {
-            iconName = 'calendar';
-          } else if (route.name === 'Standings') {
-            iconName = 'trophy';
+          if (route.name === "Calendar") {
+            iconName = "calendar";
+          } else if (route.name === "Standings") {
+            iconName = "trophy";
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -496,28 +595,28 @@ const F1TabNavigator = ({ route }) => {
         },
       })}
     >
-      <Tab.Screen 
-        name="Calendar" 
+      <Tab.Screen
+        name="Calendar"
         component={F1ResultsScreen}
         initialParams={{ sport }}
-        options={{ 
-          title: 'Calendar',
+        options={{
+          title: "Calendar",
         }}
       />
-      <Tab.Screen 
-        name="Standings" 
+      <Tab.Screen
+        name="Standings"
         component={F1StandingsScreen}
         initialParams={{ sport }}
-        options={{ 
-          title: 'Standings',
+        options={{
+          title: "Standings",
         }}
       />
-      <Tab.Screen 
-        name="Vehicles" 
+      <Tab.Screen
+        name="Vehicles"
         component={F1VehiclesScreen}
         initialParams={{ sport }}
-        options={{ 
-          title: 'Vehicles',
+        options={{
+          title: "Vehicles",
         }}
       />
     </Tab.Navigator>
@@ -528,11 +627,11 @@ const F1TabNavigator = ({ route }) => {
 const SoccerTabNavigator = ({ route }) => {
   const { leagueId, leagueName } = route.params;
   const { theme, colors } = useTheme();
-  
+
   // Get league-specific components
   const getLeagueComponents = (leagueId) => {
-    switch(leagueId) {
-      case 'england':
+    switch (leagueId) {
+      case "england":
         return {
           ScoresScreen: EnglandScoreboardScreen,
           StandingsScreen: EnglandStandingsScreen,
@@ -540,7 +639,7 @@ const SoccerTabNavigator = ({ route }) => {
           CompareScreen: EnglandCompareScreen,
           StatsScreen: EnglandTransferScreen,
         };
-      case 'spain':
+      case "spain":
         return {
           ScoresScreen: SpainScoreboardScreen,
           StandingsScreen: SpainStandingsScreen,
@@ -548,7 +647,7 @@ const SoccerTabNavigator = ({ route }) => {
           CompareScreen: SpainCompareScreen,
           StatsScreen: SpainTransferScreen,
         };
-      case 'italy':
+      case "italy":
         return {
           ScoresScreen: ItalyScoreboardScreen,
           StandingsScreen: ItalyStandingsScreen,
@@ -556,7 +655,7 @@ const SoccerTabNavigator = ({ route }) => {
           CompareScreen: ItalyCompareScreen,
           StatsScreen: ItalyTransferScreen,
         };
-      case 'germany':
+      case "germany":
         return {
           ScoresScreen: GermanyScoreboardScreen,
           StandingsScreen: GermanyStandingsScreen,
@@ -564,7 +663,7 @@ const SoccerTabNavigator = ({ route }) => {
           CompareScreen: GermanyCompareScreen,
           StatsScreen: GermanyTransferScreen,
         };
-      case 'france':
+      case "france":
         return {
           ScoresScreen: FranceScoreboardScreen,
           StandingsScreen: FranceStandingsScreen,
@@ -572,7 +671,7 @@ const SoccerTabNavigator = ({ route }) => {
           CompareScreen: FranceCompareScreen,
           StatsScreen: FranceTransferScreen,
         };
-      case 'champions-league':
+      case "champions-league":
         return {
           ScoresScreen: UCLScoreboardScreen,
           StandingsScreen: UCLStandingsScreen,
@@ -580,7 +679,7 @@ const SoccerTabNavigator = ({ route }) => {
           CompareScreen: UCLCompareScreen,
           StatsScreen: UCLBracketScreen,
         };
-      case 'europa-league':
+      case "europa-league":
         return {
           ScoresScreen: UELScoreboardScreen,
           StandingsScreen: UELStandingsScreen,
@@ -588,7 +687,7 @@ const SoccerTabNavigator = ({ route }) => {
           CompareScreen: UELCompareScreen,
           StatsScreen: UELBracketScreen,
         };
-      case 'europa-conference':
+      case "europa-conference":
         return {
           ScoresScreen: UECLScoreboardScreen,
           StandingsScreen: UECLStandingsScreen,
@@ -608,33 +707,43 @@ const SoccerTabNavigator = ({ route }) => {
   };
 
   const screens = getLeagueComponents(leagueId);
-  
+
   // Check if it's a soccer league that should have Transfers instead of Stats
-  const shouldShowTransfers = ['spain', 'england', 'italy', 'germany', 'france'].includes(leagueId);
-  
+  const shouldShowTransfers = [
+    "spain",
+    "england",
+    "italy",
+    "germany",
+    "france",
+  ].includes(leagueId);
+
   // Check if it's a UEFA competition that should have Bracket instead of Stats
-  const shouldShowBracket = ['champions-league', 'europa-conference', 'europa-league'].includes(leagueId);
-  
+  const shouldShowBracket = [
+    "champions-league",
+    "europa-conference",
+    "europa-league",
+  ].includes(leagueId);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
 
-          if (route.name === 'Scores') {
-            iconName = 'stats-chart';
-          } else if (route.name === 'Standings') {
-            iconName = 'trophy';
-          } else if (route.name === 'Search') {
-            iconName = 'search';
-          } else if (route.name === 'Compare') {
-            iconName = 'git-compare';
-          } else if (route.name === 'Stats') {
-            iconName = 'bar-chart';
-          } else if (route.name === 'Transfers') {
-            iconName = 'cash';
-          } else if (route.name === 'Bracket') {
-            iconName = 'git-network';
+          if (route.name === "Scores") {
+            iconName = "stats-chart";
+          } else if (route.name === "Standings") {
+            iconName = "trophy";
+          } else if (route.name === "Search") {
+            iconName = "search";
+          } else if (route.name === "Compare") {
+            iconName = "git-compare";
+          } else if (route.name === "Stats") {
+            iconName = "bar-chart";
+          } else if (route.name === "Transfers") {
+            iconName = "cash";
+          } else if (route.name === "Bracket") {
+            iconName = "git-network";
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -649,63 +758,63 @@ const SoccerTabNavigator = ({ route }) => {
         },
       })}
     >
-      <Tab.Screen 
-        name="Scores" 
+      <Tab.Screen
+        name="Scores"
         component={screens.ScoresScreen}
         initialParams={{ leagueId, leagueName }}
-        options={{ 
-          title: 'Scores',
+        options={{
+          title: "Scores",
         }}
       />
-      <Tab.Screen 
-        name="Standings" 
+      <Tab.Screen
+        name="Standings"
         component={screens.StandingsScreen}
         initialParams={{ leagueId, leagueName }}
-        options={{ 
-          title: 'Standings',
+        options={{
+          title: "Standings",
         }}
       />
-      <Tab.Screen 
-        name="Search" 
+      <Tab.Screen
+        name="Search"
         component={screens.SearchScreen}
         initialParams={{ leagueId, leagueName }}
-        options={{ 
-          title: 'Search',
+        options={{
+          title: "Search",
         }}
       />
-      <Tab.Screen 
-        name="Compare" 
+      <Tab.Screen
+        name="Compare"
         component={screens.CompareScreen}
         initialParams={{ leagueId, leagueName }}
-        options={{ 
-          title: 'Compare',
+        options={{
+          title: "Compare",
         }}
       />
       {shouldShowBracket ? (
-        <Tab.Screen 
-          name="Bracket" 
+        <Tab.Screen
+          name="Bracket"
           component={screens.StatsScreen}
           initialParams={{ leagueId, leagueName }}
-          options={{ 
-            title: 'Bracket',
+          options={{
+            title: "Bracket",
           }}
         />
       ) : shouldShowTransfers ? (
-        <Tab.Screen 
-          name="Transfers" 
+        <Tab.Screen
+          name="Transfers"
           component={screens.StatsScreen}
           initialParams={{ leagueId, leagueName }}
-          options={{ 
-            title: 'Transfers',
+          options={{
+            title: "Transfers",
           }}
         />
       ) : (
-        <Tab.Screen 
-          name="Stats" 
+        <Tab.Screen
+          name="Stats"
           component={screens.StatsScreen}
           initialParams={{ leagueId, leagueName }}
-          options={{ 
-            title: 'Stats',
+          options={{
+            title: "Stats",
           }}
         />
       )}
@@ -716,32 +825,39 @@ const SoccerTabNavigator = ({ route }) => {
 // Main Stack Navigator
 const MainStackNavigator = () => {
   const { colors } = useTheme();
-  
+
   return (
     <Stack.Navigator
       screenOptions={{
-        headerBackTitle: 'Back', // Always show "Back" instead of previous screen name
+        headerBackTitle: "Back", // Always show "Back" instead of previous screen name
       }}
     >
-      <Stack.Screen 
-        name="Home" 
+      <Stack.Screen
+        name="Home"
         component={HomeTabNavigator}
         options={{ headerShown: false }}
       />
-      <Stack.Screen 
-        name="SportTabs" 
+      <Stack.Screen
+        name="SportTabs"
         component={({ route, navigation }) => {
           const { sport } = route.params;
           // For soccer, show the home screen directly without tabs
-          if (sport?.toLowerCase() === 'soccer') {
+          if (sport?.toLowerCase() === "soccer") {
             return <SoccerHomeScreen route={route} navigation={navigation} />;
           }
           // For F1, use the custom F1 tab navigator
-          if (sport?.toLowerCase() === 'f1') {
+          if (sport?.toLowerCase() === "f1") {
             return <F1TabNavigator route={route} navigation={navigation} />;
           }
           // For esports (VAL, CS2, DOTA2, LOL), use the unified esports navigator
-          if (sport?.toLowerCase() === 'cs2' || sport?.toLowerCase() === 'val' || sport?.toLowerCase() === 'valorant' || sport?.toLowerCase() === 'esports' || sport?.toLowerCase() === 'dota2' || sport?.toLowerCase() === 'lol') {
+          if (
+            sport?.toLowerCase() === "cs2" ||
+            sport?.toLowerCase() === "val" ||
+            sport?.toLowerCase() === "valorant" ||
+            sport?.toLowerCase() === "esports" ||
+            sport?.toLowerCase() === "dota2" ||
+            sport?.toLowerCase() === "lol"
+          ) {
             return <EsportsNavigator route={route} navigation={navigation} />;
           }
           // For other sports, use the tab navigator
@@ -750,818 +866,861 @@ const MainStackNavigator = () => {
         options={({ route }) => {
           const { sport } = route.params;
           // For esports, show a unified title
-          const title = (sport?.toLowerCase() === 'cs2' || sport?.toLowerCase() === 'val' || sport?.toLowerCase() === 'valorant' || sport?.toLowerCase() === 'esports' || sport?.toLowerCase() === 'dota2' || sport?.toLowerCase() === 'lol') 
-            ? 'ESPORTS' 
-            : sport.toUpperCase();
+          const title =
+            sport?.toLowerCase() === "cs2" ||
+            sport?.toLowerCase() === "val" ||
+            sport?.toLowerCase() === "valorant" ||
+            sport?.toLowerCase() === "esports" ||
+            sport?.toLowerCase() === "dota2" ||
+            sport?.toLowerCase() === "lol"
+              ? "ESPORTS"
+              : sport.toUpperCase();
           return {
             headerShown: true, // Always show header for sports
             title: title,
             headerStyle: {
               backgroundColor: colors.primary,
             },
-            headerTintColor: '#fff',
+            headerTintColor: "#fff",
             headerTitle: (props) => <HeaderTitle {...props} />,
           };
         }}
       />
-      <Stack.Screen 
-        name="GameDetails" 
+      <Stack.Screen
+        name="GameDetails"
         component={({ route, navigation }) => {
           const { sport } = route?.params || {};
           const props = { route, navigation };
-          switch(sport?.toLowerCase()) {
-            case 'nfl':
+          switch (sport?.toLowerCase()) {
+            case "nfl":
               return <NFLGameDetailsScreen {...props} />;
-            case 'mlb':
+            case "mlb":
               return <MLBGameDetailsScreen {...props} />;
-            case 'nba':
+            case "nba":
               return <NBAGameDetailsScreen {...props} />;
-            case 'wnba':
+            case "wnba":
               return <WNBAGameDetailsScreen {...props} />;
-            case 'nhl':
+            case "nhl":
               return <NHLGameDetailsScreen {...props} />;
-            case 'f1':
+            case "f1":
               return <F1RaceDetailsScreen {...props} />;
-            case 'soccer':
+            case "soccer":
               return <SpainGameDetailsScreen {...props} />;
-            case 'cs2':
+            case "cs2":
               return <CS2MatchDetailsScreen {...props} />;
-            case 'val':
-            case 'valorant':
-            case 'esports':
+            case "val":
+            case "valorant":
+            case "esports":
               return <VALEventScreen {...props} />;
             default:
               return <NFLGameDetailsScreen {...props} />; // Default fallback
           }
         }}
-        options={{ 
-          title: 'Game Details',
+        options={{
+          title: "Game Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="SpainGameDetails" 
+      <Stack.Screen
+        name="SpainGameDetails"
         component={SpainGameDetailsScreen}
-        options={{ 
-          title: 'Game Details',
+        options={{
+          title: "Game Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="EnglandGameDetails" 
+      <Stack.Screen
+        name="EnglandGameDetails"
         component={EnglandGameDetailsScreen}
-        options={{ 
-          title: 'Game Details',
+        options={{
+          title: "Game Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="ItalyGameDetails" 
+      <Stack.Screen
+        name="ItalyGameDetails"
         component={ItalyGameDetailsScreen}
-        options={{ 
-          title: 'Game Details',
+        options={{
+          title: "Game Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="FranceGameDetails" 
+      <Stack.Screen
+        name="FranceGameDetails"
         component={FranceGameDetailsScreen}
-        options={{ 
-          title: 'Game Details',
+        options={{
+          title: "Game Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="GermanyGameDetails" 
+      <Stack.Screen
+        name="GermanyGameDetails"
         component={GermanyGameDetailsScreen}
-        options={{ 
-          title: 'Game Details',
+        options={{
+          title: "Game Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="UCLGameDetails" 
+      <Stack.Screen
+        name="UCLGameDetails"
         component={UCLGameDetailsScreen}
-        options={{ 
-          title: 'Game Details',
+        options={{
+          title: "Game Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="UELGameDetails" 
+      <Stack.Screen
+        name="UELGameDetails"
         component={UELGameDetailsScreen}
-        options={{ 
-          title: 'Game Details',
+        options={{
+          title: "Game Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="UECLGameDetails" 
+      <Stack.Screen
+        name="UECLGameDetails"
         component={UECLGameDetailsScreen}
-        options={{ 
-          title: 'Game Details',
+        options={{
+          title: "Game Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="F1RaceDetails" 
+      <Stack.Screen
+        name="F1RaceDetails"
         component={F1RaceDetailsScreen}
-        options={{ 
-          title: 'Race Details',
+        options={{
+          title: "Race Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="F1ConstructorDetails" 
+      <Stack.Screen
+        name="F1ConstructorDetails"
         component={F1ConstructorDetailsScreen}
-        options={{ 
-          title: 'Constructor Details',
+        options={{
+          title: "Constructor Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="F1RacerDetails" 
+      <Stack.Screen
+        name="F1RacerDetails"
         component={F1RacerDetailsScreen}
-        options={{ 
-          title: 'Racer Details',
+        options={{
+          title: "Racer Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="CS2MatchDetails" 
+      <Stack.Screen
+        name="CS2MatchDetails"
         component={CS2MatchDetailsScreen}
-        options={{ 
-          title: 'Match Details',
+        options={{
+          title: "Match Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="CS2Live" 
+      <Stack.Screen
+        name="CS2Live"
         component={CS2LiveScreen}
-        options={{ 
-          title: 'Live Matches',
+        options={{
+          title: "Live Matches",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="CS2Results" 
+      <Stack.Screen
+        name="CS2Results"
         component={CS2ResultsScreen}
-        options={{ 
-          title: 'Results',
+        options={{
+          title: "Results",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="CS2Match" 
+      <Stack.Screen
+        name="CS2Match"
         component={CS2MatchScreen}
-        options={{ 
-          title: 'Match Details',
+        options={{
+          title: "Match Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="CS2Upcoming" 
+      <Stack.Screen
+        name="CS2Upcoming"
         component={CS2UpcomingScreen}
-        options={{ 
-          title: 'Upcoming Matches',
+        options={{
+          title: "Upcoming Matches",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="CS2Tournament" 
+      <Stack.Screen
+        name="CS2Tournament"
         component={CS2TournamentScreen}
-        options={{ 
-          title: 'Tournament',
+        options={{
+          title: "Tournament",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen
+        name="CS2TeamPage"
+        component={CS2TeamPageScreen}
+        options={{
+          title: "Team",
+          headerShown: false,
         }}
       />
 
       {/* Valorant Esports Screens */}
-      <Stack.Screen 
-        name="VALHome" 
+      <Stack.Screen
+        name="VALHome"
         component={VALHomeScreen}
-        options={{ 
-          title: 'Valorant',
+        options={{
+          title: "Valorant",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="VALDiscover" 
+      <Stack.Screen
+        name="VALDiscover"
         component={VALDiscoverScreen}
-        options={{ 
-          title: 'Discover',
+        options={{
+          title: "Discover",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="VALLive" 
+      <Stack.Screen
+        name="VALLive"
         component={VALLiveScreen}
-        options={{ 
-          title: 'Live Events',
+        options={{
+          title: "Live Events",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="VALResults" 
+      <Stack.Screen
+        name="VALResults"
         component={VALResultsScreen}
-        options={{ 
-          title: 'Results',
+        options={{
+          title: "Results",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="VALUpcoming" 
+      <Stack.Screen
+        name="VALUpcoming"
         component={VALUpcomingScreen}
-        options={{ 
-          title: 'Upcoming Events',
+        options={{
+          title: "Upcoming Events",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="VALEvent" 
+      <Stack.Screen
+        name="VALEvent"
         component={VALEventScreen}
-        options={{ 
-          title: 'Event Details',
+        options={{
+          title: "Event Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="VALSeries" 
+      <Stack.Screen
+        name="VALSeries"
         component={VALSeriesScreen}
-        options={{ 
-          title: 'Match Details',
+        options={{
+          title: "Match Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="VALMatch" 
+      <Stack.Screen
+        name="VALMatch"
         component={VALMatchScreen}
-        options={{ 
-          title: 'Match Analysis',
+        options={{
+          title: "Match Analysis",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen
+        name="VALTeamPage"
+        component={VALTeamPageScreen}
+        options={{
+          title: "Team",
+          headerShown: false,
         }}
       />
 
       {/* League of Legends Esports Screens */}
-      <Stack.Screen 
-        name="LOLHome" 
+      <Stack.Screen
+        name="LOLHome"
         component={LOLHomeScreen}
-        options={{ 
-          title: 'League of Legends',
+        options={{
+          title: "League of Legends",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="LOLDiscover" 
+      <Stack.Screen
+        name="LOLDiscover"
         component={LOLDiscoverScreen}
-        options={{ 
-          title: 'Discover LoL',
+        options={{
+          title: "Discover LoL",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="LOLMatchDetails" 
+      <Stack.Screen
+        name="LOLMatchDetails"
         component={LOLMatchDetailsScreen}
-        options={{ 
-          title: 'Match Details',
+        options={{
+          title: "Match Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="LOLGameDetails" 
+      <Stack.Screen
+        name="LOLGameDetails"
         component={LOLGameDetailsScreen}
-        options={{ 
-          title: 'Game Analysis',
+        options={{
+          title: "Game Analysis",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="LOLTournament" 
+      <Stack.Screen
+        name="LOLTournament"
         component={LOLTournamentScreen}
-        options={{ 
-          title: 'Tournament',
+        options={{
+          title: "Tournament",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
 
       {/* CS2 Esports Screens */}
-      <Stack.Screen 
-        name="CS2Home" 
+      <Stack.Screen
+        name="CS2Home"
         component={CS2HomeScreen}
-        options={{ 
-          title: 'Counter-Strike 2',
+        options={{
+          title: "Counter-Strike 2",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="CS2Discover" 
+      <Stack.Screen
+        name="CS2Discover"
         component={CS2DiscoverScreen}
-        options={{ 
-          title: 'Discover',
+        options={{
+          title: "Discover",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="TeamPage" 
+      <Stack.Screen
+        name="TeamPage"
         component={({ route, navigation }) => {
           const { sport } = route?.params || {};
-          console.log('TeamPage navigation - sport:', sport, 'params:', route?.params);
+          console.log(
+            "TeamPage navigation - sport:",
+            sport,
+            "params:",
+            route?.params
+          );
           const props = { route, navigation };
-          switch(sport?.toLowerCase()) {
-            case 'nfl':
-              console.log('Rendering NFL TeamPage');
+          switch (sport?.toLowerCase()) {
+            case "nfl":
+              console.log("Rendering NFL TeamPage");
               return <NFLTeamPageScreen {...props} />;
-            case 'mlb':
-              console.log('Rendering MLB TeamPage');
+            case "mlb":
+              console.log("Rendering MLB TeamPage");
               return <MLBTeamPageScreen {...props} />;
-            case 'nba':
-              console.log('Rendering NBA TeamPage');
+            case "nba":
+              console.log("Rendering NBA TeamPage");
               return <NBATeamPageScreen {...props} />;
-            case 'wnba':
-              console.log('Rendering WNBA TeamPage');
+            case "wnba":
+              console.log("Rendering WNBA TeamPage");
               return <WNBATeamPageScreen {...props} />;
-            case 'nhl':
-              console.log('Rendering NHL TeamPage');
+            case "nhl":
+              console.log("Rendering NHL TeamPage");
               return <NHLTeamPageScreen {...props} />;
-            case 'soccer':
-              console.log('Rendering Spain TeamPage');
+            case "soccer":
+              console.log("Rendering Spain TeamPage");
               return <SpainTeamPageScreen {...props} />;
             default:
-              console.log('Rendering default NFL TeamPage');
+              console.log("Rendering default NFL TeamPage");
               return <NFLTeamPageScreen {...props} />; // Default fallback
           }
         }}
-        options={{ 
-          title: 'Team Details',
+        options={{
+          title: "Team Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="SpainTeamPage" 
+      <Stack.Screen
+        name="SpainTeamPage"
         component={SpainTeamPageScreen}
-        options={{ 
-          title: 'Team Details',
+        options={{
+          title: "Team Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="EnglandTeamPage" 
+      <Stack.Screen
+        name="EnglandTeamPage"
         component={EnglandTeamPageScreen}
-        options={{ 
-          title: 'Team Details',
+        options={{
+          title: "Team Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="ItalyTeamPage" 
+      <Stack.Screen
+        name="ItalyTeamPage"
         component={ItalyTeamPageScreen}
-        options={{ 
-          title: 'Team Details',
+        options={{
+          title: "Team Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="FranceTeamPage" 
+      <Stack.Screen
+        name="FranceTeamPage"
         component={FranceTeamPageScreen}
-        options={{ 
-          title: 'Team Details',
+        options={{
+          title: "Team Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="GermanyTeamPage" 
+      <Stack.Screen
+        name="GermanyTeamPage"
         component={GermanyTeamPageScreen}
-        options={{ 
-          title: 'Team Details',
+        options={{
+          title: "Team Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="UCLTeamPage" 
+      <Stack.Screen
+        name="UCLTeamPage"
         component={UCLTeamPageScreen}
-        options={{ 
-          title: 'Team Details',
+        options={{
+          title: "Team Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="UELTeamPage" 
+      <Stack.Screen
+        name="UELTeamPage"
         component={UELTeamPageScreen}
-        options={{ 
-          title: 'Team Details',
+        options={{
+          title: "Team Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="UECLTeamPage" 
+      <Stack.Screen
+        name="UECLTeamPage"
         component={UECLTeamPageScreen}
-        options={{ 
-          title: 'Team Details',
+        options={{
+          title: "Team Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="SpainPlayerPage" 
+      <Stack.Screen
+        name="SpainPlayerPage"
         component={SpainPlayerPageScreen}
-        options={{ 
-          title: 'Player Details',
+        options={{
+          title: "Player Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="EnglandPlayerPage" 
+      <Stack.Screen
+        name="EnglandPlayerPage"
         component={EnglandPlayerPageScreen}
-        options={{ 
-          title: 'Player Details',
+        options={{
+          title: "Player Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="ItalyPlayerPage" 
+      <Stack.Screen
+        name="ItalyPlayerPage"
         component={ItalyPlayerPageScreen}
-        options={{ 
-          title: 'Player Details',
+        options={{
+          title: "Player Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="FrancePlayerPage" 
+      <Stack.Screen
+        name="FrancePlayerPage"
         component={FrancePlayerPageScreen}
-        options={{ 
-          title: 'Player Details',
+        options={{
+          title: "Player Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="GermanyPlayerPage" 
+      <Stack.Screen
+        name="GermanyPlayerPage"
         component={GermanyPlayerPageScreen}
-        options={{ 
-          title: 'Player Details',
+        options={{
+          title: "Player Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="UCLPlayerPage" 
+      <Stack.Screen
+        name="UCLPlayerPage"
         component={UCLPlayerPageScreen}
-        options={{ 
-          title: 'Player Details',
+        options={{
+          title: "Player Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="UELPlayerPage" 
+      <Stack.Screen
+        name="UELPlayerPage"
         component={UELPlayerPageScreen}
-        options={{ 
-          title: 'Player Details',
+        options={{
+          title: "Player Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="UECLPlayerPage" 
+      <Stack.Screen
+        name="UECLPlayerPage"
         component={UECLPlayerPageScreen}
-        options={{ 
-          title: 'Player Details',
+        options={{
+          title: "Player Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="PlayerPage" 
+      <Stack.Screen
+        name="PlayerPage"
         component={({ route, navigation }) => {
           const { sport } = route?.params || {};
           const props = { route, navigation };
-          switch(sport?.toLowerCase()) {
-            case 'nfl':
+          switch (sport?.toLowerCase()) {
+            case "nfl":
               return <NFLPlayerPageScreen {...props} />;
-            case 'mlb':
+            case "mlb":
               return <MLBPlayerPageScreen {...props} />;
-            case 'nba':
+            case "nba":
               return <NBAPlayerPageScreen {...props} />;
-            case 'wnba':
+            case "wnba":
               return <WNBAPlayerPageScreen {...props} />;
-            case 'nhl':
+            case "nhl":
               return <NHLPlayerPageScreen {...props} />;
             default:
               return <MLBPlayerPageScreen {...props} />; // Default fallback for now
           }
         }}
-        options={{ 
-          title: 'Player Details',
+        options={{
+          title: "Player Details",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
       {/* Soccer League Screens */}
-      <Stack.Screen 
-        name="england" 
+      <Stack.Screen
+        name="england"
         component={SoccerTabNavigator}
-        initialParams={{ leagueId: 'england', leagueName: 'England' }}
-        options={{ 
-          title: 'England',
+        initialParams={{ leagueId: "england", leagueName: "England" }}
+        options={{
+          title: "England",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="spain" 
+      <Stack.Screen
+        name="spain"
         component={SoccerTabNavigator}
-        initialParams={{ leagueId: 'spain', leagueName: 'Spain' }}
-        options={{ 
-          title: 'Spain',
+        initialParams={{ leagueId: "spain", leagueName: "Spain" }}
+        options={{
+          title: "Spain",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="italy" 
+      <Stack.Screen
+        name="italy"
         component={SoccerTabNavigator}
-        initialParams={{ leagueId: 'italy', leagueName: 'Italy' }}
-        options={{ 
-          title: 'Italy',
+        initialParams={{ leagueId: "italy", leagueName: "Italy" }}
+        options={{
+          title: "Italy",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="germany" 
+      <Stack.Screen
+        name="germany"
         component={SoccerTabNavigator}
-        initialParams={{ leagueId: 'germany', leagueName: 'Germany' }}
-        options={{ 
-          title: 'Germany',
+        initialParams={{ leagueId: "germany", leagueName: "Germany" }}
+        options={{
+          title: "Germany",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="france" 
+      <Stack.Screen
+        name="france"
         component={SoccerTabNavigator}
-        initialParams={{ leagueId: 'france', leagueName: 'France' }}
-        options={{ 
-          title: 'France',
+        initialParams={{ leagueId: "france", leagueName: "France" }}
+        options={{
+          title: "France",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="champions-league" 
+      <Stack.Screen
+        name="champions-league"
         component={SoccerTabNavigator}
-        initialParams={{ leagueId: 'champions-league', leagueName: 'Champions League' }}
-        options={{ 
-          title: 'Champions League',
+        initialParams={{
+          leagueId: "champions-league",
+          leagueName: "Champions League",
+        }}
+        options={{
+          title: "Champions League",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="europa-league" 
+      <Stack.Screen
+        name="europa-league"
         component={SoccerTabNavigator}
-        initialParams={{ leagueId: 'europa-league', leagueName: 'Europa League' }}
-        options={{ 
-          title: 'Europa League',
+        initialParams={{
+          leagueId: "europa-league",
+          leagueName: "Europa League",
+        }}
+        options={{
+          title: "Europa League",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="europa-conference" 
+      <Stack.Screen
+        name="europa-conference"
         component={SoccerTabNavigator}
-        initialParams={{ leagueId: 'europa-conference', leagueName: 'Europa Conference' }}
-        options={{ 
-          title: 'Europa Conference',
+        initialParams={{
+          leagueId: "europa-conference",
+          leagueName: "Europa Conference",
+        }}
+        options={{
+          title: "Europa Conference",
           headerStyle: {
             backgroundColor: colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Stack.Screen 
-        name="FavoritesManagement" 
+      <Stack.Screen
+        name="FavoritesManagement"
         component={FavoritesManagementScreen}
-        options={{ 
+        options={{
+          headerShown: false, // We're handling the header in the component
+        }}
+      />
+      <Stack.Screen
+        name="MutedUsers"
+        component={MutedUsersScreen}
+        options={{
           headerShown: false, // We're handling the header in the component
         }}
       />
@@ -1581,11 +1740,47 @@ const AppContent = () => {
       try {
         await analyticsService.initialize();
       } catch (error) {
-        console.warn('Firebase Analytics initialization failed (expected in old development builds):', error.message);
+        console.warn(
+          "Firebase Analytics initialization failed (expected in old development builds):",
+          error.message
+        );
       }
     };
-    
+
     initializeAnalytics();
+  }, []);
+
+  // Preload emotes on app startup
+  useEffect(() => {
+    const preloadEmotes = async () => {
+      try {
+        console.log("🎭 Preloading emotes...");
+        await EmoteService.getAllEmotes();
+        console.log("🎭 Emotes preloaded successfully");
+      } catch (error) {
+        console.warn("🎭 Failed to preload emotes:", error);
+      }
+    };
+
+    preloadEmotes();
+  }, []);
+
+  // Initialize PresenceService for viewer tracking
+  useEffect(() => {
+    const initializePresence = async () => {
+      try {
+        console.log("👁️ App.js - Starting PresenceService initialization...");
+        PresenceService.init();
+        
+        // Test the service by getting a user ID
+        const userId = await PresenceService.getUserId();
+        console.log("👁️ App.js - PresenceService initialized successfully with userId:", userId);
+      } catch (error) {
+        console.warn("👁️ App.js - Failed to initialize PresenceService:", error);
+      }
+    };
+
+    initializePresence();
   }, []);
 
   // Check for app updates on startup
@@ -1594,27 +1789,31 @@ const AppContent = () => {
       try {
         // Wait for splash screen to finish before checking updates
         setTimeout(async () => {
-          console.log('🔄 Checking for app updates...');
-          
+          console.log("🔄 Checking for app updates...");
+
           try {
             const updateInfo = await UpdateService.getCurrentUpdateInfo();
-            console.log('📱 Current update info:', updateInfo);
-            
+            console.log("📱 Current update info:", updateInfo);
+
             // Only check for updates if service is available
             if (updateInfo.isEnabled) {
-              await UpdateService.checkForUpdatesOnStartup(false);
+              // Note: Update prompt will be handled in HomeScreen
+              await UpdateService.checkForUpdatesOnStartup();
             } else {
-              console.log('📱 Update service not available:', updateInfo.message);
+              console.log(
+                "📱 Update service not available:",
+                updateInfo.message
+              );
             }
           } catch (error) {
-            console.log('📱 Update check skipped:', error.message);
+            console.log("📱 Update check skipped:", error.message);
           }
         }, 3000); // Wait 3 seconds after app start
       } catch (error) {
-        console.warn('Update check failed:', error.message);
+        console.warn("Update check failed:", error.message);
       }
     };
-    
+
     checkForUpdates();
   }, []);
 
@@ -1632,11 +1831,11 @@ const AppContent = () => {
         try {
           await ExpoSplashScreen.hideAsync();
         } catch (error) {
-          console.log('Native splash screen already hidden');
+          console.log("Native splash screen already hidden");
         }
       }, 100);
     };
-    
+
     hideSplash();
   }, []);
 
@@ -1653,24 +1852,30 @@ const AppContent = () => {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <FavoritesProvider>
-        <ChatProvider>
-          <AppContent />
-        </ChatProvider>
-      </FavoritesProvider>
-    </ThemeProvider>
+    <KeyboardProvider>
+      <ThemeProvider>
+        <FavoritesProvider>
+          <ChatProvider>
+            <EmoteProvider>
+              <MutedUsersProvider>
+                <AppContent />
+              </MutedUsersProvider>
+            </EmoteProvider>
+          </ChatProvider>
+        </FavoritesProvider>
+      </ThemeProvider>
+    </KeyboardProvider>
   );
 }
 
 const styles = StyleSheet.create({
   placeholderContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   placeholderText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

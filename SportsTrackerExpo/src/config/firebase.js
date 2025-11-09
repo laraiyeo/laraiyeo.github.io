@@ -6,6 +6,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyBAbBZyb3ENGpALGXTwErYNL2iJo5nr6A4",
   authDomain: "live-sports-tracker-chat.firebaseapp.com",
   projectId: "live-sports-tracker-chat",
+  databaseURL: "https://live-sports-tracker-chat-default-rtdb.firebaseio.com",
   storageBucket: "live-sports-tracker-chat.firebasestorage.app",
   messagingSenderId: "228719774397",
   appId: "1:228719774397:web:66321ba2003c060fdc05d4",

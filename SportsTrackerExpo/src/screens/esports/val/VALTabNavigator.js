@@ -6,6 +6,7 @@ import { useTheme } from '../../../context/ThemeContext';
 // Import Valorant screens
 import VALHomeScreen from './VALHomeScreen';
 import VALDiscoverScreen from './VALDiscoverScreen';
+import VALRankScreen from './VALRankScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -22,6 +23,8 @@ const VALTabNavigator = () => {
             iconName = 'home';
           } else if (route.name === 'VALDiscover') {
             iconName = 'compass';
+          } else if (route.name === 'VALRank') {
+            iconName = 'trophy';
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -53,6 +56,13 @@ const VALTabNavigator = () => {
         component={VALDiscoverScreen}
         options={{
           tabBarLabel: 'Discover',
+        }}
+      />
+      <Tab.Screen 
+        name="VALRank" 
+        component={VALRankScreen}
+        options={{
+          tabBarLabel: 'Ranks',
         }}
       />
     </Tab.Navigator>

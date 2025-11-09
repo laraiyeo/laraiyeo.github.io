@@ -1326,6 +1326,7 @@ const TeamPageScreen = ({ route, navigation }) => {
     const homeTeam = game.homeTeam || {};
     const isCompleted = game.isCompleted || game.status?.type?.state === 'post';
     const isLive = isGameLive(game);
+    const header = game.competitions[0]?.notes[0]?.headline || `WNBA - ${game.seasonType.name}` || 'WNBA';
 
     // Debug: log score values for live games to troubleshoot missing scores
     if (isLive) {
@@ -1356,7 +1357,7 @@ const TeamPageScreen = ({ route, navigation }) => {
         {/* League Header */}
         <View style={[styles.leagueHeader, { backgroundColor: theme.surfaceSecondary }]}>
           <Text style={[styles.leagueText, { color: colors.primary }]}>
-            {competition}
+            {header}
           </Text>
         </View>
 
