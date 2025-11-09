@@ -170,29 +170,32 @@ const ChatBubble = ({
                       <meta name="viewport" content="width=device-width, initial-scale=1.0">
                       <style>
                         * { margin: 0; padding: 0; }
-                        body { 
+                        html, body { 
                           display: flex; 
                           justify-content: center; 
                           align-items: center; 
                           height: 100vh; 
-                          background: transparent;
+                          background: transparent !important;
+                          background-color: transparent !important;
                           overflow: hidden;
                         }
                         img { 
-                          width: 24px; 
-                          height: 24px; 
+                          width: 30px; 
+                          height: 30px; 
                           object-fit: contain; 
                           display: block;
+                          background: transparent !important;
+                          background-color: transparent !important;
                         }
                       </style>
                     </head>
-                    <body>
-                      <img src="${imageUri}" alt="emote" />
+                    <body style="background: transparent !important; background-color: transparent !important;">
+                      <img src="${imageUri}" alt="emote" style="background: transparent !important; background-color: transparent !important;" />
                     </body>
                   </html>
                 `,
               }}
-              style={styles.emoteInMessage}
+              style={[styles.emoteInMessage, { backgroundColor: 'transparent' }]}
               scrollEnabled={false}
               showsHorizontalScrollIndicator={false}
               showsVerticalScrollIndicator={false}
@@ -201,6 +204,8 @@ const ChatBubble = ({
               domStorageEnabled={false}
               startInLoadingState={false}
               cacheEnabled={true}
+              backgroundColor="transparent"
+              opacity={0.99}
             />
           );
         }

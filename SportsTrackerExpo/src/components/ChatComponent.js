@@ -5,8 +5,6 @@ import {
   StyleSheet,
   Text,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import { useChat } from "../context/ChatContext";
 import { useTheme } from "../context/ThemeContext";
