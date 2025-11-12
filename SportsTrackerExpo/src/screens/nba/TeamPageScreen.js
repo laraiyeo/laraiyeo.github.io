@@ -1093,12 +1093,12 @@ const TeamPageScreen = ({ route, navigation }) => {
     const idRaw = (teamParam && typeof teamParam === 'object') ? (teamParam.abbreviation || teamParam.id || (teamParam.team && (teamParam.team.abbreviation || teamParam.team.id))) : teamParam;
     const normalized = String(idRaw || '').toLowerCase();
     const primaryUrl = isDarkMode
-      ? `https://a.espncdn.com/i/teamlogos/nba/500-dark/${normalized}.png`
-      : `https://a.espncdn.com/i/teamlogos/nba/500/${normalized}.png`;
+      ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500-dark/${normalized}.png&w=200&h=200`
+      : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${normalized}.png&w=200&h=200`;
 
     const fallbackUrl = isDarkMode
-      ? `https://a.espncdn.com/i/teamlogos/nba/500/${normalized}.png`
-      : `https://a.espncdn.com/i/teamlogos/nba/500-dark/${normalized}.png`;
+      ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${normalized}.png&w=200&h=200`
+      : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500-dark/${normalized}.png&w=200&h=200`;
 
     return { primaryUrl, fallbackUrl };
   };

@@ -109,13 +109,13 @@ const UCLCompareScreen = ({ navigation, route }) => {
   const getTeamLogo = (teamId, isDarkMode) => {
     // Try dark logo first if in dark mode, otherwise try light logo
     const primaryUrl = isDarkMode 
-      ? `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`
-      : `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
+      ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`
+      : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
     
     // Fallback to opposite theme logo
     const fallbackUrl = isDarkMode
-      ? `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`
-      : `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
+      ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`
+      : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
     
     // Final fallback to local soccer ball image
     const finalFallback = '../../../assets/soccer.png';

@@ -97,8 +97,8 @@ export const EnglandServiceEnhanced = {
     }
 
     return new Promise((resolve) => {
-      const primaryUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
-      const fallbackUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
+      const primaryUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
+      const fallbackUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
       
       // Try primary URL first
       fetch(primaryUrl, { method: 'HEAD' })
@@ -123,7 +123,7 @@ export const EnglandServiceEnhanced = {
             })
             .catch(() => {
               // Use default soccer ball
-              const defaultLogo = 'https://a.espncdn.com/i/teamlogos/soccer/500/default-team.png';
+              const defaultLogo = 'https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/default-team.png';
               this.logoCache.set(teamId, defaultLogo);
               resolve(defaultLogo);
             });
@@ -558,7 +558,7 @@ export const EnglandServiceEnhanced = {
       name: 'England',
       fullName: 'Premier League',
       country: 'England',
-      flag: 'https://a.espncdn.com/i/teamlogos/countries/500/eng.png',
+      flag: 'https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/eng.png',
       apiCode: 'eng.1'
     };
   },

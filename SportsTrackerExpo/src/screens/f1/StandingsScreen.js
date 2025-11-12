@@ -301,7 +301,7 @@ const StandingsScreen = ({ route }) => {
   // Build ESPN headshot URL from athlete ID
   const buildESPNHeadshotUrl = (athleteId) => {
     if (!athleteId) return null;
-    return `https://a.espncdn.com/i/headshots/rpm/players/full/${athleteId}.png`;
+    return `https://a.espncdn.com/combiner/i?img=/i/headshots/rpm/players/full/${athleteId}.png`;
   };
 
   // Helper to get initials from a name

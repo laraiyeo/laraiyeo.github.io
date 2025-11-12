@@ -267,7 +267,7 @@ const CompareScreen = ({ route }) => {
         <View style={styles.playerImageContainer}>
           <Image
             source={{ 
-              uri: player.headshot?.href || `https://a.espncdn.com/i/headshots/wnba/players/full/${player.id}.png`
+              uri: player.headshot?.href || `https://a.espncdn.com/combiner/i?img=/i/headshots/wnba/players/full/${player.id}.png`
             }}
             style={styles.playerImage}
           />
@@ -542,7 +542,7 @@ const CompareScreen = ({ route }) => {
                   <View style={[styles.searchResultImage, { backgroundColor: theme.background }]}>
                     <Image
                       source={{ 
-                        uri: item.headshot?.href || `https://a.espncdn.com/i/headshots/wnba/players/full/${item.id}.png`
+                        uri: item.headshot?.href || `https://a.espncdn.com/combiner/i?img=/i/headshots/wnba/players/full/${item.id}.png`
                       }}
                       style={styles.playerHeadshot}
                     />

@@ -237,7 +237,7 @@ const StatsScreen = ({ route }) => {
           {selectedType === 'ATHLETES' ? (
             <Image
               source={{ 
-                uri: `https://a.espncdn.com/i/headshots/nba/players/full/${playerId}.png`
+                uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${playerId}.png`
               }}
               style={styles.playerHeadshot}
               defaultSource={{ uri: 'https://via.placeholder.com/50x50?text=NBA' }}
@@ -366,7 +366,7 @@ const StatsScreen = ({ route }) => {
         {selectedType === 'ATHLETES' ? (
           <Image
             source={{ 
-              uri: `https://a.espncdn.com/i/headshots/nba/players/full/${playerId}.png`
+              uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${playerId}.png`
             }}
             style={styles.modalHeadshot}
             defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=NBA' }}

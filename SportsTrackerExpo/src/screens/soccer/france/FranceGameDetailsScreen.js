@@ -75,8 +75,8 @@ const getContrastColor = (backgroundColor) => {
 const getTeamLogoUrls = (teamId, isDarkMode) => {
   if (!teamId) return { primaryUrl: "", fallbackUrl: "" };
 
-  const baseUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
-  const darkUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
+  const baseUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
+  const darkUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
 
   if (isDarkMode) {
     return {
@@ -102,7 +102,7 @@ const TeamLogoImage = React.memo(
         try {
           if (isScoring) {
             // For scoring plays, always use dark variant
-            const darkUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
+            const darkUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
             setLogoSource({ uri: darkUrl });
           } else {
             // For non-scoring, use normal dark mode logic
@@ -127,7 +127,7 @@ const TeamLogoImage = React.memo(
       if (retryCount === 0 && teamId) {
         if (isScoring) {
           // For scoring plays, fallback to regular variant
-          const regularUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
+          const regularUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
           setRetryCount(1);
           setLogoSource({ uri: regularUrl });
         } else {
@@ -147,7 +147,7 @@ const TeamLogoImage = React.memo(
       if (teamId) {
         if (isScoring) {
           // For scoring plays, use dark variant as default
-          const darkUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
+          const darkUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
           return { uri: darkUrl };
         } else {
           // For non-scoring, use normal logic
@@ -241,8 +241,8 @@ const FranceGameDetailsScreen = ({ route, navigation }) => {
   const getTeamLogoUrls = (teamId, isDarkMode) => {
     if (!teamId) return { primaryUrl: "", fallbackUrl: "" };
 
-    const baseUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
-    const darkUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
+    const baseUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
+    const darkUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
 
     if (isDarkMode) {
       return {

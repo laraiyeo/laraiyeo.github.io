@@ -22,7 +22,6 @@ import {
   RefreshControl,
   Modal,
 } from "react-native";
-import ViewShot from "react-native-view-shot";
 import { WebView } from "react-native-webview";
 import Svg, {
   Line,
@@ -32,15 +31,15 @@ import Svg, {
   Stop,
   Path,
 } from "react-native-svg";
-import { GermanyServiceEnhanced } from "../../../services/soccer/GermanyServiceEnhanced";
-import { useTheme } from "../../../context/ThemeContext";
-import { useFavorites } from "../../../context/FavoritesContext";
-import { captureRef } from "react-native-view-shot";
+import { Ionicons } from "@expo/vector-icons";
+import ViewShot, { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import ChatComponent from "../../../components/ChatComponent";
-import { Ionicons } from "@expo/vector-icons";
+import { FIFAWorldServiceEnhanced } from "../../../services/soccer/FIFAWorldServiceEnhanced";
+import { useTheme } from "../../../context/ThemeContext";
+import { useFavorites } from "../../../context/FavoritesContext";
 import { useStreamingAccess } from "../../../utils/streamingUtils";
-import useGamePresence from "../../../hooks/useGamePresence";
+import { useGamePresence } from "../../../hooks/useGamePresence";
 
 const { width } = Dimensions.get("window");
 
@@ -73,22 +72,15 @@ const getContrastColor = (backgroundColor) => {
 
 // Helper function for team logo URLs
 const getTeamLogoUrls = (teamId, isDarkMode) => {
-  if (!teamId) return { primaryUrl: "", fallbackUrl: "" };
+  const primaryUrl = isDarkMode
+    ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`
+    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
 
-  const baseUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
-  const darkUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
+  const fallbackUrl = isDarkMode
+    ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`
+    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
 
-  if (isDarkMode) {
-    return {
-      primaryUrl: darkUrl,
-      fallbackUrl: baseUrl,
-    };
-  } else {
-    return {
-      primaryUrl: baseUrl,
-      fallbackUrl: darkUrl,
-    };
-  }
+  return { primaryUrl, fallbackUrl };
 };
 
 // Memoized TeamLogoImage component to prevent flickering on state changes
@@ -97,31 +89,34 @@ const TeamLogoImage = React.memo(
     const [logoSource, setLogoSource] = useState(null);
     const [retryCount, setRetryCount] = useState(0);
 
-    const loadLogo = useCallback(async () => {
-      if (teamId) {
-        try {
-          if (isScoring) {
-            // For scoring plays, always use dark variant
-            const darkUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
-            setLogoSource({ uri: darkUrl });
-          } else {
-            // For non-scoring, use normal dark mode logic
-            const { primaryUrl } = getTeamLogoUrls(teamId, isDarkMode);
-            setLogoSource({ uri: primaryUrl });
+    useEffect(() => {
+      const loadLogo = async () => {
+        if (teamId) {
+          try {
+            if (isScoring) {
+              // For scoring plays, always use dark variant
+              const darkUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
+              setLogoSource({ uri: darkUrl });
+            } else {
+              // For non-scoring, use normal dark mode logic
+              const { primaryUrl, fallbackUrl } = getTeamLogoUrls(
+                teamId,
+                isDarkMode
+              );
+              setLogoSource({ uri: primaryUrl });
+            }
+          } catch (error) {
+            console.error("Error loading team logo:", error);
+            setLogoSource(require("../../../../assets/soccer.png"));
           }
-        } catch (error) {
-          console.error("Error loading team logo:", error);
+        } else {
           setLogoSource(require("../../../../assets/soccer.png"));
         }
-      } else {
-        setLogoSource(require("../../../../assets/soccer.png"));
-      }
-      setRetryCount(0);
-    }, [teamId, isDarkMode, isScoring]);
+        setRetryCount(0);
+      };
 
-    useEffect(() => {
       loadLogo();
-    }, [loadLogo]);
+    }, [teamId, isDarkMode, isScoring]);
 
     const handleError = useCallback(() => {
       if (retryCount === 0 && teamId) {
@@ -140,10 +135,10 @@ const TeamLogoImage = React.memo(
         // Final fallback to soccer.png
         setLogoSource(require("../../../../assets/soccer.png"));
       }
-    }, [retryCount, teamId, isDarkMode, isScoring]);
+    }, [retryCount, teamId, isScoring, isDarkMode]);
 
     // Get the default source - use actual logo first, then soccer.png
-    const getDefaultSource = useCallback(() => {
+    const getDefaultSource = () => {
       if (teamId) {
         if (isScoring) {
           // For scoring plays, use dark variant as default
@@ -156,7 +151,7 @@ const TeamLogoImage = React.memo(
         }
       }
       return require("../../../../assets/soccer.png");
-    }, [teamId, isDarkMode, isScoring]);
+    };
 
     return (
       <Image
@@ -169,15 +164,11 @@ const TeamLogoImage = React.memo(
   }
 );
 
-const GermanyGameDetailsScreen = ({ route, navigation }) => {
+const FIFAGameDetailsScreen = ({ route, navigation }) => {
   const { gameId, sport, competition, homeTeam, awayTeam } =
     route?.params || {};
   const { theme, colors, isDarkMode } = useTheme();
   const { isFavorite } = useFavorites();
-
-  // Initialize game presence tracking
-  useGamePresence(gameId);
-
   const [gameData, setGameData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -193,6 +184,10 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
   // Lazy loading state for plays
   const [visiblePlaysCount, setVisiblePlaysCount] = useState(30);
   const [isLoadingMorePlays, setIsLoadingMorePlays] = useState(false);
+
+  // Game presence tracking
+  const { viewerData, isJoined } = useGamePresence(gameId);
+
   const [lineupData, setLineupData] = useState({
     homeLineup: [],
     awayLineup: [],
@@ -214,6 +209,9 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
   const [showStreamModal, setShowStreamModal] = useState(false);
   const [chatModalVisible, setChatModalVisible] = useState(false);
 
+  // Streaming access check
+  const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
+
   // Share card state
   const [shareCardPlay, setShareCardPlay] = useState(null);
   const [shareCardPlayerNames, setShareCardPlayerNames] = useState({
@@ -229,38 +227,169 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
     redCards: 0,
   });
 
-  // Streaming access check
-  const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
+  // Fetch player names and stats when shareCardPlay changes
+  useEffect(() => {
+    const fetchPlayerData = async () => {
+      if (!shareCardPlay?.participants) {
+        setShareCardPlayerNames({ scorer: null, assister: null });
+        setShareCardPlayerStats({
+          goals: 0,
+          assists: 0,
+          shots: 0,
+          shotsOnTarget: 0,
+          yellowCards: 0,
+          redCards: 0,
+        });
+        return;
+      }
+
+      const names = { scorer: null, assister: null };
+      let stats = {
+        goals: 0,
+        assists: 0,
+        shots: 0,
+        shotsOnTarget: 0,
+        yellowCards: 0,
+        redCards: 0,
+      };
+
+      // Find and fetch scorer
+      const scorerParticipant = shareCardPlay.participants.find(
+        (p) => p.type === "scorer"
+      );
+      let scorerData = null;
+
+      if (scorerParticipant?.athlete?.$ref) {
+        try {
+          const scorerUrl = convertToHttps(scorerParticipant.athlete.$ref);
+          const scorerResponse = await fetch(scorerUrl);
+          if (scorerResponse.ok) {
+            scorerData = await scorerResponse.json();
+            names.scorer =
+              scorerData.displayName ||
+              scorerData.shortName ||
+              scorerData.lastName ||
+              scorerData.fullName ||
+              "Unknown Player";
+          }
+        } catch (error) {
+          console.error("Error fetching scorer:", error);
+        }
+      }
+
+      // Find and fetch assister
+      const assisterParticipant = shareCardPlay.participants.find(
+        (p) => p.type === "assister"
+      );
+      if (assisterParticipant?.athlete?.$ref) {
+        try {
+          const assisterUrl = convertToHttps(assisterParticipant.athlete.$ref);
+          const assisterResponse = await fetch(assisterUrl);
+          if (assisterResponse.ok) {
+            const assisterData = await assisterResponse.json();
+            names.assister =
+              assisterData.displayName ||
+              assisterData.shortName ||
+              assisterData.lastName ||
+              assisterData.fullName;
+          }
+        } catch (error) {
+          console.error("Error fetching assister:", error);
+        }
+      }
+
+      // Fetch player stats for the scorer (like web scoreboard does)
+      if (scorerData?.id && shareCardPlay.team?.$ref) {
+        try {
+          const teamUrl = convertToHttps(shareCardPlay.team.$ref);
+          const teamResponse = await fetch(teamUrl);
+
+          if (teamResponse.ok) {
+            const teamData = await teamResponse.json();
+            const teamId = teamData.id;
+
+            // Construct stats URL like web scoreboard - extract gameId from route params
+            const gameId = route?.params?.gameId;
+            if (gameId) {
+              const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/fifa.world/events/${gameId}/competitions/${gameId}/competitors/${teamId}/roster/${scorerData.id}/statistics/0?lang=en&region=us`;
+
+              console.log("Fetching player stats from:", statsUrl);
+              const statsResponse = await fetch(convertToHttps(statsUrl));
+
+              if (statsResponse.ok) {
+                const statsData = await statsResponse.json();
+                console.log("Player stats response:", statsData);
+
+                // Parse nested structure like web scoreboard
+                if (statsData.splits?.categories) {
+                  const allStats = {};
+
+                  statsData.splits.categories.forEach((category) => {
+                    if (category.stats && Array.isArray(category.stats)) {
+                      category.stats.forEach((stat) => {
+                        if (stat.name && stat.value !== undefined) {
+                          allStats[stat.name] = stat.value;
+                        }
+                      });
+                    }
+                  });
+
+                  console.log("All parsed stats:", allStats);
+
+                  // Map to display stats like web scoreboard
+                  stats = {
+                    goals: allStats.totalGoals || allStats.goalsScored || 0,
+                    assists:
+                      allStats.goalAssists || allStats.assistsProvided || 0,
+                    shots:
+                      allStats.totalShots ||
+                      allStats.shots ||
+                      allStats.shotsTotal ||
+                      0,
+                    shotsOnTarget:
+                      allStats.shotsOnTarget ||
+                      allStats.shotsOnGoal ||
+                      allStats.shotsOnTargetTotal ||
+                      0,
+                    yellowCards:
+                      allStats.yellowCards || allStats.yellowCardsReceived || 0,
+                    redCards:
+                      allStats.redCards || allStats.redCardsReceived || 0,
+                  };
+
+                  console.log("Mapped player stats:", stats);
+                }
+              } else {
+                console.warn(
+                  "Failed to fetch player stats:",
+                  statsResponse.status
+                );
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching player stats:", error);
+        }
+      }
+
+      setShareCardPlayerNames(names);
+      setShareCardPlayerStats(stats);
+    };
+
+    if (shareCardPlay) {
+      fetchPlayerData();
+    }
+  }, [shareCardPlay, route?.params?.gameId]);
 
   const scrollViewRef = useRef(null);
   const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
   const lastPlaysHashRef = useRef("");
   const goalShareCardRef = useRef();
 
-  // Function to get team logo URLs with dark mode support
-  const getTeamLogoUrls = (teamId, isDarkMode) => {
-    if (!teamId) return { primaryUrl: "", fallbackUrl: "" };
-
-    const baseUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
-    const darkUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
-
-    if (isDarkMode) {
-      return {
-        primaryUrl: darkUrl,
-        fallbackUrl: baseUrl,
-      };
-    } else {
-      return {
-        primaryUrl: baseUrl,
-        fallbackUrl: darkUrl,
-      };
-    }
-  };
-
   // Enhanced logo function with dark mode support and fallbacks
   const getTeamLogo = async (teamId, isDarkMode) => {
     // Use the service's enhanced logo logic with caching and fallbacks
-    const logoUrl = await GermanyServiceEnhanced.getTeamLogoWithFallback(
+    const logoUrl = await FIFAWorldServiceEnhanced.getTeamLogoWithFallback(
       teamId
     );
     return { primaryUrl: logoUrl, fallbackUrl: logoUrl };
@@ -390,7 +519,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
         }
 
         console.log(
-          "[GermanyGameDetails] incremental update: added=",
+          "[FIFAGameDetails] incremental update: added=",
           addedCount,
           "patched=",
           patchedCount
@@ -400,7 +529,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
 
       if (changed) {
         console.log(
-          "[GermanyGameDetails] incremental update: added=",
+          "[FIFAGameDetails] incremental update: added=",
           addedCount,
           "patched=",
           patchedCount
@@ -612,7 +741,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
       try {
         // Skip update if stream modal is open
         if (showStreamModal) {
-          console.log("Stream modal open, skipping Germany game update");
+          console.log("Stream modal open, skipping FIFA game update");
           return;
         }
 
@@ -634,7 +763,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
   // Reload data when the screen comes into focus (useful when navigating back)
   useFocusEffect(
     React.useCallback(() => {
-      console.log("[GermanyGameDetails] useFocusEffect triggered");
+      console.log("[FIFAGameDetails] useFocusEffect triggered");
       loadGameDetails();
       // Only clear plays and stats data when the gameId changes, not on every focus
       // This prevents losing data when navigating back from other screens with same gameId
@@ -654,7 +783,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
 
   // Clear data when gameId changes (different game)
   useEffect(() => {
-    console.log("[GermanyGameDetails] gameId changed - clearing data states");
+    console.log("[FIFAGameDetails] gameId changed - clearing data states");
     setPlaysData(null);
     setStatsData(null);
   }, [gameId]);
@@ -667,178 +796,24 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
         gameData.header?.competitions?.[0]?.status?.type?.state === "in";
       if (isLive) {
         console.log(
-          "Stream modal closed, immediately fetching Germany game data"
+          "Stream modal closed, immediately fetching FIFA game data"
         );
         loadGameDetails(true);
       }
     }
   }, [showStreamModal]);
 
-  // Fetch player names and stats when shareCardPlay changes
-  useEffect(() => {
-    const fetchPlayerData = async () => {
-      if (!shareCardPlay?.participants) {
-        setShareCardPlayerNames({ scorer: null, assister: null });
-        setShareCardPlayerStats({
-          goals: 0,
-          assists: 0,
-          shots: 0,
-          shotsOnTarget: 0,
-          yellowCards: 0,
-          redCards: 0,
-        });
-        return;
-      }
-
-      const names = { scorer: null, assister: null };
-      let stats = {
-        goals: 0,
-        assists: 0,
-        shots: 0,
-        shotsOnTarget: 0,
-        yellowCards: 0,
-        redCards: 0,
-      };
-
-      // Find and fetch scorer
-      const scorerParticipant = shareCardPlay.participants.find(
-        (p) => p.type === "scorer"
-      );
-      let scorerData = null;
-
-      if (scorerParticipant?.athlete?.$ref) {
-        try {
-          const scorerUrl = convertToHttps(scorerParticipant.athlete.$ref);
-          const scorerResponse = await fetch(scorerUrl);
-          if (scorerResponse.ok) {
-            scorerData = await scorerResponse.json();
-            names.scorer =
-              scorerData.displayName ||
-              scorerData.shortName ||
-              scorerData.lastName ||
-              scorerData.fullName ||
-              "Unknown Player";
-          }
-        } catch (error) {
-          console.error("Error fetching scorer:", error);
-        }
-      }
-
-      // Find and fetch assister
-      const assisterParticipant = shareCardPlay.participants.find(
-        (p) => p.type === "assister"
-      );
-      if (assisterParticipant?.athlete?.$ref) {
-        try {
-          const assisterUrl = convertToHttps(assisterParticipant.athlete.$ref);
-          const assisterResponse = await fetch(assisterUrl);
-          if (assisterResponse.ok) {
-            const assisterData = await assisterResponse.json();
-            names.assister =
-              assisterData.displayName ||
-              assisterData.shortName ||
-              assisterData.lastName ||
-              assisterData.fullName;
-          }
-        } catch (error) {
-          console.error("Error fetching assister:", error);
-        }
-      }
-
-      // Fetch player stats for the scorer (like web scoreboard does)
-      if (scorerData?.id && shareCardPlay.team?.$ref) {
-        try {
-          const teamUrl = convertToHttps(shareCardPlay.team.$ref);
-          const teamResponse = await fetch(teamUrl);
-
-          if (teamResponse.ok) {
-            const teamData = await teamResponse.json();
-            const teamId = teamData.id;
-
-            // Construct stats URL like web scoreboard - extract gameId from route params
-            const gameId = route?.params?.gameId;
-            if (gameId) {
-              const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/ger.1/events/${gameId}/competitions/${gameId}/competitors/${teamId}/roster/${scorerData.id}/statistics/0?lang=en&region=us`;
-
-              console.log("Fetching player stats from:", statsUrl);
-              const statsResponse = await fetch(convertToHttps(statsUrl));
-
-              if (statsResponse.ok) {
-                const statsData = await statsResponse.json();
-                console.log("Player stats response:", statsData);
-
-                // Parse nested structure like web scoreboard
-                if (statsData.splits?.categories) {
-                  const allStats = {};
-
-                  statsData.splits.categories.forEach((category) => {
-                    if (category.stats && Array.isArray(category.stats)) {
-                      category.stats.forEach((stat) => {
-                        if (stat.name && stat.value !== undefined) {
-                          allStats[stat.name] = stat.value;
-                        }
-                      });
-                    }
-                  });
-
-                  console.log("All parsed stats:", allStats);
-
-                  // Map to display stats like web scoreboard
-                  stats = {
-                    goals: allStats.totalGoals || allStats.goalsScored || 0,
-                    assists:
-                      allStats.goalAssists || allStats.assistsProvided || 0,
-                    shots:
-                      allStats.totalShots ||
-                      allStats.shots ||
-                      allStats.shotsTotal ||
-                      0,
-                    shotsOnTarget:
-                      allStats.shotsOnTarget ||
-                      allStats.shotsOnGoal ||
-                      allStats.shotsOnTargetTotal ||
-                      0,
-                    yellowCards:
-                      allStats.yellowCards || allStats.yellowCardsReceived || 0,
-                    redCards:
-                      allStats.redCards || allStats.redCardsReceived || 0,
-                  };
-
-                  console.log("Mapped player stats:", stats);
-                }
-              } else {
-                console.warn(
-                  "Failed to fetch player stats:",
-                  statsResponse.status
-                );
-              }
-            }
-          }
-        } catch (error) {
-          console.error("Error fetching player stats:", error);
-        }
-      }
-
-      setShareCardPlayerNames(names);
-      setShareCardPlayerStats(stats);
-    };
-
-    if (shareCardPlay) {
-      fetchPlayerData();
-    }
-  }, [shareCardPlay, route?.params?.gameId]);
-
   const loadGameDetails = async (silentUpdate = false) => {
     try {
       if (!silentUpdate) {
         setLoading(true);
       }
-      console.log("[GermanyGameDetails] loadGameDetails START", {
+      console.log("[FIFAGameDetails] loadGameDetails START", {
         gameId,
         silentUpdate,
       });
-      console.debug("[GermanyGameDetails] requesting game details for", gameId);
-      const data = await GermanyServiceEnhanced.getGameDetails(gameId);
+      console.debug("[FIFAGameDetails] requesting game details for", gameId);
+      const data = await FIFAWorldServiceEnhanced.getGameDetails(gameId);
 
       // Process the data similar to soccer web logic
       const processedData = await processGameData(data);
@@ -856,7 +831,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
         setGameData(processedData);
         setLastUpdateHash(currentHash);
         console.log(
-          "[GermanyGameDetails] Game data updated - hash changed",
+          "[FIFAGameDetails] Game data updated - hash changed",
           currentHash
         );
 
@@ -866,20 +841,20 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
         // Fetch lineup data when game data is updated
         const lineupResult = await fetchLineupData();
         setLineupData(lineupResult);
-        console.log("[GermanyGameDetails] Lineup data updated:", lineupResult);
+        console.log("[FIFAGameDetails] Lineup data updated:", lineupResult);
 
         // Do not forcibly clear playsData here; the plays effect will compare hashes and merge/refresh
       } else {
-        console.debug("[GermanyGameDetails] Game data hash unchanged");
+        console.debug("[FIFAGameDetails] Game data hash unchanged");
       }
 
       setLoading(false);
-      console.log("[GermanyGameDetails] loadGameDetails END", {
+      console.log("[FIFAGameDetails] loadGameDetails END", {
         gameId,
         silentUpdate,
       });
     } catch (error) {
-      console.error("Error loading Germany game details:", error);
+      console.error("Error loading FIFA game details:", error);
       if (!silentUpdate) {
         setLoading(false);
         Alert.alert("Error", "Failed to load game details. Please try again.");
@@ -901,10 +876,10 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
 
     const [homeLogo, awayLogo] = await Promise.all([
       homeTeamId
-        ? GermanyServiceEnhanced.getTeamLogoWithFallback(homeTeamId)
+        ? FIFAWorldServiceEnhanced.getTeamLogoWithFallback(homeTeamId)
         : null,
       awayTeamId
-        ? GermanyServiceEnhanced.getTeamLogoWithFallback(awayTeamId)
+        ? FIFAWorldServiceEnhanced.getTeamLogoWithFallback(awayTeamId)
         : null,
     ]);
 
@@ -1034,7 +1009,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
         return;
       }
 
-      const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/ger.1/events/${gameId}/competitions/${gameId}/competitors/${teamId}/roster/${playerId}/statistics/0?lang=en&region=us`;
+      const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/fifa.world/events/${gameId}/competitions/${gameId}/competitors/${teamId}/roster/${playerId}/statistics/0?lang=en&region=us`;
 
       console.log("Fetching player game stats from:", statsUrl);
       console.log("Parameters:", { gameId, teamId, playerId });
@@ -2167,7 +2142,6 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
             <View style={styles.stickyTeamInfo}>
               <TeamLogoImage
                 teamId={gameData.homeCompetitor?.team?.id}
-                isDarkMode={isDarkMode}
                 style={[
                   styles.stickyLogo,
                   // Apply loser styling if home team is losing (only for finished games)
@@ -2175,13 +2149,14 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                     opacity: 0.6,
                   },
                 ]}
+                isDarkMode={isDarkMode}
               />
               <Text
                 allowFontScaling={false}
                 style={[
                   styles.stickyTeamAbbr,
                   {
-                    color: isFavorite(homeTeam?.team?.id, "bundesliga")
+                    color: isFavorite(homeTeam?.team?.id, "fifa world")
                       ? colors.primary
                       : theme.text,
                   },
@@ -2191,7 +2166,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                   },
                 ]}
               >
-                {isFavorite(homeTeam?.team?.id, "bundesliga") && "★ "}
+                {isFavorite(homeTeam?.team?.id, "fifa world") && "★ "}
                 {homeTeam?.team?.abbreviation ||
                   homeTeam?.team?.displayName?.substring(0, 3) ||
                   "TBD"}
@@ -2305,7 +2280,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                 style={[
                   styles.stickyTeamAbbr,
                   {
-                    color: isFavorite(awayTeam?.team?.id, "bundesliga")
+                    color: isFavorite(awayTeam?.team?.id, "fifa world")
                       ? colors.primary
                       : theme.text,
                   },
@@ -2315,14 +2290,13 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                   },
                 ]}
               >
-                {isFavorite(awayTeam?.team?.id, "bundesliga") && "★ "}
+                {isFavorite(awayTeam?.team?.id, "fifa world") && "★ "}
                 {awayTeam?.team?.abbreviation ||
                   awayTeam?.team?.displayName?.substring(0, 3) ||
                   "TBD"}
               </Text>
               <TeamLogoImage
                 teamId={gameData.awayCompetitor?.team?.id}
-                isDarkMode={isDarkMode}
                 style={[
                   styles.stickyLogoAway,
                   // Apply loser styling if away team is losing (only for finished games)
@@ -2330,6 +2304,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                     opacity: 0.6,
                   },
                 ]}
+                isDarkMode={isDarkMode}
               />
             </View>
           </View>
@@ -2763,10 +2738,10 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
       !matchStatus.isLive && !matchStatus.isPre && !isDraw && !awayIsWinner;
 
     // Get team colors
-    const homeColor = GermanyServiceEnhanced.getTeamColorWithAlternateLogic(
+    const homeColor = FIFAWorldServiceEnhanced.getTeamColorWithAlternateLogic(
       homeTeam?.team
     );
-    const awayColor = GermanyServiceEnhanced.getTeamColorWithAlternateLogic(
+    const awayColor = FIFAWorldServiceEnhanced.getTeamColorWithAlternateLogic(
       awayTeam?.team
     );
 
@@ -2780,7 +2755,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
             allowFontScaling={false}
             style={[styles.competitionText, { color: theme.textSecondary }]}
           >
-            {gameData.competitionName || "Germany"}
+            {gameData.competitionName || "FIFA"}
           </Text>
         </View>
 
@@ -2791,7 +2766,6 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
             <View style={styles.teamLogoAndScore}>
               <TeamLogoImage
                 teamId={gameData.homeCompetitor?.team?.id}
-                isDarkMode={isDarkMode}
                 style={[
                   styles.teamLogo,
                   // Apply loser styling if home team is losing (only for finished games)
@@ -2799,6 +2773,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                     opacity: 0.6,
                   },
                 ]}
+                isDarkMode={isDarkMode}
               />
               <View style={styles.scoreBox}>
                 <View style={styles.scoreWithShootout}>
@@ -2839,7 +2814,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
               style={[
                 styles.teamName,
                 {
-                  color: isFavorite(homeTeam?.team?.id, "bundesliga")
+                  color: isFavorite(homeTeam?.team?.id, "fifa world")
                     ? colors.primary
                     : theme.text,
                 },
@@ -2850,7 +2825,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
               ]}
               numberOfLines={2}
             >
-              {isFavorite(homeTeam?.team?.id, "bundesliga") ? "★ " : ""}
+              {isFavorite(homeTeam?.team?.id, "fifa world") ? "★ " : ""}
               {homeTeam?.team?.displayName}
             </Text>
           </View>
@@ -2960,7 +2935,6 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
               </View>
               <TeamLogoImage
                 teamId={gameData.awayCompetitor?.team?.id}
-                isDarkMode={isDarkMode}
                 style={[
                   styles.teamLogo,
                   // Apply loser styling if away team is losing (only for finished games)
@@ -2968,6 +2942,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                     opacity: 0.6,
                   },
                 ]}
+                isDarkMode={isDarkMode}
               />
             </View>
             <Text
@@ -2975,7 +2950,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
               style={[
                 styles.teamName,
                 {
-                  color: isFavorite(awayTeam?.team?.id, "bundesliga")
+                  color: isFavorite(awayTeam?.team?.id, "fifa world")
                     ? colors.primary
                     : theme.text,
                 },
@@ -2986,7 +2961,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
               ]}
               numberOfLines={2}
             >
-              {isFavorite(awayTeam?.team?.id, "bundesliga") ? "★ " : ""}
+              {isFavorite(awayTeam?.team?.id, "fifa world") ? "★ " : ""}
               {awayTeam?.team?.displayName}
             </Text>
           </View>
@@ -3205,7 +3180,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
             : 0;
         }
       } catch (err) {
-        console.log("[GermanyGameDetails] getStat error:", err);
+        console.log("[FIFAGameDetails] getStat error:", err);
       }
       return 0;
     };
@@ -3226,10 +3201,10 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
 
     // Ensure colors are properly formatted with # prefix
     let homeColor =
-      GermanyServiceEnhanced.getTeamColorWithAlternateLogic(homeTeam?.team) ||
+      FIFAWorldServiceEnhanced.getTeamColorWithAlternateLogic(homeTeam?.team) ||
       "#007bff";
     let awayColor =
-      GermanyServiceEnhanced.getTeamColorWithAlternateLogic(awayTeam?.team) ||
+      FIFAWorldServiceEnhanced.getTeamColorWithAlternateLogic(awayTeam?.team) ||
       "#28a745";
 
     // Add # prefix if missing
@@ -3264,8 +3239,8 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
               <View style={styles.statsTeamHome}>
                 <TeamLogoImage
                   teamId={homeTeam?.team?.id}
-                  isDarkMode={isDarkMode}
                   style={styles.statsTeamLogo}
+                  isDarkMode={isDarkMode}
                 />
                 <Text
                   allowFontScaling={false}
@@ -3283,8 +3258,8 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                 </Text>
                 <TeamLogoImage
                   teamId={awayTeam?.team?.id}
-                  isDarkMode={isDarkMode}
                   style={styles.statsTeamLogo}
+                  isDarkMode={isDarkMode}
                 />
               </View>
             </View>
@@ -3748,9 +3723,9 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                 event.competitionName ||
                 event.leagueName ||
                 null;
-              navigation.navigate("GermanyGameDetails", {
+              navigation.navigate("FIFAGameDetails", {
                 gameId: event.id,
-                sport: "German",
+                sport: "FIFA World",
                 competitionHint,
               });
             }
@@ -3774,8 +3749,8 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
             <View style={styles.h2hTeam}>
               <TeamLogoImage
                 teamId={homeTeamIdInMatch}
-                isDarkMode={isDarkMode}
                 style={styles.h2hTeamLogo}
+                isDarkMode={isDarkMode}
               />
               <Text
                 allowFontScaling={false}
@@ -3793,8 +3768,8 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
             <View style={[styles.h2hTeam, styles.h2hTeamReverse]}>
               <TeamLogoImage
                 teamId={awayTeamIdInMatch}
-                isDarkMode={isDarkMode}
                 style={styles.h2hTeamLogo}
+                isDarkMode={isDarkMode}
               />
               <Text
                 allowFontScaling={false}
@@ -3899,8 +3874,8 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
         >
           <TeamLogoImage
             teamId={gameData.homeCompetitor?.team?.id}
-            isDarkMode={isDarkMode}
             style={styles.teamTabLogo}
+            isDarkMode={isDarkMode}
           />
           <View style={styles.teamTabInfo}>
             <Text
@@ -4019,8 +3994,8 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
         >
           <TeamLogoImage
             teamId={gameData.awayCompetitor?.team?.id}
-            isDarkMode={isDarkMode}
             style={styles.teamTabLogo}
+            isDarkMode={isDarkMode}
           />
           <View style={styles.teamTabInfo}>
             <Text
@@ -4379,8 +4354,8 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                 ? gameData?.homeCompetitor?.team?.id
                 : gameData?.awayCompetitor?.team?.id
             }
-            isDarkMode={isDarkMode}
             style={styles.subsTeamLogo}
+            isDarkMode={isDarkMode}
           />
           <Text
             allowFontScaling={false}
@@ -4511,8 +4486,8 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
           <View style={styles.teamInfo}>
             <TeamLogoImage
               teamId={gameData?.awayCompetitor?.team?.id}
-              isDarkMode={isDarkMode}
               style={styles.formTeamLogo}
+              isDarkMode={isDarkMode}
             />
             <Text
               allowFontScaling={false}
@@ -4547,8 +4522,8 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
             </Text>
             <TeamLogoImage
               teamId={gameData?.homeCompetitor?.team?.id}
-              isDarkMode={isDarkMode}
               style={styles.formTeamLogo}
+              isDarkMode={isDarkMode}
             />
           </View>
           <View style={styles.footballPitch}>
@@ -4589,8 +4564,8 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                 ? gameData?.homeCompetitor?.team?.id
                 : gameData?.awayCompetitor?.team?.id
             }
-            isDarkMode={isDarkMode}
             style={styles.formTeamLogo}
+            isDarkMode={isDarkMode}
           />
           <Text
             allowFontScaling={false}
@@ -4623,7 +4598,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
 
     try {
       console.log(
-        "[GermanyGameDetails] Fetching lineup data for gameId:",
+        "[FIFAGameDetails] Fetching lineup data for gameId:",
         gameId
       );
 
@@ -4636,7 +4611,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
       }
 
       const data = await response.json();
-      console.log("[GermanyGameDetails] Lineup API response:", data);
+      console.log("[FIFAGameDetails] Lineup API response:", data);
 
       // Extract rosters and formations exactly like scoreboard.js does
       const rosters = data?.gamepackageJSON?.rosters || [];
@@ -4650,7 +4625,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
       const homeFormation = homeRoster?.formation || "4-3-3";
       const awayFormation = awayRoster?.formation || "4-3-3";
 
-      console.log("[GermanyGameDetails] Lineup data extracted:", {
+      console.log("[FIFAGameDetails] Lineup data extracted:", {
         homeLineup: homeLineup.length,
         awayLineup: awayLineup.length,
         homeFormation,
@@ -4662,7 +4637,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
 
       return { homeLineup, awayLineup, homeFormation, awayFormation };
     } catch (error) {
-      console.error("[GermanyGameDetails] fetchLineupData error:", error);
+      console.error("[FIFAGameDetails] fetchLineupData error:", error);
       return { homeLineup: [], awayLineup: [] };
     }
   };
@@ -4808,7 +4783,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
         },
       };
     } catch (err) {
-      console.log("[GermanyGameDetails] mapTeamStats error:", err);
+      console.log("[FIFAGameDetails] mapTeamStats error:", err);
       return {};
     }
   };
@@ -4835,20 +4810,20 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
       // This ensures we fetch the exact per-competitor statistics resource (as in c1/c2)
       let coreCompetitors = [];
       try {
-        const CORE_EVENT_URL = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/fra.1/events/${gameId}?lang=en&region=us`;
+        const CORE_EVENT_URL = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/fifa.world/events/${gameId}?lang=en&region=us`;
         const coreResp = await fetch(convertToHttps(CORE_EVENT_URL));
         if (coreResp.ok) {
           const coreData = await coreResp.json();
           coreCompetitors = coreData?.competitions?.[0]?.competitors || [];
         } else {
           console.log(
-            "[GermanyGameDetails] core event resource responded with",
+            "[FIFAGameDetails] core event resource responded with",
             coreResp.status
           );
         }
       } catch (coreErr) {
         console.log(
-          "[GermanyGameDetails] Error fetching core event resource:",
+          "[FIFAGameDetails] Error fetching core event resource:",
           coreErr
         );
       }
@@ -4872,7 +4847,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
           const sResp = await fetch(convertToHttps(statRef));
           if (!sResp.ok) {
             console.log(
-              "[GermanyGameDetails] statRef fetch failed",
+              "[FIFAGameDetails] statRef fetch failed",
               statRef,
               sResp.status
             );
@@ -4889,7 +4864,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
           return { comp, rawText, parsed, statRef };
         } catch (err) {
           console.log(
-            "[GermanyGameDetails] Failed to fetch statRef for competitor",
+            "[FIFAGameDetails] Failed to fetch statRef for competitor",
             comp?.id,
             err
           );
@@ -4969,14 +4944,14 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
               });
               team.statistics = flattened;
               console.log(
-                `[GermanyGameDetails] Processed ${flattened.length} stats from $ref for ${homeAway} team`
+                `[FIFAGameDetails] Processed ${flattened.length} stats from $ref for ${homeAway} team`
               );
             }
           }
         });
       } catch (attachErr) {
         console.log(
-          "[GermanyGameDetails] Error attaching parsed stats to teams:",
+          "[FIFAGameDetails] Error attaching parsed stats to teams:",
           attachErr
         );
       }
@@ -5079,7 +5054,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
         headToHeadData,
       };
     } catch (error) {
-      console.error("[GermanyGameDetails] fetchMatchStats error:", error);
+      console.error("[FIFAGameDetails] fetchMatchStats error:", error);
       return null;
     }
   };
@@ -5106,7 +5081,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
     // Skip if user is actively scrolling
     if (isUserScrollingRef.current) {
       console.log(
-        "[GermanyGameDetails] skipping plays fetch - user is scrolling"
+        "[FIFAGameDetails] skipping plays fetch - user is scrolling"
       );
       return;
     }
@@ -5116,7 +5091,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
     // Prevent concurrent fetches
     if (playsFetchingRef.current) {
       console.debug(
-        "[GermanyGameDetails] plays fetch already in progress - skipping"
+        "[FIFAGameDetails] plays fetch already in progress - skipping"
       );
       return;
     }
@@ -5128,7 +5103,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
       setLoadingPlays(true);
     }
 
-    console.log("[GermanyGameDetails] fetchPlaysData START", {
+    console.log("[FIFAGameDetails] fetchPlaysData START", {
       gameId,
       lastUpdateHash,
       playsDataCount: playsData ? playsData.length : 0,
@@ -5137,7 +5112,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
 
     try {
       // Fetch plays data from ESPN API exactly like scoreboard.js
-      const PLAYS_API_URL = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/fra.1/events/${gameId}/competitions/${gameId}/plays?lang=en&region=us&limit=1000`;
+      const PLAYS_API_URL = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/fifa.world/events/${gameId}/competitions/${gameId}/plays?lang=en&region=us&limit=1000`;
 
       const response = await fetch(convertToHttps(PLAYS_API_URL));
       if (!response.ok) {
@@ -5148,7 +5123,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
 
       if (!data.items || data.items.length === 0) {
         console.warn(
-          "[GermanyGameDetails] No plays data available in response"
+          "[FIFAGameDetails] No plays data available in response"
         );
         if (initialLoad) setPlaysData([]);
         // Keep lastPlaysHashRef aligned with game-level hash (so we don't repeatedly try)
@@ -5172,23 +5147,23 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
 
       if (playsHash !== lastPlaysHashRef.current) {
         console.log(
-          "[GermanyGameDetails] plays changed - applying incremental update",
+          "[FIFAGameDetails] plays changed - applying incremental update",
           { playsHash, prev: lastPlaysHashRef.current }
         );
         updatePlaysDataIncremental(fetchedPlays);
         lastPlaysHashRef.current = playsHash;
       } else {
         console.debug(
-          "[GermanyGameDetails] plays hash unchanged - skipping merge"
+          "[FIFAGameDetails] plays hash unchanged - skipping merge"
         );
       }
 
       console.log(
-        "[GermanyGameDetails] fetchPlaysData END - items",
+        "[FIFAGameDetails] fetchPlaysData END - items",
         fetchedPlays.length
       );
     } catch (error) {
-      console.error("[GermanyGameDetails] Error fetching plays data:", error);
+      console.error("[FIFAGameDetails] Error fetching plays data:", error);
       if (initialLoad) setPlaysData([]);
     } finally {
       playsFetchingRef.current = false;
@@ -5229,7 +5204,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
 
   // Fetch plays data silently when gameData is loaded (for scorers box functionality)
   useEffect(() => {
-    console.log("[GermanyGameDetails] Plays fetch useEffect triggered", {
+    console.log("[FIFAGameDetails] Plays fetch useEffect triggered", {
       hasGameData: !!gameData,
       gameId,
       hasPlaysData: !!playsData,
@@ -5237,7 +5212,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
     });
 
     if (gameData && gameId && !playsData) {
-      console.log("[GermanyGameDetails] Fetching plays data for scorers box");
+      console.log("[FIFAGameDetails] Fetching plays data for scorers box");
       fetchPlaysDataInternal({ silent: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -5253,7 +5228,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
       scrollTimeoutRef.current = setTimeout(() => {
         isUserScrollingRef.current = false;
         console.log(
-          "[GermanyGameDetails] user stopped scrolling - updates will resume"
+          "[FIFAGameDetails] user stopped scrolling - updates will resume"
         );
       }, 600);
     };
@@ -5392,13 +5367,13 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
         if (String(playTeamId) === String(awayId)) {
           teamSide = "away";
           teamColor =
-            GermanyServiceEnhanced.getTeamColorWithAlternateLogic(
+            FIFAWorldServiceEnhanced.getTeamColorWithAlternateLogic(
               awayTeam?.team || awayTeam
             ) || "#28a745";
         } else if (String(playTeamId) === String(homeId)) {
           teamSide = "home";
           teamColor =
-            GermanyServiceEnhanced.getTeamColorWithAlternateLogic(
+            FIFAWorldServiceEnhanced.getTeamColorWithAlternateLogic(
               homeTeam?.team || homeTeam
             ) || "#007bff";
         }
@@ -5485,9 +5460,9 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                 <View style={styles.teamScoreDisplay}>
                   <TeamLogoImage
                     teamId={homeTeam?.team?.id}
-                    isDarkMode={isDarkMode}
-                    isScoring={isScoring}
                     style={styles.teamLogoSmall}
+                    isScoring={isScoring}
+                    isDarkMode={isDarkMode}
                   />
                   <Text
                     allowFontScaling={false}
@@ -5517,9 +5492,9 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                   </Text>
                   <TeamLogoImage
                     teamId={awayTeam?.team?.id}
-                    isDarkMode={isDarkMode}
-                    isScoring={isScoring}
                     style={styles.teamLogoSmall}
+                    isScoring={isScoring}
+                    isDarkMode={isDarkMode}
                   />
                 </View>
               </View>
@@ -6197,12 +6172,12 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
     let teamColor = "#000"; // Default black
     if (selectedPlayer.teamType === "home") {
       teamColor =
-        GermanyServiceEnhanced.getTeamColorWithAlternateLogic(
+        FIFAWorldServiceEnhanced.getTeamColorWithAlternateLogic(
           homeTeamData?.team
         ) || "#007bff";
     } else if (selectedPlayer.teamType === "away") {
       teamColor =
-        GermanyServiceEnhanced.getTeamColorWithAlternateLogic(
+        FIFAWorldServiceEnhanced.getTeamColorWithAlternateLogic(
           awayTeamData?.team
         ) || "#28a745";
     }
@@ -7001,7 +6976,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                     // Block popup navigation within the WebView
                     onShouldStartLoadWithRequest={(request) => {
                       console.log(
-                        "Germany WebView navigation request:",
+                        "FIFA WebView navigation request:",
                         request.url
                       );
 
@@ -7038,7 +7013,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                       // Allow same-domain navigation but block cross-domain (likely popups)
                       if (requestDomain !== currentDomain || hasPopupKeywords) {
                         console.log(
-                          "Blocked Germany popup/cross-domain navigation:",
+                          "Blocked FIFA popup/cross-domain navigation:",
                           request.url
                         );
                         return false;
@@ -7050,7 +7025,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                     onOpenWindow={(syntheticEvent) => {
                       const { nativeEvent } = syntheticEvent;
                       console.log(
-                        "Blocked Germany popup window:",
+                        "Blocked FIFA popup window:",
                         nativeEvent.targetUrl
                       );
                       // Don't open the popup - just log it
@@ -7171,7 +7146,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                 ref={goalShareCardRef}
                 options={{
                   format: "png",
-                  quality: 1.0,
+                  quality: 2.0,
                 }}
                 style={{ width: 320 }}
               >
@@ -7387,7 +7362,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                       if (!contextTeamColor && scoringTeam) {
                         // Try the existing service if context color not available
                         teamColor =
-                          GermanyServiceEnhanced.getTeamColorWithAlternateLogic(
+                          FIFAWorldServiceEnhanced.getTeamColorWithAlternateLogic(
                             scoringTeam
                           ) || teamColor;
 
@@ -9131,33 +9106,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  // Floating Chat Button
   floatingChatButton: {
     position: "absolute",
     bottom: 30,
-    left: 20,
+    right: 20,
     width: 56,
     height: 56,
     borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 8,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 999,
   },
-  // Chat Modal Styles
   chatModalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0)",
-    justifyContent: "flex-end",
+    paddingTop: 50,
   },
   chatModalContent: {
-    height: "85%",
+    flex: 1,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     overflow: "hidden",
@@ -9166,19 +9137,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    padding: 20,
     borderBottomWidth: 1,
   },
   chatModalTitle: {
     fontSize: 18,
     fontWeight: "bold",
     flex: 1,
-    textAlign: "center",
-    marginRight: -20,
+    marginRight: 10,
   },
   chatModalCloseButton: {
-    padding: 4,
+    padding: 5,
   },
   chatModalBody: {
     flex: 1,
@@ -9193,7 +9162,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-
   // Goal Share Card Styles
   goalShareCardOverlay: {
     flex: 1,
@@ -9683,4 +9651,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default GermanyGameDetailsScreen;
+export default FIFAGameDetailsScreen;

@@ -234,6 +234,13 @@ import UECLGameDetailsScreen from "./src/screens/soccer/europa-conference/UECLGa
 import UECLTeamPageScreen from "./src/screens/soccer/europa-conference/UECLTeamPageScreen";
 import UECLPlayerPageScreen from "./src/screens/soccer/europa-conference/UECLPlayerPageScreen";
 
+// FIFA World Cup screens
+import FIFAWorldScoreboardScreen from "./src/screens/soccer/fifa.world/FIFAWorldScoreboardScreen";
+import FIFAWorldStandingsScreen from "./src/screens/soccer/fifa.world/FIFAWorldStandingsScreen";
+import FIFAWorldStatsScreen from "./src/screens/soccer/fifa.world/FIFAWorldStatsScreen";
+import FIFAWorldPlayerPageScreen from "./src/screens/soccer/fifa.world/FIFAWorldPlayerPageScreen";
+import FIFAWorldGameDetailsScreen from "./src/screens/soccer/fifa.world/FIFAWorldGameDetailsScreen";
+
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
@@ -694,6 +701,14 @@ const SoccerTabNavigator = ({ route }) => {
           CompareScreen: UECLCompareScreen,
           StatsScreen: UECLBracketScreen,
         };
+      case "fifa.world":
+        return {
+          ScoresScreen: FIFAWorldScoreboardScreen,
+          StandingsScreen: FIFAWorldStandingsScreen,
+          SearchScreen: FIFAWorldScoreboardScreen, // Placeholder for now
+          CompareScreen: FIFAWorldScoreboardScreen, // Placeholder for now
+          StatsScreen: FIFAWorldStatsScreen,
+        };
       default:
         return {
           ScoresScreen: EnglandScreen,
@@ -722,6 +737,9 @@ const SoccerTabNavigator = ({ route }) => {
     "europa-conference",
     "europa-league",
   ].includes(leagueId);
+
+  // Check if it's FIFA World Cup - should only show Scores, Standings, Stats
+  const isFIFAWorldCup = leagueId === "fifa.world";
 
   return (
     <Tab.Navigator
@@ -773,22 +791,26 @@ const SoccerTabNavigator = ({ route }) => {
           title: "Standings",
         }}
       />
-      <Tab.Screen
-        name="Search"
-        component={screens.SearchScreen}
-        initialParams={{ leagueId, leagueName }}
-        options={{
-          title: "Search",
-        }}
-      />
-      <Tab.Screen
-        name="Compare"
-        component={screens.CompareScreen}
-        initialParams={{ leagueId, leagueName }}
-        options={{
-          title: "Compare",
-        }}
-      />
+      {!isFIFAWorldCup && (
+        <Tab.Screen
+          name="Search"
+          component={screens.SearchScreen}
+          initialParams={{ leagueId, leagueName }}
+          options={{
+            title: "Search",
+          }}
+        />
+      )}
+      {!isFIFAWorldCup && (
+        <Tab.Screen
+          name="Compare"
+          component={screens.CompareScreen}
+          initialParams={{ leagueId, leagueName }}
+          options={{
+            title: "Compare",
+          }}
+        />
+      )}
       {shouldShowBracket ? (
         <Tab.Screen
           name="Bracket"
@@ -1567,6 +1589,30 @@ const MainStackNavigator = () => {
         }}
       />
       <Stack.Screen
+        name="FIFAWorldPlayerPage"
+        component={FIFAWorldPlayerPageScreen}
+        options={{
+          title: "Player Details",
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: "#fff",
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen
+        name="FIFAWorldGameDetails"
+        component={FIFAWorldGameDetailsScreen}
+        options={{
+          title: "Game Details",
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: "#fff",
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen
         name="PlayerPage"
         component={({ route, navigation }) => {
           const { sport } = route?.params || {};
@@ -1702,6 +1748,22 @@ const MainStackNavigator = () => {
         }}
         options={{
           title: "Europa Conference",
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: "#fff",
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen
+        name="fifa.world"
+        component={SoccerTabNavigator}
+        initialParams={{
+          leagueId: "fifa.world",
+          leagueName: "FIFA World Cup",
+        }}
+        options={{
+          title: "FIFA World Cup",
           headerStyle: {
             backgroundColor: colors.primary,
           },
@@ -1857,17 +1919,17 @@ const AppContent = () => {
 
 export default function App() {
   return (
-      <ThemeProvider>
-        <FavoritesProvider>
-          <ChatProvider>
-            <EmoteProvider>
-              <MutedUsersProvider>
-                <AppContent />
-              </MutedUsersProvider>
-            </EmoteProvider>
-          </ChatProvider>
-        </FavoritesProvider>
-      </ThemeProvider>
+    <ThemeProvider>
+      <FavoritesProvider>
+        <ChatProvider>
+          <EmoteProvider>
+            <MutedUsersProvider>
+              <AppContent />
+            </MutedUsersProvider>
+          </EmoteProvider>
+        </ChatProvider>
+      </FavoritesProvider>
+    </ThemeProvider>
   );
 }
 

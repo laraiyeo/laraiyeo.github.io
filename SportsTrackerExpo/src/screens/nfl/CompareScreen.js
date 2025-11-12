@@ -364,7 +364,7 @@ const CompareScreen = ({ route }) => {
 
   const getTeamLogo = (player) => {
     const teamAbbr = getNFLTeamAbbreviation(player.team);
-    return isDarkMode ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${teamAbbr.toLowerCase()}.png` : `https://a.espncdn.com/i/teamlogos/nfl/500/${teamAbbr.toLowerCase()}.png`;
+    return isDarkMode ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500-dark/${teamAbbr.toLowerCase()}.png&w=200&h=200` : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${teamAbbr.toLowerCase()}.png&w=200&h=200`;
   };
 
   const renderPlayerCard = (player, playerNumber) => {
@@ -412,7 +412,7 @@ const CompareScreen = ({ route }) => {
         <View style={styles.playerImageContainer}>
           <Image
             source={{ 
-              uri: player.headshot?.href || `https://a.espncdn.com/i/headshots/nfl/players/full/${player.id}.png`
+              uri: player.headshot?.href || `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${player.id}.png`
             }}
             style={styles.playerImage}
           />

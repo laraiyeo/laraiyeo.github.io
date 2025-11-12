@@ -71,12 +71,12 @@ const ItalyStandingsScreen = ({ navigation, route }) => {
   // Enhanced logo function with dark mode support and fallbacks
   const getTeamLogo = (teamId, isDarkMode) => {
     const primaryUrl = isDarkMode
-      ? `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`
-      : `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
+      ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`
+      : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
     
     const fallbackUrl = isDarkMode
-      ? `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`
-      : `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
+      ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`
+      : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
 
     return { primaryUrl, fallbackUrl };
   };

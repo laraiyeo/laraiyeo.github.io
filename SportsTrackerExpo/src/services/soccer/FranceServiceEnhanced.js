@@ -86,8 +86,8 @@ export const FranceServiceEnhanced = {
     }
 
     return new Promise((resolve) => {
-      const primaryUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
-      const fallbackUrl = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
+      const primaryUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
+      const fallbackUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
       
       // Try primary URL first
       fetch(primaryUrl, { method: 'HEAD' })
@@ -112,7 +112,7 @@ export const FranceServiceEnhanced = {
             })
             .catch(() => {
               // Use default soccer ball
-              const defaultLogo = 'https://a.espncdn.com/i/teamlogos/soccer/500/default-team.png';
+              const defaultLogo = 'https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/default-team.png';
               this.logoCache.set(teamId, defaultLogo);
               resolve(defaultLogo);
             });
@@ -551,7 +551,7 @@ export const FranceServiceEnhanced = {
       name: 'France',
       fullName: 'Ligue 1',
       country: 'France',
-      flag: 'https://a.espncdn.com/i/teamlogos/countries/500/fra.png',
+      flag: 'https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/fra.png',
       apiCode: 'fra.1'
     };
   }

@@ -240,7 +240,7 @@ const StatsScreen = ({ route }) => {
           {selectedType === 'ATHLETES' ? (
             <Image
               source={{ 
-                uri: `https://a.espncdn.com/i/headshots/nfl/players/full/${playerId}.png`
+                uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${playerId}.png`
               }}
               style={styles.playerHeadshot}
               defaultSource={{ uri: 'https://via.placeholder.com/50x50?text=NFL' }}
@@ -369,7 +369,7 @@ const StatsScreen = ({ route }) => {
         {selectedType === 'ATHLETES' ? (
           <Image
             source={{ 
-              uri: `https://a.espncdn.com/i/headshots/nfl/players/full/${playerId}.png`
+              uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${playerId}.png`
             }}
             style={styles.modalHeadshot}
             defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=NFL' }}

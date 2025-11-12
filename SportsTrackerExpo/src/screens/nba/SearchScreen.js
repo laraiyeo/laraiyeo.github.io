@@ -155,7 +155,7 @@ const SearchScreen = ({ route, navigation }) => {
       >
         <Image
           source={{ 
-            uri: item.headshot?.href || `https://a.espncdn.com/i/headshots/nba/players/full/${item.id}.png`
+            uri: item.headshot?.href || `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${item.id}.png`
           }}
           style={styles.playerHeadshot}
         />

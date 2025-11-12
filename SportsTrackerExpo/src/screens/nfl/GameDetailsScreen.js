@@ -809,7 +809,7 @@ const GameDetailsScreen = ({ route }) => {
         if (teamAbbr) {
           // Try alternative URL format
           setLogoSource({
-            uri: `https://a.espncdn.com/i/teamlogos/nfl/500/${teamAbbr}.png`,
+            uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${teamAbbr}.png&w=200&h=200`,
           });
           setRetryCount(1);
         } else {
@@ -1386,7 +1386,7 @@ const GameDetailsScreen = ({ route }) => {
                       return {
                         ...athlete,
                         headshot: athlete.headshot || {
-                          href: `https://a.espncdn.com/i/headshots/nfl/players/full/${athleteId}.png`,
+                          href: `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${athleteId}.png`,
                         },
                       };
                     }
@@ -1413,7 +1413,7 @@ const GameDetailsScreen = ({ route }) => {
                 athlete: {
                   ...participant.athlete,
                   headshot: participant.athlete.headshot || {
-                    href: `https://a.espncdn.com/i/headshots/nfl/players/full/${participant.athlete.id}.png`,
+                    href: `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${participant.athlete.id}.png`,
                   },
                 },
                 team: participant.team || driveTeam,
@@ -5340,11 +5340,45 @@ const GameDetailsScreen = ({ route }) => {
                         shareCardPlay
                       );
                       const play = shareCardPlay;
-                      const teamLogo = NFLService.convertToHttps(
-                        play.teamLogo || ""
+
+                      let teamColor = play.teamColor || "#000000";
+
+                      let teamLogo = NFLService.convertToHttps(
+                        play.driveTeam || ""
                       );
-                      const teamColor = play.teamColor || "#000000";
-                      const teamName = play.teamName || "";
+
+                      let teamName = play.teamName || "";
+
+                      let winProbability = play.winProbability || 50;
+
+                      // For interceptions (26) and fumbles (29), use the other team's color instead of the drive team's color
+                      const playTypeId = play.type?.id;
+                      if (playTypeId === "26" || playTypeId === "29") {
+                        // Determine which team is the drive team
+                        const driveTeamId = play.driveTeam?.id;
+                        const homeTeamId = play.homeTeam?.team?.id;
+                        const awayTeamId = play.awayTeam?.team?.id;
+                        winProbability = 100 - winProbability;
+
+                        // Use the other team's color
+                        if (driveTeamId === homeTeamId) {
+                          // Drive team is home, use away team's color
+                          teamColor = play.awayTeam?.team?.color
+                            ? `#${play.awayTeam.team.color}`
+                            : "#000000";
+                          teamLogo = play.awayTeam?.team;
+                          teamName =
+                            play.awayTeam?.team?.displayName || teamName;
+                        } else if (driveTeamId === awayTeamId) {
+                          // Drive team is away, use home team's color
+                          teamColor = play.homeTeam?.team?.color
+                            ? `#${play.homeTeam.team.color}`
+                            : "#000000";
+                          teamLogo = play.homeTeam?.team;
+                          teamName =
+                            play.homeTeam?.team?.displayName || teamName;
+                        }
+                      }
                       const teamAbbr = play.teamAbbr || "";
                       const clock = play.clock?.displayValue || "";
                       const period = play.period?.number || "";
@@ -5372,10 +5406,6 @@ const GameDetailsScreen = ({ route }) => {
                         play.awayTeam?.team?.logos?.[0]?.href || ""
                       );
 
-                      // Get win probability - use winProbability that was fetched and set in handlePlayLongPress
-                      const winProbability = play.winProbability || 50;
-                      const awayWinProbability = 100 - winProbability;
-
                       console.log("Win probability in modal:", winProbability);
 
                       // Extract players from play (similar to scoreboard.js)
@@ -5391,8 +5421,8 @@ const GameDetailsScreen = ({ route }) => {
                             ]}
                           >
                             {teamLogo ? (
-                              <Image
-                                source={{ uri: teamLogo }}
+                              <TeamLogoImage
+                                team={teamLogo}
                                 style={styles.nflPlayShareCardTeamLogo}
                               />
                             ) : null}
@@ -5437,8 +5467,8 @@ const GameDetailsScreen = ({ route }) => {
                             <View style={styles.nflPlayShareCardScoreBlock}>
                               <View style={styles.nflPlayShareCardScoreTeam}>
                                 {awayTeamLogo ? (
-                                  <Image
-                                    source={{ uri: awayTeamLogo }}
+                                  <TeamLogoImage
+                                    team={play.awayTeam?.team}
                                     style={styles.nflPlayShareCardScoreLogo}
                                   />
                                 ) : null}
@@ -5479,8 +5509,8 @@ const GameDetailsScreen = ({ route }) => {
                                   {homeScore}
                                 </Text>
                                 {homeTeamLogo ? (
-                                  <Image
-                                    source={{ uri: homeTeamLogo }}
+                                  <TeamLogoImage
+                                    team={play.homeTeam?.team}
                                     style={styles.nflPlayShareCardScoreLogo}
                                   />
                                 ) : null}
@@ -5504,95 +5534,98 @@ const GameDetailsScreen = ({ route }) => {
                           </View>
 
                           {/* Drive Indicator */}
-                          {selectedDrive && (
-                            <View
-                              style={[
-                                styles.nflPlayShareCardDriveIndicator,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
+                          {selectedDrive &&
+                            playTypeId !== "26" &&
+                            playTypeId !== "29" && (
                               <View
                                 style={[
-                                  styles.nflPlayShareCardDriveField,
-                                  { backgroundColor: theme.border },
+                                  styles.nflPlayShareCardDriveIndicator,
+                                  { backgroundColor: theme.surfaceSecondary },
                                 ]}
                               >
-                                {/* Field markers */}
                                 <View
                                   style={[
-                                    styles.nflPlayShareCardFieldLine,
-                                    {
-                                      left: "10%",
-                                      backgroundColor: theme.surfaceSecondary,
-                                    },
+                                    styles.nflPlayShareCardDriveField,
+                                    { backgroundColor: theme.border },
                                   ]}
-                                />
-                                <View
+                                >
+                                  {/* Field markers */}
+                                  <View
+                                    style={[
+                                      styles.nflPlayShareCardFieldLine,
+                                      {
+                                        left: "10%",
+                                        backgroundColor: theme.surfaceSecondary,
+                                      },
+                                    ]}
+                                  />
+                                  <View
+                                    style={[
+                                      styles.nflPlayShareCardFieldLine,
+                                      {
+                                        left: "50%",
+                                        backgroundColor: theme.surfaceSecondary,
+                                      },
+                                    ]}
+                                  />
+                                  <View
+                                    style={[
+                                      styles.nflPlayShareCardFieldLine,
+                                      {
+                                        left: "90%",
+                                        backgroundColor: theme.surfaceSecondary,
+                                      },
+                                    ]}
+                                  />
+
+                                  {/* Drive progress bar */}
+                                  {(() => {
+                                    const startYard =
+                                      selectedDrive.start?.yardLine || 0;
+                                    const currentYard = yardLine;
+                                    const startPercent =
+                                      (startYard / 100) * 100;
+                                    const currentPercent =
+                                      (currentYard / 100) * 100;
+                                    const driveWidth = Math.abs(
+                                      currentPercent - startPercent
+                                    );
+
+                                    // Flip horizontally: convert left position to right position
+                                    const driveLeft = Math.min(
+                                      startPercent,
+                                      currentPercent
+                                    );
+                                    const flippedLeft =
+                                      100 - driveLeft - driveWidth;
+
+                                    return (
+                                      <View
+                                        style={[
+                                          styles.nflPlayShareCardDriveProgress,
+                                          {
+                                            left: `${flippedLeft}%`,
+                                            width: `${driveWidth}%`,
+                                            backgroundColor: teamColor,
+                                          },
+                                        ]}
+                                      />
+                                    );
+                                  })()}
+                                </View>
+                                <Text
                                   style={[
-                                    styles.nflPlayShareCardFieldLine,
-                                    {
-                                      left: "50%",
-                                      backgroundColor: theme.surfaceSecondary,
-                                    },
+                                    styles.nflPlayShareCardDriveText,
+                                    { color: theme.textSecondary },
                                   ]}
-                                />
-                                <View
-                                  style={[
-                                    styles.nflPlayShareCardFieldLine,
-                                    {
-                                      left: "90%",
-                                      backgroundColor: theme.surfaceSecondary,
-                                    },
-                                  ]}
-                                />
-
-                                {/* Drive progress bar */}
-                                {(() => {
-                                  const startYard =
-                                    selectedDrive.start?.yardLine || 0;
-                                  const currentYard = yardLine;
-                                  const startPercent = (startYard / 100) * 100;
-                                  const currentPercent =
-                                    (currentYard / 100) * 100;
-                                  const driveWidth = Math.abs(
-                                    currentPercent - startPercent
-                                  );
-
-                                  // Flip horizontally: convert left position to right position
-                                  const driveLeft = Math.min(
-                                    startPercent,
-                                    currentPercent
-                                  );
-                                  const flippedLeft =
-                                    100 - driveLeft - driveWidth;
-
-                                  return (
-                                    <View
-                                      style={[
-                                        styles.nflPlayShareCardDriveProgress,
-                                        {
-                                          left: `${flippedLeft}%`,
-                                          width: `${driveWidth}%`,
-                                          backgroundColor: teamColor,
-                                        },
-                                      ]}
-                                    />
-                                  );
-                                })()}
+                                >
+                                  {selectedDrive.plays?.length || 0} plays,{" "}
+                                  {selectedDrive.yards || 0} yards,{" "}
+                                  {selectedDrive.timeElapsed?.displayValue ||
+                                    "0:00"}
+                                </Text>
                               </View>
-                              <Text
-                                style={[
-                                  styles.nflPlayShareCardDriveText,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                {selectedDrive.plays?.length || 0} plays,{" "}
-                                {selectedDrive.yards || 0} yards,{" "}
-                                {selectedDrive.timeElapsed?.displayValue ||
-                                  "0:00"}
-                              </Text>
-                            </View>
-                          )}
+                            )}
 
                           {/* Play Description */}
                           <View
@@ -5875,7 +5908,10 @@ const GameDetailsScreen = ({ route }) => {
                                   }
                                   // Don't show stats for kicker
                                 } else if (playTypeId === "29") {
-                                  if (participantType === "fumbler") {
+                                  if (
+                                    participantType === "fumbler" ||
+                                    participantType === "rusher"
+                                  ) {
                                     // Show fumbles
                                     const fumbles =
                                       playerBoxscoreData.fumbles || [];
@@ -5885,7 +5921,7 @@ const GameDetailsScreen = ({ route }) => {
                                     // Show fumbles recovered
                                     const defensive =
                                       playerBoxscoreData.fumbles || [];
-                                    if (defensive[4])
+                                    if (defensive[2])
                                       stats.push(`${defensive[2]} rec`);
                                   } else if (participantType === "tackler") {
                                     // Show total tackles
@@ -5976,6 +6012,12 @@ const GameDetailsScreen = ({ route }) => {
                                       playerBoxscoreData.defensive || [];
                                     if (defensive[4])
                                       stats.push(`${defensive[4]} PD`);
+                                  } else if (participantType === "kicker") {
+                                    // Show field goals and extra points
+                                    const kicking =
+                                      playerBoxscoreData.kicking || [];
+                                    if (kicking[0])
+                                      stats.push(`${kicking[3]} XP`);
                                   }
                                 }
 
@@ -6026,7 +6068,7 @@ const GameDetailsScreen = ({ route }) => {
                               const mainPlayerId = mainPlayer.athlete?.id;
                               const mainPlayerHeadshot =
                                 mainPlayer.athlete?.headshot?.href ||
-                                `https://a.espncdn.com/i/headshots/nfl/players/full/${mainPlayerId}.png`;
+                                `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${mainPlayerId}.png`;
                               const mainTeamAbbr =
                                 mainPlayer.team?.abbreviation || "";
                               const otherPlayers = participantsList.slice(1);

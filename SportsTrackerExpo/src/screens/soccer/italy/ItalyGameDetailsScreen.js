@@ -75,9 +75,9 @@ const getContrastColor = (backgroundColor) => {
 const getTeamLogoUrls = (teamId, isDarkMode) => {
   if (!teamId) return { primaryUrl: null, fallbackUrl: null };
 
-  const baseUrl = "https://a.espncdn.com/i/teamlogos/soccer/500";
-  const darkUrl = `${baseUrl}-dark/${teamId}.png`;
-  const lightUrl = `${baseUrl}/${teamId}.png`;
+  const baseUrl = "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500";
+  const darkUrl = `${baseUrl}-dark/${teamId}.png&w=200&h=200`;
+  const lightUrl = `${baseUrl}/${teamId}.png&w=200&h=200`;
 
   return {
     primaryUrl: isDarkMode ? darkUrl : lightUrl,
@@ -96,7 +96,7 @@ const TeamLogoImage = React.memo(
         try {
           if (isScoring) {
             // For scoring plays, always use dark variant
-            const darkUrl = `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
+            const darkUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
             setLogoSource({ uri: darkUrl });
           } else {
             // For non-scoring, use normal dark mode logic

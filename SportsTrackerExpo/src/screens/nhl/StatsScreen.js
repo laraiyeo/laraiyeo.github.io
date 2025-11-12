@@ -239,7 +239,7 @@ const StatsScreen = ({ route }) => {
           {selectedType === 'ATHLETES' ? (
             <Image
               source={{ 
-                uri: `https://a.espncdn.com/i/headshots/nhl/players/full/${playerId}.png`
+                uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nhl/players/full/${playerId}.png`
               }}
               style={styles.playerHeadshot}
               defaultSource={{ uri: 'https://via.placeholder.com/50x50?text=NHL' }}
@@ -368,7 +368,7 @@ const StatsScreen = ({ route }) => {
         {selectedType === 'ATHLETES' ? (
           <Image
             source={{ 
-              uri: `https://a.espncdn.com/i/headshots/nhl/players/full/${playerId}.png`
+              uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nhl/players/full/${playerId}.png`
             }}
             style={styles.modalHeadshot}
             defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=NHL' }}

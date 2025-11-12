@@ -147,9 +147,9 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
     const fallbackKey = `${normalized}-${useDarkMode ? '500' : '500-dark'}`;
     if (failedLogos.has(primaryKey) && failedLogos.has(fallbackKey)) return null;
     if (failedLogos.has(primaryKey)) {
-      return `https://a.espncdn.com/i/teamlogos/nhl/${useDarkMode ? '500' : '500-dark'}/${normalized}.png`;
+      return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/${useDarkMode ? '500' : '500-dark'}/${normalized}.png&w=200&h=200`;
     }
-    return `https://a.espncdn.com/i/teamlogos/nhl/${useDarkMode ? '500-dark' : '500'}/${normalized}.png`;
+    return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/${useDarkMode ? '500-dark' : '500'}/${normalized}.png&w=200&h=200`;
   };
 
   const handleLogoError = useCallback((teamParam, useDarkMode) => {
@@ -186,7 +186,7 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
       if (abbr) normalizedToken = abbr;
     }
     const normalized = String(normalizedToken).toLowerCase();
-    return { uri: `https://a.espncdn.com/i/teamlogos/nhl/500/${normalized}.png` };
+    return { uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500/${normalized}.png&w=200&h=200` };
   };
 
   // Find per-event stats array in the gamelog/seasonTypes structure by eventId
@@ -672,7 +672,7 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
         jersey: '',
         position: { displayName: 'Player' },
         team: { id: teamId, abbreviation: maybeAbbr, displayName: '' },
-        headshot: { href: `https://a.espncdn.com/i/headshots/nhl/players/full/${playerId}.png` }
+        headshot: { href: `https://a.espncdn.com/combiner/i?img=/i/headshots/nhl/players/full/${playerId}.png` }
       };
 
       // Use NHL-specific year logic for current stats

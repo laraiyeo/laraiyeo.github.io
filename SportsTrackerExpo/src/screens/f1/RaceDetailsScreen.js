@@ -1041,7 +1041,7 @@ const RaceDetailsScreen = ({ route }) => {
 
   const buildESPNHeadshotUrl = (athleteId) => {
     if (!athleteId) return null;
-    return `https://a.espncdn.com/i/headshots/rpm/players/full/${athleteId}.png`;
+    return `https://a.espncdn.com/combiner/i?img=/i/headshots/rpm/players/full/${athleteId}.png`;
   };
 
   // Predefined team color map (matches StandingsScreen constructorColors)

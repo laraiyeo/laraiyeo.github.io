@@ -186,7 +186,7 @@ const NFLScoreboardScreen = ({ navigation }) => {
         if (teamAbbr) {
           // Try alternative URL format
           setLogoSource({
-            uri: `https://a.espncdn.com/i/teamlogos/nfl/500/${teamAbbr}.png`,
+            uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${teamAbbr}.png&w=200&h=200`,
           });
           setRetryCount(1);
         } else {

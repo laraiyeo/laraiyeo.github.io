@@ -3752,7 +3752,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                       const normalizedTeamId =
                         abbreviationMap[teamAbbr?.toUpperCase()] ||
                         teamAbbr?.toLowerCase();
-                      return `https://a.espncdn.com/i/teamlogos/mlb/500-dark/${normalizedTeamId}.png`;
+                      return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500-dark/${normalizedTeamId}.png&w=200&h=200`;
                     })()
                   : getTeamLogoUrl("mlb", team?.abbreviation),
               }}

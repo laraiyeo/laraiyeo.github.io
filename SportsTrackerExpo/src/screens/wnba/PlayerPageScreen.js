@@ -121,9 +121,9 @@ const WNBAPlayerPageScreen = ({ route, navigation }) => {
     const fallbackKey = `${normalized}-${useDarkMode ? '500' : '500-dark'}`;
     if (failedLogos.has(primaryKey) && failedLogos.has(fallbackKey)) return null;
     if (failedLogos.has(primaryKey)) {
-      return `https://a.espncdn.com/i/teamlogos/wnba/${useDarkMode ? '500' : '500-dark'}/${normalized}.png`;
+      return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/wnba/${useDarkMode ? '500' : '500-dark'}/${normalized}.png&w=200&h=200`;
     }
-    return `https://a.espncdn.com/i/teamlogos/wnba/${useDarkMode ? '500-dark' : '500'}/${normalized}.png`;
+    return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/wnba/${useDarkMode ? '500-dark' : '500'}/${normalized}.png&w=200&h=200`;
   };
 
   const handleLogoError = useCallback((teamParam, useDarkMode) => {
@@ -160,7 +160,7 @@ const WNBAPlayerPageScreen = ({ route, navigation }) => {
       if (abbr) normalizedToken = abbr;
     }
     const normalized = String(normalizedToken).toLowerCase();
-    return { uri: `https://a.espncdn.com/i/teamlogos/wnba/500/${normalized}.png` };
+    return { uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/wnba/500/${normalized}.png&w=200&h=200` };
   };
 
   // Find per-event stats array in the gamelog/seasonTypes structure by eventId
@@ -596,7 +596,7 @@ const WNBAPlayerPageScreen = ({ route, navigation }) => {
         jersey: '',
         position: { displayName: 'Player' },
         team: { id: teamId, abbreviation: maybeAbbr, displayName: '' },
-        headshot: { href: `https://a.espncdn.com/i/headshots/wnba/players/full/${playerId}.png` }
+        headshot: { href: `https://a.espncdn.com/combiner/i?img=/i/headshots/wnba/players/full/${playerId}.png` }
       };
 
       const seasonYear = new Date().getFullYear();

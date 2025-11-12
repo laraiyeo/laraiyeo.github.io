@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -7,33 +7,50 @@ import {
   ScrollView,
   StyleSheet,
   Dimensions,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '../../context/ThemeContext';
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { useTheme } from "../../context/ThemeContext";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 // Logo component with error handling
-const LogoWithFallback = ({ logoId, name, style, isDarkMode, isMainLogo = false, theme }) => {
+const LogoWithFallback = ({
+  logoId,
+  name,
+  style,
+  isDarkMode,
+  isMainLogo = false,
+  theme,
+}) => {
   const [imageError, setImageError] = useState(false);
   const [fallbackError, setFallbackError] = useState(false);
 
-  const primaryUrl = `https://a.espncdn.com/i/leaguelogos/soccer/${isDarkMode ? '500-dark' : '500'}/${logoId}.png`;
-  const fallbackUrl = `https://a.espncdn.com/i/leaguelogos/soccer/${isDarkMode ? '500' : '500-dark'}/${logoId}.png`;
+  const primaryUrl = `https://a.espncdn.com/combiner/i?img=/i/leaguelogos/soccer/${
+    isDarkMode ? "500-dark" : "500"
+  }/${logoId}.png&w=200&h=200`;
+  const fallbackUrl = `https://a.espncdn.com/combiner/i?img=/i/leaguelogos/soccer/${
+    isDarkMode ? "500" : "500-dark"
+  }/${logoId}.png&w=200&h=200`;
 
   if (imageError && fallbackError) {
     // Show text fallback
     return (
-      <View style={[style, { alignItems: 'center', justifyContent: 'center' }]}>
-        <Text allowFontScaling={false} style={{
-          fontSize: isMainLogo ? 10 : 7,
-          textAlign: 'center',
-          fontWeight: isMainLogo ? '600' : '400',
-          color: theme.text,
-          lineHeight: isMainLogo ? 12 : 9
-        }}>
-          {name.split(' ').map((word, index) => (
-            <Text allowFontScaling={false} key={index}>{word}{'\n'}</Text>
+      <View style={[style, { alignItems: "center", justifyContent: "center" }]}>
+        <Text
+          allowFontScaling={false}
+          style={{
+            fontSize: isMainLogo ? 10 : 7,
+            textAlign: "center",
+            fontWeight: isMainLogo ? "600" : "400",
+            color: theme.text,
+            lineHeight: isMainLogo ? 12 : 9,
+          }}
+        >
+          {name.split(" ").map((word, index) => (
+            <Text allowFontScaling={false} key={index}>
+              {word}
+              {"\n"}
+            </Text>
           ))}
         </Text>
       </View>
@@ -62,90 +79,101 @@ const SoccerHomeScreen = () => {
 
   const soccerLeagues = [
     {
-      id: 'england',
-      name: 'England',
-      flag: 'https://a.espncdn.com/i/teamlogos/countries/500/eng.png',
-      type: 'country',
-      mainLeague: { name: 'Premier League', logo: '23' },
+      id: "england",
+      name: "England",
+      flag: "https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/eng.png",
+      type: "country",
+      mainLeague: { name: "Premier League", logo: "23" },
       competitions: [
-        { name: 'FA Cup', logo: '40', position: 'left' },
-        { name: 'EFL Cup', logo: '41', position: 'right' }
-      ]
+        { name: "FA Cup", logo: "40", position: "left" },
+        { name: "EFL Cup", logo: "41", position: "right" },
+      ],
     },
     {
-      id: 'spain',
-      name: 'Spain',
-      flag: 'https://a.espncdn.com/i/teamlogos/countries/500/esp.png',
-      type: 'country',
-      mainLeague: { name: 'La Liga', logo: '15' },
+      id: "spain",
+      name: "Spain",
+      flag: "https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/esp.png",
+      type: "country",
+      mainLeague: { name: "La Liga", logo: "15" },
       competitions: [
-        { name: 'Copa del Rey', logo: '80', position: 'left' },
-        { name: 'Spanish Supercopa', logo: '431', position: 'right' }
-      ]
+        { name: "Copa del Rey", logo: "80", position: "left" },
+        { name: "Spanish Supercopa", logo: "431", position: "right" },
+      ],
     },
     {
-      id: 'italy',
-      name: 'Italy',
-      flag: 'https://a.espncdn.com/i/teamlogos/countries/500/ita.png',
-      type: 'country',
-      mainLeague: { name: 'Serie A', logo: '12' },
+      id: "italy",
+      name: "Italy",
+      flag: "https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/ita.png",
+      type: "country",
+      mainLeague: { name: "Serie A", logo: "12" },
       competitions: [
-        { name: 'Coppa Italia', logo: '2192', position: 'left' },
-        { name: 'Italian Supercoppa', logo: '2316', position: 'right' }
-      ]
+        { name: "Coppa Italia", logo: "2192", position: "left" },
+        { name: "Italian Supercoppa", logo: "2316", position: "right" },
+      ],
     },
     {
-      id: 'germany',
-      name: 'Germany',
-      flag: 'https://a.espncdn.com/i/teamlogos/countries/500/ger.png',
-      type: 'country',
-      mainLeague: { name: 'Bundesliga', logo: '10' },
+      id: "germany",
+      name: "Germany",
+      flag: "https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/ger.png",
+      type: "country",
+      mainLeague: { name: "Bundesliga", logo: "10" },
       competitions: [
-        { name: 'DFB Pokal', logo: '2061', position: 'left' },
-        { name: 'German Super Cup', logo: '2315', position: 'right' }
-      ]
+        { name: "DFB Pokal", logo: "2061", position: "left" },
+        { name: "German Super Cup", logo: "2315", position: "right" },
+      ],
     },
     {
-      id: 'france',
-      name: 'France',
-      flag: 'https://a.espncdn.com/i/teamlogos/countries/500/fra.png',
-      type: 'country',
-      mainLeague: { name: 'Ligue 1', logo: '9' },
+      id: "france",
+      name: "France",
+      flag: "https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/fra.png",
+      type: "country",
+      mainLeague: { name: "Ligue 1", logo: "9" },
       competitions: [
-        { name: 'Coupe de France', logo: '182', position: 'left' },
-        { name: 'Trophee des Champions', logo: '2345', position: 'right' }
-      ]
+        { name: "Coupe de France", logo: "182", position: "left" },
+        { name: "Trophee des Champions", logo: "2345", position: "right" },
+      ],
     },
     {
-      id: 'champions-league',
-      name: 'Champions League',
+      id: "champions-league",
+      name: "Champions League",
       flag: null,
-      type: 'competition',
-      mainLeague: { name: 'Champions League', logo: '2' },
-      competitions: []
+      type: "competition",
+      mainLeague: { name: "Champions League", logo: "2" },
+      competitions: [],
     },
     {
-      id: 'europa-league',
-      name: 'Europa League',
+      id: "europa-league",
+      name: "Europa League",
       flag: null,
-      type: 'competition',
-      mainLeague: { name: 'Europa League', logo: '2310' },
-      competitions: []
+      type: "competition",
+      mainLeague: { name: "Europa League", logo: "2310" },
+      competitions: [],
     },
     {
-      id: 'europa-conference',
-      name: 'Europa Conference',
+      id: "europa-conference",
+      name: "Europa Conference",
       flag: null,
-      type: 'competition',
-      mainLeague: { name: 'Europa Conference League', logo: '20296' },
-      competitions: []
-    }
+      type: "competition",
+      mainLeague: { name: "Europa Conference League", logo: "20296" },
+      competitions: [],
+    },
+    {
+      id: "fifa.world",
+      name: "FIFA World Cup",
+      flag: null,
+      type: "competition",
+      mainLeague: { name: "FIFA World Cup", logo: "4" },
+      competitions: [],
+    },
   ];
 
   const handleLeaguePress = (league) => {
-    console.log('Navigating to:', league.id);
+    console.log("Navigating to:", league.id);
     // Navigate to the specific league screen
-    navigation.navigate(league.id, { leagueId: league.id, leagueName: league.name });
+    navigation.navigate(league.id, {
+      leagueId: league.id,
+      leagueName: league.name,
+    });
   };
 
   const renderLeagueBox = (league) => {
@@ -159,13 +187,16 @@ const SoccerHomeScreen = () => {
         {/* Top row: Flag and text inline */}
         <View style={styles.topRow}>
           {league.flag && (
-            <Image 
-              source={{ uri: league.flag }} 
+            <Image
+              source={{ uri: league.flag }}
               style={styles.flagIcon}
               resizeMode="contain"
             />
           )}
-          <Text allowFontScaling={false} style={[styles.leagueName, { color: theme.text }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.leagueName, { color: theme.text }]}
+          >
             {league.name}
           </Text>
         </View>
@@ -174,15 +205,20 @@ const SoccerHomeScreen = () => {
         <View style={styles.contentRow}>
           {/* Left competition logo */}
           <View style={styles.sideCompetition}>
-            {league.competitions && league.competitions.find(c => c.position === 'left') && (
-              <LogoWithFallback
-                logoId={league.competitions.find(c => c.position === 'left').logo}
-                name={league.competitions.find(c => c.position === 'left').name}
-                style={styles.competitionLogo}
-                isDarkMode={isDarkMode}
-                theme={theme}
-              />
-            )}
+            {league.competitions &&
+              league.competitions.find((c) => c.position === "left") && (
+                <LogoWithFallback
+                  logoId={
+                    league.competitions.find((c) => c.position === "left").logo
+                  }
+                  name={
+                    league.competitions.find((c) => c.position === "left").name
+                  }
+                  style={styles.competitionLogo}
+                  isDarkMode={isDarkMode}
+                  theme={theme}
+                />
+              )}
           </View>
 
           {/* Center main league logo */}
@@ -195,22 +231,30 @@ const SoccerHomeScreen = () => {
               isMainLogo={true}
               theme={theme}
             />
-            <Text allowFontScaling={false} style={[styles.mainLeagueName, { color: theme.text }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.mainLeagueName, { color: theme.text }]}
+            >
               {league.mainLeague.name}
             </Text>
           </View>
 
           {/* Right competition logo */}
           <View style={styles.sideCompetition}>
-            {league.competitions && league.competitions.find(c => c.position === 'right') && (
-              <LogoWithFallback
-                logoId={league.competitions.find(c => c.position === 'right').logo}
-                name={league.competitions.find(c => c.position === 'right').name}
-                style={styles.competitionLogo}
-                isDarkMode={isDarkMode}
-                theme={theme}
-              />
-            )}
+            {league.competitions &&
+              league.competitions.find((c) => c.position === "right") && (
+                <LogoWithFallback
+                  logoId={
+                    league.competitions.find((c) => c.position === "right").logo
+                  }
+                  name={
+                    league.competitions.find((c) => c.position === "right").name
+                  }
+                  style={styles.competitionLogo}
+                  isDarkMode={isDarkMode}
+                  theme={theme}
+                />
+              )}
           </View>
         </View>
       </TouchableOpacity>
@@ -218,10 +262,20 @@ const SoccerHomeScreen = () => {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.background }]}
+    >
       <View style={styles.header}>
-        <Text allowFontScaling={false} style={[styles.title, { color: theme.text }]}>Soccer</Text>
-        <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textSecondary }]}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.title, { color: theme.text }]}
+        >
+          Soccer
+        </Text>
+        <Text
+          allowFontScaling={false}
+          style={[styles.subtitle, { color: theme.textSecondary }]}
+        >
           Select a Country or Competition
         </Text>
       </View>
@@ -239,27 +293,27 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   leaguesList: {
     padding: 15,
   },
   leagueBox: {
-    width: '100%',
+    width: "100%",
     minHeight: 120,
     borderRadius: 12,
     padding: 16,
     marginBottom: 15,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -269,8 +323,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 15,
   },
   flagIcon: {
@@ -280,26 +334,26 @@ const styles = StyleSheet.create({
   },
   leagueName: {
     fontSize: Math.max(16, width * 0.045),
-    fontWeight: '600',
+    fontWeight: "600",
     flex: 1,
   },
   contentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     flex: 1,
     minHeight: 60,
   },
   sideCompetition: {
     width: Math.max(50, width * 0.15),
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 4,
   },
   centerLogo: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginHorizontal: 10,
   },
   competitionLogo: {
@@ -309,12 +363,12 @@ const styles = StyleSheet.create({
   competitionTextFallback: {
     width: Math.max(45, width * 0.12),
     height: Math.max(35, width * 0.1),
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   competitionText: {
     fontSize: Math.max(7, width * 0.02),
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: Math.max(9, width * 0.025),
   },
   mainLeagueLogo: {
@@ -324,8 +378,8 @@ const styles = StyleSheet.create({
   },
   mainLeagueName: {
     fontSize: Math.max(12, width * 0.035),
-    fontWeight: '500',
-    textAlign: 'center',
+    fontWeight: "500",
+    textAlign: "center",
   },
 });
 

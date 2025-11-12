@@ -305,12 +305,12 @@ async function fetchTeamMetadataWithCache(teamUrl, scoreUrl) {
 // Enhanced logo function with dark mode support and fallbacks
 const getTeamLogoUrls = (teamId, isDarkMode) => {
   const primaryUrl = isDarkMode
-    ? `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`
-    : `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
+    ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`
+    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
   
   const fallbackUrl = isDarkMode
-    ? `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`
-    : `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
+    ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`
+    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
 
   return { primaryUrl, fallbackUrl };
 };
@@ -2419,7 +2419,7 @@ const FavoritesScreen = ({ navigation }) => {
                   abbreviation: mlbData.gameData?.teams?.away?.abbreviation,
                   displayName: mlbData.gameData?.teams?.away?.name,
                   logos: [{
-                    href: `https://a.espncdn.com/i/teamlogos/mlb/500/${mlbData.gameData?.teams?.away?.abbreviation?.toLowerCase()}.png`
+                    href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/${mlbData.gameData?.teams?.away?.abbreviation?.toLowerCase()}.png&w=200&h=200`
                   }]
                 },
                 score: mlbData.liveData?.linescore?.teams?.away?.runs?.toString() || '0'
@@ -2432,7 +2432,7 @@ const FavoritesScreen = ({ navigation }) => {
                   abbreviation: mlbData.gameData?.teams?.home?.abbreviation,
                   displayName: mlbData.gameData?.teams?.home?.name,
                   logos: [{
-                    href: `https://a.espncdn.com/i/teamlogos/mlb/500/${mlbData.gameData?.teams?.home?.abbreviation?.toLowerCase()}.png`
+                    href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/${mlbData.gameData?.teams?.home?.abbreviation?.toLowerCase()}.png&w=200&h=200`
                   }]
                 },
                 score: mlbData.liveData?.linescore?.teams?.home?.runs?.toString() || '0'
@@ -2628,7 +2628,7 @@ const FavoritesScreen = ({ navigation }) => {
                     displayName: awayTeam.team?.displayName,
                     name: awayTeam.team?.name,
                     logos: awayTeam.team?.logos || [{
-                      href: `https://a.espncdn.com/i/teamlogos/nfl/500/${awayTeam.team?.abbreviation?.toLowerCase()}.png`
+                      href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${awayTeam.team?.abbreviation?.toLowerCase()}.png&w=200&h=200`
                     }]
                   },
                   score: awayTeam.score
@@ -2642,7 +2642,7 @@ const FavoritesScreen = ({ navigation }) => {
                     displayName: homeTeam.team?.displayName,
                     name: homeTeam.team?.name,
                     logos: homeTeam.team?.logos || [{
-                      href: `https://a.espncdn.com/i/teamlogos/nfl/500/${homeTeam.team?.abbreviation?.toLowerCase()}.png`
+                      href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${homeTeam.team?.abbreviation?.toLowerCase()}.png&w=200&h=200`
                     }]
                   },
                   score: homeTeam.score
@@ -2657,7 +2657,7 @@ const FavoritesScreen = ({ navigation }) => {
               displayName: homeTeam.team?.displayName,
               score: homeTeam.score,
               logos: homeTeam.team?.logos || [{
-                href: `https://a.espncdn.com/i/teamlogos/nfl/500/${homeTeam.team?.abbreviation?.toLowerCase()}.png`
+                href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${homeTeam.team?.abbreviation?.toLowerCase()}.png&w=200&h=200`
               }]
             },
             awayTeam: {
@@ -2666,7 +2666,7 @@ const FavoritesScreen = ({ navigation }) => {
               displayName: awayTeam.team?.displayName,
               score: awayTeam.score,
               logos: awayTeam.team?.logos || [{
-                href: `https://a.espncdn.com/i/teamlogos/nfl/500/${awayTeam.team?.abbreviation?.toLowerCase()}.png`
+                href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${awayTeam.team?.abbreviation?.toLowerCase()}.png&w=200&h=200`
               }]
             },
             situation: situation
@@ -5458,8 +5458,8 @@ const FavoritesScreen = ({ navigation }) => {
                 style={[styles.teamLogo, awayIsLoser && styles.losingTeamLogo]}
                 source={{
                   uri: isDarkMode
-                    ? `https://a.espncdn.com/i/teamlogos/nba/500-dark/${awayTeam?.abbreviation?.toLowerCase()}.png`
-                    : `https://a.espncdn.com/i/teamlogos/nba/500/${awayTeam?.abbreviation?.toLowerCase()}.png`
+                    ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500-dark/${awayTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
+                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${awayTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
                 }}
                 onError={() => {
                   // Fallback handled by source
@@ -5524,8 +5524,8 @@ const FavoritesScreen = ({ navigation }) => {
                 style={[styles.teamLogo, homeIsLoser && styles.losingTeamLogo]}
                 source={{
                   uri: isDarkMode
-                    ? `https://a.espncdn.com/i/teamlogos/nba/500-dark/${homeTeam?.abbreviation?.toLowerCase()}.png`
-                    : `https://a.espncdn.com/i/teamlogos/nba/500/${homeTeam?.abbreviation?.toLowerCase()}.png`
+                    ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500-dark/${homeTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
+                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${homeTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
                 }}
                 onError={() => {
                   // Fallback handled by source
@@ -5731,8 +5731,8 @@ const FavoritesScreen = ({ navigation }) => {
                 style={[styles.teamLogo, awayIsLoser && styles.losingTeamLogo]}
                 source={{
                   uri: isDarkMode
-                    ? `https://a.espncdn.com/i/teamlogos/wnba/500-dark/${awayTeam?.abbreviation?.toLowerCase()}.png`
-                    : `https://a.espncdn.com/i/teamlogos/wnba/500/${awayTeam?.abbreviation?.toLowerCase()}.png`
+                    ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/wnba/500-dark/${awayTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
+                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/wnba/500/${awayTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
                 }}
                 onError={() => {
                   // Fallback handled by source
@@ -5797,8 +5797,8 @@ const FavoritesScreen = ({ navigation }) => {
                 style={[styles.teamLogo, homeIsLoser && styles.losingTeamLogo]}
                 source={{
                   uri: isDarkMode
-                    ? `https://a.espncdn.com/i/teamlogos/wnba/500-dark/${homeTeam?.abbreviation?.toLowerCase()}.png`
-                    : `https://a.espncdn.com/i/teamlogos/wnba/500/${homeTeam?.abbreviation?.toLowerCase()}.png`
+                    ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/wnba/500-dark/${homeTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
+                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/wnba/500/${homeTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
                 }}
                 onError={() => {
                   // Fallback handled by source
@@ -6064,8 +6064,8 @@ const FavoritesScreen = ({ navigation }) => {
                 style={[styles.teamLogo, awayIsLoser && styles.losingTeamLogo]}
                 source={{
                   uri: isDarkMode
-                    ? `https://a.espncdn.com/i/teamlogos/nhl/500-dark/${awayTeam?.abbreviation?.toLowerCase()}.png`
-                    : `https://a.espncdn.com/i/teamlogos/nhl/500/${awayTeam?.abbreviation?.toLowerCase()}.png`
+                    ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500-dark/${awayTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
+                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500/${awayTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
                 }}
                 onError={() => {
                 }}
@@ -6132,8 +6132,8 @@ const FavoritesScreen = ({ navigation }) => {
                 style={[styles.teamLogo, homeIsLoser && styles.losingTeamLogo]}
                 source={{
                   uri: isDarkMode
-                    ? `https://a.espncdn.com/i/teamlogos/nhl/500-dark/${homeTeam?.abbreviation?.toLowerCase()}.png`
-                    : `https://a.espncdn.com/i/teamlogos/nhl/500/${homeTeam?.abbreviation?.toLowerCase()}.png`
+                    ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500-dark/${homeTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
+                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500/${homeTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
                 }}
                 onError={() => {
                 }}
@@ -6403,8 +6403,8 @@ const FavoritesScreen = ({ navigation }) => {
       const teamAbbr = team.abbreviation?.toLowerCase();
       if (teamAbbr) {
         return isDarkMode
-          ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${teamAbbr}.png`
-          : `https://a.espncdn.com/i/teamlogos/nfl/500/${teamAbbr}.png`;
+          ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500-dark/${teamAbbr}.png&w=200&h=200`
+          : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${teamAbbr}.png&w=200&h=200`;
       }
       return null;
     };
@@ -6658,8 +6658,8 @@ const FavoritesScreen = ({ navigation }) => {
                 style={[styles.teamLogo, awayIsLoser && styles.losingTeamLogo]}
                 source={{
                   uri: isDarkMode
-                    ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${awayTeam.abbreviation?.toLowerCase()}.png`
-                    : `https://a.espncdn.com/i/teamlogos/nfl/500/${awayTeam.abbreviation?.toLowerCase()}.png`
+                    ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500-dark/${awayTeam.abbreviation?.toLowerCase()}.png&w=200&h=200`
+                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${awayTeam.abbreviation?.toLowerCase()}.png&w=200&h=200`
                 }}
                 onError={() => {
                   // Fallback to the other mode on error
@@ -6746,8 +6746,8 @@ const FavoritesScreen = ({ navigation }) => {
                 style={[styles.teamLogo, homeIsLoser && styles.losingTeamLogo]}
                 source={{
                   uri: isDarkMode
-                    ? `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${homeTeam.abbreviation?.toLowerCase()}.png`
-                    : `https://a.espncdn.com/i/teamlogos/nfl/500/${homeTeam.abbreviation?.toLowerCase()}.png`
+                    ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500-dark/${homeTeam.abbreviation?.toLowerCase()}.png&w=200&h=200`
+                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${homeTeam.abbreviation?.toLowerCase()}.png&w=200&h=200`
                 }}
                 onError={() => {
                   // Fallback to the other mode on error

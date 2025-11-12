@@ -65,11 +65,11 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
     
     // If primary has failed, try fallback
     if (failedLogos.has(primaryKey)) {
-      return `https://a.espncdn.com/i/teamlogos/soccer/${useDarkMode ? '500' : '500-dark'}/${teamId}.png`;
+      return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/${useDarkMode ? '500' : '500-dark'}/${teamId}.png&w=200&h=200`;
     }
     
     // Try primary first
-    return `https://a.espncdn.com/i/teamlogos/soccer/${useDarkMode ? '500-dark' : '500'}/${teamId}.png`;
+    return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/${useDarkMode ? '500-dark' : '500'}/${teamId}.png&w=200&h=200`;
   };
 
   // Helper function to handle logo loading errors
@@ -85,7 +85,7 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
     }
     
     // Return the actual logo URL as default first
-    return { uri: `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png` };
+    return { uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200` };
   };
 
   // Helper function to get competition logo URL with fallback logic
@@ -95,9 +95,9 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
     // For dark mode: try 500-dark first
     // For light mode: try 500 first
     if (useDarkMode) {
-      return `https://a.espncdn.com/i/leaguelogos/soccer/500-dark/${logoId}.png`;
+      return `https://a.espncdn.com/combiner/i?img=/i/leaguelogos/soccer/500-dark/${logoId}.png&w=200&h=200`;
     } else {
-      return `https://a.espncdn.com/i/leaguelogos/soccer/500/${logoId}.png`;
+      return `https://a.espncdn.com/combiner/i?img=/i/leaguelogos/soccer/500/${logoId}.png&w=200&h=200`;
     }
   };
 
@@ -109,9 +109,9 @@ const UELPlayerPageScreen = ({ route, navigation }) => {
     // If primary dark mode link fails, try light mode (500)
     // If primary light mode link fails, try dark mode (500-dark)
     if (useDarkMode) {
-      return `https://a.espncdn.com/i/leaguelogos/soccer/500/${logoId}.png`;
+      return `https://a.espncdn.com/combiner/i?img=/i/leaguelogos/soccer/500/${logoId}.png&w=200&h=200`;
     } else {
-      return `https://a.espncdn.com/i/leaguelogos/soccer/500-dark/${logoId}.png`;
+      return `https://a.espncdn.com/combiner/i?img=/i/leaguelogos/soccer/500-dark/${logoId}.png&w=200&h=200`;
     }
   };
 

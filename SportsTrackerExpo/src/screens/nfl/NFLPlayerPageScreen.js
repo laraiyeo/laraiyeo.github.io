@@ -134,9 +134,9 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
     const fallbackKey = `${normalized}-${useDarkMode ? '500' : '500-dark'}`;
     if (failedLogos.has(primaryKey) && failedLogos.has(fallbackKey)) return null;
     if (failedLogos.has(primaryKey)) {
-      return `https://a.espncdn.com/i/teamlogos/nfl/${useDarkMode ? '500' : '500-dark'}/${normalized}.png`;
+      return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/${useDarkMode ? '500' : '500-dark'}/${normalized}.png&w=200&h=200`;
     }
-    return `https://a.espncdn.com/i/teamlogos/nfl/${useDarkMode ? '500-dark' : '500'}/${normalized}.png`;
+    return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/${useDarkMode ? '500-dark' : '500'}/${normalized}.png&w=200&h=200`;
   };
 
   const handleLogoError = useCallback((teamParam, useDarkMode) => {
@@ -173,7 +173,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
       if (abbr) normalizedToken = abbr;
     }
     const normalized = String(normalizedToken).toLowerCase();
-    return { uri: `https://a.espncdn.com/i/teamlogos/nfl/500/${normalized}.png` };
+    return { uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${normalized}.png&w=200&h=200` };
   };
 
   // Find per-event stats array in the gamelog/seasonTypes structure by eventId
@@ -732,7 +732,7 @@ const NFLPlayerPageScreen = ({ route, navigation }) => {
         jersey: '',
         position: { displayName: 'Player' },
         team: { id: teamId, abbreviation: maybeAbbr, displayName: '' },
-        headshot: { href: `https://a.espncdn.com/i/headshots/nfl/players/full/${playerId}.png` }
+        headshot: { href: `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${playerId}.png` }
       };
 
       // Use NFL-specific year logic for current stats

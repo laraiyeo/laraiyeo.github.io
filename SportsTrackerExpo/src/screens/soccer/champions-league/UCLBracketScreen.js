@@ -666,11 +666,11 @@ const UCLBracketScreen = ({ navigation, route }) => {
   const getTeamLogo = (teamId, isDark) => {
     if (!teamId) return null;
     const primaryUrl = isDark
-      ? `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`
-      : `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
+      ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`
+      : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
     const fallbackUrl = isDark
-      ? `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`
-      : `https://a.espncdn.com/i/teamlogos/soccer/500-dark/${teamId}.png`;
+      ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`
+      : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
 
     return { primaryUrl, fallbackUrl };
   };
@@ -735,7 +735,7 @@ const UCLBracketScreen = ({ navigation, route }) => {
           }
         }
         // Last-resort: try the canonical URL directly
-        const canonical = `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`;
+        const canonical = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
         const ok3 = await tryPrefetch(canonical);
         if (ok3) {
           logoUriCache[teamId] = canonical;
@@ -781,7 +781,7 @@ const UCLBracketScreen = ({ navigation, route }) => {
     await Promise.all(unique.map(async (teamId) => {
       if (logoUriCache[teamId]) return;
       const logos = getTeamLogo(teamId, isDarkMode);
-      const candidates = [logos?.primaryUrl, logos?.fallbackUrl, `https://a.espncdn.com/i/teamlogos/soccer/500/${teamId}.png`].filter(Boolean);
+      const candidates = [logos?.primaryUrl, logos?.fallbackUrl, `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`].filter(Boolean);
       for (const url of candidates) {
         try {
           await Image.prefetch(url);
