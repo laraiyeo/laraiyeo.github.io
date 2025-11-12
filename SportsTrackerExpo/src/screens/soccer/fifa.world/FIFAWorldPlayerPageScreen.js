@@ -25,8 +25,13 @@ const FIFA_COMPETITIONS = [
 
 // Helper function to get FIFA competition info
 const getFIFACompetitionInfo = (competitionId) => {
-  return FIFA_COMPETITIONS.find(comp => comp.id === competitionId) || 
-         { id: competitionId, name: competitionId, logo: "4" };
+  return (
+    FIFA_COMPETITIONS.find((comp) => comp.id === competitionId) || {
+      id: competitionId,
+      name: competitionId,
+      logo: "4",
+    }
+  );
 };
 
 // Helper function to get competition logo URL
@@ -94,18 +99,17 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
   const [failedLogos, setFailedLogos] = useState(new Set());
   const [leagueNames, setLeagueNames] = useState(new Map());
   const [currentYear, setCurrentYear] = useState(null);
-  
 
   // Get current year for FIFA competitions - same logic as stats screen
   const getCurrentYear = async () => {
     // Return cached year if already set
     if (currentYear) {
-      console.log('Using cached year:', currentYear);
+      console.log("Using cached year:", currentYear);
       return currentYear;
     }
 
     try {
-      console.log('Fetching current year for FIFA competition:', competitionId);
+      console.log("Fetching current year for FIFA competition:", competitionId);
       const currentCalendarYear = new Date().getFullYear();
       const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${competitionId}/scoreboard?dates=${currentCalendarYear}0101`;
 
@@ -114,17 +118,20 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
 
       if (data?.leagues?.[0]?.season?.year) {
         const year = data.leagues[0].season.year;
-        console.log('Found FIFA season year:', year);
+        console.log("Found FIFA season year:", year);
         setCurrentYear(year);
         return year;
       }
 
       // Fallback to current year
-      console.log('No FIFA season year found, using current year:', currentCalendarYear);
+      console.log(
+        "No FIFA season year found, using current year:",
+        currentCalendarYear
+      );
       setCurrentYear(currentCalendarYear);
       return currentCalendarYear;
     } catch (error) {
-      console.error('Error getting FIFA current year:', error);
+      console.error("Error getting FIFA current year:", error);
       const fallbackYear = new Date().getFullYear();
       setCurrentYear(fallbackYear);
       return fallbackYear;
@@ -401,68 +408,73 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
   const fetchPlayerData = async () => {
     try {
       setLoading(true);
-      
-      console.log(`Fetching FIFA player data for player ${playerId} from competition ${competitionId}...`);
-      
+
+      console.log(
+        `Fetching FIFA player data for player ${playerId} from competition ${competitionId}...`
+      );
+
       // Get the current year for FIFA competitions
       const year = await getCurrentYear();
-      
+
       // Try to fetch from the specific competition first using the year
       let primaryUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competitionId}/seasons/${year}/athletes/${playerId}?lang=en&region=us`;
-      console.log('Fetching FIFA athlete data from:', primaryUrl);
-      
+      console.log("Fetching FIFA athlete data from:", primaryUrl);
+
       let athleteResponse = await fetch(convertToHttps(primaryUrl));
       let foundData = null;
-      
+
       if (athleteResponse.ok) {
         foundData = await athleteResponse.json();
-        console.log('FIFA competition player data found:', foundData);
+        console.log("FIFA competition player data found:", foundData);
       }
-      
+
       // If not found in specific competition and it's not fifa.world, try fifa.world
-      if (!foundData && competitionId !== 'fifa.world') {
+      if (!foundData && competitionId !== "fifa.world") {
         const fifaWorldUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/fifa.world/seasons/${year}/athletes/${playerId}?lang=en&region=us`;
-        console.log('Trying FIFA World Cup URL:', fifaWorldUrl);
-        
+        console.log("Trying FIFA World Cup URL:", fifaWorldUrl);
+
         athleteResponse = await fetch(convertToHttps(fifaWorldUrl));
         if (athleteResponse.ok) {
           foundData = await athleteResponse.json();
-          console.log('FIFA World Cup player data found:', foundData);
+          console.log("FIFA World Cup player data found:", foundData);
         }
       }
-      
+
       if (!foundData) {
-        console.log('No player data found, trying generic soccer athlete endpoint...');
+        console.log(
+          "No player data found, trying generic soccer athlete endpoint..."
+        );
         const genericUrl = `https://sports.core.api.espn.com/v2/sports/soccer/athletes/${playerId}?lang=en&region=us`;
         athleteResponse = await fetch(convertToHttps(genericUrl));
         if (athleteResponse.ok) {
           foundData = await athleteResponse.json();
-          console.log('Generic soccer player data found:', foundData);
+          console.log("Generic soccer player data found:", foundData);
         }
       }
 
       if (foundData) {
-        console.log('Successfully found player data:', foundData);
+        console.log("Successfully found player data:", foundData);
         setPlayerData(foundData);
 
         // Fetch team information if available
         if (foundData.team && foundData.team.$ref) {
           try {
-            const teamResponse = await fetch(convertToHttps(foundData.team.$ref));
+            const teamResponse = await fetch(
+              convertToHttps(foundData.team.$ref)
+            );
             if (teamResponse.ok) {
               const teamData = await teamResponse.json();
-              setPlayerData(prev => ({ ...prev, team: teamData }));
+              setPlayerData((prev) => ({ ...prev, team: teamData }));
             }
           } catch (teamError) {
-            console.error('Error fetching team data:', teamError);
+            console.error("Error fetching team data:", teamError);
           }
         }
 
         // Fetch transactions for career data
         // await fetchPlayerTransactions(foundData);
-
       } else {
-        console.log('No player data found anywhere');
+        console.log("No player data found anywhere");
         // Create basic fallback data
         const fallbackData = {
           id: playerId,
@@ -474,9 +486,8 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
         setPlayerData(fallbackData);
         // await fetchPlayerTransactions(fallbackData);
       }
-
     } catch (error) {
-      console.error('Error in fetchPlayerData:', error);
+      console.error("Error in fetchPlayerData:", error);
       // Fallback to basic data
       const fallbackData = {
         id: playerId,
@@ -489,7 +500,10 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       try {
         // await fetchPlayerTransactions(fallbackData);
       } catch (transactionError) {
-        console.error('Failed to fetch transactions in error fallback:', transactionError);
+        console.error(
+          "Failed to fetch transactions in error fallback:",
+          transactionError
+        );
       }
     } finally {
       setLoading(false);
@@ -545,15 +559,19 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       const getFIFACompetitions = () => {
         // Get proper competition name using the same function used for display
         const mainCompetitionName = getCompetitionName(competitionId);
-        
+
         // Always include the main selected competition first
         const competitions = [
-          { code: competitionId, name: mainCompetitionName, seasonType: "0" }
+          { code: competitionId, name: mainCompetitionName, seasonType: "0" },
         ];
 
         // Add additional FIFA competitions if not already included
         if (competitionId !== "fifa.world") {
-          competitions.push({ code: "fifa.world", name: "FIFA World Cup", seasonType: "0" });
+          competitions.push({
+            code: "fifa.world",
+            name: "FIFA World Cup",
+            seasonType: "0",
+          });
         }
 
         return competitions;
@@ -800,7 +818,11 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       default:
         // Handle other FIFA competitions
         if (leagueCode.startsWith("fifa.")) {
-          return leagueCode.replace("fifa.", "").replace("_", " ").replace(".", " ").toUpperCase();
+          return leagueCode
+            .replace("fifa.", "")
+            .replace("_", " ")
+            .replace(".", " ")
+            .toUpperCase();
         }
         return leagueCode.replace("_", " ").toUpperCase();
     }
@@ -1553,7 +1575,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
   const fetchFIFACareerStats = async (year, competitionSeasons) => {
     try {
       console.log(`Fetching FIFA career stats for year: ${year}`);
-      
+
       // Only check competitions that have this specific year
       const competitionsToTry = [];
       for (const [competition, seasons] of competitionSeasons.entries()) {
@@ -1561,32 +1583,42 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
           competitionsToTry.push(competition);
         }
       }
-      
+
       console.log(`Year ${year} found in competitions:`, competitionsToTry);
-      
+
       if (competitionsToTry.length === 0) {
         console.log(`No competitions have data for year ${year}`);
         return [];
       }
-      
+
       const careerStats = [];
-      
+
       for (const competition of competitionsToTry) {
         try {
           // Try to get player's season data from this competition
           const playerSeasonUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/seasons/${year}/athletes/${playerId}?lang=en&region=us`;
-          console.log(`Checking player in ${competition} for ${year}:`, playerSeasonUrl);
-          
-          const playerSeasonResponse = await fetch(convertToHttps(playerSeasonUrl));
+          console.log(
+            `Checking player in ${competition} for ${year}:`,
+            playerSeasonUrl
+          );
+
+          const playerSeasonResponse = await fetch(
+            convertToHttps(playerSeasonUrl)
+          );
           if (playerSeasonResponse.ok) {
             const playerSeasonData = await playerSeasonResponse.json();
-            console.log(`Found player data in ${competition} for ${year}:`, playerSeasonData);
-            
+            console.log(
+              `Found player data in ${competition} for ${year}:`,
+              playerSeasonData
+            );
+
             // Get team information
             let teamData = null;
             if (playerSeasonData.team?.$ref) {
               try {
-                const teamResponse = await fetch(convertToHttps(playerSeasonData.team.$ref));
+                const teamResponse = await fetch(
+                  convertToHttps(playerSeasonData.team.$ref)
+                );
                 if (teamResponse.ok) {
                   teamData = await teamResponse.json();
                 }
@@ -1594,27 +1626,35 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                 console.error("Error fetching team data:", teamError);
               }
             }
-            
+
             // Get statistics using types/1 (not types/0)
             let statsData = null;
             if (playerSeasonData.statistics?.$ref) {
               try {
                 // Use types/1 endpoint for proper statistics
-                const statisticsUrl = playerSeasonData.statistics.$ref.replace(/types\/\d+/, 'types/1');
+                const statisticsUrl = playerSeasonData.statistics.$ref.replace(
+                  /types\/\d+/,
+                  "types/1"
+                );
                 console.log(`Fetching statistics from: ${statisticsUrl}`);
-                const statsResponse = await fetch(convertToHttps(statisticsUrl));
+                const statsResponse = await fetch(
+                  convertToHttps(statisticsUrl)
+                );
                 if (statsResponse.ok) {
                   statsData = await statsResponse.json();
-                  console.log(`Got statistics for ${competition} ${year}:`, statsData);
+                  console.log(
+                    `Got statistics for ${competition} ${year}:`,
+                    statsData
+                  );
                 }
               } catch (statsError) {
                 console.error("Error fetching stats data:", statsError);
               }
             }
-            
+
             // Get FIFA competition info for display
             const competitionInfo = getFIFACompetitionInfo(competition);
-            
+
             careerStats.push({
               year,
               competition,
@@ -1623,14 +1663,20 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
               playerData: playerSeasonData,
               teamData,
               statsData,
-              jersey: playerSeasonData.jersey || playerSeasonData.uniformNumber || null
+              jersey:
+                playerSeasonData.jersey ||
+                playerSeasonData.uniformNumber ||
+                null,
             });
           }
         } catch (error) {
-          console.error(`Error fetching ${competition} data for ${year}:`, error);
+          console.error(
+            `Error fetching ${competition} data for ${year}:`,
+            error
+          );
         }
       }
-      
+
       return careerStats;
     } catch (error) {
       console.error(`Error fetching FIFA career stats for ${year}:`, error);
@@ -1651,30 +1697,32 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
     try {
       console.log("Fetching career data for player ID:", playerId);
       console.log("Current playerData in fetchCareerData:", playerData);
-      
+
       // Get competition-specific seasons from both competitions
-      const competitionsForSeasons = [competitionId, "fifa.world"].filter((comp, index, arr) => arr.indexOf(comp) === index);
+      const competitionsForSeasons = [competitionId, "fifa.world"].filter(
+        (comp, index, arr) => arr.indexOf(comp) === index
+      );
       const competitionSeasons = new Map(); // Map of competition -> [years]
-      
+
       for (const comp of competitionsForSeasons) {
         try {
           const seasonsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${comp}/athletes/${playerId}/seasons?lang=en&region=us`;
           console.log(`Fetching player seasons from ${comp}:`, seasonsUrl);
-          
+
           const seasonsResponse = await fetch(convertToHttps(seasonsUrl));
           if (seasonsResponse.ok) {
             const seasonsData = await seasonsResponse.json();
             console.log(`Player seasons data for ${comp}:`, seasonsData);
-            
+
             if (seasonsData.items && seasonsData.items.length > 0) {
               // Extract years from season references
               const years = seasonsData.items
-                .map(item => {
+                .map((item) => {
                   const match = item.$ref.match(/seasons\/(\d{4})/);
                   return match ? parseInt(match[1]) : null;
                 })
-                .filter(year => year !== null);
-                
+                .filter((year) => year !== null);
+
               console.log(`Found seasons from ${comp}:`, years);
               competitionSeasons.set(comp, years);
             }
@@ -1683,19 +1731,19 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
           console.error(`Error fetching player seasons for ${comp}:`, error);
         }
       }
-      
+
       console.log("Competition-specific seasons:", competitionSeasons);
-      
+
       // Get all unique years from all competitions
       let allYears = [];
       for (const [competition, years] of competitionSeasons.entries()) {
         allYears = [...allYears, ...years];
       }
-      
+
       // Remove duplicates and sort (most recent first)
       const uniqueYears = [...new Set(allYears)].sort((a, b) => b - a);
       console.log("All unique years to process:", uniqueYears);
-      
+
       // Fallback to recent years if no seasons data available
       if (uniqueYears.length === 0) {
         console.log("No seasons data found, falling back to recent years");
@@ -1709,15 +1757,18 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       const careerPromises = uniqueYears.map(async (year) => {
         try {
           console.log(`Fetching FIFA career stats for year: ${year}`);
-          
+
           // Use the new FIFA-specific career stats fetcher
-          const fifaCareerStats = await fetchFIFACareerStats(year, competitionSeasons);
-          
+          const fifaCareerStats = await fetchFIFACareerStats(
+            year,
+            competitionSeasons
+          );
+
           if (fifaCareerStats.length > 0) {
             // Process the FIFA career stats into the format expected by the UI
             return {
               year,
-              data: fifaCareerStats.map(stat => ({
+              data: fifaCareerStats.map((stat) => ({
                 year,
                 competition: stat.competition,
                 competitionName: stat.competitionName,
@@ -1725,15 +1776,18 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                 team: stat.teamData || null,
                 jersey: stat.jersey,
                 playerStats: stat.statsData,
-                playerData: stat.playerData
-              }))
+                playerData: stat.playerData,
+              })),
             };
           } else {
             console.log(`No FIFA career data found for year: ${year}`);
             return { year, data: [] };
           }
         } catch (error) {
-          console.error(`Error processing FIFA career data for year ${year}:`, error);
+          console.error(
+            `Error processing FIFA career data for year ${year}:`,
+            error
+          );
           return { year, data: [] };
         }
       });
@@ -1743,11 +1797,14 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
 
       // Process the FIFA career results - only include seasons with statistics
       const careerStats = [];
-      careerResults.forEach(yearResult => {
+      careerResults.forEach((yearResult) => {
         if (yearResult.data && yearResult.data.length > 0) {
-          yearResult.data.forEach(seasonData => {
+          yearResult.data.forEach((seasonData) => {
             // Only include seasons that have statistics data
-            if (seasonData.playerStats && Object.keys(seasonData.playerStats).length > 0) {
+            if (
+              seasonData.playerStats &&
+              Object.keys(seasonData.playerStats).length > 0
+            ) {
               careerStats.push({
                 season: seasonData.year.toString(),
                 displaySeason: seasonData.year.toString(),
@@ -1758,17 +1815,21 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                 team: seasonData.team,
                 jersey: seasonData.jersey,
                 statistics: seasonData.playerStats,
-                playerData: seasonData.playerData
+                playerData: seasonData.playerData,
               });
             } else {
-              console.log(`Skipping ${seasonData.year} ${seasonData.competition} - no statistics found`);
+              console.log(
+                `Skipping ${seasonData.year} ${seasonData.competition} - no statistics found`
+              );
             }
           });
         }
       });
 
       // Sort by year (newest first)
-      careerStats.sort((a, b) => parseInt(b.displaySeason) - parseInt(a.displaySeason));
+      careerStats.sort(
+        (a, b) => parseInt(b.displaySeason) - parseInt(a.displaySeason)
+      );
 
       console.log("Final FIFA career data:", careerStats);
       setCareerData({ seasons: careerStats });
@@ -1789,12 +1850,36 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
     // Define competitions based on league (matching team-page.js)
     const LEAGUE_COMPETITIONS = {
       "fifa.world": [
-        { code: "fifa.worldq.uefa", name: "UEFA World Cup Qualifiers", logo: "67" },
-        { code: "fifa.worldq.afc", name: "AFC World Cup Qualifiers", logo: "62" },
-        { code: "fifa.worldq.concacaf", name: "CONCACAF World Cup Qualifiers", logo: "64" },
-        { code: "fifa.worldq.caf", name: "CAF World Cup Qualifiers", logo: "63" },
-        { code: "fifa.worldq.conmebol", name: "CONMEBOL World Cup Qualifiers", logo: "65" },
-        { code: "fifa.worldq.ofc", name: "OFC World Cup Qualifiers", logo: "66" },
+        {
+          code: "fifa.worldq.uefa",
+          name: "UEFA World Cup Qualifiers",
+          logo: "67",
+        },
+        {
+          code: "fifa.worldq.afc",
+          name: "AFC World Cup Qualifiers",
+          logo: "62",
+        },
+        {
+          code: "fifa.worldq.concacaf",
+          name: "CONCACAF World Cup Qualifiers",
+          logo: "64",
+        },
+        {
+          code: "fifa.worldq.caf",
+          name: "CAF World Cup Qualifiers",
+          logo: "63",
+        },
+        {
+          code: "fifa.worldq.conmebol",
+          name: "CONMEBOL World Cup Qualifiers",
+          logo: "65",
+        },
+        {
+          code: "fifa.worldq.ofc",
+          name: "OFC World Cup Qualifiers",
+          logo: "66",
+        },
       ],
       "esp.1": [
         { code: "esp.copa_del_rey", name: "Copa del Rey", logo: "80" },
@@ -2414,7 +2499,10 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
           <View style={styles.careerTeamInfo}>
             <Image
               source={{
-                uri: getCompetitionLogoUrl(season.competitionLogo || "4", isDarkMode)
+                uri: getCompetitionLogoUrl(
+                  season.competitionLogo || "4",
+                  isDarkMode
+                ),
               }}
               style={styles.careerTeamLogo}
               defaultSource={require("../../../../assets/soccer.png")}
@@ -2663,7 +2751,10 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                 <View style={styles.modalTeamContainer}>
                   <Image
                     source={{
-                      uri: getCompetitionLogoUrl(season.competitionLogo || "4", isDarkMode)
+                      uri: getCompetitionLogoUrl(
+                        season.competitionLogo || "4",
+                        isDarkMode
+                      ),
                     }}
                     style={styles.modalSeasonTeamLogo}
                     defaultSource={require("../../../../assets/soccer.png")}
