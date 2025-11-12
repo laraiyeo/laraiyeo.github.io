@@ -495,8 +495,9 @@ const PlayerPageScreen = ({ route, navigation }) => {
       // Get all valid values for comparison (filter out players with very limited playing time)
       const validPlayers = allPlayers.filter(p => {
         const gamesPlayed = parseFloat(p.stat.gamesPlayed) || 0;
+        const plateAppearances = parseFloat(p.stat.plateAppearances) || 0;
         const value = parseFloat(p.stat[statName]);
-        return !isNaN(value) && gamesPlayed >= 10; // Only include players with at least 10 games
+        return !isNaN(value) && (plateAppearances / gamesPlayed) >= 3.33; // Only include players with at least 3.1 plate appearances per game
       });
       
       if (validPlayers.length === 0) return { rank: 0, total: 0 };
@@ -563,8 +564,9 @@ const PlayerPageScreen = ({ route, navigation }) => {
       // Get all valid values for comparison (filter out players with very limited playing time)
       const validPitchers = allPlayers.filter(p => {
         const gamesPlayed = parseFloat(p.stat.gamesPlayed) || 0;
+        const inningsPitched = parseFloat(p.stat.inningsPitched) || 0;
         const value = parseFloat(p.stat[statName]);
-        return !isNaN(value) && gamesPlayed >= 5; // Pitchers need at least 5 games
+        return !isNaN(value) && (inningsPitched / gamesPlayed) >= 1; // Pitchers need at least 1 inning per game
       });
       
       if (validPitchers.length === 0) return { rank: 0, total: 0 };
