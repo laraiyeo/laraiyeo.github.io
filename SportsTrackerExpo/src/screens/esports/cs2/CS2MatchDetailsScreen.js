@@ -303,6 +303,12 @@ const CS2MatchDetailsScreen = ({ navigation, route }) => {
     return { type: 'ionicon', name: 'flash' }; // generic weapon icon
   };
 
+  // Determine if stream URL is from Twitch
+  const isTwitchStream = (url) => {
+    if (!url) return false;
+    return url.toLowerCase().includes('twitch.tv');
+  };
+
   // Create proper Twitch embed URL based on official Twitch documentation
   const createTwitchEmbedUrl = (stream) => {
     if (!stream) return null;
@@ -366,6 +372,88 @@ const CS2MatchDetailsScreen = ({ navigation, route }) => {
     return `https://player.twitch.tv/?channel=${encodeURIComponent(channelName)}&parent=${parentDomains}&muted=false&autoplay=true`;
   };
 
+  // Check if URL is from YouTube
+  const isYouTubeStream = (url) => {
+    if (!url) return false;
+    return url.toLowerCase().includes('youtube.com') || url.toLowerCase().includes('youtu.be');
+  };
+
+  // Create proper YouTube embed URL for mobile WebView
+  const createYouTubeEmbedUrl = (stream) => {
+    if (!stream || !stream.embed_url) return null;
+    
+    const embedUrl = stream.embed_url;
+    let videoId = null;
+    let existingParams = '';
+    
+    // Extract video ID from various YouTube URL formats
+    if (embedUrl.includes('/embed/')) {
+      const match = embedUrl.match(/\/embed\/([^?&]+)/);
+      if (match) videoId = match[1];
+      
+      // Preserve existing parameters like 'si' parameter
+      const paramMatch = embedUrl.match(/\?(.+)$/);
+      if (paramMatch) {
+        existingParams = paramMatch[1];
+      }
+    } else if (embedUrl.includes('watch?v=')) {
+      const match = embedUrl.match(/[?&]v=([^&]+)/);
+      if (match) videoId = match[1];
+    } else if (embedUrl.includes('youtu.be/')) {
+      const match = embedUrl.match(/youtu\.be\/([^?&]+)/);
+      if (match) videoId = match[1];
+    }
+    
+    if (!videoId) return embedUrl; // Fallback to original URL
+    
+    // Build parameters according to YouTube documentation
+    const params = new URLSearchParams(existingParams);
+    
+    // Add essential parameters for mobile WebView (don't override existing ones)
+    if (!params.has('autoplay')) params.set('autoplay', '1');
+    if (!params.has('controls')) params.set('controls', '1'); // Enable controls for better UX
+    if (!params.has('rel')) params.set('rel', '0'); // Don't show related videos
+    if (!params.has('modestbranding')) params.set('modestbranding', '1'); // Reduce YouTube branding
+    if (!params.has('playsinline')) params.set('playsinline', '1'); // Play inline on iOS
+    
+    // Add origin parameter to identify the embedder (required to prevent "embedder.identity.missing.referrer" error)
+    if (!params.has('origin')) {
+      // Determine the origin based on environment
+      let origin = 'localhost';
+      if (typeof window !== 'undefined' && window.location) {
+        origin = window.location.hostname;
+      }
+      
+      // For mobile apps, use a generic origin
+      if (origin === 'localhost' || !origin) {
+        origin = 'localhost';
+      }
+      
+      params.set('origin', `https://${origin}`);
+    }
+    
+    // Create the final URL
+    return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
+  };
+
+  // Get the appropriate stream URL - handle different platforms appropriately
+  const getStreamEmbedUrl = (stream) => {
+    if (!stream) return null;
+    
+    // Handle YouTube streams with special mobile-friendly parameters
+    if (stream.embed_url && isYouTubeStream(stream.embed_url)) {
+      return createYouTubeEmbedUrl(stream);
+    }
+    
+    // If the stream has an embed_url and it's not from Twitch or YouTube, use it directly
+    if (stream.embed_url && !isTwitchStream(stream.embed_url)) {
+      return stream.embed_url;
+    }
+    
+    // If it's a Twitch stream or no embed_url, use the Twitch converter
+    return createTwitchEmbedUrl(stream);
+  };
+
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
@@ -402,7 +490,9 @@ const CS2MatchDetailsScreen = ({ navigation, route }) => {
       index: i,
       name: s.name,
       original_url: s.embed_url,
-      twitch_url: createTwitchEmbedUrl(s)
+      is_twitch: isTwitchStream(s.embed_url),
+      is_youtube: isYouTubeStream(s.embed_url),
+      final_url: getStreamEmbedUrl(s)
     })));
     console.log('Selected stream index:', selectedStreamIndex);
   }
@@ -652,14 +742,25 @@ const CS2MatchDetailsScreen = ({ navigation, route }) => {
           <View style={styles.streamContainer}>
             {selectedStream ? (
               <WebView
-                source={{ uri: createTwitchEmbedUrl(selectedStream) }}
+                source={{ 
+                  uri: getStreamEmbedUrl(selectedStream),
+                  headers: {
+                    'Referer': 'https://localhost/',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                  }
+                }}
                 style={styles.streamPlayer}
                 allowsFullscreenVideo={true}
+                allowsInlineMediaPlayback={true}
                 mediaPlaybackRequiresUserAction={false}
                 javaScriptEnabled={true}
                 domStorageEnabled={true}
                 startInLoadingState={true}
                 scalesPageToFit={false}
+                mixedContentMode="compatibility"
+                thirdPartyCookiesEnabled={true}
+                sharedCookiesEnabled={true}
+                allowsBackForwardNavigationGestures={false}
                 onError={(syntheticEvent) => {
                   const { nativeEvent } = syntheticEvent;
                   console.error('WebView error: ', nativeEvent);
@@ -667,6 +768,9 @@ const CS2MatchDetailsScreen = ({ navigation, route }) => {
                 onHttpError={(syntheticEvent) => {
                   const { nativeEvent } = syntheticEvent;
                   console.error('WebView HTTP error: ', nativeEvent);
+                }}
+                onLoadStart={() => {
+                  console.log('Loading stream:', getStreamEmbedUrl(selectedStream));
                 }}
               />
             ) : (
@@ -1206,7 +1310,7 @@ const styles = StyleSheet.create({
   },
 
   streamContainer: {
-    aspectRatio: 16/9,
+    aspectRatio: 16/12,
     width: '100%',
     borderRadius: 8,
     overflow: 'hidden',
