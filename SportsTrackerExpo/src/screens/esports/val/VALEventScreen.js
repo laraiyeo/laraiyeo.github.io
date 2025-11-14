@@ -49,28 +49,30 @@ const VALEventScreen = ({ navigation, route }) => {
   const getWeaponImage = (weaponName) => {
     // Map weapon names to their file names
     const weaponMapping = {
-      "Classic": "classic",
-      "Shorty": "shorty",
-      "Frenzy": "frenzy", 
-      "Ghost": "ghost",
-      "Sheriff": "sheriff",
-      "Stinger": "stinger",
-      "Spectre": "spectre",
-      "Bucky": "bucky",
-      "Judge": "judge",
-      "Bulldog": "bulldog",
-      "Guardian": "guardian",
-      "Phantom": "phantom",
-      "Vandal": "vandal",
-      "Marshal": "marshal",
-      "Operator": "operator",
-      "Ares": "ares",
-      "Odin": "odin",
-      "Knife": "melee",
-      "Melee": "melee"
+      Classic: "classic",
+      Shorty: "shorty",
+      Frenzy: "frenzy",
+      Ghost: "ghost",
+      Sheriff: "sheriff",
+      Stinger: "stinger",
+      Spectre: "spectre",
+      Bucky: "bucky",
+      Judge: "judge",
+      Bulldog: "bulldog",
+      Guardian: "guardian",
+      Phantom: "phantom",
+      Vandal: "vandal",
+      Marshal: "marshal",
+      Operator: "operator",
+      Ares: "ares",
+      Odin: "odin",
+      Knife: "melee",
+      Melee: "melee",
     };
 
-    const mappedName = weaponMapping[weaponName] || weaponName?.toLowerCase().replace(/\s+/g, "_");
+    const mappedName =
+      weaponMapping[weaponName] ||
+      weaponName?.toLowerCase().replace(/\s+/g, "_");
     return mappedName
       ? `https://www.rib.gg/assets/weapons/${mappedName}.png`
       : null;
@@ -545,12 +547,12 @@ const VALEventScreen = ({ navigation, route }) => {
 
   const loadStatsData = async (eventIdToLoad = null) => {
     const targetEventId = eventIdToLoad || selectedEventId || eventId;
-    
+
     // Check if data is already cached for this event
     if (statsDataCache[targetEventId]) {
       return; // Data already loaded for this event
     }
-    
+
     try {
       setStatsLoading(true);
 
@@ -572,7 +574,7 @@ const VALEventScreen = ({ navigation, route }) => {
       ]);
 
       // Cache the data for this specific event ID
-      setStatsDataCache(prevCache => ({
+      setStatsDataCache((prevCache) => ({
         ...prevCache,
         [targetEventId]: {
           topAgentsByRole,
@@ -581,7 +583,7 @@ const VALEventScreen = ({ navigation, route }) => {
           topPlayers,
           topPlayersByMultikills,
           topPlayersByWeaponsKills,
-        }
+        },
       }));
     } catch (error) {
       console.error("Error loading stats data:", error);
@@ -593,14 +595,16 @@ const VALEventScreen = ({ navigation, route }) => {
   // Helper function to get current stats data based on selected event
   const getCurrentStatsData = () => {
     const currentEventId = selectedEventId || eventId;
-    return statsDataCache[currentEventId] || {
-      topAgentsByRole: null,
-      basicStatsByAgent: null,
-      mapTopComps: null,
-      topPlayers: null,
-      topPlayersByMultikills: null,
-      topPlayersByWeaponsKills: null,
-    };
+    return (
+      statsDataCache[currentEventId] || {
+        topAgentsByRole: null,
+        basicStatsByAgent: null,
+        mapTopComps: null,
+        topPlayers: null,
+        topPlayersByMultikills: null,
+        topPlayersByWeaponsKills: null,
+      }
+    );
   };
 
   if (loading) {
@@ -799,60 +803,29 @@ const VALEventScreen = ({ navigation, route }) => {
         </View>
 
         {/* Child Event Buttons (Only show for Stats tab) */}
-        {activeTab === "stats" && event?.childEvents && event.childEvents.length > 0 && (
-          <View style={styles.childEventsSection}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.childEventsScrollContent}
-            >
-              {/* All button (main event) */}
-              <TouchableOpacity
-                style={[
-                  styles.childEventButton,
-                  {
-                    backgroundColor:
-                      selectedEventId === eventId
-                        ? colors.primary
-                        : theme.surface,
-                  },
-                ]}
-                onPress={() => {
-                  setSelectedEventId(eventId);
-                  loadStatsData(eventId);
-                }}
+        {activeTab === "stats" &&
+          event?.childEvents &&
+          event.childEvents.length > 0 && (
+            <View style={styles.childEventsSection}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.childEventsScrollContent}
               >
-                <Text
-                  style={[
-                    styles.childEventButtonText,
-                    {
-                      color:
-                        selectedEventId === eventId
-                          ? "white"
-                          : theme.text,
-                    },
-                  ]}
-                >
-                  All
-                </Text>
-              </TouchableOpacity>
-
-              {/* Child event buttons */}
-              {event.childEvents.map((childEvent) => (
+                {/* All button (main event) */}
                 <TouchableOpacity
-                  key={childEvent.id}
                   style={[
                     styles.childEventButton,
                     {
                       backgroundColor:
-                        selectedEventId === childEvent.id
+                        selectedEventId === eventId
                           ? colors.primary
                           : theme.surface,
                     },
                   ]}
                   onPress={() => {
-                    setSelectedEventId(childEvent.id);
-                    loadStatsData(childEvent.id);
+                    setSelectedEventId(eventId);
+                    loadStatsData(eventId);
                   }}
                 >
                   <Text
@@ -860,19 +833,50 @@ const VALEventScreen = ({ navigation, route }) => {
                       styles.childEventButtonText,
                       {
                         color:
-                          selectedEventId === childEvent.id
-                            ? "white"
-                            : theme.text,
+                          selectedEventId === eventId ? "white" : theme.text,
                       },
                     ]}
                   >
-                    {childEvent.shortName || childEvent.name}
+                    All
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+
+                {/* Child event buttons */}
+                {event.childEvents.map((childEvent) => (
+                  <TouchableOpacity
+                    key={childEvent.id}
+                    style={[
+                      styles.childEventButton,
+                      {
+                        backgroundColor:
+                          selectedEventId === childEvent.id
+                            ? colors.primary
+                            : theme.surface,
+                      },
+                    ]}
+                    onPress={() => {
+                      setSelectedEventId(childEvent.id);
+                      loadStatsData(childEvent.id);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.childEventButtonText,
+                        {
+                          color:
+                            selectedEventId === childEvent.id
+                              ? "white"
+                              : theme.text,
+                        },
+                      ]}
+                    >
+                      {childEvent.shortName || childEvent.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
         {/* Tab Content */}
         {activeTab === "overview" && (
@@ -2699,7 +2703,7 @@ const VALEventScreen = ({ navigation, route }) => {
                           style={[
                             styles.teamLogo,
                             styles.teamLogoPlaceholder,
-                            { backgroundColor: colors.primary + '20' },
+                            { backgroundColor: colors.primary + "20" },
                           ]}
                         >
                           <Ionicons
@@ -3056,68 +3060,72 @@ const VALEventScreen = ({ navigation, route }) => {
                       Top Agent Picks and Win Rate
                     </Text>
                     <View style={styles.roleContainer}>
-                      {getCurrentStatsData().topAgentsByRole.map((role, index) => (
-                        <View key={role.roleId} style={styles.roleSection}>
-                          <Text
-                            style={[
-                              styles.roleTitle,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            {role.roleName}
-                          </Text>
-                          <View style={styles.agentColumnGrid}>
-                            {role.agents
-                              .slice(0, 4)
-                              .map((agent, agentIndex) => {
-                                const winRate =
-                                  agent.picks > 0
-                                    ? Math.round(
-                                        (agent.wins / agent.picks) * 100
-                                      )
-                                    : 0;
-                                return (
-                                  <View
-                                    key={agent.agentId}
-                                    style={[
-                                      styles.agentColumnItem,
-                                      { backgroundColor: theme.background },
-                                    ]}
-                                  >
-                                    <Image
-                                      source={{
-                                        uri: getAgentImageUrl(agent.agentName),
-                                      }}
-                                      style={styles.agentColumnImage}
-                                      resizeMode="contain"
-                                    />
-                                    <Text
+                      {getCurrentStatsData().topAgentsByRole.map(
+                        (role, index) => (
+                          <View key={role.roleId} style={styles.roleSection}>
+                            <Text
+                              style={[
+                                styles.roleTitle,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              {role.roleName}
+                            </Text>
+                            <View style={styles.agentColumnGrid}>
+                              {role.agents
+                                .slice(0, 4)
+                                .map((agent, agentIndex) => {
+                                  const winRate =
+                                    agent.picks > 0
+                                      ? Math.round(
+                                          (agent.wins / agent.picks) * 100
+                                        )
+                                      : 0;
+                                  return (
+                                    <View
+                                      key={agent.agentId}
                                       style={[
-                                        styles.agentColumnWinRate,
-                                        {
-                                          color:
-                                            winRate >= 50
-                                              ? "#4CAF50"
-                                              : "#FF5722",
-                                        },
+                                        styles.agentColumnItem,
+                                        { backgroundColor: theme.background },
                                       ]}
                                     >
-                                      {winRate}%
-                                    </Text>
-                                    <Text
-                                      style={[
-                                        styles.agentColumnPicks,
-                                        { color: theme.textSecondary },
-                                      ]}
-                                    >
-                                      {agent.picks} picks
-                                    </Text>
-                                  </View>
-                                );
-                              })}
+                                      <Image
+                                        source={{
+                                          uri: getAgentImageUrl(
+                                            agent.agentName
+                                          ),
+                                        }}
+                                        style={styles.agentColumnImage}
+                                        resizeMode="contain"
+                                      />
+                                      <Text
+                                        style={[
+                                          styles.agentColumnWinRate,
+                                          {
+                                            color:
+                                              winRate >= 50
+                                                ? "#4CAF50"
+                                                : "#FF5722",
+                                          },
+                                        ]}
+                                      >
+                                        {winRate}%
+                                      </Text>
+                                      <Text
+                                        style={[
+                                          styles.agentColumnPicks,
+                                          { color: theme.textSecondary },
+                                        ]}
+                                      >
+                                        {agent.picks} picks
+                                      </Text>
+                                    </View>
+                                  );
+                                })}
+                            </View>
                           </View>
-                        </View>
-                      ))}
+                        )
+                      )}
                     </View>
                   </View>
                 )}
@@ -3138,189 +3146,193 @@ const VALEventScreen = ({ navigation, route }) => {
                     <ScrollView
                       horizontal
                       showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.agentPerformanceScrollContent}
+                      contentContainerStyle={
+                        styles.agentPerformanceScrollContent
+                      }
                     >
-                      {getCurrentStatsData().basicStatsByAgent.slice(0, 22).map((agent) => {
-                        const acs = Math.round(agent.score / agent.rounds);
-                        const kd =
-                          agent.deaths > 0
-                            ? (agent.kills / agent.deaths).toFixed(2)
-                            : agent.kills.toFixed(2);
-                        const dpr = (agent.damage / agent.rounds).toFixed(0);
-                        const apr = (agent.assists / agent.rounds).toFixed(2);
-                        const fkPercent =
-                          agent.rounds > 0
-                            ? Math.round(
-                                (agent.firstKills / agent.rounds) * 100
-                              )
-                            : 0;
-                        const fdPercent =
-                          agent.rounds > 0
-                            ? Math.round(
-                                (agent.firstDeaths / agent.rounds) * 100
-                              )
-                            : 0;
-                        const kastPercent =
-                          agent.rounds > 0
-                            ? Math.round(
-                                (agent.kastRounds / agent.rounds) * 100
-                              )
-                            : 0;
+                      {getCurrentStatsData()
+                        .basicStatsByAgent.slice(0, 22)
+                        .map((agent) => {
+                          const acs = Math.round(agent.score / agent.rounds);
+                          const kd =
+                            agent.deaths > 0
+                              ? (agent.kills / agent.deaths).toFixed(2)
+                              : agent.kills.toFixed(2);
+                          const dpr = (agent.damage / agent.rounds).toFixed(0);
+                          const apr = (agent.assists / agent.rounds).toFixed(2);
+                          const fkPercent =
+                            agent.rounds > 0
+                              ? Math.round(
+                                  (agent.firstKills / agent.rounds) * 100
+                                )
+                              : 0;
+                          const fdPercent =
+                            agent.rounds > 0
+                              ? Math.round(
+                                  (agent.firstDeaths / agent.rounds) * 100
+                                )
+                              : 0;
+                          const kastPercent =
+                            agent.rounds > 0
+                              ? Math.round(
+                                  (agent.kastRounds / agent.rounds) * 100
+                                )
+                              : 0;
 
-                        return (
-                          <View
-                            key={agent.agentId}
-                            style={[
-                              styles.agentPerformanceCard,
-                              { backgroundColor: theme.background },
-                            ]}
-                          >
-                            <Image
-                              source={{
-                                uri: getAgentImageUrl(agent.agentName),
-                              }}
-                              style={styles.agentPerformanceImage}
-                              resizeMode="contain"
-                            />
-                            <Text
+                          return (
+                            <View
+                              key={agent.agentId}
                               style={[
-                                styles.agentPerformanceName,
-                                { color: theme.text },
+                                styles.agentPerformanceCard,
+                                { backgroundColor: theme.background },
                               ]}
                             >
-                              {agent.agentName}
-                            </Text>
-                            <View style={styles.agentPerformanceStats}>
-                              <View style={styles.agentPerformanceStatItem}>
-                                <Text
-                                  style={[
-                                    styles.agentPerformanceValue,
-                                    { color: theme.text },
-                                  ]}
-                                >
-                                  {acs}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.agentPerformanceLabel,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  ACS
-                                </Text>
-                              </View>
-                              <View style={styles.agentPerformanceStatItem}>
-                                <Text
-                                  style={[
-                                    styles.agentPerformanceValue,
-                                    { color: theme.text },
-                                  ]}
-                                >
-                                  {kd}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.agentPerformanceLabel,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  K/D
-                                </Text>
-                              </View>
-                              <View style={styles.agentPerformanceStatItem}>
-                                <Text
-                                  style={[
-                                    styles.agentPerformanceValue,
-                                    { color: theme.text },
-                                  ]}
-                                >
-                                  {dpr}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.agentPerformanceLabel,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  DPR
-                                </Text>
-                              </View>
-                              <View style={styles.agentPerformanceStatItem}>
-                                <Text
-                                  style={[
-                                    styles.agentPerformanceValue,
-                                    { color: theme.text },
-                                  ]}
-                                >
-                                  {apr}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.agentPerformanceLabel,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  APR
-                                </Text>
-                              </View>
-                              <View style={styles.agentPerformanceStatItem}>
-                                <Text
-                                  style={[
-                                    styles.agentPerformanceValue,
-                                    { color: theme.text },
-                                  ]}
-                                >
-                                  {fkPercent}%
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.agentPerformanceLabel,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  FK%
-                                </Text>
-                              </View>
-                              <View style={styles.agentPerformanceStatItem}>
-                                <Text
-                                  style={[
-                                    styles.agentPerformanceValue,
-                                    { color: theme.text },
-                                  ]}
-                                >
-                                  {fdPercent}%
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.agentPerformanceLabel,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  FD%
-                                </Text>
-                              </View>
-                              <View style={styles.agentPerformanceStatItem}>
-                                <Text
-                                  style={[
-                                    styles.agentPerformanceValue,
-                                    { color: theme.text },
-                                  ]}
-                                >
-                                  {kastPercent}%
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.agentPerformanceLabel,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  KAST%
-                                </Text>
+                              <Image
+                                source={{
+                                  uri: getAgentImageUrl(agent.agentName),
+                                }}
+                                style={styles.agentPerformanceImage}
+                                resizeMode="contain"
+                              />
+                              <Text
+                                style={[
+                                  styles.agentPerformanceName,
+                                  { color: theme.text },
+                                ]}
+                              >
+                                {agent.agentName}
+                              </Text>
+                              <View style={styles.agentPerformanceStats}>
+                                <View style={styles.agentPerformanceStatItem}>
+                                  <Text
+                                    style={[
+                                      styles.agentPerformanceValue,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    {acs}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.agentPerformanceLabel,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    ACS
+                                  </Text>
+                                </View>
+                                <View style={styles.agentPerformanceStatItem}>
+                                  <Text
+                                    style={[
+                                      styles.agentPerformanceValue,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    {kd}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.agentPerformanceLabel,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    K/D
+                                  </Text>
+                                </View>
+                                <View style={styles.agentPerformanceStatItem}>
+                                  <Text
+                                    style={[
+                                      styles.agentPerformanceValue,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    {dpr}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.agentPerformanceLabel,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    DPR
+                                  </Text>
+                                </View>
+                                <View style={styles.agentPerformanceStatItem}>
+                                  <Text
+                                    style={[
+                                      styles.agentPerformanceValue,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    {apr}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.agentPerformanceLabel,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    APR
+                                  </Text>
+                                </View>
+                                <View style={styles.agentPerformanceStatItem}>
+                                  <Text
+                                    style={[
+                                      styles.agentPerformanceValue,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    {fkPercent}%
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.agentPerformanceLabel,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    FK%
+                                  </Text>
+                                </View>
+                                <View style={styles.agentPerformanceStatItem}>
+                                  <Text
+                                    style={[
+                                      styles.agentPerformanceValue,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    {fdPercent}%
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.agentPerformanceLabel,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    FD%
+                                  </Text>
+                                </View>
+                                <View style={styles.agentPerformanceStatItem}>
+                                  <Text
+                                    style={[
+                                      styles.agentPerformanceValue,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    {kastPercent}%
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.agentPerformanceLabel,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    KAST%
+                                  </Text>
+                                </View>
                               </View>
                             </View>
-                          </View>
-                        );
-                      })}
+                          );
+                        })}
                     </ScrollView>
                   </View>
                 )}
@@ -3343,8 +3355,8 @@ const VALEventScreen = ({ navigation, route }) => {
                       showsHorizontalScrollIndicator={false}
                       contentContainerStyle={styles.multikillsScrollContent}
                     >
-                      {getCurrentStatsData().topPlayersByMultikills
-                        .slice(0, 10)
+                      {getCurrentStatsData()
+                        .topPlayersByMultikills.slice(0, 10)
                         .map((player, index) => (
                           <View
                             key={player.playerId}
@@ -3372,7 +3384,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                 style={[
                                   styles.multikillsPlayerImageCard,
                                   styles.multikillsPlayerImagePlaceholder,
-                                  { backgroundColor: colors.primary + '20' },
+                                  { backgroundColor: colors.primary + "20" },
                                 ]}
                               >
                                 <Ionicons
@@ -3520,8 +3532,8 @@ const VALEventScreen = ({ navigation, route }) => {
                           ACS (rounds)
                         </Text>
                       </View>
-                      {getCurrentStatsData().topPlayers
-                        .slice(0, 10)
+                      {getCurrentStatsData()
+                        .topPlayers.slice(0, 10)
                         .map((player, index) => (
                           <View
                             key={player.playerId}
@@ -3546,7 +3558,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                 style={[
                                   styles.topPlayersTeamLogo,
                                   styles.topPlayersTeamLogoPlaceholder,
-                                  { backgroundColor: colors.primary + '20' },
+                                  { backgroundColor: colors.primary + "20" },
                                 ]}
                               >
                                 <Ionicons
@@ -3653,7 +3665,9 @@ const VALEventScreen = ({ navigation, route }) => {
                                     style={[
                                       styles.weaponKillsPlayerImageRow,
                                       styles.weaponKillsPlayerImagePlaceholder,
-                                      { backgroundColor: colors.primary + '20' },
+                                      {
+                                        backgroundColor: colors.primary + "20",
+                                      },
                                     ]}
                                   >
                                     <Ionicons
@@ -3714,13 +3728,16 @@ const VALEventScreen = ({ navigation, route }) => {
                     </Text>
                     <View style={styles.topCompsContainer}>
                       {Object.entries(
-                        getCurrentStatsData().mapTopComps.reduce((acc, comp) => {
-                          if (!acc[comp.mapName]) {
-                            acc[comp.mapName] = [];
-                          }
-                          acc[comp.mapName].push(comp);
-                          return acc;
-                        }, {})
+                        getCurrentStatsData().mapTopComps.reduce(
+                          (acc, comp) => {
+                            if (!acc[comp.mapName]) {
+                              acc[comp.mapName] = [];
+                            }
+                            acc[comp.mapName].push(comp);
+                            return acc;
+                          },
+                          {}
+                        )
                       ).map(([mapName, comps]) => (
                         <View key={mapName} style={styles.mapCompsSection}>
                           <Text
@@ -3736,7 +3753,7 @@ const VALEventScreen = ({ navigation, route }) => {
                               key={index}
                               style={[
                                 styles.compRow,
-                                { position: 'relative', overflow: 'hidden' },
+                                { position: "relative", overflow: "hidden" },
                               ]}
                             >
                               <Image
@@ -3761,10 +3778,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                   ))}
                                 </View>
                                 <Text
-                                  style={[
-                                    styles.compPicks,
-                                    { color: 'white' },
-                                  ]}
+                                  style={[styles.compPicks, { color: "white" }]}
                                 >
                                   {comp.picks} pick{comp.picks !== 1 ? "s" : ""}
                                 </Text>
