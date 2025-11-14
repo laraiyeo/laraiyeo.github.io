@@ -2606,7 +2606,7 @@ const CS2TournamentScreen = ({ navigation, route }) => {
                                     { color: theme.textSecondary },
                                   ]}
                                 >
-                                  Ace
+                                  Ace{player.multikills_vs_5 !== 1 ? "s" : ""}
                                 </Text>
                               </View>
                             </View>

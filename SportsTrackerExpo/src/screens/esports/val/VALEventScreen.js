@@ -3046,6 +3046,405 @@ const VALEventScreen = ({ navigation, route }) => {
               </View>
             ) : (
               <ScrollView>
+
+                {/* Top Players */}
+                {getCurrentStatsData().topPlayers && (
+                  <View
+                    style={[
+                      styles.statsCard,
+                      { backgroundColor: theme.surface },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.statsCardTitle, { color: theme.text }]}
+                    >
+                      Top Players
+                    </Text>
+                    <View style={styles.topPlayersTable}>
+                      <View style={styles.topPlayersHeader}>
+                        <Text
+                          style={[
+                            styles.topPlayersHeaderText,
+                            { color: theme.text },
+                          ]}
+                        >
+                          ACS (rounds)
+                        </Text>
+                      </View>
+                      {getCurrentStatsData()
+                        .topPlayers.slice(0, 10)
+                        .map((player, index) => (
+                          <View
+                            key={player.playerId}
+                            style={styles.topPlayersRow}
+                          >
+                            <Text
+                              style={[
+                                styles.topPlayersRank,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {index + 1}
+                            </Text>
+                            {player.teamLogoUrl ? (
+                              <Image
+                                source={{ uri: player.teamLogoUrl }}
+                                style={styles.topPlayersTeamLogo}
+                                resizeMode="contain"
+                              />
+                            ) : (
+                              <View
+                                style={[
+                                  styles.topPlayersTeamLogo,
+                                  styles.topPlayersTeamLogoPlaceholder,
+                                  { backgroundColor: colors.primary + "20" },
+                                ]}
+                              >
+                                <Ionicons
+                                  name="shield"
+                                  size={16}
+                                  color={colors.primary}
+                                />
+                              </View>
+                            )}
+                            <Text
+                              style={[
+                                styles.topPlayersName,
+                                { color: theme.text },
+                              ]}
+                            >
+                              {player.playerName}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.topPlayersAcs,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              {Math.round(parseFloat(player.acs))}{" "}
+                              <Text style={{ color: colors.secondary }}>
+                                ({player.roundsPlayed})
+                              </Text>
+                            </Text>
+                            <View style={styles.topPlayersAgents}>
+                              {player.agents.map((agent) => (
+                                <Image
+                                  key={agent.agentId}
+                                  source={{
+                                    uri: getAgentImageUrl(agent.agentName),
+                                  }}
+                                  style={styles.topPlayersAgentImage}
+                                  resizeMode="contain"
+                                />
+                              ))}
+                              {player.agents.length > 4 && (
+                                <Text
+                                  style={[
+                                    styles.topPlayersMoreAgents,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  +{player.agents.length - 4}
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+                        ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* Multikills */}
+                {getCurrentStatsData().topPlayersByMultikills && (
+                  <View
+                    style={[
+                      styles.statsCard,
+                      { backgroundColor: theme.surface },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.statsCardTitle, { color: theme.text }]}
+                    >
+                      Multikills
+                    </Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.multikillsScrollContent}
+                    >
+                      {getCurrentStatsData()
+                        .topPlayersByMultikills.slice(0, 10)
+                        .map((player, index) => (
+                          <View
+                            key={player.playerId}
+                            style={[
+                              styles.multikillsCard,
+                              { backgroundColor: theme.background },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.multikillsRankCard,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              #{index + 1}
+                            </Text>
+                            {player.playerImageUrl ? (
+                              <Image
+                                source={{ uri: player.playerImageUrl }}
+                                style={styles.multikillsPlayerImageCard}
+                                resizeMode="contain"
+                              />
+                            ) : (
+                              <View
+                                style={[
+                                  styles.multikillsPlayerImageCard,
+                                  styles.multikillsPlayerImagePlaceholder,
+                                  { backgroundColor: colors.primary + "20" },
+                                ]}
+                              >
+                                <Ionicons
+                                  name="person"
+                                  size={20}
+                                  color={colors.primary}
+                                />
+                              </View>
+                            )}
+                            <Text
+                              style={[
+                                styles.multikillsPlayerNameCard,
+                                { color: theme.text },
+                              ]}
+                            >
+                              {player.playerName}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.multikillsTotalCard,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              {player.multikills}
+                            </Text>
+                            <View style={styles.multikillsStatsCard}>
+                              <View style={styles.multikillsStatItem}>
+                                <Text
+                                  style={[
+                                    styles.multikillsStatValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {player.breakdown["2k"]}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.multikillsStatLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  2K
+                                </Text>
+                              </View>
+                              <View style={styles.multikillsStatItem}>
+                                <Text
+                                  style={[
+                                    styles.multikillsStatValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {player.breakdown["3k"]}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.multikillsStatLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  3K
+                                </Text>
+                              </View>
+                              <View style={styles.multikillsStatItem}>
+                                <Text
+                                  style={[
+                                    styles.multikillsStatValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {player.breakdown["4k"]}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.multikillsStatLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  4K
+                                </Text>
+                              </View>
+                              <View style={styles.multikillsStatItem}>
+                                <Text
+                                  style={[
+                                    styles.multikillsStatValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {player.breakdown["5k"]}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.multikillsStatLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  5K
+                                </Text>
+                              </View>
+                              <View style={styles.multikillsStatItem}>
+                                <Text
+                                  style={[
+                                    styles.multikillsStatValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {player.breakdown["6k"]}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.multikillsStatLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  6K
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                        ))}
+                    </ScrollView>
+                  </View>
+                )}
+
+                {/* Most Kills by Weapon */}
+                {getCurrentStatsData().topPlayersByWeaponsKills && (
+                  <View
+                    style={[
+                      styles.statsCard,
+                      { backgroundColor: theme.surface },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.statsCardTitle, { color: theme.text }]}
+                    >
+                      Most Kills By Weapon
+                    </Text>
+                    <View style={styles.weaponKillsColumn}>
+                      {Object.entries(
+                        getCurrentStatsData().topPlayersByWeaponsKills.reduce(
+                          (acc, player) => {
+                            if (!acc[player.weaponName]) {
+                              acc[player.weaponName] = [];
+                            }
+                            acc[player.weaponName].push(player);
+                            return acc;
+                          },
+                          {}
+                        )
+                      )
+                        .slice(0, 10)
+                        .map(([weaponName, players]) => {
+                          const topPlayer = players[0];
+                          return (
+                            <View
+                              key={weaponName}
+                              style={[
+                                styles.weaponKillsRowItem,
+                                { backgroundColor: theme.background },
+                              ]}
+                            >
+                              <View style={styles.weaponKillsPlayerSection}>
+                              {topPlayer.playerImageUrl ? (
+                                <Image
+                                  source={{ uri: topPlayer.playerImageUrl }}
+                                  style={styles.weaponKillsPlayerImageRow}
+                                  resizeMode="contain"
+                                />
+                              ) : (
+                                <View
+                                  style={[
+                                    styles.weaponKillsPlayerImageRow,
+                                    styles.weaponKillsPlayerImagePlaceholder,
+                                    { backgroundColor: colors.primary + "20" },
+                                  ]}
+                                >
+                                  <Ionicons name="person" size={20} color={colors.primary} />
+                                </View>
+                              )}
+
+                              {/* New vertical text wrapper */}
+                              <View style={styles.playerInfoWrapper}>
+                                <Text
+                                  style={[
+                                    styles.weaponKillsPlayerNameRow,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {topPlayer.playerName}
+                                </Text>
+
+                                {/* Team row */}
+                                <View style={styles.teamRow}>
+                                  {topPlayer.teamLogoUrl ? (
+                                    <Image
+                                      source={{ uri: topPlayer.teamLogoUrl }}
+                                      style={styles.teamLogo1}
+                                      resizeMode="contain"
+                                    />
+                                  ) : (
+                                    <View
+                                      style={[
+                                        styles.teamLogo1,
+                                        styles.teamLogoPlaceholder1,
+                                        { backgroundColor: colors.primary + "20" },
+                                      ]}
+                                    >
+                                      <Ionicons name="shield" size={14} color={colors.primary} />
+                                    </View>
+                                  )}
+                                  <Text style={[styles.teamName, { color: theme.text }]}>
+                                    {topPlayer.teamName}
+                                  </Text>
+                                </View>
+                              </View>
+                              </View>
+
+                              <View style={styles.weaponKillsWeaponSection}>
+                                <Image
+                                  source={{
+                                    uri: getWeaponImage(weaponName),
+                                  }}
+                                  style={[
+                                    styles.weaponKillsWeaponImage,
+                                    { tintColor: theme.text },
+                                  ]}
+                                  resizeMode="contain"
+                                />
+                                <Text
+                                  style={[
+                                    styles.weaponKillsCountRow,
+                                    { color: colors.primary },
+                                  ]}
+                                >
+                                  {topPlayer.kills} Kills
+                                </Text>
+                              </View>
+                            </View>
+                          );
+                        })}
+                    </View>
+                  </View>
+                )}
+
                 {/* Top Agents by Role */}
                 {getCurrentStatsData().topAgentsByRole && (
                   <View
@@ -3151,7 +3550,7 @@ const VALEventScreen = ({ navigation, route }) => {
                       }
                     >
                       {getCurrentStatsData()
-                        .basicStatsByAgent.slice(0, 22)
+                        .basicStatsByAgent
                         .map((agent) => {
                           const acs = Math.round(agent.score / agent.rounds);
                           const kd =
@@ -3334,382 +3733,6 @@ const VALEventScreen = ({ navigation, route }) => {
                           );
                         })}
                     </ScrollView>
-                  </View>
-                )}
-
-                {/* Multikills */}
-                {getCurrentStatsData().topPlayersByMultikills && (
-                  <View
-                    style={[
-                      styles.statsCard,
-                      { backgroundColor: theme.surface },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.statsCardTitle, { color: theme.text }]}
-                    >
-                      Multikills
-                    </Text>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.multikillsScrollContent}
-                    >
-                      {getCurrentStatsData()
-                        .topPlayersByMultikills.slice(0, 10)
-                        .map((player, index) => (
-                          <View
-                            key={player.playerId}
-                            style={[
-                              styles.multikillsCard,
-                              { backgroundColor: theme.background },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.multikillsRankCard,
-                                { color: theme.textSecondary },
-                              ]}
-                            >
-                              #{index + 1}
-                            </Text>
-                            {player.playerImageUrl ? (
-                              <Image
-                                source={{ uri: player.playerImageUrl }}
-                                style={styles.multikillsPlayerImageCard}
-                                resizeMode="contain"
-                              />
-                            ) : (
-                              <View
-                                style={[
-                                  styles.multikillsPlayerImageCard,
-                                  styles.multikillsPlayerImagePlaceholder,
-                                  { backgroundColor: colors.primary + "20" },
-                                ]}
-                              >
-                                <Ionicons
-                                  name="person"
-                                  size={20}
-                                  color={colors.primary}
-                                />
-                              </View>
-                            )}
-                            <Text
-                              style={[
-                                styles.multikillsPlayerNameCard,
-                                { color: theme.text },
-                              ]}
-                            >
-                              {player.playerName}
-                            </Text>
-                            <Text
-                              style={[
-                                styles.multikillsTotalCard,
-                                { color: colors.primary },
-                              ]}
-                            >
-                              {player.multikills}
-                            </Text>
-                            <View style={styles.multikillsStatsCard}>
-                              <View style={styles.multikillsStatItem}>
-                                <Text
-                                  style={[
-                                    styles.multikillsStatValue,
-                                    { color: theme.text },
-                                  ]}
-                                >
-                                  {player.breakdown["2k"]}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.multikillsStatLabel,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  2K
-                                </Text>
-                              </View>
-                              <View style={styles.multikillsStatItem}>
-                                <Text
-                                  style={[
-                                    styles.multikillsStatValue,
-                                    { color: theme.text },
-                                  ]}
-                                >
-                                  {player.breakdown["3k"]}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.multikillsStatLabel,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  3K
-                                </Text>
-                              </View>
-                              <View style={styles.multikillsStatItem}>
-                                <Text
-                                  style={[
-                                    styles.multikillsStatValue,
-                                    { color: theme.text },
-                                  ]}
-                                >
-                                  {player.breakdown["4k"]}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.multikillsStatLabel,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  4K
-                                </Text>
-                              </View>
-                              <View style={styles.multikillsStatItem}>
-                                <Text
-                                  style={[
-                                    styles.multikillsStatValue,
-                                    { color: theme.text },
-                                  ]}
-                                >
-                                  {player.breakdown["5k"]}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.multikillsStatLabel,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  5K
-                                </Text>
-                              </View>
-                              <View style={styles.multikillsStatItem}>
-                                <Text
-                                  style={[
-                                    styles.multikillsStatValue,
-                                    { color: theme.text },
-                                  ]}
-                                >
-                                  {player.breakdown["6k"]}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.multikillsStatLabel,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  6K
-                                </Text>
-                              </View>
-                            </View>
-                          </View>
-                        ))}
-                    </ScrollView>
-                  </View>
-                )}
-
-                {/* Top Players */}
-                {getCurrentStatsData().topPlayers && (
-                  <View
-                    style={[
-                      styles.statsCard,
-                      { backgroundColor: theme.surface },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.statsCardTitle, { color: theme.text }]}
-                    >
-                      Top Players
-                    </Text>
-                    <View style={styles.topPlayersTable}>
-                      <View style={styles.topPlayersHeader}>
-                        <Text
-                          style={[
-                            styles.topPlayersHeaderText,
-                            { color: theme.text },
-                          ]}
-                        >
-                          ACS (rounds)
-                        </Text>
-                      </View>
-                      {getCurrentStatsData()
-                        .topPlayers.slice(0, 10)
-                        .map((player, index) => (
-                          <View
-                            key={player.playerId}
-                            style={styles.topPlayersRow}
-                          >
-                            <Text
-                              style={[
-                                styles.topPlayersRank,
-                                { color: theme.textSecondary },
-                              ]}
-                            >
-                              {index + 1}
-                            </Text>
-                            {player.teamLogoUrl ? (
-                              <Image
-                                source={{ uri: player.teamLogoUrl }}
-                                style={styles.topPlayersTeamLogo}
-                                resizeMode="contain"
-                              />
-                            ) : (
-                              <View
-                                style={[
-                                  styles.topPlayersTeamLogo,
-                                  styles.topPlayersTeamLogoPlaceholder,
-                                  { backgroundColor: colors.primary + "20" },
-                                ]}
-                              >
-                                <Ionicons
-                                  name="shield"
-                                  size={16}
-                                  color={colors.primary}
-                                />
-                              </View>
-                            )}
-                            <Text
-                              style={[
-                                styles.topPlayersName,
-                                { color: theme.text },
-                              ]}
-                            >
-                              {player.playerName}
-                            </Text>
-                            <Text
-                              style={[
-                                styles.topPlayersAcs,
-                                { color: colors.primary },
-                              ]}
-                            >
-                              {Math.round(parseFloat(player.acs))} (
-                              <Text style={{ color: colors.secondary }}>
-                                {player.roundsPlayed}
-                              </Text>
-                              )
-                            </Text>
-                            <View style={styles.topPlayersAgents}>
-                              {player.agents.slice(0, 4).map((agent) => (
-                                <Image
-                                  key={agent.agentId}
-                                  source={{
-                                    uri: getAgentImageUrl(agent.agentName),
-                                  }}
-                                  style={styles.topPlayersAgentImage}
-                                  resizeMode="contain"
-                                />
-                              ))}
-                              {player.agents.length > 4 && (
-                                <Text
-                                  style={[
-                                    styles.topPlayersMoreAgents,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  +{player.agents.length - 4}
-                                </Text>
-                              )}
-                            </View>
-                          </View>
-                        ))}
-                    </View>
-                  </View>
-                )}
-
-                {/* Most Kills by Weapon */}
-                {getCurrentStatsData().topPlayersByWeaponsKills && (
-                  <View
-                    style={[
-                      styles.statsCard,
-                      { backgroundColor: theme.surface },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.statsCardTitle, { color: theme.text }]}
-                    >
-                      Most Kills By Weapon
-                    </Text>
-                    <View style={styles.weaponKillsColumn}>
-                      {Object.entries(
-                        getCurrentStatsData().topPlayersByWeaponsKills.reduce(
-                          (acc, player) => {
-                            if (!acc[player.weaponName]) {
-                              acc[player.weaponName] = [];
-                            }
-                            acc[player.weaponName].push(player);
-                            return acc;
-                          },
-                          {}
-                        )
-                      )
-                        .slice(0, 9)
-                        .map(([weaponName, players]) => {
-                          const topPlayer = players[0];
-                          return (
-                            <View
-                              key={weaponName}
-                              style={[
-                                styles.weaponKillsRowItem,
-                                { backgroundColor: theme.background },
-                              ]}
-                            >
-                              <View style={styles.weaponKillsPlayerSection}>
-                                {topPlayer.playerImageUrl ? (
-                                  <Image
-                                    source={{ uri: topPlayer.playerImageUrl }}
-                                    style={styles.weaponKillsPlayerImageRow}
-                                    resizeMode="contain"
-                                  />
-                                ) : (
-                                  <View
-                                    style={[
-                                      styles.weaponKillsPlayerImageRow,
-                                      styles.weaponKillsPlayerImagePlaceholder,
-                                      {
-                                        backgroundColor: colors.primary + "20",
-                                      },
-                                    ]}
-                                  >
-                                    <Ionicons
-                                      name="person"
-                                      size={16}
-                                      color={colors.primary}
-                                    />
-                                  </View>
-                                )}
-                                <Text
-                                  style={[
-                                    styles.weaponKillsPlayerNameRow,
-                                    { color: theme.text },
-                                  ]}
-                                >
-                                  {topPlayer.playerName}
-                                </Text>
-                              </View>
-                              <View style={styles.weaponKillsWeaponSection}>
-                                <Image
-                                  source={{
-                                    uri: getWeaponImage(weaponName),
-                                  }}
-                                  style={[
-                                    styles.weaponKillsWeaponImage,
-                                    { tintColor: theme.text },
-                                  ]}
-                                  resizeMode="contain"
-                                />
-                                <Text
-                                  style={[
-                                    styles.weaponKillsCountRow,
-                                    { color: colors.primary },
-                                  ]}
-                                >
-                                  {topPlayer.kills} Kills
-                                </Text>
-                              </View>
-                            </View>
-                          );
-                        })}
-                    </View>
                   </View>
                 )}
 
@@ -4830,7 +4853,6 @@ const styles = StyleSheet.create({
 
   // Agent Performance (Horizontal Scroll Cards) - Updated
   agentPerformanceScrollContent: {
-    paddingHorizontal: 16,
     gap: 12,
   },
   agentPerformanceCard: {
@@ -4868,7 +4890,6 @@ const styles = StyleSheet.create({
 
   // Multikills (Horizontal Scroll Cards) - Updated
   multikillsScrollContent: {
-    paddingHorizontal: 16,
     gap: 12,
   },
   multikillsCard: {
@@ -4945,8 +4966,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   weaponKillsPlayerImageRow: {
-    width: 32,
-    height: 32,
+    width: 35,
+    height: 35,
     borderRadius: 16,
     marginRight: 12,
   },
@@ -4958,6 +4979,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+  playerInfoWrapper: {
+  flexDirection: "column",
+  justifyContent: "center",
+  flexShrink: 1,
+  },
+
+  teamRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
+
+  teamLogo1: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    marginRight: 6,
+  },
+
+  teamLogoPlaceholder1: {
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 4,
+  },
+
+  teamName: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+
   weaponKillsWeaponSection: {
     alignItems: "center",
   },
@@ -4977,9 +5028,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-    width: "100%",
-    height: "100%",
+    bottom: 0
   },
   compRowMapOverlay: {
     position: "absolute",
