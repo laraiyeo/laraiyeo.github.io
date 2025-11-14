@@ -3602,7 +3602,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   streamContainer: {
-    aspectRatio: 16 / 9,
+    aspectRatio: 16 / 12,
     width: "100%",
     borderRadius: 8,
     overflow: "hidden",

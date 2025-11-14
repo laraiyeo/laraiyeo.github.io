@@ -1338,7 +1338,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
     try {
       console.log(`Fetching live matches from API...`);
       const response = await fetch(
-        convertToHttps(`${STREAM_API_BASE}/matches/football/popular`)
+        convertToHttps(`${STREAM_API_BASE}/matches/football`)
       );
 
       if (!response.ok) {
@@ -1427,7 +1427,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
         console.log("Trying fallback: searching all matches...");
         try {
           const allMatchesResponse = await fetch(
-            convertToHttps(`${STREAM_API_BASE}/matches/football/popular`)
+            convertToHttps(`${STREAM_API_BASE}/matches/football`)
           );
           if (allMatchesResponse.ok) {
             const allMatchesData = await allMatchesResponse.json();

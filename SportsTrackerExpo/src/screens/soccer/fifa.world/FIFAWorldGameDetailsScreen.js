@@ -1257,7 +1257,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
       "paris saint germain": "psg",
       "paris saint-germain": "psg",
       "tottenham hotspur": "tottenham-hotspur",
-      tottenham: "tottenham-hotspur",
+      "tottenham": "tottenham-hotspur",
       "manchester united": "manchester-united",
       "manchester city": "manchester-city",
       "real madrid": "real-madrid",
@@ -1265,20 +1265,20 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
       "bayern munich": "bayern-munich",
       "borussia dortmund": "borussia-dortmund",
       "stade rennais": "rennes",
-      marseille: "olympique-marseille",
-      lafc: "los-angeles-fc",
+      "marseille": "olympique-marseille",
+      "lafc": "los-angeles-fc",
       "sporting kansas city": "sporting-kc",
       "chicago fire fc": "chicago-fire",
       "st. louis city sc": "st-louis-city",
       "afc bournemouth": "bournemouth",
-      bournemouth: "bournemouth",
+      "bournemouth": "bournemouth",
       "west ham united": "west-ham-united",
       "west ham": "west-ham-united",
       "brighton & hove albion": "brighton",
-      brighton: "brighton",
+      "brighton": "brighton",
       "crystal palace": "crystal-palace",
       "newcastle united": "newcastle-united",
-      newcastle: "newcastle-united",
+      "newcastle": "newcastle-united",
       "wolverhampton wanderers": "wolves",
       wolves: "wolves",
       "nottingham forest": "nottingham-forest",
@@ -1299,6 +1299,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
       "hull city": "hull-city",
       "cardiff city": "cardiff-city",
       cardiff: "cardiff-city",
+      "republic of ireland": "ireland",
     };
 
     const lowerName = teamName.toLowerCase();
@@ -1346,7 +1347,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
     try {
       console.log(`Fetching live matches from API...`);
       const response = await fetch(
-        convertToHttps(`${STREAM_API_BASE}/matches/football/popular`)
+        convertToHttps(`${STREAM_API_BASE}/matches/football`)
       );
 
       if (!response.ok) {
@@ -1435,7 +1436,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
         console.log("Trying fallback: searching all matches...");
         try {
           const allMatchesResponse = await fetch(
-            convertToHttps(`${STREAM_API_BASE}/matches/football/popular`)
+            convertToHttps(`${STREAM_API_BASE}/matches/football`)
           );
           if (allMatchesResponse.ok) {
             const allMatchesData = await allMatchesResponse.json();
@@ -3723,9 +3724,9 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                 event.competitionName ||
                 event.leagueName ||
                 null;
-              navigation.navigate("FIFAGameDetails", {
+              navigation.navigate("FIFAWorldGameDetails", {
                 gameId: event.id,
-                sport: "FIFA World",
+                sport: "FIFA",
                 competitionHint,
               });
             }

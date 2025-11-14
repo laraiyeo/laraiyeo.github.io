@@ -876,12 +876,15 @@ const CS2TournamentScreen = ({ navigation, route }) => {
   const [tournament, setTournament] = useState(null);
   const [teams, setTeams] = useState([]);
   const [matches, setMatches] = useState([]);
+  const [playerStats, setPlayerStats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [expandedStages, setExpandedStages] = useState({});
   const [activeRounds, setActiveRounds] = useState({});
   const [showMatches, setShowMatches] = useState({});
+  const [expandedPlayer, setExpandedPlayer] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -945,6 +948,40 @@ const CS2TournamentScreen = ({ navigation, route }) => {
       setMatches([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPlayerStats = async () => {
+    if (!tournamentId || statsLoading) return;
+    
+    try {
+      setStatsLoading(true);
+      const url = `https://corsproxy.io/?url=https://api.bo3.gg/api/v1/players/stats_list?min_games_count=0&page[offset]=0&page[limit]=50&sort=-avg_player_rating&filter[tournament_id][eq]=${tournamentId}`;
+      
+      console.log('Fetching player stats from:', url);
+      
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Player stats response:', JSON.stringify(data, null, 2));
+      
+      const results = data.results || [];
+      setPlayerStats(results);
+    } catch (error) {
+      console.error('Error loading player stats:', error);
+      setPlayerStats([]);
+    } finally {
+      setStatsLoading(false);
     }
   };
 
@@ -1063,6 +1100,26 @@ const CS2TournamentScreen = ({ navigation, route }) => {
               { color: activeTab === 'results' ? colors.primary : theme.textSecondary }
             ]}>
               Results
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              activeTab === 'stats' && { borderBottomColor: colors.primary, borderBottomWidth: 2 }
+            ]}
+            onPress={() => {
+              setActiveTab('stats');
+              if (playerStats.length === 0) {
+                loadPlayerStats();
+              }
+            }}
+          >
+            <Text style={[
+              styles.tabText,
+              { color: activeTab === 'stats' ? colors.primary : theme.textSecondary }
+            ]}>
+              Stats
             </Text>
           </TouchableOpacity>
         </View>
@@ -1315,6 +1372,203 @@ const CS2TournamentScreen = ({ navigation, route }) => {
                 </View>
               );
             })()}
+          </View>
+        )}
+
+        {activeTab === 'stats' && (
+          <View style={styles.detailsSection}>
+            {statsLoading ? (
+              <View style={styles.comingSoonContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={[styles.comingSoonText, { color: theme.textSecondary }]}>
+                  Loading player statistics...
+                </Text>
+              </View>
+            ) : playerStats.length === 0 ? (
+              <View style={styles.comingSoonContainer}>
+                <Ionicons name="stats-chart" size={48} color={theme.textTertiary} />
+                <Text style={[styles.comingSoonText, { color: theme.textSecondary }]}>
+                  No player statistics available
+                </Text>
+              </View>
+            ) : (
+              <View>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                  Player Statistics ({playerStats.length})
+                </Text>
+                
+                {playerStats.map((player, index) => (
+                  <View key={player.id || index} style={[styles.playerStatsCard, { backgroundColor: theme.surface }]}>
+                    <TouchableOpacity 
+                      style={styles.playerStatsHeader}
+                      onPress={() => setExpandedPlayer(expandedPlayer === index ? null : index)}
+                      activeOpacity={0.7}
+                    >
+                      {/* Position number */}
+                      <View style={[styles.positionBadge, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.positionText}>{index + 1}</Text>
+                      </View>
+                      
+                      {/* Player image and name */}
+                      <View style={styles.playerInfo}>
+                        <Image
+                          source={{ uri: player.player.image_url || 'https://via.placeholder.com/40' }}
+                          style={styles.playerImage}
+                          resizeMode="cover"
+                        />
+                        <Text style={[styles.playerNickname, { color: theme.text }]} numberOfLines={1}>
+                          {player.player.nickname}
+                        </Text>
+                      </View>
+                      
+                      {/* Team info */}
+                      <View style={styles.teamInfoContainer}>
+                        <Image
+                          source={{ uri: player.player.team.image_url || 'https://via.placeholder.com/32' }}
+                          style={styles.teamImage}
+                          resizeMode="contain"
+                        />
+                        <Text style={[styles.teamNameStats, { color: theme.textSecondary }]} numberOfLines={2}>
+                          {player.player.team.name}
+                        </Text>
+                      </View>
+                      
+                      {/* Expand indicator */}
+                      <Ionicons 
+                        name={expandedPlayer === index ? "chevron-up" : "chevron-down"} 
+                        size={20} 
+                        color={theme.textSecondary} 
+                      />
+                    </TouchableOpacity>
+                    
+                    {/* Expanded stats section */}
+                    {expandedPlayer === index && (
+                      <View style={[styles.expandedStatsContainer, {backgroundColor: theme.surfaceSecondary}]}>
+                        {/* Main Stats */}
+                        <View style={[styles.statsSection, {marginTop: 10, borderBottomColor: theme.surface, borderBottomWidth: 1}]}>
+                          <Text style={[styles.statsSectionTitle, { color: colors.primary }]}>Main</Text>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScrollView}>
+                            <View style={[styles.statsRow, { marginBottom: 20 }]}>
+                              <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.avg_player_rating?.toFixed(2) || '0.00'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Rating</Text>
+                              </View>
+                              <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.avg_kills?.toFixed(1) || '0.0'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Avg Kills</Text>
+                              </View>
+                              <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.avg_death?.toFixed(1) || '0.0'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Avg Deaths</Text>
+                              </View>
+                              <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.avg_assists?.toFixed(1) || '0.0'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Avg Assists</Text>
+                              </View>
+                              <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.avg_damage?.toFixed(0) || '0'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Avg Damage</Text>
+                              </View>
+                              <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.rounds_win || '0'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Rounds Won</Text>
+                              </View>
+                              <View style={[styles.statItem, { marginRight: 10 }]}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.games_count || '0'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Games</Text>
+                              </View>
+                            </View>
+                          </ScrollView>
+                        </View>
+
+                        {/* Performance Stats */}
+                        <View style={[styles.statsSection, {borderBottomColor: theme.surface, borderBottomWidth: 1}]}>
+                          <Text style={[styles.statsSectionTitle, { color: colors.primary }]}>Performance</Text>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScrollView}>
+                            <View style={[styles.statsRow, { marginBottom: 20 }]}>
+                              <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.avg_first_kills?.toFixed(2) || '0.00'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>First Kills</Text>
+                              </View>
+                              <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.avg_first_death?.toFixed(2) || '0.00'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>First Deaths</Text>
+                              </View>
+                              <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.avg_trade_kills?.toFixed(2) || '0.00'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Trade Kills</Text>
+                              </View>
+                              <View style={[styles.statItem, { marginRight: 10 }]}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.avg_trade_death?.toFixed(2) || '0.00'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Trade Deaths</Text>
+                              </View>
+                            </View>
+                          </ScrollView>
+                        </View>
+
+                        {/* Aim Stats */}
+                        <View style={[styles.statsSection, {borderBottomColor: theme.surface, borderBottomWidth: 1}]}>
+                          <Text style={[styles.statsSectionTitle, { color: colors.primary }]}>Aim</Text>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScrollView}>
+                            <View style={[styles.statsRow, { marginBottom: 20 }]}>
+                              <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.avg_shots?.toFixed(2) || '0.00'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Shots</Text>
+                              </View>
+                              <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.avg_hits?.toFixed(2) || '0.00'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Hits</Text>
+                              </View>
+                              <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{((player.avg_shots_accuracy || 0) * 100).toFixed(1)}%</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Shot Accuracy</Text>
+                              </View>
+                              <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.avg_headshots?.toFixed(2) || '0.00'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Headshots</Text>
+                              </View>
+                              <View style={[styles.statItem, { marginRight: 10 }]}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{((player.avg_headshot_kills_accuracy || 0) * 100).toFixed(1)}%</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>HS Accuracy</Text>
+                              </View>
+                            </View>
+                          </ScrollView>
+                        </View>
+
+                        {/* Multikills Stats */}
+                        <View style={styles.statsSection}>
+                          <Text style={[styles.statsSectionTitle, { color: colors.primary }]}>Multikills</Text>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScrollView}>
+                            <View style={styles.statsRow}>
+                              <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.avg_multikills?.toFixed(2) || '0.00'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Avg Multikills</Text>
+                              </View>
+                              <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.multikills_vs_2 || '0'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>2k</Text>
+                              </View>
+                              <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.multikills_vs_3 || '0'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>3k</Text>
+                              </View>
+                              <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.multikills_vs_4 || '0'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>4k</Text>
+                              </View>
+                              <View style={[styles.statItem, { marginRight: 10 }]}>
+                                <Text style={[styles.statValue, { color: theme.text }]}>{player.multikills_vs_5 || '0'}</Text>
+                                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Ace</Text>
+                              </View>
+                            </View>
+                          </ScrollView>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         )}
 
@@ -1949,6 +2203,97 @@ const styles = StyleSheet.create({
     paddingTop: 30,
     borderTopWidth: 2,
     borderTopColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  // Player Stats Styles
+  playerStatsCard: {
+    borderRadius: 12,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  playerStatsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  positionBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  positionText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  playerInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  playerImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+    aspectRatio: 1,
+  },
+  playerNickname: {
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+  teamInfoContainer: {
+    alignItems: 'center',
+    marginRight: 12,
+    minWidth: 60,
+  },
+  teamImage: {
+    width: 32,
+    height: 32,
+    marginBottom: 4,
+  },
+  teamNameStats: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  expandedStatsContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  statsSection: {
+    marginBottom: 16,
+  },
+  statsSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  statsScrollView: {
+    flexGrow: 0,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statItem: {
+    alignItems: 'center',
+    marginRight: 40,
+    minWidth: 60,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 14,
   },
 });
 

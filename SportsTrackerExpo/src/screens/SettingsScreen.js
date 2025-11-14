@@ -1129,6 +1129,27 @@ const SettingsScreen = ({ navigation }) => {
                   X (Twitter)
                 </Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.contactButton,
+                  { backgroundColor: theme.surfaceSecondary },
+                ]}
+                onPress={() => Linking.openURL("https://www.reddit.com/r/SportsHeart/")}
+                activeOpacity={0.7}
+              >
+                <Image
+                  source={require("../../assets/reddit.png")}
+                  style={styles.contactIcon}
+                  resizeMode="contain"
+                />
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.contactLabel, { color: theme.text }]}
+                >
+                  Reddit
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -1626,7 +1647,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   contactRow: {
-    flexDirection: "row",
+    flexDirection: "column",
     justifyContent: "space-around",
     paddingHorizontal: 20,
     marginBottom: 20,
@@ -1634,6 +1655,7 @@ const styles = StyleSheet.create({
   contactButton: {
     alignItems: "center",
     justifyContent: "center",
+    flexDirection: "row",
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
@@ -1646,14 +1668,15 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
+    marginBottom: 12,
   },
   contactIcon: {
-    width: 32,
-    height: 32,
-    marginBottom: 8,
+    width: 35,
+    height: 35,
+    marginRight: 25,
   },
   contactLabel: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: "600",
     textAlign: "center",
   },

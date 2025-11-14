@@ -1268,7 +1268,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
   const fetchLiveMatches = async () => {
     try {
       console.log(`Fetching live matches from API...`);
-      const response = await fetch(convertToHttps(`${STREAM_API_BASE}/matches/football/popular`));
+      const response = await fetch(convertToHttps(`${STREAM_API_BASE}/matches/football`));
 
       if (!response.ok) {
         throw new Error(`API request failed: ${response.status}`);
@@ -1341,7 +1341,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
         // Try fallback: search all matches if no football matches found
         console.log('Trying fallback: searching all matches...');
         try {
-          const allMatchesResponse = await fetch(convertToHttps(`${STREAM_API_BASE}/matches/football/popular`));
+          const allMatchesResponse = await fetch(convertToHttps(`${STREAM_API_BASE}/matches/football`));
           if (allMatchesResponse.ok) {
             const allMatchesData = await allMatchesResponse.json();
             console.log(`Fallback: Found ${allMatchesData.length} total matches`);
