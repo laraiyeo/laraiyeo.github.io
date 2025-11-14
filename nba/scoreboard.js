@@ -821,31 +821,31 @@ async function renderBoxScore(gameId, gameState) {
         .map(player => `
           <tr class="${gameState === "Final" ? "" : player.active ? "active-player" : ""}">
             <td>${gameState === "Final" ? "" : player.active ? "🟢 " : ""}${isSmallScreen ? `${player.athlete.shortName}` : `${player.athlete.displayName}`} <span style="color: grey;">${player.athlete.position.abbreviation}</span></td>
-            <td>${player.stats[0] || "0"}</td> <!-- MIN -->
-            <td>${player.stats[13] || "0"}</td> <!-- PTS -->
-            ${isSmallScreen ? "" : `<td>${player.stats[6] || "0"}</td>`} <!-- REB -->
-            ${isSmallScreen ? "" : `<td>${player.stats[7] || "0"}</td>`} <!-- AST -->
+            <td>${player.stats[12] || "0"}</td> <!-- MIN -->
+            <td>${player.stats[0] || "0"}</td> <!-- PTS -->
+            ${isSmallScreen ? "" : `<td>${player.stats[4] || "0"}</td>`} <!-- REB -->
+            ${isSmallScreen ? "" : `<td>${player.stats[5] || "0"}</td>`} <!-- AST -->
             ${isSmallScreen ? "" : `<td>${player.stats[11] || "0"}</td>`} <!-- PF -->
             <td>${player.stats[1] || "0"}</td> <!-- FG -->
             ${isSmallScreen ? "" : `<td>${player.stats[2] || "0-0"}</td>`} <!-- 3PT -->
-            ${isSmallScreen ? "" : `<td>${player.stats[12] || "0"}</td>`} <!-- +/- -->
+            ${isSmallScreen ? "" : `<td>${player.stats[13] || "0"}</td>`} <!-- +/- -->
           </tr>
         `).join("");
 
       const nonStarters = athletes
         .filter(player => !player.starter)
-        .sort((a, b) => parseFloat(b.stats[0] || "0") - parseFloat(a.stats[0] || "0")) // Sort by minutes played
+        .sort((a, b) => parseFloat(b.stats[12] || "0") - parseFloat(a.stats[12] || "0")) // Sort by minutes played
         .map(player => `
           <tr class="${gameState === "Final" ? "" : player.active ? "active-player" : ""}">
             <td>${gameState === "Final" ? "" : player.active ? "🟢 " : ""}${isSmallScreen ? `${player.athlete.shortName}` : `${player.athlete.displayName}`} <span style="color: grey;">${player.athlete.position.abbreviation}</span></td>
-            <td>${player.stats[0] || "0"}</td> <!-- MIN -->
-            <td>${player.stats[13] || "0"}</td> <!-- PTS -->
-            ${isSmallScreen ? "" : `<td>${player.stats[6] || "0"}</td>`} <!-- REB -->
-            ${isSmallScreen ? "" : `<td>${player.stats[7] || "0"}</td>`} <!-- AST -->
+            <td>${player.stats[12] || "0"}</td> <!-- MIN -->
+            <td>${player.stats[0] || "0"}</td> <!-- PTS -->
+            ${isSmallScreen ? "" : `<td>${player.stats[4] || "0"}</td>`} <!-- REB -->
+            ${isSmallScreen ? "" : `<td>${player.stats[5] || "0"}</td>`} <!-- AST -->
             ${isSmallScreen ? "" : `<td>${player.stats[11] || "0"}</td>`} <!-- PF -->
             <td>${player.stats[1] || "0"}</td> <!-- FG -->
             ${isSmallScreen ? "" : `<td>${player.stats[2] || "0-0"}</td>`} <!-- 3PT -->
-            ${isSmallScreen ? "" : `<td>${player.stats[12] || "0"}</td>`} <!-- +/- -->
+            ${isSmallScreen ? "" : `<td>${player.stats[13] || "0"}</td>`} <!-- +/- -->
           </tr>
         `).join("");
 
