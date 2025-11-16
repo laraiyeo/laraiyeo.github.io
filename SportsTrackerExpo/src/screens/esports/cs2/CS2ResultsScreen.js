@@ -3257,8 +3257,8 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                 styles.valShareCard || styles.copyShareCard,
                 { backgroundColor: theme.surface },
                 isCapturing
-                  ? { height: contentHeight }  // auto-expanding
-                  : { height: 400 },           // normal mode
+                  ? { height: contentHeight } // auto-expanding
+                  : { height: 400 }, // normal mode
               ]}
             >
               <Container
@@ -3266,339 +3266,373 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                   styles.modalScrollContent,
                   { backgroundColor: theme.surface },
                 ]}
-                contentContainerStyle={!isCapturing ? { paddingBottom: 16 } : undefined}
+                contentContainerStyle={
+                  !isCapturing ? { paddingBottom: 16 } : undefined
+                }
                 showsVerticalScrollIndicator={!isCapturing}
                 scrollEnabled={!isCapturing}
               >
                 <View onLayout={handleInnerLayout}>
                   <View
-                  style={[
-                    styles.copyHeaderSection,
-                    {
-                      backgroundColor: theme.surfaceSecondary,
-                      borderRadius: 12,
-                      padding: 16,
-                      marginBottom: 16,
-                    },
-                  ]}
-                >
-                  <Text
                     style={[
-                      styles.copyEventName,
+                      styles.copyHeaderSection,
                       {
-                        color: theme.text,
-                        fontSize: 14,
-                        fontWeight: "600",
-                        textAlign: "center",
+                        backgroundColor: theme.surfaceSecondary,
+                        borderRadius: 12,
+                        padding: 16,
                         marginBottom: 16,
                       },
                     ]}
                   >
-                    {series.eventName || "Match Details"}
-                  </Text>
-                  <View
-                    style={[
-                      styles.copyMatchupRow,
-                      {
-                        flexDirection: "row",
-                        alignItems: "center",
-                        marginBottom: 16,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.copyTeamSection,
-                        { alignItems: "flex-end", flex: 1 },
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.copyLogoScoreRow,
-                          {
-                            flexDirection: "row",
-                            alignItems: "center",
-                            marginBottom: 8,
-                          },
-                        ]}
-                      >
-                        <Image
-                          source={{
-                            uri:
-                              series.team1?.logoUrl ||
-                              "https://i.imgur.com/BIC4pnO.webp",
-                          }}
-                          style={[
-                            styles.copyTeamLogo,
-                            {
-                              width: 56,
-                              height: 56,
-                              marginRight: 12,
-                              opacity:
-                                series.completed &&
-                                !series.live &&
-                                series.team1Score < series.team2Score
-                                  ? 0.6
-                                  : 1,
-                            },
-                          ]}
-                          resizeMode="contain"
-                        />
-                        <Text
-                          style={[
-                            styles.copyScoreText,
-                            {
-                              fontSize: 40,
-                              fontWeight: "800",
-                              color: theme.text,
-                              opacity:
-                                series.completed &&
-                                !series.live &&
-                                series.team1Score < series.team2Score
-                                  ? 0.6
-                                  : 1,
-                            },
-                          ]}
-                        >
-                          {series.team1Score || 0}
-                        </Text>
-                      </View>
-                      <Text
-                        style={[
-                          styles.copyTeamName,
-                          {
-                            fontSize: 14,
-                            fontWeight: "bold",
-                            color: theme.text,
-                            textAlign: "center",
-                            transform: [{ translateX: -20 }],
-                            opacity:
-                              series.completed &&
-                              !series.live &&
-                              series.team1Score < series.team2Score
-                                ? 0.6
-                                : 1,
-                          },
-                        ]}
-                      >
-                        {series.team1?.shortName || "T1"}
-                      </Text>
-                    </View>
-
-                    <View
-                      style={{
-                        width: 48,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.copyScoreSeparator,
-                          { fontSize: 22, color: theme.textSecondary },
-                        ]}
-                      >
-                        -
-                      </Text>
-                    </View>
-
-                    <View
-                      style={[
-                        styles.copyTeamSection,
-                        { alignItems: "flex-start", flex: 1 },
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.copyLogoScoreRow,
-                          {
-                            flexDirection: "row",
-                            alignItems: "center",
-                            marginBottom: 8,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.copyScoreText,
-                            {
-                              fontSize: 40,
-                              fontWeight: "800",
-                              color: theme.text,
-                              opacity:
-                                series.completed &&
-                                !series.live &&
-                                series.team2Score < series.team1Score
-                                  ? 0.6
-                                  : 1,
-                            },
-                          ]}
-                        >
-                          {series.team2Score || 0}
-                        </Text>
-                        <Image
-                          source={{
-                            uri:
-                              series.team2?.logoUrl ||
-                              "https://i.imgur.com/BIC4pnO.webp",
-                          }}
-                          style={[
-                            styles.copyTeamLogo,
-                            {
-                              width: 56,
-                              height: 56,
-                              marginLeft: 12,
-                              opacity:
-                                series.completed &&
-                                !series.live &&
-                                series.team2Score < series.team1Score
-                                  ? 0.6
-                                  : 1,
-                            },
-                          ]}
-                          resizeMode="contain"
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.copyTeamName,
-                          {
-                            fontSize: 14,
-                            fontWeight: "bold",
-                            color: theme.text,
-                            textAlign: "center",
-                            transform: [{ translateX: 20 }],
-                            opacity:
-                              series.completed &&
-                              !series.live &&
-                              series.team2Score < series.team1Score
-                                ? 0.6
-                                : 1,
-                          },
-                        ]}
-                      >
-                        {series.team2?.shortName || "T2"}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {series.startDate && (
                     <Text
                       style={[
-                        styles.copyDateText,
+                        styles.copyEventName,
                         {
-                          color: theme.textSecondary,
-                          fontSize: 12,
+                          color: theme.text,
+                          fontSize: 14,
+                          fontWeight: "600",
                           textAlign: "center",
+                          marginBottom: 16,
                         },
                       ]}
                     >
-                      {new Date(series.startDate).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                      {" • "}
-                      {new Date(series.startDate).toLocaleTimeString("en-US", {
-                        hour: "numeric",
-                        minute: "numeric",
-                        hour12: true,
-                      })}
+                      {series.eventName || "Match Details"}
                     </Text>
-                  )}
-                </View>
-
-                {/* Maps */}
-                {series.maps && series.maps.length > 0 && (
-                  <View style={[styles.copyMapsSection, { marginBottom: 16 }]}>
                     <View
                       style={[
-                        styles.copyMapsList,
+                        styles.copyMatchupRow,
                         {
-                          backgroundColor: theme.surfaceSecondary,
-                          borderRadius: 8,
-                          padding: 12,
                           flexDirection: "row",
-                          flexWrap: "wrap",
-                          justifyContent: "center",
+                          alignItems: "center",
+                          marginBottom: 16,
                         },
                       ]}
                     >
-                      {series.maps.map((m, idx) => {
-                        if (!m) return null;
-                        const mapName = getMapDisplayName(
-                          m.name || m.displayName
-                        );
-                        const team1Score =
-                          m.team1Score ||
-                          m.team1Rounds ||
-                          m.team1RoundsWon ||
-                          0;
-                        const team2Score =
-                          m.team2Score ||
-                          m.team2Rounds ||
-                          m.team2RoundsWon ||
-                          0;
-                        const winnerTeam =
-                          team1Score > team2Score
-                            ? series.team1
-                            : team2Score > team1Score
-                            ? series.team2
-                            : null;
-                        return (
-                          <View
-                            key={idx}
+                      <View
+                        style={[
+                          styles.copyTeamSection,
+                          { alignItems: "flex-end", flex: 1 },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.copyLogoScoreRow,
+                            {
+                              flexDirection: "row",
+                              alignItems: "center",
+                              marginBottom: 8,
+                            },
+                          ]}
+                        >
+                          <Image
+                            source={{
+                              uri:
+                                series.team1?.logoUrl ||
+                                "https://i.imgur.com/BIC4pnO.webp",
+                            }}
                             style={[
-                              styles.copyMapChip,
+                              styles.copyTeamLogo,
                               {
-                                backgroundColor: theme.surface,
-                                margin: 6,
-                                paddingHorizontal: 12,
-                                paddingVertical: 8,
-                                borderRadius: 8,
-                                alignItems: "center",
-                                flexDirection: "row",
+                                width: 56,
+                                height: 56,
+                                marginRight: 12,
+                                opacity:
+                                  series.completed &&
+                                  !series.live &&
+                                  series.team1Score < series.team2Score
+                                    ? 0.6
+                                    : 1,
+                              },
+                            ]}
+                            resizeMode="contain"
+                          />
+                          <Text
+                            style={[
+                              styles.copyScoreText,
+                              {
+                                fontSize: 40,
+                                fontWeight: "800",
+                                color: theme.text,
+                                opacity:
+                                  series.completed &&
+                                  !series.live &&
+                                  series.team1Score < series.team2Score
+                                    ? 0.6
+                                    : 1,
                               },
                             ]}
                           >
-                            <Text
-                              style={[
-                                styles.copyMapChipText,
-                                { color: theme.text, fontSize: 13 },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              M{idx + 1}: {mapName} ({team1Score}-{team2Score})
-                            </Text>
-                            {winnerTeam && (
-                              <Image
-                                source={{
-                                  uri:
-                                    winnerTeam?.logoUrl ||
-                                    "https://i.imgur.com/BIC4pnO.webp",
-                                }}
-                                style={[
-                                  styles.copyWinnerLogo,
-                                  { width: 18, height: 18, marginLeft: 8 },
-                                ]}
-                                resizeMode="contain"
-                              />
-                            )}
-                          </View>
-                        );
-                      })}
-                    </View>
-                  </View>
-                )}
+                            {series.team1Score || 0}
+                          </Text>
+                        </View>
+                        <Text
+                          style={[
+                            styles.copyTeamName,
+                            {
+                              fontSize: 14,
+                              fontWeight: "bold",
+                              color: theme.text,
+                              textAlign: "center",
+                              transform: [{ translateX: -20 }],
+                              opacity:
+                                series.completed &&
+                                !series.live &&
+                                series.team1Score < series.team2Score
+                                  ? 0.6
+                                  : 1,
+                            },
+                          ]}
+                        >
+                          {series.team1?.shortName || "T1"}
+                        </Text>
+                      </View>
 
-                {/* Player Stats */}
-                {(() => {
-                  const { team1Players, team2Players } =
-                    getAggregatedPlayerStats(copySeriesData);
-                  if (
-                    (team1Players.length === 0 && team2Players.length === 0) ||
-                    (!team1Players && !team2Players)
-                  ) {
+                      <View
+                        style={{
+                          width: 48,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.copyScoreSeparator,
+                            { fontSize: 22, color: theme.textSecondary },
+                          ]}
+                        >
+                          -
+                        </Text>
+                      </View>
+
+                      <View
+                        style={[
+                          styles.copyTeamSection,
+                          { alignItems: "flex-start", flex: 1 },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.copyLogoScoreRow,
+                            {
+                              flexDirection: "row",
+                              alignItems: "center",
+                              marginBottom: 8,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.copyScoreText,
+                              {
+                                fontSize: 40,
+                                fontWeight: "800",
+                                color: theme.text,
+                                opacity:
+                                  series.completed &&
+                                  !series.live &&
+                                  series.team2Score < series.team1Score
+                                    ? 0.6
+                                    : 1,
+                              },
+                            ]}
+                          >
+                            {series.team2Score || 0}
+                          </Text>
+                          <Image
+                            source={{
+                              uri:
+                                series.team2?.logoUrl ||
+                                "https://i.imgur.com/BIC4pnO.webp",
+                            }}
+                            style={[
+                              styles.copyTeamLogo,
+                              {
+                                width: 56,
+                                height: 56,
+                                marginLeft: 12,
+                                opacity:
+                                  series.completed &&
+                                  !series.live &&
+                                  series.team2Score < series.team1Score
+                                    ? 0.6
+                                    : 1,
+                              },
+                            ]}
+                            resizeMode="contain"
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.copyTeamName,
+                            {
+                              fontSize: 14,
+                              fontWeight: "bold",
+                              color: theme.text,
+                              textAlign: "center",
+                              transform: [{ translateX: 20 }],
+                              opacity:
+                                series.completed &&
+                                !series.live &&
+                                series.team2Score < series.team1Score
+                                  ? 0.6
+                                  : 1,
+                            },
+                          ]}
+                        >
+                          {series.team2?.shortName || "T2"}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {series.startDate && (
+                      <Text
+                        style={[
+                          styles.copyDateText,
+                          {
+                            color: theme.textSecondary,
+                            fontSize: 12,
+                            textAlign: "center",
+                          },
+                        ]}
+                      >
+                        {new Date(series.startDate).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          }
+                        )}
+                        {" • "}
+                        {new Date(series.startDate).toLocaleTimeString(
+                          "en-US",
+                          {
+                            hour: "numeric",
+                            minute: "numeric",
+                            hour12: true,
+                          }
+                        )}
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Maps */}
+                  {series.maps && series.maps.length > 0 && (
+                    <View
+                      style={[styles.copyMapsSection, { marginBottom: 16 }]}
+                    >
+                      <View
+                        style={[
+                          styles.copyMapsList,
+                          {
+                            backgroundColor: theme.surfaceSecondary,
+                            borderRadius: 8,
+                            padding: 12,
+                            flexDirection: "row",
+                            flexWrap: "wrap",
+                            justifyContent: "center",
+                          },
+                        ]}
+                      >
+                        {series.maps.map((m, idx) => {
+                          if (!m) return null;
+                          const mapName = getMapDisplayName(
+                            m.name || m.displayName
+                          );
+                          const team1Score =
+                            m.team1Score ||
+                            m.team1Rounds ||
+                            m.team1RoundsWon ||
+                            0;
+                          const team2Score =
+                            m.team2Score ||
+                            m.team2Rounds ||
+                            m.team2RoundsWon ||
+                            0;
+                          const winnerTeam =
+                            team1Score > team2Score
+                              ? series.team1
+                              : team2Score > team1Score
+                              ? series.team2
+                              : null;
+                          return (
+                            <View
+                              key={idx}
+                              style={[
+                                styles.copyMapChip,
+                                {
+                                  backgroundColor: theme.surface,
+                                  margin: 6,
+                                  paddingHorizontal: 12,
+                                  paddingVertical: 8,
+                                  borderRadius: 8,
+                                  alignItems: "center",
+                                  flexDirection: "row",
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.copyMapChipText,
+                                  { color: theme.text, fontSize: 13 },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                M{idx + 1}: {mapName} ({team1Score}-{team2Score}
+                                )
+                              </Text>
+                              {winnerTeam && (
+                                <Image
+                                  source={{
+                                    uri:
+                                      winnerTeam?.logoUrl ||
+                                      "https://i.imgur.com/BIC4pnO.webp",
+                                  }}
+                                  style={[
+                                    styles.copyWinnerLogo,
+                                    { width: 18, height: 18, marginLeft: 8 },
+                                  ]}
+                                  resizeMode="contain"
+                                />
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Player Stats */}
+                  {(() => {
+                    const { team1Players, team2Players } =
+                      getAggregatedPlayerStats(copySeriesData);
+                    if (
+                      (team1Players.length === 0 &&
+                        team2Players.length === 0) ||
+                      (!team1Players && !team2Players)
+                    ) {
+                      return (
+                        <View
+                          style={[
+                            styles.copyPlayersSection,
+                            { marginBottom: 16 },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.noDataText,
+                              {
+                                color: theme.textSecondary,
+                                textAlign: "center",
+                              },
+                            ]}
+                          >
+                            No player data available
+                          </Text>
+                        </View>
+                      );
+                    }
+
                     return (
                       <View
                         style={[
@@ -3606,526 +3640,564 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                           { marginBottom: 16 },
                         ]}
                       >
-                        <Text
+                        <View
                           style={[
-                            styles.noDataText,
-                            { color: theme.textSecondary, textAlign: "center" },
+                            styles.copyTeamPlayersSection,
+                            {
+                              backgroundColor: theme.surfaceSecondary,
+                              borderRadius: 8,
+                              padding: 12,
+                              marginBottom: 12,
+                            },
                           ]}
                         >
-                          No player data available
-                        </Text>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              marginBottom: 8,
+                            }}
+                          >
+                            <Image
+                              source={{ uri: series.team1.logoUrl }}
+                              style={{
+                                width: 18,
+                                height: 18,
+                                marginRight: 6,
+                                borderRadius: 3,
+                              }}
+                              resizeMode="contain"
+                            />
+                            <Text
+                              style={[
+                                styles.copyTeamStatsTitle,
+                                {
+                                  color: theme.text,
+                                  fontSize: 14,
+                                  fontWeight: "bold",
+                                },
+                              ]}
+                            >
+                              {series.team1?.shortName || "Team 1"}
+                            </Text>
+                          </View>
+                          {team1Players.map((player) => (
+                            <View
+                              key={player.playerId}
+                              style={[
+                                styles.copyPlayerRow,
+                                {
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  marginBottom: 8,
+                                  paddingVertical: 4,
+                                },
+                              ]}
+                            >
+                              <View
+                                style={[
+                                  styles.copyPlayerInfo,
+                                  {
+                                    flex: 1,
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                  },
+                                ]}
+                              >
+                                <Image
+                                  source={{ uri: player.image_url }}
+                                  style={{
+                                    width: 24,
+                                    height: 24,
+                                    borderRadius: 12,
+                                    marginRight: 8,
+                                    aspectRatio: 1,
+                                  }}
+                                  resizeMode="contain"
+                                />
+                                <Text
+                                  style={[
+                                    styles.copyPlayerName,
+                                    {
+                                      color: theme.text,
+                                      fontSize: 13,
+                                      fontWeight: "600",
+                                      marginRight: 8,
+                                    },
+                                  ]}
+                                >
+                                  {player.displayName}
+                                </Text>
+                              </View>
+                              <View
+                                style={[
+                                  styles.copyPlayerStats,
+                                  {
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                  },
+                                ]}
+                              >
+                                <View
+                                  style={[
+                                    styles.copyStatItem,
+                                    {
+                                      alignItems: "center",
+                                      marginHorizontal: 6,
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.copyStatValue,
+                                      {
+                                        color: theme.text,
+                                        fontSize: 12,
+                                        fontWeight: "bold",
+                                      },
+                                    ]}
+                                  >
+                                    {player.kills}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.copyStatLabel,
+                                      {
+                                        color: theme.textSecondary,
+                                        fontSize: 9,
+                                      },
+                                    ]}
+                                  >
+                                    K
+                                  </Text>
+                                </View>
+                                <View
+                                  style={[
+                                    styles.copyStatItem,
+                                    {
+                                      alignItems: "center",
+                                      marginHorizontal: 6,
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.copyStatValue,
+                                      {
+                                        color: theme.text,
+                                        fontSize: 12,
+                                        fontWeight: "bold",
+                                      },
+                                    ]}
+                                  >
+                                    {player.deaths}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.copyStatLabel,
+                                      {
+                                        color: theme.textSecondary,
+                                        fontSize: 9,
+                                      },
+                                    ]}
+                                  >
+                                    D
+                                  </Text>
+                                </View>
+                                <View
+                                  style={[
+                                    styles.copyStatItem,
+                                    {
+                                      alignItems: "center",
+                                      marginHorizontal: 6,
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.copyStatValue,
+                                      {
+                                        color: theme.text,
+                                        fontSize: 12,
+                                        fontWeight: "bold",
+                                      },
+                                    ]}
+                                  >
+                                    {player.assists}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.copyStatLabel,
+                                      {
+                                        color: theme.textSecondary,
+                                        fontSize: 9,
+                                      },
+                                    ]}
+                                  >
+                                    A
+                                  </Text>
+                                </View>
+                                <View
+                                  style={[
+                                    styles.copyStatItem,
+                                    {
+                                      alignItems: "center",
+                                      marginHorizontal: 6,
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.copyStatValue,
+                                      {
+                                        color:
+                                          player.kills - player.deaths === 0
+                                            ? theme.text
+                                            : player.kills - player.deaths > 0
+                                            ? theme.success
+                                            : theme.error,
+                                        fontSize: 12,
+                                        fontWeight: "bold",
+                                      },
+                                    ]}
+                                  >
+                                    {player.kills - player.deaths <= 0
+                                      ? player.kills - player.deaths
+                                      : `+${player.kills - player.deaths}`}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.copyStatLabel,
+                                      {
+                                        color: theme.textSecondary,
+                                        fontSize: 9,
+                                      },
+                                    ]}
+                                  >
+                                    +/-
+                                  </Text>
+                                </View>
+                                {player.adr !== null &&
+                                  player.adr !== undefined && (
+                                    <View
+                                      style={[
+                                        styles.copyStatItem,
+                                        {
+                                          alignItems: "center",
+                                          marginHorizontal: 6,
+                                        },
+                                      ]}
+                                    >
+                                      <Text
+                                        style={[
+                                          styles.copyStatValue,
+                                          {
+                                            color: theme.text,
+                                            fontSize: 12,
+                                            fontWeight: "bold",
+                                          },
+                                        ]}
+                                      >
+                                        {Math.round(player.adr)}
+                                      </Text>
+                                      <Text
+                                        style={[
+                                          styles.copyStatLabel,
+                                          {
+                                            color: theme.textSecondary,
+                                            fontSize: 9,
+                                          },
+                                        ]}
+                                      >
+                                        ADR
+                                      </Text>
+                                    </View>
+                                  )}
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+
+                        <View
+                          style={[
+                            styles.copyTeamPlayersSection,
+                            {
+                              backgroundColor: theme.surfaceSecondary,
+                              borderRadius: 8,
+                              padding: 12,
+                              marginBottom: 15,
+                            },
+                          ]}
+                        >
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              marginBottom: 8,
+                            }}
+                          >
+                            <Image
+                              source={{ uri: series.team2.logoUrl }}
+                              style={{
+                                width: 18,
+                                height: 18,
+                                marginRight: 6,
+                                borderRadius: 3,
+                              }}
+                              resizeMode="contain"
+                            />
+                            <Text
+                              style={[
+                                styles.copyTeamStatsTitle,
+                                {
+                                  color: theme.text,
+                                  fontSize: 14,
+                                  fontWeight: "bold",
+                                },
+                              ]}
+                            >
+                              {series.team2?.shortName || "Team 2"}
+                            </Text>
+                          </View>
+                          {team2Players.map((player) => (
+                            <View
+                              key={player.playerId}
+                              style={[
+                                styles.copyPlayerRow,
+                                {
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  marginBottom: 8,
+                                  paddingVertical: 4,
+                                },
+                              ]}
+                            >
+                              <View
+                                style={[
+                                  styles.copyPlayerInfo,
+                                  {
+                                    flex: 1,
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                  },
+                                ]}
+                              >
+                                <Image
+                                  source={{ uri: player.image_url }}
+                                  style={{
+                                    width: 24,
+                                    height: 24,
+                                    borderRadius: 12,
+                                    marginRight: 8,
+                                    aspectRatio: 1,
+                                  }}
+                                  resizeMode="contain"
+                                />
+                                <Text
+                                  style={[
+                                    styles.copyPlayerName,
+                                    {
+                                      color: theme.text,
+                                      fontSize: 13,
+                                      fontWeight: "600",
+                                      marginRight: 8,
+                                    },
+                                  ]}
+                                >
+                                  {player.displayName}
+                                </Text>
+                              </View>
+                              <View
+                                style={[
+                                  styles.copyPlayerStats,
+                                  {
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                  },
+                                ]}
+                              >
+                                <View
+                                  style={[
+                                    styles.copyStatItem,
+                                    {
+                                      alignItems: "center",
+                                      marginHorizontal: 6,
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.copyStatValue,
+                                      {
+                                        color: theme.text,
+                                        fontSize: 12,
+                                        fontWeight: "bold",
+                                      },
+                                    ]}
+                                  >
+                                    {player.kills}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.copyStatLabel,
+                                      {
+                                        color: theme.textSecondary,
+                                        fontSize: 9,
+                                      },
+                                    ]}
+                                  >
+                                    K
+                                  </Text>
+                                </View>
+                                <View
+                                  style={[
+                                    styles.copyStatItem,
+                                    {
+                                      alignItems: "center",
+                                      marginHorizontal: 6,
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.copyStatValue,
+                                      {
+                                        color: theme.text,
+                                        fontSize: 12,
+                                        fontWeight: "bold",
+                                      },
+                                    ]}
+                                  >
+                                    {player.deaths}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.copyStatLabel,
+                                      {
+                                        color: theme.textSecondary,
+                                        fontSize: 9,
+                                      },
+                                    ]}
+                                  >
+                                    D
+                                  </Text>
+                                </View>
+                                <View
+                                  style={[
+                                    styles.copyStatItem,
+                                    {
+                                      alignItems: "center",
+                                      marginHorizontal: 6,
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.copyStatValue,
+                                      {
+                                        color: theme.text,
+                                        fontSize: 12,
+                                        fontWeight: "bold",
+                                      },
+                                    ]}
+                                  >
+                                    {player.assists}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.copyStatLabel,
+                                      {
+                                        color: theme.textSecondary,
+                                        fontSize: 9,
+                                      },
+                                    ]}
+                                  >
+                                    A
+                                  </Text>
+                                </View>
+                                <View
+                                  style={[
+                                    styles.copyStatItem,
+                                    {
+                                      alignItems: "center",
+                                      marginHorizontal: 6,
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.copyStatValue,
+                                      {
+                                        color:
+                                          player.kills - player.deaths === 0
+                                            ? theme.text
+                                            : player.kills - player.deaths > 0
+                                            ? theme.success
+                                            : theme.error,
+                                        fontSize: 12,
+                                        fontWeight: "bold",
+                                      },
+                                    ]}
+                                  >
+                                    {player.kills - player.deaths <= 0
+                                      ? player.kills - player.deaths
+                                      : `+${player.kills - player.deaths}`}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.copyStatLabel,
+                                      {
+                                        color: theme.textSecondary,
+                                        fontSize: 9,
+                                      },
+                                    ]}
+                                  >
+                                    +/-
+                                  </Text>
+                                </View>
+                                {player.adr !== null &&
+                                  player.adr !== undefined && (
+                                    <View
+                                      style={[
+                                        styles.copyStatItem,
+                                        {
+                                          alignItems: "center",
+                                          marginHorizontal: 6,
+                                        },
+                                      ]}
+                                    >
+                                      <Text
+                                        style={[
+                                          styles.copyStatValue,
+                                          {
+                                            color: theme.text,
+                                            fontSize: 12,
+                                            fontWeight: "bold",
+                                          },
+                                        ]}
+                                      >
+                                        {Math.round(player.adr)}
+                                      </Text>
+                                      <Text
+                                        style={[
+                                          styles.copyStatLabel,
+                                          {
+                                            color: theme.textSecondary,
+                                            fontSize: 9,
+                                          },
+                                        ]}
+                                      >
+                                        ADR
+                                      </Text>
+                                    </View>
+                                  )}
+                              </View>
+                            </View>
+                          ))}
+                        </View>
                       </View>
                     );
-                  }
-
-                  return (
-                    <View
-                      style={[styles.copyPlayersSection, { marginBottom: 16 }]}
-                    >
-                      <View
-                        style={[
-                          styles.copyTeamPlayersSection,
-                          {
-                            backgroundColor: theme.surfaceSecondary,
-                            borderRadius: 8,
-                            padding: 12,
-                            marginBottom: 12,
-                          },
-                        ]}
-                      >
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            marginBottom: 8,
-                          }}
-                        >
-                          <Image
-                            source={{ uri: series.team1.logoUrl }}
-                            style={{
-                              width: 18,
-                              height: 18,
-                              marginRight: 6,
-                              borderRadius: 3,
-                            }}
-                            resizeMode="contain"
-                          />
-                          <Text
-                            style={[
-                              styles.copyTeamStatsTitle,
-                              {
-                                color: theme.text,
-                                fontSize: 14,
-                                fontWeight: "bold",
-                              },
-                            ]}
-                          >
-                            {series.team1?.shortName || "Team 1"}
-                          </Text>
-                        </View>
-                        {team1Players.map((player) => (
-                          <View
-                            key={player.playerId}
-                            style={[
-                              styles.copyPlayerRow,
-                              {
-                                flexDirection: "row",
-                                alignItems: "center",
-                                marginBottom: 8,
-                                paddingVertical: 4,
-                              },
-                            ]}
-                          >
-                            <View
-                              style={[
-                                styles.copyPlayerInfo,
-                                {
-                                  flex: 1,
-                                  flexDirection: "row",
-                                  alignItems: "center",
-                                },
-                              ]}
-                            >
-                              <Image
-                                source={{ uri: player.image_url }}
-                                style={{
-                                  width: 24,
-                                  height: 24,
-                                  borderRadius: 12,
-                                  marginRight: 8,
-                                  aspectRatio: 1,
-                                }}
-                                resizeMode="contain"
-                              />
-                              <Text
-                                style={[
-                                  styles.copyPlayerName,
-                                  {
-                                    color: theme.text,
-                                    fontSize: 13,
-                                    fontWeight: "600",
-                                    marginRight: 8,
-                                  },
-                                ]}
-                              >
-                                {player.displayName}
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.copyPlayerStats,
-                                { flexDirection: "row", alignItems: "center" },
-                              ]}
-                            >
-                              <View
-                                style={[
-                                  styles.copyStatItem,
-                                  { alignItems: "center", marginHorizontal: 6 },
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.copyStatValue,
-                                    {
-                                      color: theme.text,
-                                      fontSize: 12,
-                                      fontWeight: "bold",
-                                    },
-                                  ]}
-                                >
-                                  {player.kills}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.copyStatLabel,
-                                    { color: theme.textSecondary, fontSize: 9 },
-                                  ]}
-                                >
-                                  K
-                                </Text>
-                              </View>
-                              <View
-                                style={[
-                                  styles.copyStatItem,
-                                  { alignItems: "center", marginHorizontal: 6 },
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.copyStatValue,
-                                    {
-                                      color: theme.text,
-                                      fontSize: 12,
-                                      fontWeight: "bold",
-                                    },
-                                  ]}
-                                >
-                                  {player.deaths}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.copyStatLabel,
-                                    { color: theme.textSecondary, fontSize: 9 },
-                                  ]}
-                                >
-                                  D
-                                </Text>
-                              </View>
-                              <View
-                                style={[
-                                  styles.copyStatItem,
-                                  { alignItems: "center", marginHorizontal: 6 },
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.copyStatValue,
-                                    {
-                                      color: theme.text,
-                                      fontSize: 12,
-                                      fontWeight: "bold",
-                                    },
-                                  ]}
-                                >
-                                  {player.assists}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.copyStatLabel,
-                                    { color: theme.textSecondary, fontSize: 9 },
-                                  ]}
-                                >
-                                  A
-                                </Text>
-                              </View>
-                              <View
-                                style={[
-                                  styles.copyStatItem,
-                                  { alignItems: "center", marginHorizontal: 6 },
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.copyStatValue,
-                                    {
-                                      color:
-                                        player.kills - player.deaths === 0
-                                          ? theme.text
-                                          : player.kills - player.deaths > 0
-                                          ? theme.success
-                                          : theme.error,
-                                      fontSize: 12,
-                                      fontWeight: "bold",
-                                    },
-                                  ]}
-                                >
-                                  {player.kills - player.deaths <= 0
-                                    ? player.kills - player.deaths
-                                    : `+${player.kills - player.deaths}`}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.copyStatLabel,
-                                    { color: theme.textSecondary, fontSize: 9 },
-                                  ]}
-                                >
-                                  +/-
-                                </Text>
-                              </View>
-                              {player.adr !== null &&
-                                player.adr !== undefined && (
-                                  <View
-                                    style={[
-                                      styles.copyStatItem,
-                                      {
-                                        alignItems: "center",
-                                        marginHorizontal: 6,
-                                      },
-                                    ]}
-                                  >
-                                    <Text
-                                      style={[
-                                        styles.copyStatValue,
-                                        {
-                                          color: theme.text,
-                                          fontSize: 12,
-                                          fontWeight: "bold",
-                                        },
-                                      ]}
-                                    >
-                                      {Math.round(player.adr)}
-                                    </Text>
-                                    <Text
-                                      style={[
-                                        styles.copyStatLabel,
-                                        {
-                                          color: theme.textSecondary,
-                                          fontSize: 9,
-                                        },
-                                      ]}
-                                    >
-                                      ADR
-                                    </Text>
-                                  </View>
-                                )}
-                            </View>
-                          </View>
-                        ))}
-                      </View>
-
-                      <View
-                        style={[
-                          styles.copyTeamPlayersSection,
-                          {
-                            backgroundColor: theme.surfaceSecondary,
-                            borderRadius: 8,
-                            padding: 12,
-                            marginBottom: 15,
-                          },
-                        ]}
-                      >
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            marginBottom: 8,
-                          }}
-                        >
-                          <Image
-                            source={{ uri: series.team2.logoUrl }}
-                            style={{
-                              width: 18,
-                              height: 18,
-                              marginRight: 6,
-                              borderRadius: 3,
-                            }}
-                            resizeMode="contain"
-                          />
-                          <Text
-                            style={[
-                              styles.copyTeamStatsTitle,
-                              {
-                                color: theme.text,
-                                fontSize: 14,
-                                fontWeight: "bold",
-                              },
-                            ]}
-                          >
-                            {series.team2?.shortName || "Team 2"}
-                          </Text>
-                        </View>
-                        {team2Players.map((player) => (
-                          <View
-                            key={player.playerId}
-                            style={[
-                              styles.copyPlayerRow,
-                              {
-                                flexDirection: "row",
-                                alignItems: "center",
-                                marginBottom: 8,
-                                paddingVertical: 4,
-                              },
-                            ]}
-                          >
-                            <View
-                              style={[
-                                styles.copyPlayerInfo,
-                                {
-                                  flex: 1,
-                                  flexDirection: "row",
-                                  alignItems: "center",
-                                },
-                              ]}
-                            >
-                              <Image
-                                source={{ uri: player.image_url }}
-                                style={{
-                                  width: 24,
-                                  height: 24,
-                                  borderRadius: 12,
-                                  marginRight: 8,
-                                  aspectRatio: 1,
-                                }}
-                                resizeMode="contain"
-                              />
-                              <Text
-                                style={[
-                                  styles.copyPlayerName,
-                                  {
-                                    color: theme.text,
-                                    fontSize: 13,
-                                    fontWeight: "600",
-                                    marginRight: 8,
-                                  },
-                                ]}
-                              >
-                                {player.displayName}
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.copyPlayerStats,
-                                { flexDirection: "row", alignItems: "center" },
-                              ]}
-                            >
-                              <View
-                                style={[
-                                  styles.copyStatItem,
-                                  { alignItems: "center", marginHorizontal: 6 },
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.copyStatValue,
-                                    {
-                                      color: theme.text,
-                                      fontSize: 12,
-                                      fontWeight: "bold",
-                                    },
-                                  ]}
-                                >
-                                  {player.kills}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.copyStatLabel,
-                                    { color: theme.textSecondary, fontSize: 9 },
-                                  ]}
-                                >
-                                  K
-                                </Text>
-                              </View>
-                              <View
-                                style={[
-                                  styles.copyStatItem,
-                                  { alignItems: "center", marginHorizontal: 6 },
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.copyStatValue,
-                                    {
-                                      color: theme.text,
-                                      fontSize: 12,
-                                      fontWeight: "bold",
-                                    },
-                                  ]}
-                                >
-                                  {player.deaths}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.copyStatLabel,
-                                    { color: theme.textSecondary, fontSize: 9 },
-                                  ]}
-                                >
-                                  D
-                                </Text>
-                              </View>
-                              <View
-                                style={[
-                                  styles.copyStatItem,
-                                  { alignItems: "center", marginHorizontal: 6 },
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.copyStatValue,
-                                    {
-                                      color: theme.text,
-                                      fontSize: 12,
-                                      fontWeight: "bold",
-                                    },
-                                  ]}
-                                >
-                                  {player.assists}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.copyStatLabel,
-                                    { color: theme.textSecondary, fontSize: 9 },
-                                  ]}
-                                >
-                                  A
-                                </Text>
-                              </View>
-                              <View
-                                style={[
-                                  styles.copyStatItem,
-                                  { alignItems: "center", marginHorizontal: 6 },
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.copyStatValue,
-                                    {
-                                      color:
-                                        player.kills - player.deaths === 0
-                                          ? theme.text
-                                          : player.kills - player.deaths > 0
-                                          ? theme.success
-                                          : theme.error,
-                                      fontSize: 12,
-                                      fontWeight: "bold",
-                                    },
-                                  ]}
-                                >
-                                  {player.kills - player.deaths <= 0
-                                    ? player.kills - player.deaths
-                                    : `+${player.kills - player.deaths}`}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.copyStatLabel,
-                                    { color: theme.textSecondary, fontSize: 9 },
-                                  ]}
-                                >
-                                  +/-
-                                </Text>
-                              </View>
-                              {player.adr !== null &&
-                                player.adr !== undefined && (
-                                  <View
-                                    style={[
-                                      styles.copyStatItem,
-                                      {
-                                        alignItems: "center",
-                                        marginHorizontal: 6,
-                                      },
-                                    ]}
-                                  >
-                                    <Text
-                                      style={[
-                                        styles.copyStatValue,
-                                        {
-                                          color: theme.text,
-                                          fontSize: 12,
-                                          fontWeight: "bold",
-                                        },
-                                      ]}
-                                    >
-                                      {Math.round(player.adr)}
-                                    </Text>
-                                    <Text
-                                      style={[
-                                        styles.copyStatLabel,
-                                        {
-                                          color: theme.textSecondary,
-                                          fontSize: 9,
-                                        },
-                                      ]}
-                                    >
-                                      ADR
-                                    </Text>
-                                  </View>
-                                )}
-                            </View>
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  );
-                })()}
+                  })()}
                 </View>
               </Container>
             </View>
