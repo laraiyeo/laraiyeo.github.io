@@ -51,8 +51,17 @@ const CS2ResultsScreen = ({ navigation, route }) => {
   const [showRoundsModal, setShowRoundsModal] = useState(false);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [copySeriesData, setCopySeriesData] = useState(null);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [contentHeight, setContentHeight] = useState(0);
   const copyCardRef = useRef(null);
   const loadingRef = useRef(false);
+
+  const handleInnerLayout = (event) => {
+    const { height } = event.nativeEvent.layout;
+    setContentHeight(height);
+  };
+
+  const Container = isCapturing ? View : ScrollView;
 
   const loadSeriesData = useCallback(
     async (forceRefresh = false) => {
@@ -451,10 +460,20 @@ const CS2ResultsScreen = ({ navigation, route }) => {
         return;
       }
 
+      // Expand ScrollView to show all content
+      setIsCapturing(true);
+
+      // Wait for render
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       const uri = await captureRef(copyCardRef.current, {
         format: "png",
         quality: 0.95,
       });
+
+      // Reset ScrollView
+      setIsCapturing(false);
+
       if (uri) {
         try {
           const sharingAvailable =
@@ -478,6 +497,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
       }
     } catch (e) {
       console.error("Error sharing copy card", e);
+      setIsCapturing(false); // Reset on error
       Alert.alert("Error", "Failed to share match summary");
     }
   };
@@ -3236,13 +3256,22 @@ const CS2ResultsScreen = ({ navigation, route }) => {
               style={[
                 styles.valShareCard || styles.copyShareCard,
                 { backgroundColor: theme.surface },
+                isCapturing
+                  ? { height: contentHeight }  // auto-expanding
+                  : { height: 400 },           // normal mode
               ]}
             >
-              <ScrollView
-                style={styles.modalScrollContent}
-                showsVerticalScrollIndicator={false}
+              <Container
+                style={[
+                  styles.modalScrollContent,
+                  { backgroundColor: theme.surface },
+                ]}
+                contentContainerStyle={!isCapturing ? { paddingBottom: 16 } : undefined}
+                showsVerticalScrollIndicator={!isCapturing}
+                scrollEnabled={!isCapturing}
               >
-                <View
+                <View onLayout={handleInnerLayout}>
+                  <View
                   style={[
                     styles.copyHeaderSection,
                     {
@@ -3824,7 +3853,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                         },
                                       ]}
                                     >
-                                      {player.adr}
+                                      {Math.round(player.adr)}
                                     </Text>
                                     <Text
                                       style={[
@@ -3851,6 +3880,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                             backgroundColor: theme.surfaceSecondary,
                             borderRadius: 8,
                             padding: 12,
+                            marginBottom: 15,
                           },
                         ]}
                       >
@@ -4074,7 +4104,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                                         },
                                       ]}
                                     >
-                                      {player.adr}
+                                      {Math.round(player.adr)}
                                     </Text>
                                     <Text
                                       style={[
@@ -4096,7 +4126,8 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                     </View>
                   );
                 })()}
-              </ScrollView>
+                </View>
+              </Container>
             </View>
             <View style={styles.valShareCardActions}>
               <View style={styles.valShareCardTopButtons}>
@@ -4970,7 +5001,6 @@ const styles = StyleSheet.create({
   },
   valShareCard: {
     width: Math.min(screenWidth * 0.94, 720),
-    maxHeight: 0.85 * 800,
     overflow: "hidden",
     padding: 0,
     shadowColor: "#000",
