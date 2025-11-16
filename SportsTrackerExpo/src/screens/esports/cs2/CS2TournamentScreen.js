@@ -971,12 +971,14 @@ const TournamentStage = ({
                                           ]}
                                         >
                                           {match.startDate
-                                            ? new Date(
-                                                match.startDate
-                                              ).toLocaleDateString("en-US", {
+                                            ? `${new Date(match.startDate).toLocaleDateString("en-US", {
                                                 month: "short",
                                                 day: "numeric",
-                                              })
+                                              })}  •  ${new Date(match.startDate).toLocaleTimeString("en-US", {
+                                                hour: "numeric",
+                                                minute: "2-digit",
+                                                hour12: true,
+                                              })}`
                                             : "TBD"}
                                         </Text>
 
@@ -1147,12 +1149,14 @@ const TournamentStage = ({
                                             ]}
                                           >
                                             {match.startDate
-                                              ? new Date(
-                                                  match.startDate
-                                                ).toLocaleDateString("en-US", {
+                                              ? `${new Date(match.startDate).toLocaleDateString("en-US", {
                                                   month: "short",
                                                   day: "numeric",
-                                                })
+                                                })} • ${new Date(match.startDate).toLocaleTimeString("en-US", {
+                                                  hour: "numeric",
+                                                  minute: "2-digit",
+                                                  hour12: true,
+                                                })}`
                                               : "TBD"}
                                           </Text>
 

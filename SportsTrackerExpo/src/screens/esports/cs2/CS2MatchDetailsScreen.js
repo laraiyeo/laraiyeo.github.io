@@ -14,7 +14,7 @@ import {
 import { WebView } from "react-native-webview";
 import { Ionicons, FontAwesome6 } from "@expo/vector-icons";
 import { useTheme } from "../../../context/ThemeContext";
-import { getLiveMatchData } from "../../../services/cs2MatchService";
+import { getLiveMatchData, getCS2MapImageUrl } from "../../../services/cs2MatchService";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -549,10 +549,7 @@ const CS2MatchDetailsScreen = ({ navigation, route }) => {
           {/* Map Background */}
           <Image
             source={{
-              uri: `https://bo3.gg/img/maps/backgrounds/${
-                snapshot?.map_name?.replace("de_", "") || "mirage"
-              }.webp`,
-            }}
+              uri: getCS2MapImageUrl(snapshot?.map_name?.replace('de_', '') || mapData.mapName?.toLowerCase())}}
             style={styles.mapBackground}
           />
           <View style={styles.mapOverlay} />

@@ -496,49 +496,61 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
       const allStats = {};
       
       // Fetch stats for each competition with year fallback
-      const statsPromises = competitions.map(async (competition) => {
+      for (const competition of competitions) {
         try {
           const year = getDomesticLeagueYear();
           const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition.code}/seasons/${year}/types/${competition.seasonType}/athletes/${playerId}/statistics/0?lang=en&region=us`;
           const response = await fetch(convertToHttps(statsUrl));
           
           if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+            console.log(`HTTP ${response.status} for ${competition.name}`);
+            continue;
           }
           
           const statsData = await response.json();
-          console.log(`Validating Spain player stats data:`, statsData);
+          console.log(`Validating ${competition.name} player stats data:`, statsData);
           
-          // Check if data is valid
-          const isValidData = statsData && statsData.splits && statsData.splits.categories && Array.isArray(statsData.splits.categories) && statsData.splits.categories.length > 0;
+          // Check if data is valid - ESPN sometimes returns mixed reference/data objects
+          // We need to check if the splits.categories contains actual data, not just references
+          const hasValidSplits = statsData && 
+                                statsData.splits && 
+                                statsData.splits.categories && 
+                                Array.isArray(statsData.splits.categories) && 
+                                statsData.splits.categories.length > 0;
           
-          if (isValidData) {
-            // Handle the case where data might be wrapped in a data property
-            const actualData = statsData.data || statsData;
-            
+          // Additional check: ensure categories contain actual statistics data
+          // Looking for either 'statistics' or 'stats' property in categories
+          const hasValidCategories = hasValidSplits && 
+                                    statsData.splits.categories.some(category => 
+                                      (category.statistics && Array.isArray(category.statistics) && category.statistics.length > 0) ||
+                                      (category.stats && Array.isArray(category.stats) && category.stats.length > 0)
+                                    );
+          
+          if (hasValidCategories) {
+            // Process and store the stats
             allStats[competition.code] = {
               name: competition.name,
-              stats: actualData
+              stats: processTeamPageStats(statsData)
             };
-            console.log(`Successfully fetched ${competition.name} stats:`, actualData);
+            console.log(`Successfully fetched ${competition.name} stats with ${statsData.splits.categories.length} categories`);
+          } else if (hasValidSplits) {
+            console.log(`${competition.name} has splits but no statistics data - checking categories structure:`, statsData.splits.categories.map(cat => ({
+              name: cat.name,
+              hasStatistics: !!cat.statistics,
+              hasStats: !!cat.stats,
+              statisticsLength: cat.statistics?.length || 0,
+              statsLength: cat.stats?.length || 0
+            })));
           } else {
-            console.log(`No stats data found for ${competition.name}`);
+            console.log(`No valid stats data found for ${competition.name} - missing splits or categories`);
           }
         } catch (error) {
           console.error(`Error fetching ${competition.name} stats:`, error);
-          return null;
         }
-      });
-      
-      const statsResults = await Promise.all(statsPromises);
-      const validStats = statsResults.filter(result => result !== null);
-      
-      // Organize stats by competition
-      validStats.forEach(result => {
-        allStats[result.competition] = processTeamPageStats(result.data);
-      });
+      }
       
       console.log(`Successfully fetched stats for ${Object.keys(allStats).length} competitions:`, Object.keys(allStats));
+      console.log('Final allStats object:', JSON.stringify(allStats, null, 2));
       setPlayerStats(allStats);
       
     } catch (error) {
@@ -553,16 +565,30 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
     // Process stats exactly like team-page.js does
     const stats = {};
     
+    console.log('Processing team page stats with data:', statsData);
+    
     if (statsData.splits && statsData.splits.categories) {
-      statsData.splits.categories.forEach(category => {
+      console.log('Found categories:', statsData.splits.categories);
+      
+      statsData.splits.categories.forEach((category, index) => {
+        console.log(`Processing category ${index}:`, category.name, 'has stats:', !!category.stats);
+        
         if (category.stats) {
+          console.log(`Category ${category.name} stats:`, category.stats);
           category.stats.forEach(stat => {
-            stats[stat.name] = stat.value;
+            console.log(`Processing stat:`, stat);
+            if (stat.value !== undefined && stat.value !== null && stat.value !== '') {
+              stats[stat.name] = stat.value;
+              console.log(`Added stat ${stat.name}: ${stat.value}`);
+            } else {
+              console.log(`Skipped stat ${stat.name} - no value or empty value:`, stat.value);
+            }
           });
         }
       });
     }
     
+    console.log('Final processed stats:', stats);
     return { general: stats };
   };
 
@@ -1634,16 +1660,19 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
       return rows;
     };
 
-    const renderCompetitionStats = (competitionName, stats) => {
-      if (!stats || !stats.general) return null;
+    const renderCompetitionStats = (competitionCode, competitionData) => {
+      if (!competitionData || !competitionData.stats || !competitionData.stats.general) return null;
+
+      const stats = competitionData.stats.general;
+      const competitionName = competitionData.name;
 
       return (
-        <View key={competitionName} style={styles.statsSection}>
+        <View key={competitionCode} style={styles.statsSection}>
           <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: colors.primary }]}>
             {competitionName} Stats
           </Text>
           {renderStatsGrid(
-            stats.general,
+            stats,
             [
               { key: 'appearances', label: 'Apps' },
               { key: 'totalGoals', label: 'Goals' },
@@ -1669,8 +1698,8 @@ const SpainPlayerPageScreen = ({ route, navigation }) => {
     return (
       <ScrollView style={[styles.statsContainer, { backgroundColor: theme.background }]} showsVerticalScrollIndicator={false}>
         <View style={styles.statsContent}>
-          {Object.entries(playerStats).map(([competitionName, stats]) => 
-            renderCompetitionStats(competitionName, stats)
+          {Object.entries(playerStats).map(([competitionCode, competitionData]) => 
+            renderCompetitionStats(competitionCode, competitionData)
           )}
         </View>
       </ScrollView>

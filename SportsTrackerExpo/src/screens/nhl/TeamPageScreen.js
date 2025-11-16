@@ -1,22 +1,31 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../context/ThemeContext';
-import { useFavorites } from '../../context/FavoritesContext';
-import { useFocusEffect } from '@react-navigation/native';
-import { NHLService } from '../../services/NHLService';
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  ScrollView,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../../context/ThemeContext";
+import { useFavorites } from "../../context/FavoritesContext";
+import { useFocusEffect } from "@react-navigation/native";
+import { NHLService } from "../../services/NHLService";
 
 // NHL-specific year logic: September-December uses next year, otherwise current year
 const getNHLYear = () => {
   const now = new Date();
   const currentYear = now.getFullYear();
   const month = now.getMonth(); // 0-based: 0=January, 8=September, 11=December
-  
+
   // If current month is September (8) to December (11), use next year
-  if (month >= 8) { // September to December
+  if (month >= 8) {
+    // September to December
     return currentYear + 1;
   }
-  
+
   return currentYear;
 };
 
@@ -25,9 +34,9 @@ const normalizeAbbreviation = (abbrev) => {
   if (!abbrev) return abbrev;
   const lowerAbbrev = String(abbrev).toLowerCase();
   const normalizationMap = {
-    'lak': 'la',    // Los Angeles Kings
-    'sjs': 'sj',    // San Jose Sharks  
-    'tbl': 'tb'     // Tampa Bay Lightning
+    lak: "la", // Los Angeles Kings
+    sjs: "sj", // San Jose Sharks
+    tbl: "tb", // Tampa Bay Lightning
   };
   return normalizationMap[lowerAbbrev] || lowerAbbrev;
 };
@@ -36,12 +45,38 @@ const normalizeAbbreviation = (abbrev) => {
 // abbreviation (e.g. { abbreviation: 'TOR' }) without a numeric id. Add more
 // entries here as needed; this avoids undefined teamId navigation errors.
 const abbrToIdMap = {
-    'tor': '21', 'mtl': '10', 'cgy': '3', 'edm': '6', 'van': '22', 'wpg': '28',
-    'bos': '1', 'nyr': '13', 'phi': '15', 'pit': '16', 'tbl': '20', 'car': '7',
-    'chi': '4', 'det': '5', 'nsh': '27', 'stl': '19', 'wsh': '23',
-    'ana': '25', 'lak': '8', 'sjs': '18', 'cbj': '29', 'min': '30', 'ott': '14',
-    'fla': '26', 'buf': '2', 'njd': '11', 'nyi': '12', 'dal': '9', 'col': '17',
-    'uta': '129764', 'sea': '124292', 'vgk': '37',
+  tor: "21",
+  mtl: "10",
+  cgy: "3",
+  edm: "6",
+  van: "22",
+  wpg: "28",
+  bos: "1",
+  nyr: "13",
+  phi: "15",
+  pit: "16",
+  tbl: "20",
+  car: "7",
+  chi: "4",
+  det: "5",
+  nsh: "27",
+  stl: "19",
+  wsh: "23",
+  ana: "25",
+  lak: "8",
+  sjs: "18",
+  cbj: "29",
+  min: "30",
+  ott: "14",
+  fla: "26",
+  buf: "2",
+  njd: "11",
+  nyi: "12",
+  dal: "9",
+  col: "17",
+  uta: "129764",
+  sea: "124292",
+  vgk: "37",
 };
 
 const mapAbbrToId = (abbr) => {
@@ -50,7 +85,7 @@ const mapAbbrToId = (abbr) => {
 };
 
 const TeamPageScreen = ({ route, navigation }) => {
-  const { teamId: rawTeamId, sport = 'nhl' } = route.params || {};
+  const { teamId: rawTeamId, sport = "nhl" } = route.params || {};
   // Some callers pass the full team object as `team`, others pass `teamId`.
   // Prefer the explicit teamId param, then the `team` object, then the whole params
   // object as a last resort. This makes navigation resilient to different
@@ -61,17 +96,35 @@ const TeamPageScreen = ({ route, navigation }) => {
   // Example: TeamPage navigation - sport: nhl params: {teamId: undefined, team: {...}, sport: 'nhl'}
   // Keep this log lightweight; remove or gate by env/dev later if noisy.
   // eslint-disable-next-line no-console
-  console.log('NHL TeamPage navigation - sport:', sport, 'params:', route.params);
+  console.log(
+    "NHL TeamPage navigation - sport:",
+    sport,
+    "params:",
+    route.params
+  );
   // Resolve incoming team identifier which may be:
   // - a plain ESPN-style id (string/number)
   // - an object containing { id, teamId, team: { id }, abbreviation }
   // - an abbreviation string like 'NYR' or 'nyr'
   const resolveTeamParam = (input) => {
     if (input == null) return { id: null, abbreviation: null };
-    if (typeof input === 'object') {
-      const id = input.teamId ?? input.id ?? input.team?.id ?? input.team?.teamId ?? null;
-      const abbreviation = input.abbreviation ?? input.tricode ?? input.team?.abbreviation ?? input.team?.abbrev ?? null;
-      return { id: id != null ? String(id) : null, abbreviation: abbreviation != null ? String(abbreviation) : null };
+    if (typeof input === "object") {
+      const id =
+        input.teamId ??
+        input.id ??
+        input.team?.id ??
+        input.team?.teamId ??
+        null;
+      const abbreviation =
+        input.abbreviation ??
+        input.tricode ??
+        input.team?.abbreviation ??
+        input.team?.abbrev ??
+        null;
+      return {
+        id: id != null ? String(id) : null,
+        abbreviation: abbreviation != null ? String(abbreviation) : null,
+      };
     }
     // primitive
     const s = String(input);
@@ -84,14 +137,15 @@ const TeamPageScreen = ({ route, navigation }) => {
   const { theme, colors, isDarkMode, getTeamLogoUrl } = useTheme();
   const { isFavorite, toggleFavorite, updateTeamCurrentGame } = useFavorites();
 
-  const [activeTab, setActiveTab] = useState('Games');
+  const [activeTab, setActiveTab] = useState("Games");
   const [loading, setLoading] = useState(true);
   const [teamData, setTeamData] = useState(null);
 
   // Derive a stable numeric teamId when available. Prefer the resolved param id,
   // otherwise fall back to any already-loaded teamData id. This ensures any
   // references to `teamId` below are defined during render.
-  const teamId = resolvedParam.id ?? (teamData?.id ? String(teamData.id) : null);
+  const teamId =
+    resolvedParam.id ?? (teamData?.id ? String(teamData.id) : null);
   const [teamRecord, setTeamRecord] = useState(null);
   const [currentGame, setCurrentGame] = useState(null);
   const [lastMatches, setLastMatches] = useState([]);
@@ -104,7 +158,7 @@ const TeamPageScreen = ({ route, navigation }) => {
     forwards: true,
     defensemen: true,
     goalies: true,
-    others: true
+    others: true,
   });
   const [teamStats, setTeamStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(false);
@@ -114,25 +168,53 @@ const TeamPageScreen = ({ route, navigation }) => {
   const statsConfiguration = {
     // Default configuration - show first 6 stats for any category not specified
     default: { limit: 6, statNames: null }, // null means show first N stats
-    
+
     // Example category-specific configurations
     // You can add specific categories here with custom stat selections
-    'Offensive': { 
-      limit: 6, 
-      statNames: ['goals', 'assists', 'avgShots', 'pointsPerGame', 'powerPlayOpportunities', 'faceoffPercent'] 
-    },
-    'Defensive': { 
-      limit: 6, 
-      statNames: ['avgGoalsAgainst', 'avgShotsAgainst', 'powerPlayGoalsAgainst', 'shutouts', 'saves', 'hits'] 
-    },
-    'General': { 
-      limit: 6, 
-      statNames: ['games', 'timeOnIcePerGame', 'shiftsPerGame', 'shotDifferential', 'goalDifferential', 'PIMDifferential']
-    },
-    'Penalties': {
+    Offensive: {
       limit: 6,
-      statNames: ['penalties', 'penaltyMinutes', 'majorPenalties', 'minorPenalties', 'avgFights', 'holdingPenalties']
-    }
+      statNames: [
+        "goals",
+        "assists",
+        "avgShots",
+        "pointsPerGame",
+        "powerPlayOpportunities",
+        "faceoffPercent",
+      ],
+    },
+    Defensive: {
+      limit: 6,
+      statNames: [
+        "avgGoalsAgainst",
+        "avgShotsAgainst",
+        "powerPlayGoalsAgainst",
+        "shutouts",
+        "saves",
+        "hits",
+      ],
+    },
+    General: {
+      limit: 6,
+      statNames: [
+        "games",
+        "timeOnIcePerGame",
+        "shiftsPerGame",
+        "shotDifferential",
+        "goalDifferential",
+        "PIMDifferential",
+      ],
+    },
+    Penalties: {
+      limit: 6,
+      statNames: [
+        "penalties",
+        "penaltyMinutes",
+        "majorPenalties",
+        "minorPenalties",
+        "avgFights",
+        "holdingPenalties",
+      ],
+    },
   };
 
   const liveUpdateInterval = useRef(null);
@@ -143,7 +225,7 @@ const TeamPageScreen = ({ route, navigation }) => {
   useFocusEffect(
     React.useCallback(() => {
       fetchTeamData();
-      
+
       // Cleanup interval on unmount
       return () => {
         if (liveUpdateInterval.current) {
@@ -155,61 +237,86 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   // Convert HTTP to HTTPS helper (from NFL)
   const convertToHttps = (url) => {
-    if (url && url.startsWith('http://')) return url.replace('http://', 'https://');
+    if (url && url.startsWith("http://"))
+      return url.replace("http://", "https://");
     return url;
   };
 
   // Derive sanitized header stats preferring values from teamData (/teams) then falling back to computed teamRecord
   const deriveHeaderStats = () => {
     // Extract stats from /teams payload record.items array (where all the numeric data lives)
-    const totalRecord = teamData?.record?.items?.find(item => item.type === 'total' || item.description?.includes('Overall'));
-    
+    const totalRecord = teamData?.record?.items?.find(
+      (item) => item.type === "total" || item.description?.includes("Overall")
+    );
+
     // Helper to find stat by name from the stats array
     const getStat = (name) => {
       if (!totalRecord?.stats) return null;
-      const stat = totalRecord.stats.find(s => s.name === name);
+      const stat = totalRecord.stats.find((s) => s.name === name);
       return stat?.value ?? null;
     };
 
     // Get record display - prefer the summary from total record, then fallback to constructed
     let recordDisplay = totalRecord?.summary;
     if (!recordDisplay) {
-      recordDisplay = teamData?.recordSummary || teamData?.record?.displayValue || teamData?.record?.display;
+      recordDisplay =
+        teamData?.recordSummary ||
+        teamData?.record?.displayValue ||
+        teamData?.record?.display;
     }
     if (!recordDisplay && teamRecord) {
-      recordDisplay = `${teamRecord.wins}-${teamRecord.losses}-${teamRecord.otLosses || 0}`;
+      recordDisplay = `${teamRecord.wins}-${teamRecord.losses}-${
+        teamRecord.otLosses || 0
+      }`;
     }
 
     // Get points - prefer from /teams stats, then fallback to teamRecord
-    let points = getStat('points');
-    if (points === null && teamData?.points !== undefined) points = teamData.points;
-    if (points === null && teamData?.team?.points !== undefined) points = teamData.team.points;
-    if (points === null && teamRecord?.points !== undefined) points = teamRecord.points;
+    let points = getStat("points");
+    if (points === null && teamData?.points !== undefined)
+      points = teamData.points;
+    if (points === null && teamData?.team?.points !== undefined)
+      points = teamData.team.points;
+    if (points === null && teamRecord?.points !== undefined)
+      points = teamRecord.points;
 
     // Get streak - prefer from /teams stats, then other locations
-    let rawStreak = getStat('streak');
-    if (rawStreak === null) rawStreak = teamData?.streak ?? teamData?.streak?.displayValue ?? null;
-    if (rawStreak === null && teamData?.team?.streak) rawStreak = teamData.team.streak;
+    let rawStreak = getStat("streak");
+    if (rawStreak === null)
+      rawStreak = teamData?.streak ?? teamData?.streak?.displayValue ?? null;
+    if (rawStreak === null && teamData?.team?.streak)
+      rawStreak = teamData.team.streak;
 
-    let streakDisplay = '--';
+    let streakDisplay = "--";
     let streakKind = null;
     if (rawStreak !== null && rawStreak !== undefined) {
       const s = String(rawStreak).trim();
-      if (s === '') {
-        streakDisplay = '--';
+      if (s === "") {
+        streakDisplay = "--";
       } else {
         const first = s.charAt(0);
-        if (first === '-') { streakDisplay = 'L' + s.substring(1); streakKind = 'L'; }
-        else if (first === '+') { streakDisplay = 'W' + s.substring(1); streakKind = 'W'; }
-        else if (!isNaN(Number(s))) { streakDisplay = 'W' + s; streakKind = 'W'; }
-        else { streakDisplay = s; }
+        if (first === "-") {
+          streakDisplay = "L" + s.substring(1);
+          streakKind = "L";
+        } else if (first === "+") {
+          streakDisplay = "W" + s.substring(1);
+          streakKind = "W";
+        } else if (!isNaN(Number(s))) {
+          streakDisplay = "W" + s;
+          streakKind = "W";
+        } else {
+          streakDisplay = s;
+        }
       }
     }
 
-    const standingSummary = teamData?.standingSummary || teamData?.standing?.summary || teamData?.team?.standingSummary || null;
-    
+    const standingSummary =
+      teamData?.standingSummary ||
+      teamData?.standing?.summary ||
+      teamData?.team?.standingSummary ||
+      null;
+
     // Debug: log the exact values extracted for header
-    console.log('NHL deriveHeaderStats extracted:', {
+    console.log("NHL deriveHeaderStats extracted:", {
       recordDisplay,
       points,
       streakDisplay,
@@ -218,52 +325,67 @@ const TeamPageScreen = ({ route, navigation }) => {
       totalRecordFound: !!totalRecord,
       totalRecordSummary: totalRecord?.summary,
       extractedStats: {
-        points: getStat('points'),
-        wins: getStat('wins'),
-        losses: getStat('losses'),
-        otLosses: getStat('otLosses'),
-        streak: getStat('streak')
-      }
+        points: getStat("points"),
+        wins: getStat("wins"),
+        losses: getStat("losses"),
+        otLosses: getStat("otLosses"),
+        streak: getStat("streak"),
+      },
     });
-    
-    return { recordDisplay, points, streakDisplay, streakKind, standingSummary };
+
+    return {
+      recordDisplay,
+      points,
+      streakDisplay,
+      streakKind,
+      standingSummary,
+    };
   };
 
   // Debug: log the exact teams link and the header stats used for display whenever relevant data changes
   useEffect(() => {
     try {
       const teamsUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${teamId}`;
-      const headerStats = (typeof deriveHeaderStats === 'function') ? deriveHeaderStats() : null;
-      console.log('NHL TeamHeader debug:', { teamsUrl, headerStats, teamDataLoaded: !!teamData, teamRecordLoaded: !!teamRecord });
-      console.log('NHL TeamHeader teamData record structure:', {
+      const headerStats =
+        typeof deriveHeaderStats === "function" ? deriveHeaderStats() : null;
+      console.log("NHL TeamHeader debug:", {
+        teamsUrl,
+        headerStats,
+        teamDataLoaded: !!teamData,
+        teamRecordLoaded: !!teamRecord,
+      });
+      console.log("NHL TeamHeader teamData record structure:", {
         hasRecord: !!teamData?.record,
         recordItems: teamData?.record?.items?.length || 0,
         firstItemSummary: teamData?.record?.items?.[0]?.summary,
-        firstItemStatsCount: teamData?.record?.items?.[0]?.stats?.length || 0
+        firstItemStatsCount: teamData?.record?.items?.[0]?.stats?.length || 0,
       });
-      console.log('NHL TeamHeader teamRecord fallback:', teamRecord);
+      console.log("NHL TeamHeader teamRecord fallback:", teamRecord);
     } catch (e) {
-      console.warn('NHL TeamHeader debug log failed', e);
+      console.warn("NHL TeamHeader debug log failed", e);
     }
   }, [teamData, teamRecord, teamId]);
 
   // Normalize an ESPN event into the UI-friendly shape expected by render code
   const normalizeEventForUI = (ev) => {
     if (!ev) return ev;
-    const comp = (Array.isArray(ev.competitions) && ev.competitions.length > 0) ? ev.competitions[0] : null;
+    const comp =
+      Array.isArray(ev.competitions) && ev.competitions.length > 0
+        ? ev.competitions[0]
+        : null;
     const status = ev.status || comp?.status || {};
     const competitors = comp?.competitors || ev.competitors || [];
 
     const parseScore = (raw) => {
       if (raw == null) return null;
       // If it's an object like { value, displayValue, shootoutScore }
-      if (typeof raw === 'object') {
+      if (typeof raw === "object") {
         if (raw.value !== undefined && raw.value !== null) {
           const n = Number(raw.value);
           return Number.isFinite(n) ? n : null;
         }
         if (raw.displayValue !== undefined && raw.displayValue !== null) {
-          const n = Number(String(raw.displayValue).replace(/[^0-9-]/g, ''));
+          const n = Number(String(raw.displayValue).replace(/[^0-9-]/g, ""));
           return Number.isFinite(n) ? n : String(raw.displayValue);
         }
         // shootoutScore may be present
@@ -280,15 +402,39 @@ const TeamPageScreen = ({ route, navigation }) => {
     };
 
     const findTeam = (home) => {
-      const c = competitors.find(x => (x.homeAway === (home ? 'home' : 'away')) || (x.team && x.team.homeAway === (home ? 'home' : 'away')));
-      if (!c) return { id: null, abbreviation: 'TBD', score: null, record: null, team: null };
+      const c = competitors.find(
+        (x) =>
+          x.homeAway === (home ? "home" : "away") ||
+          (x.team && x.team.homeAway === (home ? "home" : "away"))
+      );
+      if (!c)
+        return {
+          id: null,
+          abbreviation: "TBD",
+          score: null,
+          record: null,
+          team: null,
+        };
       return {
         id: c.team?.id ?? c.id ?? null,
-        abbreviation: c.team?.abbreviation || c.team?.abbrev || c.team?.shortDisplayName || c.team?.displayName || c.abbreviation || c.team?.tricode || 'UNK',
+        abbreviation:
+          c.team?.abbreviation ||
+          c.team?.abbrev ||
+          c.team?.shortDisplayName ||
+          c.team?.displayName ||
+          c.abbreviation ||
+          c.team?.tricode ||
+          "UNK",
         // parse score robustly (handle object or primitive shapes); keep null when missing
-        score: parseScore(c.score != null ? c.score : (c.curatedScore != null ? c.curatedScore : null)),
+        score: parseScore(
+          c.score != null
+            ? c.score
+            : c.curatedScore != null
+            ? c.curatedScore
+            : null
+        ),
         record: c.team?.record?.displayValue || c.team?.record || null,
-        team: c.team || c
+        team: c.team || c,
       };
     };
 
@@ -299,9 +445,21 @@ const TeamPageScreen = ({ route, navigation }) => {
       ...ev,
       status,
       date: ev.date,
-      isCompleted: status?.type?.state === 'post' || status?.type?.state === 'final' || (status?.type?.completed === true),
-      displayClock: status?.displayClock || status?.type?.shortDetail || status?.type?.summary || null,
-      venue: comp?.venue?.fullName || comp?.venue?.name || ev.venue || ev.location || null,
+      isCompleted:
+        status?.type?.state === "post" ||
+        status?.type?.state === "final" ||
+        status?.type?.completed === true,
+      displayClock:
+        status?.displayClock ||
+        status?.type?.shortDetail ||
+        status?.type?.summary ||
+        null,
+      venue:
+        comp?.venue?.fullName ||
+        comp?.venue?.name ||
+        ev.venue ||
+        ev.location ||
+        null,
       homeTeam,
       awayTeam,
     };
@@ -311,13 +469,13 @@ const TeamPageScreen = ({ route, navigation }) => {
     try {
       // Use ESPN core API for NHL team info
       const espnUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${teamId}`;
-      console.log('Fetching NHL team data from:', espnUrl);
+      console.log("Fetching NHL team data from:", espnUrl);
       const res = await fetch(espnUrl);
       const data = await res.json();
       // Debug: print the exact places we look for header numbers so we can trace where
       // values like points, record, and streak are coming from in the teams payload.
       try {
-        console.log('NHL /teams payload debug:', {
+        console.log("NHL /teams payload debug:", {
           raw: data,
           teamTopLevel: data?.team,
           points_direct: data?.team?.points,
@@ -326,35 +484,53 @@ const TeamPageScreen = ({ route, navigation }) => {
           nested_team_obj: data?.team?.team,
           standingSummary: data?.team?.standingSummary,
           standing_obj: data?.team?.standing,
-          streak: data?.team?.streak
+          streak: data?.team?.streak,
         });
-      } catch (e) { /* ignore stringify issues */ }
+      } catch (e) {
+        /* ignore stringify issues */
+      }
       if (data && data.team) {
         setTeamData(data.team);
         // try to fetch standings/record and season schedules (seasontype 1,2,3)
         const recordPromise = fetchTeamRecord(data.team.id);
 
         // Fetch schedule types 1,2,3 and pick the last non-empty type for updates
-        const typeList = [1,2,3];
-        const schedulePromises = typeList.map(type => {
+        const typeList = [1, 2, 3];
+        const schedulePromises = typeList.map((type) => {
           const scheduleUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${teamId}/schedule?seasontype=${type}`;
           return fetch(scheduleUrl)
-            .then(r => r.json())
-            .then(j => {
+            .then((r) => r.json())
+            .then((j) => {
               const events = j?.events || j?.schedule || [];
               try {
                 // Log a small sample for debugging (first 3 events)
-                console.log('NHL TeamPage: schedule response', { type, scheduleUrl, eventsCount: Array.isArray(events) ? events.length : 0, sample: Array.isArray(events) ? events.slice(0, 3) : events });
-              } catch (e) { /* ignore stringify issues */ }
+                console.log("NHL TeamPage: schedule response", {
+                  type,
+                  scheduleUrl,
+                  eventsCount: Array.isArray(events) ? events.length : 0,
+                  sample: Array.isArray(events) ? events.slice(0, 3) : events,
+                });
+              } catch (e) {
+                /* ignore stringify issues */
+              }
               return { type, events };
             })
             .catch((err) => {
-              console.log('NHL TeamPage: schedule fetch failed for type', type, 'url', scheduleUrl, err);
+              console.log(
+                "NHL TeamPage: schedule fetch failed for type",
+                type,
+                "url",
+                scheduleUrl,
+                err
+              );
               return { type, events: [] };
             });
         });
 
-        const [ , ...typeResults] = await Promise.all([recordPromise, ...schedulePromises]);
+        const [, ...typeResults] = await Promise.all([
+          recordPromise,
+          ...schedulePromises,
+        ]);
 
         // Determine the last non-empty type (highest type number with events)
         let chosenType = null;
@@ -373,34 +549,52 @@ const TeamPageScreen = ({ route, navigation }) => {
           chosenEvents = typeResults[0]?.events || [];
         }
 
-  // cache the chosen events and the season type to use for future updates
-        const normalizedEvents = Array.isArray(chosenEvents) ? chosenEvents.map(normalizeEventForUI) : [];
+        // cache the chosen events and the season type to use for future updates
+        const normalizedEvents = Array.isArray(chosenEvents)
+          ? chosenEvents.map(normalizeEventForUI)
+          : [];
         cachedEvents.current = normalizedEvents;
         cachedEvents.selectedSeasonType = chosenType;
         // also cache per-type results so we can build unified lists later
         const byType = {};
-        typeResults.forEach(r => { try { byType[r.type] = Array.isArray(r.events) ? r.events : []; } catch(e) { byType[r.type] = []; } });
+        typeResults.forEach((r) => {
+          try {
+            byType[r.type] = Array.isArray(r.events) ? r.events : [];
+          } catch (e) {
+            byType[r.type] = [];
+          }
+        });
         cachedEvents.byType = byType;
 
         // debug: show chosen type/events sample before processing
         try {
-          console.log('NHL TeamPage: chosen season type and events', { chosenType, chosenEventsCount: Array.isArray(normalizedEvents) ? normalizedEvents.length : 0, sample: Array.isArray(normalizedEvents) ? normalizedEvents.slice(0, 3) : normalizedEvents });
+          console.log("NHL TeamPage: chosen season type and events", {
+            chosenType,
+            chosenEventsCount: Array.isArray(normalizedEvents)
+              ? normalizedEvents.length
+              : 0,
+            sample: Array.isArray(normalizedEvents)
+              ? normalizedEvents.slice(0, 3)
+              : normalizedEvents,
+          });
         } catch (e) {}
 
         // Process current game using ALL season types (not just chosen type) to find live games
         // but use chosen events for matches display
         const allEvents = [];
-        Object.values(byType).forEach(arr => { if (Array.isArray(arr)) allEvents.push(...arr); });
-  const allNormalizedEvents = allEvents.map(normalizeEventForUI);
+        Object.values(byType).forEach((arr) => {
+          if (Array.isArray(arr)) allEvents.push(...arr);
+        });
+        const allNormalizedEvents = allEvents.map(normalizeEventForUI);
 
-  // Ensure currentGame is determined first so fetchAllMatches can reliably
-  // filter it out of the upcoming list. Running sequentially here is cheap
-  // compared to the UI correctness benefit.
-  await fetchCurrentGame(allNormalizedEvents);
-  await fetchAllMatches(normalizedEvents);
+        // Ensure currentGame is determined first so fetchAllMatches can reliably
+        // filter it out of the upcoming list. Running sequentially here is cheap
+        // compared to the UI correctness benefit.
+        await fetchCurrentGame(allNormalizedEvents);
+        await fetchAllMatches(normalizedEvents);
       }
     } catch (error) {
-      console.error('Error fetching NHL team data:', error);
+      console.error("Error fetching NHL team data:", error);
     } finally {
       setLoading(false);
     }
@@ -423,34 +617,58 @@ const TeamPageScreen = ({ route, navigation }) => {
       if (events && events.length > 0) {
         // Determine current-window: today (local) through 2:00 AM next day
         const nowLocal = new Date();
-        const startOfTodayLocal = new Date(nowLocal.getFullYear(), nowLocal.getMonth(), nowLocal.getDate(), 0, 0, 0, 0);
-        const endOfWindowLocal = new Date(nowLocal.getFullYear(), nowLocal.getMonth(), nowLocal.getDate() + 1, 2, 0, 0, 0); // next day 2:00 AM
+        const startOfTodayLocal = new Date(
+          nowLocal.getFullYear(),
+          nowLocal.getMonth(),
+          nowLocal.getDate(),
+          0,
+          0,
+          0,
+          0
+        );
+        const endOfWindowLocal = new Date(
+          nowLocal.getFullYear(),
+          nowLocal.getMonth(),
+          nowLocal.getDate() + 1,
+          2,
+          0,
+          0,
+          0
+        ); // next day 2:00 AM
 
         // prefer live if present
-        const liveEvent = events.find(ev => {
+        const liveEvent = events.find((ev) => {
           const state = ev.status?.type?.state;
-          return state === 'in' || state === 'live';
+          return state === "in" || state === "live";
         });
         if (liveEvent) {
-          console.log('NHL fetchCurrentGame: selected live game as current:', {
+          console.log("NHL fetchCurrentGame: selected live game as current:", {
             gameId: liveEvent.id,
             gameDate: liveEvent.date,
             gameStatus: liveEvent.status?.type?.state,
-            reason: 'live game found'
+            reason: "live game found",
           });
           // Normalize the live event to ensure scores are parsed properly
-          const normalizedLive = liveEvent.homeTeam ? liveEvent : normalizeEventForUI(liveEvent);
+          const normalizedLive = liveEvent.homeTeam
+            ? liveEvent
+            : normalizeEventForUI(liveEvent);
           setCurrentGame(normalizedLive);
-          if (isFavorite(teamId, 'nhl')) {
+          if (isFavorite(teamId, "nhl")) {
             try {
-              await updateTeamCurrentGame(teamId, { eventId: liveEvent.id, eventLink: liveEvent.links?.website?.href || liveEvent.link, gameDate: liveEvent.date, competition: 'nhl', updatedAt: new Date().toISOString() });
+              await updateTeamCurrentGame(teamId, {
+                eventId: liveEvent.id,
+                eventLink: liveEvent.links?.website?.href || liveEvent.link,
+                gameDate: liveEvent.date,
+                competition: "nhl",
+                updatedAt: new Date().toISOString(),
+              });
             } catch (e) {}
           }
           return;
         }
 
         // Next, prefer any event that falls within today's current window (today through 2AM next day).
-        const inWindowEvent = events.find(ev => {
+        const inWindowEvent = events.find((ev) => {
           try {
             const evDate = new Date(ev.date);
             return evDate >= startOfTodayLocal && evDate <= endOfWindowLocal;
@@ -459,18 +677,33 @@ const TeamPageScreen = ({ route, navigation }) => {
           }
         });
         if (inWindowEvent) {
-          console.log('NHL fetchCurrentGame: selected in-window game as current:', {
-            gameId: inWindowEvent.id,
-            gameDate: inWindowEvent.date,
-            gameStatus: inWindowEvent.status?.type?.state,
-            todayWindow: { start: startOfTodayLocal.toISOString(), end: endOfWindowLocal.toISOString() },
-            reason: 'game falls within today window'
-          });
-          const normalizedInWindow = inWindowEvent.homeTeam ? inWindowEvent : normalizeEventForUI(inWindowEvent);
+          console.log(
+            "NHL fetchCurrentGame: selected in-window game as current:",
+            {
+              gameId: inWindowEvent.id,
+              gameDate: inWindowEvent.date,
+              gameStatus: inWindowEvent.status?.type?.state,
+              todayWindow: {
+                start: startOfTodayLocal.toISOString(),
+                end: endOfWindowLocal.toISOString(),
+              },
+              reason: "game falls within today window",
+            }
+          );
+          const normalizedInWindow = inWindowEvent.homeTeam
+            ? inWindowEvent
+            : normalizeEventForUI(inWindowEvent);
           setCurrentGame(normalizedInWindow);
-          if (isFavorite(teamId, 'nhl')) {
+          if (isFavorite(teamId, "nhl")) {
             try {
-              await updateTeamCurrentGame(teamId, { eventId: inWindowEvent.id, eventLink: inWindowEvent.links?.website?.href || inWindowEvent.link, gameDate: inWindowEvent.date, competition: 'nhl', updatedAt: new Date().toISOString() });
+              await updateTeamCurrentGame(teamId, {
+                eventId: inWindowEvent.id,
+                eventLink:
+                  inWindowEvent.links?.website?.href || inWindowEvent.link,
+                gameDate: inWindowEvent.date,
+                competition: "nhl",
+                updatedAt: new Date().toISOString(),
+              });
             } catch (e) {}
           }
           return;
@@ -480,7 +713,7 @@ const TeamPageScreen = ({ route, navigation }) => {
         // Upcoming scheduled games will be shown in the Upcoming section instead.
       }
     } catch (error) {
-      console.error('Error fetching current NHL game:', error);
+      console.error("Error fetching current NHL game:", error);
     }
   };
 
@@ -489,13 +722,22 @@ const TeamPageScreen = ({ route, navigation }) => {
       // Fetch season schedule via ESPN site API
       // Accept pre-fetched events to avoid duplicate network requests
       let events = eventsParam || cachedEvents.current;
-      console.log('NHL fetchAllMatches: eventsParam length:', Array.isArray(eventsParam) ? eventsParam.length : 'not array', 'cachedEvents.current length:', Array.isArray(cachedEvents.current) ? cachedEvents.current.length : 'not array');
-      
+      console.log(
+        "NHL fetchAllMatches: eventsParam length:",
+        Array.isArray(eventsParam) ? eventsParam.length : "not array",
+        "cachedEvents.current length:",
+        Array.isArray(cachedEvents.current)
+          ? cachedEvents.current.length
+          : "not array"
+      );
+
       // If we have cached per-type results, combine them so Last Matches shows games from all types
       if (cachedEvents.byType) {
         try {
           const allEventsArr = [];
-          Object.values(cachedEvents.byType).forEach(arr => { if (Array.isArray(arr)) allEventsArr.push(...arr); });
+          Object.values(cachedEvents.byType).forEach((arr) => {
+            if (Array.isArray(arr)) allEventsArr.push(...arr);
+          });
           // Deduplicate by event id, prefer first occurrence
           const map = new Map();
           for (const ev of allEventsArr) {
@@ -505,7 +747,10 @@ const TeamPageScreen = ({ route, navigation }) => {
           }
           events = Array.from(map.values());
           cachedEvents.current = events;
-          console.log('NHL fetchAllMatches: combined events from byType, total:', events.length);
+          console.log(
+            "NHL fetchAllMatches: combined events from byType, total:",
+            events.length
+          );
         } catch (e) {
           // Fallback to fetching chosen type if combining fails
           const chosenType = cachedEvents.selectedSeasonType || 1;
@@ -514,7 +759,12 @@ const TeamPageScreen = ({ route, navigation }) => {
           const json = await res.json();
           events = json?.events || [];
           cachedEvents.current = events;
-          console.log('NHL fetchAllMatches: fallback fetch for type', chosenType, 'events:', events.length);
+          console.log(
+            "NHL fetchAllMatches: fallback fetch for type",
+            chosenType,
+            "events:",
+            events.length
+          );
         }
       } else if (!events) {
         // Use the previously selected season type if available, otherwise default to type=1
@@ -524,12 +774,33 @@ const TeamPageScreen = ({ route, navigation }) => {
         const json = await res.json();
         events = json?.events || [];
         cachedEvents.current = events;
-        console.log('NHL fetchAllMatches: fresh fetch for type', chosenType, 'events:', events.length);
+        console.log(
+          "NHL fetchAllMatches: fresh fetch for type",
+          chosenType,
+          "events:",
+          events.length
+        );
       }
       // Determine today's window: today local midnight -> next day 2:00 AM
       const nowLocal = new Date();
-      const startOfTodayLocal = new Date(nowLocal.getFullYear(), nowLocal.getMonth(), nowLocal.getDate(), 0, 0, 0, 0);
-      const endOfWindowLocal = new Date(nowLocal.getFullYear(), nowLocal.getMonth(), nowLocal.getDate() + 1, 2, 0, 0, 0);
+      const startOfTodayLocal = new Date(
+        nowLocal.getFullYear(),
+        nowLocal.getMonth(),
+        nowLocal.getDate(),
+        0,
+        0,
+        0,
+        0
+      );
+      const endOfWindowLocal = new Date(
+        nowLocal.getFullYear(),
+        nowLocal.getMonth(),
+        nowLocal.getDate() + 1,
+        2,
+        0,
+        0,
+        0
+      );
 
       const past = [];
       const future = [];
@@ -537,18 +808,28 @@ const TeamPageScreen = ({ route, navigation }) => {
       // Ensure events are normalized into UI-friendly shape (homeTeam/awayTeam)
       try {
         if (Array.isArray(events) && events.length > 0 && !events[0].homeTeam) {
-          events = events.map(ev => normalizeEventForUI(ev));
+          events = events.map((ev) => normalizeEventForUI(ev));
           cachedEvents.current = events;
-          console.log('NHL fetchAllMatches: normalized events for rendering, total:', events.length);
+          console.log(
+            "NHL fetchAllMatches: normalized events for rendering, total:",
+            events.length
+          );
         }
       } catch (e) {
-        console.log('NHL fetchAllMatches: error normalizing events', e);
+        console.log("NHL fetchAllMatches: error normalizing events", e);
       }
 
-      console.log('NHL fetchAllMatches: processing', events.length, 'events for past/future classification');
-      console.log('NHL fetchAllMatches: today window', { startOfTodayLocal, endOfWindowLocal });
+      console.log(
+        "NHL fetchAllMatches: processing",
+        events.length,
+        "events for past/future classification"
+      );
+      console.log("NHL fetchAllMatches: today window", {
+        startOfTodayLocal,
+        endOfWindowLocal,
+      });
 
-  for (const ev of events) {
+      for (const ev of events) {
         // parse event date
         let evDate;
         try {
@@ -558,20 +839,42 @@ const TeamPageScreen = ({ route, navigation }) => {
         }
 
         // If event falls within today's window, skip it here (it's handled by currentGame)
-        if (evDate && evDate >= startOfTodayLocal && evDate <= endOfWindowLocal) {
-          console.log('NHL fetchAllMatches: skipping event in today window:', { id: ev.id, date: ev.date, evDate });
+        if (
+          evDate &&
+          evDate >= startOfTodayLocal &&
+          evDate <= endOfWindowLocal
+        ) {
+          console.log("NHL fetchAllMatches: skipping event in today window:", {
+            id: ev.id,
+            date: ev.date,
+            evDate,
+          });
           continue;
         }
 
         // Additionally, if we already selected a currentGame, don't include that same
         // event in the Upcoming/future list so it doesn't appear twice.
-        if (currentGame && currentGame.id && ev && ev.id && String(ev.id) === String(currentGame.id)) {
-          console.log('NHL fetchAllMatches: filtering out currentGame from future list:', ev.id);
+        if (
+          currentGame &&
+          currentGame.id &&
+          ev &&
+          ev.id &&
+          String(ev.id) === String(currentGame.id)
+        ) {
+          console.log(
+            "NHL fetchAllMatches: filtering out currentGame from future list:",
+            ev.id
+          );
           continue;
         }
 
         const state = ev.status?.type?.state;
-        const desc = (ev.status?.type?.description || ev.status?.type?.shortDetail || ev.status?.description || '').toLowerCase();
+        const desc = (
+          ev.status?.type?.description ||
+          ev.status?.type?.shortDetail ||
+          ev.status?.description ||
+          ""
+        ).toLowerCase();
 
         // Classify by date instead of relying on status state (which is often undefined)
         if (evDate && evDate < nowLocal) {
@@ -588,94 +891,116 @@ const TeamPageScreen = ({ route, navigation }) => {
       past.sort((a, b) => new Date(b.date) - new Date(a.date));
       future.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-      console.log('NHL fetchAllMatches: final results - past:', past.length, 'future:', future.length);
-      console.log('NHL fetchAllMatches: past sample:', past.slice(0, 2));
-      console.log('NHL fetchAllMatches: future sample:', future.slice(0, 2));
+      console.log(
+        "NHL fetchAllMatches: final results - past:",
+        past.length,
+        "future:",
+        future.length
+      );
+      console.log("NHL fetchAllMatches: past sample:", past.slice(0, 2));
+      console.log("NHL fetchAllMatches: future sample:", future.slice(0, 2));
 
       setLastMatches(past);
       setNextMatches(future);
     } catch (e) {
-      console.error('Error fetching NHL matches:', e);
+      console.error("Error fetching NHL matches:", e);
     }
   };
 
   const fetchTeamRecord = async () => {
     try {
       const standingsData = await NHLService.getStandings();
-      
+
       if (standingsData?.standings || standingsData?.conferences) {
         let teamRecord = null;
-        
+
         // Handle different standings data formats
-        const teams = standingsData.standings || 
-          (standingsData.conferences && standingsData.conferences.flatMap(conf => 
-            conf.divisions ? conf.divisions.flatMap(div => div.teams || []) : []
-          ));
+        const teams =
+          standingsData.standings ||
+          (standingsData.conferences &&
+            standingsData.conferences.flatMap((conf) =>
+              conf.divisions
+                ? conf.divisions.flatMap((div) => div.teams || [])
+                : []
+            ));
 
         if (teams) {
-          teamRecord = teams.find(team => 
-            String(team.id) === String(teamId) || 
-            String(team.team?.id) === String(teamId) ||
-            normalizeAbbreviation(team.abbreviation) === normalizeAbbreviation(teamData?.abbreviation)
+          teamRecord = teams.find(
+            (team) =>
+              String(team.id) === String(teamId) ||
+              String(team.team?.id) === String(teamId) ||
+              normalizeAbbreviation(team.abbreviation) ===
+                normalizeAbbreviation(teamData?.abbreviation)
           );
         }
 
         if (teamRecord) {
           setTeamRecord({
-            wins: teamRecord.wins || teamRecord.gamesPlayed - teamRecord.losses - teamRecord.otLosses || 0,
+            wins:
+              teamRecord.wins ||
+              teamRecord.gamesPlayed -
+                teamRecord.losses -
+                teamRecord.otLosses ||
+              0,
             losses: teamRecord.losses || 0,
             otLosses: teamRecord.otLosses || 0,
-            points: teamRecord.points || 0
+            points: teamRecord.points || 0,
           });
         }
       }
     } catch (error) {
-      console.error('Error fetching team record:', error);
+      console.error("Error fetching team record:", error);
     }
   };
 
   const fetchRoster = async () => {
     if (roster || loadingRoster) return;
-    
+
     setLoadingRoster(true);
     try {
       const currentTeamId = teamData?.id || resolvedParam.id;
       if (!currentTeamId) {
-        console.log('NHL TeamPage: no team id available for roster fetch');
+        console.log("NHL TeamPage: no team id available for roster fetch");
         setRoster([]);
         return;
       }
 
-      console.log('NHL TeamPage: fetching roster for team id:', currentTeamId);
+      console.log("NHL TeamPage: fetching roster for team id:", currentTeamId);
       const rosterUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${currentTeamId}/roster`;
       const response = await fetch(rosterUrl);
-      
+
       if (response.ok) {
         const data = await response.json();
-        console.log('NHL TeamPage: roster API response:', data);
-        
+        console.log("NHL TeamPage: roster API response:", data);
+
         if (data.athletes) {
-          const players = data.athletes.flatMap(group => 
-            (group.items || []).map(athlete => ({
+          const players = data.athletes.flatMap((group) =>
+            (group.items || []).map((athlete) => ({
               id: athlete.id,
-              name: athlete.displayName || athlete.fullName || 'Unknown Player',
-              position: athlete.position?.abbreviation || 'N/A',
-              number: athlete.jersey || 'N/A',
-              headshot: athlete.headshot?.href
+              name: athlete.displayName || athlete.fullName || "Unknown Player",
+              position: athlete.position?.abbreviation || "N/A",
+              number: athlete.jersey || "N/A",
+              headshot: athlete.headshot?.href,
             }))
           );
-          console.log('NHL TeamPage: processed roster players:', players.length);
+          console.log(
+            "NHL TeamPage: processed roster players:",
+            players.length
+          );
           setRoster(players);
         } else {
-          console.log('NHL TeamPage: no athletes in roster response');
+          console.log("NHL TeamPage: no athletes in roster response");
           setRoster([]);
         }
       } else {
-        console.log('NHL TeamPage: roster API failed, status:', response.status);
+        console.log(
+          "NHL TeamPage: roster API failed, status:",
+          response.status
+        );
         setRoster([]);
       }
     } catch (error) {
-      console.error('Error fetching roster:', error);
+      console.error("Error fetching roster:", error);
       setRoster([]);
     } finally {
       setLoadingRoster(false);
@@ -684,43 +1009,102 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   const fetchTeamStats = async () => {
     if (teamStats || loadingStats) return;
-    
+
     setLoadingStats(true);
     try {
       const currentTeamId = teamData?.id || resolvedParam.id;
       if (!currentTeamId) {
-        console.log('NHL TeamPage: no team id available for stats fetch');
+        console.log("NHL TeamPage: no team id available for stats fetch");
         setTeamStats({});
         return;
       }
-      console.log('NHL TeamPage: fetching stats for team id (v2):', currentTeamId);
-      console.log('NHL TeamPage: teamData:', teamData);
-      console.log('NHL TeamPage: resolvedParam:', resolvedParam);
+      console.log(
+        "NHL TeamPage: fetching stats for team id (v2):",
+        currentTeamId
+      );
+      console.log("NHL TeamPage: teamData:", teamData);
+      console.log("NHL TeamPage: resolvedParam:", resolvedParam);
 
       // Try types 3, then 2, then 1 with NHL year logic
-      const typesToTry = [3, 2, 1];
+      const typesToTry = [2];
       const nhlYear = getNHLYear();
-      const yearsToTry = [nhlYear, nhlYear - 1, nhlYear + 1]; // Try current NHL year, then previous, then next
+      const yearsToTry = [nhlYear]; // Try current NHL year, then previous, then next
       let v2data = null;
-      
+
       outerLoop: for (const t of typesToTry) {
         for (const year of yearsToTry) {
           try {
             const statsUrl = `https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/seasons/${year}/types/${t}/teams/${currentTeamId}/statistics?lang=en&region=us`;
-            console.log('NHL TeamPage: trying stats type', t, 'year', year, statsUrl);
+            console.log(
+              "NHL TeamPage: trying stats type",
+              t,
+              "year",
+              year,
+              statsUrl
+            );
             const resp = await fetch(statsUrl);
             const statsData = await resp.json();
-            
-            // Validate that we have relevant data
-            if (statsData && !statsData.error && Array.isArray(statsData.groups) && statsData.groups.length > 0) {
+
+            console.log("NHL TeamPage: received stats data structure:", {
+              hasError: !!statsData.error,
+              hasGroups: !!(
+                statsData.groups &&
+                Array.isArray(statsData.groups) &&
+                statsData.groups.length > 0
+              ),
+              hasSplits: !!statsData.splits,
+              hasSplitsCategories: !!(
+                statsData.splits &&
+                statsData.splits.categories &&
+                Array.isArray(statsData.splits.categories) &&
+                statsData.splits.categories.length > 0
+              ),
+              hasRef: !!statsData.$ref,
+            });
+
+            // Validate that we have relevant data - check for either groups or splits.categories structure
+            const hasValidGroups =
+              statsData &&
+              !statsData.error &&
+              Array.isArray(statsData.groups) &&
+              statsData.groups.length > 0;
+            const hasValidSplits =
+              statsData &&
+              !statsData.error &&
+              statsData.splits &&
+              statsData.splits.categories &&
+              Array.isArray(statsData.splits.categories) &&
+              statsData.splits.categories.length > 0;
+
+            if (hasValidGroups || hasValidSplits) {
               v2data = statsData;
-              console.log('NHL TeamPage: stats v2 success for type', t, 'year', year);
+              console.log(
+                "NHL TeamPage: stats v2 success for type",
+                t,
+                "year",
+                year,
+                hasValidGroups ? "via groups" : "via splits"
+              );
               break outerLoop;
+            } else {
+              console.log(
+                "NHL TeamPage: stats data invalid for type",
+                t,
+                "year",
+                year,
+                "- no valid groups or splits.categories"
+              );
             }
           } catch (e) {
             // don't fail fast; try next year/type
             // eslint-disable-next-line no-console
-            console.log('NHL TeamPage: error fetching v2 stats for type', t, 'year', year, e);
+            console.log(
+              "NHL TeamPage: error fetching v2 stats for type",
+              t,
+              "year",
+              year,
+              e
+            );
           }
         }
       }
@@ -734,12 +1118,24 @@ const TeamPageScreen = ({ route, navigation }) => {
           v2data.groups.forEach((g) => {
             if (Array.isArray(g.categories)) {
               g.categories.forEach((c) => {
-                const items = c.statistics || c.stats || c.values || c.items || [];
-                categories.push({ displayName: c.displayName || c.name || g.displayName || g.name || 'Category', stats: items });
+                const items =
+                  c.statistics || c.stats || c.values || c.items || [];
+                categories.push({
+                  displayName:
+                    c.displayName ||
+                    c.name ||
+                    g.displayName ||
+                    g.name ||
+                    "Category",
+                  stats: items,
+                });
               });
             } else if (Array.isArray(g.statistics) || Array.isArray(g.stats)) {
               const items = g.statistics || g.stats || [];
-              categories.push({ displayName: g.displayName || g.name || 'Category', stats: items });
+              categories.push({
+                displayName: g.displayName || g.name || "Category",
+                stats: items,
+              });
             }
           });
         }
@@ -748,12 +1144,18 @@ const TeamPageScreen = ({ route, navigation }) => {
         // Example payload (c2.txt) uses splits: { categories: [...] }
         if (!categories.length && v2data.splits) {
           try {
-            const splitsArr = Array.isArray(v2data.splits) ? v2data.splits : [v2data.splits];
+            const splitsArr = Array.isArray(v2data.splits)
+              ? v2data.splits
+              : [v2data.splits];
             splitsArr.forEach((split) => {
               if (split && Array.isArray(split.categories)) {
                 split.categories.forEach((c) => {
-                  const items = c.statistics || c.stats || c.items || c.values || [];
-                  categories.push({ displayName: c.displayName || c.name || 'Category', stats: items });
+                  const items =
+                    c.statistics || c.stats || c.items || c.values || [];
+                  categories.push({
+                    displayName: c.displayName || c.name || "Category",
+                    stats: items,
+                  });
                 });
               }
             });
@@ -766,47 +1168,85 @@ const TeamPageScreen = ({ route, navigation }) => {
         if (Array.isArray(v2data.categories) && v2data.categories.length) {
           v2data.categories.forEach((c) => {
             const items = c.statistics || c.stats || c.values || c.items || [];
-            categories.push({ displayName: c.displayName || c.name || 'Category', stats: items });
+            categories.push({
+              displayName: c.displayName || c.name || "Category",
+              stats: items,
+            });
           });
         }
 
         // some v2 shapes may expose statistics as an object map
-        if (!categories.length && v2data.statistics && typeof v2data.statistics === 'object') {
+        if (
+          !categories.length &&
+          v2data.statistics &&
+          typeof v2data.statistics === "object"
+        ) {
           // convert map into a single category
-          const items = Object.keys(v2data.statistics).map(key => ({ name: key, displayName: v2data.statistics[key].displayName || key, value: v2data.statistics[key].value, displayValue: v2data.statistics[key].displayValue }));
-          categories.push({ displayName: 'Team Stats', stats: items });
+          const items = Object.keys(v2data.statistics).map((key) => ({
+            name: key,
+            displayName: v2data.statistics[key].displayName || key,
+            value: v2data.statistics[key].value,
+            displayValue: v2data.statistics[key].displayValue,
+          }));
+          categories.push({ displayName: "Team Stats", stats: items });
         }
 
         // If still empty but v2data has a top-level stats array (older site api fallback)
         if (!categories.length && Array.isArray(v2data.stats)) {
           v2data.stats.forEach((c) => {
             const items = c.statistics || c.stats || c.items || [];
-            categories.push({ displayName: c.displayName || c.name || 'Category', stats: items });
+            categories.push({
+              displayName: c.displayName || c.name || "Category",
+              stats: items,
+            });
           });
         }
 
         if (categories.length) {
-          console.log('NHL TeamPage: normalized categories count:', categories.length);
-          console.log('NHL TeamPage: sample categories:', categories.slice(0, 2));
+          console.log(
+            "NHL TeamPage: normalized categories count:",
+            categories.length
+          );
+          console.log(
+            "NHL TeamPage: sample categories:",
+            categories.slice(0, 2)
+          );
           // Provide both shapes so existing render code (which checks multiple paths) finds them
-          const finalStats = { categories, results: { stats: { categories } }, groups: v2data.groups || [] };
-          console.log('NHL TeamPage: setting teamStats with structure:', Object.keys(finalStats));
+          const finalStats = {
+            categories,
+            results: { stats: { categories } },
+            groups: v2data.groups || [],
+          };
+          console.log(
+            "NHL TeamPage: setting teamStats with structure:",
+            Object.keys(finalStats)
+          );
           setTeamStats(finalStats);
         } else {
-          console.log('NHL TeamPage: no categories could be normalized from v2 stats response');
+          console.log(
+            "NHL TeamPage: no categories could be normalized from v2 stats response"
+          );
           setTeamStats({});
         }
       } else {
-        console.log('NHL TeamPage: no v2 stats found for any type; falling back to site API (match NFL behavior)');
+        console.log(
+          "NHL TeamPage: no v2 stats found for any type; falling back to site API (match NFL behavior)"
+        );
         // Fallback to previous site API endpoint and set raw JSON (like NFL implementation)
         try {
           const statsUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/${currentTeamId}/statistics`;
-          console.log('NHL TeamPage: trying site API fallback:', statsUrl);
+          console.log("NHL TeamPage: trying site API fallback:", statsUrl);
           const response = await fetch(statsUrl);
           if (response.ok) {
             const data = await response.json();
-            console.log('NHL TeamPage: fallback stats API response (site) keys:', Object.keys(data));
-            console.log('NHL TeamPage: fallback stats API response (site) structure:', data);
+            console.log(
+              "NHL TeamPage: fallback stats API response (site) keys:",
+              Object.keys(data)
+            );
+            console.log(
+              "NHL TeamPage: fallback stats API response (site) structure:",
+              data
+            );
             // Try to normalize common shapes from the site API into the categories/groups
             // shape our renderer prefers (so UI shows stats like NFL). If we can't
             // find any usable categories, fall back to the raw JSON (preserve
@@ -818,8 +1258,12 @@ const TeamPageScreen = ({ route, navigation }) => {
               const resultsCats = data?.results?.stats?.categories;
               if (Array.isArray(resultsCats) && resultsCats.length) {
                 resultsCats.forEach((c) => {
-                  const items = c.statistics || c.stats || c.items || c.values || [];
-                  fallbackCategories.push({ displayName: c.displayName || c.name || 'Category', stats: items });
+                  const items =
+                    c.statistics || c.stats || c.items || c.values || [];
+                  fallbackCategories.push({
+                    displayName: c.displayName || c.name || "Category",
+                    stats: items,
+                  });
                 });
               }
 
@@ -829,12 +1273,27 @@ const TeamPageScreen = ({ route, navigation }) => {
                 groupsArr.forEach((g) => {
                   if (Array.isArray(g.categories)) {
                     g.categories.forEach((c) => {
-                      const items = c.statistics || c.stats || c.items || c.values || [];
-                      fallbackCategories.push({ displayName: c.displayName || c.name || g.displayName || g.name || 'Category', stats: items });
+                      const items =
+                        c.statistics || c.stats || c.items || c.values || [];
+                      fallbackCategories.push({
+                        displayName:
+                          c.displayName ||
+                          c.name ||
+                          g.displayName ||
+                          g.name ||
+                          "Category",
+                        stats: items,
+                      });
                     });
-                  } else if (Array.isArray(g.statistics) || Array.isArray(g.stats)) {
+                  } else if (
+                    Array.isArray(g.statistics) ||
+                    Array.isArray(g.stats)
+                  ) {
                     const items = g.statistics || g.stats || [];
-                    fallbackCategories.push({ displayName: g.displayName || g.name || 'Category', stats: items });
+                    fallbackCategories.push({
+                      displayName: g.displayName || g.name || "Category",
+                      stats: items,
+                    });
                   }
                 });
               }
@@ -842,42 +1301,73 @@ const TeamPageScreen = ({ route, navigation }) => {
               // 3) some payloads may include a top-level categories array
               if (Array.isArray(data?.categories) && data.categories.length) {
                 data.categories.forEach((c) => {
-                  const items = c.statistics || c.stats || c.items || c.values || [];
-                  fallbackCategories.push({ displayName: c.displayName || c.name || 'Category', stats: items });
+                  const items =
+                    c.statistics || c.stats || c.items || c.values || [];
+                  fallbackCategories.push({
+                    displayName: c.displayName || c.name || "Category",
+                    stats: items,
+                  });
                 });
               }
 
               // 4) some shapes expose a statistics map
-              if (!fallbackCategories.length && data?.statistics && typeof data.statistics === 'object') {
-                const items = Object.keys(data.statistics).map(key => ({ name: key, displayName: data.statistics[key].displayName || key, value: data.statistics[key].value, displayValue: data.statistics[key].displayValue }));
-                fallbackCategories.push({ displayName: 'Team Stats', stats: items });
+              if (
+                !fallbackCategories.length &&
+                data?.statistics &&
+                typeof data.statistics === "object"
+              ) {
+                const items = Object.keys(data.statistics).map((key) => ({
+                  name: key,
+                  displayName: data.statistics[key].displayName || key,
+                  value: data.statistics[key].value,
+                  displayValue: data.statistics[key].displayValue,
+                }));
+                fallbackCategories.push({
+                  displayName: "Team Stats",
+                  stats: items,
+                });
               }
 
               if (fallbackCategories.length) {
-                const finalStats = { categories: fallbackCategories, results: { stats: { categories: fallbackCategories } }, groups: (data?.results?.groups || data?.groups || []) };
-                console.log('NHL TeamPage: normalized fallback categories count:', fallbackCategories.length);
+                const finalStats = {
+                  categories: fallbackCategories,
+                  results: { stats: { categories: fallbackCategories } },
+                  groups: data?.results?.groups || data?.groups || [],
+                };
+                console.log(
+                  "NHL TeamPage: normalized fallback categories count:",
+                  fallbackCategories.length
+                );
                 setTeamStats(finalStats);
               } else {
                 // couldn't normalize; keep the raw shape so existing callers can
                 // still inspect other fields if needed
-                console.log('NHL TeamPage: could not normalize fallback stats; using raw site response');
+                console.log(
+                  "NHL TeamPage: could not normalize fallback stats; using raw site response"
+                );
                 setTeamStats(data);
               }
             } catch (e) {
-              console.log('NHL TeamPage: error normalizing fallback stats response', e);
+              console.log(
+                "NHL TeamPage: error normalizing fallback stats response",
+                e
+              );
               setTeamStats(data);
             }
           } else {
-            console.log('NHL TeamPage: fallback stats API failed, status:', response.status);
+            console.log(
+              "NHL TeamPage: fallback stats API failed, status:",
+              response.status
+            );
             setTeamStats({});
           }
         } catch (e) {
-          console.log('NHL TeamPage: fallback stats fetch error', e);
+          console.log("NHL TeamPage: fallback stats fetch error", e);
           setTeamStats({});
         }
       }
     } catch (error) {
-      console.error('Error fetching team stats:', error);
+      console.error("Error fetching team stats:", error);
       setTeamStats({});
     } finally {
       setLoadingStats(false);
@@ -886,56 +1376,68 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   // Handle game click navigation
   const handleGamePress = (game) => {
-    navigation.navigate('GameDetails', { gameId: game.id, sport: 'nhl' });
+    navigation.navigate("GameDetails", { gameId: game.id, sport: "nhl" });
   };
 
   const isGameLive = (game) => {
     if (!game || !game.status) return false;
     const state = game.status.type?.state;
-    return state === 'in' || state === 'live' || state === 'post' && !!game.status?.type?.completed === false;
+    return (
+      state === "in" ||
+      state === "live" ||
+      (state === "post" && !!game.status?.type?.completed === false)
+    );
   };
 
   // Safe status text renderer - ESPN uses nested status objects; UI expects a string
   const getStatusText = (game) => {
-    if (!game) return '';
+    if (!game) return "";
     const s = game.status;
-    if (!s) return '';
-    if (typeof s === 'string') return s;
+    if (!s) return "";
+    if (typeof s === "string") return s;
     // prefer displayClock if provided
-    if (s.displayClock && typeof s.displayClock === 'string' && s.displayClock === '0:00') return 'INT';
-    if (s.displayClock && typeof s.displayClock === 'string') return s.displayClock;
+    if (
+      s.displayClock &&
+      typeof s.displayClock === "string" &&
+      s.displayClock === "0:00"
+    )
+      return "INT";
+    if (s.displayClock && typeof s.displayClock === "string")
+      return s.displayClock;
     // fallback to type.shortDetail / description / state
     if (s.type) {
-      return s.type.shortDetail || s.type.description || s.type.state || '';
+      return s.type.shortDetail || s.type.description || s.type.state || "";
     }
     // other simple fields
     if (s.clock) return String(s.clock);
     if (s.summary) return String(s.summary);
-    return '';
+    return "";
   };
 
   // Effect to load roster when Roster tab is selected
   useEffect(() => {
-    if (activeTab === 'Roster') {
+    if (activeTab === "Roster") {
       fetchRoster();
     }
   }, [activeTab]);
 
   // Effect to load stats when Stats tab is selected
   useEffect(() => {
-    if (activeTab === 'Stats') {
+    if (activeTab === "Stats") {
       fetchTeamStats();
     }
   }, [activeTab]);
 
   // Helper to build a safe player headshot URL with placeholders
   const getPlayerHeadshotUrl = (player) => {
-    if (!player) return 'https://via.placeholder.com/88x88?text=Player';
+    if (!player) return "https://via.placeholder.com/88x88?text=Player";
     if (player.headshot) return player.headshot;
-    if (player.athlete && player.athlete.headshot) return player.athlete.headshot;
+    if (player.athlete && player.athlete.headshot)
+      return player.athlete.headshot;
     const id = player.id || player.athlete?.id;
-    if (id) return `https://a.espncdn.com/combiner/i?img=/i/headshots/nhl/players/${id}.png&w=88&h=88`;
-    return 'https://via.placeholder.com/88x88?text=Player';
+    if (id)
+      return `https://a.espncdn.com/combiner/i?img=/i/headshots/nhl/players/${id}.png&w=88&h=88`;
+    return "https://via.placeholder.com/88x88?text=Player";
   };
 
   // TeamLogoImage component with dark mode and fallback support (improved to avoid flicker)
@@ -955,7 +1457,10 @@ const TeamPageScreen = ({ route, navigation }) => {
       if (team && Array.isArray(team.logos) && team.logos.length > 0) {
         const preferredIndex = isDarkMode ? 1 : 0;
         const fallbackIndex = isDarkMode ? 0 : 1;
-        const logoUrl = team.logos[preferredIndex]?.href || team.logos[fallbackIndex]?.href || team.logos[0]?.href;
+        const logoUrl =
+          team.logos[preferredIndex]?.href ||
+          team.logos[fallbackIndex]?.href ||
+          team.logos[0]?.href;
         if (logoUrl) return { uri: logoUrl };
       }
 
@@ -976,7 +1481,10 @@ const TeamPageScreen = ({ route, navigation }) => {
       if (team && Array.isArray(team.logos) && team.logos.length > 0) {
         const preferredIndex = isDarkMode ? 1 : 0;
         const fallbackIndex = isDarkMode ? 0 : 1;
-        newUrl = team.logos[preferredIndex]?.href || team.logos[fallbackIndex]?.href || team.logos[0]?.href;
+        newUrl =
+          team.logos[preferredIndex]?.href ||
+          team.logos[fallbackIndex]?.href ||
+          team.logos[0]?.href;
       }
       if (!newUrl) {
         newUrl = getTeamLogoUrls(cand, isDarkMode).primaryUrl;
@@ -985,9 +1493,10 @@ const TeamPageScreen = ({ route, navigation }) => {
       if (newUrl) {
         const candidateSource = { uri: newUrl };
         // Only update state if the URL actually changed
-        if (!logoSource || logoSource.uri !== candidateSource.uri) setLogoSource(candidateSource);
+        if (!logoSource || logoSource.uri !== candidateSource.uri)
+          setLogoSource(candidateSource);
       }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [team, teamId, isDarkMode]);
 
     const handleError = () => {
@@ -1016,7 +1525,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       }
     };
 
-    const placeholder = require('../../../assets/nhl.png');
+    const placeholder = require("../../../assets/nhl.png");
     return (
       <Image
         style={style}
@@ -1032,46 +1541,91 @@ const TeamPageScreen = ({ route, navigation }) => {
     if (!Array.isArray(logos) || logos.length === 0) return null;
 
     // Normalize: map to objects with href and lowercased rel array
-    const relSets = logos.map(l => ({ href: l.href || l.url || l.href || l.href, rel: (l.rel || []).map(r => String(r).toLowerCase()) }));
+    const relSets = logos.map((l) => ({
+      href: l.href || l.url || l.href || l.href,
+      rel: (l.rel || []).map((r) => String(r).toLowerCase()),
+    }));
 
-    const findByAll = (want) => relSets.find(r => want.every(w => r.rel.includes(w)));
-    const findByAny = (want) => relSets.find(r => r.rel.some(x => want.includes(x)));
+    const findByAll = (want) =>
+      relSets.find((r) => want.every((w) => r.rel.includes(w)));
+    const findByAny = (want) =>
+      relSets.find((r) => r.rel.some((x) => want.includes(x)));
 
     if (preferDark) {
       // prefer dark+full, then full+default, then full, then default, then first
-      return findByAll(['dark', 'full'])?.href || findByAll(['full', 'default'])?.href || findByAny(['full'])?.href || findByAny(['default'])?.href || relSets[0].href;
+      return (
+        findByAll(["dark", "full"])?.href ||
+        findByAll(["full", "default"])?.href ||
+        findByAny(["full"])?.href ||
+        findByAny(["default"])?.href ||
+        relSets[0].href
+      );
     }
 
     // light mode: prefer full+default, then full, then dark+full, then default, then first
-    return findByAll(['full', 'default'])?.href || findByAny(['full'])?.href || findByAll(['dark', 'full'])?.href || findByAny(['default'])?.href || relSets[0].href;
+    return (
+      findByAll(["full", "default"])?.href ||
+      findByAny(["full"])?.href ||
+      findByAll(["dark", "full"])?.href ||
+      findByAny(["default"])?.href ||
+      relSets[0].href
+    );
   };
 
   const getTeamLogoUrls = (teamParam, isDarkMode) => {
     // teamParam may be an object (with logos), abbreviation, or id. Prefer schedule-provided logos when available.
     // If teamParam is an object with a `logos` array, use that array to select hrefs honoring rels.
-    if (teamParam && typeof teamParam === 'object' && Array.isArray(teamParam.logos) && teamParam.logos.length > 0) {
+    if (
+      teamParam &&
+      typeof teamParam === "object" &&
+      Array.isArray(teamParam.logos) &&
+      teamParam.logos.length > 0
+    ) {
       // Prefer the index-based hrefs: logos[1] for dark mode, logos[0] for light mode.
       const logosArr = teamParam.logos;
       const primaryIndex = isDarkMode ? 1 : 0;
       const altIndex = isDarkMode ? 0 : 1;
-      const primary = logosArr[primaryIndex]?.href || logosArr[altIndex]?.href || pickLogoFromLogos(logosArr, isDarkMode);
-      const fallback = logosArr[altIndex]?.href || pickLogoFromLogos(logosArr, !isDarkMode) || primary;
+      const primary =
+        logosArr[primaryIndex]?.href ||
+        logosArr[altIndex]?.href ||
+        pickLogoFromLogos(logosArr, isDarkMode);
+      const fallback =
+        logosArr[altIndex]?.href ||
+        pickLogoFromLogos(logosArr, !isDarkMode) ||
+        primary;
       if (primary) return { primaryUrl: primary, fallbackUrl: fallback };
     }
 
     // If caller passed an object with nested `team.logos` (e.g., competitor object), try that too
-    if (teamParam && typeof teamParam === 'object' && teamParam.team && Array.isArray(teamParam.team.logos) && teamParam.team.logos.length > 0) {
+    if (
+      teamParam &&
+      typeof teamParam === "object" &&
+      teamParam.team &&
+      Array.isArray(teamParam.team.logos) &&
+      teamParam.team.logos.length > 0
+    ) {
       const logosArr = teamParam.team.logos;
       const primaryIndex = isDarkMode ? 1 : 0;
       const altIndex = isDarkMode ? 0 : 1;
-      const primary = logosArr[primaryIndex]?.href || logosArr[altIndex]?.href || pickLogoFromLogos(logosArr, isDarkMode);
-      const fallback = logosArr[altIndex]?.href || pickLogoFromLogos(logosArr, !isDarkMode) || primary;
+      const primary =
+        logosArr[primaryIndex]?.href ||
+        logosArr[altIndex]?.href ||
+        pickLogoFromLogos(logosArr, isDarkMode);
+      const fallback =
+        logosArr[altIndex]?.href ||
+        pickLogoFromLogos(logosArr, !isDarkMode) ||
+        primary;
       if (primary) return { primaryUrl: primary, fallbackUrl: fallback };
     }
 
     // Fallback to CDN style URLs based on abbreviation or id
-    const idRaw = (teamParam && typeof teamParam === 'object') ? (teamParam.abbreviation || teamParam.id || (teamParam.team && (teamParam.team.abbreviation || teamParam.team.id))) : teamParam;
-    const normalized = String(idRaw || '').toLowerCase();
+    const idRaw =
+      teamParam && typeof teamParam === "object"
+        ? teamParam.abbreviation ||
+          teamParam.id ||
+          (teamParam.team && (teamParam.team.abbreviation || teamParam.team.id))
+        : teamParam;
+    const normalized = String(idRaw || "").toLowerCase();
     const primaryUrl = isDarkMode
       ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500-dark/${normalized}.png&w=200&h=200`
       : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500/${normalized}.png&w=200&h=200`;
@@ -1088,18 +1642,20 @@ const TeamPageScreen = ({ route, navigation }) => {
     // Minimal mapping; expand if needed
     const code = String(leagueCode).toLowerCase();
     switch (code) {
-      case 'nhl': return 'NHL';
-      default: return leagueCode;
+      case "nhl":
+        return "NHL";
+      default:
+        return leagueCode;
     }
   };
 
   const getTeamLogoUrl_NHL = (abbreviation) => {
-    return getTeamLogoUrl('nhl', normalizeAbbreviation(abbreviation));
+    return getTeamLogoUrl("nhl", normalizeAbbreviation(abbreviation));
   };
 
   const getThemeTeamLogoUrlHelper = (abbrOrId) => {
     if (!abbrOrId) return null;
-    return getTeamLogoUrl('nhl', String(abbrOrId));
+    return getTeamLogoUrl("nhl", String(abbrOrId));
   };
 
   const getTeamColor = (team) => {
@@ -1109,132 +1665,168 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   // Helper functions for determining losing team styles (from MLB implementation)
   const getTeamScoreStyle = (game, isAwayTeam) => {
-    const isCompleted = game?.isCompleted || game?.status?.type?.state === 'post';
+    const isCompleted =
+      game?.isCompleted || game?.status?.type?.state === "post";
     if (!isCompleted) return styles.gameTeamScore;
-    
-    const isLosing = isAwayTeam ? 
-      (game.awayTeam.score < game.homeTeam.score) : 
-      (game.homeTeam.score < game.awayTeam.score);
-    
-    return isLosing ? [styles.gameTeamScore, styles.losingTeamScore] : styles.gameTeamScore;
+
+    const isLosing = isAwayTeam
+      ? game.awayTeam.score < game.homeTeam.score
+      : game.homeTeam.score < game.awayTeam.score;
+
+    return isLosing
+      ? [styles.gameTeamScore, styles.losingTeamScore]
+      : styles.gameTeamScore;
   };
 
   // Helper function to get NHL team ID for favorites checking
   const getNHLTeamId = (team) => {
-    console.log('TeamPageScreen getNHLTeamId called with:', team);
+    console.log("TeamPageScreen getNHLTeamId called with:", team);
     if (!team) return null;
-    
+
     // Try direct id first
     if (team.id) return String(team.id);
-    
+
     // Try team.team.id (nested structure)
     if (team.team?.id) return String(team.team.id);
-    
+
     // Try abbreviation to ID mapping as fallback
     if (team.abbreviation) {
       const mappedId = mapAbbrToId(team.abbreviation);
       if (mappedId) return mappedId;
     }
-    
-    console.log('TeamPageScreen getNHLTeamId returning null for:', team);
+
+    console.log("TeamPageScreen getNHLTeamId returning null for:", team);
     return null;
   };
 
   // Safe display for score values: return empty string when null/undefined to avoid showing 0 for missing scores
   const displayScore = (s) => {
-    if (s === null || s === undefined) return '';
+    if (s === null || s === undefined) return "";
     return String(s);
   };
 
   // Format period display for live games (e.g., "1st Period", "2nd Period", "3rd Period", "OT")
   const formatPeriodDisplay = (game) => {
-    if (!game || !game.status) return '';
-    
+    if (!game || !game.status) return "";
+
     const status = game.status;
     const period = status.period;
     const clock = status.displayClock || status.clock || getStatusText(game);
-    
-    if (!period && !clock) return 'In Progress';
-    
+
+    if (!period && !clock) return "In Progress";
+
     // Handle overtime periods
     if (period > 3) {
-      return period === 4 ? 'OT' : `${period - 3}OT`;
+      return period === 4 ? "OT" : `${period - 3}OT`;
     }
-    
+
     // Handle regular periods with ordinal suffix
-    const ordinals = ['', '1st', '2nd', '3rd'];
+    const ordinals = ["", "1st", "2nd", "3rd"];
     const periodText = ordinals[period] || `${period}th`;
-    
-    return periodText ? `${periodText} Period` : clock || 'In Progress';
+
+    return periodText ? `${periodText} Period` : clock || "In Progress";
   };
 
   const getTeamNameStyle = (game, isAwayTeam) => {
-    const isCompleted = game?.isCompleted || game?.status?.type?.state === 'post';
+    const isCompleted =
+      game?.isCompleted || game?.status?.type?.state === "post";
     if (!isCompleted) return styles.gameTeamName;
-    
-    const isLosing = isAwayTeam ? 
-      (game.awayTeam.score < game.homeTeam.score) : 
-      (game.homeTeam.score < game.awayTeam.score);
-    
-    return isLosing ? [styles.gameTeamName, styles.losingTeamName] : styles.gameTeamName;
+
+    const isLosing = isAwayTeam
+      ? game.awayTeam.score < game.homeTeam.score
+      : game.homeTeam.score < game.awayTeam.score;
+
+    return isLosing
+      ? [styles.gameTeamName, styles.losingTeamName]
+      : styles.gameTeamName;
   };
 
   const getTeamLogoStyle = (game, isAwayTeam) => {
-    const isCompleted = game?.isCompleted || game?.status?.type?.state === 'post';
+    const isCompleted =
+      game?.isCompleted || game?.status?.type?.state === "post";
     if (!isCompleted) return styles.gameTeamLogo;
-    
-    const isLosing = isAwayTeam ? 
-      (game.awayTeam.score < game.homeTeam.score) : 
-      (game.homeTeam.score < game.awayTeam.score);
-    
-    return isLosing ? [styles.gameTeamLogo, styles.losingTeamLogo] : styles.gameTeamLogo;
+
+    const isLosing = isAwayTeam
+      ? game.awayTeam.score < game.homeTeam.score
+      : game.homeTeam.score < game.awayTeam.score;
+
+    return isLosing
+      ? [styles.gameTeamLogo, styles.losingTeamLogo]
+      : styles.gameTeamLogo;
   };
 
   const renderTeamHeader = () => {
     const headerStats = deriveHeaderStats();
-    
+
     return (
       <View style={[styles.teamHeader, { backgroundColor: theme.surface }]}>
-        <Image 
-          source={{ uri: getTeamLogoUrl_NHL(teamData?.abbreviation) }} 
+        <Image
+          source={{ uri: getTeamLogoUrl_NHL(teamData?.abbreviation) }}
           style={styles.headTeamLogo}
-          onError={() => console.log('Failed to load team logo')}
+          onError={() => console.log("Failed to load team logo")}
         />
         <View style={styles.teamInfo}>
-          <Text style={[styles.teamName, { color: teamData?.color ? `#${teamData.color}` : theme.text }]}> 
-            {teamData?.displayName || 'NHL Team'}
+          <Text
+            style={[
+              styles.teamName,
+              { color: teamData?.color ? `#${teamData.color}` : theme.text },
+            ]}
+          >
+            {teamData?.displayName || "NHL Team"}
           </Text>
-          <Text style={[styles.teamDivision, { color: theme.textSecondary }]}> 
-            {headerStats.standingSummary || 'Loading record...'}
+          <Text style={[styles.teamDivision, { color: theme.textSecondary }]}>
+            {headerStats.standingSummary || "Loading record..."}
           </Text>
           {/* Header summary row: record, points, streak */}
-          {(headerStats.recordDisplay || headerStats.points || headerStats.streakDisplay !== '--') && (
+          {(headerStats.recordDisplay ||
+            headerStats.points ||
+            headerStats.streakDisplay !== "--") && (
             <View style={styles.recordContainer}>
               <View style={styles.recordRow}>
                 <Text style={[styles.recordValue, { color: theme.text }]}>
-                  {headerStats.recordDisplay || '--'}
+                  {headerStats.recordDisplay || "--"}
                 </Text>
                 <Text style={[styles.recordValue, { color: theme.text }]}>
-                  {headerStats.points || '--'}
+                  {headerStats.points || "--"}
                 </Text>
-                <Text style={[styles.recordValue, { color: (() => {
-                  if (headerStats.streakKind === 'L') return theme.error;
-                  if (headerStats.streakKind === 'W') return theme.success;
-                  return theme.text;
-                })() }]}>
+                <Text
+                  style={[
+                    styles.recordValue,
+                    {
+                      color: (() => {
+                        if (headerStats.streakKind === "L") return theme.error;
+                        if (headerStats.streakKind === "W")
+                          return theme.success;
+                        return theme.text;
+                      })(),
+                    },
+                  ]}
+                >
                   {headerStats.streakDisplay}
                 </Text>
               </View>
               <View style={styles.recordRow}>
-                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>Record</Text>
-                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>Points</Text>
-                <Text style={[styles.recordLabel, { color: theme.textSecondary }]}>Streak</Text>
+                <Text
+                  style={[styles.recordLabel, { color: theme.textSecondary }]}
+                >
+                  Record
+                </Text>
+                <Text
+                  style={[styles.recordLabel, { color: theme.textSecondary }]}
+                >
+                  Points
+                </Text>
+                <Text
+                  style={[styles.recordLabel, { color: theme.textSecondary }]}
+                >
+                  Streak
+                </Text>
               </View>
             </View>
           )}
         </View>
-        <TouchableOpacity 
-          style={styles.favoriteButton} 
+        <TouchableOpacity
+          style={styles.favoriteButton}
           onPress={async () => {
             try {
               await toggleFavorite(
@@ -1242,25 +1834,32 @@ const TeamPageScreen = ({ route, navigation }) => {
                   teamId: teamId,
                   displayName: teamData?.displayName || teamData?.abbreviation,
                   abbreviation: teamData?.abbreviation,
-                  sport 
+                  sport,
                 },
-                currentGame ? {
-                  eventId: currentGame.id,
-                  eventLink: `/nhl/game/${currentGame.id}`,
-                  gameDate: currentGame.date instanceof Date ? currentGame.date.toISOString() : new Date(currentGame.date).toISOString(),
-                  competition: 'nhl'
-                } : null
+                currentGame
+                  ? {
+                      eventId: currentGame.id,
+                      eventLink: `/nhl/game/${currentGame.id}`,
+                      gameDate:
+                        currentGame.date instanceof Date
+                          ? currentGame.date.toISOString()
+                          : new Date(currentGame.date).toISOString(),
+                      competition: "nhl",
+                    }
+                  : null
               );
             } catch (error) {
-              console.error('Error toggling favorite:', error);
+              console.error("Error toggling favorite:", error);
             }
           }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons 
-            name={isFavorite(teamId, sport) ? "star" : "star-outline"} 
-            size={24} 
-            color={isFavorite(teamId, sport) ? colors.primary : theme.textSecondary} 
+          <Ionicons
+            name={isFavorite(teamId, sport) ? "star" : "star-outline"}
+            size={24}
+            color={
+              isFavorite(teamId, sport) ? colors.primary : theme.textSecondary
+            }
           />
         </TouchableOpacity>
       </View>
@@ -1270,7 +1869,12 @@ const TeamPageScreen = ({ route, navigation }) => {
   const renderCurrentGame = () => {
     if (!currentGame) {
       return (
-        <View style={[styles.gameSectionCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View
+          style={[
+            styles.gameSectionCard,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
+        >
           <Text style={[styles.contentText, { color: theme.textSecondary }]}>
             No current or upcoming games found
           </Text>
@@ -1282,21 +1886,30 @@ const TeamPageScreen = ({ route, navigation }) => {
   };
 
   const renderTabButtons = () => (
-    <View style={[styles.fixedTabContainer, { backgroundColor: theme.surface }]}>
-      {['Games', 'Stats', 'Roster'].map((tab) => (
+    <View
+      style={[styles.fixedTabContainer, { backgroundColor: theme.surface }]}
+    >
+      {["Games", "Stats", "Roster"].map((tab) => (
         <TouchableOpacity
           key={tab}
           style={[
             styles.tabButton,
-            activeTab === tab && [styles.activeTabButton, { borderBottomColor: colors.primary }]
+            activeTab === tab && [
+              styles.activeTabButton,
+              { borderBottomColor: colors.primary },
+            ],
           ]}
           onPress={() => setActiveTab(tab)}
         >
-          <Text style={[
-            styles.tabText,
-            { color: activeTab === tab ? colors.primary : theme.textSecondary },
-            activeTab === tab && styles.activeTabText
-          ]}>
+          <Text
+            style={[
+              styles.tabText,
+              {
+                color: activeTab === tab ? colors.primary : theme.textSecondary,
+              },
+              activeTab === tab && styles.activeTabText,
+            ]}
+          >
             {tab}
           </Text>
         </TouchableOpacity>
@@ -1305,64 +1918,73 @@ const TeamPageScreen = ({ route, navigation }) => {
   );
 
   const renderMatchCard = (game) => {
-    const competition = getCompetitionName(game.competition?.id || 'nhl') || 'NHL';
+    const competition =
+      getCompetitionName(game.competition?.id || "nhl") || "NHL";
     const gameDate = new Date(game.date);
-    
+
     // Debug: log raw date and parsed values to troubleshoot date display (e.g., Oct 8, 2025)
-    console.log('renderMatchCard date debug:', {
+    console.log("renderMatchCard date debug:", {
       gameId: game.id,
       rawDate: game.date,
       parsedGameDate: gameDate.toISOString(),
       localDateString: gameDate.toLocaleDateString(),
       currentDate: new Date().toISOString(),
-      timezoneOffset: gameDate.getTimezoneOffset()
+      timezoneOffset: gameDate.getTimezoneOffset(),
     });
-    
-    const formattedDate = gameDate.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
+
+    const formattedDate = gameDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
-    const formattedTime = gameDate.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
+    const formattedTime = gameDate.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
     });
 
     const awayTeam = game.awayTeam || {};
     const homeTeam = game.homeTeam || {};
-    const isCompleted = game.isCompleted || game.status?.type?.state === 'post';
+    const isCompleted = game.isCompleted || game.status?.type?.state === "post";
     const isLive = isGameLive(game);
-    const header = game.competitions[0]?.notes[0]?.headline || `NHL - ${game.seasonType.name}` || 'NHL';
+    const header =
+      game.competitions[0]?.notes[0]?.headline ||
+      `NHL - ${game.seasonType.name}` ||
+      "NHL";
 
     // Debug: log score values for live games to troubleshoot missing scores
     if (isLive) {
-      console.log('Live game scores debug:', {
+      console.log("Live game scores debug:", {
         gameId: game.id,
         awayTeam: {
           abbreviation: awayTeam.abbreviation,
           score: awayTeam.score,
-          scoreType: typeof awayTeam.score
+          scoreType: typeof awayTeam.score,
         },
         homeTeam: {
           abbreviation: homeTeam.abbreviation,
           score: homeTeam.score,
-          scoreType: typeof homeTeam.score
+          scoreType: typeof homeTeam.score,
         },
         status: game.status,
         isCompleted,
-        isLive
+        isLive,
       });
     }
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         key={game.id}
         style={[styles.gameCard, { backgroundColor: theme.surface }]}
         onPress={() => handleGamePress(game)}
       >
         {/* League Header */}
-        <View style={[styles.leagueHeader, { backgroundColor: theme.surfaceSecondary }]}>
+        <View
+          style={[
+            styles.leagueHeader,
+            { backgroundColor: theme.surfaceSecondary },
+          ]}
+        >
           <Text style={[styles.leagueText, { color: colors.primary }]}>
             {header}
           </Text>
@@ -1373,38 +1995,58 @@ const TeamPageScreen = ({ route, navigation }) => {
           {/* Away Team */}
           <View style={styles.teamSection}>
             <View style={styles.teamLogoRow}>
-              <TeamLogoImage 
+              <TeamLogoImage
                 team={awayTeam.team}
                 teamId={awayTeam.abbreviation || awayTeam.id}
                 style={[
                   styles.teamLogo,
-                  isCompleted && awayTeam.score < homeTeam.score && styles.losingTeamLogo
+                  isCompleted &&
+                    awayTeam.score < homeTeam.score &&
+                    styles.losingTeamLogo,
                 ]}
               />
               {(isCompleted || isLive) && (
                 <View style={styles.scoreContainer}>
-                  <Text style={[
-                    styles.teamScore, 
-                    { color: (awayTeam.score !== null && homeTeam.score !== null && awayTeam.score >= homeTeam.score) ? colors.primary : theme.textSecondary }
-                  ]}>
+                  <Text
+                    style={[
+                      styles.teamScore,
+                      {
+                        color:
+                          awayTeam.score !== null &&
+                          homeTeam.score !== null &&
+                          awayTeam.score >= homeTeam.score
+                            ? colors.primary
+                            : theme.textSecondary,
+                      },
+                    ]}
+                  >
                     {displayScore(awayTeam.score)}
                   </Text>
                 </View>
               )}
             </View>
             <View style={styles.teamNameContainer}>
-              {isFavorite(getNHLTeamId(awayTeam), 'nhl') && (
-                <Ionicons name="star" size={12} color={colors.primary} style={styles.favoriteIcon} />
+              {isFavorite(getNHLTeamId(awayTeam), "nhl") && (
+                <Ionicons
+                  name="star"
+                  size={12}
+                  color={colors.primary}
+                  style={styles.favoriteIcon}
+                />
               )}
-              <Text style={[
-                styles.teamAbbreviation, 
-                { 
-                  color: isFavorite(getNHLTeamId(awayTeam), 'nhl') 
-                    ? colors.primary 
-                    : (isCompleted && awayTeam.score < homeTeam.score ? theme.textSecondary : theme.text)
-                }
-              ]}>
-                {awayTeam.abbreviation || 'TBD'}
+              <Text
+                style={[
+                  styles.teamAbbreviation,
+                  {
+                    color: isFavorite(getNHLTeamId(awayTeam), "nhl")
+                      ? colors.primary
+                      : isCompleted && awayTeam.score < homeTeam.score
+                      ? theme.textSecondary
+                      : theme.text,
+                  },
+                ]}
+              >
+                {awayTeam.abbreviation || "TBD"}
               </Text>
             </View>
           </View>
@@ -1413,17 +2055,23 @@ const TeamPageScreen = ({ route, navigation }) => {
           <View style={styles.statusSection}>
             {isCompleted ? (
               <>
-                <Text style={[styles.gameStatus, { color: colors.primary }]}>Final</Text>
-                <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                <Text style={[styles.gameStatus, { color: colors.primary }]}>
+                  Final
+                </Text>
+                <Text
+                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
+                >
                   {formattedDate}
                 </Text>
               </>
             ) : isLive ? (
               <>
                 <Text style={[styles.gameStatus, { color: colors.primary }]}>
-                  {getStatusText(game) || 'LIVE'}
+                  {getStatusText(game) || "LIVE"}
                 </Text>
-                <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                <Text
+                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
+                >
                   {formatPeriodDisplay(game)}
                 </Text>
               </>
@@ -1432,7 +2080,9 @@ const TeamPageScreen = ({ route, navigation }) => {
                 <Text style={[styles.gameStatus, { color: colors.primary }]}>
                   {formattedTime}
                 </Text>
-                <Text style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                <Text
+                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
+                >
                   {formattedDate}
                 </Text>
               </>
@@ -1444,36 +2094,56 @@ const TeamPageScreen = ({ route, navigation }) => {
             <View style={styles.teamLogoRow}>
               {(isCompleted || isLive) && (
                 <View style={styles.scoreContainer}>
-                  <Text style={[
-                    styles.teamScore, 
-                    { color: (homeTeam.score !== null && awayTeam.score !== null && homeTeam.score >= awayTeam.score) ? colors.primary : theme.textSecondary }
-                  ]}>
+                  <Text
+                    style={[
+                      styles.teamScore,
+                      {
+                        color:
+                          homeTeam.score !== null &&
+                          awayTeam.score !== null &&
+                          homeTeam.score >= awayTeam.score
+                            ? colors.primary
+                            : theme.textSecondary,
+                      },
+                    ]}
+                  >
                     {displayScore(homeTeam.score)}
                   </Text>
                 </View>
               )}
-              <TeamLogoImage 
+              <TeamLogoImage
                 team={homeTeam.team}
                 teamId={homeTeam.abbreviation || homeTeam.id}
                 style={[
                   styles.teamLogo,
-                  isCompleted && homeTeam.score < awayTeam.score && styles.losingTeamLogo
+                  isCompleted &&
+                    homeTeam.score < awayTeam.score &&
+                    styles.losingTeamLogo,
                 ]}
               />
             </View>
             <View style={styles.teamNameContainer}>
-              {isFavorite(getNHLTeamId(homeTeam), 'nhl') && (
-                <Ionicons name="star" size={12} color={colors.primary} style={styles.favoriteIcon} />
+              {isFavorite(getNHLTeamId(homeTeam), "nhl") && (
+                <Ionicons
+                  name="star"
+                  size={12}
+                  color={colors.primary}
+                  style={styles.favoriteIcon}
+                />
               )}
-              <Text style={[
-                styles.teamAbbreviation, 
-                { 
-                  color: isFavorite(getNHLTeamId(homeTeam), 'nhl') 
-                    ? colors.primary 
-                    : (isCompleted && homeTeam.score < awayTeam.score ? theme.textSecondary : theme.text)
-                }
-              ]}>
-                {homeTeam.abbreviation || 'TBD'}
+              <Text
+                style={[
+                  styles.teamAbbreviation,
+                  {
+                    color: isFavorite(getNHLTeamId(homeTeam), "nhl")
+                      ? colors.primary
+                      : isCompleted && homeTeam.score < awayTeam.score
+                      ? theme.textSecondary
+                      : theme.text,
+                  },
+                ]}
+              >
+                {homeTeam.abbreviation || "TBD"}
               </Text>
             </View>
           </View>
@@ -1494,12 +2164,14 @@ const TeamPageScreen = ({ route, navigation }) => {
   const renderGamesTab = () => (
     <ScrollView style={styles.gamesContainer}>
       <View style={styles.gameSection}>
-        <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>Current Game</Text>
+        <Text style={[styles.gameSectionTitle, { color: colors.primary }]}>
+          Current Game
+        </Text>
         {renderCurrentGame()}
       </View>
 
       <View style={styles.gameSection}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.sectionHeader}
           onPress={() => setLastMatchesCollapsed(!lastMatchesCollapsed)}
         >
@@ -1507,23 +2179,25 @@ const TeamPageScreen = ({ route, navigation }) => {
             Recent Games
           </Text>
           <Text style={[styles.collapseArrow, { color: colors.primary }]}>
-            {lastMatchesCollapsed ? '▶' : '▼'}
+            {lastMatchesCollapsed ? "▶" : "▼"}
           </Text>
         </TouchableOpacity>
-        
+
         <View>
           {lastMatches.length === 0 ? (
-            <Text style={[styles.contentText, { color: theme.textSecondary }]}> 
+            <Text style={[styles.contentText, { color: theme.textSecondary }]}>
               No recent games
             </Text>
           ) : (
-            (lastMatchesCollapsed ? lastMatches.slice(0,1) : lastMatches).map((game) => renderMatchCard(game))
+            (lastMatchesCollapsed ? lastMatches.slice(0, 1) : lastMatches).map(
+              (game) => renderMatchCard(game)
+            )
           )}
         </View>
       </View>
 
       <View style={styles.gameSection}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.sectionHeader}
           onPress={() => setNextMatchesCollapsed(!nextMatchesCollapsed)}
         >
@@ -1531,17 +2205,19 @@ const TeamPageScreen = ({ route, navigation }) => {
             Upcoming Games
           </Text>
           <Text style={[styles.collapseArrow, { color: colors.primary }]}>
-            {nextMatchesCollapsed ? '▶' : '▼'}
+            {nextMatchesCollapsed ? "▶" : "▼"}
           </Text>
         </TouchableOpacity>
-        
+
         <View>
           {nextMatches.length === 0 ? (
-            <Text style={[styles.contentText, { color: theme.textSecondary }]}> 
+            <Text style={[styles.contentText, { color: theme.textSecondary }]}>
               No upcoming games
             </Text>
           ) : (
-            (nextMatchesCollapsed ? nextMatches.slice(0,1) : nextMatches).map((game) => renderMatchCard(game))
+            (nextMatchesCollapsed ? nextMatches.slice(0, 1) : nextMatches).map(
+              (game) => renderMatchCard(game)
+            )
           )}
         </View>
       </View>
@@ -1550,84 +2226,141 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   // Group NHL roster into MLB-like sections: Forwards, Defensemen, Goalies, Others
 
-
   const renderRosterSection = (title, players, sectionKey) => {
     if (players.length === 0) return null;
 
     const isCollapsed = collapsedRosterSections[sectionKey];
 
     const toggleSection = () => {
-      setCollapsedRosterSections(prev => ({
+      setCollapsedRosterSections((prev) => ({
         ...prev,
-        [sectionKey]: !prev[sectionKey]
+        [sectionKey]: !prev[sectionKey],
       }));
     };
 
     return (
       <View style={styles.rosterSection}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.rosterSectionHeader}
           onPress={toggleSection}
           activeOpacity={0.7}
         >
-          <Text allowFontScaling={false} style={[styles.rosterSectionTitle, { color: theme.text }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.rosterSectionTitle, { color: theme.text }]}
+          >
             {title} ({players.length})
           </Text>
-          <Text allowFontScaling={false} style={[styles.rosterSectionArrow, { color: theme.text }]}>
-            {isCollapsed ? '▶' : '▼'}
+          <Text
+            allowFontScaling={false}
+            style={[styles.rosterSectionArrow, { color: theme.text }]}
+          >
+            {isCollapsed ? "▶" : "▼"}
           </Text>
         </TouchableOpacity>
         {!isCollapsed && (
           <View style={styles.rosterTableContainer}>
-            <View style={[styles.rosterTableHeader, { backgroundColor: theme.surface }]}>
-              <Text allowFontScaling={false} style={[styles.rosterTableHeaderPlayer, { color: theme.text }]}>Player</Text>
-              <Text allowFontScaling={false} style={[styles.rosterTableHeaderStatus, { color: theme.text }]}>Status</Text>
+            <View
+              style={[
+                styles.rosterTableHeader,
+                { backgroundColor: theme.surface },
+              ]}
+            >
+              <Text
+                allowFontScaling={false}
+                style={[styles.rosterTableHeaderPlayer, { color: theme.text }]}
+              >
+                Player
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.rosterTableHeaderStatus, { color: theme.text }]}
+              >
+                Status
+              </Text>
             </View>
-              {players.map((player) => (
-              <TouchableOpacity 
-                key={player.id || player.name} 
-                style={[styles.rosterTableRow, { borderBottomColor: theme.border, backgroundColor: theme.surfaceSecondary }]}
+            {players.map((player) => (
+              <TouchableOpacity
+                key={player.id || player.name}
+                style={[
+                  styles.rosterTableRow,
+                  {
+                    borderBottomColor: theme.border,
+                    backgroundColor: theme.surfaceSecondary,
+                  },
+                ]}
                 onPress={() => {
-                  console.log('Navigating to player page:', player.id, player.name);
+                  console.log(
+                    "Navigating to player page:",
+                    player.id,
+                    player.name
+                  );
                   try {
-                    navigation.navigate('PlayerPage', { 
+                    navigation.navigate("PlayerPage", {
                       playerId: player.id,
                       playerName: player.name,
                       teamId: teamId,
-                      sport: 'nhl'
+                      sport: "nhl",
                     });
                   } catch (e) {
-                    console.warn('Navigation to PlayerPage failed', e);
+                    console.warn("Navigation to PlayerPage failed", e);
                   }
                 }}
                 activeOpacity={0.7}
               >
                 <View style={styles.rosterTablePlayerCell}>
                   <View style={styles.rosterPlayerRow}>
-                    <Image 
-                      source={{ 
-                        uri: player.headshot || 'https://via.placeholder.com/40x40?text=NHL' 
+                    <Image
+                      source={{
+                        uri:
+                          player.headshot ||
+                          "https://via.placeholder.com/40x40?text=NHL",
                       }}
                       style={styles.playerHeadshot}
-                      defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=NHL' }}
+                      defaultSource={{
+                        uri: "https://via.placeholder.com/40x40?text=NHL",
+                      }}
                     />
                     <View style={styles.rosterPlayerInfo}>
-                      <Text allowFontScaling={false} style={[styles.rosterTablePlayerName, { color: theme.text }]}>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.rosterTablePlayerName,
+                          { color: theme.text },
+                        ]}
+                      >
                         {player.name}
                       </Text>
-                      <Text allowFontScaling={false} style={[styles.rosterTablePlayerDetails, { color: theme.textTertiary }]}>
-                        <Text allowFontScaling={false} style={[styles.rosterTablePlayerNumber, { color: theme.textTertiary }]}>#{player.number || '--'}</Text>
-                        {' • '}
-                        {player.position || 'N/A'}
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.rosterTablePlayerDetails,
+                          { color: theme.textTertiary },
+                        ]}
+                      >
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            styles.rosterTablePlayerNumber,
+                            { color: theme.textTertiary },
+                          ]}
+                        >
+                          #{player.number || "--"}
+                        </Text>
+                        {" • "}
+                        {player.position || "N/A"}
                       </Text>
                     </View>
                   </View>
                 </View>
                 <View style={styles.rosterTableStatusCell}>
-                  <Text allowFontScaling={false} style={[
-                    styles.rosterTableStatusText,
-                    styles.activeStatus // For now, all NHL players are active
-                  ]}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.rosterTableStatusText,
+                      styles.activeStatus, // For now, all NHL players are active
+                    ]}
+                  >
                     Active
                   </Text>
                 </View>
@@ -1644,7 +2377,12 @@ const TeamPageScreen = ({ route, navigation }) => {
       return (
         <View style={styles.matchesSection}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Loading roster...</Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.contentText, { color: theme.textSecondary }]}
+          >
+            Loading roster...
+          </Text>
         </View>
       );
     }
@@ -1652,103 +2390,181 @@ const TeamPageScreen = ({ route, navigation }) => {
     if (!roster || roster.length === 0) {
       return (
         <View style={styles.matchesSection}>
-          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Roster data not available</Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.contentText, { color: theme.textSecondary }]}
+          >
+            Roster data not available
+          </Text>
         </View>
       );
     }
 
     // Group players by position
-    const forwards = roster.filter(player => {
-      const pos = (player.position || '').toString().toUpperCase();
-      return pos.includes('C') || pos.includes('LW') || pos.includes('RW') || pos.includes('FORWARD') || pos.includes('WING') || pos.includes('CENTER');
+    const forwards = roster.filter((player) => {
+      const pos = (player.position || "").toString().toUpperCase();
+      return (
+        pos.includes("C") ||
+        pos.includes("LW") ||
+        pos.includes("RW") ||
+        pos.includes("FORWARD") ||
+        pos.includes("WING") ||
+        pos.includes("CENTER")
+      );
     });
-    const defensemen = roster.filter(player => {
-      const pos = (player.position || '').toString().toUpperCase();
-      return pos.includes('D') && !pos.includes('FORWARD') && !pos.includes('WING');
+    const defensemen = roster.filter((player) => {
+      const pos = (player.position || "").toString().toUpperCase();
+      return (
+        pos.includes("D") && !pos.includes("FORWARD") && !pos.includes("WING")
+      );
     });
-    const goalies = roster.filter(player => {
-      const pos = (player.position || '').toString().toUpperCase();
-      return pos.includes('G') || pos.includes('GOALIE') || pos.includes('GOALTENDER');
+    const goalies = roster.filter((player) => {
+      const pos = (player.position || "").toString().toUpperCase();
+      return (
+        pos.includes("G") ||
+        pos.includes("GOALIE") ||
+        pos.includes("GOALTENDER")
+      );
     });
-    const others = roster.filter(player => {
-      const pos = (player.position || '').toString().toUpperCase();
-      return !forwards.includes(player) && !defensemen.includes(player) && !goalies.includes(player);
+    const others = roster.filter((player) => {
+      const pos = (player.position || "").toString().toUpperCase();
+      return (
+        !forwards.includes(player) &&
+        !defensemen.includes(player) &&
+        !goalies.includes(player)
+      );
     });
 
     return (
-      <ScrollView style={[styles.rosterContainer, { backgroundColor: theme.background }]} showsVerticalScrollIndicator={false}>
-        {renderRosterSection('Forwards', forwards, 'forwards')}
-        {renderRosterSection('Defensemen', defensemen, 'defensemen')}
-        {renderRosterSection('Goalies', goalies, 'goalies')}
-        {others.length > 0 && renderRosterSection('Others', others, 'others')}
+      <ScrollView
+        style={[styles.rosterContainer, { backgroundColor: theme.background }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {renderRosterSection("Forwards", forwards, "forwards")}
+        {renderRosterSection("Defensemen", defensemen, "defensemen")}
+        {renderRosterSection("Goalies", goalies, "goalies")}
+        {others.length > 0 && renderRosterSection("Others", others, "others")}
       </ScrollView>
     );
   };
 
   const renderStatsContent = () => {
-    if (loadingStats) return (
-      <View style={styles.statsLoadingContainer}><ActivityIndicator size="large" color={colors.primary} /><Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Loading team statistics...</Text></View>
-    );
+    if (loadingStats)
+      return (
+        <View style={styles.statsLoadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text
+            allowFontScaling={false}
+            style={[styles.contentText, { color: theme.textSecondary }]}
+          >
+            Loading team statistics...
+          </Text>
+        </View>
+      );
 
-    if (!teamStats) return (
-      <View style={styles.statsLoadingContainer}><Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>Team statistics not available</Text></View>
-    );
+    if (!teamStats)
+      return (
+        <View style={styles.statsLoadingContainer}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.contentText, { color: theme.textSecondary }]}
+          >
+            Team statistics not available
+          </Text>
+        </View>
+      );
 
     // We'll render every category but only the top 6 stats per category (by presence order)
-    const categories = teamStats?.results?.stats?.categories || teamStats?.categories || teamStats?.groups || [];
+    const categories =
+      teamStats?.results?.stats?.categories ||
+      teamStats?.categories ||
+      teamStats?.groups ||
+      [];
 
-    const pickTopStats = (statsArr, categoryName = '') => {
+    const pickTopStats = (statsArr, categoryName = "") => {
       if (!Array.isArray(statsArr)) return [];
-      
+
       // Get configuration for this category, fallback to default
-      const config = statsConfiguration[categoryName] || statsConfiguration.default;
+      const config =
+        statsConfiguration[categoryName] || statsConfiguration.default;
       const { limit, statNames } = config;
-      
+
       // Filter out stats without values
-      const filtered = statsArr.filter(s => s && (s.value !== undefined || s.displayValue !== undefined));
-      
+      const filtered = statsArr.filter(
+        (s) => s && (s.value !== undefined || s.displayValue !== undefined)
+      );
+
       // If specific stat names are configured, try to find them
       if (statNames && Array.isArray(statNames)) {
         const selectedStats = [];
-        
+
         // First, try to find stats by the configured names
-        statNames.forEach(statName => {
-          const foundStat = filtered.find(s => 
-            s.name === statName || 
-            s.displayName === statName || 
-            s.abbreviation === statName ||
-            s.name?.toLowerCase() === statName.toLowerCase() ||
-            s.displayName?.toLowerCase() === statName.toLowerCase()
+        statNames.forEach((statName) => {
+          const foundStat = filtered.find(
+            (s) =>
+              s.name === statName ||
+              s.displayName === statName ||
+              s.abbreviation === statName ||
+              s.name?.toLowerCase() === statName.toLowerCase() ||
+              s.displayName?.toLowerCase() === statName.toLowerCase()
           );
           if (foundStat && !selectedStats.includes(foundStat)) {
             selectedStats.push(foundStat);
           }
         });
-        
+
         // If we found fewer stats than requested, fill with remaining stats
         if (selectedStats.length < limit) {
-          const remaining = filtered.filter(s => !selectedStats.includes(s));
+          const remaining = filtered.filter((s) => !selectedStats.includes(s));
           const needed = limit - selectedStats.length;
           selectedStats.push(...remaining.slice(0, needed));
         }
-        
+
         return selectedStats.slice(0, limit);
       }
-      
+
       // If no specific stat names configured, just take first N stats
       return filtered.slice(0, limit);
     };
 
     // Small card renderer for a stat (MLB style)
     const StatCard = ({ stat }) => {
-      const label = stat.displayName || stat.name || stat.abbreviation || '';
-      const value = (stat.displayValue !== undefined && stat.displayValue !== null) ? String(stat.displayValue) : (stat.value !== undefined ? String(stat.value) : '--');
+      const label = stat.displayName || stat.name || stat.abbreviation || "";
+      const value =
+        stat.displayValue !== undefined && stat.displayValue !== null
+          ? String(stat.displayValue)
+          : stat.value !== undefined
+          ? String(stat.value)
+          : "--";
       const rank = stat.rankDisplayValue || stat.rank?.displayValue || null;
       return (
-        <View style={[styles.statBox, { backgroundColor: theme.surface }]}> 
-          <Text allowFontScaling={false} style={[styles.statBoxValue, { color: colors.primary }]} numberOfLines={1}>{value}</Text>
-          <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]} numberOfLines={2}>{label}</Text>
-          {rank ? <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textTertiary, marginTop: 6 }]} numberOfLines={1}>{rank}</Text> : null}
+        <View style={[styles.statBox, { backgroundColor: theme.surface }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.statBoxValue, { color: colors.primary }]}
+            numberOfLines={1}
+          >
+            {value}
+          </Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.statBoxLabel, { color: theme.textSecondary }]}
+            numberOfLines={2}
+          >
+            {label}
+          </Text>
+          {rank ? (
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.statBoxLabel,
+                { color: theme.textTertiary, marginTop: 6 },
+              ]}
+              numberOfLines={1}
+            >
+              {rank}
+            </Text>
+          ) : null}
         </View>
       );
     };
@@ -1766,19 +2582,50 @@ const TeamPageScreen = ({ route, navigation }) => {
     };
 
     return (
-      <ScrollView style={[styles.statsContainer, { backgroundColor: theme.background }]} contentContainerStyle={styles.statsContent} showsVerticalScrollIndicator={false}>
-        <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: theme.text }]}>Team Statistics</Text>
+      <ScrollView
+        style={[styles.statsContainer, { backgroundColor: theme.background }]}
+        contentContainerStyle={styles.statsContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text
+          allowFontScaling={false}
+          style={[styles.statsSectionTitle, { color: theme.text }]}
+        >
+          Team Statistics
+        </Text>
         {/* Render each category */}
         {categories.map((cat, idx) => {
-          const categoryName = cat.displayName || cat.name || '';
+          const categoryName = cat.displayName || cat.name || "";
           const statsArr = cat.stats || cat.items || cat.values || [];
           const top = pickTopStats(statsArr, categoryName);
-          const statCards = top.map((s, si) => <StatCard key={`${s.name || s.displayName || si}`} stat={s} />);
+          const statCards = top.map((s, si) => (
+            <StatCard key={`${s.name || s.displayName || si}`} stat={s} />
+          ));
           return (
-            <View key={`${cat.name || cat.displayName || idx}`} style={styles.statsSection}>
-              <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: theme.text }]}>{cat.displayName || cat.name || `Category ${idx + 1}`}</Text>
+            <View
+              key={`${cat.name || cat.displayName || idx}`}
+              style={styles.statsSection}
+            >
+              <Text
+                allowFontScaling={false}
+                style={[styles.statsSectionTitle, { color: theme.text }]}
+              >
+                {cat.displayName || cat.name || `Category ${idx + 1}`}
+              </Text>
               {statCards.length === 0 ? (
-                <View style={[styles.statBox, { backgroundColor: theme.surface }]}><Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>No stats</Text></View>
+                <View
+                  style={[styles.statBox, { backgroundColor: theme.surface }]}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.statBoxLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    No stats
+                  </Text>
+                </View>
               ) : (
                 renderStatRows(statCards)
               )}
@@ -1793,9 +2640,13 @@ const TeamPageScreen = ({ route, navigation }) => {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+      <View
+        style={[styles.loadingContainer, { backgroundColor: theme.background }]}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: theme.text }]}>Loading team data...</Text>
+        <Text style={[styles.loadingText, { color: theme.text }]}>
+          Loading team data...
+        </Text>
       </View>
     );
   }
@@ -1804,11 +2655,16 @@ const TeamPageScreen = ({ route, navigation }) => {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {renderTeamHeader()}
       {renderTabButtons()}
-      <ScrollView style={[styles.contentScrollView, { backgroundColor: theme.background }]}>
+      <ScrollView
+        style={[
+          styles.contentScrollView,
+          { backgroundColor: theme.background },
+        ]}
+      >
         <View style={styles.matchesSection}>
-          {activeTab === 'Games' && renderGamesTab()}
-          {activeTab === 'Roster' && renderRosterTab()}
-          {activeTab === 'Stats' && renderStatsTab()}
+          {activeTab === "Games" && renderGamesTab()}
+          {activeTab === "Roster" && renderRosterTab()}
+          {activeTab === "Stats" && renderStatsTab()}
         </View>
       </ScrollView>
     </View>
@@ -1821,18 +2677,18 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
   },
   teamHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -1851,7 +2707,7 @@ const styles = StyleSheet.create({
   },
   teamName: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 4,
   },
   teamDivision: {
@@ -1863,24 +2719,24 @@ const styles = StyleSheet.create({
     marginLeft: 0,
   },
   recordRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     width: 180,
   },
   recordValue: {
     fontSize: 14,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     flex: 1,
   },
   recordLabel: {
     fontSize: 12,
-    textAlign: 'center',
+    textAlign: "center",
     flex: 1,
     marginTop: 2,
   },
   favoriteButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 15,
     right: 15,
     padding: 10,
@@ -1888,12 +2744,12 @@ const styles = StyleSheet.create({
   },
   favoriteIcon: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   tabContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -1905,19 +2761,19 @@ const styles = StyleSheet.create({
   tabButton: {
     flex: 1,
     paddingVertical: 15,
-    alignItems: 'center',
+    alignItems: "center",
     borderBottomWidth: 3,
-    borderBottomColor: 'transparent',
+    borderBottomColor: "transparent",
   },
   activeTabButton: {
     borderBottomWidth: 3,
   },
   tabText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   activeTabText: {
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   contentContainer: {
     flex: 1,
@@ -1932,13 +2788,13 @@ const styles = StyleSheet.create({
   },
   gameSectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 5,
   },
   gameCard: {
     borderRadius: 8,
     marginBottom: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -1946,17 +2802,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   gameTeams: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 5,
   },
   teamContainer: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   gameTeamLogo: {
     width: 40,
@@ -1965,25 +2821,25 @@ const styles = StyleSheet.create({
   },
   gameTeamName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 2,
   },
   versus: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginTop: 5,
   },
   teamRecord: {
     fontSize: 12,
   },
   gameInfo: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     flex: 1,
   },
   gameStatus: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 2,
   },
   gameTime: {
@@ -1992,40 +2848,40 @@ const styles = StyleSheet.create({
   noGameContainer: {
     borderRadius: 8,
     padding: 20,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
   },
   noGameText: {
     fontSize: 14,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 10,
   },
   collapseArrow: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   teamLogoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 5,
   },
   gameTeamScore: {
     fontSize: 30,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginHorizontal: 8,
   },
   losingTeamScore: {
-    color: '#999',
+    color: "#999",
   },
   losingTeamName: {
-    color: '#999',
+    color: "#999",
   },
   losingTeamLogo: {
     opacity: 0.6,
@@ -2040,15 +2896,15 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 8,
   },
   gameDescriptionText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
   },
   contentText: {
     fontSize: 16,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    textAlign: "center",
+    fontStyle: "italic",
     padding: 20,
   },
   // Roster styles (matching MLB)
@@ -2064,60 +2920,60 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   rosterSectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 8,
     paddingHorizontal: 4,
   },
   rosterSectionTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     flex: 1,
   },
   rosterSectionArrow: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginLeft: 8,
   },
   rosterTableContainer: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 6,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   rosterTableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#e9ecef',
+    flexDirection: "row",
+    backgroundColor: "#e9ecef",
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
   rosterTableHeaderPlayer: {
     flex: 3,
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#495057',
+    fontWeight: "bold",
+    color: "#495057",
   },
   rosterTableHeaderStatus: {
     flex: 1,
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#495057',
-    textAlign: 'center',
+    fontWeight: "bold",
+    color: "#495057",
+    textAlign: "center",
   },
   rosterTableRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    alignItems: 'center',
+    borderBottomColor: "#f0f0f0",
+    alignItems: "center",
   },
   rosterTablePlayerCell: {
     flex: 3,
   },
   rosterPlayerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   playerHeadshot: {
     width: 40,
@@ -2130,34 +2986,34 @@ const styles = StyleSheet.create({
   },
   rosterTablePlayerName: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 2,
   },
   rosterTablePlayerDetails: {
     fontSize: 12,
   },
   rosterTablePlayerNumber: {
-    fontWeight: '500',
+    fontWeight: "500",
   },
   rosterTableStatusCell: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   rosterTableStatusText: {
     fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
+    fontWeight: "500",
+    textAlign: "center",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
   },
   activeStatus: {
-    backgroundColor: '#d4edda',
-    color: '#155724',
+    backgroundColor: "#d4edda",
+    color: "#155724",
   },
   inactiveStatus: {
-    backgroundColor: '#f8d7da',
-    color: '#721c24',
+    backgroundColor: "#f8d7da",
+    color: "#721c24",
   },
   // Stats styles (matching NFL)
   statsContainer: {
@@ -2168,8 +3024,8 @@ const styles = StyleSheet.create({
   },
   statsLoadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 40,
   },
   statsSection: {
@@ -2177,24 +3033,24 @@ const styles = StyleSheet.create({
   },
   statsSectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 15,
-    textAlign: 'center',
+    textAlign: "center",
   },
   statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 15,
     gap: 10,
   },
   statBox: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 8,
     padding: 15,
     minHeight: 70,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -2205,18 +3061,18 @@ const styles = StyleSheet.create({
   },
   statBoxValue: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 5,
   },
   statBoxLabel: {
     fontSize: 12,
-    textAlign: 'center',
-    fontWeight: '500',
+    textAlign: "center",
+    fontWeight: "500",
   },
   // NFL-style match card styles
   fixedTabContainer: {
-    flexDirection: 'row',
-    shadowColor: '#000',
+    flexDirection: "row",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
@@ -2233,18 +3089,18 @@ const styles = StyleSheet.create({
   gameSectionCard: {
     borderRadius: 8,
     padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderStyle: 'dashed',
+    borderColor: "#e0e0e0",
+    borderStyle: "dashed",
   },
   leagueHeader: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderTopLeftRadius: 8,
@@ -2252,22 +3108,22 @@ const styles = StyleSheet.create({
   },
   leagueText: {
     fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
   },
   matchContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 15,
     paddingHorizontal: 12,
   },
   teamSection: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   teamLogoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 8,
   },
   teamLogo: {
@@ -2279,34 +3135,34 @@ const styles = StyleSheet.create({
   },
   teamScore: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginHorizontal: 8,
   },
   scoreContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   teamAbbreviation: {
     fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
+    fontWeight: "500",
+    textAlign: "center",
   },
   teamNameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   favoriteIcon: {
     marginRight: 4,
   },
   statusSection: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: 10,
   },
   gameStatus: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 4,
   },
   gameDateTime: {
@@ -2317,12 +3173,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
+    borderTopColor: "#e9ecef",
   },
   venueText: {
     fontSize: 11,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    textAlign: "center",
+    fontStyle: "italic",
   },
 });
 

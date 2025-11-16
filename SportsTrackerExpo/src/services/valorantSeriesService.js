@@ -122,6 +122,7 @@ export const formatSeriesData = (rawSeriesData) => {
 
   return {
     id: rawSeriesData.id,
+    parentEventId: rawSeriesData.parentEventId,
     eventId: rawSeriesData.eventId,
     eventName: rawSeriesData.eventName,
     eventLivestreamLink: rawSeriesData.eventLivestreamLink,
@@ -174,7 +175,7 @@ export const getAgentDisplayName = (agentId) => {
     26: "Vyse",
     27: "Tejo",
     28: "Waylay",
-    29: "Veto"
+    29: "Veto",
   };
   return agentMap[agentId] || "Unknown";
 };
@@ -240,8 +241,25 @@ export const getMapDisplayName = (mapName) => {
 
 // Get image URLs based on images.txt pattern
 export const getAgentImageUrl = (agentName) => {
+  // Accept either agent name (string) or agent id (number). Normalize to string for URL.
+  if (agentName === undefined || agentName === null)
+    return `https://www.rib.gg/assets/agents/unknown.webp`;
+
+  let nameStr = "";
+  if (typeof agentName === "number") {
+    // map numeric id to display name
+    nameStr = getAgentDisplayName(agentName) || "unknown";
+  } else if (typeof agentName === "string") {
+    nameStr = agentName;
+  } else if (typeof agentName === "object" && agentName.name) {
+    // sometimes an object with name property
+    nameStr = agentName.name;
+  } else {
+    nameStr = String(agentName);
+  }
+
   // Normalize agent name for URL - remove special characters and spaces
-  const normalizedName = agentName.toLowerCase().replace(/[^a-z0-9]/g, ""); // Remove all non-alphanumeric characters
+  const normalizedName = nameStr.toLowerCase().replace(/[^a-z0-9]/g, ""); // Remove all non-alphanumeric characters
 
   return `https://www.rib.gg/assets/agents/${normalizedName}.webp`;
 };

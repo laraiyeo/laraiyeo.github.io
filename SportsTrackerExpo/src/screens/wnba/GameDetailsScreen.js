@@ -2911,7 +2911,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
               {renderStatHeaders(["FG", "PTS", "MIN"])}
 
               {starterPlayers.map((player, idx) =>
-                renderPlayerRow(player, idx, "starter-player", [9, 1, 0])
+                renderPlayerRow(player, idx, "starter-player", [1, 0, 12])
               )}
             </View>
           )}
@@ -2936,7 +2936,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
               {renderStatHeaders(["FG", "PTS", "MIN"])}
 
               {benchPlayers.map((player, idx) =>
-                renderPlayerRow(player, idx, "bench-player", [9, 1, 0])
+                renderPlayerRow(player, idx, "bench-player", [1, 0, 12])
               )}
             </View>
           )}
@@ -2990,7 +2990,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
 
     // Helper function to render a player row with improved styling
     // statIndices: array of indices into player.stats to display (in order)
-    function renderPlayerRow(player, idx, keyPrefix, statIndices = [1, 13, 0]) {
+    function renderPlayerRow(player, idx, keyPrefix, statIndices = [1, 0, 12]) {
       const jerseyNum = player.athlete?.jersey || "";
       const position = player.athlete?.position?.abbreviation || "";
 
@@ -3110,7 +3110,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
             {renderStatHeaders(["FG", "PTS", "MIN"])}
 
             {playersOnCourt.map((player, idx) =>
-              renderPlayerRow(player, idx, "oncourt-player", [9, 1, 0])
+              renderPlayerRow(player, idx, "oncourt-player", [1, 0, 12])
             )}
           </View>
         )}
@@ -3133,7 +3133,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
             {renderStatHeaders(["FG", "PTS", "MIN"])}
 
             {playersOnBench.map((player, idx) =>
-              renderPlayerRow(player, idx, "bench-player", [9, 1, 0])
+              renderPlayerRow(player, idx, "bench-player", [1, 0, 12])
             )}
           </View>
         )}
