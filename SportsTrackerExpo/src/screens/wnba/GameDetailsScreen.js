@@ -339,6 +339,24 @@ const WNBAGameDetailsScreen = ({ route }) => {
     return home?.id || home?.team?.id || null;
   }, [details]);
 
+  // Helper to color plusMinus stat values: negative => theme.error, positive => theme.success, zero/invalid => theme.text
+  const getStatTextColor = (key, rawValue) => {
+    if (key !== "plusMinus") return theme.text;
+    try {
+      let num = null;
+      if (rawValue == null) num = 0;
+      else if (typeof rawValue === "object")
+        num = parseFloat(
+          rawValue.displayValue ?? rawValue.value ?? String(rawValue)
+        );
+      else num = parseFloat(String(rawValue).replace(/[^0-9.-]/g, ""));
+      if (isNaN(num) || num === 0) return theme.text;
+      return num < 0 ? theme.error : theme.success;
+    } catch (e) {
+      return theme.text;
+    }
+  };
+
   // Function to load more plays
   const loadMorePlays = useCallback(() => {
     if (isLoadingMorePlays || !playsData) return;
@@ -4021,6 +4039,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                     (team?.abbreviation
                       ? getTeamLogoUrl("wnba", team.abbreviation)
                       : null);
+                  const teamAbbreviation = team?.abbreviation || "";
 
                   const gameDate = details?.header?.competitions?.[0]?.date;
                   const formattedDate = gameDate
@@ -4132,10 +4151,12 @@ const WNBAGameDetailsScreen = ({ route }) => {
                             </View>
                             <View style={styles.modalTeamRow}>
                               {teamLogo && (
-                                <Image
-                                  source={{ uri: teamLogo }}
-                                  style={styles.modalTeamLogo}
-                                />
+                                  <TeamLogoWithTheme
+                                    colors={colors}
+                                    getTeamLogoUrl={getTeamLogoUrl}
+                                    teamAbbreviation={teamAbbreviation}
+                                    style={styles.shareCardTeamLogo}
+                                  />
                               )}
                               <Text
                                 style={[
@@ -4199,7 +4220,12 @@ const WNBAGameDetailsScreen = ({ route }) => {
                                 <Text
                                   style={[
                                     styles.modalStatBoxValue,
-                                    { color: theme.text },
+                                    {
+                                      color: getStatTextColor(
+                                        keys[statIdx],
+                                        stats[statIdx]
+                                      ),
+                                    },
                                   ]}
                                 >
                                   {stats[statIdx] ?? "-"}

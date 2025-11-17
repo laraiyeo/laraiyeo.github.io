@@ -7,12 +7,14 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  Image,
   TouchableOpacity,
-  Modal,
+  Image,
   Animated,
+  Modal,
   Dimensions,
+  Share,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
 import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
@@ -22,7 +24,6 @@ import { useFavorites } from "../../context/FavoritesContext";
 import ChatComponent from "../../components/ChatComponent";
 import { useStreamingAccess } from "../../utils/streamingUtils";
 import { useGamePresence } from "../../hooks/useGamePresence";
-import { Ionicons } from "@expo/vector-icons";
 
 // Color similarity detection utility
 const calculateColorSimilarity = (color1, color2) => {
@@ -165,6 +166,11 @@ const GameDetailsScreen = ({ route }) => {
   // Share card state
   const [shareCardPlay, setShareCardPlay] = useState(null);
   const nflPlayShareCardRef = useRef(null);
+  // Player copy-card state (for player modal long-press copy/share)
+  const playerCopyCardRef = useRef(null);
+  const [isPlayerCardCapturing, setIsPlayerCardCapturing] = useState(false);
+  const [playerCardContentHeight, setPlayerCardContentHeight] = useState(0);
+  const [playerCopyModalVisible, setPlayerCopyModalVisible] = useState(false);
 
   // Streaming access check
   const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
@@ -1164,26 +1170,55 @@ const GameDetailsScreen = ({ route }) => {
     setLoadingPlayerStats(true);
 
     try {
-      // Fetch game-specific player stats using ESPN box score API
-      const gameStats = await NFLService.getPlayerGameStats(gameId, player.id);
-      if (gameStats && gameStats.splits && gameStats.splits.categories) {
-        setPlayerStats(gameStats);
-      } else {
-        // Fallback to season stats if game stats not available
-        const seasonStats = await NFLService.getPlayerStats(player.id);
+      // Use already-fetched boxscore from `gameDetails` to build player stats
+      // This avoids an extra network fetch and matches the shape expected
+      // by `renderPositionSpecificStats` (i.e. { splits: { categories: [...] } }).
+      const boxscorePlayers = gameDetails?.boxscore?.players || [];
 
-        if (
-          seasonStats &&
-          seasonStats.splits &&
-          seasonStats.splits.categories
-        ) {
-          setPlayerStats(seasonStats);
-        } else {
-          setPlayerStats(null);
+      const categoryMap = {};
+
+      // Iterate teams and their statistic categories to find this player's stats
+      for (const teamData of boxscorePlayers) {
+        if (!teamData || !teamData.statistics) continue;
+
+        for (const statCategory of teamData.statistics) {
+          if (!statCategory || !statCategory.athletes) continue;
+
+          for (const athleteData of statCategory.athletes) {
+            const athlete = athleteData?.athlete;
+            if (!athlete) continue;
+
+            // Athlete id may be string or number
+            if (
+              athlete.id === player.id ||
+              athlete.id === player.id?.toString() ||
+              athlete.id?.toString() === player.id?.toString()
+            ) {
+              categoryMap[statCategory.name] = {
+                stats: athleteData.stats || [],
+                text: statCategory.text || statCategory.name,
+                labels: statCategory.labels || [],
+              };
+            }
+          }
         }
       }
+
+      const categories = Object.keys(categoryMap).map((name) => ({
+        name,
+        text: categoryMap[name]?.text || name,
+        labels: categoryMap[name]?.labels || [],
+        stats: categoryMap[name]?.stats || [],
+      }));
+
+      if (categories.length > 0) {
+        setPlayerStats({ splits: { categories } });
+      } else {
+        // No per-game boxscore data found for this player; fall back to null
+        setPlayerStats(null);
+      }
     } catch (error) {
-      console.error("Error loading player stats:", error);
+      console.error("Error extracting player stats from boxscore:", error);
       setPlayerStats(null);
     } finally {
       setLoadingPlayerStats(false);
@@ -1194,6 +1229,67 @@ const GameDetailsScreen = ({ route }) => {
     setPlayerModalVisible(false);
     setSelectedPlayer(null);
     setPlayerStats(null);
+  };
+
+  // Long-press handler to open the player copy modal (shares card)
+  const handlePlayerLongPress = async (
+    player,
+    statCategory,
+    teamInfo = null
+  ) => {
+    setSelectedPlayer({
+      ...player,
+      statCategory: statCategory.text || statCategory.name,
+      allStats: statCategory,
+      team: teamInfo,
+    });
+    setPlayerCopyModalVisible(true);
+    setLoadingPlayerStats(true);
+
+    try {
+      const boxscorePlayers = gameDetails?.boxscore?.players || [];
+      const categoryMap = {};
+
+      for (const teamData of boxscorePlayers) {
+        if (!teamData || !teamData.statistics) continue;
+        for (const statCategoryItem of teamData.statistics) {
+          if (!statCategoryItem || !statCategoryItem.athletes) continue;
+          for (const athleteData of statCategoryItem.athletes) {
+            const athlete = athleteData?.athlete;
+            if (!athlete) continue;
+            if (
+              athlete.id === player.id ||
+              athlete.id === player.id?.toString() ||
+              athlete.id?.toString() === player.id?.toString()
+            ) {
+              categoryMap[statCategoryItem.name] = {
+                stats: athleteData.stats || [],
+                text: statCategoryItem.text || statCategoryItem.name,
+                labels: statCategoryItem.labels || [],
+              };
+            }
+          }
+        }
+      }
+
+      const categories = Object.keys(categoryMap).map((name) => ({
+        name,
+        text: categoryMap[name]?.text || name,
+        labels: categoryMap[name]?.labels || [],
+        stats: categoryMap[name]?.stats || [],
+      }));
+
+      if (categories.length > 0) {
+        setPlayerStats({ splits: { categories } });
+      } else {
+        setPlayerStats(null);
+      }
+    } catch (error) {
+      console.error("Error extracting player stats for copy modal:", error);
+      setPlayerStats(null);
+    } finally {
+      setLoadingPlayerStats(false);
+    }
   };
 
   const handleDrivePress = async (drive) => {
@@ -2228,6 +2324,176 @@ const GameDetailsScreen = ({ route }) => {
     }
   };
 
+  // Render player stats in NBA-style grid (category header + tiles)
+  const renderPlayerModalGrid = (playerStats) => {
+    if (!playerStats?.splits?.categories) return null;
+
+    // Local helper to format category names (camelCase -> Title Case)
+    const formatCategoryName = (name) => {
+      if (!name) return "";
+      return name
+        .toString()
+        .replace(/([a-z])([A-Z])/g, "$1 $2")
+        .replace(/\b\w/g, (l) => l.toUpperCase());
+    };
+
+    // Determine which categories to show based on where the player was clicked from
+    const clickedCategoryName = (
+      selectedPlayer?.allStats?.name || ""
+    ).toLowerCase();
+
+    const mapping = {
+      passing: ["passing", "rushing"],
+      rushing: ["passing", "rushing", "receiving"],
+      receiving: ["receiving", "rushing"],
+      defensive: ["defensive", "fumbles", "interceptions"],
+      defense: ["defensive", "fumbles", "interceptions"],
+      fumbles: ["fumbles", "rushing"],
+      interceptions: ["interceptions", "passing", "defensive"],
+      "kick-returns": ["kickReturns"],
+      "punt-returns": ["puntReturns"],
+      kicking: ["kicking"],
+      punting: ["punting"],
+    };
+
+    const allowed = mapping[clickedCategoryName] || [
+      clickedCategoryName || null,
+    ];
+
+    const normalize = (n) => (n || "").toString().toLowerCase();
+
+    const filtered = playerStats.splits.categories.filter((c) => {
+      const n = normalize(c.name) || normalize(c.text);
+      return allowed.some((a) => a && n.includes(a.toLowerCase()));
+    });
+
+    const toRender =
+      filtered.length > 0 ? filtered : playerStats.splits.categories;
+
+    return (
+      <View>
+        {toRender.map((category, cIndex) => {
+          const rawTitle = category.text || formatCategoryName(category.name);
+          const labels = category.labels || [];
+          const stats = category.stats || [];
+
+          // Strip common team name prefixes more robustly
+          const teamObj = selectedPlayer?.team?.team;
+          const prefixes = [];
+          if (teamObj) {
+            prefixes.push(teamObj.displayName || "");
+            prefixes.push(teamObj.name || "");
+            prefixes.push(teamObj.abbreviation || "");
+            const firstWord = (teamObj.displayName || teamObj.name || "").split(
+              " "
+            )[0];
+            if (firstWord) prefixes.push(firstWord);
+          }
+
+          let titleText = rawTitle;
+
+          // Remove common team name prefixes if present
+          for (const p of prefixes) {
+            if (p && titleText.startsWith(p)) {
+              titleText = titleText.slice(p.length).trim();
+              titleText = titleText.replace(/^[-–:\s]+/, "");
+              break;
+            }
+          }
+
+          // Prefer canonical mapping headers only (passing, rushing, receiving, etc.)
+          // Build a set of canonical tokens from the mapping object defined above.
+          const canonicalTokens = new Set();
+          try {
+            Object.keys(mapping).forEach((k) =>
+              canonicalTokens.add(k.toString().toLowerCase())
+            );
+            Object.values(mapping).forEach((arr) => {
+              (arr || []).forEach((v) =>
+                canonicalTokens.add(v.toString().toLowerCase())
+              );
+            });
+          } catch (err) {
+            // fall back silently if mapping isn't available
+          }
+
+          const normalizedTitle = (titleText || "").toString().toLowerCase();
+          const matched = Array.from(canonicalTokens).find(
+            (tok) => tok && normalizedTitle.includes(tok)
+          );
+          if (matched) {
+            titleText = formatCategoryName(matched);
+          } else {
+            titleText = titleText.replace(/^\w/, (ch) => ch.toUpperCase());
+          }
+
+          const tiles = labels.map((label, i) => {
+            const statValue = stats[i];
+            let displayValue = "0";
+            if (statValue !== undefined && statValue !== null) {
+              if (typeof statValue === "object" && statValue.displayValue) {
+                displayValue = statValue.displayValue;
+              } else if (
+                typeof statValue === "object" &&
+                statValue.value !== undefined
+              ) {
+                displayValue = statValue.value.toString();
+              } else {
+                displayValue = statValue.toString();
+              }
+            }
+
+            return (
+              <View
+                key={`${cIndex}-${i}`}
+                style={[
+                  styles.statTile,
+                  { backgroundColor: theme.surfaceSecondary },
+                ]}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.statTileValue,
+                    { color: theme.text, fontSize: 16 },
+                  ]}
+                >
+                  {displayValue}
+                </Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.statTileLabel,
+                    { color: theme.textSecondary, fontSize: 11 },
+                  ]}
+                >
+                  {label}
+                </Text>
+              </View>
+            );
+          });
+
+          return (
+            <View
+              key={cIndex}
+              style={[styles.statCategory, { backgroundColor: theme.surface }]}
+            >
+              <View style={styles.statSubcategoryHeader}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.statCategoryTitle, { color: theme.text }]}
+                >
+                  {titleText}
+                </Text>
+              </View>
+              <View style={styles.playerStatsGrid}>{tiles}</View>
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <View
@@ -2291,6 +2557,56 @@ const GameDetailsScreen = ({ route }) => {
     return isLosing
       ? [styles.stickyTeamScore, { color: theme.textSecondary }]
       : [styles.stickyTeamScore, { color: colors.primary }];
+  };
+
+  // Share the player copy card (long-press)
+  const sharePlayerCopyCard = async () => {
+    try {
+      if (!playerCopyCardRef || !playerCopyCardRef.current) {
+        console.warn("sharePlayerCopyCard: playerCopyCardRef not available");
+        Alert.alert(
+          "Unavailable",
+          "The player card is not ready to share yet."
+        );
+        return;
+      }
+
+      setIsPlayerCardCapturing(true);
+      await new Promise((resolve) => setTimeout(resolve, 120));
+
+      const uri = await captureRef(playerCopyCardRef.current, {
+        format: "png",
+        quality: 0.95,
+      });
+
+      setIsPlayerCardCapturing(false);
+
+      if (uri) {
+        try {
+          const sharingAvailable =
+            typeof Sharing.isAvailableAsync === "function"
+              ? await Sharing.isAvailableAsync()
+              : false;
+          if (sharingAvailable) {
+            await Sharing.shareAsync(uri, {
+              dialogTitle: "Share Player Card",
+            });
+          } else {
+            await Share.share({ message: "Player card", url: uri });
+          }
+        } catch (shareErr) {
+          console.warn(
+            "Player share failed, falling back to native Share",
+            shareErr
+          );
+          await Share.share({ message: "Player card", url: uri });
+        }
+      }
+    } catch (e) {
+      console.error("Error sharing player card", e);
+      setIsPlayerCardCapturing(false);
+      Alert.alert("Error", "Failed to share player card");
+    }
   };
 
   // Helper function to render team stats
@@ -3390,6 +3706,10 @@ const GameDetailsScreen = ({ route }) => {
                       onPress={() =>
                         handlePlayerPress(player, statCategory, team)
                       }
+                      onLongPress={() =>
+                        handlePlayerLongPress(player, statCategory, team)
+                      }
+                      delayLongPress={400}
                       activeOpacity={0.7}
                     >
                       <View style={styles.statTablePlayerCell}>
@@ -4804,7 +5124,128 @@ const GameDetailsScreen = ({ route }) => {
 
               {selectedPlayer && (
                 <>
-                  {/* Player Header */}
+                  <View>
+                    {/* Player Header only (no copy-card here) */}
+                    <View style={styles.playerHeader}>
+                      <Image
+                        source={{
+                          uri: NFLService.convertToHttps(
+                            selectedPlayer.headshot?.href ||
+                              selectedPlayer.headshot
+                          ),
+                        }}
+                        style={[
+                          styles.playerHeadshot,
+                          {
+                            backgroundColor: `#${
+                              selectedPlayer?.team?.team?.primaryColor ||
+                              selectedPlayer?.team?.team?.color ||
+                              colors.primary
+                            }`,
+                          },
+                        ]}
+                        defaultSource={{
+                          uri: "https://via.placeholder.com/80x80?text=Player",
+                        }}
+                      />
+                      <View style={styles.playerInfo}>
+                        <Text
+                          allowFontScaling={false}
+                          style={[styles.playerName, { color: theme.text }]}
+                        >
+                          {selectedPlayer.displayName ||
+                            `${selectedPlayer.firstName || ""} ${
+                              selectedPlayer.lastName || ""
+                            }`.trim()}{" "}
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.playerDetails,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            #{selectedPlayer.jersey || "N/A"}
+                          </Text>
+                        </Text>
+                        <View style={styles.playerTeamInfo}>
+                          {selectedPlayer.team?.team && (
+                            <TeamLogoImage
+                              team={selectedPlayer.team.team}
+                              style={styles.playerTeamLogo}
+                            />
+                          )}
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.playerTeamName,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {selectedPlayer.team?.team?.displayName ||
+                              selectedPlayer.team?.team?.name ||
+                              selectedPlayer.team?.team?.abbreviation ||
+                              "No team info"}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Player Stats */}
+                  <View style={styles.playerStatsContainer}>
+                    {loadingPlayerStats ? (
+                      <View style={styles.playerStatsLoading}>
+                        <ActivityIndicator
+                          size="large"
+                          color={colors.primary}
+                        />
+                        <Text
+                          allowFontScaling={false}
+                          style={styles.loadingText}
+                        >
+                          Loading player stats...
+                        </Text>
+                      </View>
+                    ) : playerStats ? (
+                      <View style={styles.playerStatsContent}>
+                        {renderPlayerModalGrid(playerStats)}
+                      </View>
+                    ) : (
+                      <Text allowFontScaling={false} style={styles.noStatsText}>
+                        Unable to load player statistics
+                      </Text>
+                    )}
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
+
+        {/* Player Copy Card Modal (opened on long-press) */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={playerCopyModalVisible}
+          onRequestClose={() => setPlayerCopyModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View
+              style={[
+                styles.modalContent,
+                { backgroundColor: theme.surface, borderRadius: 0, padding: 0 },
+              ]}
+            >
+              {selectedPlayer ? (
+                <View
+                  ref={playerCopyCardRef}
+                  collapsable={false}
+                  style={{
+                    padding: 20,
+                    backgroundColor: theme.surface,
+                    borderRadius: 0,
+                  }}
+                >
                   <View style={styles.playerHeader}>
                     <Image
                       source={{
@@ -4813,10 +5254,16 @@ const GameDetailsScreen = ({ route }) => {
                             selectedPlayer.headshot
                         ),
                       }}
-                      style={styles.playerHeadshot}
-                      defaultSource={{
-                        uri: "https://via.placeholder.com/80x80?text=Player",
-                      }}
+                      style={[
+                        styles.playerHeadshot,
+                        {
+                          backgroundColor: `#${
+                            selectedPlayer?.team?.team?.primaryColor ||
+                            selectedPlayer?.team?.team?.color ||
+                            colors.primary
+                          }`,
+                        },
+                      ]}
                     />
                     <View style={styles.playerInfo}>
                       <Text
@@ -4826,7 +5273,7 @@ const GameDetailsScreen = ({ route }) => {
                         {selectedPlayer.displayName ||
                           `${selectedPlayer.firstName || ""} ${
                             selectedPlayer.lastName || ""
-                          }`.trim()}{" "}
+                          }`.trim()}
                         <Text
                           allowFontScaling={false}
                           style={[
@@ -4834,6 +5281,7 @@ const GameDetailsScreen = ({ route }) => {
                             { color: theme.textSecondary },
                           ]}
                         >
+                          {" "}
                           #{selectedPlayer.jersey || "N/A"}
                         </Text>
                       </Text>
@@ -4860,7 +5308,102 @@ const GameDetailsScreen = ({ route }) => {
                     </View>
                   </View>
 
-                  {/* Player Stats */}
+                  <View
+                    style={[
+                      styles.playerCopyCardSection,
+                      { backgroundColor: theme.surfaceSecondary },
+                    ]}
+                  >
+                    <View style={styles.playerCopyCardDateWrap}>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.playerCopyCardDate,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {gameDate
+                          ? (() => {
+                              const d = new Date(gameDate);
+                              const dateStr = d.toLocaleDateString(undefined, {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              });
+                              const timeStr = d
+                                .toLocaleTimeString(undefined, {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                  hour12: true,
+                                })
+                                .replace(" ", "");
+                              return `${dateStr} @ ${timeStr}`;
+                            })()
+                          : ""}
+                      </Text>
+                    </View>
+
+                    <View style={styles.playerCopyCardScoresRow}>
+                      {awayTeam && (
+                        <View style={styles.playerCopyCardTeamWrap}>
+                          <TeamLogoImage
+                            team={awayTeam.team || awayTeam}
+                            style={styles.playerCopyCardTeamLogo}
+                          />
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.playerCopyCardScoreText,
+                              {
+                                color:
+                                  parseInt(awayTeam?.score) >
+                                  parseInt(homeTeam?.score)
+                                    ? colors.primary
+                                    : theme.textSecondary,
+                              },
+                            ]}
+                          >
+                            {awayTeam?.score ?? "0"}
+                          </Text>
+                        </View>
+                      )}
+
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.playerCopyCardVsText,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        -
+                      </Text>
+
+                      {homeTeam && (
+                        <View style={styles.playerCopyCardTeamWrap}>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.playerCopyCardScoreText,
+                              {
+                                color:
+                                  parseInt(homeTeam?.score) >
+                                  parseInt(awayTeam?.score)
+                                    ? colors.primary
+                                    : theme.textSecondary,
+                              },
+                            ]}
+                          >
+                            {homeTeam?.score ?? "0"}
+                          </Text>
+                          <TeamLogoImage
+                            team={homeTeam.team || homeTeam}
+                            style={styles.playerCopyCardTeamLogo}
+                          />
+                        </View>
+                      )}
+                    </View>
+                  </View>
+
                   <View style={styles.playerStatsContainer}>
                     {loadingPlayerStats ? (
                       <View style={styles.playerStatsLoading}>
@@ -4877,11 +5420,7 @@ const GameDetailsScreen = ({ route }) => {
                       </View>
                     ) : playerStats ? (
                       <View style={styles.playerStatsContent}>
-                        {renderPositionSpecificStats(
-                          playerStats,
-                          selectedPlayer?.position?.abbreviation ||
-                            selectedPlayer?.position
-                        )}
+                        {renderPlayerModalGrid(playerStats)}
                       </View>
                     ) : (
                       <Text allowFontScaling={false} style={styles.noStatsText}>
@@ -4889,8 +5428,55 @@ const GameDetailsScreen = ({ route }) => {
                       </Text>
                     )}
                   </View>
-                </>
+                </View>
+              ) : (
+                <View style={{ padding: 24, alignItems: "center" }}>
+                  <Text
+                    allowFontScaling={false}
+                    style={{ color: theme.textSecondary }}
+                  >
+                    No player selected
+                  </Text>
+                </View>
               )}
+            </View>
+
+            {/* Actions outside of modal content: Cancel + Share (matches NBA pattern) */}
+            <View style={styles.playerCopyModalActions}>
+              <TouchableOpacity
+                style={[
+                  styles.playerCopyShareButton,
+                  { backgroundColor: colors.secondary },
+                ]}
+                onPress={async () => {
+                  await sharePlayerCopyCard();
+                  setPlayerCopyModalVisible(false);
+                }}
+              >
+                <Ionicons name="share-outline" size={18} color="#fff" />
+                <Text
+                  style={[
+                    styles.playerCopyShareText,
+                    { color: "#fff", marginLeft: 8 },
+                  ]}
+                >
+                  Share
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.playerCopyCancelButton,
+                  { backgroundColor: theme.surfaceSecondary },
+                ]}
+                onPress={() => setPlayerCopyModalVisible(false)}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.playerCopyCancelText, { color: theme.text }]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
@@ -5353,7 +5939,12 @@ const GameDetailsScreen = ({ route }) => {
 
                       // For interceptions (26) and fumbles (29), use the other team's color instead of the drive team's color
                       const playTypeId = play.type?.id;
-                      if (playTypeId === "26" || playTypeId === "29") {
+                      if (
+                        playTypeId === "26" ||
+                        playTypeId === "29" ||
+                        playTypeId === "36" ||
+                        playTypeId === "80"
+                      ) {
                         // Determine which team is the drive team
                         const driveTeamId = play.driveTeam?.id;
                         const homeTeamId = play.homeTeam?.team?.id;
@@ -5452,8 +6043,8 @@ const GameDetailsScreen = ({ route }) => {
                                 { color: theme.text },
                               ]}
                             >
-                              Q{period} {clock} •{" "}
-                              {downDistanceText || possession}
+                              {period > 4 ? `OT${period - 4}` : `Q${period}`}{" "}
+                              {clock} • {downDistanceText || possession}
                             </Text>
                           </View>
 
@@ -5536,7 +6127,9 @@ const GameDetailsScreen = ({ route }) => {
                           {/* Drive Indicator */}
                           {selectedDrive &&
                             playTypeId !== "26" &&
-                            playTypeId !== "29" && (
+                            playTypeId !== "29" &&
+                            playTypeId !== "36" &&
+                            playTypeId !== "80" && (
                               <View
                                 style={[
                                   styles.nflPlayShareCardDriveIndicator,
@@ -5672,8 +6265,10 @@ const GameDetailsScreen = ({ route }) => {
                               const isSpecialPlayType = [
                                 "53",
                                 "26",
+                                "36",
                                 "52",
                                 "29",
+                                "80",
                                 "7",
                               ].includes(playTypeId); // Kickoff, Interception, Punt, Fumble, Sack
                               const isRushingPlay = playTypeId === "5"; // Rush
@@ -5835,7 +6430,10 @@ const GameDetailsScreen = ({ route }) => {
                                 const stats = [];
 
                                 // Special case: Interception (type 26)
-                                if (playTypeId === "26") {
+                                if (
+                                  playTypeId === "26" ||
+                                  playTypeId === "36"
+                                ) {
                                   if (participantType === "passer") {
                                     // Show yards and interceptions
                                     const passing =
@@ -5907,10 +6505,14 @@ const GameDetailsScreen = ({ route }) => {
                                       stats.push(`${defensive[0]} tkl`);
                                   }
                                   // Don't show stats for kicker
-                                } else if (playTypeId === "29") {
+                                } else if (
+                                  playTypeId === "29" ||
+                                  playTypeId === "80"
+                                ) {
                                   if (
                                     participantType === "fumbler" ||
-                                    participantType === "rusher"
+                                    participantType === "rusher" ||
+                                    participantType === "passer"
                                   ) {
                                     // Show fumbles
                                     const fumbles =
@@ -6018,6 +6620,14 @@ const GameDetailsScreen = ({ route }) => {
                                       playerBoxscoreData.kicking || [];
                                     if (kicking[0])
                                       stats.push(`${kicking[3]} XP`);
+                                  } else if (participantType === "punter") {
+                                    // Show punts and yards
+                                    const punting =
+                                      playerBoxscoreData.punting || [];
+                                    if (punting[0])
+                                      stats.push(`${punting[0]} punts`);
+                                    if (punting[1])
+                                      stats.push(`${punting[1]} yds`);
                                   }
                                 }
 
@@ -7316,7 +7926,7 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderRadius: 12,
     width: "100%",
-    maxHeight: "80%",
+    maxHeight: "95%",
     padding: 20,
     boxShadow: "0 2px 3.84px rgba(0, 0, 0, 0.25)",
     elevation: 5,
@@ -7345,6 +7955,77 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
     marginTop: 10,
+  },
+  playerCopyCardSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  playerCopyCardDateWrap: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  playerCopyCardDate: {
+    fontSize: 12,
+  },
+  playerCopyCardScoresRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  playerCopyCardTeamWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 6,
+  },
+  playerCopyCardTeamLogo: {
+    width: 22,
+    height: 22,
+    marginHorizontal: 6,
+  },
+  playerCopyCardScoreText: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  playerCopyCardVsText: {
+    fontSize: 14,
+    marginHorizontal: 6,
+    fontWeight: "900",
+  },
+  playerCopyModalActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    marginTop: 14,
+    alignItems: "center",
+  },
+  playerCopyCancelButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 8,
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+  },
+  playerCopyCancelText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  playerCopyShareButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 15,
+  },
+  playerCopyShareText: {
+    fontSize: 16,
+    fontWeight: "600",
   },
   playerHeadshot: {
     width: 80,
@@ -7382,7 +8063,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   playerStatsContainer: {
-    maxHeight: 400,
+    // allow modal to expand with content; don't cap player stats height here
+    maxHeight: undefined,
     marginTop: 10,
   },
   playerStatsLoading: {
@@ -7391,7 +8073,33 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   playerStatsContent: {
-    paddingBottom: 10,
+    marginBottom: -20,
+  },
+  playerStatsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+  },
+  statTile: {
+    width: "28%",
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  statTileValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 6,
+    color: "#fff",
+  },
+  statTileLabel: {
+    fontSize: 12,
+    color: "#bbb",
+    textAlign: "center",
   },
   playerStatRow: {
     flexDirection: "row",

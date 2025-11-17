@@ -344,6 +344,24 @@ const NBAGameDetailsScreen = ({ route }) => {
     return away?.id || away?.team?.id || null;
   }, [details]);
 
+  // Helper to color plusMinus stat values: negative => theme.error, positive => theme.success, zero/invalid => theme.text
+  const getStatTextColor = (key, rawValue) => {
+    if (key !== "plusMinus") return theme.text;
+    try {
+      let num = null;
+      if (rawValue == null) num = 0;
+      else if (typeof rawValue === "object")
+        num = parseFloat(
+          rawValue.displayValue ?? rawValue.value ?? String(rawValue)
+        );
+      else num = parseFloat(String(rawValue).replace(/[^0-9.-]/g, ""));
+      if (isNaN(num) || num === 0) return theme.text;
+      return num < 0 ? theme.error : theme.success;
+    } catch (e) {
+      return theme.text;
+    }
+  };
+
   const homeTeamId = useMemo(() => {
     const home =
       details?.boxscore?.teams?.[1] ||
@@ -4005,6 +4023,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                     (team?.abbreviation
                       ? getTeamLogoUrl("nba", team.abbreviation)
                       : null);
+                  const teamAbbreviation = team?.abbreviation || "";
 
                   const gameDate = details?.header?.competitions?.[0]?.date;
                   const formattedDate = gameDate
@@ -4116,10 +4135,12 @@ const NBAGameDetailsScreen = ({ route }) => {
                             </View>
                             <View style={styles.modalTeamRow}>
                               {teamLogo && (
-                                <Image
-                                  source={{ uri: teamLogo }}
-                                  style={styles.modalTeamLogo}
-                                />
+                                  <TeamLogoWithTheme
+                                    colors={colors}
+                                    getTeamLogoUrl={getTeamLogoUrl}
+                                    teamAbbreviation={teamAbbreviation}
+                                    style={styles.shareCardTeamLogo}
+                                  />
                               )}
                               <Text
                                 style={[
@@ -4183,7 +4204,12 @@ const NBAGameDetailsScreen = ({ route }) => {
                                 <Text
                                   style={[
                                     styles.modalStatBoxValue,
-                                    { color: theme.text },
+                                    {
+                                      color: getStatTextColor(
+                                        keys[statIdx],
+                                        stats[statIdx]
+                                      ),
+                                    },
                                   ]}
                                 >
                                   {stats[statIdx] ?? "-"}
@@ -4293,6 +4319,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                         ? getTeamLogoUrl("nba", team.abbreviation)
                         : null);
                     teamColor = team?.color || null;
+                    const teamAbbreviation = team?.abbreviation || "";
 
                     // Get game info for score display
                     const competition = details?.header?.competitions?.[0];
@@ -4414,8 +4441,10 @@ const NBAGameDetailsScreen = ({ route }) => {
                               </Text>
                               <View style={styles.shareCardTeamRow}>
                                 {teamLogo && (
-                                  <Image
-                                    source={{ uri: teamLogo }}
+                                  <TeamLogoWithTheme
+                                    colors={colors}
+                                    getTeamLogoUrl={getTeamLogoUrl}
+                                    teamAbbreviation={teamAbbreviation}
                                     style={styles.shareCardTeamLogo}
                                   />
                                 )}
@@ -4510,7 +4539,12 @@ const NBAGameDetailsScreen = ({ route }) => {
                                   <Text
                                     style={[
                                       styles.shareCardStatBoxValue,
-                                      { color: theme.text },
+                                      {
+                                        color: getStatTextColor(
+                                          keys[statIdx],
+                                          stats[statIdx]
+                                        ),
+                                      },
                                     ]}
                                   >
                                     {stats[statIdx] ?? "-"}

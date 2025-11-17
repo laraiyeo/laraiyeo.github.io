@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Image, StyleSheet, Dimensions, Animated } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Video } from 'expo-av';
 import { useTheme } from '../context/ThemeContext';
 
@@ -8,6 +9,7 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const SplashScreen = ({ onFinish }) => {
   const [isFinished, setIsFinished] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
+  const [showVideo, setShowVideo] = useState(true);
   const videoRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(0)).current; // for fade-in
   
@@ -116,37 +118,67 @@ const SplashScreen = ({ onFinish }) => {
     }
   };
 
+  useEffect(() => {
+    // Load the user's preference for showing the splash video
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem('@showSplashVideo');
+        if (stored === 'false') {
+          setShowVideo(false);
+          // If user disabled video, finish splash shortly so app can continue
+          setTimeout(() => {
+            if (!isFinished) {
+              setIsFinished(true);
+              onFinish();
+            }
+          }, 350);
+        }
+      } catch (error) {
+        console.error('Error reading splash preference:', error);
+      }
+    })();
+  }, []);
+
   return (
     <View style={[styles.container, { backgroundColor: isDarkMode ? '#000000' : '#ffffff' }]}>
-      {/* Static splash image stays visible underneath */}
-
-      {/* Fade-in video over the image */}
-      <Animated.View
-        style={{
-          opacity: fadeAnim,
-          width: finalWidth,
-          height: finalHeight,
-          position: 'absolute',
-        }}
-      >
-        <Video
-          ref={videoRef}
-          source={splashAssets.video}
-          style={{ width: '100%', height: '100%' }}
+      {/* Static splash image stays visible underneath (only when video disabled) */}
+      {!showVideo && (
+        <Image
+          source={splashAssets.image}
+          style={{ width: finalWidth, height: finalHeight }}
           resizeMode="contain"
-          shouldPlay={false} // we'll call playAsync() manually
-          isLooping={false}
-          isMuted={false}
-          onLoad={handleVideoLoad}
-          onPlaybackStatusUpdate={(status) => {
-            if (status.didJustFinish) handleVideoEnd();
-          }}
-          onError={(error) => {
-            console.log('Video error:', error);
-            handleVideoEnd();
-          }}
         />
-      </Animated.View>
+      )}
+
+      {/* Fade-in video over the image (only when enabled) */}
+      {showVideo && (
+        <Animated.View
+          style={{
+            opacity: fadeAnim,
+            width: finalWidth,
+            height: finalHeight,
+            position: 'absolute',
+          }}
+        >
+          <Video
+            ref={videoRef}
+            source={splashAssets.video}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="contain"
+            shouldPlay={false} // we'll call playAsync() manually
+            isLooping={false}
+            isMuted={false}
+            onLoad={handleVideoLoad}
+            onPlaybackStatusUpdate={(status) => {
+              if (status.didJustFinish) handleVideoEnd();
+            }}
+            onError={(error) => {
+              console.log('Video error:', error);
+              handleVideoEnd();
+            }}
+          />
+        </Animated.View>
+      )}
     </View>
   );
 };

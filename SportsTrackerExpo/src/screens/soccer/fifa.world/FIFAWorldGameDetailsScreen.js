@@ -6150,6 +6150,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
       selectedPlayer.athlete?.displayName ||
       selectedPlayer.athlete?.lastName ||
       "Unknown Player";
+    const id = selectedPlayer.athlete?.id || selectedPlayer.id;
     const jersey = selectedPlayer.jersey || "N/A";
     const stats = selectedPlayer.stats || {};
     const yellowCard = selectedPlayer.yellowCard;
@@ -6245,12 +6246,26 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                   </Text>
                 </View>
                 <View style={styles.playerModalNameSection}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      navigation.navigate("FIFAWorldPlayerPage",
+                         {  playerId: id,
+                            playerName: name,  
+                            teamId: selectedPlayer.teamId,
+                            competitionId: gameData.header?.league?.slug,
+                            sport: 'soccer'
+                          }
+                      );
+                      setPlayerPopupVisible(false);
+                  }}
+                  >
                   <Text
                     allowFontScaling={false}
                     style={[styles.playerModalName, { color: playerNameColor }]}
                   >
                     {name}
                   </Text>
+                  </TouchableOpacity>
                   <View style={styles.playerTeamInfo}>
                     <TeamLogoImage
                       teamId={selectedPlayer.teamId}
