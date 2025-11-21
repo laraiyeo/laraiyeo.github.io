@@ -1941,40 +1941,40 @@ const NBAGameDetailsScreen = ({ route }) => {
 
                     return (
                       <G key={index}>
-                      {awayY1 < homeY1 ? (
-                        // AWAY team is winning → away line is ABOVE home line
-                        <>
-                          {/* Home fill (bottom → home line) */}
-                          <Path
-                            d={`M${x1},100 L${x1},${homeY1} L${x2},${homeY2} L${x2},100 Z`}
-                            fill={homeColor}
-                            fillOpacity="0.3"
-                          />
-                          {/* Away fill (home line → away line) */}
-                          <Path
-                            d={`M${x1},${homeY1} L${x1},${awayY1} L${x2},${awayY2} L${x2},${homeY2} Z`}
-                            fill={awayColor}
-                            fillOpacity="0.3"
-                          />
-                        </>
-                      ) : (
-                        // HOME team is winning → home line is ABOVE away line
-                        <>
-                          {/* Away fill (bottom → away line) */}
-                          <Path
-                            d={`M${x1},100 L${x1},${awayY1} L${x2},${awayY2} L${x2},100 Z`}
-                            fill={awayColor}
-                            fillOpacity="0.3"
-                          />
-                          {/* Home fill (away line → home line) */}
-                          <Path
-                            d={`M${x1},${awayY1} L${x1},${homeY1} L${x2},${homeY2} L${x2},${awayY2} Z`}
-                            fill={homeColor}
-                            fillOpacity="0.3"
-                          />
-                        </>
-                      )}
-                    </G>
+                        {awayY1 < homeY1 ? (
+                          // AWAY team is winning → away line is ABOVE home line
+                          <>
+                            {/* Home fill (bottom → home line) */}
+                            <Path
+                              d={`M${x1},100 L${x1},${homeY1} L${x2},${homeY2} L${x2},100 Z`}
+                              fill={homeColor}
+                              fillOpacity="0.3"
+                            />
+                            {/* Away fill (home line → away line) */}
+                            <Path
+                              d={`M${x1},${homeY1} L${x1},${awayY1} L${x2},${awayY2} L${x2},${homeY2} Z`}
+                              fill={awayColor}
+                              fillOpacity="0.3"
+                            />
+                          </>
+                        ) : (
+                          // HOME team is winning → home line is ABOVE away line
+                          <>
+                            {/* Away fill (bottom → away line) */}
+                            <Path
+                              d={`M${x1},100 L${x1},${awayY1} L${x2},${awayY2} L${x2},100 Z`}
+                              fill={awayColor}
+                              fillOpacity="0.3"
+                            />
+                            {/* Home fill (away line → home line) */}
+                            <Path
+                              d={`M${x1},${awayY1} L${x1},${homeY1} L${x2},${homeY2} L${x2},${awayY2} Z`}
+                              fill={homeColor}
+                              fillOpacity="0.3"
+                            />
+                          </>
+                        )}
+                      </G>
                     );
                   })}
 
@@ -2915,7 +2915,11 @@ const NBAGameDetailsScreen = ({ route }) => {
           details?.boxscore?.players?.[0]?.statistics?.[0]?.labels ||
           details?.boxscore?.players?.[0]?.statistics?.[0]?.keys ||
           [];
-        const normalize = (s) => (s || "").toString().replace(/[^a-z0-9]/gi, "").toLowerCase();
+        const normalize = (s) =>
+          (s || "")
+            .toString()
+            .replace(/[^a-z0-9]/gi, "")
+            .toLowerCase();
         const resolveIndexForName = (name) => {
           if (!headerNames || headerNames.length === 0) return -1;
           const target = normalize(name);
@@ -2932,7 +2936,8 @@ const NBAGameDetailsScreen = ({ route }) => {
           return -1;
         };
 
-        const minIdx = resolveIndexForName("MIN") >= 0 ? resolveIndexForName("MIN") : 12;
+        const minIdx =
+          resolveIndexForName("MIN") >= 0 ? resolveIndexForName("MIN") : 12;
         const statToNumber = (s) => {
           if (s == null) return 0;
           if (typeof s === "object") s = s.displayValue ?? s.value ?? "";
@@ -2950,8 +2955,10 @@ const NBAGameDetailsScreen = ({ route }) => {
         };
 
         benchPlayers = benchPlayers.sort((a, b) => {
-          const aVal = a.stats && a.stats[minIdx] != null ? a.stats[minIdx] : null;
-          const bVal = b.stats && b.stats[minIdx] != null ? b.stats[minIdx] : null;
+          const aVal =
+            a.stats && a.stats[minIdx] != null ? a.stats[minIdx] : null;
+          const bVal =
+            b.stats && b.stats[minIdx] != null ? b.stats[minIdx] : null;
           return statToNumber(bVal) - statToNumber(aVal); // descending
         });
       } catch (e) {
@@ -2994,7 +3001,11 @@ const NBAGameDetailsScreen = ({ route }) => {
               {renderStatHeaders(["FG", "PTS", "MIN"])}
 
               {starterPlayers.map((player, idx) =>
-                renderPlayerRow(player, idx, "starter-player", ["FG", "PTS", "MIN"])
+                renderPlayerRow(player, idx, "starter-player", [
+                  "FG",
+                  "PTS",
+                  "MIN",
+                ])
               )}
             </View>
           )}
@@ -3019,7 +3030,11 @@ const NBAGameDetailsScreen = ({ route }) => {
               {renderStatHeaders(["FG", "PTS", "MIN"])}
 
               {benchPlayers.map((player, idx) =>
-                renderPlayerRow(player, idx, "bench-player", ["FG", "PTS", "MIN"])
+                renderPlayerRow(player, idx, "bench-player", [
+                  "FG",
+                  "PTS",
+                  "MIN",
+                ])
               )}
             </View>
           )}
@@ -3038,7 +3053,11 @@ const NBAGameDetailsScreen = ({ route }) => {
         details?.boxscore?.players?.[0]?.statistics?.[0]?.labels ||
         details?.boxscore?.players?.[0]?.statistics?.[0]?.keys ||
         [];
-      const normalize = (s) => (s || "").toString().replace(/[^a-z0-9]/gi, "").toLowerCase();
+      const normalize = (s) =>
+        (s || "")
+          .toString()
+          .replace(/[^a-z0-9]/gi, "")
+          .toLowerCase();
       const resolveIndexForName = (name) => {
         if (!headerNames || headerNames.length === 0) return -1;
         const target = normalize(name);
@@ -3046,11 +3065,16 @@ const NBAGameDetailsScreen = ({ route }) => {
           if (normalize(headerNames[i]) === target) return i;
         }
         for (let i = 0; i < headerNames.length; i++) {
-          if (normalize(headerNames[i]).includes(target) || target.includes(normalize(headerNames[i]))) return i;
+          if (
+            normalize(headerNames[i]).includes(target) ||
+            target.includes(normalize(headerNames[i]))
+          )
+            return i;
         }
         return -1;
       };
-      const minIdx = resolveIndexForName("MIN") >= 0 ? resolveIndexForName("MIN") : 12;
+      const minIdx =
+        resolveIndexForName("MIN") >= 0 ? resolveIndexForName("MIN") : 12;
       const statToNumber = (s) => {
         if (s == null) return 0;
         if (typeof s === "object") s = s.displayValue ?? s.value ?? "";
@@ -3068,8 +3092,10 @@ const NBAGameDetailsScreen = ({ route }) => {
       };
 
       playersOnBench = playersOnBench.sort((a, b) => {
-        const aVal = a.stats && a.stats[minIdx] != null ? a.stats[minIdx] : null;
-        const bVal = b.stats && b.stats[minIdx] != null ? b.stats[minIdx] : null;
+        const aVal =
+          a.stats && a.stats[minIdx] != null ? a.stats[minIdx] : null;
+        const bVal =
+          b.stats && b.stats[minIdx] != null ? b.stats[minIdx] : null;
         return statToNumber(bVal) - statToNumber(aVal);
       });
     } catch (e) {
@@ -3119,7 +3145,12 @@ const NBAGameDetailsScreen = ({ route }) => {
     // Helper function to render a player row with improved styling
     // statIndices: array of indices into player.stats to display (in order)
     // statIndices may be numbers (direct indices) or strings (stat names like 'FG','PTS','MIN')
-    function renderPlayerRow(player, idx, keyPrefix, statIndices = ["FG", "PTS", "MIN"]) {
+    function renderPlayerRow(
+      player,
+      idx,
+      keyPrefix,
+      statIndices = ["FG", "PTS", "MIN"]
+    ) {
       const jerseyNum = player.athlete?.jersey || "";
       const position = player.athlete?.position?.abbreviation || "";
 
@@ -3139,7 +3170,11 @@ const NBAGameDetailsScreen = ({ route }) => {
         details?.boxscore?.players?.[0]?.statistics?.[0]?.keys ||
         [];
 
-      const normalize = (s) => (s || "").toString().replace(/[^a-z0-9]/gi, "").toLowerCase();
+      const normalize = (s) =>
+        (s || "")
+          .toString()
+          .replace(/[^a-z0-9]/gi, "")
+          .toLowerCase();
 
       const resolveIndexForName = (name) => {
         if (!headerNames || headerNames.length === 0) return -1;
@@ -3150,7 +3185,11 @@ const NBAGameDetailsScreen = ({ route }) => {
         }
         // Then try includes
         for (let i = 0; i < headerNames.length; i++) {
-          if (normalize(headerNames[i]).includes(target) || target.includes(normalize(headerNames[i]))) return i;
+          if (
+            normalize(headerNames[i]).includes(target) ||
+            target.includes(normalize(headerNames[i]))
+          )
+            return i;
         }
         // Not found
         return -1;
@@ -3168,7 +3207,10 @@ const NBAGameDetailsScreen = ({ route }) => {
       });
 
       const statValues = resolvedIndices.map((si) => {
-        const raw = si >= 0 && player.stats && player.stats[si] != null ? player.stats[si] : null;
+        const raw =
+          si >= 0 && player.stats && player.stats[si] != null
+            ? player.stats[si]
+            : null;
         return statToString(raw);
       });
 
@@ -3281,7 +3323,11 @@ const NBAGameDetailsScreen = ({ route }) => {
             {renderStatHeaders(["FG", "PTS", "MIN"])}
 
             {playersOnCourt.map((player, idx) =>
-              renderPlayerRow(player, idx, "oncourt-player", ["FG", "PTS", "MIN"])
+              renderPlayerRow(player, idx, "oncourt-player", [
+                "FG",
+                "PTS",
+                "MIN",
+              ])
             )}
           </View>
         )}
@@ -3815,58 +3861,90 @@ const NBAGameDetailsScreen = ({ route }) => {
                   </Text>
                 </View>
                 {/* Timeouts / Bonus indicators */}
-                {!isGameFinal && !getGameStatus().isPre && (() => {
-                  try {
-                    const teamObj = away || {};
-                    // Prefer explicit timeoutsRemaining fields but fall back to common locations
-                    const timeoutsRemaining =
-                      Math.max(
+                {!isGameFinal &&
+                  !getGameStatus().isPre &&
+                  (() => {
+                    try {
+                      const teamObj = away || {};
+                      // Prefer explicit timeoutsRemaining fields but fall back to common locations
+                      const timeoutsRemaining = Math.max(
                         0,
                         Number(
                           teamObj.timeoutsRemaining ??
                             teamObj?.team?.timeoutsRemaining ??
-                            teamObj?.statistics?.find((s) => /timeoutsRemaining/i.test(s?.name || s?.label || ""))?.value ?? 0
+                            teamObj?.statistics?.find((s) =>
+                              /timeoutsRemaining/i.test(
+                                s?.name || s?.label || ""
+                              )
+                            )?.value ??
+                            0
                         ) || 0
                       );
 
-                    const foulsRaw =
-                      teamObj.fouls ?? teamObj?.team?.fouls ??
-                      teamObj?.statistics?.find((s) => /foul/i.test(s?.name || s?.label || ""))?.value ?? null;
-                    const bonusState = (foulsRaw && foulsRaw.bonusState) || (foulsRaw && foulsRaw.bonus) || null;
+                      const foulsRaw =
+                        teamObj.fouls ??
+                        teamObj?.team?.fouls ??
+                        teamObj?.statistics?.find((s) =>
+                          /foul/i.test(s?.name || s?.label || "")
+                        )?.value ??
+                        null;
+                      const bonusState =
+                        (foulsRaw && foulsRaw.bonusState) ||
+                        (foulsRaw && foulsRaw.bonus) ||
+                        null;
 
-                    const count = Math.min(5, timeoutsRemaining);
-                    const { homeColor, awayColor } = getSmartTeamColors(home, away, colors);
-                    const teamColor = awayColor || colors.primary;
+                      const count = Math.min(5, timeoutsRemaining);
+                      const { homeColor, awayColor } = getSmartTeamColors(
+                        home,
+                        away,
+                        colors
+                      );
+                      const teamColor = awayColor || colors.primary;
 
-                    if (count <= 0) return null;
+                      if (count <= 0) return null;
 
-                    return (
-                      <View style={{ alignItems: "center", marginTop: 6 }}>
-                        <View style={{ flexDirection: "row", justifyContent: "center" }}>
-                          {Array.from({ length: count}).map((_, i) => (
-                            <View
-                              key={`away-to-${i}`}
+                      return (
+                        <View style={{ alignItems: "center", marginTop: 6 }}>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              justifyContent: "center",
+                            }}
+                          >
+                            {Array.from({ length: count }).map((_, i) => (
+                              <View
+                                key={`away-to-${i}`}
+                                style={{
+                                  width: 7,
+                                  height: 7,
+                                  borderRadius: 4,
+                                  marginHorizontal: 1.5,
+                                  backgroundColor: teamColor,
+                                  borderWidth: 1,
+                                  borderColor: teamColor,
+                                }}
+                              />
+                            ))}
+                          </View>
+                          {bonusState &&
+                          String(bonusState).toUpperCase() !== "NONE" ? (
+                            <Text
                               style={{
-                                width: 7,
-                                height: 7,
-                                borderRadius: 4,
-                                marginHorizontal: 1.5,
-                                backgroundColor: teamColor,
-                                borderWidth: 1,
-                                borderColor: teamColor,
+                                color: theme.error,
+                                marginTop: 4,
+                                fontSize: 11,
+                                fontWeight: "700",
                               }}
-                            />
-                          ))}
+                            >
+                              BONUS
+                            </Text>
+                          ) : null}
                         </View>
-                        {bonusState && String(bonusState).toUpperCase() !== "NONE" ? (
-                          <Text style={{ color: theme.error, marginTop: 4, fontSize: 11, fontWeight: "700" }}>BONUS</Text>
-                        ) : null}
-                      </View>
-                    );
-                  } catch (e) {
-                    return null;
-                  }
-                })()}
+                      );
+                    } catch (e) {
+                      return null;
+                    }
+                  })()}
               </View>
             </View>
 
@@ -3992,57 +4070,89 @@ const NBAGameDetailsScreen = ({ route }) => {
                   </Text>
                 </View>
                 {/* Timeouts / Bonus indicators */}
-                {!isGameFinal && !getGameStatus().isPre && (() => {
-                  try {
-                    const teamObj = home || {};
-                    const timeoutsRemaining =
-                      Math.max(
+                {!isGameFinal &&
+                  !getGameStatus().isPre &&
+                  (() => {
+                    try {
+                      const teamObj = home || {};
+                      const timeoutsRemaining = Math.max(
                         0,
                         Number(
                           teamObj.timeoutsRemaining ??
                             teamObj?.team?.timeoutsRemaining ??
-                            teamObj?.statistics?.find((s) => /timeoutsRemaining/i.test(s?.name || s?.label || ""))?.value ?? 0
+                            teamObj?.statistics?.find((s) =>
+                              /timeoutsRemaining/i.test(
+                                s?.name || s?.label || ""
+                              )
+                            )?.value ??
+                            0
                         ) || 0
                       );
 
-                    const foulsRaw =
-                      teamObj.fouls ?? teamObj?.team?.fouls ??
-                      teamObj?.statistics?.find((s) => /foul/i.test(s?.name || s?.label || ""))?.value ?? null;
-                    const bonusState = (foulsRaw && foulsRaw.bonusState) || (foulsRaw && foulsRaw.bonus) || null;
+                      const foulsRaw =
+                        teamObj.fouls ??
+                        teamObj?.team?.fouls ??
+                        teamObj?.statistics?.find((s) =>
+                          /foul/i.test(s?.name || s?.label || "")
+                        )?.value ??
+                        null;
+                      const bonusState =
+                        (foulsRaw && foulsRaw.bonusState) ||
+                        (foulsRaw && foulsRaw.bonus) ||
+                        null;
 
-                    const count = Math.min(5, timeoutsRemaining);
-                    const { homeColor, awayColor } = getSmartTeamColors(home, away, colors);
-                    const teamColor = homeColor || colors.primary;
+                      const count = Math.min(5, timeoutsRemaining);
+                      const { homeColor, awayColor } = getSmartTeamColors(
+                        home,
+                        away,
+                        colors
+                      );
+                      const teamColor = homeColor || colors.primary;
 
-                    if (count <= 0) return null;
+                      if (count <= 0) return null;
 
-                    return (
-                      <View style={{ alignItems: "center", marginTop: 6 }}>
-                        <View style={{ flexDirection: "row-reverse", justifyContent: "center" }}>
-                          {Array.from({ length: count }).map((_, i) => (
-                            <View
-                              key={`home-to-${i}`}
+                      return (
+                        <View style={{ alignItems: "center", marginTop: 6 }}>
+                          <View
+                            style={{
+                              flexDirection: "row-reverse",
+                              justifyContent: "center",
+                            }}
+                          >
+                            {Array.from({ length: count }).map((_, i) => (
+                              <View
+                                key={`home-to-${i}`}
+                                style={{
+                                  width: 7,
+                                  height: 7,
+                                  borderRadius: 4,
+                                  marginHorizontal: 1.5,
+                                  backgroundColor: teamColor,
+                                  borderWidth: 1,
+                                  borderColor: teamColor,
+                                }}
+                              />
+                            ))}
+                          </View>
+                          {bonusState &&
+                          String(bonusState).toUpperCase() !== "NONE" ? (
+                            <Text
                               style={{
-                                width: 7,
-                                height: 7,
-                                borderRadius: 4,
-                                marginHorizontal: 1.5,
-                                backgroundColor: teamColor,
-                                borderWidth: 1,
-                                borderColor: teamColor,
+                                color: theme.error,
+                                marginTop: 4,
+                                fontSize: 11,
+                                fontWeight: "700",
                               }}
-                            />
-                          ))}
+                            >
+                              BONUS
+                            </Text>
+                          ) : null}
                         </View>
-                        {bonusState && String(bonusState).toUpperCase() !== "NONE" ? (
-                          <Text style={{ color: theme.error, marginTop: 4, fontSize: 11, fontWeight: "700" }}>BONUS</Text>
-                        ) : null}
-                      </View>
-                    );
-                  } catch (e) {
-                    return null;
-                  }
-                })()}
+                      );
+                    } catch (e) {
+                      return null;
+                    }
+                  })()}
               </View>
             </View>
           </View>
@@ -4391,12 +4501,12 @@ const NBAGameDetailsScreen = ({ route }) => {
                             </View>
                             <View style={styles.modalTeamRow}>
                               {teamLogo && (
-                                  <TeamLogoWithTheme
-                                    colors={colors}
-                                    getTeamLogoUrl={getTeamLogoUrl}
-                                    teamAbbreviation={teamAbbreviation}
-                                    style={styles.shareCardTeamLogo}
-                                  />
+                                <TeamLogoWithTheme
+                                  colors={colors}
+                                  getTeamLogoUrl={getTeamLogoUrl}
+                                  teamAbbreviation={teamAbbreviation}
+                                  style={styles.shareCardTeamLogo}
+                                />
                               )}
                               <Text
                                 style={[
