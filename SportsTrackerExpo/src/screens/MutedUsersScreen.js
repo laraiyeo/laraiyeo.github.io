@@ -99,7 +99,7 @@ const MutedUsersScreen = ({ navigation }) => {
       </View>
 
       <TouchableOpacity
-        style={[styles.unmuteButton, { backgroundColor: colors.success }]}
+        style={[styles.unmuteButton, { backgroundColor: theme.success }]}
         onPress={() => handleUnmute(item.userId, item.userName)}
       >
         <Ionicons name="volume-high" size={16} color="#fff" />

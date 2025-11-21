@@ -28,7 +28,7 @@ const ViewerCounter = ({ gameId, style, showIcon = true, compact = false }) => {
       <View style={[styles.compactContainer, style]}>
         {showIcon && (
           <View
-            style={[styles.liveIndicator, { backgroundColor: colors.success }]}
+            style={[styles.liveIndicator, { backgroundColor: theme.success }]}
           >
             <Ionicons name="eye" size={12} color="#fff" />
           </View>
@@ -50,7 +50,7 @@ const ViewerCounter = ({ gameId, style, showIcon = true, compact = false }) => {
     >
       {showIcon && (
         <View
-          style={[styles.liveIndicator, { backgroundColor: colors.success }]}
+          style={[styles.liveIndicator, { backgroundColor: theme.success }]}
         />
       )}
       <Ionicons name="eye-outline" size={16} color={theme.textSecondary} />

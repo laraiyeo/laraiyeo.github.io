@@ -1927,19 +1927,40 @@ const WNBAGameDetailsScreen = ({ route }) => {
 
                     return (
                       <G key={index}>
-                        {/* Away team fill (from bottom to away line) */}
-                        <Path
-                          d={`M${x1},100 L${x1},${awayY1} L${x2},${awayY2} L${x2},100 Z`}
-                          fill={awayColor}
-                          fillOpacity="0.3"
-                        />
-                        {/* Home team fill (from away line to home line, or from home line to away line if home is lower) */}
-                        <Path
-                          d={`M${x1},${awayY1} L${x1},${homeY1} L${x2},${homeY2} L${x2},${awayY2} Z`}
-                          fill={homeColor}
-                          fillOpacity="0.3"
-                        />
-                      </G>
+                      {awayY1 < homeY1 ? (
+                        // AWAY team is winning → away line is ABOVE home line
+                        <>
+                          {/* Home fill (bottom → home line) */}
+                          <Path
+                            d={`M${x1},100 L${x1},${homeY1} L${x2},${homeY2} L${x2},100 Z`}
+                            fill={homeColor}
+                            fillOpacity="0.3"
+                          />
+                          {/* Away fill (home line → away line) */}
+                          <Path
+                            d={`M${x1},${homeY1} L${x1},${awayY1} L${x2},${awayY2} L${x2},${homeY2} Z`}
+                            fill={awayColor}
+                            fillOpacity="0.3"
+                          />
+                        </>
+                      ) : (
+                        // HOME team is winning → home line is ABOVE away line
+                        <>
+                          {/* Away fill (bottom → away line) */}
+                          <Path
+                            d={`M${x1},100 L${x1},${awayY1} L${x2},${awayY2} L${x2},100 Z`}
+                            fill={awayColor}
+                            fillOpacity="0.3"
+                          />
+                          {/* Home fill (away line → home line) */}
+                          <Path
+                            d={`M${x1},${awayY1} L${x1},${homeY1} L${x2},${homeY2} L${x2},${awayY2} Z`}
+                            fill={homeColor}
+                            fillOpacity="0.3"
+                          />
+                        </>
+                      )}
+                    </G>
                     );
                   })}
 
@@ -1957,7 +1978,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                       }, "")}
                       fill="none"
                       stroke={homeColor}
-                      strokeWidth="1.5"
+                      strokeWidth=".5"
                     />
                     {/* Away team line */}
                     <Path
@@ -1970,7 +1991,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                       }, "")}
                       fill="none"
                       stroke={awayColor}
-                      strokeWidth="1.5"
+                      strokeWidth=".5"
                     />
                   </>
                 )}
@@ -2891,7 +2912,56 @@ const WNBAGameDetailsScreen = ({ route }) => {
 
       // Separate players by starter status
       const starterPlayers = allPlayers.filter((p) => p.starter === true);
-      const benchPlayers = allPlayers.filter((p) => p.starter !== true);
+      let benchPlayers = allPlayers.filter((p) => p.starter !== true);
+
+      // Sort bench players by MIN (minutes) for WNBA as well
+      try {
+        const headerNames =
+          details?.boxscore?.players?.[0]?.statistics?.[0]?.names ||
+          details?.boxscore?.players?.[0]?.statistics?.[0]?.labels ||
+          details?.boxscore?.players?.[0]?.statistics?.[0]?.keys ||
+          [];
+        const normalize = (s) => (s || "").toString().replace(/[^a-z0-9]/gi, "").toLowerCase();
+        const resolveIndexForName = (name) => {
+          if (!headerNames || headerNames.length === 0) return -1;
+          const target = normalize(name);
+          for (let i = 0; i < headerNames.length; i++) {
+            if (normalize(headerNames[i]) === target) return i;
+          }
+          for (let i = 0; i < headerNames.length; i++) {
+            if (
+              normalize(headerNames[i]).includes(target) ||
+              target.includes(normalize(headerNames[i]))
+            )
+              return i;
+          }
+          return -1;
+        };
+        const minIdx = resolveIndexForName("MIN") >= 0 ? resolveIndexForName("MIN") : 12;
+        const statToNumber = (s) => {
+          if (s == null) return 0;
+          if (typeof s === "object") s = s.displayValue ?? s.value ?? "";
+          if (typeof s === "number") return s;
+          if (typeof s === "string") {
+            const mmss = s.match(/^(\d+):(\d{2})$/);
+            if (mmss) return parseInt(mmss[1], 10) + parseInt(mmss[2], 10) / 60;
+            const n = parseFloat(s);
+            if (!isNaN(n)) return n;
+            const m = s.match(/(\d+(?:\.\d+)?)/);
+            if (m) return parseFloat(m[1]);
+            return 0;
+          }
+          return 0;
+        };
+
+        benchPlayers = benchPlayers.sort((a, b) => {
+          const aVal = a.stats && a.stats[minIdx] != null ? a.stats[minIdx] : null;
+          const bVal = b.stats && b.stats[minIdx] != null ? b.stats[minIdx] : null;
+          return statToNumber(bVal) - statToNumber(aVal);
+        });
+      } catch (e) {
+        // ignore
+      }
 
       return (
         <View style={styles.rosterContainer}>
@@ -2929,7 +2999,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
               {renderStatHeaders(["FG", "PTS", "MIN"])}
 
               {starterPlayers.map((player, idx) =>
-                renderPlayerRow(player, idx, "starter-player", [1, 0, 12])
+                renderPlayerRow(player, idx, "starter-player", ["FG", "PTS", "MIN"])
               )}
             </View>
           )}
@@ -2954,7 +3024,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
               {renderStatHeaders(["FG", "PTS", "MIN"])}
 
               {benchPlayers.map((player, idx) =>
-                renderPlayerRow(player, idx, "bench-player", [1, 0, 12])
+                renderPlayerRow(player, idx, "bench-player", ["FG", "PTS", "MIN"])
               )}
             </View>
           )}
@@ -2964,7 +3034,52 @@ const WNBAGameDetailsScreen = ({ route }) => {
 
     // Has onCourt data - show on court and bench sections
     const playersOnCourt = allPlayers.filter((p) => p.isonCourt);
-    const playersOnBench = allPlayers.filter((p) => !p.isonCourt);
+    let playersOnBench = allPlayers.filter((p) => !p.isonCourt);
+
+    // Sort on-bench players by MIN when onCourt data is present as well
+    try {
+      const headerNames =
+        details?.boxscore?.players?.[0]?.statistics?.[0]?.names ||
+        details?.boxscore?.players?.[0]?.statistics?.[0]?.labels ||
+        details?.boxscore?.players?.[0]?.statistics?.[0]?.keys ||
+        [];
+      const normalize = (s) => (s || "").toString().replace(/[^a-z0-9]/gi, "").toLowerCase();
+      const resolveIndexForName = (name) => {
+        if (!headerNames || headerNames.length === 0) return -1;
+        const target = normalize(name);
+        for (let i = 0; i < headerNames.length; i++) {
+          if (normalize(headerNames[i]) === target) return i;
+        }
+        for (let i = 0; i < headerNames.length; i++) {
+          if (normalize(headerNames[i]).includes(target) || target.includes(normalize(headerNames[i]))) return i;
+        }
+        return -1;
+      };
+      const minIdx = resolveIndexForName("MIN") >= 0 ? resolveIndexForName("MIN") : 12;
+      const statToNumber = (s) => {
+        if (s == null) return 0;
+        if (typeof s === "object") s = s.displayValue ?? s.value ?? "";
+        if (typeof s === "number") return s;
+        if (typeof s === "string") {
+          const mmss = s.match(/^(\d+):(\d{2})$/);
+          if (mmss) return parseInt(mmss[1], 10) + parseInt(mmss[2], 10) / 60;
+          const n = parseFloat(s);
+          if (!isNaN(n)) return n;
+          const m = s.match(/(\d+(?:\.\d+)?)/);
+          if (m) return parseFloat(m[1]);
+          return 0;
+        }
+        return 0;
+      };
+
+      playersOnBench = playersOnBench.sort((a, b) => {
+        const aVal = a.stats && a.stats[minIdx] != null ? a.stats[minIdx] : null;
+        const bVal = b.stats && b.stats[minIdx] != null ? b.stats[minIdx] : null;
+        return statToNumber(bVal) - statToNumber(aVal);
+      });
+    } catch (e) {
+      // ignore
+    }
 
     // Helper function to render stat headers (custom labels)
     function renderStatHeaders(labels = ["FG", "PTS", "MIN"]) {
@@ -3008,7 +3123,8 @@ const WNBAGameDetailsScreen = ({ route }) => {
 
     // Helper function to render a player row with improved styling
     // statIndices: array of indices into player.stats to display (in order)
-    function renderPlayerRow(player, idx, keyPrefix, statIndices = [1, 0, 12]) {
+    // statIndices may be numbers (direct indices) or strings (stat names like 'FG','PTS','MIN')
+    function renderPlayerRow(player, idx, keyPrefix, statIndices = ["FG", "PTS", "MIN"]) {
       const jerseyNum = player.athlete?.jersey || "";
       const position = player.athlete?.position?.abbreviation || "";
 
@@ -3021,9 +3137,38 @@ const WNBAGameDetailsScreen = ({ route }) => {
         return String(s);
       }
 
-      const statValues = statIndices.map((si) => {
-        const raw =
-          player.stats && player.stats[si] != null ? player.stats[si] : null;
+      const headerNames =
+        details?.boxscore?.players?.[0]?.statistics?.[0]?.names ||
+        details?.boxscore?.players?.[0]?.statistics?.[0]?.labels ||
+        details?.boxscore?.players?.[0]?.statistics?.[0]?.keys ||
+        [];
+
+      const normalize = (s) => (s || "").toString().replace(/[^a-z0-9]/gi, "").toLowerCase();
+
+      const resolveIndexForName = (name) => {
+        if (!headerNames || headerNames.length === 0) return -1;
+        const target = normalize(name);
+        for (let i = 0; i < headerNames.length; i++) {
+          if (normalize(headerNames[i]) === target) return i;
+        }
+        for (let i = 0; i < headerNames.length; i++) {
+          if (normalize(headerNames[i]).includes(target) || target.includes(normalize(headerNames[i]))) return i;
+        }
+        return -1;
+      };
+
+      const resolvedIndices = statIndices.map((si) => {
+        if (typeof si === "number") return si;
+        const idxFound = resolveIndexForName(si);
+        if (idxFound >= 0) return idxFound;
+        if (si.toString().toLowerCase().startsWith("fg")) return 1;
+        if (si.toString().toLowerCase().startsWith("pts")) return 0;
+        if (si.toString().toLowerCase().startsWith("min")) return 12;
+        return -1;
+      });
+
+      const statValues = resolvedIndices.map((si) => {
+        const raw = si >= 0 && player.stats && player.stats[si] != null ? player.stats[si] : null;
         return statToString(raw);
       });
 
@@ -3128,7 +3273,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
             {renderStatHeaders(["FG", "PTS", "MIN"])}
 
             {playersOnCourt.map((player, idx) =>
-              renderPlayerRow(player, idx, "oncourt-player", [1, 0, 12])
+              renderPlayerRow(player, idx, "oncourt-player", ["FG", "PTS", "MIN"])
             )}
           </View>
         )}
@@ -3151,7 +3296,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
             {renderStatHeaders(["FG", "PTS", "MIN"])}
 
             {playersOnBench.map((player, idx) =>
-              renderPlayerRow(player, idx, "bench-player", [1, 0, 12])
+              renderPlayerRow(player, idx, "bench-player", ["FG", "PTS", "MIN"])
             )}
           </View>
         )}

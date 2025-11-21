@@ -1,45 +1,60 @@
-import React, { useState, useEffect } from 'react';
-import { AppState } from 'react-native';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity, Image, RefreshControl } from 'react-native';
-import { Modal, FlatList } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
-import { useTheme } from '../context/ThemeContext';
-import { useFavorites } from '../context/FavoritesContext';
-import YearFallbackUtils from '../utils/YearFallbackUtils';
-import { ChampionsLeagueServiceEnhanced } from '../services/soccer/ChampionsLeagueServiceEnhanced';
-import { MLBService } from '../services/MLBService';
-import { getAPITeamId, convertMLBIdToESPNId, normalizeTeamIdForStorage } from '../utils/TeamIdMapping';
-import { NFLService } from '../services/NFLService';
-import { getCurrentGameDay, getTodayDateRange } from '../utils/DateUtils';
+import React, { useState, useEffect } from "react";
+import { AppState } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  RefreshControl,
+} from "react-native";
+import { Modal, FlatList } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
+import { useTheme } from "../context/ThemeContext";
+import { useFavorites } from "../context/FavoritesContext";
+import YearFallbackUtils from "../utils/YearFallbackUtils";
+import { ChampionsLeagueServiceEnhanced } from "../services/soccer/ChampionsLeagueServiceEnhanced";
+import { MLBService } from "../services/MLBService";
+import {
+  getAPITeamId,
+  convertMLBIdToESPNId,
+  normalizeTeamIdForStorage,
+} from "../utils/TeamIdMapping";
+import { NFLService } from "../services/NFLService";
+import { getCurrentGameDay, getTodayDateRange } from "../utils/DateUtils";
 
 // Color similarity detection utility
 const calculateColorSimilarity = (color1, color2) => {
   // Convert hex colors to RGB
   const hexToRgb = (hex) => {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
-    } : null;
+    return result
+      ? {
+          r: parseInt(result[1], 16),
+          g: parseInt(result[2], 16),
+          b: parseInt(result[3], 16),
+        }
+      : null;
   };
 
   const rgb1 = hexToRgb(color1);
   const rgb2 = hexToRgb(color2);
-  
+
   if (!rgb1 || !rgb2) return false;
-  
+
   // Calculate Euclidean distance in RGB space
   const distance = Math.sqrt(
     Math.pow(rgb1.r - rgb2.r, 2) +
-    Math.pow(rgb1.g - rgb2.g, 2) +
-    Math.pow(rgb1.b - rgb2.b, 2)
+      Math.pow(rgb1.g - rgb2.g, 2) +
+      Math.pow(rgb1.b - rgb2.b, 2)
   );
-  
+
   // Normalize distance (max distance is sqrt(3 * 255^2) ≈ 441)
   const normalizedDistance = distance / 441;
-  
+
   // Consider colors similar if distance is less than 0.3 (30% of max distance)
   return normalizedDistance < 0.3;
 };
@@ -48,34 +63,40 @@ const calculateColorSimilarity = (color1, color2) => {
 const getSmartTeamColors = (homeTeam, awayTeam, colors) => {
   let homeColor = homeTeam?.team?.color || homeTeam?.color || colors.primary;
   let awayColor = awayTeam?.team?.color || awayTeam?.color || colors.secondary;
-  
+
   // Ensure colors have # prefix
-  if (homeColor && !homeColor.startsWith('#')) homeColor = `#${homeColor}`;
-  if (awayColor && !awayColor.startsWith('#')) awayColor = `#${awayColor}`;
-  
+  if (homeColor && !homeColor.startsWith("#")) homeColor = `#${homeColor}`;
+  if (awayColor && !awayColor.startsWith("#")) awayColor = `#${awayColor}`;
+
   // Check if colors are similar
   if (calculateColorSimilarity(homeColor, awayColor)) {
     // Use alternate color for away team if available
-    const awayAlternate = awayTeam?.team?.alternateColor || awayTeam?.alternateColor;
+    const awayAlternate =
+      awayTeam?.team?.alternateColor || awayTeam?.alternateColor;
     if (awayAlternate) {
-      awayColor = awayAlternate.startsWith('#') ? awayAlternate : `#${awayAlternate}`;
-      
+      awayColor = awayAlternate.startsWith("#")
+        ? awayAlternate
+        : `#${awayAlternate}`;
+
       // If alternate is still similar, try home team's alternate
       if (calculateColorSimilarity(homeColor, awayColor)) {
-        const homeAlternate = homeTeam?.team?.alternateColor || homeTeam?.alternateColor;
+        const homeAlternate =
+          homeTeam?.team?.alternateColor || homeTeam?.alternateColor;
         if (homeAlternate) {
-          homeColor = homeAlternate.startsWith('#') ? homeAlternate : `#${homeAlternate}`;
+          homeColor = homeAlternate.startsWith("#")
+            ? homeAlternate
+            : `#${homeAlternate}`;
         }
       }
     }
   }
-  
+
   return { homeColor, awayColor };
 };
 
 // Module-level helpers so any function in the file can use them reliably
 const promiseWithTimeout = (p, ms = 3000) => {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     let finished = false;
     const timer = setTimeout(() => {
       if (!finished) {
@@ -83,19 +104,21 @@ const promiseWithTimeout = (p, ms = 3000) => {
         resolve(null);
       }
     }, ms);
-    Promise.resolve(p).then(v => {
-      if (!finished) {
-        finished = true;
-        clearTimeout(timer);
-        resolve(v);
-      }
-    }).catch(() => {
-      if (!finished) {
-        finished = true;
-        clearTimeout(timer);
-        resolve(null);
-      }
-    });
+    Promise.resolve(p)
+      .then((v) => {
+        if (!finished) {
+          finished = true;
+          clearTimeout(timer);
+          resolve(v);
+        }
+      })
+      .catch(() => {
+        if (!finished) {
+          finished = true;
+          clearTimeout(timer);
+          resolve(null);
+        }
+      });
   });
 };
 
@@ -110,7 +133,7 @@ let fetchPassCounter = 0;
 let currentFetchPassId = 0;
 let isFetchingFavorites = false; // Prevent concurrent fetchFavoriteGames calls
 // Current fetch phase: 'idle' | 'initial' | 'poll'
-let currentFetchPhase = 'idle';
+let currentFetchPhase = "idle";
 
 // Small hash function for body comparison
 function smallHash(str) {
@@ -124,32 +147,36 @@ function smallHash(str) {
 // Helper function to normalize URLs to HTTPS
 const normalizeUrl = (url) => {
   if (!url) return url;
-  return url.replace(/^http:\/\//, 'https://');
+  return url.replace(/^http:\/\//, "https://");
 };
 
 // Cached fetch with conditional headers, in-flight dedupe, and same-pass dedupe
 async function fetchJsonWithCache(url, options = {}) {
   // Normalize URL to HTTPS to prevent hanging requests
   const normalizedUrl = normalizeUrl(url);
-  
+
   const { timeout = 3500, force = false, bypassGating = false } = options;
   // During poll passes, avoid making expensive discovery requests to ESPN Core / Site APIs
   // unless explicitly forced or bypassing gating. Return cached data when available, otherwise null.
   try {
-    if (!force && !bypassGating && currentFetchPhase === 'poll') {
-      const blockedPatterns = ['sports.core.api.espn.com', 'site.api.espn.com', '/v2/sports/'];
-      if (blockedPatterns.some(p => String(normalizedUrl).includes(p))) {
+    if (!force && !bypassGating && currentFetchPhase === "poll") {
+      const blockedPatterns = [
+        "sports.core.api.espn.com",
+        "site.api.espn.com",
+        "/v2/sports/",
+      ];
+      if (blockedPatterns.some((p) => String(normalizedUrl).includes(p))) {
         const cached = eventFetchCache.get(normalizedUrl);
         if (cached?.parsed) return cached.parsed;
         // don't perform network fetch during poll for these endpoints
         return null;
       }
-    } else if (bypassGating && currentFetchPhase === 'poll') {
+    } else if (bypassGating && currentFetchPhase === "poll") {
     }
   } catch (e) {
     // ignore gating errors and continue to normal behavior
   }
-  
+
   // Same-pass dedupe: if already fetched in this pass, return cached
   if (!force && urlLastFetchedPass.get(normalizedUrl) === currentFetchPassId) {
     const cached = eventFetchCache.get(normalizedUrl);
@@ -157,40 +184,41 @@ async function fetchJsonWithCache(url, options = {}) {
       if (DEBUG) return cached.parsed;
     }
   }
-  
+
   // In-flight dedupe: if currently fetching, return the existing promise
   if (inFlightFetches.has(normalizedUrl)) {
     if (DEBUG) return inFlightFetches.get(normalizedUrl);
   }
-  
+
   const fetchPromise = (async () => {
     try {
       const cacheEntry = eventFetchCache.get(normalizedUrl);
       const headers = {};
-      
+
       // Add conditional headers if we have cache data
       if (cacheEntry && !force) {
-        if (cacheEntry.etag) headers['If-None-Match'] = cacheEntry.etag;
-        if (cacheEntry.lastModified) headers['If-Modified-Since'] = cacheEntry.lastModified;
+        if (cacheEntry.etag) headers["If-None-Match"] = cacheEntry.etag;
+        if (cacheEntry.lastModified)
+          headers["If-Modified-Since"] = cacheEntry.lastModified;
       }
-      
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         controller.abort();
       }, timeout);
-      
-      const response = await fetch(normalizedUrl, { 
-        headers, 
-        signal: controller.signal 
+
+      const response = await fetch(normalizedUrl, {
+        headers,
+        signal: controller.signal,
       });
       clearTimeout(timeoutId);
-      
+
       // Handle 304 Not Modified
       if (response.status === 304 && cacheEntry?.parsed) {
         if (DEBUG) urlLastFetchedPass.set(normalizedUrl, currentFetchPassId);
         return cacheEntry.parsed;
       }
-      
+
       if (!response.ok) {
         // Return cached data if available on error
         if (cacheEntry?.parsed) {
@@ -198,41 +226,43 @@ async function fetchJsonWithCache(url, options = {}) {
         }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const text = await response.text();
       const bodyHash = smallHash(text);
-      
+
       // If body hash unchanged, return cached parsed data
       if (cacheEntry?.lastHash === bodyHash && cacheEntry?.parsed) {
         if (DEBUG) urlLastFetchedPass.set(normalizedUrl, currentFetchPassId);
         return cacheEntry.parsed;
       }
-      
+
       // Check if response looks like HTML instead of JSON
       const textTrimmed = text.trim();
-      if (textTrimmed.startsWith('<!DOCTYPE') || textTrimmed.startsWith('<html')) {
+      if (
+        textTrimmed.startsWith("<!DOCTYPE") ||
+        textTrimmed.startsWith("<html")
+      ) {
         return null; // Return null instead of trying to parse HTML as JSON
       }
-      
+
       let parsed;
       try {
         parsed = JSON.parse(text);
       } catch (parseError) {
         return null; // Return null instead of throwing
       }
-      
+
       // Update cache
       eventFetchCache.set(normalizedUrl, {
-        etag: response.headers.get('etag'),
-        lastModified: response.headers.get('last-modified'),
+        etag: response.headers.get("etag"),
+        lastModified: response.headers.get("last-modified"),
         lastHash: bodyHash,
         parsed,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
-      
+
       urlLastFetchedPass.set(normalizedUrl, currentFetchPassId);
       if (DEBUG) return parsed;
-      
     } catch (error) {
       // Return cached data if available on timeout/error
       const cacheEntry = eventFetchCache.get(normalizedUrl);
@@ -240,18 +270,18 @@ async function fetchJsonWithCache(url, options = {}) {
         urlLastFetchedPass.set(normalizedUrl, currentFetchPassId);
         return cacheEntry.parsed;
       }
-      
+
       // Provide more specific error messages
-      if (error.name === 'AbortError') {
+      if (error.name === "AbortError") {
         return null; // Return null instead of throwing for timeout errors
       }
-      
+
       throw error;
     } finally {
       inFlightFetches.delete(normalizedUrl);
     }
   })();
-  
+
   inFlightFetches.set(normalizedUrl, fetchPromise);
   return fetchPromise;
 }
@@ -265,16 +295,16 @@ async function fetchMLBScheduleForDate(date) {
       return cached.schedule;
     }
   }
-  
+
   // Fetch all teams' games for this date in one call
   const url = `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&startDate=${date}&endDate=${date}&hydrate=team,linescore,decisions`;
   const schedule = await fetchJsonWithCache(url);
-  
+
   mlbScheduleCache.set(date, {
     schedule,
-    timestamp: Date.now()
+    timestamp: Date.now(),
   });
-  
+
   return schedule;
 }
 
@@ -282,23 +312,23 @@ async function fetchMLBScheduleForDate(date) {
 async function fetchTeamMetadataWithCache(teamUrl, scoreUrl) {
   const cacheKey = `${teamUrl}:${scoreUrl}`;
   const cached = teamMetadataCache.get(cacheKey);
-  
+
   // Cache team metadata for 24 hours (teams don't change)
   if (cached && Date.now() - cached.timestamp < 24 * 60 * 60 * 1000) {
     return { team: cached.team, score: cached.score };
   }
-  
+
   const [team, score] = await Promise.all([
     fetchJsonWithCache(teamUrl),
-    fetchJsonWithCache(scoreUrl)
+    fetchJsonWithCache(scoreUrl),
   ]);
-  
+
   teamMetadataCache.set(cacheKey, {
     team,
     score,
-    timestamp: Date.now()
+    timestamp: Date.now(),
   });
-  
+
   return { team, score };
 }
 
@@ -307,7 +337,7 @@ const getTeamLogoUrls = (teamId, isDarkMode) => {
   const primaryUrl = isDarkMode
     ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`
     : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
-  
+
   const fallbackUrl = isDarkMode
     ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`
     : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
@@ -334,14 +364,14 @@ const TeamLogoImage = React.memo(({ teamId, style, isDarkMode }) => {
       setLogoSource({ uri: logos.fallbackUrl });
       setRetryCount(1);
     } else {
-      setLogoSource(require('../../assets/soccer.png'));
+      setLogoSource(require("../../assets/soccer.png"));
     }
   };
 
   return (
     <Image
       style={style}
-      source={logoSource || require('../../assets/soccer.png')}
+      source={logoSource || require("../../assets/soccer.png")}
       onError={handleError}
     />
   );
@@ -351,100 +381,114 @@ const TeamLogoImage = React.memo(({ teamId, style, isDarkMode }) => {
 const LEAGUE_COMPETITIONS = {
   "eng.1": [
     { code: "eng.fa", name: "FA Cup", logo: "40" },
-    { code: "eng.league_cup", name: "EFL Cup", logo: "41" }
+    { code: "eng.league_cup", name: "EFL Cup", logo: "41" },
   ],
   "esp.1": [
     { code: "esp.copa_del_rey", name: "Copa del Rey", logo: "80" },
-    { code: "esp.super_cup", name: "Spanish Supercopa", logo: "431" }
+    { code: "esp.super_cup", name: "Spanish Supercopa", logo: "431" },
   ],
   "ger.1": [
     { code: "ger.dfb_pokal", name: "DFB Pokal", logo: "2061" },
-    { code: "ger.super_cup", name: "German Super Cup", logo: "2315" }
+    { code: "ger.super_cup", name: "German Super Cup", logo: "2315" },
   ],
   "ita.1": [
     { code: "ita.coppa_italia", name: "Coppa Italia", logo: "2192" },
-    { code: "ita.super_cup", name: "Italian Supercoppa", logo: "2316" }
+    { code: "ita.super_cup", name: "Italian Supercoppa", logo: "2316" },
   ],
   "fra.1": [
     { code: "fra.coupe_de_france", name: "Coupe de France", logo: "182" },
-    { code: "fra.super_cup", name: "Trophee des Champions", logo: "2345" }
-  ]
+    { code: "fra.super_cup", name: "Trophee des Champions", logo: "2345" },
+  ],
 };
 // Function to determine if a game should be fetched based on timing restrictions and status
-const shouldFetchGame = (game, teamName = 'Unknown') => {
+const shouldFetchGame = (game, teamName = "Unknown") => {
   if (!game) return false;
-  
+
   // Get game status from various possible sources
-  const statusFromSiteAPI = game.gameDataWithStatus?.header?.competitions?.[0]?.status;
-  const status = game.status || game.header?.competitions?.[0]?.status || game.competitions?.[0]?.status;
-  const codedGameState = game.codedGameState || game.gameData?.status?.codedGameState || game.liveData?.status?.codedGameState;
-  
+  const statusFromSiteAPI =
+    game.gameDataWithStatus?.header?.competitions?.[0]?.status;
+  const status =
+    game.status ||
+    game.header?.competitions?.[0]?.status ||
+    game.competitions?.[0]?.status;
+  const codedGameState =
+    game.codedGameState ||
+    game.gameData?.status?.codedGameState ||
+    game.liveData?.status?.codedGameState;
+
   let statusType = statusFromSiteAPI?.type?.state;
-  
+
   // Determine if game is finished
-  const isFinished = 
-    statusType === 'post' || 
-    codedGameState === 'F' || 
+  const isFinished =
+    statusType === "post" ||
+    codedGameState === "F" ||
     status?.type?.completed === true ||
-    status?.type?.name === 'Final' ||
-    status?.displayClock === 'Final';
-  
+    status?.type?.name === "Final" ||
+    status?.displayClock === "Final";
+
   // Determine if game is live/in progress
-  const isLive = 
-    statusType === 'in' || 
-    codedGameState === 'I' ||
-    status?.type?.state === 'in' ||
-    (status?.type?.name && ['In Progress', 'Halftime', 'Break'].includes(status.type.name));
-  
+  const isLive =
+    statusType === "in" ||
+    codedGameState === "I" ||
+    status?.type?.state === "in" ||
+    (status?.type?.name &&
+      ["In Progress", "Halftime", "Break"].includes(status.type.name));
+
   // Always fetch live games
   if (isLive) {
     return true;
   }
-  
+
   // Get game date/time
-  const gameDate = game.date || game.gameDate || game.startDate || 
-    game.header?.competitions?.[0]?.date || game.competitions?.[0]?.date;
-  
+  const gameDate =
+    game.date ||
+    game.gameDate ||
+    game.startDate ||
+    game.header?.competitions?.[0]?.date ||
+    game.competitions?.[0]?.date;
+
   if (!gameDate) {
     // If no date available, only fetch if it's live
     return isLive;
   }
-  
+
   const now = new Date();
   const gameTime = new Date(gameDate);
   const timeDiff = now - gameTime; // Positive if game was in the past
-  
+
   // Don't fetch finished games after timing window
   if (isFinished) {
     // Determine sport type for timing restrictions
-    const isMLB = game.sport?.name === 'Baseball' || 
-      game.sport?.id === 1 || 
-      teamName?.includes('MLB') ||
+    const isMLB =
+      game.sport?.name === "Baseball" ||
+      game.sport?.id === 1 ||
+      teamName?.includes("MLB") ||
       game.eventId?.toString().length >= 6; // MLB typically has longer event IDs
-    
-    const isSoccer = game.sport?.name === 'Soccer' || 
-      game.sport?.name === 'Football' ||
-      teamName?.includes('Soccer') ||
-      teamName?.includes('Champions League');
-    
+
+    const isSoccer =
+      game.sport?.name === "Soccer" ||
+      game.sport?.name === "Football" ||
+      teamName?.includes("Soccer") ||
+      teamName?.includes("Champions League");
+
     if (isMLB) {
       // MLB: Stop fetching finished games after 2 minutes
-      return timeDiff < (2 * 60 * 1000);
+      return timeDiff < 2 * 60 * 1000;
     } else if (isSoccer) {
       // Soccer: Stop fetching finished games after 30 minutes
-      return timeDiff < (30 * 60 * 1000);
+      return timeDiff < 30 * 60 * 1000;
     } else {
       // Default: Stop fetching finished games after 5 minutes
-      return timeDiff < (5 * 60 * 1000);
+      return timeDiff < 5 * 60 * 1000;
     }
   }
-  
+
   // For scheduled games, don't fetch if they're more than 1 hour in the future
   const oneHourFromNow = 60 * 60 * 1000;
   if (timeDiff < -oneHourFromNow) {
     return false;
   }
-  
+
   // For all other cases (scheduled games within 1 hour, etc.), allow fetching
   return true;
 };
@@ -456,29 +500,42 @@ const computeMatchFlags = (game) => {
   let isFinished = false;
 
   try {
-    const statusFromSiteAPI = game?.gameDataWithStatus?.header?.competitions?.[0]?.status;
-    const status = game?.status || game?.header?.competitions?.[0]?.status || game?.competitions?.[0]?.status;
-    const codedGameState = game?.codedGameState || game?.gameData?.status?.codedGameState || game?.liveData?.status?.codedGameState || game?.mlbGameData?.status?.codedGameState;
+    const statusFromSiteAPI =
+      game?.gameDataWithStatus?.header?.competitions?.[0]?.status;
+    const status =
+      game?.status ||
+      game?.header?.competitions?.[0]?.status ||
+      game?.competitions?.[0]?.status;
+    const codedGameState =
+      game?.codedGameState ||
+      game?.gameData?.status?.codedGameState ||
+      game?.liveData?.status?.codedGameState ||
+      game?.mlbGameData?.status?.codedGameState;
 
     if (statusFromSiteAPI) {
       const state = statusFromSiteAPI.type?.state;
-      isLive = state === 'in';
+      isLive = state === "in";
       // Treat live games as part of the 'scheduled' set for display/update purposes
-      isScheduled = state === 'pre' || state === 'in';
-      isFinished = state === 'post';
+      isScheduled = state === "pre" || state === "in";
+      isFinished = state === "post";
     } else if (codedGameState) {
-      isLive = codedGameState === 'I';
-      isFinished = codedGameState === 'F';
+      isLive = codedGameState === "I";
+      isFinished = codedGameState === "F";
       // If not finished, consider it scheduled (includes live)
       isScheduled = !isFinished;
     } else if (status) {
       const s = status.type?.state;
-      isLive = s === 'in';
-      isScheduled = s === 'pre' || s === 'in';
-      isFinished = s === 'post';
+      isLive = s === "in";
+      isScheduled = s === "pre" || s === "in";
+      isFinished = s === "post";
     } else {
       // Fallback: use date heuristics
-      const gameDate = game?.date || game?.gameDate || game?.startDate || game?.header?.competitions?.[0]?.date || game?.competitions?.[0]?.date;
+      const gameDate =
+        game?.date ||
+        game?.gameDate ||
+        game?.startDate ||
+        game?.header?.competitions?.[0]?.date ||
+        game?.competitions?.[0]?.date;
       if (gameDate) {
         const now = Date.now();
         const t = new Date(gameDate).getTime();
@@ -506,14 +563,18 @@ const loggedGames = new Set();
 const gamesToUpdate = new Set();
 
 // Function to determine if a game should receive updates based on its current status
-const shouldGameReceiveUpdates = (game, statusInfo, teamName = 'Unknown') => {
+const shouldGameReceiveUpdates = (game, statusInfo, teamName = "Unknown") => {
   let { isLive, isPre, isPost } = statusInfo;
   const gameId = game.id || game.eventId;
-  
+
   // If status flags are undefined, compute them from the game object
   if (isLive === undefined && isPre === undefined && isPost === undefined) {
     // Try to get status flags from the game object itself first
-    if (game.isLive !== undefined || game.isScheduled !== undefined || game.isFinished !== undefined) {
+    if (
+      game.isLive !== undefined ||
+      game.isScheduled !== undefined ||
+      game.isFinished !== undefined
+    ) {
       isLive = game.isLive;
       isPre = game.isScheduled && !game.isLive;
       isPost = game.isFinished;
@@ -527,23 +588,27 @@ const shouldGameReceiveUpdates = (game, statusInfo, teamName = 'Unknown') => {
   } else {
     // Debug logging to understand status detection
   }
-  
+
   // Always update live games
   if (isLive) {
     return true;
   }
-  
+
   // Update pre-game (scheduled) games within 30 minutes of start time
   if (isPre) {
-    const gameDate = game.date || game.gameDate || game.startDate || 
-      game.header?.competitions?.[0]?.date || game.competitions?.[0]?.date;
-    
+    const gameDate =
+      game.date ||
+      game.gameDate ||
+      game.startDate ||
+      game.header?.competitions?.[0]?.date ||
+      game.competitions?.[0]?.date;
+
     if (gameDate) {
       const now = new Date();
       const gameTime = new Date(gameDate);
       const timeDiff = gameTime - now; // Positive if game is in the future
       const thirtyMinutes = 30 * 60 * 1000;
-      
+
       if (timeDiff <= thirtyMinutes && timeDiff > 0) {
         return true;
       } else if (timeDiff <= 0) {
@@ -555,30 +620,36 @@ const shouldGameReceiveUpdates = (game, statusInfo, teamName = 'Unknown') => {
       return true;
     }
   }
-  
+
   // For finished games, apply sport-specific timing windows
   if (isPost) {
-    const gameDate = game.date || game.gameDate || game.startDate || 
-      game.header?.competitions?.[0]?.date || game.competitions?.[0]?.date;
-    
+    const gameDate =
+      game.date ||
+      game.gameDate ||
+      game.startDate ||
+      game.header?.competitions?.[0]?.date ||
+      game.competitions?.[0]?.date;
+
     if (gameDate) {
       const now = new Date();
       const gameTime = new Date(gameDate);
       const timeDiff = now - gameTime; // Positive if game was in the past
-      
+
       // Determine sport type for post-game update windows
-      const isMLB = game.sport?.name === 'Baseball' || 
-        game.sport?.id === 1 || 
-        teamName?.includes('MLB') ||
+      const isMLB =
+        game.sport?.name === "Baseball" ||
+        game.sport?.id === 1 ||
+        teamName?.includes("MLB") ||
         game.eventId?.toString().length >= 6;
-      
-      const isSoccer = game.sport?.name === 'Soccer' || 
-        game.sport?.name === 'Football' ||
-        teamName?.includes('Soccer') ||
-        teamName?.includes('Champions League') ||
-        game.actualLeagueCode?.includes('uefa') ||
-        game.actualLeagueCode?.includes('soccer');
-      
+
+      const isSoccer =
+        game.sport?.name === "Soccer" ||
+        game.sport?.name === "Football" ||
+        teamName?.includes("Soccer") ||
+        teamName?.includes("Champions League") ||
+        game.actualLeagueCode?.includes("uefa") ||
+        game.actualLeagueCode?.includes("soccer");
+
       if (isMLB) {
         const mlbWindow = 5 * 60 * 1000; // 5 minutes for MLB
         if (timeDiff < mlbWindow) {
@@ -605,7 +676,7 @@ const shouldGameReceiveUpdates = (game, statusInfo, teamName = 'Unknown') => {
       return false;
     }
   }
-  
+
   // Default case - if status is unclear, allow updates
   return true;
 };
@@ -620,79 +691,89 @@ const getGamesBeingTrackedForUpdates = () => {
   return Array.from(gamesToUpdate);
 };
 
-// F1 Constructor colors mapping - EXACT same as StandingsScreen  
+// F1 Constructor colors mapping - EXACT same as StandingsScreen
 const constructorColors = {
-  'Mercedes': '#27F4D2',
-  'Red Bull': '#3671C6', 
-  'Ferrari': '#E8002D',
-  'McLaren': '#FF8000',
-  'Alpine': '#FF87BC',
-  'Racing Bulls': '#6692FF',
-  'Aston Martin': '#229971',
-  'Williams': '#64C4FF',
-  'Sauber': '#52E252',
-  'Haas': '#B6BABD'
+  Mercedes: "#27F4D2",
+  "Red Bull": "#3671C6",
+  Ferrari: "#E8002D",
+  McLaren: "#FF8000",
+  Alpine: "#FF87BC",
+  "Racing Bulls": "#6692FF",
+  "Aston Martin": "#229971",
+  Williams: "#64C4FF",
+  Sauber: "#52E252",
+  Haas: "#B6BABD",
 };
 
 // Helper to format F1 constructor color (adds # if missing) - EXACT same as StandingsScreen
 const formatF1Color = (color) => {
-  if (!color) return '#000000';
-  return color.startsWith('#') ? color : `#${color}`;
+  if (!color) return "#000000";
+  return color.startsWith("#") ? color : `#${color}`;
 };
 
 // F1 time selection logic with priority order - extracts from statistics array
 const selectBestF1Time = (driver) => {
-  if (!driver) return '---';
-  
+  if (!driver) return "---";
+
   // Check for live gap to leader data first (similar to RaceDetailsScreen logic)
-  if (driver.liveStats && driver.liveStats.splits && driver.liveStats.splits.categories) {
+  if (
+    driver.liveStats &&
+    driver.liveStats.splits &&
+    driver.liveStats.splits.categories
+  ) {
     const categories = driver.liveStats.splits.categories;
-    
+
     // Priority 1: categories[1].gapToLeader (if exists and valid)
-    if (categories[1] && categories[1].name === 'gapToLeader') {
-      const gapStat = categories[1].stats?.find(stat => stat.name === 'gapToLeader');
+    if (categories[1] && categories[1].name === "gapToLeader") {
+      const gapStat = categories[1].stats?.find(
+        (stat) => stat.name === "gapToLeader"
+      );
       if (gapStat) {
         if (gapStat.value === 0) {
-          return 'Leader';
+          return "Leader";
         }
         return gapStat.displayValue || gapStat.value;
       } else {
         // gapToLeader category exists but no gapToLeader stat - check if this is position 1
-        const positionStat = categories[1].stats?.find(stat => stat.name === 'position');
+        const positionStat = categories[1].stats?.find(
+          (stat) => stat.name === "position"
+        );
         if (positionStat && positionStat.value === 1) {
-          return 'Leader';
+          return "Leader";
         }
       }
     }
   }
-  
+
   // Extract stats from the statistics array (same as in console output)
   const stats = driver.statistics || [];
   let totalTime = null;
   let behindTime = null;
   let behindLaps = null;
   let gapToLeaderFromStats = null;
-  
+
   // Try result fields first
   if (driver.result) {
     if (driver.result.time) {
-      totalTime = driver.result.time.displayValue || driver.result.time.text || null;
+      totalTime =
+        driver.result.time.displayValue || driver.result.time.text || null;
     }
     if (driver.result.behindLaps != null) behindLaps = driver.result.behindLaps;
   }
-  
+
   // Extract from statistics array (prioritize displayValue for formatted strings)
   if (Array.isArray(stats)) {
     for (const s of stats) {
-      const key = (s.name || s.displayName || '').toString().toLowerCase();
+      const key = (s.name || s.displayName || "").toString().toLowerCase();
       const val = s.displayValue ?? s.value ?? s.text ?? s.rank ?? null;
-      if (!totalTime && key === 'totaltime') totalTime = val;
-      if (!behindTime && key === 'behindtime') behindTime = val;
-      if (!behindLaps && key === 'behindlaps') behindLaps = val;
-      if (!gapToLeaderFromStats && key === 'gaptoleader') gapToLeaderFromStats = val;
+      if (!totalTime && key === "totaltime") totalTime = val;
+      if (!behindTime && key === "behindtime") behindTime = val;
+      if (!behindLaps && key === "behindlaps") behindLaps = val;
+      if (!gapToLeaderFromStats && key === "gaptoleader")
+        gapToLeaderFromStats = val;
     }
   }
-  
+
   // Also check top-level driver properties as fallback
   const timeOptions = [
     gapToLeaderFromStats,
@@ -700,27 +781,43 @@ const selectBestF1Time = (driver) => {
     totalTime,
     driver.totalTime,
     driver.qual3,
-    driver.qual2, 
+    driver.qual2,
     driver.qual1,
     behindTime,
     driver.behindTime,
     behindLaps ? `+${behindLaps} Laps` : null,
-    driver.behindLaps ? `+${driver.behindLaps} Laps` : null
+    driver.behindLaps ? `+${driver.behindLaps} Laps` : null,
   ];
-  
+
   // Find first non-null, non-zero time
   for (const time of timeOptions) {
-    if (time && time !== '0.000' && time !== '0:00.000' && time !== '--:--:---' && time !== 0) {
+    if (
+      time &&
+      time !== "0.000" &&
+      time !== "0:00.000" &&
+      time !== "--:--:---" &&
+      time !== 0
+    ) {
       return time.toString();
     }
   }
-  
-  return '---';
+
+  return "---";
 };
 
 const FavoritesScreen = ({ navigation }) => {
   const { theme, colors, isDarkMode, getTeamLogoUrl } = useTheme();
-  const { getFavoriteTeams, isFavorite, favorites, getTeamCurrentGame, updateTeamCurrentGame, clearTeamCurrentGame, refreshAllCurrentGames, autoPopulating, clearCorruptedCurrentGames } = useFavorites();
+  const {
+    getFavoriteTeams,
+    isFavorite,
+    favorites,
+    getTeamCurrentGame,
+    updateTeamCurrentGame,
+    clearTeamCurrentGame,
+    refreshAllCurrentGames,
+    autoPopulating,
+    clearCorruptedCurrentGames,
+  } = useFavorites();
   const [favoriteGames, setFavoriteGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -728,7 +825,7 @@ const FavoritesScreen = ({ navigation }) => {
   const [sectionOrder, setSectionOrder] = useState(null);
   const [isReorderModalVisible, setIsReorderModalVisible] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState(null);
-  const [favoritesHash, setFavoritesHash] = useState('');
+  const [favoritesHash, setFavoritesHash] = useState("");
   const [isUpdatingFavorites, setIsUpdatingFavorites] = useState(false);
   const [isScreenFocused, setIsScreenFocused] = useState(true);
   const [updateInterval, setUpdateInterval] = useState(null);
@@ -743,89 +840,105 @@ const FavoritesScreen = ({ navigation }) => {
     return games.sort((a, b) => {
       const getGameStatus = (game) => {
         // For NFL games, prioritize computed flags or specific NFL logic first
-        if (game.sport === 'NFL' || String(game.actualLeagueCode || '').toLowerCase() === 'nfl') {
+        if (
+          game.sport === "NFL" ||
+          String(game.actualLeagueCode || "").toLowerCase() === "nfl"
+        ) {
           // First try to use pre-computed flags if available
-          if (game.isLive !== undefined || game.isScheduled !== undefined || game.isFinished !== undefined) {
+          if (
+            game.isLive !== undefined ||
+            game.isScheduled !== undefined ||
+            game.isFinished !== undefined
+          ) {
             if (game.isLive) {
-              return 'Live';
+              return "Live";
             }
             if (game.isFinished) {
-              return 'Final';
+              return "Final";
             }
-            return 'Scheduled';
+            return "Scheduled";
           }
-          
+
           // Fallback to computing flags if not pre-computed
           const flags = computeMatchFlags(game);
           if (flags.isLive) {
-            return 'Live';
+            return "Live";
           }
           if (flags.isFinished) {
-            return 'Final';
+            return "Final";
           }
-          return 'Scheduled';
+          return "Scheduled";
         }
 
         // Use the same status checking logic as the display function for other sports
-        const statusFromSiteAPI = game.gameDataWithStatus?.header?.competitions?.[0]?.status;
+        const statusFromSiteAPI =
+          game.gameDataWithStatus?.header?.competitions?.[0]?.status;
         let statusType = null;
-        
+
         if (statusFromSiteAPI) {
           statusType = statusFromSiteAPI.type?.state;
         } else {
           // Fallback to other status sources
-          const status = game.status || game.header?.competitions?.[0]?.status || game.competitions?.[0]?.status;
+          const status =
+            game.status ||
+            game.header?.competitions?.[0]?.status ||
+            game.competitions?.[0]?.status;
           statusType = status?.type?.state;
         }
-        
-        if (statusType === 'in') {
-          return 'Live'; // Live games have highest priority
-        } else if (statusType === 'pre') {
-          return 'Scheduled';
-        } else if (statusType === 'post') {
-          return 'Final';
+
+        if (statusType === "in") {
+          return "Live"; // Live games have highest priority
+        } else if (statusType === "pre") {
+          return "Scheduled";
+        } else if (statusType === "post") {
+          return "Final";
         }
-        
+
         // If this is an MLB game, prefer MLB's codedGameState when available
-        if (game.sport === 'MLB' || String(game.actualLeagueCode || '').toLowerCase() === 'mlb') {
-          const coded = game.mlbGameData?.status?.codedGameState || game.liveData?.status?.codedGameState;
+        if (
+          game.sport === "MLB" ||
+          String(game.actualLeagueCode || "").toLowerCase() === "mlb"
+        ) {
+          const coded =
+            game.mlbGameData?.status?.codedGameState ||
+            game.liveData?.status?.codedGameState;
           if (coded) {
-            if (coded === 'F') return 'Final';
-            if (coded === 'I') return 'Live';
-            return 'Scheduled';
+            if (coded === "F") return "Final";
+            if (coded === "I") return "Live";
+            return "Scheduled";
           }
         }
 
         // Fallback to date-based logic if no status available
         const gameDate = new Date(game.date);
         const now = new Date();
-        const threeHoursAgo = new Date(now.getTime() - (3 * 60 * 60 * 1000));
-        
+        const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+
         if (gameDate < threeHoursAgo) {
-          return 'Final';
+          return "Final";
         } else if (gameDate <= now) {
-          return 'Live';
+          return "Live";
         } else {
-          return 'Scheduled';
+          return "Scheduled";
         }
       };
 
       const statusA = getGameStatus(a);
       const statusB = getGameStatus(b);
-      
+
       // Debug logging for sorting
       // Priority: Live > Scheduled > Final
-      const statusPriority = { 'Live': 1, 'Scheduled': 2, 'Final': 3 };
-      
+      const statusPriority = { Live: 1, Scheduled: 2, Final: 3 };
+
       if (statusPriority[statusA] !== statusPriority[statusB]) {
         return statusPriority[statusA] - statusPriority[statusB];
       }
-      
+
       // If same status, sort by time (earlier first for scheduled/live, later first for final)
       const timeA = new Date(a.date).getTime();
       const timeB = new Date(b.date).getTime();
-      
-        if (statusA === 'Final') {
+
+      if (statusA === "Final") {
         // For final games keep the original scheduled start-time ordering (earlier games first)
         return timeA - timeB;
       } else {
@@ -846,7 +959,7 @@ const FavoritesScreen = ({ navigation }) => {
     // Clear ALL current games for favorite teams to ensure a clean slate for the new day
     const favoriteTeams = getFavoriteTeams();
     let gamesCleared = 0;
-    
+
     for (const team of favoriteTeams) {
       const currentGame = getTeamCurrentGame(team.teamId);
       if (currentGame) {
@@ -866,12 +979,12 @@ const FavoritesScreen = ({ navigation }) => {
     // Load saved section order from AsyncStorage (if any)
     const loadSectionOrder = async () => {
       try {
-        const saved = await AsyncStorage.getItem('favorites_section_order');
+        const saved = await AsyncStorage.getItem("favorites_section_order");
         if (saved) {
           const savedOrder = JSON.parse(saved);
           const mergedOrder = mergeSectionOrders(savedOrder);
           setSectionOrder(mergedOrder);
-          
+
           // If merged order is different from saved, update storage
           if (JSON.stringify(mergedOrder) !== JSON.stringify(savedOrder)) {
             saveSectionOrder(mergedOrder);
@@ -880,21 +993,24 @@ const FavoritesScreen = ({ navigation }) => {
           // No saved order, use default
           setSectionOrder(DEFAULT_SECTION_ORDER);
         }
-      } catch (e) {
-      }
+      } catch (e) {}
     };
     loadSectionOrder();
 
     // Hash favorites by teamId and currentGame to detect updates to stored currentGame (eventId/updatedAt)
-    const newHash = JSON.stringify((favorites || []).map(f => ({
-      teamId: String(f.teamId || ''),
-      eventId: f?.currentGame?.eventId || null,
-      updatedAt: f?.currentGame?.updatedAt || null
-    })).sort((a,b) => (a.teamId || '').localeCompare(b.teamId || '')));
-    
+    const newHash = JSON.stringify(
+      (favorites || [])
+        .map((f) => ({
+          teamId: String(f.teamId || ""),
+          eventId: f?.currentGame?.eventId || null,
+          updatedAt: f?.currentGame?.updatedAt || null,
+        }))
+        .sort((a, b) => (a.teamId || "").localeCompare(b.teamId || ""))
+    );
+
     if (favoritesHash && favoritesHash !== newHash) {
       setIsUpdatingFavorites(true);
-      
+
       // Only refresh if we have favorites or had games before (to clear when all favorites removed)
       if (favorites.length > 0 || favoriteGames.length > 0) {
         fetchFavoriteGames(true).finally(() => {
@@ -904,7 +1020,7 @@ const FavoritesScreen = ({ navigation }) => {
         setIsUpdatingFavorites(false);
       }
     }
-    
+
     setFavoritesHash(newHash);
   }, [favorites]); // React to any change in favorites (including currentGame updates)
 
@@ -913,18 +1029,17 @@ const FavoritesScreen = ({ navigation }) => {
     const performCleanup = async () => {
       try {
         // Check if we have NBA/WNBA teams with potentially corrupted data
-        const hasNbaWnbaTeams = favorites.some(fav => {
-          const sport = String(fav.sport || '').toLowerCase();
-          return (sport === 'nba' || sport === 'wnba') && fav.currentGame;
+        const hasNbaWnbaTeams = favorites.some((fav) => {
+          const sport = String(fav.sport || "").toLowerCase();
+          return (sport === "nba" || sport === "wnba") && fav.currentGame;
         });
-        
+
         if (hasNbaWnbaTeams && clearCorruptedCurrentGames) {
-          await clearCorruptedCurrentGames(['nba', 'wnba']);
+          await clearCorruptedCurrentGames(["nba", "wnba"]);
         }
-      } catch (error) {
-      }
+      } catch (error) {}
     };
-    
+
     performCleanup();
   }, []); // Run once on mount
 
@@ -936,10 +1051,10 @@ const FavoritesScreen = ({ navigation }) => {
     // Set up interval to check for day changes every minute
     const checkInterval = setInterval(() => {
       const newGameDay = getCurrentGameDay();
-      
+
       if (currentGameDay && newGameDay !== currentGameDay) {
         setCurrentGameDay(newGameDay);
-        
+
         // Clear all stored current games and refresh
         clearAllCurrentGamesAndRefresh();
       } else if (!currentGameDay) {
@@ -959,33 +1074,43 @@ const FavoritesScreen = ({ navigation }) => {
   }, [currentGameDay]); // Include currentGameDay to properly track changes
 
   // Default section order if none present
-  const DEFAULT_SECTION_ORDER = ['MLB', 'NFL', 'NBA', 'NHL', 'WNBA', 'Soccer', 'F1'];
+  const DEFAULT_SECTION_ORDER = [
+    "MLB",
+    "NFL",
+    "NBA",
+    "NHL",
+    "WNBA",
+    "Soccer",
+    "F1",
+  ];
 
   // Function to merge saved order with default order to ensure all sports are included
   const mergeSectionOrders = (savedOrder) => {
     if (!savedOrder) return DEFAULT_SECTION_ORDER;
-    
+
     // Create a set of saved items for quick lookup
     const savedSet = new Set(savedOrder);
-    
+
     // Start with saved order
     const mergedOrder = [...savedOrder];
-    
+
     // Add any missing items from DEFAULT_SECTION_ORDER at the end
-    DEFAULT_SECTION_ORDER.forEach(sport => {
+    DEFAULT_SECTION_ORDER.forEach((sport) => {
       if (!savedSet.has(sport)) {
         mergedOrder.push(sport);
       }
     });
-    
+
     return mergedOrder;
   };
 
   const saveSectionOrder = async (order) => {
     try {
-      await AsyncStorage.setItem('favorites_section_order', JSON.stringify(order));
-    } catch (e) {
-    }
+      await AsyncStorage.setItem(
+        "favorites_section_order",
+        JSON.stringify(order)
+      );
+    } catch (e) {}
   };
 
   const openReorderModal = () => setIsReorderModalVisible(true);
@@ -1015,7 +1140,7 @@ const FavoritesScreen = ({ navigation }) => {
 
       // Listen for app coming back to foreground while this screen is focused
       const onAppStateChange = (nextAppState) => {
-        if (nextAppState === 'active') {
+        if (nextAppState === "active") {
           // Check if game day changed while app was in background
           const newGameDay = getCurrentGameDay();
           if (currentGameDay && newGameDay !== currentGameDay) {
@@ -1026,19 +1151,29 @@ const FavoritesScreen = ({ navigation }) => {
           }
         }
       };
-      const sub = AppState.addEventListener ? AppState.addEventListener('change', onAppStateChange) : null;
+      const sub = AppState.addEventListener
+        ? AppState.addEventListener("change", onAppStateChange)
+        : null;
 
       return () => {
         // Mirror MLBScoreboardScreen unfocus behavior for consistent logging
         setIsScreenFocused(false);
 
         if (updateInterval) {
-          try { clearInterval(updateInterval); } catch (e) { /* ignore */ }
+          try {
+            clearInterval(updateInterval);
+          } catch (e) {
+            /* ignore */
+          }
           setUpdateInterval(null);
         }
 
         if (liveGamesInterval) {
-          try { clearInterval(liveGamesInterval); } catch (e) { /* ignore */ }
+          try {
+            clearInterval(liveGamesInterval);
+          } catch (e) {
+            /* ignore */
+          }
           setLiveGamesInterval(null);
         }
 
@@ -1065,61 +1200,77 @@ const FavoritesScreen = ({ navigation }) => {
 
     // Check if we have any live games among scheduled games only (use computed flags)
     // Check if we have any games that need updates (live or approaching start time)
-    const hasGamesNeedingUpdates = favoriteGames.some(game => {
+    const hasGamesNeedingUpdates = favoriteGames.some((game) => {
       if (!game) return false;
-      const statusInfo = { 
-        isLive: game.isLive, 
-        isPre: game.isScheduled && !game.isLive, 
-        isPost: game.isFinished 
+      const statusInfo = {
+        isLive: game.isLive,
+        isPre: game.isScheduled && !game.isLive,
+        isPost: game.isFinished,
       };
-      return shouldGameReceiveUpdates(game, statusInfo, game.sport || 'Unknown');
+      return shouldGameReceiveUpdates(
+        game,
+        statusInfo,
+        game.sport || "Unknown"
+      );
     });
 
     if (hasGamesNeedingUpdates && isScreenFocused) {
       // Set up continuous refresh for live games (every 10 seconds)
       const interval = setInterval(() => {
         // Update games that should receive updates based on their status and timing
-        setFavoriteGames(currentGames => {
-          const gamesToUpdate = currentGames.filter(game => {
+        setFavoriteGames((currentGames) => {
+          const gamesToUpdate = currentGames.filter((game) => {
             if (!game) return false;
-            
+
             // Create proper status info object with more robust detection
             let statusInfo;
-            
+
             // If the game doesn't have status flags set OR all flags are false (indicating they need recomputation), compute them using computeMatchFlags
-            if ((game.isLive === undefined && game.isScheduled === undefined && game.isFinished === undefined) ||
-                (!game.isLive && !game.isScheduled && !game.isFinished)) {
+            if (
+              (game.isLive === undefined &&
+                game.isScheduled === undefined &&
+                game.isFinished === undefined) ||
+              (!game.isLive && !game.isScheduled && !game.isFinished)
+            ) {
               const flags = computeMatchFlags(game);
               statusInfo = {
                 isLive: flags.isLive,
                 isPre: flags.isScheduled && !flags.isLive,
-                isPost: flags.isFinished
+                isPost: flags.isFinished,
               };
             } else {
               // Use existing flags with fallback detection
-              statusInfo = { 
-                isLive: game.isLive || false, 
-                isPre: (game.isScheduled && !game.isLive) || false, 
-                isPost: game.isFinished || 
-                       (game.status?.type?.completed === true) ||
-                       (game.status?.type?.description?.toLowerCase().includes('final')) ||
-                       (game.header?.competitions?.[0]?.status?.type?.completed === true) ||
-                       (game.competitions?.[0]?.status?.type?.completed === true) ||
-                       false
+              statusInfo = {
+                isLive: game.isLive || false,
+                isPre: (game.isScheduled && !game.isLive) || false,
+                isPost:
+                  game.isFinished ||
+                  game.status?.type?.completed === true ||
+                  game.status?.type?.description
+                    ?.toLowerCase()
+                    .includes("final") ||
+                  game.header?.competitions?.[0]?.status?.type?.completed ===
+                    true ||
+                  game.competitions?.[0]?.status?.type?.completed === true ||
+                  false,
               };
             }
-            
+
             // Debug log to see what's happening
-            return shouldGameReceiveUpdates(game, statusInfo, game.sport || 'Unknown');
+            return shouldGameReceiveUpdates(
+              game,
+              statusInfo,
+              game.sport || "Unknown"
+            );
           });
-          
+
           if (gamesToUpdate.length > 0) {
             fetchFavoriteGames(false); // Use poll mode for auto-refresh
           } else {
           }
           return currentGames; // Return unchanged to prevent re-render
         });
-  }, 10000); // 10 seconds
+      }, 10000); // 10 seconds
 
       setUpdateInterval(interval);
 
@@ -1151,7 +1302,11 @@ const FavoritesScreen = ({ navigation }) => {
     if (!isScreenFocused) {
       // Ensure any previously set interval is cleared when unfocused
       if (liveGamesInterval) {
-        try { clearInterval(liveGamesInterval); } catch (e) { /* ignore */ }
+        try {
+          clearInterval(liveGamesInterval);
+        } catch (e) {
+          /* ignore */
+        }
         setLiveGamesInterval(null);
       }
       return;
@@ -1159,38 +1314,50 @@ const FavoritesScreen = ({ navigation }) => {
 
     const playsInterval = setInterval(() => {
       // Use a callback to get current favoriteGames to avoid dependency issues
-      setFavoriteGames(currentGames => {
+      setFavoriteGames((currentGames) => {
         // Get games that should receive updates based on their status and timing
-        const gamesToUpdatePlays = currentGames.filter(game => {
+        const gamesToUpdatePlays = currentGames.filter((game) => {
           if (!game) return false;
 
           // Create proper status info object with more robust detection (same as main auto-refresh)
           let statusInfo;
-          
+
           // If the game doesn't have status flags set, compute them using computeMatchFlags
-          if (game.isLive === undefined && game.isScheduled === undefined && game.isFinished === undefined) {
+          if (
+            game.isLive === undefined &&
+            game.isScheduled === undefined &&
+            game.isFinished === undefined
+          ) {
             const flags = computeMatchFlags(game);
             statusInfo = {
               isLive: flags.isLive,
               isPre: flags.isScheduled && !flags.isLive,
-              isPost: flags.isFinished
+              isPost: flags.isFinished,
             };
           } else {
             // Use existing flags with fallback detection
-            statusInfo = { 
-              isLive: game.isLive || false, 
-              isPre: (game.isScheduled && !game.isLive) || false, 
-              isPost: game.isFinished || 
-                     (game.status?.type?.completed === true) ||
-                     (String(game.status?.type?.description || '').toLowerCase().includes('final')) ||
-                     (game.header?.competitions?.[0]?.status?.type?.completed === true) ||
-                     (game.competitions?.[0]?.status?.type?.completed === true) ||
-                     false
+            statusInfo = {
+              isLive: game.isLive || false,
+              isPre: (game.isScheduled && !game.isLive) || false,
+              isPost:
+                game.isFinished ||
+                game.status?.type?.completed === true ||
+                String(game.status?.type?.description || "")
+                  .toLowerCase()
+                  .includes("final") ||
+                game.header?.competitions?.[0]?.status?.type?.completed ===
+                  true ||
+                game.competitions?.[0]?.status?.type?.completed === true ||
+                false,
             };
           }
 
           // Debug log to see what's happening
-          return shouldGameReceiveUpdates(game, statusInfo, game.sport || 'Unknown');
+          return shouldGameReceiveUpdates(
+            game,
+            statusInfo,
+            game.sport || "Unknown"
+          );
         });
 
         if (gamesToUpdatePlays.length > 0) {
@@ -1206,7 +1373,11 @@ const FavoritesScreen = ({ navigation }) => {
     setLiveGamesInterval(playsInterval);
 
     return () => {
-      try { clearInterval(playsInterval); } catch (e) { /* ignore */ }
+      try {
+        clearInterval(playsInterval);
+      } catch (e) {
+        /* ignore */
+      }
       setLiveGamesInterval(null);
     };
   }, [isScreenFocused]); // start/stop with focus
@@ -1221,59 +1392,90 @@ const FavoritesScreen = ({ navigation }) => {
       mlbInterval = setInterval(async () => {
         try {
           // Find MLB favorites that have a currentGame with an eventId - only actual MLB teams
-          const mlbFavs = favorites.filter(f => {
-            const sport = String(f.sport || '').toLowerCase();
-            const leagueCode = String(f.actualLeagueCode || '').toLowerCase();
-            const competition = String(f.currentGame?.competition || '').toLowerCase();
+          const mlbFavs = favorites.filter((f) => {
+            const sport = String(f.sport || "").toLowerCase();
+            const leagueCode = String(f.actualLeagueCode || "").toLowerCase();
+            const competition = String(
+              f.currentGame?.competition || ""
+            ).toLowerCase();
             // Only consider teams that are explicitly MLB and have MLB competition and the stored currentGame is scheduled
-            const isMLBTeam = (sport === 'mlb' || leagueCode === 'mlb');
-            const hasCurrent = f.currentGame && (f.currentGame.eventId || f.currentGame.gameId);
-            const isScheduled = Boolean(f.currentGame && (f.currentGame.isScheduled || (f.currentGame.gameDataWithStatus?.header?.competitions?.[0]?.status?.type?.state === 'pre')));
-            return isMLBTeam && (competition === 'mlb' || !competition) && hasCurrent && isScheduled;
+            const isMLBTeam = sport === "mlb" || leagueCode === "mlb";
+            const hasCurrent =
+              f.currentGame && (f.currentGame.eventId || f.currentGame.gameId);
+            const isScheduled = Boolean(
+              f.currentGame &&
+                (f.currentGame.isScheduled ||
+                  f.currentGame.gameDataWithStatus?.header?.competitions?.[0]
+                    ?.status?.type?.state === "pre")
+            );
+            return (
+              isMLBTeam &&
+              (competition === "mlb" || !competition) &&
+              hasCurrent &&
+              isScheduled
+            );
           });
 
           if (mlbFavs.length === 0) return;
 
-          await Promise.all(mlbFavs.map(async (fav) => {
-            try {
-              const eventId = fav.currentGame?.eventId || fav.currentGame?.gameId || fav.currentGame?.id;
-              if (!eventId) return;
-              
-              // Check if this game should still be updated (not finished, not too far in future)
-              if (!shouldFetchGame(fav.currentGame, fav.displayName || fav.teamName || 'Unknown')) {
-                return;
-              }
-              
-              const url = `https://statsapi.mlb.com/api/v1.1/game/${eventId}/feed/live`;
-              const json = await fetchJsonWithCache(url);
+          await Promise.all(
+            mlbFavs.map(async (fav) => {
+              try {
+                const eventId =
+                  fav.currentGame?.eventId ||
+                  fav.currentGame?.gameId ||
+                  fav.currentGame?.id;
+                if (!eventId) return;
 
-              const coded = json?.gameData?.status?.codedGameState || json?.liveData?.status?.codedGameState;
-              const linescore = json?.liveData?.linescore;
+                // Check if this game should still be updated (not finished, not too far in future)
+                if (
+                  !shouldFetchGame(
+                    fav.currentGame,
+                    fav.displayName || fav.teamName || "Unknown"
+                  )
+                ) {
+                  return;
+                }
 
-              // Build an updated currentGame object - keep previous fields and add mlb payload
-              const updatedCurrentGame = {
-                ...(fav.currentGame || {}),
-                eventId: eventId,
-                mlbGameData: json?.gameData || null,
-                liveData: json?.liveData || null,
-                codedGameState: coded,
-                linescore,
-                updatedAt: new Date().toISOString()
-              };
+                const url = `https://statsapi.mlb.com/api/v1.1/game/${eventId}/feed/live`;
+                const json = await fetchJsonWithCache(url);
 
-              // Only update if coded state or linescore changed
-              const prevCoded = fav.currentGame?.codedGameState || fav.currentGame?.status || null;
-              const prevLinescoreJson = JSON.stringify(fav.currentGame?.linescore || fav.liveData?.linescore || null);
-              const newLinescoreJson = JSON.stringify(linescore || null);
-              if (String(prevCoded) !== String(coded) || prevLinescoreJson !== newLinescoreJson) {
-                await updateTeamCurrentGame(fav.teamId, updatedCurrentGame);
-              }
-            } catch (err) {
-            }
-          }));
-        } catch (err) {
-        }
-  }, 25 * 1000); // 25 seconds
+                const coded =
+                  json?.gameData?.status?.codedGameState ||
+                  json?.liveData?.status?.codedGameState;
+                const linescore = json?.liveData?.linescore;
+
+                // Build an updated currentGame object - keep previous fields and add mlb payload
+                const updatedCurrentGame = {
+                  ...(fav.currentGame || {}),
+                  eventId: eventId,
+                  mlbGameData: json?.gameData || null,
+                  liveData: json?.liveData || null,
+                  codedGameState: coded,
+                  linescore,
+                  updatedAt: new Date().toISOString(),
+                };
+
+                // Only update if coded state or linescore changed
+                const prevCoded =
+                  fav.currentGame?.codedGameState ||
+                  fav.currentGame?.status ||
+                  null;
+                const prevLinescoreJson = JSON.stringify(
+                  fav.currentGame?.linescore || fav.liveData?.linescore || null
+                );
+                const newLinescoreJson = JSON.stringify(linescore || null);
+                if (
+                  String(prevCoded) !== String(coded) ||
+                  prevLinescoreJson !== newLinescoreJson
+                ) {
+                  await updateTeamCurrentGame(fav.teamId, updatedCurrentGame);
+                }
+              } catch (err) {}
+            })
+          );
+        } catch (err) {}
+      }, 25 * 1000); // 25 seconds
     };
 
     startPolling();
@@ -1294,7 +1496,7 @@ const FavoritesScreen = ({ navigation }) => {
       // Wait up to 10 seconds for auto-population
       let attempts = 0;
       while (autoPopulating && attempts < 20) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 500));
         attempts++;
       }
     }
@@ -1302,44 +1504,49 @@ const FavoritesScreen = ({ navigation }) => {
     try {
       isFetchingFavorites = true;
       // Mark the fetch phase so fetchJsonWithCache can decide whether to allow discovery fetches
-      currentFetchPhase = forceRefresh ? 'initial' : 'poll';
+      currentFetchPhase = forceRefresh ? "initial" : "poll";
       const now = Date.now();
 
       // Reduce debounce frequency: don't refetch more often than every 10 seconds
-      if (!forceRefresh && lastFetchTime && (now - lastFetchTime) < 10000) {
-        if (DEBUG) console.log('Skipping fetch - too soon since last fetch (10s cooldown)');
+      if (!forceRefresh && lastFetchTime && now - lastFetchTime < 10000) {
+        if (DEBUG)
+          console.log(
+            "Skipping fetch - too soon since last fetch (10s cooldown)"
+          );
         setLoading(false);
         setRefreshing(false);
         return;
       }
       setLastFetchTime(now);
-      
+
       // Clear logged games and games to update to allow fresh status logging and update tracking
       loggedGames.clear();
       gamesToUpdate.clear();
-      
+
       // Initialize fetch pass tracking
       currentFetchPassId = ++fetchPassCounter;
-      
+
       // Cleanup old cache entries (older than 6 hours)
-      const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
+      const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
       for (const [url, entry] of eventFetchCache.entries()) {
         if (entry.timestamp < sixHoursAgo) {
           eventFetchCache.delete(url);
         }
       }
-      
+
       const favoriteTeams = getFavoriteTeams();
       // Debug: Check if favorites already have currentGame data
       // Also migrate old F1 eventLinks to use Core API
       for (const team of favoriteTeams) {
-        const teamName = team.displayName || team.teamName || 'Unknown';
+        const teamName = team.displayName || team.teamName || "Unknown";
         if (team.currentGame) {
           // Check for old F1 summary URL and clear it
-          if (team.currentGame.competition === 'f1' && 
-              team.currentGame.eventLink && 
-              team.currentGame.eventLink.includes('site.api.espn.com') && 
-              team.currentGame.eventLink.includes('/summary')) {
+          if (
+            team.currentGame.competition === "f1" &&
+            team.currentGame.eventLink &&
+            team.currentGame.eventLink.includes("site.api.espn.com") &&
+            team.currentGame.eventLink.includes("/summary")
+          ) {
             await clearTeamCurrentGame(team.teamId); // Clear from AsyncStorage
             team.currentGame = null; // Clear from memory
           } else {
@@ -1347,7 +1554,7 @@ const FavoritesScreen = ({ navigation }) => {
         } else {
         }
       }
-      
+
       // Get unique teams by normalized key to avoid duplicates and malformed team objects
       // Prefer deduplication by teamId when present. If teamId is missing, fall back to displayName|sport.
       const seenKeys = new Set();
@@ -1355,8 +1562,8 @@ const FavoritesScreen = ({ navigation }) => {
       for (const team of favoriteTeams) {
         const rawId = team?.teamId ?? team?.id ?? null;
         const id = rawId != null ? String(rawId).trim() : null;
-        const display = team?.displayName || team?.teamName || 'Unknown';
-        const sport = team?.sport || '';
+        const display = team?.displayName || team?.teamName || "Unknown";
+        const sport = team?.sport || "";
         const key = id ? `id:${id}` : `name:${display}|${sport}`;
 
         if (!seenKeys.has(key)) {
@@ -1370,47 +1577,56 @@ const FavoritesScreen = ({ navigation }) => {
       // For each unique team, use the currentGame data from FavoritesContext
       const gamesPromises = uniqueTeams.flatMap(async (team) => {
         const teamGames = [];
-        const teamName = (team && (team.displayName || team.teamName)) || 'Unknown Team';
+        const teamName =
+          (team && (team.displayName || team.teamName)) || "Unknown Team";
         const teamStart = Date.now();
         const phaseTimes = {};
-        
+
         // Use currentGame data from the team object (populated by FavoritesContext auto-population)
         let currentGameData = team.currentGame || null;
-        
+
         // If no currentGame and it's an F1 team, fetch it immediately
-        if (!currentGameData && (team.sport === 'f1' || team.sport === 'F1')) {
+        if (!currentGameData && (team.sport === "f1" || team.sport === "F1")) {
           try {
-            const { fetchF1DriverCurrentRace } = require('../utils/TeamPageUtils');
-            const result = await fetchF1DriverCurrentRace(team.teamId, updateTeamCurrentGame);
+            const {
+              fetchF1DriverCurrentRace,
+            } = require("../utils/TeamPageUtils");
+            const result = await fetchF1DriverCurrentRace(
+              team.teamId,
+              updateTeamCurrentGame
+            );
             if (result && result.success) {
               // Get the updated team data
-              const updatedTeam = getFavoriteTeams().find(t => t.teamId === team.teamId);
+              const updatedTeam = getFavoriteTeams().find(
+                (t) => t.teamId === team.teamId
+              );
               currentGameData = updatedTeam?.currentGame || null;
             } else {
             }
-          } catch (err) {
-          }
+          } catch (err) {}
         }
-        
+
         if (!currentGameData) {
           phaseTimes.total = Date.now() - teamStart;
           return teamGames; // Return empty for teams without currentGame
         }
-        
+
         // Fast display: create a lightweight instant game card from stored currentGame so UI is instantaneous
         const instantGame = {
-          id: currentGameData.eventId ? String(currentGameData.eventId) : `fav-${team.teamId}-${currentGameData.gameDate}`,
+          id: currentGameData.eventId
+            ? String(currentGameData.eventId)
+            : `fav-${team.teamId}-${currentGameData.gameDate}`,
           eventId: currentGameData.eventId || null,
           eventLink: currentGameData.eventLink || null,
           gameDate: currentGameData.gameDate || null,
           competition: currentGameData.competition || team.sport || null,
           favoriteTeam: team.displayName || team.teamName || null,
-          favoriteTeamId: team.teamId || team.id || null
+          favoriteTeamId: team.teamId || team.id || null,
         };
 
         try {
           // Merge instant card into UI immediately (fast display)
-          mergeAndSetGames([ instantGame ]);
+          mergeAndSetGames([instantGame]);
           // Hide initial loading spinner as soon as we show the first instant card
           setLoading(false);
           // Mark that we've rendered incrementally so the first slow background fetch doesn't hide the UI again
@@ -1419,25 +1635,38 @@ const FavoritesScreen = ({ navigation }) => {
           // ignore merge errors for instant display
         }
 
-        if (DEBUG) // Ensure eventLink is set for the stored game
-        if ((currentGameData.competition === 'mlb' || team.sport === 'MLB') && !currentGameData.eventLink && currentGameData.eventId) {
-          currentGameData.eventLink = `/api/v1.1/game/${currentGameData.eventId}/feed/live`;
-        }
-        
-        if ((currentGameData.competition === 'nfl' || team.sport === 'NFL') && !currentGameData.eventLink && currentGameData.eventId) {
+        if (DEBUG)
+          if (
+            (currentGameData.competition === "mlb" || team.sport === "MLB") &&
+            !currentGameData.eventLink &&
+            currentGameData.eventId
+          ) {
+            // Ensure eventLink is set for the stored game
+            currentGameData.eventLink = `/api/v1.1/game/${currentGameData.eventId}/feed/live`;
+          }
+
+        if (
+          (currentGameData.competition === "nfl" || team.sport === "NFL") &&
+          !currentGameData.eventLink &&
+          currentGameData.eventId
+        ) {
           currentGameData.eventLink = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${currentGameData.eventId}`;
         }
-        
+
         try {
           // Still perform a background enhancement fetch to get full game details, but do not block the UI
-          const directResult = await promiseWithTimeout(fetchGameFromEventLink(team, currentGameData), 4500);
+          const directResult = await promiseWithTimeout(
+            fetchGameFromEventLink(team, currentGameData),
+            4500
+          );
           if (directResult) {
-            const results = Array.isArray(directResult) ? directResult : [directResult];
-            const valid = results.filter(r => r !== null);
+            const results = Array.isArray(directResult)
+              ? directResult
+              : [directResult];
+            const valid = results.filter((r) => r !== null);
             if (valid.length > 0) teamGames.push(...valid);
           }
-        } catch (error) {
-        }
+        } catch (error) {}
 
         phaseTimes.total = Date.now() - teamStart;
         return teamGames;
@@ -1450,13 +1679,16 @@ const FavoritesScreen = ({ navigation }) => {
 
       const mergeAndSetGames = (newGames) => {
         if (!newGames || newGames.length === 0) return;
-        setFavoriteGames(prev => {
+        setFavoriteGames((prev) => {
           // Attach status flags to new games
-          const enriched = newGames.map(g => ({ ...(g || {}), ...computeMatchFlags(g || {}) }));
+          const enriched = newGames.map((g) => ({
+            ...(g || {}),
+            ...computeMatchFlags(g || {}),
+          }));
           const merged = [...prev, ...enriched];
           // dedupe by id
           const unique = merged.reduce((acc, game) => {
-            if (!acc.find(g => g.id === game.id)) acc.push(game);
+            if (!acc.find((g) => g.id === game.id)) acc.push(game);
             return acc;
           }, []);
           // Show all games (scheduled, live, and finished)
@@ -1464,8 +1696,8 @@ const FavoritesScreen = ({ navigation }) => {
         });
       };
 
-      gamesPromises.forEach(p => {
-        p.then(games => {
+      gamesPromises.forEach((p) => {
+        p.then((games) => {
           try {
             mergeAndSetGames(games);
             if (!incrementalRendered) {
@@ -1473,18 +1705,18 @@ const FavoritesScreen = ({ navigation }) => {
               // Hide the initial loading spinner as soon as we have at least one result
               setLoading(false);
             }
-          } catch (e) {
-          }
-        }).catch(e => {
-        });
+          } catch (e) {}
+        }).catch((e) => {});
       });
 
       // Wait for all to finish, then compute final unique set and replace state with final sorted list
       const settled = await Promise.allSettled(gamesPromises);
-      const gamesArrays = settled.map(s => s.status === 'fulfilled' ? s.value : null);
+      const gamesArrays = settled.map((s) =>
+        s.status === "fulfilled" ? s.value : null
+      );
       // Flatten the arrays since each team can return multiple games
-      const allGames = (gamesArrays.filter(a => a).flat());
-      const validGames = allGames.filter(game => game !== null);
+      const allGames = gamesArrays.filter((a) => a).flat();
+      const validGames = allGames.filter((game) => game !== null);
 
       // Remove duplicate games (when both teams in a match are favorited)
       // Exception: F1 games should NOT be deduplicated as each constructor gets their own personalized card
@@ -1492,14 +1724,21 @@ const FavoritesScreen = ({ navigation }) => {
         if (!game || !game.id) {
           return acc;
         }
-        
+
         // For F1 games, use a compound key: gameId + constructorName to allow multiple constructor cards per race
-        if (game.sport === 'F1' || game.actualLeagueCode === 'f1' || game.sport === 'f1') {
-          const constructorName = game.constructorName || 'unknown';
+        if (
+          game.sport === "F1" ||
+          game.actualLeagueCode === "f1" ||
+          game.sport === "f1"
+        ) {
+          const constructorName = game.constructorName || "unknown";
           const uniqueKey = `${game.id}_${constructorName}`;
-          const existingF1Game = acc.find(g => 
-            (g.sport === 'F1' || g.actualLeagueCode === 'f1' || g.sport === 'f1') && 
-            `${g.id}_${g.constructorName || 'unknown'}` === uniqueKey
+          const existingF1Game = acc.find(
+            (g) =>
+              (g.sport === "F1" ||
+                g.actualLeagueCode === "f1" ||
+                g.sport === "f1") &&
+              `${g.id}_${g.constructorName || "unknown"}` === uniqueKey
           );
           if (!existingF1Game) {
             acc.push(game);
@@ -1507,7 +1746,7 @@ const FavoritesScreen = ({ navigation }) => {
           }
         } else {
           // Regular deduplication for non-F1 games
-          const existingGame = acc.find(g => g.id === game.id);
+          const existingGame = acc.find((g) => g.id === game.id);
           if (!existingGame) {
             acc.push(game);
           } else {
@@ -1517,64 +1756,85 @@ const FavoritesScreen = ({ navigation }) => {
       }, []);
       // Automatically store currentGame data for all teams that have games
       const storagePromises = [];
-      
+
       for (const game of uniqueGames) {
-        if (game.favoriteTeam && game.eventId && game.eventLink && game.gameDate) {
+        if (
+          game.favoriteTeam &&
+          game.eventId &&
+          game.eventLink &&
+          game.gameDate
+        ) {
           const currentGameData = {
             eventId: game.eventId,
             eventLink: game.eventLink,
             gameDate: game.gameDate,
-            competition: game.competition || game.sport || 'unknown',
-            updatedAt: new Date().toISOString()
+            competition: game.competition || game.sport || "unknown",
+            updatedAt: new Date().toISOString(),
           };
-          
+
           // Find the team in favorites to get the correct teamId
-          const favoriteTeam = favoriteTeams.find(t => 
-            t.displayName === game.favoriteTeam || 
-            t.teamName === game.favoriteTeam ||
-            String(t.teamId) === String(game.favoriteTeamId)
+          const favoriteTeam = favoriteTeams.find(
+            (t) =>
+              t.displayName === game.favoriteTeam ||
+              t.teamName === game.favoriteTeam ||
+              String(t.teamId) === String(game.favoriteTeamId)
           );
-          
+
           if (favoriteTeam && favoriteTeam.teamId) {
             storagePromises.push(
-              updateTeamCurrentGame(favoriteTeam.teamId, currentGameData).catch(error => {
-              })
+              updateTeamCurrentGame(favoriteTeam.teamId, currentGameData).catch(
+                (error) => {}
+              )
             );
           } else {
           }
         }
       }
-      
+
       // Wait for all storage operations to complete
       if (storagePromises.length > 0) {
         await Promise.allSettled(storagePromises);
       }
-      
+
       // Log summary of games being tracked for updates
       if (gamesToUpdate.size > 0) {
       } else {
       }
       // Preserve any incremental results already in state (merge union) so fast direct fetches aren't lost
       try {
-        setFavoriteGames(prev => {
+        setFavoriteGames((prev) => {
           try {
             const unionMap = new Map();
             // Enrich uniqueGames with flags
-            uniqueGames.forEach(g => unionMap.set(String(g.id), { ...(g || {}), ...computeMatchFlags(g || {}) }));
-            (prev || []).forEach(g => {
-              if (g && g.id && !unionMap.has(String(g.id))) unionMap.set(String(g.id), g);
+            uniqueGames.forEach((g) =>
+              unionMap.set(String(g.id), {
+                ...(g || {}),
+                ...computeMatchFlags(g || {}),
+              })
+            );
+            (prev || []).forEach((g) => {
+              if (g && g.id && !unionMap.has(String(g.id)))
+                unionMap.set(String(g.id), g);
             });
             // Show all games
             const all = Array.from(unionMap.values());
             return sortGamesByStatusAndTime(all);
           } catch (inner) {
             // fallback: enrich and show all games
-            const fallback = uniqueGames.map(g => ({ ...(g || {}), ...computeMatchFlags(g || {}) }));
+            const fallback = uniqueGames.map((g) => ({
+              ...(g || {}),
+              ...computeMatchFlags(g || {}),
+            }));
             return sortGamesByStatusAndTime(fallback);
           }
         });
       } catch (e) {
-        const finalGames = sortGamesByStatusAndTime(uniqueGames.map(g => ({ ...(g || {}), ...computeMatchFlags(g || {}) })));
+        const finalGames = sortGamesByStatusAndTime(
+          uniqueGames.map((g) => ({
+            ...(g || {}),
+            ...computeMatchFlags(g || {}),
+          }))
+        );
         setFavoriteGames(finalGames);
       }
     } catch (error) {
@@ -1582,7 +1842,7 @@ const FavoritesScreen = ({ navigation }) => {
       setLoading(false);
       setRefreshing(false);
       isFetchingFavorites = false; // Reset the flag to allow future fetches
-      currentFetchPhase = 'idle';
+      currentFetchPhase = "idle";
     }
   };
 
@@ -1593,54 +1853,73 @@ const FavoritesScreen = ({ navigation }) => {
 
   // Function to update plays data for games that need updates based on timing and status
   // Accept a snapshot of currentGames and a prefiltered liveSnapshot to avoid stale closures
-  const updateLiveGamesPlays = async (currentGamesSnapshot = null, liveSnapshot = null) => {
+  const updateLiveGamesPlays = async (
+    currentGamesSnapshot = null,
+    liveSnapshot = null
+  ) => {
     try {
       // Get games that should receive updates based on their status and timing
-      const gamesToUpdate = Array.isArray(liveSnapshot) ? liveSnapshot : (
-        Array.isArray(currentGamesSnapshot) ? 
-          currentGamesSnapshot.filter(g => {
+      const gamesToUpdate = Array.isArray(liveSnapshot)
+        ? liveSnapshot
+        : Array.isArray(currentGamesSnapshot)
+        ? currentGamesSnapshot.filter((g) => {
             if (!g) return false;
-            
+
             let statusInfo;
-            if (g.isLive === undefined && g.isScheduled === undefined && g.isFinished === undefined) {
+            if (
+              g.isLive === undefined &&
+              g.isScheduled === undefined &&
+              g.isFinished === undefined
+            ) {
               const flags = computeMatchFlags(g);
               statusInfo = {
                 isLive: flags.isLive,
                 isPre: flags.isScheduled && !flags.isLive,
-                isPost: flags.isFinished
+                isPost: flags.isFinished,
               };
             } else {
-              statusInfo = { 
-                isLive: g.isLive, 
-                isPre: g.isScheduled && !g.isLive, 
-                isPost: g.isFinished 
+              statusInfo = {
+                isLive: g.isLive,
+                isPre: g.isScheduled && !g.isLive,
+                isPost: g.isFinished,
               };
             }
-            
-            return shouldGameReceiveUpdates(g, statusInfo, g.sport || 'Unknown');
-          }) : 
-          favoriteGames.filter(game => {
+
+            return shouldGameReceiveUpdates(
+              g,
+              statusInfo,
+              g.sport || "Unknown"
+            );
+          })
+        : favoriteGames.filter((game) => {
             if (!game) return false;
-            
+
             let statusInfo;
-            if (game.isLive === undefined && game.isScheduled === undefined && game.isFinished === undefined) {
+            if (
+              game.isLive === undefined &&
+              game.isScheduled === undefined &&
+              game.isFinished === undefined
+            ) {
               const flags = computeMatchFlags(game);
               statusInfo = {
                 isLive: flags.isLive,
                 isPre: flags.isScheduled && !flags.isLive,
-                isPost: flags.isFinished
+                isPost: flags.isFinished,
               };
             } else {
-              statusInfo = { 
-                isLive: game.isLive, 
-                isPre: game.isScheduled && !game.isLive, 
-                isPost: game.isFinished 
+              statusInfo = {
+                isLive: game.isLive,
+                isPre: game.isScheduled && !game.isLive,
+                isPost: game.isFinished,
               };
             }
-            
-            return shouldGameReceiveUpdates(game, statusInfo, game.sport || 'Unknown');
-          })
-      );
+
+            return shouldGameReceiveUpdates(
+              game,
+              statusInfo,
+              game.sport || "Unknown"
+            );
+          });
 
       if (gamesToUpdate.length === 0) {
         return;
@@ -1648,8 +1927,8 @@ const FavoritesScreen = ({ navigation }) => {
       const updatedGames = await Promise.all(
         (currentGamesSnapshot || favoriteGames).map(async (game) => {
           // Check if this game is one that should receive updates
-          const shouldUpdate = gamesToUpdate.find(g => g.id === game.id);
-          
+          const shouldUpdate = gamesToUpdate.find((g) => g.id === game.id);
+
           if (!shouldUpdate) {
             return game; // Return unchanged if not in update list
           }
@@ -1661,111 +1940,174 @@ const FavoritesScreen = ({ navigation }) => {
 
           try {
             let playsData = null;
-            
+
             // Determine the correct API endpoint based on sport
-            if (game.sport === 'Champions League' || game.actualLeagueCode === 'uefa.champions') {
-              const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.champions/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`);
-              if (playsResponseData.items && playsResponseData.items.length > 0) {
+            if (
+              game.sport === "Champions League" ||
+              game.actualLeagueCode === "uefa.champions"
+            ) {
+              const playsResponseData = await fetchJsonWithCache(
+                `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.champions/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`
+              );
+              if (
+                playsResponseData.items &&
+                playsResponseData.items.length > 0
+              ) {
                 playsData = [...playsResponseData.items].reverse();
               }
-              
+
               // Also fetch Site API status for Champions League
               try {
                 const siteApiUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/summary?event=${game.id}`;
                 const statusJson = await fetchJsonWithCache(siteApiUrl);
-                if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
+                if (
+                  statusJson &&
+                  statusJson.header &&
+                  statusJson.header.competitions &&
+                  statusJson.header.competitions[0]
+                ) {
                   extraStatusForMerge = statusJson.header.competitions[0];
                 } else {
                 }
-              } catch (statusErr) {
-              }
+              } catch (statusErr) {}
 
               // Also fetch individual competitor score data like initial load does
               if (game.competitions?.[0]?.competitors) {
                 try {
-                  const scorePromises = game.competitions[0].competitors.map(async (competitor, index) => {
-                    if (competitor.score?.$ref) {
-                      const scoreData = await getEventData(competitor.score.$ref, true, { ...game, respectLiveStatus: true }).catch(() => null);
-                      return { index, scoreData };
+                  const scorePromises = game.competitions[0].competitors.map(
+                    async (competitor, index) => {
+                      if (competitor.score?.$ref) {
+                        const scoreData = await getEventData(
+                          competitor.score.$ref,
+                          true,
+                          { ...game, respectLiveStatus: true }
+                        ).catch(() => null);
+                        return { index, scoreData };
+                      }
+                      return { index, scoreData: null };
                     }
-                    return { index, scoreData: null };
-                  });
+                  );
                   const scoreResults = await Promise.all(scorePromises);
                   // Store score data for later merging
-                  extraScoreDataForMerge = scoreResults.filter(r => r.scoreData !== null);
-                } catch (scoreErr) {
-                }
+                  extraScoreDataForMerge = scoreResults.filter(
+                    (r) => r.scoreData !== null
+                  );
+                } catch (scoreErr) {}
               }
-            } else if (game.sport === 'Europa League' || game.actualLeagueCode === 'uefa.europa') {
-              const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`);
-              if (playsResponseData.items && playsResponseData.items.length > 0) {
+            } else if (
+              game.sport === "Europa League" ||
+              game.actualLeagueCode === "uefa.europa"
+            ) {
+              const playsResponseData = await fetchJsonWithCache(
+                `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`
+              );
+              if (
+                playsResponseData.items &&
+                playsResponseData.items.length > 0
+              ) {
                 playsData = [...playsResponseData.items].reverse();
               }
-              
+
               // Also fetch Site API status for Europa League
               try {
                 const siteApiUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/summary?event=${game.id}`;
                 const statusJson = await fetchJsonWithCache(siteApiUrl);
-                if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
+                if (
+                  statusJson &&
+                  statusJson.header &&
+                  statusJson.header.competitions &&
+                  statusJson.header.competitions[0]
+                ) {
                   extraStatusForMerge = statusJson.header.competitions[0];
                 } else {
                 }
-              } catch (statusErr) {
-              }
+              } catch (statusErr) {}
 
               // Also fetch individual competitor score data like initial load does
               if (game.competitions?.[0]?.competitors) {
                 try {
-                  const scorePromises = game.competitions[0].competitors.map(async (competitor, index) => {
-                    if (competitor.score?.$ref) {
-                      const scoreData = await getEventData(competitor.score.$ref, true, { ...game, respectLiveStatus: true }).catch(() => null);
-                      return { index, scoreData };
+                  const scorePromises = game.competitions[0].competitors.map(
+                    async (competitor, index) => {
+                      if (competitor.score?.$ref) {
+                        const scoreData = await getEventData(
+                          competitor.score.$ref,
+                          true,
+                          { ...game, respectLiveStatus: true }
+                        ).catch(() => null);
+                        return { index, scoreData };
+                      }
+                      return { index, scoreData: null };
                     }
-                    return { index, scoreData: null };
-                  });
+                  );
                   const scoreResults = await Promise.all(scorePromises);
                   // Store score data for later merging
-                  extraScoreDataForMerge = scoreResults.filter(r => r.scoreData !== null);
-                } catch (scoreErr) {
-                }
+                  extraScoreDataForMerge = scoreResults.filter(
+                    (r) => r.scoreData !== null
+                  );
+                } catch (scoreErr) {}
               }
-            } else if (game.sport === 'Europa Conference League' || game.actualLeagueCode === 'uefa.europa.conf') {
-              const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`);
-              if (playsResponseData.items && playsResponseData.items.length > 0) {
+            } else if (
+              game.sport === "Europa Conference League" ||
+              game.actualLeagueCode === "uefa.europa.conf"
+            ) {
+              const playsResponseData = await fetchJsonWithCache(
+                `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`
+              );
+              if (
+                playsResponseData.items &&
+                playsResponseData.items.length > 0
+              ) {
                 playsData = [...playsResponseData.items].reverse();
               }
-              
+
               // Also fetch Site API status for Europa Conference League
               try {
                 const siteApiUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/summary?event=${game.id}`;
                 const statusJson = await fetchJsonWithCache(siteApiUrl);
-                if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
+                if (
+                  statusJson &&
+                  statusJson.header &&
+                  statusJson.header.competitions &&
+                  statusJson.header.competitions[0]
+                ) {
                   extraStatusForMerge = statusJson.header.competitions[0];
                 } else {
                 }
-              } catch (statusErr) {
-              }
+              } catch (statusErr) {}
 
               // Also fetch individual competitor score data like initial load does
               if (game.competitions?.[0]?.competitors) {
                 try {
-                  const scorePromises = game.competitions[0].competitors.map(async (competitor, index) => {
-                    if (competitor.score?.$ref) {
-                      const scoreData = await getEventData(competitor.score.$ref, true, { ...game, respectLiveStatus: true }).catch(() => null);
-                      return { index, scoreData };
+                  const scorePromises = game.competitions[0].competitors.map(
+                    async (competitor, index) => {
+                      if (competitor.score?.$ref) {
+                        const scoreData = await getEventData(
+                          competitor.score.$ref,
+                          true,
+                          { ...game, respectLiveStatus: true }
+                        ).catch(() => null);
+                        return { index, scoreData };
+                      }
+                      return { index, scoreData: null };
                     }
-                    return { index, scoreData: null };
-                  });
+                  );
                   const scoreResults = await Promise.all(scorePromises);
                   // Store score data for later merging
-                  extraScoreDataForMerge = scoreResults.filter(r => r.scoreData !== null);
-                } catch (scoreErr) {
-                }
+                  extraScoreDataForMerge = scoreResults.filter(
+                    (r) => r.scoreData !== null
+                  );
+                } catch (scoreErr) {}
               }
-            } else if (game.sport === 'MLB' || game.actualLeagueCode === 'mlb') {
+            } else if (
+              game.sport === "MLB" ||
+              game.actualLeagueCode === "mlb"
+            ) {
               // For MLB games, use the direct game link (statsapi) instead of ESPN plays endpoint
               if (game.eventLink) {
-                const gameData = await getEventData(game.eventLink, true, { ...game, respectLiveStatus: true }); // bypass gating for live updates
+                const gameData = await getEventData(game.eventLink, true, {
+                  ...game,
+                  respectLiveStatus: true,
+                }); // bypass gating for live updates
                 // If statsapi returned liveData, pull both plays and updated situation info
                 if (gameData && gameData.liveData) {
                   const allPlays = gameData.liveData.plays?.allPlays;
@@ -1787,20 +2129,28 @@ const FavoritesScreen = ({ navigation }) => {
                     const currentPlay = gameData.liveData.plays?.currentPlay;
                     const currentCount = currentPlay?.count;
                     const matchup = currentPlay?.matchup || {};
-                    
+
                     var newSituation = {
                       balls: currentCount?.balls ?? ls.balls ?? 0,
                       strikes: currentCount?.strikes ?? ls.strikes ?? 0,
                       outs: currentCount?.outs ?? ls.outs ?? 0,
-                      inning: ls.currentInning || ls.inning || currentPlay?.about?.inning || 1,
-                      isTopInning: (ls.inningState === 'Top') || (currentPlay?.about?.isTopInning === false ? false : true),
+                      inning:
+                        ls.currentInning ||
+                        ls.inning ||
+                        currentPlay?.about?.inning ||
+                        1,
+                      isTopInning:
+                        ls.inningState === "Top" ||
+                        (currentPlay?.about?.isTopInning === false
+                          ? false
+                          : true),
                       bases: {
                         first: !!matchup.postOnFirst,
                         second: !!matchup.postOnSecond,
-                        third: !!matchup.postOnThird
-                      }
+                        third: !!matchup.postOnThird,
+                      },
                     };
-                    
+
                     // Debug log the extracted situation values
                   } catch (e) {
                     // ignore building situation
@@ -1809,23 +2159,39 @@ const FavoritesScreen = ({ navigation }) => {
                 }
                 // If we fetched plays but they lack usable description fields, don't overwrite
                 // the existing playsData for this game (prevents losing rich descriptions).
-                if (playsData && Array.isArray(playsData) && playsData.length > 0) {
+                if (
+                  playsData &&
+                  Array.isArray(playsData) &&
+                  playsData.length > 0
+                ) {
                   const latest = playsData[0];
-                  const hasDescription = (latest && (
-                    (latest.result && latest.result.description) ||
-                    latest.about && (latest.about.playText || latest.about.description) ||
-                    latest.playText || latest.description ||
-                    (Array.isArray(latest.playEvents) && latest.playEvents.some(ev => ev?.details?.description))
-                  ));
-                  if (!hasDescription && game.playsData && Array.isArray(game.playsData) && game.playsData.length > 0) {
-                    console.log(`Fetched MLB plays for game ${game.id} lack descriptions; preserving existing playsData (${game.playsData.length} items)`);
+                  const hasDescription =
+                    latest &&
+                    ((latest.result && latest.result.description) ||
+                      (latest.about &&
+                        (latest.about.playText || latest.about.description)) ||
+                      latest.playText ||
+                      latest.description ||
+                      (Array.isArray(latest.playEvents) &&
+                        latest.playEvents.some(
+                          (ev) => ev?.details?.description
+                        )));
+                  if (
+                    !hasDescription &&
+                    game.playsData &&
+                    Array.isArray(game.playsData) &&
+                    game.playsData.length > 0
+                  ) {
+                    console.log(
+                      `Fetched MLB plays for game ${game.id} lack descriptions; preserving existing playsData (${game.playsData.length} items)`
+                    );
                     playsData = game.playsData; // preserve previous rich plays
                   }
                 }
 
                 // For MLB games, handle both plays and situation updates here where gameData is available
                 let updatedGame = game;
-                
+
                 // Update plays if changed
                 if (playsData) {
                   const currentPlaysJson = JSON.stringify(game.playsData);
@@ -1836,89 +2202,144 @@ const FavoritesScreen = ({ navigation }) => {
                 }
 
                 // Update scores from currentPlay if available
-                if (gameData && gameData.liveData && gameData.liveData.plays && gameData.liveData.plays.currentPlay) {
+                if (
+                  gameData &&
+                  gameData.liveData &&
+                  gameData.liveData.plays &&
+                  gameData.liveData.plays.currentPlay
+                ) {
                   const currentPlay = gameData.liveData.plays.currentPlay;
-                  if (currentPlay.result && (currentPlay.result.awayScore !== undefined || currentPlay.result.homeScore !== undefined)) {
-                    const updatedCompetitions = [...(updatedGame.competitions || [])];
-                    if (updatedCompetitions[0] && updatedCompetitions[0].competitors) {
-                      const updatedCompetitors = updatedCompetitions[0].competitors.map(competitor => {
-                        if (competitor.homeAway === 'away' && currentPlay.result.awayScore !== undefined) {
-                          return { ...competitor, score: String(currentPlay.result.awayScore) };
-                        } else if (competitor.homeAway === 'home' && currentPlay.result.homeScore !== undefined) {
-                          return { ...competitor, score: String(currentPlay.result.homeScore) };
-                        }
-                        return competitor;
-                      });
-                      
-                      updatedCompetitions[0] = { ...updatedCompetitions[0], competitors: updatedCompetitors };
-                      updatedGame = { ...updatedGame, competitions: updatedCompetitions };
+                  if (
+                    currentPlay.result &&
+                    (currentPlay.result.awayScore !== undefined ||
+                      currentPlay.result.homeScore !== undefined)
+                  ) {
+                    const updatedCompetitions = [
+                      ...(updatedGame.competitions || []),
+                    ];
+                    if (
+                      updatedCompetitions[0] &&
+                      updatedCompetitions[0].competitors
+                    ) {
+                      const updatedCompetitors =
+                        updatedCompetitions[0].competitors.map((competitor) => {
+                          if (
+                            competitor.homeAway === "away" &&
+                            currentPlay.result.awayScore !== undefined
+                          ) {
+                            return {
+                              ...competitor,
+                              score: String(currentPlay.result.awayScore),
+                            };
+                          } else if (
+                            competitor.homeAway === "home" &&
+                            currentPlay.result.homeScore !== undefined
+                          ) {
+                            return {
+                              ...competitor,
+                              score: String(currentPlay.result.homeScore),
+                            };
+                          }
+                          return competitor;
+                        });
+
+                      updatedCompetitions[0] = {
+                        ...updatedCompetitions[0],
+                        competitors: updatedCompetitors,
+                      };
+                      updatedGame = {
+                        ...updatedGame,
+                        competitions: updatedCompetitions,
+                      };
                     }
                   }
                 }
 
                 // Update situation if changed (gameData is available here)
-                if (typeof newSituation !== 'undefined') {
+                if (typeof newSituation !== "undefined") {
                   try {
-                    const currentSituationJson = JSON.stringify((game.liveData && game.liveData.situation) || null);
+                    const currentSituationJson = JSON.stringify(
+                      (game.liveData && game.liveData.situation) || null
+                    );
                     const newSituationJson = JSON.stringify(newSituation);
                     if (currentSituationJson !== newSituationJson) {
-                      const mergedLive = { ...(updatedGame.liveData || {}), situation: newSituation };
+                      const mergedLive = {
+                        ...(updatedGame.liveData || {}),
+                        situation: newSituation,
+                      };
                       // Prefer the liveData.status from statsapi if available
-                      if (gameData && gameData.liveData && gameData.liveData.status) mergedLive.status = gameData.liveData.status;
+                      if (
+                        gameData &&
+                        gameData.liveData &&
+                        gameData.liveData.status
+                      )
+                        mergedLive.status = gameData.liveData.status;
                       updatedGame = { ...updatedGame, liveData: mergedLive };
                     } else {
                     }
-                  } catch (e) {
-                  }
+                  } catch (e) {}
                 }
 
                 return updatedGame;
               } else {
               }
-            } else if (game.actualLeagueCode === 'nfl') {
+            } else if (game.actualLeagueCode === "nfl") {
               // Handle NFL games - only fetch summary for live games to reduce API calls
               try {
                 // Check if game is likely live before making expensive API call
                 const gameFlags = computeMatchFlags(game);
-                const isLikelyLive = gameFlags.isLive || 
-                  (game.status && (game.status.toLowerCase().includes('live') || 
-                                  game.status.toLowerCase().includes('progress') || 
-                                  game.status.toLowerCase().includes('quarter')));
-                
+                const isLikelyLive =
+                  gameFlags.isLive ||
+                  (game.status &&
+                    (game.status.toLowerCase().includes("live") ||
+                      game.status.toLowerCase().includes("progress") ||
+                      game.status.toLowerCase().includes("quarter")));
+
                 let updatedData = null;
                 let drivesData = null;
-                
+
                 if (isLikelyLive) {
                   // Use the ESPN NFL summary API to get updated game data
                   const nflSummaryUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${game.id}`;
-                  updatedData = await fetchJsonWithCache(nflSummaryUrl, { bypassGating: true });
+                  updatedData = await fetchJsonWithCache(nflSummaryUrl, {
+                    bypassGating: true,
+                  });
 
                   // Also fetch drives (plays) so we can derive situation/play text reliably like GameDetails
                   try {
-                    drivesData = await NFLService.getDrives(game.id).catch(() => null);
-                  } catch (dErr) {
-                  }
+                    drivesData = await NFLService.getDrives(game.id).catch(
+                      () => null
+                    );
+                  } catch (dErr) {}
                 }
 
                 if (updatedData?.header?.competitions?.[0]) {
                   const competition = updatedData.header.competitions[0];
-                  
+
                   // Create a new game object to ensure React detects changes
                   const updatedGame = { ...game };
 
                   // Update game status and scores
                   if (competition.status) {
-                    updatedGame.status = competition.status.type?.description || game.status;
+                    updatedGame.status =
+                      competition.status.type?.description || game.status;
                     updatedGame.displayClock = competition.status.displayClock;
                     updatedGame.period = competition.status.period;
                   }
 
                   // Update team scores and colors
-                  const homeTeam = competition.competitors?.find(c => c.homeAway === 'home');
-                  const awayTeam = competition.competitors?.find(c => c.homeAway === 'away');
+                  const homeTeam = competition.competitors?.find(
+                    (c) => c.homeAway === "home"
+                  );
+                  const awayTeam = competition.competitors?.find(
+                    (c) => c.homeAway === "away"
+                  );
 
                   if (homeTeam && updatedGame.homeTeam) {
-                    updatedGame.homeTeam = { ...updatedGame.homeTeam, score: homeTeam.score };
+                    updatedGame.homeTeam = {
+                      ...updatedGame.homeTeam,
+                      score: homeTeam.score,
+                    };
                     // Update team color if available
                     if (homeTeam.team?.color && !updatedGame.homeTeam.color) {
                       updatedGame.homeTeam.color = homeTeam.team.color;
@@ -1929,7 +2350,10 @@ const FavoritesScreen = ({ navigation }) => {
                     }
                   }
                   if (awayTeam && updatedGame.awayTeam) {
-                    updatedGame.awayTeam = { ...updatedGame.awayTeam, score: awayTeam.score };
+                    updatedGame.awayTeam = {
+                      ...updatedGame.awayTeam,
+                      score: awayTeam.score,
+                    };
                     // Update team color if available
                     if (awayTeam.team?.color && !updatedGame.awayTeam.color) {
                       updatedGame.awayTeam.color = awayTeam.team.color;
@@ -1948,39 +2372,64 @@ const FavoritesScreen = ({ navigation }) => {
                       distance: competition.situation.distance,
                       yardLine: competition.situation.yardLine,
                       possessionText: competition.situation.possessionText,
-                      shortDownDistanceText: competition.situation.shortDownDistanceText
+                      shortDownDistanceText:
+                        competition.situation.shortDownDistanceText,
                     };
                   }
 
                   // Merge drives/plays into game so downstream rendering can use them directly
-                  if (drivesData && Array.isArray(drivesData) && drivesData.length) {
+                  if (
+                    drivesData &&
+                    Array.isArray(drivesData) &&
+                    drivesData.length
+                  ) {
                     // attach raw drives and also set playsData similar to other branches
                     updatedGame.drives = drivesData;
                     // find most recent drive with plays
-                    const driveWithPlays = [...drivesData].reverse().find(d => Array.isArray(d.plays) && d.plays.length) || drivesData[drivesData.length - 1];
-                    updatedGame.playsData = driveWithPlays && Array.isArray(driveWithPlays.plays) ? [...driveWithPlays.plays].reverse() : null;
+                    const driveWithPlays =
+                      [...drivesData]
+                        .reverse()
+                        .find(
+                          (d) => Array.isArray(d.plays) && d.plays.length
+                        ) || drivesData[drivesData.length - 1];
+                    updatedGame.playsData =
+                      driveWithPlays && Array.isArray(driveWithPlays.plays)
+                        ? [...driveWithPlays.plays].reverse()
+                        : null;
                     // Always try to update situation with latest data from drives
-                    const currentDrive = drivesData.find(drive => !drive.end?.text && drive.result !== 'End of Game');
-                    if (currentDrive && currentDrive.plays && currentDrive.plays.length) {
-                      const lastPlay = currentDrive.plays[currentDrive.plays.length - 1];
+                    const currentDrive = drivesData.find(
+                      (drive) =>
+                        !drive.end?.text && drive.result !== "End of Game"
+                    );
+                    if (
+                      currentDrive &&
+                      currentDrive.plays &&
+                      currentDrive.plays.length
+                    ) {
+                      const lastPlay =
+                        currentDrive.plays[currentDrive.plays.length - 1];
                       if (lastPlay && lastPlay.end) {
                         updatedGame.situation = updatedGame.situation || {};
                         // Always update with latest data from drives
                         if (lastPlay.end.shortDownDistanceText) {
-                          updatedGame.situation.shortDownDistanceText = lastPlay.end.shortDownDistanceText;
+                          updatedGame.situation.shortDownDistanceText =
+                            lastPlay.end.shortDownDistanceText;
                         }
                         if (lastPlay.end.possessionText) {
-                          updatedGame.situation.possessionText = lastPlay.end.possessionText;
+                          updatedGame.situation.possessionText =
+                            lastPlay.end.possessionText;
                         }
                         // Also update other situation fields if available
                         if (lastPlay.end.down) {
                           updatedGame.situation.down = lastPlay.end.down;
                         }
                         if (lastPlay.end.distance) {
-                          updatedGame.situation.distance = lastPlay.end.distance;
+                          updatedGame.situation.distance =
+                            lastPlay.end.distance;
                         }
                         if (lastPlay.end.yardLine) {
-                          updatedGame.situation.yardLine = lastPlay.end.yardLine;
+                          updatedGame.situation.yardLine =
+                            lastPlay.end.yardLine;
                         }
                       }
                     }
@@ -1988,124 +2437,165 @@ const FavoritesScreen = ({ navigation }) => {
                   return updatedGame; // Return the updated game object
                 } else {
                 }
-              } catch (nflUpdateError) {
-              }
+              } catch (nflUpdateError) {}
               return game; // Return game object even if update failed
-            } else if (game.actualLeagueCode === 'nhl') {
+            } else if (game.actualLeagueCode === "nhl") {
               // Handle NHL games - only fetch summary for live games to reduce API calls
               try {
                 // Check if game is likely live before making expensive API call
                 const gameFlags = computeMatchFlags(game);
-                const isLikelyLive = gameFlags.isLive || 
-                  (game.status && (game.status.toLowerCase().includes('live') || 
-                                  game.status.toLowerCase().includes('progress') || 
-                                  game.status.toLowerCase().includes('period')));
-                
+                const isLikelyLive =
+                  gameFlags.isLive ||
+                  (game.status &&
+                    (game.status.toLowerCase().includes("live") ||
+                      game.status.toLowerCase().includes("progress") ||
+                      game.status.toLowerCase().includes("period")));
+
                 if (isLikelyLive) {
                   const nhlSummaryUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/summary?event=${game.id}`;
                   const statusJson = await fetchJsonWithCache(nhlSummaryUrl);
-                  
-                  if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
+
+                  if (
+                    statusJson &&
+                    statusJson.header &&
+                    statusJson.header.competitions &&
+                    statusJson.header.competitions[0]
+                  ) {
                     extraStatusForMerge = statusJson.header.competitions[0];
                     // Also try to get plays data for live games
                     const competition = statusJson.header.competitions[0];
-                    const isLive = competition?.status?.type?.state === 'in';
+                    const isLive = competition?.status?.type?.state === "in";
                     if (isLive) {
                       try {
                         const playsUrl = `${nhlSummaryUrl}&enable=plays`;
-                        const playsResponse = await fetchJsonWithCache(playsUrl);
-                        if (playsResponse?.plays && playsResponse.plays.length > 0) {
+                        const playsResponse = await fetchJsonWithCache(
+                          playsUrl
+                        );
+                        if (
+                          playsResponse?.plays &&
+                          playsResponse.plays.length > 0
+                        ) {
                           playsData = [...playsResponse.plays].reverse();
                         }
-                      } catch (playsError) {
-                      }
+                      } catch (playsError) {}
                     }
                   } else {
                   }
                 } else {
                   // For non-live games, skip the summary fetch to reduce API calls
                 }
-              } catch (nhlUpdateError) {
-              }
+              } catch (nhlUpdateError) {}
               return game; // Return game object even if update failed
-            } else if (game.actualLeagueCode === 'nba') {
+            } else if (game.actualLeagueCode === "nba") {
               // Handle NBA games - only fetch summary for live games to reduce API calls
               try {
                 // Check if game is likely live before making expensive API call
                 const gameFlags = computeMatchFlags(game);
-                const isLikelyLive = gameFlags.isLive || 
-                  (game.status && (game.status.toLowerCase().includes('live') || 
-                                  game.status.toLowerCase().includes('progress') || 
-                                  game.status.toLowerCase().includes('quarter')));
-                
+                const isLikelyLive =
+                  gameFlags.isLive ||
+                  (game.status &&
+                    (game.status.toLowerCase().includes("live") ||
+                      game.status.toLowerCase().includes("progress") ||
+                      game.status.toLowerCase().includes("quarter")));
+
                 if (isLikelyLive) {
                   const nbaSummaryUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${game.id}`;
                   const statusJson = await fetchJsonWithCache(nbaSummaryUrl);
-                  
-                  if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
+
+                  if (
+                    statusJson &&
+                    statusJson.header &&
+                    statusJson.header.competitions &&
+                    statusJson.header.competitions[0]
+                  ) {
                     extraStatusForMerge = statusJson.header.competitions[0];
                     // Also try to get plays data for live games
                     const competition = statusJson.header.competitions[0];
-                    const isLive = competition?.status?.type?.state === 'in';
+                    const isLive = competition?.status?.type?.state === "in";
                     if (isLive) {
                       try {
                         const playsUrl = `${nbaSummaryUrl}&enable=plays`;
-                        const playsResponse = await fetchJsonWithCache(playsUrl);
-                        if (playsResponse?.plays && playsResponse.plays.length > 0) {
+                        const playsResponse = await fetchJsonWithCache(
+                          playsUrl
+                        );
+                        if (
+                          playsResponse?.plays &&
+                          playsResponse.plays.length > 0
+                        ) {
                           playsData = [...playsResponse.plays].reverse();
                         }
-                      } catch (playsError) {
-                      }
+                      } catch (playsError) {}
                     }
                   } else {
                   }
                 } else {
                   // For non-live games, skip the summary fetch to reduce API calls
                 }
-              } catch (nbaUpdateError) {
-              }
+              } catch (nbaUpdateError) {}
               return game; // Return game object even if update failed
-            } else if (game.actualLeagueCode === 'wnba') {
+            } else if (game.actualLeagueCode === "wnba") {
               // Handle WNBA games - only fetch summary for live games to reduce API calls
               try {
                 // Check if game is likely live before making expensive API call
                 const gameFlags = computeMatchFlags(game);
-                const isLikelyLive = gameFlags.isLive || 
-                  (game.status && (game.status.toLowerCase().includes('live') || 
-                                  game.status.toLowerCase().includes('progress') || 
-                                  game.status.toLowerCase().includes('quarter')));
-                
+                const isLikelyLive =
+                  gameFlags.isLive ||
+                  (game.status &&
+                    (game.status.toLowerCase().includes("live") ||
+                      game.status.toLowerCase().includes("progress") ||
+                      game.status.toLowerCase().includes("quarter")));
+
                 if (isLikelyLive) {
                   const wnbaSummaryUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/summary?event=${game.id}`;
                   const statusJson = await fetchJsonWithCache(wnbaSummaryUrl);
-                  
-                  if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
+
+                  if (
+                    statusJson &&
+                    statusJson.header &&
+                    statusJson.header.competitions &&
+                    statusJson.header.competitions[0]
+                  ) {
                     extraStatusForMerge = statusJson.header.competitions[0];
                     // Also try to get plays data for live games
                     const competition = statusJson.header.competitions[0];
-                    const isLive = competition?.status?.type?.state === 'in';
+                    const isLive = competition?.status?.type?.state === "in";
                     if (isLive) {
                       try {
                         const playsUrl = `${wnbaSummaryUrl}&enable=plays`;
-                        const playsResponse = await fetchJsonWithCache(playsUrl);
-                        if (playsResponse?.plays && playsResponse.plays.length > 0) {
+                        const playsResponse = await fetchJsonWithCache(
+                          playsUrl
+                        );
+                        if (
+                          playsResponse?.plays &&
+                          playsResponse.plays.length > 0
+                        ) {
                           playsData = [...playsResponse.plays].reverse();
                         }
-                      } catch (playsError) {
-                      }
+                      } catch (playsError) {}
                     }
                   } else {
                   }
                 } else {
                   // For non-live games, skip the summary fetch to reduce API calls
                 }
-              } catch (wnbaUpdateError) {
-              }
+              } catch (wnbaUpdateError) {}
               return game; // Return game object even if update failed
-            } else if (game.actualLeagueCode && game.actualLeagueCode !== 'nfl' && game.actualLeagueCode !== 'nhl' && game.actualLeagueCode !== 'nba' && game.actualLeagueCode !== 'wnba' && game.actualLeagueCode !== 'f1') {
+            } else if (
+              game.actualLeagueCode &&
+              game.actualLeagueCode !== "nfl" &&
+              game.actualLeagueCode !== "nhl" &&
+              game.actualLeagueCode !== "nba" &&
+              game.actualLeagueCode !== "wnba" &&
+              game.actualLeagueCode !== "f1"
+            ) {
               // Handle domestic leagues using the actualLeagueCode (skip NFL, NHL, NBA, WNBA, F1 as they're not soccer)
-              const playsResponseData = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${game.actualLeagueCode}/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`);
-                if (playsResponseData?.items && playsResponseData.items.length > 0) {
+              const playsResponseData = await fetchJsonWithCache(
+                `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${game.actualLeagueCode}/events/${game.id}/competitions/${game.id}/plays?lang=en&region=us&limit=1000`
+              );
+              if (
+                playsResponseData?.items &&
+                playsResponseData.items.length > 0
+              ) {
                 playsData = [...playsResponseData.items].reverse();
               } else {
               }
@@ -2115,37 +2605,48 @@ const FavoritesScreen = ({ navigation }) => {
                 const leagueCode = game.actualLeagueCode;
                 const siteApiUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${game.id}`;
                 const statusJson = await fetchJsonWithCache(siteApiUrl);
-                if (statusJson && statusJson.header && statusJson.header.competitions && statusJson.header.competitions[0]) {
+                if (
+                  statusJson &&
+                  statusJson.header &&
+                  statusJson.header.competitions &&
+                  statusJson.header.competitions[0]
+                ) {
                   // Attach to a temporary variable so we can merge after plays/updatedGame is constructed
                   extraStatusForMerge = statusJson.header.competitions[0];
                 } else {
                 }
-              } catch (statusErr) {
-              }
+              } catch (statusErr) {}
 
               // Also fetch individual competitor score data like initial load does
               if (game.competitions?.[0]?.competitors) {
                 try {
-                  const scorePromises = game.competitions[0].competitors.map(async (competitor, index) => {
-                    if (competitor.score?.$ref) {
-                      const scoreData = await getEventData(competitor.score.$ref, true, { ...game, respectLiveStatus: true }).catch(() => null);
-                      return { index, scoreData };
+                  const scorePromises = game.competitions[0].competitors.map(
+                    async (competitor, index) => {
+                      if (competitor.score?.$ref) {
+                        const scoreData = await getEventData(
+                          competitor.score.$ref,
+                          true,
+                          { ...game, respectLiveStatus: true }
+                        ).catch(() => null);
+                        return { index, scoreData };
+                      }
+                      return { index, scoreData: null };
                     }
-                    return { index, scoreData: null };
-                  });
+                  );
                   const scoreResults = await Promise.all(scorePromises);
                   // Store score data for later merging
-                  extraScoreDataForMerge = scoreResults.filter(r => r.scoreData !== null);
-                } catch (scoreErr) {
-                }
+                  extraScoreDataForMerge = scoreResults.filter(
+                    (r) => r.scoreData !== null
+                  );
+                } catch (scoreErr) {}
               }
             }
             // Add more sports here as needed
-            
+
             // Decide whether we need to update this game object in state.
             // We update if playsData changed (for non-MLB games).
             // MLB games are handled completely within their branch above.
-                let updatedGame = game;
+            let updatedGame = game;
             if (playsData) {
               const currentPlaysJson = JSON.stringify(game.playsData);
               const newPlaysJson = JSON.stringify(playsData);
@@ -2154,52 +2655,93 @@ const FavoritesScreen = ({ navigation }) => {
               }
             }
 
-                // If we fetched site API status for this league, merge status and scores
-                if (extraStatusForMerge && updatedGame.competitions && updatedGame.competitions[0]) {
-                  try {
-                    const updatedCompetitions = (updatedGame.competitions || []).map(c => ({ ...c }));
-                    // Merge status object
-                    updatedCompetitions[0].status = extraStatusForMerge.status || updatedCompetitions[0].status;
-                    // Merge competitor scores from extraStatusForMerge where available
-                    if (Array.isArray(extraStatusForMerge.competitors) && Array.isArray(updatedCompetitions[0].competitors)) {
-                      const scoreMap = new Map();
-                      for (const hc of extraStatusForMerge.competitors) {
-                        const tid = hc.team?.id || hc.team?.teamId || null;
-                        if (tid != null) scoreMap.set(String(tid), hc.score);
-                      }
-                      updatedCompetitions[0].competitors = updatedCompetitions[0].competitors.map(comp => {
-                        try {
-                          const compTeamId = comp.team?.id || comp.team?.teamId || comp.id || (comp.$$ref && String(comp.$$ref).match(/teams\/(\d+)/)?.[1]);
-                          const s = compTeamId ? scoreMap.get(String(compTeamId)) : undefined;
-                          if (s !== undefined && s !== null) return { ...comp, score: String(s) };
-                        } catch (e) {}
-                        return comp;
-                      });
-                    }
-                    updatedGame = { ...updatedGame, competitions: updatedCompetitions, gameDataWithStatus: { header: { competitions: [ extraStatusForMerge ] } } };
-                  } catch (e) {
+            // If we fetched site API status for this league, merge status and scores
+            if (
+              extraStatusForMerge &&
+              updatedGame.competitions &&
+              updatedGame.competitions[0]
+            ) {
+              try {
+                const updatedCompetitions = (
+                  updatedGame.competitions || []
+                ).map((c) => ({ ...c }));
+                // Merge status object
+                updatedCompetitions[0].status =
+                  extraStatusForMerge.status || updatedCompetitions[0].status;
+                // Merge competitor scores from extraStatusForMerge where available
+                if (
+                  Array.isArray(extraStatusForMerge.competitors) &&
+                  Array.isArray(updatedCompetitions[0].competitors)
+                ) {
+                  const scoreMap = new Map();
+                  for (const hc of extraStatusForMerge.competitors) {
+                    const tid = hc.team?.id || hc.team?.teamId || null;
+                    if (tid != null) scoreMap.set(String(tid), hc.score);
                   }
-                } else {
+                  updatedCompetitions[0].competitors =
+                    updatedCompetitions[0].competitors.map((comp) => {
+                      try {
+                        const compTeamId =
+                          comp.team?.id ||
+                          comp.team?.teamId ||
+                          comp.id ||
+                          (comp.$$ref &&
+                            String(comp.$$ref).match(/teams\/(\d+)/)?.[1]);
+                        const s = compTeamId
+                          ? scoreMap.get(String(compTeamId))
+                          : undefined;
+                        if (s !== undefined && s !== null)
+                          return { ...comp, score: String(s) };
+                      } catch (e) {}
+                      return comp;
+                    });
                 }
+                updatedGame = {
+                  ...updatedGame,
+                  competitions: updatedCompetitions,
+                  gameDataWithStatus: {
+                    header: { competitions: [extraStatusForMerge] },
+                  },
+                };
+              } catch (e) {}
+            } else {
+            }
 
-                // Merge individual competitor score data if available
-                if (extraScoreDataForMerge && extraScoreDataForMerge.length > 0 && updatedGame.competitions && updatedGame.competitions[0]) {
-                  try {
-                    const updatedCompetitions = [...(updatedGame.competitions || [])];
-                    if (updatedCompetitions[0]) {
-                      const updatedCompetitors = [...(updatedCompetitions[0].competitors || [])];
-                      extraScoreDataForMerge.forEach(({ index, scoreData }) => {
-                        if (scoreData && updatedCompetitors[index]) {
-                          updatedCompetitors[index] = { ...updatedCompetitors[index], score: scoreData };
-                        }
-                      });
-                      updatedCompetitions[0] = { ...updatedCompetitions[0], competitors: updatedCompetitors };
-                      updatedGame = { ...updatedGame, competitions: updatedCompetitions };
+            // Merge individual competitor score data if available
+            if (
+              extraScoreDataForMerge &&
+              extraScoreDataForMerge.length > 0 &&
+              updatedGame.competitions &&
+              updatedGame.competitions[0]
+            ) {
+              try {
+                const updatedCompetitions = [
+                  ...(updatedGame.competitions || []),
+                ];
+                if (updatedCompetitions[0]) {
+                  const updatedCompetitors = [
+                    ...(updatedCompetitions[0].competitors || []),
+                  ];
+                  extraScoreDataForMerge.forEach(({ index, scoreData }) => {
+                    if (scoreData && updatedCompetitors[index]) {
+                      updatedCompetitors[index] = {
+                        ...updatedCompetitors[index],
+                        score: scoreData,
+                      };
                     }
-                  } catch (e) {
-                  }
-                } else {
+                  });
+                  updatedCompetitions[0] = {
+                    ...updatedCompetitions[0],
+                    competitors: updatedCompetitors,
+                  };
+                  updatedGame = {
+                    ...updatedGame,
+                    competitions: updatedCompetitions,
+                  };
                 }
+              } catch (e) {}
+            } else {
+            }
 
             return updatedGame;
           } catch (error) {
@@ -2214,7 +2756,10 @@ const FavoritesScreen = ({ navigation }) => {
         try {
           if (!g || !g.competitions || !g.competitions[0]) return null;
           const comps = g.competitions[0];
-          const competitors = (comps.competitors || []).map(c => ({ id: c.team?.id || c.id || null, score: c.score }));
+          const competitors = (comps.competitors || []).map((c) => ({
+            id: c.team?.id || c.id || null,
+            score: c.score,
+          }));
           const status = comps.status || null;
           return { competitors, status };
         } catch (e) {
@@ -2227,120 +2772,136 @@ const FavoritesScreen = ({ navigation }) => {
         const currentPlays = JSON.stringify(prev?.playsData || null);
         const newPlays = JSON.stringify(game.playsData || null);
         if (currentPlays !== newPlays) return true;
-        
+
         // Check both game.situation (NFL) and game.liveData.situation (MLB)
         const currentSituationNFL = JSON.stringify(prev?.situation || null);
         const newSituationNFL = JSON.stringify(game?.situation || null);
         if (currentSituationNFL !== newSituationNFL) return true;
-        
-        const currentSituationMLB = JSON.stringify(prev?.liveData?.situation || null);
-        const newSituationMLB = JSON.stringify(game?.liveData?.situation || null);
+
+        const currentSituationMLB = JSON.stringify(
+          prev?.liveData?.situation || null
+        );
+        const newSituationMLB = JSON.stringify(
+          game?.liveData?.situation || null
+        );
         if (currentSituationMLB !== newSituationMLB) return true;
 
         // Compare competition scores/status
-        const prevCompSnap = JSON.stringify(extractCompetitionsScoreSnapshot(prev));
-        const newCompSnap = JSON.stringify(extractCompetitionsScoreSnapshot(game));
+        const prevCompSnap = JSON.stringify(
+          extractCompetitionsScoreSnapshot(prev)
+        );
+        const newCompSnap = JSON.stringify(
+          extractCompetitionsScoreSnapshot(game)
+        );
         if (prevCompSnap !== newCompSnap) return true;
 
         return false;
       });
-      
+
       if (hasChanges) {
         setFavoriteGames(updatedGames);
       } else {
       }
-    } catch (error) {
-    }
+    } catch (error) {}
   };
 
   // Function to fetch game data directly using event link
-  const getEventData = async (url, bypassGating = false, gameContext = null) => {
+  const getEventData = async (
+    url,
+    bypassGating = false,
+    gameContext = null
+  ) => {
     if (!url) {
       return null;
     }
     // Resolve known relative URLs to full API URLs
     try {
-      if (typeof url === 'string') {
-        if (url.startsWith('/api/v1.1/game/')) {
+      if (typeof url === "string") {
+        if (url.startsWith("/api/v1.1/game/")) {
           // MLB statsapi URL
           url = `https://statsapi.mlb.com${url}`;
-        } else if (url.startsWith('/nhl/game/')) {
+        } else if (url.startsWith("/nhl/game/")) {
           // NHL game URL - extract event ID and build proper ESPN API URL
           const eventIdMatch = url.match(/\/nhl\/game\/(\d+)/);
           if (eventIdMatch) {
             const eventId = eventIdMatch[1];
-            
+
             // Check if we should only fetch for live games (when called from update function)
             if (gameContext && gameContext.respectLiveStatus) {
               const gameFlags = computeMatchFlags(gameContext);
-              const isLikelyLive = gameFlags.isLive || 
-                (gameContext.status && (gameContext.status.toLowerCase().includes('live') || 
-                                       gameContext.status.toLowerCase().includes('progress') || 
-                                       gameContext.status.toLowerCase().includes('period')));
+              const isLikelyLive =
+                gameFlags.isLive ||
+                (gameContext.status &&
+                  (gameContext.status.toLowerCase().includes("live") ||
+                    gameContext.status.toLowerCase().includes("progress") ||
+                    gameContext.status.toLowerCase().includes("period")));
               if (!isLikelyLive) {
                 // Skip fetching for non-live NHL games to reduce API calls
                 return null;
               }
             }
-            
+
             url = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/summary?event=${eventId}`;
           }
-        } else if (url.startsWith('/nfl/game/')) {
+        } else if (url.startsWith("/nfl/game/")) {
           // NFL game URL - extract event ID and build proper ESPN API URL
           const eventIdMatch = url.match(/\/nfl\/game\/(\d+)/);
           if (eventIdMatch) {
             const eventId = eventIdMatch[1];
-            
+
             // Check if we should only fetch for live games (when called from update function)
             if (gameContext && gameContext.respectLiveStatus) {
               const gameFlags = computeMatchFlags(gameContext);
-              const isLikelyLive = gameFlags.isLive || 
-                (gameContext.status && (gameContext.status.toLowerCase().includes('live') || 
-                                       gameContext.status.toLowerCase().includes('progress') || 
-                                       gameContext.status.toLowerCase().includes('quarter')));
+              const isLikelyLive =
+                gameFlags.isLive ||
+                (gameContext.status &&
+                  (gameContext.status.toLowerCase().includes("live") ||
+                    gameContext.status.toLowerCase().includes("progress") ||
+                    gameContext.status.toLowerCase().includes("quarter")));
               if (!isLikelyLive) {
                 // Skip fetching for non-live NFL games to reduce API calls
                 return null;
               }
             }
-            
+
             url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${eventId}`;
           }
-        } else if (url.startsWith('/nba/game/')) {
+        } else if (url.startsWith("/nba/game/")) {
           // NBA game URL - extract event ID and build proper ESPN API URL
           const eventIdMatch = url.match(/\/nba\/game\/(\d+)/);
           if (eventIdMatch) {
             const eventId = eventIdMatch[1];
-            
+
             // Check if we should only fetch for live games (when called from update function)
             if (gameContext && gameContext.respectLiveStatus) {
               const gameFlags = computeMatchFlags(gameContext);
-              const isLikelyLive = gameFlags.isLive || 
-                (gameContext.status && (gameContext.status.toLowerCase().includes('live') || 
-                                       gameContext.status.toLowerCase().includes('progress') || 
-                                       gameContext.status.toLowerCase().includes('quarter')));
+              const isLikelyLive =
+                gameFlags.isLive ||
+                (gameContext.status &&
+                  (gameContext.status.toLowerCase().includes("live") ||
+                    gameContext.status.toLowerCase().includes("progress") ||
+                    gameContext.status.toLowerCase().includes("quarter")));
               if (!isLikelyLive) {
                 // Skip fetching for non-live NBA games to reduce API calls
                 return null;
               }
             }
-            
+
             url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${eventId}`;
           }
-        } else if (url.startsWith('http')) {
+        } else if (url.startsWith("http")) {
           // Already a full URL, no resolution needed
         } else {
         }
       }
-    } catch (e) {
-    }
-    
+    } catch (e) {}
+
     return await fetchJsonWithCache(url, { bypassGating });
   };
 
   const fetchGameFromEventLink = async (team, currentGameData) => {
     try {
-      const teamName = team.displayName || team.teamName || 'Unknown Team';
+      const teamName = team.displayName || team.teamName || "Unknown Team";
       if (!currentGameData) {
         return null;
       }
@@ -2349,46 +2910,59 @@ const FavoritesScreen = ({ navigation }) => {
       }
       // Check if the current game is from today (with wider range for favorited teams)
       const { todayStart, todayEnd } = getTodayDateRange();
-      const gameDate = currentGameData.gameDate ? new Date(currentGameData.gameDate) : null;
+      const gameDate = currentGameData.gameDate
+        ? new Date(currentGameData.gameDate)
+        : null;
       if (!gameDate) {
         return null;
       }
-      
+
       // For favorited teams we want to include games within the standard 2AM NY -> 2AM NY window.
       // Previously this incorrectly added 24 hours to the end which caused tomorrow's games to be
       // included. Keep the range bounded to todayEnd to avoid pulling in games for the following day.
       let extendedTodayEnd = new Date(todayEnd.getTime()); // don't expand beyond next 2AM NY
       let extendedTodayStart = new Date(todayStart.getTime());
-      
+
       // F1 races are infrequent (24 per year), so extend the window to show recent race results
-      const teamSport = String(team?.sport || '').toLowerCase();
-      if (teamSport === 'f1' || teamSport === 'formula 1' || teamSport === 'formula1') {
+      const teamSport = String(team?.sport || "").toLowerCase();
+      if (
+        teamSport === "f1" ||
+        teamSport === "formula 1" ||
+        teamSport === "formula1"
+      ) {
         // Allow F1 races from up to 3 days ago to be shown (covers weekend race results)
-        extendedTodayStart = new Date(todayStart.getTime() - (3 * 24 * 60 * 60 * 1000));
+        extendedTodayStart = new Date(
+          todayStart.getTime() - 3 * 24 * 60 * 60 * 1000
+        );
         // Also extend forward for upcoming races within next 3 days
-        extendedTodayEnd = new Date(todayEnd.getTime() + (3 * 24 * 60 * 60 * 1000));
+        extendedTodayEnd = new Date(
+          todayEnd.getTime() + 3 * 24 * 60 * 60 * 1000
+        );
       }
 
       if (gameDate < extendedTodayStart || gameDate > extendedTodayEnd) {
         return null;
       }
-      
+
       // Handle MLB games differently - prefer the proper MLB API format (case-insensitive)
-      if (teamSport === 'mlb' && currentGameData.eventId) {
+      if (teamSport === "mlb" && currentGameData.eventId) {
         const mlbUrl = `https://statsapi.mlb.com/api/v1.1/game/${currentGameData.eventId}/feed/live`;
         const eventData = await fetchJsonWithCache(mlbUrl);
-        
+
         if (!eventData) {
           return null;
         }
-        
+
         const mlbData = eventData;
-        
-  // Convert MLB data to the expected format for the favorites screen
+
+        // Convert MLB data to the expected format for the favorites screen
         // Resolve the eventLink to a full statsapi URL if it's a relative path
         let resolvedMlbEventLink = currentGameData.eventLink;
         try {
-          if (typeof resolvedMlbEventLink === 'string' && resolvedMlbEventLink.startsWith('/api/v1.1/game/')) {
+          if (
+            typeof resolvedMlbEventLink === "string" &&
+            resolvedMlbEventLink.startsWith("/api/v1.1/game/")
+          ) {
             resolvedMlbEventLink = `https://statsapi.mlb.com${resolvedMlbEventLink}`;
           }
         } catch (e) {
@@ -2397,71 +2971,89 @@ const FavoritesScreen = ({ navigation }) => {
 
         const convertedGame = {
           id: currentGameData.eventId,
-          sport: 'MLB',
-          actualLeagueCode: 'mlb',
+          sport: "MLB",
+          actualLeagueCode: "mlb",
           date: currentGameData.gameDate,
           venue: {
             name: mlbData.gameData?.venue?.name,
-            fullName: mlbData.gameData?.venue?.name
+            fullName: mlbData.gameData?.venue?.name,
           },
           // Include resolved direct link for MLB so callers can use it for live updates
           eventLink: resolvedMlbEventLink,
           mlbGameData: mlbData.gameData || null,
           mlbLiveData: mlbData.liveData || null,
-          competitions: [{
-            id: currentGameData.eventId,
-            competitors: [
-              {
-                id: mlbData.gameData?.teams?.away?.id,
-                homeAway: 'away',
-                team: {
+          competitions: [
+            {
+              id: currentGameData.eventId,
+              competitors: [
+                {
                   id: mlbData.gameData?.teams?.away?.id,
-                  abbreviation: mlbData.gameData?.teams?.away?.abbreviation,
-                  displayName: mlbData.gameData?.teams?.away?.name,
-                  logos: [{
-                    href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/${mlbData.gameData?.teams?.away?.abbreviation?.toLowerCase()}.png&w=200&h=200`
-                  }]
+                  homeAway: "away",
+                  team: {
+                    id: mlbData.gameData?.teams?.away?.id,
+                    abbreviation: mlbData.gameData?.teams?.away?.abbreviation,
+                    displayName: mlbData.gameData?.teams?.away?.name,
+                    logos: [
+                      {
+                        href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/${mlbData.gameData?.teams?.away?.abbreviation?.toLowerCase()}.png&w=200&h=200`,
+                      },
+                    ],
+                  },
+                  score:
+                    mlbData.liveData?.linescore?.teams?.away?.runs?.toString() ||
+                    "0",
                 },
-                score: mlbData.liveData?.linescore?.teams?.away?.runs?.toString() || '0'
-              },
-              {
-                id: mlbData.gameData?.teams?.home?.id,
-                homeAway: 'home',
-                team: {
+                {
                   id: mlbData.gameData?.teams?.home?.id,
-                  abbreviation: mlbData.gameData?.teams?.home?.abbreviation,
-                  displayName: mlbData.gameData?.teams?.home?.name,
-                  logos: [{
-                    href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/${mlbData.gameData?.teams?.home?.abbreviation?.toLowerCase()}.png&w=200&h=200`
-                  }]
+                  homeAway: "home",
+                  team: {
+                    id: mlbData.gameData?.teams?.home?.id,
+                    abbreviation: mlbData.gameData?.teams?.home?.abbreviation,
+                    displayName: mlbData.gameData?.teams?.home?.name,
+                    logos: [
+                      {
+                        href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/${mlbData.gameData?.teams?.home?.abbreviation?.toLowerCase()}.png&w=200&h=200`,
+                      },
+                    ],
+                  },
+                  score:
+                    mlbData.liveData?.linescore?.teams?.home?.runs?.toString() ||
+                    "0",
                 },
-                score: mlbData.liveData?.linescore?.teams?.home?.runs?.toString() || '0'
-              }
-            ]
-          }],
+              ],
+            },
+          ],
           favoriteTeam: team,
           fromDirectLink: true,
           // Add MLB-specific live data for the mini bases display
-          liveData: mlbData.gameData?.status?.codedGameState === 'I' ? {
-            status: mlbData.gameData?.status,
-            situation: {
-              balls: mlbData.liveData?.linescore?.balls || 0,
-              strikes: mlbData.liveData?.linescore?.strikes || 0,
-              outs: mlbData.liveData?.linescore?.outs || 0,
-              inning: mlbData.liveData?.linescore?.currentInning || 1,
-              isTopInning: mlbData.liveData?.linescore?.inningState === 'Top',
-              bases: {
-                first: !!mlbData.liveData?.linescore?.offense?.first,
-                second: !!mlbData.liveData?.linescore?.offense?.second,
-                third: !!mlbData.liveData?.linescore?.offense?.third
-              }
-            }
-          } : null
+          liveData:
+            mlbData.gameData?.status?.codedGameState === "I"
+              ? {
+                  status: mlbData.gameData?.status,
+                  situation: {
+                    balls: mlbData.liveData?.linescore?.balls || 0,
+                    strikes: mlbData.liveData?.linescore?.strikes || 0,
+                    outs: mlbData.liveData?.linescore?.outs || 0,
+                    inning: mlbData.liveData?.linescore?.currentInning || 1,
+                    isTopInning:
+                      mlbData.liveData?.linescore?.inningState === "Top",
+                    bases: {
+                      first: !!mlbData.liveData?.linescore?.offense?.first,
+                      second: !!mlbData.liveData?.linescore?.offense?.second,
+                      third: !!mlbData.liveData?.linescore?.offense?.third,
+                    },
+                  },
+                }
+              : null,
         };
         // If statsapi provides play-by-play, prefer it for playsData
         try {
           const mlbAllPlays = mlbData.liveData?.plays?.allPlays;
-          if (!convertedGame.playsData && Array.isArray(mlbAllPlays) && mlbAllPlays.length > 0) {
+          if (
+            !convertedGame.playsData &&
+            Array.isArray(mlbAllPlays) &&
+            mlbAllPlays.length > 0
+          ) {
             convertedGame.playsData = [...mlbAllPlays].reverse();
           }
         } catch (e) {
@@ -2470,16 +3062,20 @@ const FavoritesScreen = ({ navigation }) => {
 
         return convertedGame;
       }
-      
+
       // Handle NFL games differently - use ESPN API format for proper situation data
-      const isNFL = teamSport === 'nfl' || currentGameData.competition === 'nfl';
+      const isNFL =
+        teamSport === "nfl" || currentGameData.competition === "nfl";
       if (isNFL && currentGameData.eventId) {
         const nflUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${currentGameData.eventId}`;
-        
+
         try {
           // Use longer timeout for NFL API calls and bypass poll gating
-          const eventData = await fetchJsonWithCache(nflUrl, { timeout: 8000, bypassGating: true });
-          
+          const eventData = await fetchJsonWithCache(nflUrl, {
+            timeout: 8000,
+            bypassGating: true,
+          });
+
           if (!eventData) {
             return null;
           }
@@ -2489,26 +3085,29 @@ const FavoritesScreen = ({ navigation }) => {
           if (!competition) {
             return null;
           }
-          
+
           // Build the game object manually from the summary API structure
-          const homeTeam = competition.competitors?.find(c => c.homeAway === 'home');
-          const awayTeam = competition.competitors?.find(c => c.homeAway === 'away');
-          
+          const homeTeam = competition.competitors?.find(
+            (c) => c.homeAway === "home"
+          );
+          const awayTeam = competition.competitors?.find(
+            (c) => c.homeAway === "away"
+          );
+
           if (!homeTeam || !awayTeam) {
             return null;
           }
-          
+
           // Extract situation data for live games
           // Try to extract situation using NFLService like GameDetails does
           let situation = null;
           try {
             // Use NFLService.extractGameSituation with the event data we have
             const gameForExtraction = {
-              competitions: [competition]
+              competitions: [competition],
             };
             situation = NFLService.extractGameSituation(gameForExtraction);
-          } catch (error) {
-          }
+          } catch (error) {}
 
           // Fallback to direct extraction if NFLService didn't work
           if (!situation && competition.situation) {
@@ -2518,12 +3117,17 @@ const FavoritesScreen = ({ navigation }) => {
               distance: competition.situation.distance,
               yardLine: competition.situation.yardLine,
               possessionText: competition.situation.possessionText,
-              shortDownDistanceText: competition.situation.shortDownDistanceText
+              shortDownDistanceText:
+                competition.situation.shortDownDistanceText,
             };
           }
 
           // If we still don't have down/distance (common with the summary endpoint), try to derive it from drives/plays
-          const needsPlayExtraction = !situation || (!situation.down && !situation.shortDownDistanceText && !situation.possessionText);
+          const needsPlayExtraction =
+            !situation ||
+            (!situation.down &&
+              !situation.shortDownDistanceText &&
+              !situation.possessionText);
           let initialDrivesData = null; // Store drives data for immediate attachment
           if (needsPlayExtraction) {
             try {
@@ -2534,52 +3138,79 @@ const FavoritesScreen = ({ navigation }) => {
                 initialDrivesData = drives; // Store for later attachment to game object
                 if (drives && drives.length) {
                   // Find the current drive in progress, otherwise fall back to the last drive
-                  let currentDrive = drives.find(d => !d.end?.text && d.result !== 'End of Game');
-                  if (!currentDrive) currentDrive = drives[drives.length - 1] || drives[0];
+                  let currentDrive = drives.find(
+                    (d) => !d.end?.text && d.result !== "End of Game"
+                  );
+                  if (!currentDrive)
+                    currentDrive = drives[drives.length - 1] || drives[0];
 
                   // Gather plays from the current drive or from the most recent drive that has plays
-                  let plays = Array.isArray(currentDrive?.plays) ? currentDrive.plays : [];
+                  let plays = Array.isArray(currentDrive?.plays)
+                    ? currentDrive.plays
+                    : [];
                   if (!plays.length) {
-                    const driveWithPlays = [...drives].reverse().find(d => Array.isArray(d.plays) && d.plays.length);
+                    const driveWithPlays = [...drives]
+                      .reverse()
+                      .find((d) => Array.isArray(d.plays) && d.plays.length);
                     if (driveWithPlays) plays = driveWithPlays.plays;
                   }
 
                   if (plays && plays.length) {
                     // Find the most recent play that has an end object
-                    const playsWithEnd = plays.filter(p => p && p.end);
+                    const playsWithEnd = plays.filter((p) => p && p.end);
                     const sorted = playsWithEnd.sort((a, b) => {
                       const seqA = parseInt(a.sequenceNumber) || 0;
                       const seqB = parseInt(b.sequenceNumber) || 0;
                       return seqA - seqB;
                     });
-                    const mostRecentPlay = sorted.length ? sorted[sorted.length - 1] : playsWithEnd[0] || null;
+                    const mostRecentPlay = sorted.length
+                      ? sorted[sorted.length - 1]
+                      : playsWithEnd[0] || null;
                     if (mostRecentPlay && mostRecentPlay.end) {
                       const end = mostRecentPlay.end;
 
                       // Helper: format ordinal (1 -> 1st etc.)
                       const getOrdinal = (num) => {
-                        if (num === null || num === undefined) return String(num);
+                        if (num === null || num === undefined)
+                          return String(num);
                         const n = parseInt(num, 10);
-                        const s = ['th','st','nd','rd'];
+                        const s = ["th", "st", "nd", "rd"];
                         const v = n % 100;
-                        return n + (s[(v-20)%10] || s[v] || s[0]);
+                        return n + (s[(v - 20) % 10] || s[v] || s[0]);
                       };
 
-                      const down = end.down || (end.down?.number) || null;
+                      const down = end.down || end.down?.number || null;
                       let distance = null;
-                      if (end.distance && typeof end.distance === 'object') {
-                        distance = end.distance.yards !== undefined ? end.distance.yards : null;
-                      } else if (typeof end.distance === 'number') {
+                      if (end.distance && typeof end.distance === "object") {
+                        distance =
+                          end.distance.yards !== undefined
+                            ? end.distance.yards
+                            : null;
+                      } else if (typeof end.distance === "number") {
                         distance = end.distance;
                       }
 
-                      const shortDownDistanceText = end.shortDownDistanceText || (down ? `${getOrdinal(down)} & ${distance !== null ? distance : ''}`.trim() : null);
+                      const shortDownDistanceText =
+                        end.shortDownDistanceText ||
+                        (down
+                          ? `${getOrdinal(down)} & ${
+                              distance !== null ? distance : ""
+                            }`.trim()
+                          : null);
                       const possessionText = end.possessionText || null;
 
                       // yardLine sometimes appears on end.possessionYardLine or end.yardLine or in possessionText
                       let yardLine = null;
-                      if (end.possessionYardLine !== undefined && end.possessionYardLine !== null) yardLine = end.possessionYardLine;
-                      else if (end.yardLine !== undefined && end.yardLine !== null) yardLine = end.yardLine;
+                      if (
+                        end.possessionYardLine !== undefined &&
+                        end.possessionYardLine !== null
+                      )
+                        yardLine = end.possessionYardLine;
+                      else if (
+                        end.yardLine !== undefined &&
+                        end.yardLine !== null
+                      )
+                        yardLine = end.yardLine;
                       else if (possessionText) {
                         // possessionText often already contains team + number (e.g., "ARI 12")
                         yardLine = possessionText;
@@ -2587,162 +3218,206 @@ const FavoritesScreen = ({ navigation }) => {
 
                       situation = situation || {};
                       // set extracted values if missing
-                      if (!situation.shortDownDistanceText && shortDownDistanceText) situation.shortDownDistanceText = shortDownDistanceText;
+                      if (
+                        !situation.shortDownDistanceText &&
+                        shortDownDistanceText
+                      )
+                        situation.shortDownDistanceText = shortDownDistanceText;
                       if (!situation.down && down) situation.down = down;
-                      if ((situation.distance === undefined || situation.distance === null) && distance !== null) situation.distance = distance;
-                      if (!situation.possessionText && possessionText) situation.possessionText = possessionText;
-                      if ((situation.yardLine === undefined || situation.yardLine === null) && yardLine !== null) situation.yardLine = yardLine;
+                      if (
+                        (situation.distance === undefined ||
+                          situation.distance === null) &&
+                        distance !== null
+                      )
+                        situation.distance = distance;
+                      if (!situation.possessionText && possessionText)
+                        situation.possessionText = possessionText;
+                      if (
+                        (situation.yardLine === undefined ||
+                          situation.yardLine === null) &&
+                        yardLine !== null
+                      )
+                        situation.yardLine = yardLine;
                     }
                   }
                 }
               }
-            } catch (e) {
-            }
+            } catch (e) {}
           }
-          
+
           // Extract venue information (try multiple sources like GameDetailsScreen)
-          const venue = eventData.gameInfo?.venue?.fullName || 
-                       eventData.header?.competitions?.[0]?.venue?.fullName || 
-                       competition.venue?.fullName || 
-                       eventData.header?.venue?.fullName;
-          
+          const venue =
+            eventData.gameInfo?.venue?.fullName ||
+            eventData.header?.competitions?.[0]?.venue?.fullName ||
+            competition.venue?.fullName ||
+            eventData.header?.venue?.fullName;
+
           // Create the formatted game object
           const formattedGame = {
             id: competition.id || currentGameData.eventId,
             date: competition.date,
-            status: competition.status?.type?.description || 'Scheduled',
+            status: competition.status?.type?.description || "Scheduled",
             period: competition.status?.period,
             displayClock: competition.status?.displayClock,
             venue: venue,
-            competitions: [{
-              id: competition.id,
-              date: competition.date,
-              venue: { fullName: venue },
-              competitors: [
-                {
-                  id: awayTeam.id,
-                  homeAway: 'away',
-                  team: {
-                    id: awayTeam.team?.id || awayTeam.id,
-                    abbreviation: awayTeam.team?.abbreviation,
-                    displayName: awayTeam.team?.displayName,
-                    name: awayTeam.team?.name,
-                    logos: awayTeam.team?.logos || [{
-                      href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${awayTeam.team?.abbreviation?.toLowerCase()}.png&w=200&h=200`
-                    }]
+            competitions: [
+              {
+                id: competition.id,
+                date: competition.date,
+                venue: { fullName: venue },
+                competitors: [
+                  {
+                    id: awayTeam.id,
+                    homeAway: "away",
+                    team: {
+                      id: awayTeam.team?.id || awayTeam.id,
+                      abbreviation: awayTeam.team?.abbreviation,
+                      displayName: awayTeam.team?.displayName,
+                      name: awayTeam.team?.name,
+                      logos: awayTeam.team?.logos || [
+                        {
+                          href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${awayTeam.team?.abbreviation?.toLowerCase()}.png&w=200&h=200`,
+                        },
+                      ],
+                    },
+                    score: awayTeam.score,
                   },
-                  score: awayTeam.score
-                },
-                {
-                  id: homeTeam.id,
-                  homeAway: 'home',
-                  team: {
-                    id: homeTeam.team?.id || homeTeam.id,
-                    abbreviation: homeTeam.team?.abbreviation,
-                    displayName: homeTeam.team?.displayName,
-                    name: homeTeam.team?.name,
-                    logos: homeTeam.team?.logos || [{
-                      href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${homeTeam.team?.abbreviation?.toLowerCase()}.png&w=200&h=200`
-                    }]
+                  {
+                    id: homeTeam.id,
+                    homeAway: "home",
+                    team: {
+                      id: homeTeam.team?.id || homeTeam.id,
+                      abbreviation: homeTeam.team?.abbreviation,
+                      displayName: homeTeam.team?.displayName,
+                      name: homeTeam.team?.name,
+                      logos: homeTeam.team?.logos || [
+                        {
+                          href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${homeTeam.team?.abbreviation?.toLowerCase()}.png&w=200&h=200`,
+                        },
+                      ],
+                    },
+                    score: homeTeam.score,
                   },
-                  score: homeTeam.score
-                }
-              ],
-              status: competition.status,
-              situation: situation
-            }],
+                ],
+                status: competition.status,
+                situation: situation,
+              },
+            ],
             homeTeam: {
               id: homeTeam.team?.id || homeTeam.id,
               abbreviation: homeTeam.team?.abbreviation,
               displayName: homeTeam.team?.displayName,
               score: homeTeam.score,
-              logos: homeTeam.team?.logos || [{
-                href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${homeTeam.team?.abbreviation?.toLowerCase()}.png&w=200&h=200`
-              }]
+              logos: homeTeam.team?.logos || [
+                {
+                  href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${homeTeam.team?.abbreviation?.toLowerCase()}.png&w=200&h=200`,
+                },
+              ],
             },
             awayTeam: {
               id: awayTeam.team?.id || awayTeam.id,
               abbreviation: awayTeam.team?.abbreviation,
               displayName: awayTeam.team?.displayName,
               score: awayTeam.score,
-              logos: awayTeam.team?.logos || [{
-                href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${awayTeam.team?.abbreviation?.toLowerCase()}.png&w=200&h=200`
-              }]
+              logos: awayTeam.team?.logos || [
+                {
+                  href: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${awayTeam.team?.abbreviation?.toLowerCase()}.png&w=200&h=200`,
+                },
+              ],
             },
-            situation: situation
+            situation: situation,
           };
-          
+
           // Attach drives data if we fetched it during initial creation
           if (initialDrivesData && Array.isArray(initialDrivesData)) {
             formattedGame.drives = initialDrivesData;
             // Also set playsData similar to updateLiveGamesPlays
-            const driveWithPlays = [...initialDrivesData].reverse().find(d => Array.isArray(d.plays) && d.plays.length) || initialDrivesData[initialDrivesData.length - 1];
-            formattedGame.playsData = driveWithPlays && Array.isArray(driveWithPlays.plays) ? [...driveWithPlays.plays].reverse() : null;
-            
+            const driveWithPlays =
+              [...initialDrivesData]
+                .reverse()
+                .find((d) => Array.isArray(d.plays) && d.plays.length) ||
+              initialDrivesData[initialDrivesData.length - 1];
+            formattedGame.playsData =
+              driveWithPlays && Array.isArray(driveWithPlays.plays)
+                ? [...driveWithPlays.plays].reverse()
+                : null;
+
             // Extract team colors from drives data and update homeTeam/awayTeam objects
-            const homeTeamId = String(formattedGame.homeTeam?.id || '');
-            const awayTeamId = String(formattedGame.awayTeam?.id || '');
-            
-            initialDrivesData.forEach(drive => {
+            const homeTeamId = String(formattedGame.homeTeam?.id || "");
+            const awayTeamId = String(formattedGame.awayTeam?.id || "");
+
+            initialDrivesData.forEach((drive) => {
               if (drive.team && drive.team.id) {
                 const driveTeamId = String(drive.team.id);
-                if (driveTeamId === homeTeamId && drive.team.color && !formattedGame.homeTeam.team?.color) {
+                if (
+                  driveTeamId === homeTeamId &&
+                  drive.team.color &&
+                  !formattedGame.homeTeam.team?.color
+                ) {
                   // Update home team with color information
                   formattedGame.homeTeam = {
                     ...formattedGame.homeTeam,
                     team: {
                       ...formattedGame.homeTeam.team,
-                      color: drive.team.color
-                    }
+                      color: drive.team.color,
+                    },
                   };
-                } else if (driveTeamId === awayTeamId && drive.team.color && !formattedGame.awayTeam.team?.color) {
+                } else if (
+                  driveTeamId === awayTeamId &&
+                  drive.team.color &&
+                  !formattedGame.awayTeam.team?.color
+                ) {
                   // Update away team with color information
                   formattedGame.awayTeam = {
                     ...formattedGame.awayTeam,
                     team: {
                       ...formattedGame.awayTeam.team,
-                      color: drive.team.color
-                    }
+                      color: drive.team.color,
+                    },
                   };
                 }
               }
             });
           }
-          
+
           // Compute status flags based on competition status
           const statusType = competition.status?.type?.state;
-          const isLive = statusType === 'in';
-          const isScheduled = statusType === 'pre' || statusType === 'in';
-          const isFinished = statusType === 'post';
+          const isLive = statusType === "in";
+          const isScheduled = statusType === "pre" || statusType === "in";
+          const isFinished = statusType === "post";
 
           // Add additional metadata including status flags
           const convertedGame = {
             ...formattedGame,
             favoriteTeam: team,
-            sport: 'NFL',
-            actualLeagueCode: 'nfl',
+            sport: "NFL",
+            actualLeagueCode: "nfl",
             fromDirectLink: true,
             eventLink: nflUrl,
             // Add status flags for proper update detection
             isLive: isLive,
             isScheduled: isScheduled,
-            isFinished: isFinished
+            isFinished: isFinished,
           };
           return convertedGame;
         } catch (nflError) {
           return null;
         }
       }
-      
+
       // Handle NHL games differently - use ESPN API format for proper hockey data
-      const isNHL = teamSport === 'nhl' || currentGameData.competition === 'nhl';
+      const isNHL =
+        teamSport === "nhl" || currentGameData.competition === "nhl";
       if (isNHL && currentGameData.eventId) {
         const nhlUrl = `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/summary?event=${currentGameData.eventId}`;
-        
+
         try {
           // Use longer timeout for NHL API calls and bypass poll gating
-          const eventData = await fetchJsonWithCache(nhlUrl, { timeout: 8000, bypassGating: true });
-          
+          const eventData = await fetchJsonWithCache(nhlUrl, {
+            timeout: 8000,
+            bypassGating: true,
+          });
+
           if (!eventData) {
             return null;
           }
@@ -2755,59 +3430,86 @@ const FavoritesScreen = ({ navigation }) => {
 
           // Extract home/away teams from NHL Site API structure
           const competitors = competition.competitors || [];
-          const homeCompetitor = competitors.find(c => c.homeAway === 'home');
-          const awayCompetitor = competitors.find(c => c.homeAway === 'away');
+          const homeCompetitor = competitors.find((c) => c.homeAway === "home");
+          const awayCompetitor = competitors.find((c) => c.homeAway === "away");
 
           // Compute status flags based on competition status
           const statusType = competition.status?.type?.state;
-          const isLive = statusType === 'in';
-          const isScheduled = statusType === 'pre' || statusType === 'in';
-          const isFinished = statusType === 'post';
+          const isLive = statusType === "in";
+          const isScheduled = statusType === "pre" || statusType === "in";
+          const isFinished = statusType === "post";
 
           // Convert NHL data to standard format
           const convertedGame = {
             ...eventData,
             id: eventData.header?.id || currentGameData.eventId,
-            date: competition.date || eventData.header?.competitions?.[0]?.date || currentGameData.gameDate,
-            venue: competition.venue?.fullName || competition.venue?.displayName || eventData.header?.competitions?.[0]?.venue?.fullName || 'TBD Arena',
+            date:
+              competition.date ||
+              eventData.header?.competitions?.[0]?.date ||
+              currentGameData.gameDate,
+            venue:
+              competition.venue?.fullName ||
+              competition.venue?.displayName ||
+              eventData.header?.competitions?.[0]?.venue?.fullName ||
+              "TBD Arena",
             competitions: eventData.header?.competitions || [competition],
-            homeTeam: homeCompetitor ? {
-              team: homeCompetitor.team,
-              abbreviation: homeCompetitor.team?.abbreviation || homeCompetitor.team?.displayName || 'HOME',
-              displayName: homeCompetitor.team?.displayName || homeCompetitor.team?.abbreviation || 'Home Team',
-              score: homeCompetitor.score || '0'
-            } : null,
-            awayTeam: awayCompetitor ? {
-              team: awayCompetitor.team,
-              abbreviation: awayCompetitor.team?.abbreviation || awayCompetitor.team?.displayName || 'AWAY', 
-              displayName: awayCompetitor.team?.displayName || awayCompetitor.team?.abbreviation || 'Away Team',
-              score: awayCompetitor.score || '0'
-            } : null,
+            homeTeam: homeCompetitor
+              ? {
+                  team: homeCompetitor.team,
+                  abbreviation:
+                    homeCompetitor.team?.abbreviation ||
+                    homeCompetitor.team?.displayName ||
+                    "HOME",
+                  displayName:
+                    homeCompetitor.team?.displayName ||
+                    homeCompetitor.team?.abbreviation ||
+                    "Home Team",
+                  score: homeCompetitor.score || "0",
+                }
+              : null,
+            awayTeam: awayCompetitor
+              ? {
+                  team: awayCompetitor.team,
+                  abbreviation:
+                    awayCompetitor.team?.abbreviation ||
+                    awayCompetitor.team?.displayName ||
+                    "AWAY",
+                  displayName:
+                    awayCompetitor.team?.displayName ||
+                    awayCompetitor.team?.abbreviation ||
+                    "Away Team",
+                  score: awayCompetitor.score || "0",
+                }
+              : null,
             favoriteTeam: team,
-            sport: 'NHL',
-            actualLeagueCode: 'nhl',
+            sport: "NHL",
+            actualLeagueCode: "nhl",
             fromDirectLink: true,
             eventLink: nhlUrl,
             // Add status flags for proper update detection
             isLive: isLive,
             isScheduled: isScheduled,
-            isFinished: isFinished
+            isFinished: isFinished,
           };
           return convertedGame;
         } catch (nhlError) {
           return null;
         }
       }
-      
+
       // Handle NBA games differently - use ESPN API format for proper basketball data
-      const isNBA = teamSport === 'nba' || currentGameData.competition === 'nba';
+      const isNBA =
+        teamSport === "nba" || currentGameData.competition === "nba";
       if (isNBA && currentGameData.eventId) {
         const nbaUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${currentGameData.eventId}`;
-        
+
         try {
           // Use longer timeout for NBA API calls and bypass poll gating
-          const eventData = await fetchJsonWithCache(nbaUrl, { timeout: 8000, bypassGating: true });
-          
+          const eventData = await fetchJsonWithCache(nbaUrl, {
+            timeout: 8000,
+            bypassGating: true,
+          });
+
           if (!eventData) {
             return null;
           }
@@ -2820,59 +3522,86 @@ const FavoritesScreen = ({ navigation }) => {
 
           // Extract home/away teams from NBA Site API structure
           const competitors = competition.competitors || [];
-          const homeCompetitor = competitors.find(c => c.homeAway === 'home');
-          const awayCompetitor = competitors.find(c => c.homeAway === 'away');
+          const homeCompetitor = competitors.find((c) => c.homeAway === "home");
+          const awayCompetitor = competitors.find((c) => c.homeAway === "away");
 
           // Compute status flags based on competition status
           const statusType = competition.status?.type?.state;
-          const isLive = statusType === 'in';
-          const isScheduled = statusType === 'pre' || statusType === 'in';
-          const isFinished = statusType === 'post';
+          const isLive = statusType === "in";
+          const isScheduled = statusType === "pre" || statusType === "in";
+          const isFinished = statusType === "post";
 
           // Convert NBA data to standard format
           const convertedGame = {
             ...eventData,
             id: eventData.header?.id || currentGameData.eventId,
-            date: competition.date || eventData.header?.competitions?.[0]?.date || currentGameData.gameDate,
-            venue: competition.venue?.fullName || competition.venue?.displayName || eventData.header?.competitions?.[0]?.venue?.fullName || 'TBD Arena',
+            date:
+              competition.date ||
+              eventData.header?.competitions?.[0]?.date ||
+              currentGameData.gameDate,
+            venue:
+              competition.venue?.fullName ||
+              competition.venue?.displayName ||
+              eventData.header?.competitions?.[0]?.venue?.fullName ||
+              "TBD Arena",
             competitions: eventData.header?.competitions || [competition],
-            homeTeam: homeCompetitor ? {
-              team: homeCompetitor.team,
-              abbreviation: homeCompetitor.team?.abbreviation || homeCompetitor.team?.displayName || 'HOME',
-              displayName: homeCompetitor.team?.displayName || homeCompetitor.team?.abbreviation || 'Home Team',
-              score: homeCompetitor.score || '0'
-            } : null,
-            awayTeam: awayCompetitor ? {
-              team: awayCompetitor.team,
-              abbreviation: awayCompetitor.team?.abbreviation || awayCompetitor.team?.displayName || 'AWAY', 
-              displayName: awayCompetitor.team?.displayName || awayCompetitor.team?.abbreviation || 'Away Team',
-              score: awayCompetitor.score || '0'
-            } : null,
+            homeTeam: homeCompetitor
+              ? {
+                  team: homeCompetitor.team,
+                  abbreviation:
+                    homeCompetitor.team?.abbreviation ||
+                    homeCompetitor.team?.displayName ||
+                    "HOME",
+                  displayName:
+                    homeCompetitor.team?.displayName ||
+                    homeCompetitor.team?.abbreviation ||
+                    "Home Team",
+                  score: homeCompetitor.score || "0",
+                }
+              : null,
+            awayTeam: awayCompetitor
+              ? {
+                  team: awayCompetitor.team,
+                  abbreviation:
+                    awayCompetitor.team?.abbreviation ||
+                    awayCompetitor.team?.displayName ||
+                    "AWAY",
+                  displayName:
+                    awayCompetitor.team?.displayName ||
+                    awayCompetitor.team?.abbreviation ||
+                    "Away Team",
+                  score: awayCompetitor.score || "0",
+                }
+              : null,
             favoriteTeam: team,
-            sport: 'NBA',
-            actualLeagueCode: 'nba',
+            sport: "NBA",
+            actualLeagueCode: "nba",
             fromDirectLink: true,
             eventLink: nbaUrl,
             // Add status flags for proper update detection
             isLive: isLive,
             isScheduled: isScheduled,
-            isFinished: isFinished
+            isFinished: isFinished,
           };
           return convertedGame;
         } catch (nbaError) {
           return null;
         }
       }
-      
+
       // Handle WNBA games differently - use ESPN API format for proper basketball data
-      const isWNBA = teamSport === 'wnba' || currentGameData.competition === 'wnba';
+      const isWNBA =
+        teamSport === "wnba" || currentGameData.competition === "wnba";
       if (isWNBA && currentGameData.eventId) {
         const wnbaUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/summary?event=${currentGameData.eventId}`;
-        
+
         try {
           // Use longer timeout for WNBA API calls and bypass poll gating
-          const eventData = await fetchJsonWithCache(wnbaUrl, { timeout: 8000, bypassGating: true });
-          
+          const eventData = await fetchJsonWithCache(wnbaUrl, {
+            timeout: 8000,
+            bypassGating: true,
+          });
+
           if (!eventData) {
             return null;
           }
@@ -2885,43 +3614,66 @@ const FavoritesScreen = ({ navigation }) => {
 
           // Extract home/away teams from WNBA Site API structure
           const competitors = competition.competitors || [];
-          const homeCompetitor = competitors.find(c => c.homeAway === 'home');
-          const awayCompetitor = competitors.find(c => c.homeAway === 'away');
+          const homeCompetitor = competitors.find((c) => c.homeAway === "home");
+          const awayCompetitor = competitors.find((c) => c.homeAway === "away");
 
           // Compute status flags based on competition status
           const statusType = competition.status?.type?.state;
-          const isLive = statusType === 'in';
-          const isScheduled = statusType === 'pre' || statusType === 'in';
-          const isFinished = statusType === 'post';
+          const isLive = statusType === "in";
+          const isScheduled = statusType === "pre" || statusType === "in";
+          const isFinished = statusType === "post";
 
           // Convert WNBA data to standard format
           const convertedGame = {
             ...eventData,
             id: eventData.header?.id || currentGameData.eventId,
-            date: competition.date || eventData.header?.competitions?.[0]?.date || currentGameData.gameDate,
-            venue: competition.venue?.fullName || competition.venue?.displayName || eventData.header?.competitions?.[0]?.venue?.fullName || 'TBD Arena',
+            date:
+              competition.date ||
+              eventData.header?.competitions?.[0]?.date ||
+              currentGameData.gameDate,
+            venue:
+              competition.venue?.fullName ||
+              competition.venue?.displayName ||
+              eventData.header?.competitions?.[0]?.venue?.fullName ||
+              "TBD Arena",
             competitions: eventData.header?.competitions || [competition],
-            homeTeam: homeCompetitor ? {
-              team: homeCompetitor.team,
-              abbreviation: homeCompetitor.team?.abbreviation || homeCompetitor.team?.displayName || 'HOME',
-              displayName: homeCompetitor.team?.displayName || homeCompetitor.team?.abbreviation || 'Home Team',
-              score: homeCompetitor.score || '0'
-            } : null,
-            awayTeam: awayCompetitor ? {
-              team: awayCompetitor.team,
-              abbreviation: awayCompetitor.team?.abbreviation || awayCompetitor.team?.displayName || 'AWAY', 
-              displayName: awayCompetitor.team?.displayName || awayCompetitor.team?.abbreviation || 'Away Team',
-              score: awayCompetitor.score || '0'
-            } : null,
+            homeTeam: homeCompetitor
+              ? {
+                  team: homeCompetitor.team,
+                  abbreviation:
+                    homeCompetitor.team?.abbreviation ||
+                    homeCompetitor.team?.displayName ||
+                    "HOME",
+                  displayName:
+                    homeCompetitor.team?.displayName ||
+                    homeCompetitor.team?.abbreviation ||
+                    "Home Team",
+                  score: homeCompetitor.score || "0",
+                }
+              : null,
+            awayTeam: awayCompetitor
+              ? {
+                  team: awayCompetitor.team,
+                  abbreviation:
+                    awayCompetitor.team?.abbreviation ||
+                    awayCompetitor.team?.displayName ||
+                    "AWAY",
+                  displayName:
+                    awayCompetitor.team?.displayName ||
+                    awayCompetitor.team?.abbreviation ||
+                    "Away Team",
+                  score: awayCompetitor.score || "0",
+                }
+              : null,
             favoriteTeam: team,
-            sport: 'WNBA',
-            actualLeagueCode: 'wnba',
+            sport: "WNBA",
+            actualLeagueCode: "wnba",
             fromDirectLink: true,
             eventLink: wnbaUrl,
             // Add status flags for proper update detection
             isLive: isLive,
             isScheduled: isScheduled,
-            isFinished: isFinished
+            isFinished: isFinished,
           };
           return convertedGame;
         } catch (wnbaError) {
@@ -2930,18 +3682,24 @@ const FavoritesScreen = ({ navigation }) => {
       }
 
       // Handle F1 fetching
-      if (team.sport === 'f1' || team.sport === 'F1' || currentGameData.competition === 'f1') {
+      if (
+        team.sport === "f1" ||
+        team.sport === "F1" ||
+        currentGameData.competition === "f1"
+      ) {
         try {
           // For F1, use the Core API endpoint like ConstructorDetailsScreen does
           const normalizedEventLink = normalizeUrl(currentGameData.eventLink);
-          const f1Response = await fetch(normalizedEventLink, { timeout: 15000 });
+          const f1Response = await fetch(normalizedEventLink, {
+            timeout: 15000,
+          });
           if (!f1Response.ok) {
             return null;
           }
-          
+
           const f1Data = await f1Response.json();
           if (!f1Data.competitions || f1Data.competitions.length === 0) {
-            return null;            
+            return null;
           }
 
           // Find the most recent or currently active competition
@@ -2951,66 +3709,86 @@ const FavoritesScreen = ({ navigation }) => {
           for (const comp of f1Data.competitions) {
             const compDate = new Date(comp.date);
             const isRecent = comp.recent === true;
-            
+
             // Fetch status to check if in progress
             let isInProgress = false;
             let isFinal = false;
             if (comp.status?.$ref) {
               try {
                 const normalizedStatusRef = normalizeUrl(comp.status.$ref);
-                const statusResp = await fetch(normalizedStatusRef, { timeout: 5000 });
+                const statusResp = await fetch(normalizedStatusRef, {
+                  timeout: 5000,
+                });
                 if (statusResp.ok) {
                   const statusData = await statusResp.json();
-                  isInProgress = statusData.type?.state === 'in';
-                  isFinal = statusData.type?.description === 'Final';
+                  isInProgress = statusData.type?.state === "in";
+                  isFinal = statusData.type?.description === "Final";
                 }
-              } catch (err) {
-              }
+              } catch (err) {}
             }
-            
+
             // Priority 1: In-progress competition
             if (isInProgress) {
               selectedCompetition = comp;
               break;
             }
-            
+
             // Priority 2: Most recent competition (marked as recent=true)
-            if (isRecent && (!selectedCompetition || new Date(selectedCompetition.date) < compDate)) {
+            if (
+              isRecent &&
+              (!selectedCompetition ||
+                new Date(selectedCompetition.date) < compDate)
+            ) {
               selectedCompetition = comp;
             }
-            
+
             // Priority 3: Most recent past competition with Final status
             if (compDate <= now && isFinal) {
               // Select if Final and more recent than current selection (or no selection yet)
-              if (!selectedCompetition || new Date(selectedCompetition.date) < compDate) {
+              if (
+                !selectedCompetition ||
+                new Date(selectedCompetition.date) < compDate
+              ) {
                 selectedCompetition = comp;
               }
             }
           }
-          
+
           // Fallback to first competition if none selected
           if (!selectedCompetition) {
             selectedCompetition = f1Data.competitions[0];
           }
-          
+
           const competition = selectedCompetition;
           const competitors = competition.competitors || [];
-          
+
           // Find drivers from the favorite team's constructor
-          // Extract constructor name from teamId (f1_mclaren -> mclaren) 
+          // Extract constructor name from teamId (f1_mclaren -> mclaren)
           // Use displayName from team object if available (more reliable)
-          const rawConstructorName = team.displayName || team.teamName || team.teamId?.replace('f1_', '').replace(/_/g, ' ');
+          const rawConstructorName =
+            team.displayName ||
+            team.teamName ||
+            team.teamId?.replace("f1_", "").replace(/_/g, " ");
           const constructorName = rawConstructorName;
           // Filter drivers by constructor - match like ConstructorDetailsScreen does
-          const constructorDrivers = competitors.filter(competitor => {
-            const teamNameRaw = competitor.team?.displayName || competitor.team?.name || '';
-            const vehicleManufacturer = competitor.vehicle?.manufacturer || '';
-            const teamName = (teamNameRaw || vehicleManufacturer || '').toString().trim().toLowerCase();
-            const ctorName = (constructorName || '').toString().trim().toLowerCase();
-            return teamName === ctorName || 
-                   teamName.includes(ctorName) || 
-                   ctorName.includes(teamName) ||
-                   vehicleManufacturer.toString().trim().toLowerCase() === ctorName;
+          const constructorDrivers = competitors.filter((competitor) => {
+            const teamNameRaw =
+              competitor.team?.displayName || competitor.team?.name || "";
+            const vehicleManufacturer = competitor.vehicle?.manufacturer || "";
+            const teamName = (teamNameRaw || vehicleManufacturer || "")
+              .toString()
+              .trim()
+              .toLowerCase();
+            const ctorName = (constructorName || "")
+              .toString()
+              .trim()
+              .toLowerCase();
+            return (
+              teamName === ctorName ||
+              teamName.includes(ctorName) ||
+              ctorName.includes(teamName) ||
+              vehicleManufacturer.toString().trim().toLowerCase() === ctorName
+            );
           });
           if (!constructorDrivers || constructorDrivers.length === 0) {
             return null;
@@ -3019,111 +3797,131 @@ const FavoritesScreen = ({ navigation }) => {
           // Convert F1 data to standard format (similar to ConstructorDetailsScreen race log)
           // Extract constructor info from first driver
           const firstDriver = constructorDrivers[0];
-          const constructorTeamName = firstDriver?.team?.displayName || firstDriver?.vehicle?.manufacturer || constructorName;
+          const constructorTeamName =
+            firstDriver?.team?.displayName ||
+            firstDriver?.vehicle?.manufacturer ||
+            constructorName;
           const constructorTeamColor = firstDriver?.team?.color || team.color;
-          
+
           // Fetch venue reference to get circuit name and flag
-          let circuitName = 'TBD Circuit';
+          let circuitName = "TBD Circuit";
           let circuitFlag = null;
           if (f1Data.venues?.[0]?.$ref) {
             try {
               const normalizedVenueRef = normalizeUrl(f1Data.venues[0].$ref);
-              const venueResp = await fetch(normalizedVenueRef, { timeout: 10000 });
+              const venueResp = await fetch(normalizedVenueRef, {
+                timeout: 10000,
+              });
               if (venueResp.ok) {
                 const venueData = await venueResp.json();
                 circuitName = venueData.fullName || circuitName;
                 circuitFlag = venueData.countryFlag?.href || null;
               }
-            } catch (err) {
-            }
+            } catch (err) {}
           }
-          
+
           // Fetch status reference to get actual status
           let statusObject = null;
           if (competition.status?.$ref) {
             try {
-              const normalizedCompetitionStatusRef = normalizeUrl(competition.status.$ref);
-              const statusResp = await fetch(normalizedCompetitionStatusRef, { timeout: 10000 });
+              const normalizedCompetitionStatusRef = normalizeUrl(
+                competition.status.$ref
+              );
+              const statusResp = await fetch(normalizedCompetitionStatusRef, {
+                timeout: 10000,
+              });
               if (statusResp.ok) {
                 statusObject = await statusResp.json();
               }
-            } catch (err) {
-            }
+            } catch (err) {}
           }
-          
+
           // Fetch athlete and statistics references for each driver (like ConstructorDetailsScreen does)
-          const driversWithData = await Promise.all(constructorDrivers.map(async (driver) => {
-            try {
-              // Fetch athlete reference if it's a $ref
-              let athlete = driver.athlete || {};
-              if (athlete.$ref) {
-                const normalizedAthleteRef = normalizeUrl(athlete.$ref);
-                const athleteResp = await fetch(normalizedAthleteRef, { timeout: 10000 });
-                if (athleteResp.ok) {
-                  athlete = await athleteResp.json();
+          const driversWithData = await Promise.all(
+            constructorDrivers.map(async (driver) => {
+              try {
+                // Fetch athlete reference if it's a $ref
+                let athlete = driver.athlete || {};
+                if (athlete.$ref) {
+                  const normalizedAthleteRef = normalizeUrl(athlete.$ref);
+                  const athleteResp = await fetch(normalizedAthleteRef, {
+                    timeout: 10000,
+                  });
+                  if (athleteResp.ok) {
+                    athlete = await athleteResp.json();
+                  }
                 }
-              }
-              
-              // Fetch statistics reference if it's a $ref
-              let statistics = driver.statistics || [];
-              if (statistics.$ref) {
-                const normalizedStatsRef = normalizeUrl(statistics.$ref);
-                const statsResp = await fetch(normalizedStatsRef, { timeout: 10000 });
-                if (statsResp.ok) {
-                  const statsData = await statsResp.json();
-                  // Extract stats from the splits.categories structure
-                  statistics = [];
-                  if (statsData.splits?.categories) {
-                    for (const cat of statsData.splits.categories) {
-                      if (cat.stats) {
-                        statistics.push(...cat.stats);
+
+                // Fetch statistics reference if it's a $ref
+                let statistics = driver.statistics || [];
+                if (statistics.$ref) {
+                  const normalizedStatsRef = normalizeUrl(statistics.$ref);
+                  const statsResp = await fetch(normalizedStatsRef, {
+                    timeout: 10000,
+                  });
+                  if (statsResp.ok) {
+                    const statsData = await statsResp.json();
+                    // Extract stats from the splits.categories structure
+                    statistics = [];
+                    if (statsData.splits?.categories) {
+                      for (const cat of statsData.splits.categories) {
+                        if (cat.stats) {
+                          statistics.push(...cat.stats);
+                        }
                       }
                     }
                   }
                 }
+
+                const driverName =
+                  driver.displayName ||
+                  driver.name ||
+                  athlete.displayName ||
+                  athlete.shortName ||
+                  "Unknown Driver";
+
+                return {
+                  id: driver.id,
+                  name: driverName,
+                  displayName: driverName,
+                  position: driver.order || driver.rank,
+                  // Store fetched statistics array
+                  statistics: Array.isArray(statistics) ? statistics : [],
+                  result: driver.result || null,
+                  athlete: athlete,
+                  team: driver.team,
+                  vehicle: driver.vehicle,
+                  // Include liveStats for gap to leader calculation
+                  liveStats: driver.liveStats || null,
+                };
+              } catch (err) {
+                return {
+                  id: driver.id,
+                  name: "Unknown Driver",
+                  displayName: "Unknown Driver",
+                  position: driver.order || driver.rank,
+                  statistics: [],
+                  result: driver.result || null,
+                  athlete: driver.athlete || {},
+                  team: driver.team,
+                  vehicle: driver.vehicle,
+                  // Include liveStats for gap to leader calculation
+                  liveStats: driver.liveStats || null,
+                };
               }
-              
-              const driverName = driver.displayName || driver.name || athlete.displayName || athlete.shortName || 'Unknown Driver';
-              
-              return {
-                id: driver.id,
-                name: driverName,
-                displayName: driverName,
-                position: driver.order || driver.rank,
-                // Store fetched statistics array
-                statistics: Array.isArray(statistics) ? statistics : [],
-                result: driver.result || null,
-                athlete: athlete,
-                team: driver.team,
-                vehicle: driver.vehicle,
-                // Include liveStats for gap to leader calculation
-                liveStats: driver.liveStats || null
-              };
-            } catch (err) {
-              return {
-                id: driver.id,
-                name: 'Unknown Driver',
-                displayName: 'Unknown Driver',
-                position: driver.order || driver.rank,
-                statistics: [],
-                result: driver.result || null,
-                athlete: driver.athlete || {},
-                team: driver.team,
-                vehicle: driver.vehicle,
-                // Include liveStats for gap to leader calculation
-                liveStats: driver.liveStats || null
-              };
-            }
-          }));
-          
+            })
+          );
+
           // Compute status flags based on statusObject (resolved from $ref)
           const statusType = statusObject?.type?.state;
-          const isLive = statusType === 'in';
-          const isScheduled = statusType === 'pre' || statusType === 'in';
-          const isFinished = statusType === 'post';
+          const isLive = statusType === "in";
+          const isScheduled = statusType === "pre" || statusType === "in";
+          const isFinished = statusType === "post";
 
           const convertedGame = {
-            id: `${f1Data.id || currentGameData.eventId}_${constructorTeamName}`, // Unique ID per constructor for React keys
+            id: `${
+              f1Data.id || currentGameData.eventId
+            }_${constructorTeamName}`, // Unique ID per constructor for React keys
             originalEventId: f1Data.id || currentGameData.eventId, // Store original event ID for reference
             date: competition.date || f1Data.date || currentGameData.gameDate, // USE SELECTED COMPETITION DATE, not overall event date
             venue: circuitName,
@@ -3134,8 +3932,8 @@ const FavoritesScreen = ({ navigation }) => {
             constructorName: constructorTeamName,
             constructorColor: constructorTeamColor,
             favoriteTeam: team,
-            sport: 'F1',
-            actualLeagueCode: 'f1',
+            sport: "F1",
+            actualLeagueCode: "f1",
             fromDirectLink: true,
             eventLink: currentGameData.eventLink,
             // Add status flags for proper update detection
@@ -3150,8 +3948,8 @@ const FavoritesScreen = ({ navigation }) => {
               circuitFlag: circuitFlag,
               date: competition.date, // USE SELECTED COMPETITION DATE for display
               status: statusObject, // Store full status object with type.state
-              competitionType: competition.type?.abbreviation
-            }
+              competitionType: competition.type?.abbreviation,
+            },
           };
           // ==================== TEXT CARD RENDERING ====================
           // Display drivers with their times
@@ -3161,95 +3959,125 @@ const FavoritesScreen = ({ navigation }) => {
               let totalTime = null;
               let laps = null;
               let behindLaps = null;
-              
+
               // Try result fields first
               if (driver.result) {
                 if (driver.result.time) {
-                  totalTime = driver.result.time.displayValue || driver.result.time.text || null;
+                  totalTime =
+                    driver.result.time.displayValue ||
+                    driver.result.time.text ||
+                    null;
                 }
                 if (driver.result.laps != null) laps = driver.result.laps;
-                if (driver.result.behindLaps != null) behindLaps = driver.result.behindLaps;
+                if (driver.result.behindLaps != null)
+                  behindLaps = driver.result.behindLaps;
               }
-              
+
               // Try competitor statistics array
               const stats = driver.statistics || [];
               if (Array.isArray(stats)) {
                 for (const s of stats) {
-                  const key = (s.name || s.displayName || '').toString().toLowerCase();
+                  const key = (s.name || s.displayName || "")
+                    .toString()
+                    .toLowerCase();
                   // Prioritize displayValue (formatted) over value (raw number)
-                  const val = s.displayValue ?? s.value ?? s.text ?? s.rank ?? null;
-                  if (!totalTime && key === 'totaltime') totalTime = val;
-                  if (!laps && key === 'lapscompleted') laps = val;
-                  if (!behindLaps && key === 'behindlaps') behindLaps = val;
+                  const val =
+                    s.displayValue ?? s.value ?? s.text ?? s.rank ?? null;
+                  if (!totalTime && key === "totaltime") totalTime = val;
+                  if (!laps && key === "lapscompleted") laps = val;
+                  if (!behindLaps && key === "behindlaps") behindLaps = val;
                 }
               }
-              
+
               // Display what we found
               if (totalTime) {
               } else if (behindLaps) {
               } else {
               }
-              
+
               if (laps) {
               }
-              
+
               // Show all available statistics for debugging
             });
           } else {
           }
           // ==================== END TEXT CARD ====================
-          
+
           return convertedGame;
         } catch (f1Error) {
           return null;
         }
       }
-      
-  // For soccer games only, use the existing helper which caches and is null-safe
+
+      // For soccer games only, use the existing helper which caches and is null-safe
       // Resolve the URL first so we can save it in the return object
       let resolvedEventLink = currentGameData.eventLink;
       try {
-        if (typeof resolvedEventLink === 'string' && resolvedEventLink.startsWith('/api/v1.1/game/')) {
+        if (
+          typeof resolvedEventLink === "string" &&
+          resolvedEventLink.startsWith("/api/v1.1/game/")
+        ) {
           resolvedEventLink = `https://statsapi.mlb.com${resolvedEventLink}`;
         }
       } catch (e) {
         // ignore
       }
-          // Validate the URL before making the request
-      if (!currentGameData.eventLink || typeof currentGameData.eventLink !== 'string') {
+      // Validate the URL before making the request
+      if (
+        !currentGameData.eventLink ||
+        typeof currentGameData.eventLink !== "string"
+      ) {
         return null;
       }
       const eventData = await getEventData(currentGameData.eventLink, true); // Bypass gating for direct game links
       if (!eventData) {
         return null;
       }
-      
+
       // Debug: Log eventData structure to understand missing ID issue
       // Fetch team and score data for competitors if needed
       if (eventData.competitions?.[0]?.competitors) {
-        const competitorPromises = eventData.competitions[0].competitors.map(async (competitor) => {
-          try {
-            const [teamData, scoreData] = await Promise.all([
-              competitor.team?.$ref ? getEventData(competitor.team.$ref, true).catch(() => null) : null,
-              competitor.score?.$ref ? getEventData(competitor.score.$ref, true).catch(() => null) : null
-            ]);
-            return { ...competitor, team: teamData || competitor.team, score: scoreData || competitor.score };
-          } catch (e) {
-            return competitor;
+        const competitorPromises = eventData.competitions[0].competitors.map(
+          async (competitor) => {
+            try {
+              const [teamData, scoreData] = await Promise.all([
+                competitor.team?.$ref
+                  ? getEventData(competitor.team.$ref, true).catch(() => null)
+                  : null,
+                competitor.score?.$ref
+                  ? getEventData(competitor.score.$ref, true).catch(() => null)
+                  : null,
+              ]);
+              return {
+                ...competitor,
+                team: teamData || competitor.team,
+                score: scoreData || competitor.score,
+              };
+            } catch (e) {
+              return competitor;
+            }
           }
-        });
+        );
 
-        eventData.competitions[0].competitors = await Promise.all(competitorPromises);
+        eventData.competitions[0].competitors = await Promise.all(
+          competitorPromises
+        );
       }
 
       // Resolve a stable event id to avoid using undefined in downstream requests
-      const eventIdFallback = eventData.id || eventData.header?.id || eventData.competitions?.[0]?.id || currentGameData.eventId || null;
+      const eventIdFallback =
+        eventData.id ||
+        eventData.header?.id ||
+        eventData.competitions?.[0]?.id ||
+        currentGameData.eventId ||
+        null;
 
       // Try to infer the league code from the event link if possible (do this early so we can pick proper competitions)
       let inferredLeagueCode = null;
       try {
         // eventData.$ref typically contains the league code, e.g. .../leagues/eng.league_cup/events/758186
-        const ref = eventData.$ref || eventData.competitions?.[0]?.$ref || '';
+        const ref = eventData.$ref || eventData.competitions?.[0]?.$ref || "";
         const match = ref.match(/leagues\/([^\/]+)\/events/);
         if (match && match[1]) inferredLeagueCode = match[1];
       } catch (e) {
@@ -3258,75 +4086,103 @@ const FavoritesScreen = ({ navigation }) => {
 
       // Get status data if needed
       let gameDataWithStatus = null;
-      
+
       // Skip status fetch for F1 - F1 Core API data already has status in competitions array
-      const isF1 = currentGameData.competition === 'f1' || team.sport === 'f1' || team.sport === 'F1';
-      
+      const isF1 =
+        currentGameData.competition === "f1" ||
+        team.sport === "f1" ||
+        team.sport === "F1";
+
       if (!isF1) {
         try {
           // Try multiple competitions to find the right one (like ChampionsLeagueServiceEnhanced)
           // Only include soccer competitions - exclude NFL, NHL, NBA, etc.
-          const soccerCompetitions = [
-            'eng.1'
-          ];
+          const soccerCompetitions = ["eng.1"];
 
           const competitionsToTry = [];
           // Only add currentGameData.competition if it's a soccer competition
-          if (currentGameData.competition && soccerCompetitions.includes(currentGameData.competition)) {
+          if (
+            currentGameData.competition &&
+            soccerCompetitions.includes(currentGameData.competition)
+          ) {
             competitionsToTry.push(currentGameData.competition);
           }
           // If we inferred a league code that's soccer, try it first
-          if (inferredLeagueCode && soccerCompetitions.includes(inferredLeagueCode) && !competitionsToTry.includes(inferredLeagueCode)) {
+          if (
+            inferredLeagueCode &&
+            soccerCompetitions.includes(inferredLeagueCode) &&
+            !competitionsToTry.includes(inferredLeagueCode)
+          ) {
             competitionsToTry.unshift(inferredLeagueCode);
           }
           // Add the standard soccer competitions
-          competitionsToTry.push(...soccerCompetitions.filter(comp => comp !== currentGameData.competition && comp !== inferredLeagueCode));
+          competitionsToTry.push(
+            ...soccerCompetitions.filter(
+              (comp) =>
+                comp !== currentGameData.competition &&
+                comp !== inferredLeagueCode
+            )
+          );
 
           // Remove duplicates and null/undefined values
-          const uniqueCompetitions = [...new Set(competitionsToTry)].filter(Boolean);
-        // If we don't have a usable event id, skip attempting status fetches to avoid event=undefined
-        if (!eventIdFallback) {
-        } else {
-          for (const competition of uniqueCompetitions) {
-            try {
-              // Use the central cached fetch helper so we respect poll gating and caching.
-              const statusJson = await fetchJsonWithCache(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${eventIdFallback}`);
-              if (statusJson) {
-                gameDataWithStatus = statusJson;
-                break; // Found the right competition, stop trying
-              }
-            } catch (statusErr) {
+          const uniqueCompetitions = [...new Set(competitionsToTry)].filter(
+            Boolean
+          );
+          // If we don't have a usable event id, skip attempting status fetches to avoid event=undefined
+          if (!eventIdFallback) {
+          } else {
+            for (const competition of uniqueCompetitions) {
+              try {
+                // Use the central cached fetch helper so we respect poll gating and caching.
+                const statusJson = await fetchJsonWithCache(
+                  `https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${eventIdFallback}`
+                );
+                if (statusJson) {
+                  gameDataWithStatus = statusJson;
+                  break; // Found the right competition, stop trying
+                }
+              } catch (statusErr) {}
+            }
+
+            if (!gameDataWithStatus) {
             }
           }
-
-          if (!gameDataWithStatus) {
-          }
-        }
-        } catch (statusError) {
-        }
+        } catch (statusError) {}
       } else {
       }
 
       // Fetch plays data for live games
       let playsData = null;
-      const isLive = gameDataWithStatus?.header?.competitions?.[0]?.status?.type?.state === 'in';
+      const isLive =
+        gameDataWithStatus?.header?.competitions?.[0]?.status?.type?.state ===
+        "in";
       if (isLive) {
         try {
           // Ensure the competition used for the plays endpoint is a soccer competition
-          const soccerFallback = 'uefa.champions';
-          const competitionForPlays = (currentGameData.competition && typeof currentGameData.competition === 'string' && currentGameData.competition.startsWith('uefa')) || (inferredLeagueCode && inferredLeagueCode.startsWith('uefa'))
-            ? (currentGameData.competition && currentGameData.competition.startsWith('uefa') ? currentGameData.competition : inferredLeagueCode)
-            : (inferredLeagueCode && inferredLeagueCode.includes('.') ? inferredLeagueCode : soccerFallback);
+          const soccerFallback = "uefa.champions";
+          const competitionForPlays =
+            (currentGameData.competition &&
+              typeof currentGameData.competition === "string" &&
+              currentGameData.competition.startsWith("uefa")) ||
+            (inferredLeagueCode && inferredLeagueCode.startsWith("uefa"))
+              ? currentGameData.competition &&
+                currentGameData.competition.startsWith("uefa")
+                ? currentGameData.competition
+                : inferredLeagueCode
+              : inferredLeagueCode && inferredLeagueCode.includes(".")
+              ? inferredLeagueCode
+              : soccerFallback;
 
-          const playsResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competitionForPlays}/events/${eventIdFallback}/competitions/${eventIdFallback}/plays?lang=en&region=us&limit=1000`);
+          const playsResponse = await fetch(
+            `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competitionForPlays}/events/${eventIdFallback}/competitions/${eventIdFallback}/plays?lang=en&region=us&limit=1000`
+          );
           if (playsResponse.ok) {
             const playsResponseData = await playsResponse.json();
             if (playsResponseData.items && playsResponseData.items.length > 0) {
               playsData = [...playsResponseData.items].reverse();
             }
           }
-        } catch (playsError) {
-        }
+        } catch (playsError) {}
       }
 
       // inferredLeagueCode computed earlier and reused here
@@ -3337,15 +4193,15 @@ const FavoritesScreen = ({ navigation }) => {
         sport: team.sport,
         eventLink: resolvedEventLink, // Use the resolved full URL instead of relative path
         // Prefer the inferred league code from the event link, fall back to provided competition or team.sport
-        actualLeagueCode: inferredLeagueCode || currentGameData.competition || team.sport,
+        actualLeagueCode:
+          inferredLeagueCode || currentGameData.competition || team.sport,
         gameDataWithStatus: gameDataWithStatus,
         playsData: playsData,
-        fromDirectLink: true // Flag to indicate this came from direct link
+        fromDirectLink: true, // Flag to indicate this came from direct link
       };
       return returnObject;
-      
     } catch (error) {
-      const teamName = team.displayName || team.teamName || 'Unknown Team';
+      const teamName = team.displayName || team.teamName || "Unknown Team";
       return null;
     }
   };
@@ -3356,7 +4212,9 @@ const FavoritesScreen = ({ navigation }) => {
         return null;
       }
       // Fetch team events from ESPN Core API
-      const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.champions/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${team.teamId}/events?lang=en&region=us&limit=10`;
+      const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.champions/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${
+        team.teamId
+      }/events?lang=en&region=us&limit=10`;
       const eventsData = await fetchJsonWithCache(eventsUrl);
 
       if (eventsData.items && eventsData.items.length > 0) {
@@ -3374,55 +4232,78 @@ const FavoritesScreen = ({ navigation }) => {
           if (eventDate >= todayStart && eventDate < todayEnd) {
             // Fetch team and score data for competitors
             if (eventData.competitions?.[0]?.competitors) {
-              const competitorPromises = eventData.competitions[0].competitors.map(async (competitor) => {
-                const [teamData, scoreData] = await Promise.all([
-                  competitor.team?.$ref ? fetchTeamMetadataWithCache(competitor.team.$ref).catch(() => null) : null,
-                  competitor.score?.$ref ? fetchJsonWithCache(competitor.score.$ref).catch(() => null) : null
-                ]);
-                return { ...competitor, team: teamData || competitor.team, score: scoreData || competitor.score };
-              });
-              
-              eventData.competitions[0].competitors = await Promise.all(competitorPromises);
+              const competitorPromises =
+                eventData.competitions[0].competitors.map(
+                  async (competitor) => {
+                    const [teamData, scoreData] = await Promise.all([
+                      competitor.team?.$ref
+                        ? fetchTeamMetadataWithCache(
+                            competitor.team.$ref
+                          ).catch(() => null)
+                        : null,
+                      competitor.score?.$ref
+                        ? fetchJsonWithCache(competitor.score.$ref).catch(
+                            () => null
+                          )
+                        : null,
+                    ]);
+                    return {
+                      ...competitor,
+                      team: teamData || competitor.team,
+                      score: scoreData || competitor.score,
+                    };
+                  }
+                );
+
+              eventData.competitions[0].competitors = await Promise.all(
+                competitorPromises
+              );
             }
 
             // Get full game data with status from Site API (like Game Details screen)
             let gameDataWithStatus = null;
-              try {
-                const competitionOrder = ['uefa.champions_qual', 'uefa.champions'];
-                for (const competition of competitionOrder) {
-                  try {
-                    const statusJson = await fetchJsonWithCache(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${eventData.id}`);
-                    if (statusJson) {
-                      gameDataWithStatus = statusJson;
-                      break;
-                    }
-                  } catch (err) {
+            try {
+              const competitionOrder = [
+                "uefa.champions_qual",
+                "uefa.champions",
+              ];
+              for (const competition of competitionOrder) {
+                try {
+                  const statusJson = await fetchJsonWithCache(
+                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${eventData.id}`
+                  );
+                  if (statusJson) {
+                    gameDataWithStatus = statusJson;
+                    break;
                   }
-                }
-              } catch (statusError) {
+                } catch (err) {}
               }
+            } catch (statusError) {}
 
             // Fetch plays data for live games
             let playsData = null;
-            const isLive = gameDataWithStatus?.header?.competitions?.[0]?.status?.type?.state === 'in';
+            const isLive =
+              gameDataWithStatus?.header?.competitions?.[0]?.status?.type
+                ?.state === "in";
             if (isLive) {
-                try {
-                const playsJson = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.champions/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`);
+              try {
+                const playsJson = await fetchJsonWithCache(
+                  `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.champions/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`
+                );
                 if (playsJson?.items && playsJson.items.length > 0) {
                   // Sort plays in reverse chronological order (most recent first) like Game Details
                   playsData = [...playsJson.items].reverse();
                 }
-              } catch (playsError) {
-              }
+              } catch (playsError) {}
             }
 
             return {
               ...eventData,
               favoriteTeam: team,
               sport: team.sport,
-              actualLeagueCode: 'uefa.champions', // Store the actual league code for proper header display
+              actualLeagueCode: "uefa.champions", // Store the actual league code for proper header display
               gameDataWithStatus: gameDataWithStatus, // Add the status data
-              playsData: playsData // Add plays data for live games
+              playsData: playsData, // Add plays data for live games
             };
           }
         }
@@ -3440,7 +4321,9 @@ const FavoritesScreen = ({ navigation }) => {
         return null;
       }
       // Use Europa League API endpoint
-      const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${team.teamId}/events?lang=en&region=us&limit=10`;
+      const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${
+        team.teamId
+      }/events?lang=en&region=us&limit=10`;
       const eventsData = await fetchJsonWithCache(eventsUrl);
 
       if (eventsData.items && eventsData.items.length > 0) {
@@ -3455,55 +4338,75 @@ const FavoritesScreen = ({ navigation }) => {
 
           if (eventDate >= todayStart && eventDate < todayEnd) {
             if (eventData.competitions?.[0]?.competitors) {
-              const competitorPromises = eventData.competitions[0].competitors.map(async (competitor) => {
-                const [teamData, scoreData] = await Promise.all([
-                  competitor.team?.$ref ? fetchTeamMetadataWithCache(competitor.team.$ref).catch(() => null) : null,
-                  competitor.score?.$ref ? fetchJsonWithCache(competitor.score.$ref).catch(() => null) : null
-                ]);
-                return { ...competitor, team: teamData || competitor.team, score: scoreData || competitor.score };
-              });
-              
-              eventData.competitions[0].competitors = await Promise.all(competitorPromises);
+              const competitorPromises =
+                eventData.competitions[0].competitors.map(
+                  async (competitor) => {
+                    const [teamData, scoreData] = await Promise.all([
+                      competitor.team?.$ref
+                        ? fetchTeamMetadataWithCache(
+                            competitor.team.$ref
+                          ).catch(() => null)
+                        : null,
+                      competitor.score?.$ref
+                        ? fetchJsonWithCache(competitor.score.$ref).catch(
+                            () => null
+                          )
+                        : null,
+                    ]);
+                    return {
+                      ...competitor,
+                      team: teamData || competitor.team,
+                      score: scoreData || competitor.score,
+                    };
+                  }
+                );
+
+              eventData.competitions[0].competitors = await Promise.all(
+                competitorPromises
+              );
             }
 
             // Get full game data with status from Site API (like Game Details screen)
             let gameDataWithStatus = null;
-              try {
-                const competitionOrder = ['uefa.europa_qual', 'uefa.europa'];
-                for (const competition of competitionOrder) {
-                  try {
-                    const statusJson = await fetchJsonWithCache(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${eventData.id}`);
-                    if (statusJson) {
-                      gameDataWithStatus = statusJson;
-                      break;
-                    }
-                  } catch (err) {
+            try {
+              const competitionOrder = ["uefa.europa_qual", "uefa.europa"];
+              for (const competition of competitionOrder) {
+                try {
+                  const statusJson = await fetchJsonWithCache(
+                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${eventData.id}`
+                  );
+                  if (statusJson) {
+                    gameDataWithStatus = statusJson;
+                    break;
                   }
-                }
-              } catch (statusError) {
+                } catch (err) {}
               }
+            } catch (statusError) {}
 
             // Fetch plays data for live games
             let playsData = null;
-            const isLive = gameDataWithStatus?.header?.competitions?.[0]?.status?.type?.state === 'in';
+            const isLive =
+              gameDataWithStatus?.header?.competitions?.[0]?.status?.type
+                ?.state === "in";
             if (isLive) {
               try {
-                const playsJson = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`);
+                const playsJson = await fetchJsonWithCache(
+                  `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`
+                );
                 if (playsJson?.items && playsJson.items.length > 0) {
                   // Sort plays in reverse chronological order (most recent first) like Game Details
                   playsData = [...playsJson.items].reverse();
                 }
-              } catch (playsError) {
-              }
+              } catch (playsError) {}
             }
 
             return {
               ...eventData,
               favoriteTeam: team,
               sport: team.sport,
-              actualLeagueCode: 'uefa.europa', // Store the actual league code for proper header display
+              actualLeagueCode: "uefa.europa", // Store the actual league code for proper header display
               gameDataWithStatus: gameDataWithStatus, // Add the status data
-              playsData: playsData // Add plays data for live games
+              playsData: playsData, // Add plays data for live games
             };
           }
         }
@@ -3520,7 +4423,9 @@ const FavoritesScreen = ({ navigation }) => {
         return null;
       }
       // Use Europa Conference League API endpoint
-      const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${team.teamId}/events?lang=en&region=us&limit=10`;
+      const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${
+        team.teamId
+      }/events?lang=en&region=us&limit=10`;
       const eventsData = await fetchJsonWithCache(eventsUrl);
 
       if (eventsData.items && eventsData.items.length > 0) {
@@ -3535,57 +4440,83 @@ const FavoritesScreen = ({ navigation }) => {
 
           if (eventDate >= todayStart && eventDate < todayEnd) {
             if (eventData.competitions?.[0]?.competitors) {
-              const competitorPromises = eventData.competitions[0].competitors.map(async (competitor) => {
-                const [teamData, scoreData] = await Promise.all([
-                  competitor.team?.$ref ? fetchTeamMetadataWithCache(competitor.team.$ref).catch(() => null) : null,
-                  competitor.score?.$ref ? fetchJsonWithCache(competitor.score.$ref).catch(() => null) : null
-                ]);
-                return { ...competitor, team: teamData || competitor.team, score: scoreData || competitor.score };
-              });
-              
-              eventData.competitions[0].competitors = await Promise.all(competitorPromises);
+              const competitorPromises =
+                eventData.competitions[0].competitors.map(
+                  async (competitor) => {
+                    const [teamData, scoreData] = await Promise.all([
+                      competitor.team?.$ref
+                        ? fetchTeamMetadataWithCache(
+                            competitor.team.$ref
+                          ).catch(() => null)
+                        : null,
+                      competitor.score?.$ref
+                        ? fetchJsonWithCache(competitor.score.$ref).catch(
+                            () => null
+                          )
+                        : null,
+                    ]);
+                    return {
+                      ...competitor,
+                      team: teamData || competitor.team,
+                      score: scoreData || competitor.score,
+                    };
+                  }
+                );
+
+              eventData.competitions[0].competitors = await Promise.all(
+                competitorPromises
+              );
             }
 
             // Get full game data with status from Site API (like Game Details screen)
             let gameDataWithStatus = null;
-              try {
-                const competitionOrder = ['uefa.europa.conf_qual', 'uefa.europa.conf'];
-                for (const competition of competitionOrder) {
-                  try {
-                    const statusJson = await fetchJsonWithCache(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${eventData.id}`);
-                    if (statusJson) {
-                      gameDataWithStatus = statusJson;
-                      break;
-                    }
-                  } catch (err) {
+            try {
+              const competitionOrder = [
+                "uefa.europa.conf_qual",
+                "uefa.europa.conf",
+              ];
+              for (const competition of competitionOrder) {
+                try {
+                  const statusJson = await fetchJsonWithCache(
+                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${eventData.id}`
+                  );
+                  if (statusJson) {
+                    gameDataWithStatus = statusJson;
+                    break;
                   }
-                }
-              } catch (statusError) {
+                } catch (err) {}
               }
+            } catch (statusError) {}
 
             // Fetch plays data for live games
             let playsData = null;
-            const isLive = gameDataWithStatus?.header?.competitions?.[0]?.status?.type?.state === 'in';
+            const isLive =
+              gameDataWithStatus?.header?.competitions?.[0]?.status?.type
+                ?.state === "in";
             if (isLive) {
               try {
-                const playsResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`);
+                const playsResponse = await fetch(
+                  `https://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.europa.conf/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`
+                );
                 if (playsResponse.ok) {
                   const playsResponseData = await playsResponse.json();
-                  if (playsResponseData.items && playsResponseData.items.length > 0) {
+                  if (
+                    playsResponseData.items &&
+                    playsResponseData.items.length > 0
+                  ) {
                     playsData = [...playsResponseData.items].reverse();
                   }
                 }
-              } catch (playsError) {
-              }
+              } catch (playsError) {}
             }
 
             return {
               ...eventData,
               favoriteTeam: team,
               sport: team.sport,
-              actualLeagueCode: 'uefa.europa.conf', // Store the actual league code for proper header display
+              actualLeagueCode: "uefa.europa.conf", // Store the actual league code for proper header display
               gameDataWithStatus: gameDataWithStatus, // Add the status data
-              playsData: playsData // Add plays data for live games
+              playsData: playsData, // Add plays data for live games
             };
           }
         }
@@ -3603,12 +4534,17 @@ const FavoritesScreen = ({ navigation }) => {
       }
       // Check La Liga and associated domestic competitions
       const mainLeague = "esp.1";
-      const competitions = [mainLeague, ...(LEAGUE_COMPETITIONS[mainLeague] || []).map(comp => comp.code)];
+      const competitions = [
+        mainLeague,
+        ...(LEAGUE_COMPETITIONS[mainLeague] || []).map((comp) => comp.code),
+      ];
       const allGames = [];
 
       for (const leagueCode of competitions) {
         try {
-          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${team.teamId}/events?lang=en&region=us&limit=20`;
+          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${
+            team.teamId
+          }/events?lang=en&region=us&limit=20`;
           const eventsData = await fetchJsonWithCache(eventsUrl);
 
           if (eventsData.items && eventsData.items.length > 0) {
@@ -3623,38 +4559,59 @@ const FavoritesScreen = ({ navigation }) => {
 
               if (eventDate >= todayStart && eventDate < todayEnd) {
                 if (eventData.competitions?.[0]?.competitors) {
-                  const competitorPromises = eventData.competitions[0].competitors.map(async (competitor) => {
-                    const [teamData, scoreData] = await Promise.all([
-                      competitor.team?.$ref ? fetchTeamMetadataWithCache(competitor.team.$ref).catch(() => null) : null,
-                      competitor.score?.$ref ? fetchJsonWithCache(competitor.score.$ref).catch(() => null) : null
-                    ]);
-                    return { ...competitor, team: teamData || competitor.team, score: scoreData || competitor.score };
-                  });
-                  
-                  eventData.competitions[0].competitors = await Promise.all(competitorPromises);
+                  const competitorPromises =
+                    eventData.competitions[0].competitors.map(
+                      async (competitor) => {
+                        const [teamData, scoreData] = await Promise.all([
+                          competitor.team?.$ref
+                            ? fetchTeamMetadataWithCache(
+                                competitor.team.$ref
+                              ).catch(() => null)
+                            : null,
+                          competitor.score?.$ref
+                            ? fetchJsonWithCache(competitor.score.$ref).catch(
+                                () => null
+                              )
+                            : null,
+                        ]);
+                        return {
+                          ...competitor,
+                          team: teamData || competitor.team,
+                          score: scoreData || competitor.score,
+                        };
+                      }
+                    );
+
+                  eventData.competitions[0].competitors = await Promise.all(
+                    competitorPromises
+                  );
                 }
 
                 // Get Site API status data for live status information
                 let gameDataWithStatus = null;
                 try {
-                  const statusJson = await fetchJsonWithCache(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventData.id}`);
+                  const statusJson = await fetchJsonWithCache(
+                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventData.id}`
+                  );
                   if (statusJson) {
                     gameDataWithStatus = statusJson;
                   }
-                } catch (statusError) {
-                }
+                } catch (statusError) {}
 
                 // Fetch plays data for live games
                 let playsData = null;
-                const isLive = gameDataWithStatus?.header?.competitions?.[0]?.status?.type?.state === 'in';
+                const isLive =
+                  gameDataWithStatus?.header?.competitions?.[0]?.status?.type
+                    ?.state === "in";
                 if (isLive) {
                   try {
-                    const playsJson = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`);
+                    const playsJson = await fetchJsonWithCache(
+                      `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`
+                    );
                     if (playsJson?.items && playsJson.items.length > 0) {
                       playsData = [...playsJson.items].reverse();
                     }
-                  } catch (playsError) {
-                  }
+                  } catch (playsError) {}
                 }
 
                 allGames.push({
@@ -3663,13 +4620,12 @@ const FavoritesScreen = ({ navigation }) => {
                   sport: team.sport,
                   actualLeagueCode: leagueCode, // Store the actual league code for proper header display
                   gameDataWithStatus: gameDataWithStatus, // Add the status data
-                  playsData: playsData // Add plays data for live games
+                  playsData: playsData, // Add plays data for live games
                 });
               }
             }
           }
-        } catch (error) {
-        }
+        } catch (error) {}
       }
 
       return allGames.length > 0 ? allGames[0] : null; // Return first game found for now
@@ -3685,12 +4641,17 @@ const FavoritesScreen = ({ navigation }) => {
       }
       // Check Serie A and associated domestic competitions
       const mainLeague = "ita.1";
-      const competitions = [mainLeague, ...(LEAGUE_COMPETITIONS[mainLeague] || []).map(comp => comp.code)];
+      const competitions = [
+        mainLeague,
+        ...(LEAGUE_COMPETITIONS[mainLeague] || []).map((comp) => comp.code),
+      ];
       const allGames = [];
 
       for (const leagueCode of competitions) {
         try {
-          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${team.teamId}/events?lang=en&region=us&limit=20`;
+          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${
+            team.teamId
+          }/events?lang=en&region=us&limit=20`;
           const eventsData = await fetchJsonWithCache(eventsUrl);
 
           if (eventsData.items && eventsData.items.length > 0) {
@@ -3705,38 +4666,59 @@ const FavoritesScreen = ({ navigation }) => {
 
               if (eventDate >= todayStart && eventDate < todayEnd) {
                 if (eventData.competitions?.[0]?.competitors) {
-                  const competitorPromises = eventData.competitions[0].competitors.map(async (competitor) => {
-                    const [teamData, scoreData] = await Promise.all([
-                      competitor.team?.$ref ? fetchTeamMetadataWithCache(competitor.team.$ref).catch(() => null) : null,
-                      competitor.score?.$ref ? fetchJsonWithCache(competitor.score.$ref).catch(() => null) : null
-                    ]);
-                    return { ...competitor, team: teamData || competitor.team, score: scoreData || competitor.score };
-                  });
-                  
-                  eventData.competitions[0].competitors = await Promise.all(competitorPromises);
+                  const competitorPromises =
+                    eventData.competitions[0].competitors.map(
+                      async (competitor) => {
+                        const [teamData, scoreData] = await Promise.all([
+                          competitor.team?.$ref
+                            ? fetchTeamMetadataWithCache(
+                                competitor.team.$ref
+                              ).catch(() => null)
+                            : null,
+                          competitor.score?.$ref
+                            ? fetchJsonWithCache(competitor.score.$ref).catch(
+                                () => null
+                              )
+                            : null,
+                        ]);
+                        return {
+                          ...competitor,
+                          team: teamData || competitor.team,
+                          score: scoreData || competitor.score,
+                        };
+                      }
+                    );
+
+                  eventData.competitions[0].competitors = await Promise.all(
+                    competitorPromises
+                  );
                 }
 
                 // Get Site API status data for live status information
                 let gameDataWithStatus = null;
                 try {
-                  const statusJson = await fetchJsonWithCache(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventData.id}`);
+                  const statusJson = await fetchJsonWithCache(
+                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventData.id}`
+                  );
                   if (statusJson) {
                     gameDataWithStatus = statusJson;
                   }
-                } catch (statusError) {
-                }
+                } catch (statusError) {}
 
                 // Fetch plays data for live games
                 let playsData = null;
-                const isLive = gameDataWithStatus?.header?.competitions?.[0]?.status?.type?.state === 'in';
+                const isLive =
+                  gameDataWithStatus?.header?.competitions?.[0]?.status?.type
+                    ?.state === "in";
                 if (isLive) {
                   try {
-                    const playsJson = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`);
+                    const playsJson = await fetchJsonWithCache(
+                      `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`
+                    );
                     if (playsJson?.items && playsJson.items.length > 0) {
                       playsData = [...playsJson.items].reverse();
                     }
-                  } catch (playsError) {
-                  }
+                  } catch (playsError) {}
                 }
 
                 allGames.push({
@@ -3745,13 +4727,12 @@ const FavoritesScreen = ({ navigation }) => {
                   sport: team.sport,
                   actualLeagueCode: leagueCode, // Store the actual league code for proper header display
                   gameDataWithStatus: gameDataWithStatus, // Add the status data
-                  playsData: playsData // Add plays data for live games
+                  playsData: playsData, // Add plays data for live games
                 });
               }
             }
           }
-        } catch (error) {
-        }
+        } catch (error) {}
       }
 
       return allGames.length > 0 ? allGames[0] : null; // Return first game found for now
@@ -3767,12 +4748,17 @@ const FavoritesScreen = ({ navigation }) => {
       }
       // Check Bundesliga and associated domestic competitions
       const mainLeague = "ger.1";
-      const competitions = [mainLeague, ...(LEAGUE_COMPETITIONS[mainLeague] || []).map(comp => comp.code)];
+      const competitions = [
+        mainLeague,
+        ...(LEAGUE_COMPETITIONS[mainLeague] || []).map((comp) => comp.code),
+      ];
       const allGames = [];
 
       for (const leagueCode of competitions) {
         try {
-          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${team.teamId}/events?lang=en&region=us&limit=20`;
+          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${
+            team.teamId
+          }/events?lang=en&region=us&limit=20`;
           const eventsData = await fetchJsonWithCache(eventsUrl);
 
           if (eventsData.items && eventsData.items.length > 0) {
@@ -3787,38 +4773,59 @@ const FavoritesScreen = ({ navigation }) => {
 
               if (eventDate >= todayStart && eventDate < todayEnd) {
                 if (eventData.competitions?.[0]?.competitors) {
-                  const competitorPromises = eventData.competitions[0].competitors.map(async (competitor) => {
-                    const [teamData, scoreData] = await Promise.all([
-                      competitor.team?.$ref ? fetchTeamMetadataWithCache(competitor.team.$ref).catch(() => null) : null,
-                      competitor.score?.$ref ? fetchJsonWithCache(competitor.score.$ref).catch(() => null) : null
-                    ]);
-                    return { ...competitor, team: teamData || competitor.team, score: scoreData || competitor.score };
-                  });
-                  
-                  eventData.competitions[0].competitors = await Promise.all(competitorPromises);
+                  const competitorPromises =
+                    eventData.competitions[0].competitors.map(
+                      async (competitor) => {
+                        const [teamData, scoreData] = await Promise.all([
+                          competitor.team?.$ref
+                            ? fetchTeamMetadataWithCache(
+                                competitor.team.$ref
+                              ).catch(() => null)
+                            : null,
+                          competitor.score?.$ref
+                            ? fetchJsonWithCache(competitor.score.$ref).catch(
+                                () => null
+                              )
+                            : null,
+                        ]);
+                        return {
+                          ...competitor,
+                          team: teamData || competitor.team,
+                          score: scoreData || competitor.score,
+                        };
+                      }
+                    );
+
+                  eventData.competitions[0].competitors = await Promise.all(
+                    competitorPromises
+                  );
                 }
 
                 // Get Site API status data for live status information
                 let gameDataWithStatus = null;
                 try {
-                  const statusJson = await fetchJsonWithCache(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventData.id}`);
+                  const statusJson = await fetchJsonWithCache(
+                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventData.id}`
+                  );
                   if (statusJson) {
                     gameDataWithStatus = statusJson;
                   }
-                } catch (statusError) {
-                }
+                } catch (statusError) {}
 
                 // Fetch plays data for live games
                 let playsData = null;
-                const isLive = gameDataWithStatus?.header?.competitions?.[0]?.status?.type?.state === 'in';
+                const isLive =
+                  gameDataWithStatus?.header?.competitions?.[0]?.status?.type
+                    ?.state === "in";
                 if (isLive) {
                   try {
-                    const playsJson = await fetchJsonWithCache(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`);
+                    const playsJson = await fetchJsonWithCache(
+                      `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`
+                    );
                     if (playsJson?.items && playsJson.items.length > 0) {
                       playsData = [...playsJson.items].reverse();
                     }
-                  } catch (playsError) {
-                  }
+                  } catch (playsError) {}
                 }
 
                 allGames.push({
@@ -3827,13 +4834,12 @@ const FavoritesScreen = ({ navigation }) => {
                   sport: team.sport,
                   actualLeagueCode: leagueCode, // Store the actual league code for proper header display
                   gameDataWithStatus: gameDataWithStatus, // Add the status data
-                  playsData: playsData // Add plays data for live games
+                  playsData: playsData, // Add plays data for live games
                 });
               }
             }
           }
-        } catch (error) {
-        }
+        } catch (error) {}
       }
 
       return allGames.length > 0 ? allGames[0] : null; // Return first game found for now
@@ -3849,12 +4855,17 @@ const FavoritesScreen = ({ navigation }) => {
       }
       // Check Premier League and associated domestic competitions
       const mainLeague = "eng.1";
-      const competitions = [mainLeague, ...(LEAGUE_COMPETITIONS[mainLeague] || []).map(comp => comp.code)];
+      const competitions = [
+        mainLeague,
+        ...(LEAGUE_COMPETITIONS[mainLeague] || []).map((comp) => comp.code),
+      ];
       const allGames = [];
 
       for (const leagueCode of competitions) {
         try {
-          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${team.teamId}/events?lang=en&region=us&limit=20`;
+          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${
+            team.teamId
+          }/events?lang=en&region=us&limit=20`;
           const eventsData = await fetchJsonWithCache(eventsUrl);
 
           if (eventsData.items && eventsData.items.length > 0) {
@@ -3867,42 +4878,66 @@ const FavoritesScreen = ({ navigation }) => {
               const eventDate = new Date(eventData.date);
               if (eventDate >= todayStart && eventDate < todayEnd) {
                 if (eventData.competitions?.[0]?.competitors) {
-                  const competitorPromises = eventData.competitions[0].competitors.map(async (competitor) => {
-                    const [teamData, scoreData] = await Promise.all([
-                      competitor.team?.$ref ? fetchTeamMetadataWithCache(competitor.team.$ref).catch(() => null) : null,
-                      competitor.score?.$ref ? fetchJsonWithCache(competitor.score.$ref).catch(() => null) : null
-                    ]);
-                    return { ...competitor, team: teamData || competitor.team, score: scoreData || competitor.score };
-                  });
-                  
-                  eventData.competitions[0].competitors = await Promise.all(competitorPromises);
+                  const competitorPromises =
+                    eventData.competitions[0].competitors.map(
+                      async (competitor) => {
+                        const [teamData, scoreData] = await Promise.all([
+                          competitor.team?.$ref
+                            ? fetchTeamMetadataWithCache(
+                                competitor.team.$ref
+                              ).catch(() => null)
+                            : null,
+                          competitor.score?.$ref
+                            ? fetchJsonWithCache(competitor.score.$ref).catch(
+                                () => null
+                              )
+                            : null,
+                        ]);
+                        return {
+                          ...competitor,
+                          team: teamData || competitor.team,
+                          score: scoreData || competitor.score,
+                        };
+                      }
+                    );
+
+                  eventData.competitions[0].competitors = await Promise.all(
+                    competitorPromises
+                  );
                 }
 
                 // Get Site API status data for live status information
                 let gameDataWithStatus = null;
                 try {
-                  const statusResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventData.id}`);
+                  const statusResponse = await fetch(
+                    `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventData.id}`
+                  );
                   if (statusResponse.ok) {
                     gameDataWithStatus = await statusResponse.json();
                   } else {
                   }
-                } catch (statusError) {
-                }
+                } catch (statusError) {}
 
                 // Fetch plays data for live games
                 let playsData = null;
-                const isLive = gameDataWithStatus?.header?.competitions?.[0]?.status?.type?.state === 'in';
+                const isLive =
+                  gameDataWithStatus?.header?.competitions?.[0]?.status?.type
+                    ?.state === "in";
                 if (isLive) {
                   try {
-                    const playsResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`);
+                    const playsResponse = await fetch(
+                      `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/events/${eventData.id}/competitions/${eventData.id}/plays?lang=en&region=us&limit=1000`
+                    );
                     if (playsResponse.ok) {
                       const playsResponseData = await playsResponse.json();
-                      if (playsResponseData.items && playsResponseData.items.length > 0) {
+                      if (
+                        playsResponseData.items &&
+                        playsResponseData.items.length > 0
+                      ) {
                         playsData = [...playsResponseData.items].reverse();
                       }
                     }
-                  } catch (playsError) {
-                  }
+                  } catch (playsError) {}
                 }
 
                 allGames.push({
@@ -3911,13 +4946,12 @@ const FavoritesScreen = ({ navigation }) => {
                   sport: team.sport,
                   actualLeagueCode: leagueCode, // Store the actual league code for proper header display
                   gameDataWithStatus: gameDataWithStatus, // Add the status data
-                  playsData: playsData // Add plays data for live games
+                  playsData: playsData, // Add plays data for live games
                 });
               }
             }
           }
-        } catch (error) {
-        }
+        } catch (error) {}
       }
       if (allGames.length > 0) {
       }
@@ -3934,12 +4968,17 @@ const FavoritesScreen = ({ navigation }) => {
       }
       // Check Ligue 1 and associated domestic competitions
       const mainLeague = "fra.1";
-      const competitions = [mainLeague, ...(LEAGUE_COMPETITIONS[mainLeague] || []).map(comp => comp.code)];
+      const competitions = [
+        mainLeague,
+        ...(LEAGUE_COMPETITIONS[mainLeague] || []).map((comp) => comp.code),
+      ];
       const allGames = [];
 
       for (const leagueCode of competitions) {
         try {
-          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${team.teamId}/events?lang=en&region=us&limit=20`;
+          const eventsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}/seasons/${YearFallbackUtils.getPreferredYear()}/teams/${
+            team.teamId
+          }/events?lang=en&region=us&limit=20`;
           const eventsData = await fetchJsonWithCache(eventsUrl);
 
           if (eventsData.items && eventsData.items.length > 0) {
@@ -3951,15 +4990,32 @@ const FavoritesScreen = ({ navigation }) => {
 
               if (eventDate >= todayStart && eventDate < todayEnd) {
                 if (eventData.competitions?.[0]?.competitors) {
-                  const competitorPromises = eventData.competitions[0].competitors.map(async (competitor) => {
-                    const [teamData, scoreData] = await Promise.all([
-                      competitor.team?.$ref ? fetchTeamMetadataWithCache(competitor.team.$ref).catch(() => null) : null,
-                      competitor.score?.$ref ? fetchJsonWithCache(competitor.score.$ref).catch(() => null) : null
-                    ]);
-                    return { ...competitor, team: teamData || competitor.team, score: scoreData || competitor.score };
-                  });
-                  
-                  eventData.competitions[0].competitors = await Promise.all(competitorPromises);
+                  const competitorPromises =
+                    eventData.competitions[0].competitors.map(
+                      async (competitor) => {
+                        const [teamData, scoreData] = await Promise.all([
+                          competitor.team?.$ref
+                            ? fetchTeamMetadataWithCache(
+                                competitor.team.$ref
+                              ).catch(() => null)
+                            : null,
+                          competitor.score?.$ref
+                            ? fetchJsonWithCache(competitor.score.$ref).catch(
+                                () => null
+                              )
+                            : null,
+                        ]);
+                        return {
+                          ...competitor,
+                          team: teamData || competitor.team,
+                          score: scoreData || competitor.score,
+                        };
+                      }
+                    );
+
+                  eventData.competitions[0].competitors = await Promise.all(
+                    competitorPromises
+                  );
                 }
 
                 // Fetch Site API status for proper live game display
@@ -3971,7 +5027,9 @@ const FavoritesScreen = ({ navigation }) => {
                   if (statusResponse.ok) {
                     gameDataWithStatus = await statusResponse.json();
                     // Fetch plays data for live games if game is in progress
-                    const gameState = gameDataWithStatus?.header?.competitions?.[0]?.status?.type?.state;
+                    const gameState =
+                      gameDataWithStatus?.header?.competitions?.[0]?.status
+                        ?.type?.state;
                     if (gameState === "in") {
                       try {
                         const playsUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventData.id}&enable=plays`;
@@ -3979,13 +5037,11 @@ const FavoritesScreen = ({ navigation }) => {
                         if (playsResponse.ok) {
                           playsData = await playsResponse.json();
                         }
-                      } catch (playsError) {
-                      }
+                      } catch (playsError) {}
                     }
                   } else {
                   }
-                } catch (statusError) {
-                }
+                } catch (statusError) {}
 
                 allGames.push({
                   ...eventData,
@@ -3993,13 +5049,12 @@ const FavoritesScreen = ({ navigation }) => {
                   sport: team.sport,
                   actualLeagueCode: leagueCode, // Store the actual league code for proper header display
                   gameDataWithStatus,
-                  playsData
+                  playsData,
                 });
               }
             }
           }
-        } catch (error) {
-        }
+        } catch (error) {}
       }
 
       return allGames.length > 0 ? allGames[0] : null; // Return first game found for now
@@ -4010,31 +5065,35 @@ const FavoritesScreen = ({ navigation }) => {
 
   const fetchMLBTeamGame = async (team) => {
     try {
-      const teamName = (team && (team.displayName || team.teamName)) || 'Unknown Team';
+      const teamName =
+        (team && (team.displayName || team.teamName)) || "Unknown Team";
       if (!team?.teamId) {
         return null;
       }
       const { todayStart, todayEnd } = getTodayDateRange();
-      
+
       // Use the same date format as team page - YYYY-MM-DD for today
       // Use EST hours to match the getTodayDateRange function
       const today = new Date();
       const estOffset = -4 * 60; // EST is UTC-4 during daylight time
       const todayEST = new Date(today.getTime() + estOffset * 60 * 1000);
       const currentHourEST = todayEST.getUTCHours();
-      
+
       let gameDay;
       if (currentHourEST < 2) {
         gameDay = new Date(todayEST.getTime() - 24 * 60 * 60 * 1000); // Yesterday
       } else {
         gameDay = new Date(todayEST); // Today
       }
-      
-      const todayDateStr = gameDay.getFullYear() + '-' + 
-                          String(gameDay.getMonth() + 1).padStart(2, '0') + '-' + 
-                          String(gameDay.getDate()).padStart(2, '0');
+
+      const todayDateStr =
+        gameDay.getFullYear() +
+        "-" +
+        String(gameDay.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(gameDay.getDate()).padStart(2, "0");
       // Convert ESPN ID to MLB ID for API calls
-      const mlbApiTeamId = getAPITeamId(team.teamId, 'mlb');
+      const mlbApiTeamId = getAPITeamId(team.teamId, "mlb");
       // Try to get today's MLB games for this team using the same format as team page
       const mlbScheduleUrl = `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&startDate=${todayDateStr}&endDate=${todayDateStr}&teamId=${mlbApiTeamId}&hydrate=team,linescore,decisions`;
       const mlbSchedule = await fetchJsonWithCache(mlbScheduleUrl);
@@ -4043,23 +5102,22 @@ const FavoritesScreen = ({ navigation }) => {
         // Fetch detailed game data using the game ID
         const gameDetailUrl = `https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/events/${game.gamePk}?lang=en&region=us`;
         const gameDetailData = await fetchJsonWithCache(gameDetailUrl);
-        
+
         // Fetch live data from ESPN's live API (similar to GameDetailsScreen)
         let liveData = null;
         try {
           const liveUrl = `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event=${game.gamePk}`;
           liveData = await fetchJsonWithCache(liveUrl);
-        } catch (liveError) {
-        }
+        } catch (liveError) {}
 
         return {
           ...gameDetailData,
           favoriteTeam: team,
-          sport: 'MLB',
-          actualLeagueCode: 'mlb',
+          sport: "MLB",
+          actualLeagueCode: "mlb",
           eventLink: `https://statsapi.mlb.com/api/v1.1/game/${game.gamePk}/feed/live`,
           liveData,
-          mlbGameData: game // Use the MLB API game data directly
+          mlbGameData: game, // Use the MLB API game data directly
         };
       }
       return null;
@@ -4071,77 +5129,123 @@ const FavoritesScreen = ({ navigation }) => {
   const handleGamePress = (game) => {
     // Use actualLeagueCode to determine navigation, fallback to game.sport
     const actualCompetition = game.actualLeagueCode;
-    
-    if (actualCompetition === 'uefa.champions' || game.sport === 'Champions League') {
-      navigation.navigate('UCLGameDetails', {
+
+    if (
+      actualCompetition === "uefa.champions" ||
+      game.sport === "Champions League"
+    ) {
+      navigation.navigate("UCLGameDetails", {
         gameId: game.id,
-        sport: 'Champions League',
+        sport: "Champions League",
       });
-    } else if (actualCompetition === 'uefa.europa' || game.sport === 'Europa League') {
-      navigation.navigate('UELGameDetails', {
+    } else if (
+      actualCompetition === "uefa.europa" ||
+      game.sport === "Europa League"
+    ) {
+      navigation.navigate("UELGameDetails", {
         gameId: game.id,
-        sport: 'Europa League',
+        sport: "Europa League",
       });
-    } else if (actualCompetition === 'uefa.europa.conf' || game.sport === 'Europa Conference League') {
-      navigation.navigate('UECLGameDetails', {
+    } else if (
+      actualCompetition === "uefa.europa.conf" ||
+      game.sport === "Europa Conference League"
+    ) {
+      navigation.navigate("UECLGameDetails", {
         gameId: game.id,
-        sport: 'Europa Conference League',
+        sport: "Europa Conference League",
       });
-    } else if (actualCompetition === 'esp.1' || actualCompetition === 'esp.copa_del_rey' || game.sport === 'La Liga') {
-      navigation.navigate('SpainGameDetails', {
+    } else if (
+      actualCompetition === "esp.1" ||
+      actualCompetition === "esp.copa_del_rey" ||
+      game.sport === "La Liga"
+    ) {
+      navigation.navigate("SpainGameDetails", {
         gameId: game.id,
-        sport: 'La Liga',
+        sport: "La Liga",
       });
-    } else if (actualCompetition === 'ita.1' || actualCompetition === 'ita.coppa_italia' || game.sport === 'Serie A') {
-      navigation.navigate('ItalyGameDetails', {
+    } else if (
+      actualCompetition === "ita.1" ||
+      actualCompetition === "ita.coppa_italia" ||
+      game.sport === "Serie A"
+    ) {
+      navigation.navigate("ItalyGameDetails", {
         gameId: game.id,
-        sport: 'Serie A',
+        sport: "Serie A",
       });
-    } else if (actualCompetition === 'ger.1' || actualCompetition === 'ger.dfb_pokal' || game.sport === 'Bundesliga') {
-      navigation.navigate('GermanyGameDetails', {
+    } else if (
+      actualCompetition === "ger.1" ||
+      actualCompetition === "ger.dfb_pokal" ||
+      game.sport === "Bundesliga"
+    ) {
+      navigation.navigate("GermanyGameDetails", {
         gameId: game.id,
-        sport: 'Bundesliga',
+        sport: "Bundesliga",
       });
-    } else if (actualCompetition === 'eng.1' || actualCompetition === 'eng.fa' || actualCompetition === 'eng.league_cup' || game.sport === 'Premier League') {
-      navigation.navigate('EnglandGameDetails', {
+    } else if (
+      actualCompetition === "eng.1" ||
+      actualCompetition === "eng.fa" ||
+      actualCompetition === "eng.league_cup" ||
+      game.sport === "Premier League"
+    ) {
+      navigation.navigate("EnglandGameDetails", {
         gameId: game.id,
-        sport: 'Premier League',
+        sport: "Premier League",
       });
-    } else if (actualCompetition === 'fra.1' || actualCompetition === 'fra.coupe_de_france' || game.sport === 'Ligue 1') {
-      navigation.navigate('FranceGameDetails', {
+    } else if (
+      actualCompetition === "fra.1" ||
+      actualCompetition === "fra.coupe_de_france" ||
+      game.sport === "Ligue 1"
+    ) {
+      navigation.navigate("FranceGameDetails", {
         gameId: game.id,
-        sport: 'Ligue 1',
+        sport: "Ligue 1",
       });
-    } else if (actualCompetition === 'mlb' || game.sport === 'MLB') {
+    } else if (actualCompetition === "mlb" || game.sport === "MLB") {
       // App stack registers a generic 'GameDetails' route that multiplexes by sport.
       // Navigate there and pass sport param so the correct detail screen is used.
-      navigation.navigate('GameDetails', {
+      navigation.navigate("GameDetails", {
         gameId: game.id,
-        sport: 'mlb',
+        sport: "mlb",
       });
-    } else if (actualCompetition === 'nfl' || game.sport === 'NFL' || game.sport === 'nfl') {
+    } else if (
+      actualCompetition === "nfl" ||
+      game.sport === "NFL" ||
+      game.sport === "nfl"
+    ) {
       // NFL uses the same generic GameDetails screen in the app stack - pass sport 'nfl'
-      navigation.navigate('GameDetails', {
+      navigation.navigate("GameDetails", {
         gameId: game.id,
-        sport: 'nfl',
+        sport: "nfl",
       });
-    } else if (actualCompetition === 'nhl' || game.sport === 'NHL' || game.sport === 'nhl') {
+    } else if (
+      actualCompetition === "nhl" ||
+      game.sport === "NHL" ||
+      game.sport === "nhl"
+    ) {
       // NHL uses the generic GameDetails screen in the app stack - pass sport 'nhl'
-      navigation.navigate('GameDetails', {
+      navigation.navigate("GameDetails", {
         gameId: game.id,
-        sport: 'nhl',
+        sport: "nhl",
       });
-    } else if (actualCompetition === 'nba' || game.sport === 'NBA' || game.sport === 'nba') {
+    } else if (
+      actualCompetition === "nba" ||
+      game.sport === "NBA" ||
+      game.sport === "nba"
+    ) {
       // NBA uses the generic GameDetails screen in the app stack - pass sport 'nba'
-      navigation.navigate('GameDetails', {
+      navigation.navigate("GameDetails", {
         gameId: game.id,
-        sport: 'nba',
+        sport: "nba",
       });
-    } else if (actualCompetition === 'wnba' || game.sport === 'WNBA' || game.sport === 'wnba') {
+    } else if (
+      actualCompetition === "wnba" ||
+      game.sport === "WNBA" ||
+      game.sport === "wnba"
+    ) {
       // WNBA uses the generic GameDetails screen in the app stack - pass sport 'wnba'
-      navigation.navigate('GameDetails', {
+      navigation.navigate("GameDetails", {
         gameId: game.id,
-        sport: 'wnba',
+        sport: "wnba",
       });
     }
   };
@@ -4151,33 +5255,52 @@ const FavoritesScreen = ({ navigation }) => {
     const competition = game.competitions?.[0];
     const status = competition?.status || game.status;
     const statusType = status?.type?.state;
-    
+
     const gameDate = new Date(game.date);
     const now = new Date();
-    
+
     let isLive = false;
     let isPre = false;
     let isPost = false;
-    let text = '';
-    let time = '';
-    let detail = '';
-    
+    let text = "";
+    let time = "";
+    let detail = "";
+
     // If MLB data exists, prefer its codedGameState (mlbGameData or liveData)
-    const mlbCoded = game.mlbGameData?.status?.codedGameState || game.liveData?.status?.codedGameState;
-      if (mlbCoded) {
-      if (mlbCoded === 'I' || mlbCoded === 'M') {
+    const mlbCoded =
+      game.mlbGameData?.status?.codedGameState ||
+      game.liveData?.status?.codedGameState;
+    if (mlbCoded) {
+      if (mlbCoded === "I" || mlbCoded === "M") {
         isLive = true;
-        text = 'Live';
-      } else if (mlbCoded === 'F' || mlbCoded === 'O' || mlbCoded === 'D') {
+        text = "Live";
+      } else if (mlbCoded === "F" || mlbCoded === "O" || mlbCoded === "D") {
         isPost = true;
-        text = 'Final';
+        text = "Final";
         // For final games prefer to show the original scheduled start time/date instead of 'TBD'
-        time = gameDate ? gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : '';
+        time = gameDate
+          ? gameDate.toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            })
+          : "";
       } else {
         isPre = true;
-        text = 'Scheduled';
-        time = gameDate ? gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : '';
-        detail = gameDate ? gameDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+        text = "Scheduled";
+        time = gameDate
+          ? gameDate.toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            })
+          : "";
+        detail = gameDate
+          ? gameDate.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })
+          : "";
       }
       return {
         isLive,
@@ -4185,63 +5308,63 @@ const FavoritesScreen = ({ navigation }) => {
         isPost,
         text,
         time,
-        detail
+        detail,
       };
     }
 
-    if (mlbCoded === 'I' || mlbCoded === 'M') {
+    if (mlbCoded === "I" || mlbCoded === "M") {
       isLive = true;
-      text = 'Live';
-    } else if (mlbCoded === 'P' || mlbCoded === 'S' || mlbCoded === 'W') {
+      text = "Live";
+    } else if (mlbCoded === "P" || mlbCoded === "S" || mlbCoded === "W") {
       isPre = true;
-      text = 'Scheduled';
-      time = gameDate.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
+      text = "Scheduled";
+      time = gameDate.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
       });
-      detail = gameDate.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
+      detail = gameDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
       });
-    } else if (mlbCoded === 'F' || mlbCoded === 'O' || mlbCoded === 'D') {
+    } else if (mlbCoded === "F" || mlbCoded === "O" || mlbCoded === "D") {
       isPost = true;
-      text = 'Final';
-      detail = gameDate.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
+      text = "Final";
+      detail = gameDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
       });
     } else {
       // Fallback logic
-      const threeHoursAgo = new Date(now.getTime() - (3 * 60 * 60 * 1000));
+      const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
       if (gameDate < threeHoursAgo) {
         isPost = true;
-        text = 'Final';
+        text = "Final";
       } else if (gameDate <= now) {
         isLive = true;
-        text = 'Live';
+        text = "Live";
       } else {
         isPre = true;
-        text = 'Scheduled';
-        time = gameDate.toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true
+        text = "Scheduled";
+        time = gameDate.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
         });
       }
-      detail = gameDate.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
+      detail = gameDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
       });
     }
-    
+
     return {
       isLive,
       isPre,
       isPost,
       text,
       time,
-      detail
+      detail,
     };
   };
 
@@ -4254,62 +5377,75 @@ const FavoritesScreen = ({ navigation }) => {
         try {
           if (!ev || !ev.details) return null;
           const details = ev.details || {};
-          const desc = details.description || '';
+          const desc = details.description || "";
 
           // Batter and pitcher names - prefer matchup in the parent play object
-          const batter = (playObj?.matchup?.batter?.fullName) || (ev.player && ev.player.fullName) || (ev.player && ev.player?.player && ev.player.player.fullName) || '';
-          const pitcher = (playObj?.matchup?.pitcher?.fullName) || '';
+          const batter =
+            playObj?.matchup?.batter?.fullName ||
+            (ev.player && ev.player.fullName) ||
+            (ev.player && ev.player?.player && ev.player.player.fullName) ||
+            "";
+          const pitcher = playObj?.matchup?.pitcher?.fullName || "";
 
           // Pitch/swing info
-          const speed = ev.pitchData?.startSpeed || ev.pitchData?.speed || playObj?.pitchData?.startSpeed || null;
-          const pitchType = details.type?.description || details.type || '';
+          const speed =
+            ev.pitchData?.startSpeed ||
+            ev.pitchData?.speed ||
+            playObj?.pitchData?.startSpeed ||
+            null;
+          const pitchType = details.type?.description || details.type || "";
 
-          const balls = ev.count?.balls ?? playObj?.count?.balls ?? '';
-          const strikes = ev.count?.strikes ?? playObj?.count?.strikes ?? '';
+          const balls = ev.count?.balls ?? playObj?.count?.balls ?? "";
+          const strikes = ev.count?.strikes ?? playObj?.count?.strikes ?? "";
 
-          const callCode = (details.call && details.call.code) ? String(details.call.code).toUpperCase() : null;
+          const callCode =
+            details.call && details.call.code
+              ? String(details.call.code).toUpperCase()
+              : null;
 
           // Format according to the c2.txt rules
-          if (callCode === 'F') {
+          if (callCode === "F") {
             // Foul
-            const speedText = speed ? `${Math.round(speed)} mph ` : '';
+            const speedText = speed ? `${Math.round(speed)} mph ` : "";
             return `${batter} fouls off ${speedText}${pitchType} from ${pitcher}. Strike ${strikes}`.trim();
           }
 
-          if (callCode === 'B') {
+          if (callCode === "B") {
             // Ball
-            const speedText = speed ? `${Math.round(speed)} mph ` : '';
-            return `${pitcher || 'Pitcher'} throws ${speedText}${pitchType} outside to ${batter}. Ball ${balls}`.trim();
+            const speedText = speed ? `${Math.round(speed)} mph ` : "";
+            return `${
+              pitcher || "Pitcher"
+            } throws ${speedText}${pitchType} outside to ${batter}. Ball ${balls}`.trim();
           }
 
-          if (callCode === '*B') {
+          if (callCode === "*B") {
             // Hit by pitch
             return `${pitcher} throws the ball in dirt. Ball ${balls}`.trim();
           }
 
-          if (callCode === 'W') {
+          if (callCode === "W") {
             // Wild pitch
             return `${pitcher} throws a wild pitch. Ball ${balls}`.trim();
           }
 
-          if (callCode === 'H') {
+          if (callCode === "H") {
             // Hit (non-specific)
             return `${batter} ${desc}`.trim();
           }
 
-          if (callCode === 'C') {
+          if (callCode === "C") {
             // Called strike
             return `${batter} takes strike ${strikes} looking from ${pitcher}`.trim();
           }
 
-          if (callCode === 'S') {
+          if (callCode === "S") {
             // Swinging strike
-            const speedText = speed ? `${Math.round(speed)} mph ` : '';
+            const speedText = speed ? `${Math.round(speed)} mph ` : "";
             return `${batter} swings at ${speedText}${pitchType} from ${pitcher}. Strike ${strikes}`.trim();
           }
 
           // D or X (hit / play result) - fallback to description
-          if (callCode === 'D' || callCode === 'X') {
+          if (callCode === "D" || callCode === "X") {
             return `${batter} ${desc}`.trim();
           }
 
@@ -4339,43 +5475,80 @@ const FavoritesScreen = ({ navigation }) => {
       };
 
       // Determine whether this game is an MLB game (MLB parsing should only run for MLB)
-      const isMLB = String(game.sport || game.actualLeagueCode || '').toLowerCase().includes('mlb') || Boolean(game.mlbGameData);
+      const isMLB =
+        String(game.sport || game.actualLeagueCode || "")
+          .toLowerCase()
+          .includes("mlb") || Boolean(game.mlbGameData);
 
       // 1) If we have MLB statsapi liveData with plays.allPlays, prefer that (only for MLB)
-      const mlbAllPlays = (isMLB && (game.liveData?.plays?.allPlays || game.liveData?.allPlays || game.mlbGameData?.liveData?.plays?.allPlays || game.liveData?.allPlays)) || null;
-      if (isMLB && mlbAllPlays && Array.isArray(mlbAllPlays) && mlbAllPlays.length > 0) {
+      const mlbAllPlays =
+        (isMLB &&
+          (game.liveData?.plays?.allPlays ||
+            game.liveData?.allPlays ||
+            game.mlbGameData?.liveData?.plays?.allPlays ||
+            game.liveData?.allPlays)) ||
+        null;
+      if (
+        isMLB &&
+        mlbAllPlays &&
+        Array.isArray(mlbAllPlays) &&
+        mlbAllPlays.length > 0
+      ) {
         const last = mlbAllPlays[mlbAllPlays.length - 1];
         const currentPlayObj = game.liveData?.plays?.currentPlay || null;
-        
+
         try {
         } catch (e) {}
 
-        let playText = '';
+        let playText = "";
         try {
           // Priority order for MLB:
           // 1. currentPlay raw result description
           if (nonEmpty(currentPlayObj?.result?.description)) {
             playText = String(currentPlayObj.result.description).trim();
           }
-          // 2. lastPlay raw result description  
+          // 2. lastPlay raw result description
           else if (nonEmpty(last?.result?.description)) {
             playText = String(last.result.description).trim();
           }
           // 3. current play play text (about.playText or about.description)
-          else if (nonEmpty(currentPlayObj?.about?.playText) || nonEmpty(currentPlayObj?.about?.description)) {
-            playText = String(nonEmpty(currentPlayObj.about?.playText) || nonEmpty(currentPlayObj.about?.description)).trim();
+          else if (
+            nonEmpty(currentPlayObj?.about?.playText) ||
+            nonEmpty(currentPlayObj?.about?.description)
+          ) {
+            playText = String(
+              nonEmpty(currentPlayObj.about?.playText) ||
+                nonEmpty(currentPlayObj.about?.description)
+            ).trim();
           }
-          // 3b. lastPlay play text (about.playText or about.description) 
-          else if (nonEmpty(last?.about?.playText) || nonEmpty(last?.about?.description)) {
-            playText = String(nonEmpty(last.about?.playText) || nonEmpty(last.about?.description)).trim();
+          // 3b. lastPlay play text (about.playText or about.description)
+          else if (
+            nonEmpty(last?.about?.playText) ||
+            nonEmpty(last?.about?.description)
+          ) {
+            playText = String(
+              nonEmpty(last.about?.playText) ||
+                nonEmpty(last.about?.description)
+            ).trim();
           }
           // 4. Try to extract from playEvents with built logic
-          else if (Array.isArray(last.playEvents) && last.playEvents.length > 0) {
+          else if (
+            Array.isArray(last.playEvents) &&
+            last.playEvents.length > 0
+          ) {
             const filtered = last.playEvents
-              .filter(ev => ev && ev.details)
-              .filter(ev => {
-                const evType = String(ev.details.eventType || ev.type || '').toLowerCase();
-                return !(evType.includes('game_advisory') || (ev.details && String(ev.details.description || '').toLowerCase().includes('status change')));
+              .filter((ev) => ev && ev.details)
+              .filter((ev) => {
+                const evType = String(
+                  ev.details.eventType || ev.type || ""
+                ).toLowerCase();
+                return !(
+                  evType.includes("game_advisory") ||
+                  (ev.details &&
+                    String(ev.details.description || "")
+                      .toLowerCase()
+                      .includes("status change"))
+                );
               });
 
             if (filtered.length > 0) {
@@ -4383,98 +5556,178 @@ const FavoritesScreen = ({ navigation }) => {
               const built = buildMLBPlayTextFromEvent(lastEv, last);
               if (built) {
                 playText = built;
-              }
-              else if (lastEv.details && lastEv.details.description) {
+              } else if (lastEv.details && lastEv.details.description) {
                 playText = String(lastEv.details.description).trim();
               }
             }
           }
           // 5. matchup text (only if no other play information found)
           else {
-            const batterName = last.matchup?.batter?.fullName || currentPlayObj?.matchup?.batter?.fullName || '';
-            const pitcherName = last.matchup?.pitcher?.fullName || currentPlayObj?.matchup?.pitcher?.fullName || '';
+            const batterName =
+              last.matchup?.batter?.fullName ||
+              currentPlayObj?.matchup?.batter?.fullName ||
+              "";
+            const pitcherName =
+              last.matchup?.pitcher?.fullName ||
+              currentPlayObj?.matchup?.pitcher?.fullName ||
+              "";
             if (batterName || pitcherName) {
-              playText = `Matchup: ${batterName}${batterName && pitcherName ? ' vs ' : ''}${pitcherName}`.trim();
+              playText = `Matchup: ${batterName}${
+                batterName && pitcherName ? " vs " : ""
+              }${pitcherName}`.trim();
             }
           }
 
           // Final fallback to any remaining fields
           if (!nonEmpty(playText)) {
-            playText = nonEmpty(last.playDescription) || nonEmpty(last.playText) || nonEmpty(last.result?.event) || '';
+            playText =
+              nonEmpty(last.playDescription) ||
+              nonEmpty(last.playText) ||
+              nonEmpty(last.result?.event) ||
+              "";
           }
         } catch (e) {
-          playText = last.result?.description || last.about?.playText || '';
+          playText = last.result?.description || last.about?.playText || "";
         }
 
         let inferredTeamId = null;
         let inferredIsHome = null;
         try {
-          const half = (last.about && (last.about.halfInning || last.about.half)) || last.about?.inningState || null;
+          const half =
+            (last.about && (last.about.halfInning || last.about.half)) ||
+            last.about?.inningState ||
+            null;
           if (half) {
-            if (String(half).toLowerCase().startsWith('t') || String(half).toLowerCase().includes('top')) {
+            if (
+              String(half).toLowerCase().startsWith("t") ||
+              String(half).toLowerCase().includes("top")
+            ) {
               inferredIsHome = false;
-              inferredTeamId = awayTeam?.team?.id || awayTeam?.id || (awayTeam?.team && awayTeam.team.id) || null;
-            } else if (String(half).toLowerCase().startsWith('b') || String(half).toLowerCase().includes('bot') || String(half).toLowerCase().includes('bottom')) {
+              inferredTeamId =
+                awayTeam?.team?.id ||
+                awayTeam?.id ||
+                (awayTeam?.team && awayTeam.team.id) ||
+                null;
+            } else if (
+              String(half).toLowerCase().startsWith("b") ||
+              String(half).toLowerCase().includes("bot") ||
+              String(half).toLowerCase().includes("bottom")
+            ) {
               inferredIsHome = true;
-              inferredTeamId = homeTeam?.team?.id || homeTeam?.id || (homeTeam?.team && homeTeam.team.id) || null;
+              inferredTeamId =
+                homeTeam?.team?.id ||
+                homeTeam?.id ||
+                (homeTeam?.team && homeTeam.team.id) ||
+                null;
             }
           }
         } catch (e) {}
 
         const matchupBatHome = last.matchup?.batHomeId || null;
         const matchupBatAway = last.matchup?.batAwayId || null;
-        const teamField = last.team || (inferredTeamId ? { id: inferredTeamId } : (matchupBatHome ? { id: matchupBatHome } : (matchupBatAway ? { id: matchupBatAway } : null)));
+        const teamField =
+          last.team ||
+          (inferredTeamId
+            ? { id: inferredTeamId }
+            : matchupBatHome
+            ? { id: matchupBatHome }
+            : matchupBatAway
+            ? { id: matchupBatAway }
+            : null);
 
         return {
-          text: playText || '',
-          shortText: last.result?.brief || last.result?.eventType || last.result?.event || '',
+          text: playText || "",
+          shortText:
+            last.result?.brief ||
+            last.result?.eventType ||
+            last.result?.event ||
+            "",
           team: teamField,
           inferredIsHome,
           inferredTeamId,
-          halfInning: last.about?.halfInning || last.about?.half || last.about?.inningState || null,
-          raw: last
+          halfInning:
+            last.about?.halfInning ||
+            last.about?.half ||
+            last.about?.inningState ||
+            null,
+          raw: last,
         };
       }
 
       // 2) If we have a playsData array (could be ESPN items or MLB statsapi allPlays reversed)
-      if (game.playsData && Array.isArray(game.playsData) && game.playsData.length > 0) {
+      if (
+        game.playsData &&
+        Array.isArray(game.playsData) &&
+        game.playsData.length > 0
+      ) {
         const mostRecent = game.playsData[0];
-        let mlbText = '';
+        let mlbText = "";
         if (isMLB) {
           const currentPlayObj = game.liveData?.plays?.currentPlay || null;
-          
+
           // For MLB, check if we also have direct access to allPlays for more complete data
-          const directAllPlays = game.liveData?.plays?.allPlays || game.liveData?.allPlays || game.mlbGameData?.liveData?.plays?.allPlays;
-          const lastFromAllPlays = (directAllPlays && Array.isArray(directAllPlays) && directAllPlays.length > 0) ? directAllPlays[directAllPlays.length - 1] : null;
-          
+          const directAllPlays =
+            game.liveData?.plays?.allPlays ||
+            game.liveData?.allPlays ||
+            game.mlbGameData?.liveData?.plays?.allPlays;
+          const lastFromAllPlays =
+            directAllPlays &&
+            Array.isArray(directAllPlays) &&
+            directAllPlays.length > 0
+              ? directAllPlays[directAllPlays.length - 1]
+              : null;
+
           // Use the more complete data source if available, otherwise fall back to mostRecent
           const playToAnalyze = lastFromAllPlays || mostRecent;
-          
+
           try {
             // Priority order for MLB:
             // 1. currentPlay raw result description
             if (nonEmpty(currentPlayObj?.result?.description)) {
               mlbText = String(currentPlayObj.result.description).trim();
             }
-            // 2. playToAnalyze raw result description  
+            // 2. playToAnalyze raw result description
             else if (nonEmpty(playToAnalyze?.result?.description)) {
               mlbText = String(playToAnalyze.result.description).trim();
             }
             // 3. current play play text (about.playText or about.description)
-            else if (nonEmpty(currentPlayObj?.about?.playText) || nonEmpty(currentPlayObj?.about?.description)) {
-              mlbText = String(nonEmpty(currentPlayObj.about?.playText) || nonEmpty(currentPlayObj.about?.description)).trim();
+            else if (
+              nonEmpty(currentPlayObj?.about?.playText) ||
+              nonEmpty(currentPlayObj?.about?.description)
+            ) {
+              mlbText = String(
+                nonEmpty(currentPlayObj.about?.playText) ||
+                  nonEmpty(currentPlayObj.about?.description)
+              ).trim();
             }
             // 3b. playToAnalyze play text (about.playText or about.description)
-            else if (nonEmpty(playToAnalyze?.about?.playText) || nonEmpty(playToAnalyze?.about?.description)) {
-              mlbText = String(nonEmpty(playToAnalyze.about?.playText) || nonEmpty(playToAnalyze.about?.description)).trim();
+            else if (
+              nonEmpty(playToAnalyze?.about?.playText) ||
+              nonEmpty(playToAnalyze?.about?.description)
+            ) {
+              mlbText = String(
+                nonEmpty(playToAnalyze.about?.playText) ||
+                  nonEmpty(playToAnalyze.about?.description)
+              ).trim();
             }
             // 4. Try to extract from playEvents with built logic
-            else if (Array.isArray(playToAnalyze?.playEvents) && playToAnalyze.playEvents.length > 0) {
+            else if (
+              Array.isArray(playToAnalyze?.playEvents) &&
+              playToAnalyze.playEvents.length > 0
+            ) {
               const filtered = playToAnalyze.playEvents
-                .filter(ev => ev && ev.details)
-                .filter(ev => {
-                  const evType = String(ev.details.eventType || ev.type || '').toLowerCase();
-                  return !(evType.includes('game_advisory') || (ev.details && String(ev.details.description || '').toLowerCase().includes('status change')));
+                .filter((ev) => ev && ev.details)
+                .filter((ev) => {
+                  const evType = String(
+                    ev.details.eventType || ev.type || ""
+                  ).toLowerCase();
+                  return !(
+                    evType.includes("game_advisory") ||
+                    (ev.details &&
+                      String(ev.details.description || "")
+                        .toLowerCase()
+                        .includes("status change"))
+                  );
                 });
 
               if (filtered.length > 0) {
@@ -4482,31 +5735,55 @@ const FavoritesScreen = ({ navigation }) => {
                 const built = buildMLBPlayTextFromEvent(lastEv, playToAnalyze);
                 if (built) {
                   mlbText = built;
-                }
-                else if (lastEv.details && lastEv.details.description) {
+                } else if (lastEv.details && lastEv.details.description) {
                   mlbText = String(lastEv.details.description).trim();
                 }
               }
             }
             // 5. matchup text (only if no other play information found)
             else {
-              const batterName = playToAnalyze?.matchup?.batter?.fullName || currentPlayObj?.matchup?.batter?.fullName || '';
-              const pitcherName = playToAnalyze?.matchup?.pitcher?.fullName || currentPlayObj?.matchup?.pitcher?.fullName || '';
+              const batterName =
+                playToAnalyze?.matchup?.batter?.fullName ||
+                currentPlayObj?.matchup?.batter?.fullName ||
+                "";
+              const pitcherName =
+                playToAnalyze?.matchup?.pitcher?.fullName ||
+                currentPlayObj?.matchup?.pitcher?.fullName ||
+                "";
               if (batterName || pitcherName) {
-                mlbText = `Matchup: ${batterName}${batterName && pitcherName ? ' vs ' : ''}${pitcherName}`.trim();
+                mlbText = `Matchup: ${batterName}${
+                  batterName && pitcherName ? " vs " : ""
+                }${pitcherName}`.trim();
               }
             }
 
             // Final fallback to any remaining fields
             if (!nonEmpty(mlbText)) {
-              mlbText = nonEmpty(playToAnalyze?.playDescription) || nonEmpty(playToAnalyze?.playText) || nonEmpty(playToAnalyze?.result?.event) || nonEmpty(playToAnalyze?.result?.eventType) || '';
-              if (mlbText) console.log(`MLB play text (playsData) from final fallback: ${mlbText}`);
+              mlbText =
+                nonEmpty(playToAnalyze?.playDescription) ||
+                nonEmpty(playToAnalyze?.playText) ||
+                nonEmpty(playToAnalyze?.result?.event) ||
+                nonEmpty(playToAnalyze?.result?.eventType) ||
+                "";
+              if (mlbText)
+                console.log(
+                  `MLB play text (playsData) from final fallback: ${mlbText}`
+                );
             }
-          } catch (e) { mlbText = ''; }
+          } catch (e) {
+            mlbText = "";
+          }
         }
 
-        const mlbShort = mostRecent?.result?.brief || mostRecent?.result?.eventType || mostRecent?.result?.event || mostRecent?.about?.period?.displayValue;
-        const mlbTeam = (mostRecent?.team && (mostRecent.team.id || mostRecent.team.teamId)) || null;
+        const mlbShort =
+          mostRecent?.result?.brief ||
+          mostRecent?.result?.eventType ||
+          mostRecent?.result?.event ||
+          mostRecent?.about?.period?.displayValue;
+        const mlbTeam =
+          (mostRecent?.team &&
+            (mostRecent.team.id || mostRecent.team.teamId)) ||
+          null;
         const matchupBatHome = mostRecent?.matchup?.batHomeId;
         const matchupBatAway = mostRecent?.matchup?.batAwayId;
 
@@ -4514,14 +5791,33 @@ const FavoritesScreen = ({ navigation }) => {
           let inferredTeamId2 = null;
           let inferredIsHome2 = null;
           try {
-            const half2 = (mostRecent.about && (mostRecent.about.halfInning || mostRecent.about.half)) || mostRecent.about?.inningState || null;
+            const half2 =
+              (mostRecent.about &&
+                (mostRecent.about.halfInning || mostRecent.about.half)) ||
+              mostRecent.about?.inningState ||
+              null;
             if (half2) {
-              if (String(half2).toLowerCase().startsWith('t') || String(half2).toLowerCase().includes('top')) {
+              if (
+                String(half2).toLowerCase().startsWith("t") ||
+                String(half2).toLowerCase().includes("top")
+              ) {
                 inferredIsHome2 = false;
-                inferredTeamId2 = awayTeam?.team?.id || awayTeam?.id || (awayTeam?.team && awayTeam.team.id) || null;
-              } else if (String(half2).toLowerCase().startsWith('b') || String(half2).toLowerCase().includes('bot') || String(half2).toLowerCase().includes('bottom')) {
+                inferredTeamId2 =
+                  awayTeam?.team?.id ||
+                  awayTeam?.id ||
+                  (awayTeam?.team && awayTeam.team.id) ||
+                  null;
+              } else if (
+                String(half2).toLowerCase().startsWith("b") ||
+                String(half2).toLowerCase().includes("bot") ||
+                String(half2).toLowerCase().includes("bottom")
+              ) {
                 inferredIsHome2 = true;
-                inferredTeamId2 = homeTeam?.team?.id || homeTeam?.id || (homeTeam?.team && homeTeam.team.id) || null;
+                inferredTeamId2 =
+                  homeTeam?.team?.id ||
+                  homeTeam?.id ||
+                  (homeTeam?.team && homeTeam.team.id) ||
+                  null;
               }
             }
           } catch (e) {}
@@ -4529,27 +5825,46 @@ const FavoritesScreen = ({ navigation }) => {
           return {
             text: mlbText,
             shortText: mlbShort || mlbText,
-            team: mlbTeam || (matchupBatHome ? { id: matchupBatHome } : (matchupBatAway ? { id: matchupBatAway } : null)),
+            team:
+              mlbTeam ||
+              (matchupBatHome
+                ? { id: matchupBatHome }
+                : matchupBatAway
+                ? { id: matchupBatAway }
+                : null),
             inferredIsHome: inferredIsHome2,
             inferredTeamId: inferredTeamId2,
-            halfInning: mostRecent?.about?.halfInning || mostRecent?.about?.half || mostRecent?.about?.inningState || null,
-            raw: mostRecent
+            halfInning:
+              mostRecent?.about?.halfInning ||
+              mostRecent?.about?.half ||
+              mostRecent?.about?.inningState ||
+              null,
+            raw: mostRecent,
           };
         }
 
         // Fallback to ESPN-like field names (used for soccer and other sports)
         return {
-          text: mostRecent.text || mostRecent.shortText || mostRecent.type?.text || '',
-          shortText: mostRecent.shortText || mostRecent.text || '',
+          text:
+            mostRecent.text ||
+            mostRecent.shortText ||
+            mostRecent.type?.text ||
+            "",
+          shortText: mostRecent.shortText || mostRecent.text || "",
           team: mostRecent.team || mostRecent.by || mostRecent.actor || null,
-          raw: mostRecent
+          raw: mostRecent,
         };
       }
 
       // 3) Some endpoints return an object with items (espn core) under plays.items
       if (game.plays && Array.isArray(game.plays)) {
         const first = game.plays[0];
-        return { text: first.text || first.shortText || '', shortText: first.shortText || first.text || '', team: first.team || null, raw: first };
+        return {
+          text: first.text || first.shortText || "",
+          shortText: first.shortText || first.text || "",
+          team: first.team || null,
+          raw: first,
+        };
       }
 
       return null;
@@ -4563,58 +5878,72 @@ const FavoritesScreen = ({ navigation }) => {
     if (!game?.driver && !game?.drivers && !game?.competitions) {
       return null;
     }
-    
+
     // Extract data from the F1 game structure
     const competition = game.competitions?.[0];
-    const venue = game.venue || competition?.venue?.fullName || 'TBD Circuit';
-    const eventName = competition?.name || game.session?.name || game.name || 'F1 Session';
+    const venue = game.venue || competition?.venue?.fullName || "TBD Circuit";
+    const eventName =
+      competition?.name || game.session?.name || game.name || "F1 Session";
     const eventDate = game.date || competition?.date || game.session?.date;
-    
+
     // Handle both singular driver and plural drivers array
     const drivers = game.drivers || (game.driver ? [game.driver] : []);
     const driver = drivers[0]; // Use first driver for display
-    const constructor = game.constructorName ? { displayName: game.constructorName, color: game.constructorColor } : driver?.constructor;
-    
+    const constructor = game.constructorName
+      ? { displayName: game.constructorName, color: game.constructorColor }
+      : driver?.constructor;
+
     // Get constructor color - prioritize hardcoded colors over API colors
     const constructorName = constructor?.displayName || constructor?.name;
     const hardcodedColor = constructorColors[constructorName];
-    const constructorColorHex = hardcodedColor || formatF1Color(constructor?.color);
-    
+    const constructorColorHex =
+      hardcodedColor || formatF1Color(constructor?.color);
+
     // Check if team is favorited
-    const teamId = game.favoriteTeam?.teamId || `f1_${constructor?.displayName?.toLowerCase().replace(/\s+/g, '_')}`;
-    const isTeamFavorited = isFavorite(teamId, 'f1');
-    
+    const teamId =
+      game.favoriteTeam?.teamId ||
+      `f1_${constructor?.displayName?.toLowerCase().replace(/\s+/g, "_")}`;
+    const isTeamFavorited = isFavorite(teamId, "f1");
+
     // Get constructor logo - EXACT same function as ConstructorDetailsScreen
     const getConstructorLogo = (constructorName) => {
-      if (!constructorName) return '';
-      
+      if (!constructorName) return "";
+
       const nameMap = {
-        'McLaren': 'mclaren',
-        'Ferrari': 'ferrari', 
-        'Red Bull': 'redbullracing',
-        'Mercedes': 'mercedes',
-        'Aston Martin': 'astonmartin',
-        'Alpine': 'alpine',
-        'Williams': 'williams',
-        'RB': 'rb',
-        'Haas': 'haas',
-        'Sauber': 'kicksauber'
+        McLaren: "mclaren",
+        Ferrari: "ferrari",
+        "Red Bull": "redbullracing",
+        Mercedes: "mercedes",
+        "Aston Martin": "astonmartin",
+        Alpine: "alpine",
+        Williams: "williams",
+        RB: "rb",
+        Haas: "haas",
+        Sauber: "kicksauber",
       };
-      
-      const logoName = nameMap[constructorName] || constructorName.toLowerCase().replace(/\s+/g, '');
+
+      const logoName =
+        nameMap[constructorName] ||
+        constructorName.toLowerCase().replace(/\s+/g, "");
       const currentYear = new Date().getFullYear(); // This will be 2025
       return `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${currentYear}/${logoName}/${currentYear}${logoName}logowhite.webp`;
     };
 
     // Format date and time display (like ConstructorDetailsScreen)
     const formatEventDateTime = (dateStr) => {
-      if (!dateStr) return '';
+      if (!dateStr) return "";
       try {
         const date = new Date(dateStr);
-        const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
-        const month = date.toLocaleDateString('en-US', { month: 'short' });
+        const dayOfWeek = date.toLocaleDateString("en-US", {
+          weekday: "short",
+        });
+        const month = date.toLocaleDateString("en-US", { month: "short" });
         const day = date.getDate();
-        const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        const time = date.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        });
         return `${dayOfWeek}, ${month} ${day}, ${time}`;
       } catch (e) {
         return dateStr;
@@ -4622,212 +5951,431 @@ const FavoritesScreen = ({ navigation }) => {
     };
 
     // Get competition status from fetched session data (status.$ref was already resolved)
-    const statusState = game.session?.status?.type?.state || 'pre';
-    const isLive = statusState === 'in';
-    const isFinished = statusState === 'post';
-    const isScheduled = statusState === 'pre';
+    const statusState = game.session?.status?.type?.state || "pre";
+    const isLive = statusState === "in";
+    const isFinished = statusState === "post";
+    const isScheduled = statusState === "pre";
 
-    const compNum = competition?.type?.abbreviation === 'FP1' ? '1' :
-                    competition?.type?.abbreviation === 'FP2' ? '2' :
-                    competition?.type?.abbreviation === 'FP3' ? '3' : '';
+    const compNum =
+      competition?.type?.abbreviation === "FP1"
+        ? "1"
+        : competition?.type?.abbreviation === "FP2"
+        ? "2"
+        : competition?.type?.abbreviation === "FP3"
+        ? "3"
+        : "";
 
-    let competitionStatus = 'Scheduled';
-    if (isLive) competitionStatus = 'In Progress';
-    else if (isFinished) competitionStatus = 'Final';
-    else if (isScheduled) competitionStatus = 'Scheduled';
-    
+    let competitionStatus = "Scheduled";
+    if (isLive) competitionStatus = "In Progress";
+    else if (isFinished) competitionStatus = "Final";
+    else if (isScheduled) competitionStatus = "Scheduled";
+
     return (
-      <TouchableOpacity 
-        style={[styles.gameCard, { 
-          backgroundColor: theme.surface, 
-          borderColor: constructorColorHex,
-          borderWidth: 2
-        }]}
-        onPress={() => navigation.navigate('F1RaceDetails', { 
-          raceId: competition?.id || game.originalEventId || game.id,
-          eventId: game.originalEventId || game.id,
-          raceName: eventName,
-          raceDate: eventDate,
-          sport: 'f1'
-        })}
+      <TouchableOpacity
+        style={[
+          styles.gameCard,
+          {
+            backgroundColor: theme.surface,
+            borderColor: constructorColorHex,
+            borderWidth: 2,
+          },
+        ]}
+        onPress={() =>
+          navigation.navigate("F1RaceDetails", {
+            raceId: competition?.id || game.originalEventId || game.id,
+            eventId: game.originalEventId || game.id,
+            raceName: eventName,
+            raceDate: eventDate,
+            sport: "f1",
+          })
+        }
       >
         {/* Header stripe with event name - EXACT match to ConstructorDetailsScreen */}
-        <View style={[styles.leagueHeader, { backgroundColor: theme.surfaceSecondary }]}>
-          <Text allowFontScaling={false} style={[styles.leagueText, { color: theme.text }]} numberOfLines={1}>
+        <View
+          style={[
+            styles.leagueHeader,
+            { backgroundColor: theme.surfaceSecondary },
+          ]}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[styles.leagueText, { color: theme.text }]}
+            numberOfLines={1}
+          >
             {eventName}
           </Text>
         </View>
 
         {/* Circuit and Date/Time row - EXACT match to ConstructorDetailsScreen */}
         <View style={styles.matchContent}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
             {/* Circuit flag icon (like ConstructorDetailsScreen) */}
             {game.session?.circuitFlag && (
-              <Image 
-                source={{ uri: game.session.circuitFlag }} 
-                style={{ width: 16, height: 12, marginRight: 6, borderRadius: 2 }}
+              <Image
+                source={{ uri: game.session.circuitFlag }}
+                style={{
+                  width: 16,
+                  height: 12,
+                  marginRight: 6,
+                  borderRadius: 2,
+                }}
                 resizeMode="cover"
               />
             )}
-            <Text allowFontScaling={false} style={[{ color: theme.textSecondary, fontSize: 13, flex: 1 }]} numberOfLines={1}>
+            <Text
+              allowFontScaling={false}
+              style={[{ color: theme.textSecondary, fontSize: 13, flex: 1 }]}
+              numberOfLines={1}
+            >
               {venue}
             </Text>
           </View>
-          <Text allowFontScaling={false} style={[{ color: theme.textSecondary, fontSize: 12 }]}>
+          <Text
+            allowFontScaling={false}
+            style={[{ color: theme.textSecondary, fontSize: 12 }]}
+          >
             {formatEventDateTime(eventDate)}
           </Text>
         </View>
 
         {/* Constructor name with logo and favorite star - EXACT match to ConstructorDetailsScreen */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+          }}
+        >
           {/* Favorite Star */}
           {isTeamFavorited && (
-            <Text allowFontScaling={false} style={{ fontSize: 16, fontWeight: '700', marginRight: 8, color: colors.primary }}>
+            <Text
+              allowFontScaling={false}
+              style={{
+                fontSize: 16,
+                fontWeight: "700",
+                marginRight: 8,
+                color: colors.primary,
+              }}
+            >
               ★
             </Text>
           )}
-          
+
           {/* Constructor Logo */}
-          {constructor?.displayName && getConstructorLogo(constructor.displayName) ? (
-            <View style={{ width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 8, padding: 2, backgroundColor: constructorColorHex }}>
-              <Image 
-                source={{ uri: getConstructorLogo(constructor.displayName) }} 
+          {constructor?.displayName &&
+          getConstructorLogo(constructor.displayName) ? (
+            <View
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                justifyContent: "center",
+                alignItems: "center",
+                marginRight: 8,
+                padding: 2,
+                backgroundColor: constructorColorHex,
+              }}
+            >
+              <Image
+                source={{ uri: getConstructorLogo(constructor.displayName) }}
                 style={{ width: 22, height: 22 }}
                 resizeMode="contain"
               />
             </View>
           ) : (
-            <View style={{ width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 8, backgroundColor: constructorColorHex }}>
-              <Text allowFontScaling={false} style={{ fontSize: 10, fontWeight: 'bold', color: '#fff' }}>
-                {constructor?.displayName ? constructor.displayName.split(' ').map(word => word[0]).join('').substring(0, 2).toUpperCase() : 'F1'}
+            <View
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                justifyContent: "center",
+                alignItems: "center",
+                marginRight: 8,
+                backgroundColor: constructorColorHex,
+              }}
+            >
+              <Text
+                allowFontScaling={false}
+                style={{ fontSize: 10, fontWeight: "bold", color: "#fff" }}
+              >
+                {constructor?.displayName
+                  ? constructor.displayName
+                      .split(" ")
+                      .map((word) => word[0])
+                      .join("")
+                      .substring(0, 2)
+                      .toUpperCase()
+                  : "F1"}
               </Text>
             </View>
           )}
-          
+
           {/* Constructor Name with Primary Color if Favorited */}
-          <Text allowFontScaling={false} style={[{ fontSize: 14, fontWeight: '600', textAlign: 'center', color: isTeamFavorited ? colors.primary : theme.text }]} numberOfLines={1}>
-            {constructor?.displayName || 'Unknown Constructor'}
+          <Text
+            allowFontScaling={false}
+            style={[
+              {
+                fontSize: 14,
+                fontWeight: "600",
+                textAlign: "center",
+                color: isTeamFavorited ? colors.primary : theme.text,
+              },
+            ]}
+            numberOfLines={1}
+          >
+            {constructor?.displayName || "Unknown Constructor"}
           </Text>
         </View>
 
         {/* Driver Results - EXACT match to ConstructorDetailsScreen layout showing both drivers */}
         {drivers && drivers.length > 0 && (
-          <View style={{ marginTop: 8, paddingTop: 8, paddingHorizontal: 12, paddingBottom: 8, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View
+            style={{
+              marginTop: 8,
+              paddingTop: 8,
+              paddingHorizontal: 12,
+              paddingBottom: 8,
+              borderTopWidth: 1,
+              borderTopColor: "rgba(255, 255, 255, 0.1)",
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
               {/* Left Driver */}
-              <View style={{ flex: 1, alignItems: 'center', paddingVertical: 8 }}>
-                {drivers[0] && (() => {
-                  // Extract driver data from statistics
-                  const stats = drivers[0].statistics || [];
-                  let lapsCompleted = null;
-                  
-                  // Extract laps from statistics array
-                  if (Array.isArray(stats)) {
-                    for (const s of stats) {
-                      const key = (s.name || s.displayName || '').toString().toLowerCase();
-                      if (key === 'lapscompleted') {
-                        lapsCompleted = s.displayValue ?? s.value ?? null;
-                      }
-                    }
-                  }
-                  
-                  // Fallback to result or top-level
-                  if (!lapsCompleted && drivers[0].result?.laps != null) lapsCompleted = drivers[0].result.laps;
-                  if (!lapsCompleted && drivers[0].laps != null) lapsCompleted = drivers[0].laps;
-                  
-                  // Get driver name - prioritize name from fetched athlete data
-                  const driverName = drivers[0].name || drivers[0].displayName || drivers[0].shortName || 'Driver 1';
-                  // Split name to get first name and initial of last name (e.g., "Oscar Piastri" -> "Oscar P")
-                  const nameParts = driverName.split(' ');
-                  const displayName = nameParts.length > 1 
-                    ? `${nameParts[0]} ${nameParts[nameParts.length - 1].charAt(0)}` 
-                    : driverName;
-                  
-                  // Get position with ordinal suffix
-                  const position = drivers[0].position || drivers[0].order || drivers[0].rank;
-                  const getOrdinalSuffix = (n) => {
-                    if (!n) return '';
-                    const num = parseInt(n);
-                    if (isNaN(num)) return n;
-                    const suffix = ['th', 'st', 'nd', 'rd'];
-                    const v = num % 100;
-                    return num + (suffix[(v - 20) % 10] || suffix[v] || suffix[0]);
-                  };
-                  
-                  return (
-                    <>
-                      <Text allowFontScaling={false} style={[{ fontSize: 14, fontWeight: '600', marginBottom: 4, textAlign: 'center', color: theme.text }]} numberOfLines={1}>
-                        {displayName} - {position ? getOrdinalSuffix(position) : '--'}
-                      </Text>
-                      <Text allowFontScaling={false} style={[{ fontSize: 16, fontWeight: '700', marginBottom: 2, textAlign: 'center', color: theme.text }]}>
-                        {selectBestF1Time(drivers[0])}
-                      </Text>
-                      <Text allowFontScaling={false} style={[{ fontSize: 12, textAlign: 'center', color: theme.textSecondary }]}>
-                        Laps: {lapsCompleted || '---'}
-                      </Text>
-                    </>
-                  );
-                })()}
-              </View>
-
-              {/* Divider Line */}
-              {drivers.length > 1 && <View style={{ width: 2, height: 40, marginHorizontal: 8, backgroundColor: theme.border }} />}
-
-              {/* Right Driver */}
-              {drivers.length > 1 && (
-                <View style={{ flex: 1, alignItems: 'center', paddingVertical: 8 }}>
-                  {drivers[1] && (() => {
+              <View
+                style={{ flex: 1, alignItems: "center", paddingVertical: 8 }}
+              >
+                {drivers[0] &&
+                  (() => {
                     // Extract driver data from statistics
-                    const stats = drivers[1].statistics || [];
+                    const stats = drivers[0].statistics || [];
                     let lapsCompleted = null;
-                    
+
                     // Extract laps from statistics array
                     if (Array.isArray(stats)) {
                       for (const s of stats) {
-                        const key = (s.name || s.displayName || '').toString().toLowerCase();
-                        if (key === 'lapscompleted') {
+                        const key = (s.name || s.displayName || "")
+                          .toString()
+                          .toLowerCase();
+                        if (key === "lapscompleted") {
                           lapsCompleted = s.displayValue ?? s.value ?? null;
                         }
                       }
                     }
-                    
+
                     // Fallback to result or top-level
-                    if (!lapsCompleted && drivers[1].result?.laps != null) lapsCompleted = drivers[1].result.laps;
-                    if (!lapsCompleted && drivers[1].laps != null) lapsCompleted = drivers[1].laps;
-                    
+                    if (!lapsCompleted && drivers[0].result?.laps != null)
+                      lapsCompleted = drivers[0].result.laps;
+                    if (!lapsCompleted && drivers[0].laps != null)
+                      lapsCompleted = drivers[0].laps;
+
                     // Get driver name - prioritize name from fetched athlete data
-                    const driverName = drivers[1].name || drivers[1].displayName || drivers[1].shortName || 'Driver 2';
-                    // Split name to get first name and initial of last name
-                    const nameParts = driverName.split(' ');
-                    const displayName = nameParts.length > 1 
-                      ? `${nameParts[0]} ${nameParts[nameParts.length - 1].charAt(0)}` 
-                      : driverName;
-                    
+                    const driverName =
+                      drivers[0].name ||
+                      drivers[0].displayName ||
+                      drivers[0].shortName ||
+                      "Driver 1";
+                    // Split name to get first name and initial of last name (e.g., "Oscar Piastri" -> "Oscar P")
+                    const nameParts = driverName.split(" ");
+                    const displayName =
+                      nameParts.length > 1
+                        ? `${nameParts[0]} ${nameParts[
+                            nameParts.length - 1
+                          ].charAt(0)}`
+                        : driverName;
+
                     // Get position with ordinal suffix
-                    const position = drivers[1].position || drivers[1].order || drivers[1].rank;
+                    const position =
+                      drivers[0].position ||
+                      drivers[0].order ||
+                      drivers[0].rank;
                     const getOrdinalSuffix = (n) => {
-                      if (!n) return '';
+                      if (!n) return "";
                       const num = parseInt(n);
                       if (isNaN(num)) return n;
-                      const suffix = ['th', 'st', 'nd', 'rd'];
+                      const suffix = ["th", "st", "nd", "rd"];
                       const v = num % 100;
-                      return num + (suffix[(v - 20) % 10] || suffix[v] || suffix[0]);
+                      return (
+                        num + (suffix[(v - 20) % 10] || suffix[v] || suffix[0])
+                      );
                     };
-                    
+
                     return (
                       <>
-                        <Text allowFontScaling={false} style={[{ fontSize: 14, fontWeight: '600', marginBottom: 4, textAlign: 'center', color: theme.text }]} numberOfLines={1}>
-                          {displayName} - {position ? getOrdinalSuffix(position) : '--'}
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            {
+                              fontSize: 14,
+                              fontWeight: "600",
+                              marginBottom: 4,
+                              textAlign: "center",
+                              color: theme.text,
+                            },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {displayName} -{" "}
+                          {position ? getOrdinalSuffix(position) : "--"}
                         </Text>
-                        <Text allowFontScaling={false} style={[{ fontSize: 16, fontWeight: '700', marginBottom: 2, textAlign: 'center', color: theme.text }]}>
-                          {selectBestF1Time(drivers[1])}
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            {
+                              fontSize: 16,
+                              fontWeight: "700",
+                              marginBottom: 2,
+                              textAlign: "center",
+                              color: theme.text,
+                            },
+                          ]}
+                        >
+                          {selectBestF1Time(drivers[0])}
                         </Text>
-                        <Text allowFontScaling={false} style={[{ fontSize: 12, textAlign: 'center', color: theme.textSecondary }]}>
-                          Laps: {lapsCompleted || '---'}
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            {
+                              fontSize: 12,
+                              textAlign: "center",
+                              color: theme.textSecondary,
+                            },
+                          ]}
+                        >
+                          Laps: {lapsCompleted || "---"}
                         </Text>
                       </>
                     );
                   })()}
+              </View>
+
+              {/* Divider Line */}
+              {drivers.length > 1 && (
+                <View
+                  style={{
+                    width: 2,
+                    height: 40,
+                    marginHorizontal: 8,
+                    backgroundColor: theme.border,
+                  }}
+                />
+              )}
+
+              {/* Right Driver */}
+              {drivers.length > 1 && (
+                <View
+                  style={{ flex: 1, alignItems: "center", paddingVertical: 8 }}
+                >
+                  {drivers[1] &&
+                    (() => {
+                      // Extract driver data from statistics
+                      const stats = drivers[1].statistics || [];
+                      let lapsCompleted = null;
+
+                      // Extract laps from statistics array
+                      if (Array.isArray(stats)) {
+                        for (const s of stats) {
+                          const key = (s.name || s.displayName || "")
+                            .toString()
+                            .toLowerCase();
+                          if (key === "lapscompleted") {
+                            lapsCompleted = s.displayValue ?? s.value ?? null;
+                          }
+                        }
+                      }
+
+                      // Fallback to result or top-level
+                      if (!lapsCompleted && drivers[1].result?.laps != null)
+                        lapsCompleted = drivers[1].result.laps;
+                      if (!lapsCompleted && drivers[1].laps != null)
+                        lapsCompleted = drivers[1].laps;
+
+                      // Get driver name - prioritize name from fetched athlete data
+                      const driverName =
+                        drivers[1].name ||
+                        drivers[1].displayName ||
+                        drivers[1].shortName ||
+                        "Driver 2";
+                      // Split name to get first name and initial of last name
+                      const nameParts = driverName.split(" ");
+                      const displayName =
+                        nameParts.length > 1
+                          ? `${nameParts[0]} ${nameParts[
+                              nameParts.length - 1
+                            ].charAt(0)}`
+                          : driverName;
+
+                      // Get position with ordinal suffix
+                      const position =
+                        drivers[1].position ||
+                        drivers[1].order ||
+                        drivers[1].rank;
+                      const getOrdinalSuffix = (n) => {
+                        if (!n) return "";
+                        const num = parseInt(n);
+                        if (isNaN(num)) return n;
+                        const suffix = ["th", "st", "nd", "rd"];
+                        const v = num % 100;
+                        return (
+                          num +
+                          (suffix[(v - 20) % 10] || suffix[v] || suffix[0])
+                        );
+                      };
+
+                      return (
+                        <>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              {
+                                fontSize: 14,
+                                fontWeight: "600",
+                                marginBottom: 4,
+                                textAlign: "center",
+                                color: theme.text,
+                              },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {displayName} -{" "}
+                            {position ? getOrdinalSuffix(position) : "--"}
+                          </Text>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              {
+                                fontSize: 16,
+                                fontWeight: "700",
+                                marginBottom: 2,
+                                textAlign: "center",
+                                color: theme.text,
+                              },
+                            ]}
+                          >
+                            {selectBestF1Time(drivers[1])}
+                          </Text>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              {
+                                fontSize: 12,
+                                textAlign: "center",
+                                color: theme.textSecondary,
+                              },
+                            ]}
+                          >
+                            Laps: {lapsCompleted || "---"}
+                          </Text>
+                        </>
+                      );
+                    })()}
                 </View>
               )}
             </View>
@@ -4835,9 +6383,25 @@ const FavoritesScreen = ({ navigation }) => {
         )}
 
         {/* Status Footer - EXACT match to ConstructorDetailsScreen */}
-        <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, alignItems: 'center', borderTopColor: theme.border, backgroundColor: theme.surfaceSecondary }}>
-          <Text allowFontScaling={false} style={[{ fontSize: 12, fontWeight: '500', color: theme.textSecondary }]}>
-            {isLive ? 'In Progress' : competitionStatus} - {competition?.type?.text || competition?.type?.abbreviation || 'F1'} {compNum}
+        <View
+          style={{
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderTopWidth: 1,
+            alignItems: "center",
+            borderTopColor: theme.border,
+            backgroundColor: theme.surfaceSecondary,
+          }}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[
+              { fontSize: 12, fontWeight: "500", color: theme.textSecondary },
+            ]}
+          >
+            {isLive ? "In Progress" : competitionStatus} -{" "}
+            {competition?.type?.text || competition?.type?.abbreviation || "F1"}{" "}
+            {compNum}
           </Text>
         </View>
       </TouchableOpacity>
@@ -4848,73 +6412,105 @@ const FavoritesScreen = ({ navigation }) => {
     if (!game?.competitions?.[0]) return null;
 
     const competition = game.competitions[0];
-    const awayTeam = competition.competitors.find(team => team.homeAway === 'away');
-    const homeTeam = competition.competitors.find(team => team.homeAway === 'home');
-    
+    const awayTeam = competition.competitors.find(
+      (team) => team.homeAway === "away"
+    );
+    const homeTeam = competition.competitors.find(
+      (team) => team.homeAway === "home"
+    );
+
     if (!awayTeam || !homeTeam) return null;
 
     const getMLBTeamAbbreviation = (espnTeam) => {
       // ESPN team ID to abbreviation mapping
       const teamMapping = {
-        '108': 'LAA', '117': 'HOU', '133': 'ATH', '141': 'TOR', '144': 'ATL',
-        '158': 'MIL', '138': 'STL', '112': 'CHC', '109': 'ARI', '119': 'LAD',
-        '137': 'SF', '114': 'CLE', '136': 'SEA', '146': 'MIA', '121': 'NYM',
-        '120': 'WSH', '110': 'BAL', '135': 'SD', '143': 'PHI', '134': 'PIT',
-        '140': 'TEX', '139': 'TB', '111': 'BOS', '113': 'CIN', '115': 'COL',
-        '118': 'KC', '116': 'DET', '142': 'MIN', '145': 'CWS', '147': 'NYY',
-        '11': 'ATH',   // Sometimes Athletics use ESPN ID 11
+        108: "LAA",
+        117: "HOU",
+        133: "ATH",
+        141: "TOR",
+        144: "ATL",
+        158: "MIL",
+        138: "STL",
+        112: "CHC",
+        109: "ARI",
+        119: "LAD",
+        137: "SF",
+        114: "CLE",
+        136: "SEA",
+        146: "MIA",
+        121: "NYM",
+        120: "WSH",
+        110: "BAL",
+        135: "SD",
+        143: "PHI",
+        134: "PIT",
+        140: "TEX",
+        139: "TB",
+        111: "BOS",
+        113: "CIN",
+        115: "COL",
+        118: "KC",
+        116: "DET",
+        142: "MIN",
+        145: "CWS",
+        147: "NYY",
+        11: "ATH", // Sometimes Athletics use ESPN ID 11
       };
 
       // First try direct abbreviation if available
       if (espnTeam?.team?.abbreviation || espnTeam?.abbreviation) {
         return espnTeam.team?.abbreviation || espnTeam.abbreviation;
       }
-      
+
       // Then try ID mapping
       const teamId = espnTeam?.team?.id || espnTeam?.id;
       const abbr = teamMapping[teamId?.toString()];
       if (abbr) {
         return abbr;
       }
-      
-      return espnTeam?.team?.shortDisplayName || espnTeam?.shortDisplayName || 'MLB';
+
+      return (
+        espnTeam?.team?.shortDisplayName || espnTeam?.shortDisplayName || "MLB"
+      );
     };
 
     // Helper function to get ESPN team ID for favorites system (using new mapping system)
     const getMLBTeamId = (espnTeam) => {
       const rawTeamId = espnTeam?.team?.id || espnTeam?.id;
       if (!rawTeamId) return null;
-      
+
       const teamIdStr = String(rawTeamId);
-      
+
       // First check if this is already an ESPN ID (most common case now)
       // If it's an ESPN ID for MLB, return it as-is for favorites
       if (convertMLBIdToESPNId(teamIdStr)) {
         // This is an MLB ID, convert to ESPN ID for consistency
         return convertMLBIdToESPNId(teamIdStr);
       }
-      
+
       // Otherwise, assume it's already an ESPN ID or unknown
       return teamIdStr;
     };
 
     const gameStatus = getGameStatus(game);
-    
+
     // Log comprehensive status information for MLB games (only once per status change)
-    const mlbCodedState = game.mlbGameData?.status?.codedGameState || game.liveData?.status?.codedGameState;
+    const mlbCodedState =
+      game.mlbGameData?.status?.codedGameState ||
+      game.liveData?.status?.codedGameState;
     const mlbLogKey = `${game.id}-MLB-${gameStatus.isLive}-${gameStatus.isPre}-${gameStatus.isPost}-${mlbCodedState}`;
     if (!loggedGames.has(mlbLogKey)) {
       loggedGames.add(mlbLogKey);
-      
+
       // Determine if this game should receive updates and track it
-      const shouldUpdate = shouldGameReceiveUpdates(game, gameStatus, 'MLB');
+      const shouldUpdate = shouldGameReceiveUpdates(game, gameStatus, "MLB");
       if (shouldUpdate) {
         gamesToUpdate.add(game.id);
       } else {
         gamesToUpdate.delete(game.id);
       }
     }
-    
+
     const liveData = game.liveData || {};
     const gameId = game.id;
 
@@ -4924,8 +6520,8 @@ const FavoritesScreen = ({ navigation }) => {
 
     // Parse scores and determine winner/loser for MLB finished games
     const parseScoreValue = (s) => {
-      if (s === null || s === undefined) return '0';
-      if (typeof s === 'object') return s.displayValue || s.value || '0';
+      if (s === null || s === undefined) return "0";
+      if (typeof s === "object") return s.displayValue || s.value || "0";
       return String(s);
     };
 
@@ -4953,50 +6549,96 @@ const FavoritesScreen = ({ navigation }) => {
         // Live game - show inning, balls/strikes, bases, outs
         const status = liveData.status;
         const situation = liveData.situation || {};
-        
-        const inningText = `${situation.isTopInning ? 'Top' : 'Bot'} ${situation.inning || 1}`;
-        const ballsStrikesText = `B: ${situation.balls || 0} S: ${situation.strikes || 0}`;
+
+        const inningText = `${situation.isTopInning ? "Top" : "Bot"} ${
+          situation.inning || 1
+        }`;
+        const ballsStrikesText = `B: ${situation.balls || 0} S: ${
+          situation.strikes || 0
+        }`;
         const outsText = `Outs: ${situation.outs || 0}`;
-        
+
         // Mini bases display
         const basesDisplay = () => (
           <View style={styles.miniBasesContainer}>
-            <View style={[
-              styles.miniBase, 
-              { backgroundColor: situation.bases?.second ? colors.primary : 'transparent' }
-            ]} />
+            <View
+              style={[
+                styles.miniBase,
+                {
+                  backgroundColor: situation.bases?.second
+                    ? colors.primary
+                    : "transparent",
+                },
+              ]}
+            />
             <View style={styles.miniBasesRow}>
-              <View style={[
-                styles.miniBase, 
-                { backgroundColor: situation.bases?.third ? colors.primary : 'transparent' }
-              ]} />
-              <View style={[
-                styles.miniBase, 
-                { backgroundColor: situation.bases?.first ? colors.primary : 'transparent' }
-              ]} />
+              <View
+                style={[
+                  styles.miniBase,
+                  {
+                    backgroundColor: situation.bases?.third
+                      ? colors.primary
+                      : "transparent",
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.miniBase,
+                  {
+                    backgroundColor: situation.bases?.first
+                      ? colors.primary
+                      : "transparent",
+                  },
+                ]}
+              />
             </View>
           </View>
         );
-        
+
         return (
           <View style={styles.liveGameMiddleSection}>
-            <Text allowFontScaling={false} style={[styles.liveInningText, { color: colors.text }]}>{inningText}</Text>
-            <Text allowFontScaling={false} style={[styles.liveCountText, { color: colors.text }]}>{ballsStrikesText}</Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.liveInningText, { color: theme.text }]}
+            >
+              {inningText}
+            </Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.liveCountText, { color: theme.text }]}
+            >
+              {ballsStrikesText}
+            </Text>
             {basesDisplay()}
-            <Text allowFontScaling={false} style={[styles.liveOutsText, { color: colors.text }]}>{outsText}</Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.liveOutsText, { color: theme.text }]}
+            >
+              {outsText}
+            </Text>
           </View>
         );
       } else if (gameStatus.isPre) {
         // Scheduled game - show date and time
         return (
           <View style={styles.gameMiddleSection}>
-            <Text allowFontScaling={false} style={[styles.gameStatusText, { color: colors.text }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.gameStatusText, { color: theme.text }]}
+            >
               {gameStatus.text}
             </Text>
-            <Text allowFontScaling={false} style={[styles.gameTimeText, { color: colors.text }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.gameTimeText, { color: theme.text }]}
+            >
               {gameStatus.time}
             </Text>
-            <Text allowFontScaling={false} style={[styles.gameDateText, { color: colors.text }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.gameDateText, { color: theme.text }]}
+            >
               {gameStatus.detail}
             </Text>
           </View>
@@ -5005,11 +6647,17 @@ const FavoritesScreen = ({ navigation }) => {
         // Finished game - show final score and status
         return (
           <View style={styles.gameMiddleSection}>
-            <Text allowFontScaling={false} style={[styles.gameStatusText, { color: colors.text }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.gameStatusText, { color: theme.text }]}
+            >
               {gameStatus.text}
             </Text>
             {gameStatus.detail && (
-              <Text allowFontScaling={false} style={[styles.gameDetailText, { color: colors.text }]}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.gameDetailText, { color: theme.text }]}
+              >
                 {gameStatus.detail}
               </Text>
             )}
@@ -5018,17 +6666,17 @@ const FavoritesScreen = ({ navigation }) => {
       }
     };
 
-  const currentPlay = extractMostRecentPlay(game, homeTeam, awayTeam);
-    let playText = '';
+    const currentPlay = extractMostRecentPlay(game, homeTeam, awayTeam);
+    let playText = "";
     let playBorderStyle = {};
     if (currentPlay) {
-      playText = currentPlay.text || currentPlay.shortText || '';
+      playText = currentPlay.text || currentPlay.shortText || "";
 
       // Normalize team id extraction for various shapes
       const extractTeamIdFromPlay = (p) => {
         if (!p || !p.team) return null;
         const t = p.team;
-        if (typeof t === 'string') {
+        if (typeof t === "string") {
           const m = t.match(/teams\/(\d+)/);
           if (m) return m[1];
           return t;
@@ -5043,17 +6691,36 @@ const FavoritesScreen = ({ navigation }) => {
         return null;
       };
 
-      const playTeamId = extractTeamIdFromPlay(currentPlay.raw || currentPlay.team || currentPlay);
-      const homeId = homeTeam?.team?.id || homeTeam?.id || (homeTeam?.team && homeTeam.team.id);
+      const playTeamId = extractTeamIdFromPlay(
+        currentPlay.raw || currentPlay.team || currentPlay
+      );
+      const homeId =
+        homeTeam?.team?.id ||
+        homeTeam?.id ||
+        (homeTeam?.team && homeTeam.team.id);
       // If playTeamId is missing, prefer the inferredIsHome flag from the MLB allPlays extractor
-      const isHomeTeamPlay = (playTeamId ? String(playTeamId) === String(homeId) : (typeof currentPlay.inferredIsHome === 'boolean' ? currentPlay.inferredIsHome : null));
+      const isHomeTeamPlay = playTeamId
+        ? String(playTeamId) === String(homeId)
+        : typeof currentPlay.inferredIsHome === "boolean"
+        ? currentPlay.inferredIsHome
+        : null;
 
       // Resolve colors using MLBService when possible, fallback to team object color fields
-      let awayColor = (awayTeam?.team?.color || awayTeam?.color || awayTeam?.team?.alternateColor || colors.primary);
-      let homeColor = (homeTeam?.team?.color || homeTeam?.color || homeTeam?.team?.alternateColor || colors.primary);
+      let awayColor =
+        awayTeam?.team?.color ||
+        awayTeam?.color ||
+        awayTeam?.team?.alternateColor ||
+        colors.primary;
+      let homeColor =
+        homeTeam?.team?.color ||
+        homeTeam?.color ||
+        homeTeam?.team?.alternateColor ||
+        colors.primary;
       try {
-        const awayName = awayTeam?.team?.name || awayTeam?.team?.displayName || awayTeam?.name;
-        const homeName = homeTeam?.team?.name || homeTeam?.team?.displayName || homeTeam?.name;
+        const awayName =
+          awayTeam?.team?.name || awayTeam?.team?.displayName || awayTeam?.name;
+        const homeName =
+          homeTeam?.team?.name || homeTeam?.team?.displayName || homeTeam?.name;
         const mlbAway = MLBService.getTeamColor(awayName);
         const mlbHome = MLBService.getTeamColor(homeName);
         if (mlbAway) awayColor = mlbAway;
@@ -5063,10 +6730,10 @@ const FavoritesScreen = ({ navigation }) => {
       }
 
       // If we can't determine which team made the play, show neutral thin borders
-      if (typeof isHomeTeamPlay !== 'boolean') {
+      if (typeof isHomeTeamPlay !== "boolean") {
         playBorderStyle = {
-          borderLeftColor: theme?.border || '#333333',
-          borderRightColor: theme?.border || '#333333',
+          borderLeftColor: theme?.border || "#333333",
+          borderRightColor: theme?.border || "#333333",
           borderLeftWidth: 1,
           borderRightWidth: 1,
           borderTopWidth: 1,
@@ -5074,12 +6741,22 @@ const FavoritesScreen = ({ navigation }) => {
         };
       } else {
         // Ensure color has # prefix
-        const formattedAway = awayColor && awayColor.startsWith('#') ? awayColor : `#${String(awayColor).replace(/^#/, '')}`;
-        const formattedHome = homeColor && homeColor.startsWith('#') ? homeColor : `#${String(homeColor).replace(/^#/, '')}`;
+        const formattedAway =
+          awayColor && awayColor.startsWith("#")
+            ? awayColor
+            : `#${String(awayColor).replace(/^#/, "")}`;
+        const formattedHome =
+          homeColor && homeColor.startsWith("#")
+            ? homeColor
+            : `#${String(homeColor).replace(/^#/, "")}`;
 
         playBorderStyle = {
-          borderLeftColor: isHomeTeamPlay ? (theme?.border || '#333333') : (formattedAway || colors.primary),
-          borderRightColor: isHomeTeamPlay ? (formattedHome || colors.primary) : (theme?.border || '#333333'),
+          borderLeftColor: isHomeTeamPlay
+            ? theme?.border || "#333333"
+            : formattedAway || colors.primary,
+          borderRightColor: isHomeTeamPlay
+            ? formattedHome || colors.primary
+            : theme?.border || "#333333",
           borderLeftWidth: isHomeTeamPlay ? 1 : 8,
           borderRightWidth: isHomeTeamPlay ? 8 : 1,
           borderTopWidth: 1,
@@ -5089,17 +6766,25 @@ const FavoritesScreen = ({ navigation }) => {
 
       // Debug: log the extracted play text, team, and chosen color for border
       try {
-        const resolvedTeam = isHomeTeamPlay ? (homeTeam?.team?.displayName || homeTeam?.team?.name || homeTeam?.team?.abbreviation || homeTeam?.team?.id) : (awayTeam?.team?.displayName || awayTeam?.team?.name || awayTeam?.team?.abbreviation || awayTeam?.team?.id);
-        const resolvedColor = isHomeTeamPlay ? (homeTeam?.team?.color || homeTeam?.color || colors.primary) : (awayTeam?.team?.color || awayTeam?.color || colors.primary);
+        const resolvedTeam = isHomeTeamPlay
+          ? homeTeam?.team?.displayName ||
+            homeTeam?.team?.name ||
+            homeTeam?.team?.abbreviation ||
+            homeTeam?.team?.id
+          : awayTeam?.team?.displayName ||
+            awayTeam?.team?.name ||
+            awayTeam?.team?.abbreviation ||
+            awayTeam?.team?.id;
+        const resolvedColor = isHomeTeamPlay
+          ? homeTeam?.team?.color || homeTeam?.color || colors.primary
+          : awayTeam?.team?.color || awayTeam?.color || colors.primary;
         // If playText or playTeamId are missing, log raw shape and candidate fields for debugging
         if (!playText || !playTeamId) {
           try {
             const raw = currentPlay.raw || currentPlay;
-          } catch (e2) {
-          }
+          } catch (e2) {}
         }
-      } catch (e) {
-      }
+      } catch (e) {}
     }
 
     return (
@@ -5107,171 +6792,317 @@ const FavoritesScreen = ({ navigation }) => {
         style={[
           styles.gameCard,
           { backgroundColor: theme.surface, borderColor: theme.border },
-          gameStatus.isLive ? playBorderStyle : {}
+          gameStatus.isLive ? playBorderStyle : {},
         ]}
         onPress={() => handleGamePress(game)}
         activeOpacity={0.7}
       >
         {/* League Header */}
-        <View style={[styles.leagueHeader, { backgroundColor: theme.surfaceSecondary }]}>
-          <Text allowFontScaling={false} style={[styles.leagueText, { color: colors.primary }]}>
+        <View
+          style={[
+            styles.leagueHeader,
+            { backgroundColor: theme.surfaceSecondary },
+          ]}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[styles.leagueText, { color: colors.primary }]}
+          >
             MLB
           </Text>
         </View>
-        
+
         {/* Main Match Content - EXACT same structure as soccer */}
-        <View style={[styles.matchContent, { paddingVertical: gameStatus.isLive ? -5 : 8 }]}>
+        <View
+          style={[
+            styles.matchContent,
+            { paddingVertical: gameStatus.isLive ? -5 : 8 },
+          ]}
+        >
           {/* Away Team (Left Side) */}
           <View style={styles.teamSection}>
             <View style={styles.teamLogoRow}>
-                  <Image 
-                    source={{ 
-                      uri: getTeamLogoUrl('mlb', getMLBTeamAbbreviation(awayTeam)) || 
-                           'https://via.placeholder.com/40x40?text=MLB' 
-                    }} 
-                    style={[styles.teamLogo, awayIsLoser && styles.losingTeamLogo]}
-                    defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
-                  />
-                  {!gameStatus.isPre && (
-                    <View style={styles.scoreContainer}>
-                      <View style={styles.scoreRow}>
-                        <Text allowFontScaling={false} style={[styles.teamScore, { color: gameStatus.isPost ? (awayIsWinner ? colors.primary : (awayIsLoser ? '#999' : theme.text)) : theme.text }]}>
-                          {awayScoreDisplay}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
+              <Image
+                source={{
+                  uri:
+                    getTeamLogoUrl("mlb", getMLBTeamAbbreviation(awayTeam)) ||
+                    "https://via.placeholder.com/40x40?text=MLB",
+                }}
+                style={[styles.teamLogo, awayIsLoser && styles.losingTeamLogo]}
+                defaultSource={{
+                  uri: "https://via.placeholder.com/40x40?text=MLB",
+                }}
+              />
+              {!gameStatus.isPre && (
+                <View style={styles.scoreContainer}>
+                  <View style={styles.scoreRow}>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.teamScore,
+                        {
+                          color: gameStatus.isPost
+                            ? awayIsWinner
+                              ? colors.primary
+                              : awayIsLoser
+                              ? "#999"
+                              : theme.text
+                            : theme.text,
+                        },
+                      ]}
+                    >
+                      {awayScoreDisplay}
+                    </Text>
+                  </View>
                 </View>
-            <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
-              color: awayIsLoser ? '#999' : (isFavorite(getMLBTeamId(awayTeam), 'mlb') ? colors.primary : theme.text) 
-            }]}>
-              {isFavorite(getMLBTeamId(awayTeam), 'mlb') ? '★ ' : ''}{getMLBTeamAbbreviation(awayTeam)}
+              )}
+            </View>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamAbbreviation,
+                {
+                  color: awayIsLoser
+                    ? "#999"
+                    : isFavorite(getMLBTeamId(awayTeam), "mlb")
+                    ? colors.primary
+                    : theme.text,
+                },
+              ]}
+            >
+              {isFavorite(getMLBTeamId(awayTeam), "mlb") ? "★ " : ""}
+              {getMLBTeamAbbreviation(awayTeam)}
             </Text>
           </View>
-          
+
           {/* Status Section (Center) */}
           <View style={styles.statusSection}>
-            <Text allowFontScaling={false} style={[styles.gameStatus, { color: gameStatus.isLive ? '#ff4444' : colors.primary , marginBottom: gameStatus.isLive ? -7.5 : 4}]}>
-              {gameStatus.isLive ? '' : gameStatus.text}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.gameStatus,
+                {
+                  color: gameStatus.isLive ? "#ff4444" : colors.primary,
+                  marginBottom: gameStatus.isLive ? -7.5 : 4,
+                },
+              ]}
+            >
+              {gameStatus.isLive ? "" : gameStatus.text}
             </Text>
             {gameStatus.isLive && liveData.situation ? (
               // Live MLB game - show inning, balls/strikes, bases, outs
               <>
-                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.text }]}>
-                  {`${liveData.situation.isTopInning ? 'Top' : 'Bot'} ${liveData.situation.inning || 1}`} • {`${liveData.situation.balls || 0}-${liveData.situation.strikes || 0}`}
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.gameDateTime, { color: theme.text }]}
+                >
+                  {`${liveData.situation.isTopInning ? "Top" : "Bot"} ${
+                    liveData.situation.inning || 1
+                  }`}{" "}
+                  •{" "}
+                  {`${liveData.situation.balls || 0}-${
+                    liveData.situation.strikes || 0
+                  }`}
                 </Text>
                 {/* Mini bases display */}
                 <View style={styles.miniBasesContainer}>
-                  <View style={[
-                    styles.miniBase, 
-                    { backgroundColor: liveData.situation.bases?.second ? colors.primary : 'transparent' }
-                  ]} />
+                  <View
+                    style={[
+                      styles.miniBase,
+                      {
+                        backgroundColor: liveData.situation.bases?.second
+                          ? colors.primary
+                          : "transparent",
+                      },
+                    ]}
+                  />
                   <View style={styles.miniBasesRow}>
-                    <View style={[
-                      styles.miniBase, 
-                      { backgroundColor: liveData.situation.bases?.third ? colors.primary : 'transparent' }
-                    ]} />
-                    <View style={[
-                      styles.miniBase, 
-                      { backgroundColor: liveData.situation.bases?.first ? colors.primary : 'transparent' }
-                    ]} />
+                    <View
+                      style={[
+                        styles.miniBase,
+                        {
+                          backgroundColor: liveData.situation.bases?.third
+                            ? colors.primary
+                            : "transparent",
+                        },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.miniBase,
+                        {
+                          backgroundColor: liveData.situation.bases?.first
+                            ? colors.primary
+                            : "transparent",
+                        },
+                      ]}
+                    />
                   </View>
                 </View>
-                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
+                >
                   {`Outs: ${liveData.situation.outs || 0}`}
                 </Text>
               </>
             ) : gameStatus.isLive ? (
               // Live game but no detailed situation data
               <>
-                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.text }]}>
-                  {gameStatus.time || 'Live'}
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.gameDateTime, { color: theme.text }]}
+                >
+                  {gameStatus.time || "Live"}
                 </Text>
-                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
-                  {gameStatus.detail || 'In Progress'}
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
+                >
+                  {gameStatus.detail || "In Progress"}
                 </Text>
               </>
             ) : (
               // Scheduled or finished games
               <>
-                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
+                >
                   {gameStatus.detail}
                 </Text>
                 {gameStatus.time && (
-                  <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.gameDateTime,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
                     {gameStatus.time} EST
                   </Text>
                 )}
               </>
             )}
           </View>
-          
+
           {/* Home Team (Right Side) */}
           <View style={styles.teamSection}>
             <View style={styles.teamLogoRow}>
               {!gameStatus.isPre && (
                 <View style={styles.scoreContainer}>
                   <View style={styles.scoreRow}>
-                    <Text allowFontScaling={false} style={[styles.teamScore, { color: gameStatus.isPost ? (homeIsWinner ? colors.primary : (homeIsLoser ? '#999' : theme.text)) : theme.text }]}>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.teamScore,
+                        {
+                          color: gameStatus.isPost
+                            ? homeIsWinner
+                              ? colors.primary
+                              : homeIsLoser
+                              ? "#999"
+                              : theme.text
+                            : theme.text,
+                        },
+                      ]}
+                    >
                       {homeScoreDisplay}
                     </Text>
                   </View>
                 </View>
               )}
-              <Image 
-                source={{ 
-                  uri: getTeamLogoUrl('mlb', getMLBTeamAbbreviation(homeTeam)) || 
-                       'https://via.placeholder.com/40x40?text=MLB' 
-                }} 
+              <Image
+                source={{
+                  uri:
+                    getTeamLogoUrl("mlb", getMLBTeamAbbreviation(homeTeam)) ||
+                    "https://via.placeholder.com/40x40?text=MLB",
+                }}
                 style={[styles.teamLogo, homeIsLoser && styles.losingTeamLogo]}
-                defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
+                defaultSource={{
+                  uri: "https://via.placeholder.com/40x40?text=MLB",
+                }}
               />
             </View>
-            <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
-              color: homeIsLoser ? '#999' : (isFavorite(getMLBTeamId(homeTeam), 'mlb') ? colors.primary : theme.text) 
-            }]}>
-              {isFavorite(getMLBTeamId(homeTeam), 'mlb') ? '★ ' : ''}{getMLBTeamAbbreviation(homeTeam)}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamAbbreviation,
+                {
+                  color: homeIsLoser
+                    ? "#999"
+                    : isFavorite(getMLBTeamId(homeTeam), "mlb")
+                    ? colors.primary
+                    : theme.text,
+                },
+              ]}
+            >
+              {isFavorite(getMLBTeamId(homeTeam), "mlb") ? "★ " : ""}
+              {getMLBTeamAbbreviation(homeTeam)}
             </Text>
           </View>
         </View>
-        
+
         {/* Venue Section */}
         <View style={styles.venueSection}>
           {gameStatus.isLive ? (
             // Show most recent play text for live MLB games with colored side border
             (() => {
               // Prefer result.description first, then playText from playEvents, then other fallbacks
-              const candidate = (currentPlay?.raw?.result?.description && String(currentPlay.raw.result.description).trim()) ? 
-                currentPlay.raw.result.description : 
-                ((playText && String(playText).trim()) ? playText : (currentPlay?.raw?.about?.playText || currentPlay?.shortText || null));
+              const candidate =
+                currentPlay?.raw?.result?.description &&
+                String(currentPlay.raw.result.description).trim()
+                  ? currentPlay.raw.result.description
+                  : playText && String(playText).trim()
+                  ? playText
+                  : currentPlay?.raw?.about?.playText ||
+                    currentPlay?.shortText ||
+                    null;
               if (candidate) {
                 return (
-                  <Text allowFontScaling={false} style={[styles.livePlayText, { color: theme.text }]} numberOfLines={2}>{candidate}</Text>
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.livePlayText, { color: theme.text }]}
+                    numberOfLines={2}
+                  >
+                    {candidate}
+                  </Text>
                 );
               }
 
-              return <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}></Text>;
+              return (
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.venueText, { color: theme.textSecondary }]}
+                ></Text>
+              );
             })()
           ) : (
-            <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.venueText, { color: theme.textSecondary }]}
+            >
               {(() => {
                 const venues = {
                   mlb: game.mlbGameData?.venue?.name,
                   competition: competition.venue?.fullName,
-                  liveHeader: game.liveData?.header?.competitions?.[0]?.venue?.fullName,
+                  liveHeader:
+                    game.liveData?.header?.competitions?.[0]?.venue?.fullName,
                   gamepackage: game.liveData?.gamepackageJSON?.gmStrp?.venue,
                   gameInfo: game.liveData?.gameInfo?.venue?.fullName,
                   venueName: game.venue?.name,
-                  venueFullName: game.venue?.fullName
+                  venueFullName: game.venue?.fullName,
                 };
-                return venues.mlb ||
-                       venues.competition || 
-                       venues.liveHeader || 
-                       venues.gamepackage || 
-                       venues.gameInfo ||
-                       venues.venueName || 
-                       venues.venueFullName || 
-                       'TBD Stadium';
+                return (
+                  venues.mlb ||
+                  venues.competition ||
+                  venues.liveHeader ||
+                  venues.gamepackage ||
+                  venues.gameInfo ||
+                  venues.venueName ||
+                  venues.venueFullName ||
+                  "TBD Stadium"
+                );
               })()}
             </Text>
           )}
@@ -5283,48 +7114,75 @@ const FavoritesScreen = ({ navigation }) => {
   const renderNBAGameCard = (game) => {
     const homeTeam = game.homeTeam;
     const awayTeam = game.awayTeam;
-    const homeScore = homeTeam?.score || '0';
-    const awayScore = awayTeam?.score || '0';
+    const homeScore = homeTeam?.score || "0";
+    const awayScore = awayTeam?.score || "0";
 
     // NBA-specific status detection
     const getMatchStatusForNBA = (g) => {
       const competition = g.competitions?.[0];
       const statusFromCompetition = competition?.status;
-      const statusFromSiteAPI = g.gameDataWithStatus?.header?.competitions?.[0]?.status || statusFromCompetition;
+      const statusFromSiteAPI =
+        g.gameDataWithStatus?.header?.competitions?.[0]?.status ||
+        statusFromCompetition;
 
-      let state = statusFromSiteAPI?.type?.state || statusFromCompetition?.type?.state;
-      
+      let state =
+        statusFromSiteAPI?.type?.state || statusFromCompetition?.type?.state;
+
       // Normalize some common strings
-      if (!state && typeof g.status === 'string') {
+      if (!state && typeof g.status === "string") {
         const s = String(g.status).toLowerCase();
-        if (s.includes('final') || s.includes('post')) state = 'post';
-        else if (s.includes('in') || s.includes('progress') || s.includes('live')) state = 'in';
-        else state = 'pre';
+        if (s.includes("final") || s.includes("post")) state = "post";
+        else if (
+          s.includes("in") ||
+          s.includes("progress") ||
+          s.includes("live")
+        )
+          state = "in";
+        else state = "pre";
       }
 
       // Fallback to computeMatchFlags if the site API doesn't indicate live
       const fallback = computeMatchFlags(g);
-      const isLive = (state === 'in') || fallback.isLive;
-      const isPost = (state === 'post') || fallback.isPost || fallback.isFinished;
+      const isLive = state === "in" || fallback.isLive;
+      const isPost = state === "post" || fallback.isPost || fallback.isFinished;
       const isPre = !isLive && !isPost;
 
-      let text = 'Scheduled';
-      let time = '';
-      let detail = '';
+      let text = "Scheduled";
+      let time = "";
+      let detail = "";
 
       if (isLive) {
-        text = statusFromSiteAPI?.type?.description || statusFromCompetition?.type?.description || 'Live';
-        time = statusFromSiteAPI?.displayClock || statusFromCompetition?.displayClock || 'Live';
-        detail = statusFromSiteAPI?.type?.detail || statusFromCompetition?.type?.detail || '';
+        text =
+          statusFromSiteAPI?.type?.description ||
+          statusFromCompetition?.type?.description ||
+          "Live";
+        time =
+          statusFromSiteAPI?.displayClock ||
+          statusFromCompetition?.displayClock ||
+          "Live";
+        detail =
+          statusFromSiteAPI?.type?.detail ||
+          statusFromCompetition?.type?.detail ||
+          "";
       } else if (isPost) {
-        text = 'Final';
-        time = '';
-        detail = statusFromSiteAPI?.type?.detail || statusFromCompetition?.type?.detail || 'Final';
+        text = "Final";
+        time = "";
+        detail =
+          statusFromSiteAPI?.type?.detail ||
+          statusFromCompetition?.type?.detail ||
+          "Final";
       } else {
-        text = 'Scheduled';
+        text = "Scheduled";
         const gameDate = new Date(g.date);
-        time = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-        detail = gameDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        time = gameDate.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        });
+        detail = gameDate.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        });
       }
 
       return { isLive, isPre, isPost, text, time, detail };
@@ -5336,13 +7194,13 @@ const FavoritesScreen = ({ navigation }) => {
     const isFinished = Boolean(matchStatus?.isPost);
 
     // Get the most recent play for live games and determine border styling
-    let recentPlayText = '';
+    let recentPlayText = "";
     let cardBorderStyle = {};
-    
+
     if (isLive && (game.plays || game.boxscore?.playByPlay)) {
       const rawPlaysSource = game.plays || game.boxscore?.playByPlay || [];
       let playsArray = [];
-      
+
       if (Array.isArray(rawPlaysSource)) {
         playsArray = rawPlaysSource.slice();
       } else if (rawPlaysSource?.items && Array.isArray(rawPlaysSource.items)) {
@@ -5353,41 +7211,57 @@ const FavoritesScreen = ({ navigation }) => {
         // Get the MOST RECENT play (last index, not first)
         const mostRecent = playsArray[playsArray.length - 1];
         if (mostRecent) {
-          recentPlayText = mostRecent.text || mostRecent.description || mostRecent.displayText || '';
-          recentPlayText = recentPlayText.replace(/\s+/g, ' ').trim();
-          
+          recentPlayText =
+            mostRecent.text ||
+            mostRecent.description ||
+            mostRecent.displayText ||
+            "";
+          recentPlayText = recentPlayText.replace(/\s+/g, " ").trim();
+
           // Determine which team made the play and set border colors accordingly
           const playTeamId = mostRecent.team?.id || mostRecent.teamId;
           const homeTeamId = homeTeam?.team?.id || homeTeam?.id;
           const awayTeamId = awayTeam?.team?.id || awayTeam?.id;
-          
+
           // Use smart color selection to avoid similar colors
-          const { homeColor, awayColor } = getSmartTeamColors(homeTeam, awayTeam, colors);
-          
+          const { homeColor, awayColor } = getSmartTeamColors(
+            homeTeam,
+            awayTeam,
+            colors
+          );
+
           // For NBA: Only show border on the side corresponding to the team that made the play
           // Away team on left, Home team on right
-          if (playTeamId && homeTeamId && String(playTeamId) === String(homeTeamId)) {
+          if (
+            playTeamId &&
+            homeTeamId &&
+            String(playTeamId) === String(homeTeamId)
+          ) {
             // Home team play - show right border only
             cardBorderStyle = {
-              borderLeftColor: theme?.border || '#333333',
+              borderLeftColor: theme?.border || "#333333",
               borderLeftWidth: 1,
-              borderRightColor: homeColor, 
+              borderRightColor: homeColor,
               borderRightWidth: 8,
             };
-          } else if (playTeamId && awayTeamId && String(playTeamId) === String(awayTeamId)) {
+          } else if (
+            playTeamId &&
+            awayTeamId &&
+            String(playTeamId) === String(awayTeamId)
+          ) {
             // Away team play - show left border only
             cardBorderStyle = {
               borderLeftColor: awayColor,
               borderLeftWidth: 8,
-              borderRightColor: theme?.border || '#333333', 
+              borderRightColor: theme?.border || "#333333",
               borderRightWidth: 1,
             };
           } else {
             // Can't determine which team made the play - show no thick borders
             cardBorderStyle = {
-              borderLeftColor: theme?.border || '#333333',
+              borderLeftColor: theme?.border || "#333333",
               borderLeftWidth: 1,
-              borderRightColor: theme?.border || '#333333', 
+              borderRightColor: theme?.border || "#333333",
               borderRightWidth: 1,
             };
           }
@@ -5398,13 +7272,16 @@ const FavoritesScreen = ({ navigation }) => {
     // Game date formatting
     const gameDate = new Date(game.date);
     const formatGameDate = (date) => {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
     };
     const formatGameTime = (date) => {
-      return date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit', 
-        hour12: true 
+      return date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
       });
     };
 
@@ -5419,7 +7296,9 @@ const FavoritesScreen = ({ navigation }) => {
     // Status text for display
     let gameStatusText = matchStatus.text;
     if (isLive && matchStatus.detail) {
-      gameStatusText = (matchStatus.detail && matchStatus.detail.split("-")[1]?.trim()) || matchStatus.detail;
+      gameStatusText =
+        (matchStatus.detail && matchStatus.detail.split("-")[1]?.trim()) ||
+        matchStatus.detail;
     } else if (isLive && matchStatus.time) {
       gameStatusText = matchStatus.time;
     }
@@ -5430,27 +7309,42 @@ const FavoritesScreen = ({ navigation }) => {
     };
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         key={game.id}
-        style={[styles.gameCard, { 
-          backgroundColor: theme.surface, 
-          borderColor: theme.border,
-          borderTopColor: theme.border,
-          borderBottomColor: theme.border,
-        }, cardBorderStyle]}
+        style={[
+          styles.gameCard,
+          {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+            borderTopColor: theme.border,
+            borderBottomColor: theme.border,
+          },
+          cardBorderStyle,
+        ]}
         onPress={() => handleGamePress(game)}
         activeOpacity={0.7}
       >
-        <View style={[styles.leagueHeader, { 
-          backgroundColor: theme.surfaceSecondary 
-        }]}>
-          <Text allowFontScaling={false} style={[styles.leagueText, { 
-            color: colors.primary 
-          }]}>
+        <View
+          style={[
+            styles.leagueHeader,
+            {
+              backgroundColor: theme.surfaceSecondary,
+            },
+          ]}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.leagueText,
+              {
+                color: colors.primary,
+              },
+            ]}
+          >
             NBA
           </Text>
         </View>
-        
+
         <View style={styles.matchContent}>
           <View style={styles.teamSection}>
             <View style={styles.teamLogoRow}>
@@ -5459,7 +7353,7 @@ const FavoritesScreen = ({ navigation }) => {
                 source={{
                   uri: isDarkMode
                     ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500-dark/${awayTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
-                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${awayTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
+                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${awayTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`,
                 }}
                 onError={() => {
                   // Fallback handled by source
@@ -5467,55 +7361,112 @@ const FavoritesScreen = ({ navigation }) => {
               />
               {!isScheduled && (
                 <View style={styles.scoreContainer}>
-                  <Text allowFontScaling={false} style={[styles.teamScore, {
-                    color: isFinished ? (awayIsWinner ? colors.primary : (awayIsLoser ? '#999' : theme.text)) : theme.text
-                  }]}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.teamScore,
+                      {
+                        color: isFinished
+                          ? awayIsWinner
+                            ? colors.primary
+                            : awayIsLoser
+                            ? "#999"
+                            : theme.text
+                          : theme.text,
+                      },
+                    ]}
+                  >
                     {awayScore}
                   </Text>
                 </View>
               )}
             </View>
-            <Text allowFontScaling={false} style={[styles.teamAbbreviation, {
-              color: isFavorite(getNBATeamId(awayTeam), 'nba') ? colors.primary : (awayIsLoser ? '#999' : theme.text)
-            }]}>
-              {isFavorite(getNBATeamId(awayTeam), 'nba') ? '★ ' : ''}{awayTeam?.abbreviation}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamAbbreviation,
+                {
+                  color: isFavorite(getNBATeamId(awayTeam), "nba")
+                    ? colors.primary
+                    : awayIsLoser
+                    ? "#999"
+                    : theme.text,
+                },
+              ]}
+            >
+              {isFavorite(getNBATeamId(awayTeam), "nba") ? "★ " : ""}
+              {awayTeam?.abbreviation}
             </Text>
           </View>
-          
+
           <View style={styles.statusSection}>
-            <Text allowFontScaling={false} style={[styles.gameStatus, {
-              color: colors.primary
-            }]}>
-              {gameStatusText.includes('End of ') ? gameStatusText.replace('End of ', '') : gameStatusText}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.gameStatus,
+                {
+                  color: colors.primary,
+                },
+              ]}
+            >
+              {gameStatusText.includes("End of ")
+                ? gameStatusText.replace("End of ", "")
+                : gameStatusText}
             </Text>
-            
+
             {isLive ? (
-              <View style={{ alignItems: 'center', marginTop: 4 }}>
-                {matchStatus.time && matchStatus.detail !== 'Halftime' && (
-                  <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary, fontWeight: '600' }]}>
-                    {matchStatus.time === '0.00' || matchStatus.time === '0.0' ? 'End' : matchStatus.time}
+              <View style={{ alignItems: "center", marginTop: 4 }}>
+                {matchStatus.time && matchStatus.detail !== "Halftime" && (
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.gameDateTime,
+                      { color: theme.textSecondary, fontWeight: "600" },
+                    ]}
+                  >
+                    {matchStatus.time === "0.00" || matchStatus.time === "0.0"
+                      ? "End"
+                      : matchStatus.time}
                   </Text>
                 )}
               </View>
             ) : (
-              <View style={{ alignItems: 'center', marginTop: 4 }}>
-                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+              <View style={{ alignItems: "center", marginTop: 4 }}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
+                >
                   {formatGameDate(gameDate)}
                 </Text>
-                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
+                >
                   {formatGameTime(gameDate)} EST
                 </Text>
               </View>
             )}
           </View>
-          
+
           <View style={styles.teamSection}>
             <View style={styles.teamLogoRow}>
               {!isScheduled && (
                 <View style={styles.scoreContainer}>
-                  <Text allowFontScaling={false} style={[styles.teamScore, {
-                    color: isFinished ? (homeIsWinner ? colors.primary : (homeIsLoser ? '#999' : theme.text)) : theme.text
-                  }]}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.teamScore,
+                      {
+                        color: isFinished
+                          ? homeIsWinner
+                            ? colors.primary
+                            : homeIsLoser
+                            ? "#999"
+                            : theme.text
+                          : theme.text,
+                      },
+                    ]}
+                  >
                     {homeScore}
                   </Text>
                 </View>
@@ -5525,29 +7476,47 @@ const FavoritesScreen = ({ navigation }) => {
                 source={{
                   uri: isDarkMode
                     ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500-dark/${homeTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
-                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${homeTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
+                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${homeTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`,
                 }}
                 onError={() => {
                   // Fallback handled by source
                 }}
               />
             </View>
-            <Text allowFontScaling={false} style={[styles.teamAbbreviation, {
-              color: isFavorite(getNBATeamId(homeTeam), 'nba') ? colors.primary : (homeIsLoser ? '#999' : theme.text)
-            }]}>
-              {isFavorite(getNBATeamId(homeTeam), 'nba') ? '★ ' : ''}{homeTeam?.abbreviation}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamAbbreviation,
+                {
+                  color: isFavorite(getNBATeamId(homeTeam), "nba")
+                    ? colors.primary
+                    : homeIsLoser
+                    ? "#999"
+                    : theme.text,
+                },
+              ]}
+            >
+              {isFavorite(getNBATeamId(homeTeam), "nba") ? "★ " : ""}
+              {homeTeam?.abbreviation}
             </Text>
           </View>
         </View>
-        
+
         <View style={styles.venueSection}>
           {isLive && recentPlayText ? (
-            <Text allowFontScaling={false} style={[styles.livePlayText, { color: theme.text }]} numberOfLines={2}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.livePlayText, { color: theme.text }]}
+              numberOfLines={2}
+            >
               {recentPlayText}
             </Text>
           ) : (
-            <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>
-              {game.gameInfo.venue.fullName || 'TBD Arena'}
+            <Text
+              allowFontScaling={false}
+              style={[styles.venueText, { color: theme.textSecondary }]}
+            >
+              {game.gameInfo.venue.fullName || "TBD Arena"}
             </Text>
           )}
         </View>
@@ -5558,46 +7527,73 @@ const FavoritesScreen = ({ navigation }) => {
   const renderWNBAGameCard = (game) => {
     const homeTeam = game.homeTeam;
     const awayTeam = game.awayTeam;
-    const homeScore = homeTeam?.score || '0';
-    const awayScore = awayTeam?.score || '0';
+    const homeScore = homeTeam?.score || "0";
+    const awayScore = awayTeam?.score || "0";
 
     // WNBA-specific status detection (same as NBA)
     const getMatchStatusForWNBA = (g) => {
       const competition = g.competitions?.[0];
       const statusFromCompetition = competition?.status;
-      const statusFromSiteAPI = g.gameDataWithStatus?.header?.competitions?.[0]?.status || statusFromCompetition;
+      const statusFromSiteAPI =
+        g.gameDataWithStatus?.header?.competitions?.[0]?.status ||
+        statusFromCompetition;
 
-      let state = statusFromSiteAPI?.type?.state || statusFromCompetition?.type?.state;
-      
-      if (!state && typeof g.status === 'string') {
+      let state =
+        statusFromSiteAPI?.type?.state || statusFromCompetition?.type?.state;
+
+      if (!state && typeof g.status === "string") {
         const s = String(g.status).toLowerCase();
-        if (s.includes('final') || s.includes('post')) state = 'post';
-        else if (s.includes('in') || s.includes('progress') || s.includes('live')) state = 'in';
-        else state = 'pre';
+        if (s.includes("final") || s.includes("post")) state = "post";
+        else if (
+          s.includes("in") ||
+          s.includes("progress") ||
+          s.includes("live")
+        )
+          state = "in";
+        else state = "pre";
       }
 
       const fallback = computeMatchFlags(g);
-      const isLive = (state === 'in') || fallback.isLive;
-      const isPost = (state === 'post') || fallback.isPost || fallback.isFinished;
+      const isLive = state === "in" || fallback.isLive;
+      const isPost = state === "post" || fallback.isPost || fallback.isFinished;
       const isPre = !isLive && !isPost;
 
-      let text = 'Scheduled';
-      let time = '';
-      let detail = '';
+      let text = "Scheduled";
+      let time = "";
+      let detail = "";
 
       if (isLive) {
-        text = statusFromSiteAPI?.type?.description || statusFromCompetition?.type?.description || 'Live';
-        time = statusFromSiteAPI?.displayClock || statusFromCompetition?.displayClock || 'Live';
-        detail = statusFromSiteAPI?.type?.detail || statusFromCompetition?.type?.detail || '';
+        text =
+          statusFromSiteAPI?.type?.description ||
+          statusFromCompetition?.type?.description ||
+          "Live";
+        time =
+          statusFromSiteAPI?.displayClock ||
+          statusFromCompetition?.displayClock ||
+          "Live";
+        detail =
+          statusFromSiteAPI?.type?.detail ||
+          statusFromCompetition?.type?.detail ||
+          "";
       } else if (isPost) {
-        text = 'Final';
-        time = '';
-        detail = statusFromSiteAPI?.type?.detail || statusFromCompetition?.type?.detail || 'Final';
+        text = "Final";
+        time = "";
+        detail =
+          statusFromSiteAPI?.type?.detail ||
+          statusFromCompetition?.type?.detail ||
+          "Final";
       } else {
-        text = 'Scheduled';
+        text = "Scheduled";
         const gameDate = new Date(g.date);
-        time = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-        detail = gameDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        time = gameDate.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        });
+        detail = gameDate.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        });
       }
 
       return { isLive, isPre, isPost, text, time, detail };
@@ -5609,13 +7605,13 @@ const FavoritesScreen = ({ navigation }) => {
     const isFinished = Boolean(matchStatus?.isPost);
 
     // Get the most recent play for live games and determine border styling
-    let recentPlayText = '';
+    let recentPlayText = "";
     let cardBorderStyle = {};
-    
+
     if (isLive && (game.plays || game.boxscore?.playByPlay)) {
       const rawPlaysSource = game.plays || game.boxscore?.playByPlay || [];
       let playsArray = [];
-      
+
       if (Array.isArray(rawPlaysSource)) {
         playsArray = rawPlaysSource.slice();
       } else if (rawPlaysSource?.items && Array.isArray(rawPlaysSource.items)) {
@@ -5626,41 +7622,57 @@ const FavoritesScreen = ({ navigation }) => {
         // Get the MOST RECENT play (last index, not first)
         const mostRecent = playsArray[playsArray.length - 1];
         if (mostRecent) {
-          recentPlayText = mostRecent.text || mostRecent.description || mostRecent.displayText || '';
-          recentPlayText = recentPlayText.replace(/\s+/g, ' ').trim();
-          
+          recentPlayText =
+            mostRecent.text ||
+            mostRecent.description ||
+            mostRecent.displayText ||
+            "";
+          recentPlayText = recentPlayText.replace(/\s+/g, " ").trim();
+
           // Determine which team made the play and set border colors accordingly
           const playTeamId = mostRecent.team?.id || mostRecent.teamId;
           const homeTeamId = homeTeam?.team?.id || homeTeam?.id;
           const awayTeamId = awayTeam?.team?.id || awayTeam?.id;
-          
+
           // Use smart color selection to avoid similar colors
-          const { homeColor, awayColor } = getSmartTeamColors(homeTeam, awayTeam, colors);
-          
+          const { homeColor, awayColor } = getSmartTeamColors(
+            homeTeam,
+            awayTeam,
+            colors
+          );
+
           // For WNBA: Only show border on the side corresponding to the team that made the play
           // Away team on left, Home team on right
-          if (playTeamId && homeTeamId && String(playTeamId) === String(homeTeamId)) {
+          if (
+            playTeamId &&
+            homeTeamId &&
+            String(playTeamId) === String(homeTeamId)
+          ) {
             // Home team play - show right border only
             cardBorderStyle = {
-              borderLeftColor: theme?.border || '#333333',
+              borderLeftColor: theme?.border || "#333333",
               borderLeftWidth: 1,
-              borderRightColor: homeColor, 
+              borderRightColor: homeColor,
               borderRightWidth: 8,
             };
-          } else if (playTeamId && awayTeamId && String(playTeamId) === String(awayTeamId)) {
+          } else if (
+            playTeamId &&
+            awayTeamId &&
+            String(playTeamId) === String(awayTeamId)
+          ) {
             // Away team play - show left border only
             cardBorderStyle = {
               borderLeftColor: awayColor,
               borderLeftWidth: 8,
-              borderRightColor: theme?.border || '#333333', 
+              borderRightColor: theme?.border || "#333333",
               borderRightWidth: 1,
             };
           } else {
             // Can't determine which team made the play - show no thick borders
             cardBorderStyle = {
-              borderLeftColor: theme?.border || '#333333',
+              borderLeftColor: theme?.border || "#333333",
               borderLeftWidth: 1,
-              borderRightColor: theme?.border || '#333333', 
+              borderRightColor: theme?.border || "#333333",
               borderRightWidth: 1,
             };
           }
@@ -5671,13 +7683,16 @@ const FavoritesScreen = ({ navigation }) => {
     // Game date formatting
     const gameDate = new Date(game.date);
     const formatGameDate = (date) => {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
     };
     const formatGameTime = (date) => {
-      return date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit', 
-        hour12: true 
+      return date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
       });
     };
 
@@ -5692,7 +7707,9 @@ const FavoritesScreen = ({ navigation }) => {
     // Status text for display
     let gameStatusText = matchStatus.text;
     if (isLive && matchStatus.detail) {
-      gameStatusText = (matchStatus.detail && matchStatus.detail.split("-")[1]?.trim()) || matchStatus.detail;
+      gameStatusText =
+        (matchStatus.detail && matchStatus.detail.split("-")[1]?.trim()) ||
+        matchStatus.detail;
     } else if (isLive && matchStatus.time) {
       gameStatusText = matchStatus.time;
     }
@@ -5703,27 +7720,42 @@ const FavoritesScreen = ({ navigation }) => {
     };
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         key={game.id}
-        style={[styles.gameCard, { 
-          backgroundColor: theme.surface, 
-          borderColor: theme.border,
-          borderTopColor: theme.border,
-          borderBottomColor: theme.border,
-        }, cardBorderStyle]}
+        style={[
+          styles.gameCard,
+          {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+            borderTopColor: theme.border,
+            borderBottomColor: theme.border,
+          },
+          cardBorderStyle,
+        ]}
         onPress={() => handleGamePress(game)}
         activeOpacity={0.7}
       >
-        <View style={[styles.leagueHeader, { 
-          backgroundColor: theme.surfaceSecondary 
-        }]}>
-          <Text allowFontScaling={false} style={[styles.leagueText, { 
-            color: colors.primary 
-          }]}>
+        <View
+          style={[
+            styles.leagueHeader,
+            {
+              backgroundColor: theme.surfaceSecondary,
+            },
+          ]}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.leagueText,
+              {
+                color: colors.primary,
+              },
+            ]}
+          >
             WNBA
           </Text>
         </View>
-        
+
         <View style={styles.matchContent}>
           <View style={styles.teamSection}>
             <View style={styles.teamLogoRow}>
@@ -5732,7 +7764,7 @@ const FavoritesScreen = ({ navigation }) => {
                 source={{
                   uri: isDarkMode
                     ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/wnba/500-dark/${awayTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
-                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/wnba/500/${awayTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
+                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/wnba/500/${awayTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`,
                 }}
                 onError={() => {
                   // Fallback handled by source
@@ -5740,55 +7772,112 @@ const FavoritesScreen = ({ navigation }) => {
               />
               {!isScheduled && (
                 <View style={styles.scoreContainer}>
-                  <Text allowFontScaling={false} style={[styles.teamScore, {
-                    color: isFinished ? (awayIsWinner ? colors.primary : (awayIsLoser ? '#999' : theme.text)) : theme.text
-                  }]}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.teamScore,
+                      {
+                        color: isFinished
+                          ? awayIsWinner
+                            ? colors.primary
+                            : awayIsLoser
+                            ? "#999"
+                            : theme.text
+                          : theme.text,
+                      },
+                    ]}
+                  >
                     {awayScore}
                   </Text>
                 </View>
               )}
             </View>
-            <Text allowFontScaling={false} style={[styles.teamAbbreviation, {
-              color: isFavorite(getWNBATeamId(awayTeam), 'wnba') ? colors.primary : (awayIsLoser ? '#999' : theme.text)
-            }]}>
-              {isFavorite(getWNBATeamId(awayTeam), 'wnba') ? '★ ' : ''}{awayTeam?.abbreviation}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamAbbreviation,
+                {
+                  color: isFavorite(getWNBATeamId(awayTeam), "wnba")
+                    ? colors.primary
+                    : awayIsLoser
+                    ? "#999"
+                    : theme.text,
+                },
+              ]}
+            >
+              {isFavorite(getWNBATeamId(awayTeam), "wnba") ? "★ " : ""}
+              {awayTeam?.abbreviation}
             </Text>
           </View>
-          
+
           <View style={styles.statusSection}>
-            <Text allowFontScaling={false} style={[styles.gameStatus, {
-              color: colors.primary
-            }]}>
-              {gameStatusText.includes('End of ') ? gameStatusText.replace('End of ', '') : gameStatusText}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.gameStatus,
+                {
+                  color: colors.primary,
+                },
+              ]}
+            >
+              {gameStatusText.includes("End of ")
+                ? gameStatusText.replace("End of ", "")
+                : gameStatusText}
             </Text>
-            
+
             {isLive ? (
-              <View style={{ alignItems: 'center', marginTop: 4 }}>
-                {matchStatus.time && matchStatus.detail !== 'Halftime' && (
-                  <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary, fontWeight: '600' }]}>
-                    {matchStatus.time === '0.00' || matchStatus.time === '0.0' ? 'End' : matchStatus.time}
+              <View style={{ alignItems: "center", marginTop: 4 }}>
+                {matchStatus.time && matchStatus.detail !== "Halftime" && (
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.gameDateTime,
+                      { color: theme.textSecondary, fontWeight: "600" },
+                    ]}
+                  >
+                    {matchStatus.time === "0.00" || matchStatus.time === "0.0"
+                      ? "End"
+                      : matchStatus.time}
                   </Text>
                 )}
               </View>
             ) : (
-              <View style={{ alignItems: 'center', marginTop: 4 }}>
-                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+              <View style={{ alignItems: "center", marginTop: 4 }}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
+                >
                   {formatGameDate(gameDate)}
                 </Text>
-                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
+                >
                   {formatGameTime(gameDate)} EST
                 </Text>
               </View>
             )}
           </View>
-          
+
           <View style={styles.teamSection}>
             <View style={styles.teamLogoRow}>
               {!isScheduled && (
                 <View style={styles.scoreContainer}>
-                  <Text allowFontScaling={false} style={[styles.teamScore, {
-                    color: isFinished ? (homeIsWinner ? colors.primary : (homeIsLoser ? '#999' : theme.text)) : theme.text
-                  }]}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.teamScore,
+                      {
+                        color: isFinished
+                          ? homeIsWinner
+                            ? colors.primary
+                            : homeIsLoser
+                            ? "#999"
+                            : theme.text
+                          : theme.text,
+                      },
+                    ]}
+                  >
                     {homeScore}
                   </Text>
                 </View>
@@ -5798,29 +7887,47 @@ const FavoritesScreen = ({ navigation }) => {
                 source={{
                   uri: isDarkMode
                     ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/wnba/500-dark/${homeTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
-                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/wnba/500/${homeTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
+                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/wnba/500/${homeTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`,
                 }}
                 onError={() => {
                   // Fallback handled by source
                 }}
               />
             </View>
-            <Text allowFontScaling={false} style={[styles.teamAbbreviation, {
-              color: isFavorite(getWNBATeamId(homeTeam), 'wnba') ? colors.primary : (homeIsLoser ? '#999' : theme.text)
-            }]}>
-              {isFavorite(getWNBATeamId(homeTeam), 'wnba') ? '★ ' : ''}{homeTeam?.abbreviation}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamAbbreviation,
+                {
+                  color: isFavorite(getWNBATeamId(homeTeam), "wnba")
+                    ? colors.primary
+                    : homeIsLoser
+                    ? "#999"
+                    : theme.text,
+                },
+              ]}
+            >
+              {isFavorite(getWNBATeamId(homeTeam), "wnba") ? "★ " : ""}
+              {homeTeam?.abbreviation}
             </Text>
           </View>
         </View>
-        
+
         <View style={styles.venueSection}>
           {isLive && recentPlayText ? (
-            <Text allowFontScaling={false} style={[styles.livePlayText, { color: theme.text }]} numberOfLines={2}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.livePlayText, { color: theme.text }]}
+              numberOfLines={2}
+            >
               {recentPlayText}
             </Text>
           ) : (
-            <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>
-              {game.gameInfo.venue.fullName || 'TBD Arena'}
+            <Text
+              allowFontScaling={false}
+              style={[styles.venueText, { color: theme.textSecondary }]}
+            >
+              {game.gameInfo.venue.fullName || "TBD Arena"}
             </Text>
           )}
         </View>
@@ -5831,57 +7938,75 @@ const FavoritesScreen = ({ navigation }) => {
   const renderNHLGameCard = (game) => {
     const homeTeam = game.homeTeam;
     const awayTeam = game.awayTeam;
-    const homeScore = homeTeam?.score || '0';
-    const awayScore = awayTeam?.score || '0';
+    const homeScore = homeTeam?.score || "0";
+    const awayScore = awayTeam?.score || "0";
 
     // NHL-specific status detection
     const getMatchStatusForNHL = (g) => {
       const competition = g.competitions?.[0];
       const statusFromCompetition = competition?.status;
-      const statusFromSiteAPI = g.gameDataWithStatus?.header?.competitions?.[0]?.status || statusFromCompetition;
+      const statusFromSiteAPI =
+        g.gameDataWithStatus?.header?.competitions?.[0]?.status ||
+        statusFromCompetition;
 
-      let state = statusFromSiteAPI?.type?.state || statusFromCompetition?.type?.state;
-      
+      let state =
+        statusFromSiteAPI?.type?.state || statusFromCompetition?.type?.state;
+
       // Normalize some common strings
-      if (!state && typeof g.status === 'string') {
+      if (!state && typeof g.status === "string") {
         const s = String(g.status).toLowerCase();
-        if (s.includes('final') || s.includes('post')) state = 'post';
-        else if (s.includes('in') || s.includes('progress') || s.includes('live')) state = 'in';
-        else state = 'pre';
+        if (s.includes("final") || s.includes("post")) state = "post";
+        else if (
+          s.includes("in") ||
+          s.includes("progress") ||
+          s.includes("live")
+        )
+          state = "in";
+        else state = "pre";
       }
 
       // Fallback to computeMatchFlags if the site API doesn't indicate live
       const fallback = computeMatchFlags(g);
-      const isLive = (state === 'in') || fallback.isLive;
-      const isPost = (state === 'post') || fallback.isPost || fallback.isFinished;
+      const isLive = state === "in" || fallback.isLive;
+      const isPost = state === "post" || fallback.isPost || fallback.isFinished;
       const isPre = !isLive && !isPost;
 
       // displayClock/period extraction for NHL
-      const displayClock = statusFromSiteAPI?.displayClock || statusFromCompetition?.displayClock || g.displayClock || competition?.displayClock || '';
-      const period = statusFromSiteAPI?.period || statusFromCompetition?.period || g.period || competition?.period || null;
+      const displayClock =
+        statusFromSiteAPI?.displayClock ||
+        statusFromCompetition?.displayClock ||
+        g.displayClock ||
+        competition?.displayClock ||
+        "";
+      const period =
+        statusFromSiteAPI?.period ||
+        statusFromCompetition?.period ||
+        g.period ||
+        competition?.period ||
+        null;
 
       // Build readable detail (period/OT)
-      let detail = '';
+      let detail = "";
       if (isLive && period != null) {
         if (period <= 3) {
-          const periods = ['1st', '2nd', '3rd'];
+          const periods = ["1st", "2nd", "3rd"];
           detail = `${periods[period - 1]} Period`;
         } else if (period === 4) {
-          detail = 'OT';
+          detail = "OT";
         } else {
           detail = `${period - 3}OT`; // Multiple overtimes
         }
       } else if (isPre) {
-        detail = '';
+        detail = "";
       }
 
       return {
         isLive,
         isPre,
         isPost,
-        text: isLive ? 'Live' : (isPost ? 'Final' : 'Scheduled'),
-        time: displayClock === '0:00' ? 'INT' : displayClock,
-        detail
+        text: isLive ? "Live" : isPost ? "Final" : "Scheduled",
+        time: displayClock === "0:00" ? "INT" : displayClock,
+        detail,
       };
     };
 
@@ -5891,13 +8016,13 @@ const FavoritesScreen = ({ navigation }) => {
     const isFinished = Boolean(matchStatus?.isPost);
 
     // Get the most recent play for live games and determine border styling
-    let recentPlayText = '';
+    let recentPlayText = "";
     let cardBorderStyle = {};
-    
+
     if (isLive && (game.plays || game.boxscore?.playByPlay)) {
       const rawPlaysSource = game.plays || game.boxscore?.playByPlay || [];
       let playsArray = [];
-      
+
       if (Array.isArray(rawPlaysSource)) {
         playsArray = rawPlaysSource.slice();
       } else if (rawPlaysSource?.items && Array.isArray(rawPlaysSource.items)) {
@@ -5907,44 +8032,61 @@ const FavoritesScreen = ({ navigation }) => {
       if (playsArray.length > 0) {
         // Sort plays by sequence number to get the most recent
         playsArray.sort((a, b) => {
-          const aSeq = parseInt(a?.sequenceNumber || a?.id || '0', 10) || 0;
-          const bSeq = parseInt(b?.sequenceNumber || b?.id || '0', 10) || 0;
+          const aSeq = parseInt(a?.sequenceNumber || a?.id || "0", 10) || 0;
+          const bSeq = parseInt(b?.sequenceNumber || b?.id || "0", 10) || 0;
           return bSeq - aSeq; // Most recent first
         });
 
         const mostRecent = playsArray[0];
         if (mostRecent) {
-          recentPlayText = mostRecent.text || mostRecent.description || mostRecent.displayText || '';
+          recentPlayText =
+            mostRecent.text ||
+            mostRecent.description ||
+            mostRecent.displayText ||
+            "";
           // Clean up the play text - remove excessive whitespace and format nicely
-          recentPlayText = recentPlayText.replace(/\s+/g, ' ').trim();
-          
+          recentPlayText = recentPlayText.replace(/\s+/g, " ").trim();
+
           // Get smart team colors for border styling and determine which team made the play
           let homeColor = colors.primary;
           let awayColor = colors.primary;
           let isHomeTeamPlay = null;
-          
+
           try {
             // Extract team colors from competition data
             const competition = game.competitions?.[0];
             if (competition?.competitors) {
-              const homeCompetitor = competition.competitors.find(c => c.homeAway === 'home');
-              const awayCompetitor = competition.competitors.find(c => c.homeAway === 'away');
-              
+              const homeCompetitor = competition.competitors.find(
+                (c) => c.homeAway === "home"
+              );
+              const awayCompetitor = competition.competitors.find(
+                (c) => c.homeAway === "away"
+              );
+
               // Use smart colors to handle similar team colors
               if (homeCompetitor?.team && awayCompetitor?.team) {
-                const smartColors = getSmartTeamColors(awayCompetitor.team, homeCompetitor.team);
+                const smartColors = getSmartTeamColors(
+                  awayCompetitor.team,
+                  homeCompetitor.team
+                );
                 homeColor = smartColors.homeColor;
                 awayColor = smartColors.awayColor;
               } else {
                 // Fallback to original color logic if smart colors can't be used
-                const homeColorRaw = homeCompetitor?.team?.color || homeCompetitor?.color;
-                const awayColorRaw = awayCompetitor?.team?.color || awayCompetitor?.color;
-                
+                const homeColorRaw =
+                  homeCompetitor?.team?.color || homeCompetitor?.color;
+                const awayColorRaw =
+                  awayCompetitor?.team?.color || awayCompetitor?.color;
+
                 if (homeColorRaw) {
-                  homeColor = homeColorRaw.startsWith('#') ? homeColorRaw : `#${homeColorRaw}`;
+                  homeColor = homeColorRaw.startsWith("#")
+                    ? homeColorRaw
+                    : `#${homeColorRaw}`;
                 }
                 if (awayColorRaw) {
-                  awayColor = awayColorRaw.startsWith('#') ? awayColorRaw : `#${awayColorRaw}`;
+                  awayColor = awayColorRaw.startsWith("#")
+                    ? awayColorRaw
+                    : `#${awayColorRaw}`;
                 }
               }
 
@@ -5952,22 +8094,30 @@ const FavoritesScreen = ({ navigation }) => {
               const homeTeamId = homeCompetitor?.team?.id || homeCompetitor?.id;
               const awayTeamId = awayCompetitor?.team?.id || awayCompetitor?.id;
               const playTeamId = mostRecent.team?.id || mostRecent.teamId;
-              
-              if (playTeamId && homeTeamId && String(playTeamId) === String(homeTeamId)) {
+
+              if (
+                playTeamId &&
+                homeTeamId &&
+                String(playTeamId) === String(homeTeamId)
+              ) {
                 isHomeTeamPlay = true;
-              } else if (playTeamId && awayTeamId && String(playTeamId) === String(awayTeamId)) {
+              } else if (
+                playTeamId &&
+                awayTeamId &&
+                String(playTeamId) === String(awayTeamId)
+              ) {
                 isHomeTeamPlay = false;
               }
             }
-            
+
             // For NHL: Only show border on the side corresponding to the team that made the play
             // Away team on left, Home team on right (hockey convention)
             if (isHomeTeamPlay === true) {
               // Home team play - show right border only
               cardBorderStyle = {
-                borderLeftColor: theme?.border || '#333333',
+                borderLeftColor: theme?.border || "#333333",
                 borderLeftWidth: 1,
-                borderRightColor: awayColor, 
+                borderRightColor: awayColor,
                 borderRightWidth: 8,
               };
             } else if (isHomeTeamPlay === false) {
@@ -5975,21 +8125,19 @@ const FavoritesScreen = ({ navigation }) => {
               cardBorderStyle = {
                 borderLeftColor: homeColor,
                 borderLeftWidth: 8,
-                borderRightColor: theme?.border || '#333333', 
+                borderRightColor: theme?.border || "#333333",
                 borderRightWidth: 1,
               };
             } else {
               // Can't determine which team made the play - show no thick borders
               cardBorderStyle = {
-                borderLeftColor: theme?.border || '#333333',
+                borderLeftColor: theme?.border || "#333333",
                 borderLeftWidth: 1,
-                borderRightColor: theme?.border || '#333333', 
+                borderRightColor: theme?.border || "#333333",
                 borderRightWidth: 1,
               };
             }
-            
-          } catch (e) {
-          }
+          } catch (e) {}
         }
       }
     }
@@ -5997,16 +8145,16 @@ const FavoritesScreen = ({ navigation }) => {
     // Game date formatting
     const gameDate = new Date(game.date);
     const formatGameDate = (date) => {
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
       });
     };
     const formatGameTime = (date) => {
-      return date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
+      return date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
       });
     };
 
@@ -6033,28 +8181,43 @@ const FavoritesScreen = ({ navigation }) => {
     };
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         key={game.id}
-        style={[styles.gameCard, { 
-          backgroundColor: theme.surface, 
-          borderColor: theme.border,
-          borderTopColor: theme.border,
-          borderBottomColor: theme.border,
-        }, cardBorderStyle]}
+        style={[
+          styles.gameCard,
+          {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+            borderTopColor: theme.border,
+            borderBottomColor: theme.border,
+          },
+          cardBorderStyle,
+        ]}
         onPress={() => handleGamePress(game)}
         activeOpacity={0.7}
       >
         {/* League Header */}
-        <View style={[styles.leagueHeader, { 
-          backgroundColor: theme.surfaceSecondary 
-        }]}>
-          <Text allowFontScaling={false} style={[styles.leagueText, { 
-            color: colors.primary 
-          }]}>
+        <View
+          style={[
+            styles.leagueHeader,
+            {
+              backgroundColor: theme.surfaceSecondary,
+            },
+          ]}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.leagueText,
+              {
+                color: colors.primary,
+              },
+            ]}
+          >
             NHL
           </Text>
         </View>
-        
+
         {/* Main Game Content */}
         <View style={styles.matchContent}>
           {/* Away Team */}
@@ -6065,65 +8228,117 @@ const FavoritesScreen = ({ navigation }) => {
                 source={{
                   uri: isDarkMode
                     ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500-dark/${awayTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
-                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500/${awayTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
+                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500/${awayTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`,
                 }}
-                onError={() => {
-                }}
+                onError={() => {}}
               />
               {!isScheduled && (
                 <View style={styles.scoreContainer}>
-                  <Text allowFontScaling={false} style={[styles.teamScore, {
-                    color: isFinished ? (awayIsWinner ? colors.primary : (awayIsLoser ? '#999' : theme.text)) : theme.text
-                  }]}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.teamScore,
+                      {
+                        color: isFinished
+                          ? awayIsWinner
+                            ? colors.primary
+                            : awayIsLoser
+                            ? "#999"
+                            : theme.text
+                          : theme.text,
+                      },
+                    ]}
+                  >
                     {awayScore}
                   </Text>
                 </View>
               )}
             </View>
-            <Text allowFontScaling={false} style={[styles.teamAbbreviation, {
-              color: isFavorite(getNHLTeamId(awayTeam), 'nhl') ? colors.primary : (awayIsLoser ? '#999' : theme.text)
-            }]}>
-              {isFavorite(getNHLTeamId(awayTeam), 'nhl') ? '★ ' : ''}{awayTeam?.abbreviation}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamAbbreviation,
+                {
+                  color: isFavorite(getNHLTeamId(awayTeam), "nhl")
+                    ? colors.primary
+                    : awayIsLoser
+                    ? "#999"
+                    : theme.text,
+                },
+              ]}
+            >
+              {isFavorite(getNHLTeamId(awayTeam), "nhl") ? "★ " : ""}
+              {awayTeam?.abbreviation}
             </Text>
           </View>
-          
+
           {/* Status/Live Info Section */}
           <View style={styles.statusSection}>
-            <Text allowFontScaling={false} style={[styles.gameStatus, {
-              color: colors.primary
-            }]}>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.gameStatus,
+                {
+                  color: colors.primary,
+                },
+              ]}
+            >
               {gameStatusText}
             </Text>
-            
+
             {/* Show clock/period info for live games, date/time for scheduled */}
             {isLive ? (
-              <View style={{ alignItems: 'center', marginTop: 4 }}>
+              <View style={{ alignItems: "center", marginTop: 4 }}>
                 {matchStatus.time && (
-                  <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary, fontWeight: '600' }]}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.gameDateTime,
+                      { color: theme.textSecondary, fontWeight: "600" },
+                    ]}
+                  >
                     {matchStatus.time}
                   </Text>
                 )}
               </View>
             ) : (
-              <View style={{ alignItems: 'center', marginTop: 4 }}>
-                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+              <View style={{ alignItems: "center", marginTop: 4 }}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
+                >
                   {formatGameDate(gameDate)}
                 </Text>
-                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
+                >
                   {formatGameTime(gameDate)}
                 </Text>
               </View>
             )}
           </View>
-          
+
           {/* Home Team */}
           <View style={styles.teamSection}>
             <View style={styles.teamLogoRow}>
               {!isScheduled && (
                 <View style={styles.scoreContainer}>
-                  <Text allowFontScaling={false} style={[styles.teamScore, {
-                    color: isFinished ? (homeIsWinner ? colors.primary : (homeIsLoser ? '#999' : theme.text)) : theme.text
-                  }]}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.teamScore,
+                      {
+                        color: isFinished
+                          ? homeIsWinner
+                            ? colors.primary
+                            : homeIsLoser
+                            ? "#999"
+                            : theme.text
+                          : theme.text,
+                      },
+                    ]}
+                  >
                     {homeScore}
                   </Text>
                 </View>
@@ -6133,29 +8348,46 @@ const FavoritesScreen = ({ navigation }) => {
                 source={{
                   uri: isDarkMode
                     ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500-dark/${homeTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
-                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500/${homeTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`
+                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/500/${homeTeam?.abbreviation?.toLowerCase()}.png&w=200&h=200`,
                 }}
-                onError={() => {
-                }}
+                onError={() => {}}
               />
             </View>
-            <Text allowFontScaling={false} style={[styles.teamAbbreviation, {
-              color: isFavorite(getNHLTeamId(homeTeam), 'nhl') ? colors.primary : (homeIsLoser ? '#999' : theme.text)
-            }]}>
-              {isFavorite(getNHLTeamId(homeTeam), 'nhl') ? '★ ' : ''}{homeTeam?.abbreviation}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamAbbreviation,
+                {
+                  color: isFavorite(getNHLTeamId(homeTeam), "nhl")
+                    ? colors.primary
+                    : homeIsLoser
+                    ? "#999"
+                    : theme.text,
+                },
+              ]}
+            >
+              {isFavorite(getNHLTeamId(homeTeam), "nhl") ? "★ " : ""}
+              {homeTeam?.abbreviation}
             </Text>
           </View>
         </View>
-        
+
         {/* Venue/Play Section - Show recent play for live games, venue for others */}
         <View style={styles.venueSection}>
           {isLive && recentPlayText ? (
-            <Text allowFontScaling={false} style={[styles.livePlayText, { color: theme.text }]} numberOfLines={2}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.livePlayText, { color: theme.text }]}
+              numberOfLines={2}
+            >
               {recentPlayText}
             </Text>
           ) : (
-            <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>
-              {game.gameInfo.venue.fullName || 'TBD Arena'}
+            <Text
+              allowFontScaling={false}
+              style={[styles.venueText, { color: theme.textSecondary }]}
+            >
+              {game.gameInfo.venue.fullName || "TBD Arena"}
             </Text>
           )}
         </View>
@@ -6166,55 +8398,73 @@ const FavoritesScreen = ({ navigation }) => {
   const renderNFLGameCard = (game) => {
     const homeTeam = game.homeTeam;
     const awayTeam = game.awayTeam;
-    const homeScore = homeTeam?.score || '0';
-    const awayScore = awayTeam?.score || '0';
+    const homeScore = homeTeam?.score || "0";
+    const awayScore = awayTeam?.score || "0";
     // Debugging: inspect runtime game object shape to troubleshoot live detection
     const DEBUG_FAV_NFL = true;
     if (DEBUG_FAV_NFL) {
       try {
         const keys = Object.keys(game || {});
-        const compKeys = game?.competitions && game.competitions.length > 0 ? Object.keys(game.competitions[0]) : null;
-      } catch (e) {
-      }
+        const compKeys =
+          game?.competitions && game.competitions.length > 0
+            ? Object.keys(game.competitions[0])
+            : null;
+      } catch (e) {}
     }
-    
+
     // Robust NFL status & situation detection (read from multiple shapes)
     const getMatchStatusForNFL = (g) => {
       const competition = g.competitions?.[0];
       const statusFromCompetition = competition?.status;
-      const statusFromSiteAPI = g.gameDataWithStatus?.header?.competitions?.[0]?.status || statusFromCompetition;
+      const statusFromSiteAPI =
+        g.gameDataWithStatus?.header?.competitions?.[0]?.status ||
+        statusFromCompetition;
 
-      let state = statusFromSiteAPI?.type?.state || statusFromCompetition?.type?.state;
+      let state =
+        statusFromSiteAPI?.type?.state || statusFromCompetition?.type?.state;
       // Normalize some common strings
-      if (!state && typeof g.status === 'string') {
+      if (!state && typeof g.status === "string") {
         const s = String(g.status).toLowerCase();
-        if (s.includes('final') || s.includes('post')) state = 'post';
-        else if (s.includes('in') || s.includes('progress')) state = 'in';
-        else state = 'pre';
+        if (s.includes("final") || s.includes("post")) state = "post";
+        else if (s.includes("in") || s.includes("progress")) state = "in";
+        else state = "pre";
       }
 
       // Fallback to computeMatchFlags if the site API doesn't indicate live
       const fallback = computeMatchFlags(g);
-      const isLive = (state === 'in') || fallback.isLive;
-      const isPost = (state === 'post') || fallback.isPost || fallback.isFinished;
+      const isLive = state === "in" || fallback.isLive;
+      const isPost = state === "post" || fallback.isPost || fallback.isFinished;
       const isPre = !isLive && !isPost;
-      const description = statusFromSiteAPI?.type?.description || statusFromCompetition?.type?.description || '';
+      const description =
+        statusFromSiteAPI?.type?.description ||
+        statusFromCompetition?.type?.description ||
+        "";
 
       // displayClock/period extraction
-      const displayClock = statusFromSiteAPI?.displayClock || statusFromCompetition?.displayClock || g.displayClock || competition?.displayClock || '';
-      const period = statusFromSiteAPI?.period || statusFromCompetition?.period || g.period || competition?.period || null;
+      const displayClock =
+        statusFromSiteAPI?.displayClock ||
+        statusFromCompetition?.displayClock ||
+        g.displayClock ||
+        competition?.displayClock ||
+        "";
+      const period =
+        statusFromSiteAPI?.period ||
+        statusFromCompetition?.period ||
+        g.period ||
+        competition?.period ||
+        null;
 
       // Build readable detail (quarter/OT)
-      let detail = '';
+      let detail = "";
       if (isLive && period != null) {
         if (period <= 4) {
-          const quarters = ['1st', '2nd', '3rd', '4th'];
+          const quarters = ["1st", "2nd", "3rd", "4th"];
           detail = quarters[period - 1] || `Q${period}`;
         } else {
-          detail = 'OT';
+          detail = "OT";
         }
       } else if (isPre) {
-        detail = '';
+        detail = "";
       }
 
       return {
@@ -6222,23 +8472,23 @@ const FavoritesScreen = ({ navigation }) => {
         isPre,
         isPost,
         description,
-        text: isLive ? 'Live' : (isPost ? 'Final' : 'Scheduled'),
-        time: displayClock || '',
-        detail
+        text: isLive ? "Live" : isPost ? "Final" : "Scheduled",
+        time: displayClock || "",
+        detail,
       };
     };
 
-  const matchStatus = getMatchStatusForNFL(game);
-  // Local aliases for legacy variable names used elsewhere in this function
-  const isLive = Boolean(matchStatus?.isLive);
-  const isScheduled = Boolean(matchStatus?.isPre);
-  const isFinished = Boolean(matchStatus?.isPost);
-  const description = matchStatus?.description || '';
-  const gameStatus = matchStatus; // keep a reference named gameStatus for existing usages
+    const matchStatus = getMatchStatusForNFL(game);
+    // Local aliases for legacy variable names used elsewhere in this function
+    const isLive = Boolean(matchStatus?.isLive);
+    const isScheduled = Boolean(matchStatus?.isPre);
+    const isFinished = Boolean(matchStatus?.isPost);
+    const description = matchStatus?.description || "";
+    const gameStatus = matchStatus; // keep a reference named gameStatus for existing usages
 
     // Helper function to get ordinal numbers
     const getOrdinal = (num) => {
-      const suffixes = ['th', 'st', 'nd', 'rd'];
+      const suffixes = ["th", "st", "nd", "rd"];
       const v = num % 100;
       return num + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
     };
@@ -6246,135 +8496,195 @@ const FavoritesScreen = ({ navigation }) => {
     // Extract live situation from multiple possible fields - recalculate on every render
     let possessionInfo = null;
     if (matchStatus.isLive) {
-      const situation = game.situation ||
-                        game.gameDataWithStatus?.header?.competitions?.[0]?.situation ||
-                        game.competitions?.[0]?.situation ||
-                        game.liveData?.gamepackageJSON?.situation || null;
+      const situation =
+        game.situation ||
+        game.gameDataWithStatus?.header?.competitions?.[0]?.situation ||
+        game.competitions?.[0]?.situation ||
+        game.liveData?.gamepackageJSON?.situation ||
+        null;
       if (situation) {
-        let possessionTeam = '';
-        
+        let possessionTeam = "";
+
         // First, try to determine possession from the most recent play in drives data
         if (game.drives && Array.isArray(game.drives)) {
           // Find the most recent drive with plays (may or may not be ended)
-          const mostRecentDriveWithPlays = [...game.drives].reverse().find(d => d.plays && Array.isArray(d.plays) && d.plays.length > 0);
-          
-          if (mostRecentDriveWithPlays && mostRecentDriveWithPlays.plays.length > 0) {
+          const mostRecentDriveWithPlays = [...game.drives]
+            .reverse()
+            .find(
+              (d) => d.plays && Array.isArray(d.plays) && d.plays.length > 0
+            );
+
+          if (
+            mostRecentDriveWithPlays &&
+            mostRecentDriveWithPlays.plays.length > 0
+          ) {
             // Get the most recent play from that drive
-            const mostRecentPlay = mostRecentDriveWithPlays.plays[mostRecentDriveWithPlays.plays.length - 1];
-            
+            const mostRecentPlay =
+              mostRecentDriveWithPlays.plays[
+                mostRecentDriveWithPlays.plays.length - 1
+              ];
+
             if (mostRecentPlay && mostRecentPlay.end) {
               // Use the play's end state for the most current possession info
               if (mostRecentPlay.end.team && mostRecentPlay.end.team.id) {
                 const playTeamId = String(mostRecentPlay.end.team.id);
-                const homeId = String(homeTeam?.id || homeTeam?.team?.id || '');
-                const awayId = String(awayTeam?.id || awayTeam?.team?.id || '');
-                
+                const homeId = String(homeTeam?.id || homeTeam?.team?.id || "");
+                const awayId = String(awayTeam?.id || awayTeam?.team?.id || "");
+
                 if (playTeamId === homeId) {
-                  possessionTeam = homeTeam?.abbreviation || homeTeam?.team?.abbreviation || '';
+                  possessionTeam =
+                    homeTeam?.abbreviation ||
+                    homeTeam?.team?.abbreviation ||
+                    "";
                 } else if (playTeamId === awayId) {
-                  possessionTeam = awayTeam?.abbreviation || awayTeam?.team?.abbreviation || '';
+                  possessionTeam =
+                    awayTeam?.abbreviation ||
+                    awayTeam?.team?.abbreviation ||
+                    "";
                 }
               }
-              
+
               // Also update the situation object with fresh data from the most recent play
-              if (mostRecentPlay.end.shortDownDistanceText && mostRecentPlay.end.shortDownDistanceText !== situation.shortDownDistanceText) {
-                situation.shortDownDistanceText = mostRecentPlay.end.shortDownDistanceText;
+              if (
+                mostRecentPlay.end.shortDownDistanceText &&
+                mostRecentPlay.end.shortDownDistanceText !==
+                  situation.shortDownDistanceText
+              ) {
+                situation.shortDownDistanceText =
+                  mostRecentPlay.end.shortDownDistanceText;
               }
-              if (mostRecentPlay.end.possessionText && mostRecentPlay.end.possessionText !== situation.possessionText) {
+              if (
+                mostRecentPlay.end.possessionText &&
+                mostRecentPlay.end.possessionText !== situation.possessionText
+              ) {
                 situation.possessionText = mostRecentPlay.end.possessionText;
               }
-              if (mostRecentPlay.end.down && mostRecentPlay.end.down !== situation.down) {
+              if (
+                mostRecentPlay.end.down &&
+                mostRecentPlay.end.down !== situation.down
+              ) {
                 situation.down = mostRecentPlay.end.down;
               }
-              if (mostRecentPlay.end.distance !== undefined && mostRecentPlay.end.distance !== situation.distance) {
+              if (
+                mostRecentPlay.end.distance !== undefined &&
+                mostRecentPlay.end.distance !== situation.distance
+              ) {
                 situation.distance = mostRecentPlay.end.distance;
               }
             }
           }
-          
+
           // Fallback: Find the current drive (no end text and not ended) if the above didn't work
           if (!possessionTeam) {
-            const currentDrive = game.drives.find(drive => !drive.end?.text && drive.result !== 'End of Game');
+            const currentDrive = game.drives.find(
+              (drive) => !drive.end?.text && drive.result !== "End of Game"
+            );
             if (currentDrive && currentDrive.team && currentDrive.team.id) {
               const driveTeamId = String(currentDrive.team.id);
-              const homeId = String(homeTeam?.id || homeTeam?.team?.id || '');
-              const awayId = String(awayTeam?.id || awayTeam?.team?.id || '');
-              
+              const homeId = String(homeTeam?.id || homeTeam?.team?.id || "");
+              const awayId = String(awayTeam?.id || awayTeam?.team?.id || "");
+
               if (driveTeamId === homeId) {
-                possessionTeam = homeTeam?.abbreviation || homeTeam?.team?.abbreviation || '';
+                possessionTeam =
+                  homeTeam?.abbreviation || homeTeam?.team?.abbreviation || "";
               } else if (driveTeamId === awayId) {
-                possessionTeam = awayTeam?.abbreviation || awayTeam?.team?.abbreviation || '';
+                possessionTeam =
+                  awayTeam?.abbreviation || awayTeam?.team?.abbreviation || "";
               }
             }
           }
         }
-        
+
         // Fallback to situation.possession if drives didn't work
         if (!possessionTeam && situation.possession) {
           // Match possession ID against team IDs (more robust matching)
           const possessionId = String(situation.possession);
-          const homeId = String(homeTeam?.id || homeTeam?.team?.id || '');
-          const awayId = String(awayTeam?.id || awayTeam?.team?.id || '');
+          const homeId = String(homeTeam?.id || homeTeam?.team?.id || "");
+          const awayId = String(awayTeam?.id || awayTeam?.team?.id || "");
           if (possessionId === homeId) {
-            possessionTeam = homeTeam?.abbreviation || homeTeam?.team?.abbreviation || '';
+            possessionTeam =
+              homeTeam?.abbreviation || homeTeam?.team?.abbreviation || "";
           } else if (possessionId === awayId) {
-            possessionTeam = awayTeam?.abbreviation || awayTeam?.team?.abbreviation || '';
+            possessionTeam =
+              awayTeam?.abbreviation || awayTeam?.team?.abbreviation || "";
           } else {
             // Try partial matching in case IDs are formatted differently
-            if (homeId.includes(possessionId) || possessionId.includes(homeId)) {
-              possessionTeam = homeTeam?.abbreviation || homeTeam?.team?.abbreviation || '';
-            } else if (awayId.includes(possessionId) || possessionId.includes(awayId)) {
-              possessionTeam = awayTeam?.abbreviation || awayTeam?.team?.abbreviation || '';
+            if (
+              homeId.includes(possessionId) ||
+              possessionId.includes(homeId)
+            ) {
+              possessionTeam =
+                homeTeam?.abbreviation || homeTeam?.team?.abbreviation || "";
+            } else if (
+              awayId.includes(possessionId) ||
+              possessionId.includes(awayId)
+            ) {
+              possessionTeam =
+                awayTeam?.abbreviation || awayTeam?.team?.abbreviation || "";
             }
           }
         }
-        
+
         // If possession team still not found, try to extract from possessionText
         if (!possessionTeam && situation.possessionText) {
           // Try to extract team abbreviation from possessionText like "KC 28"
-          const textMatch = situation.possessionText.match(/^([A-Z]{2,3})\s+\d+$/);
+          const textMatch =
+            situation.possessionText.match(/^([A-Z]{2,3})\s+\d+$/);
           if (textMatch) {
             possessionTeam = textMatch[1];
           }
         }
-        
-        // If still no possession team but we have down/distance info, 
+
+        // If still no possession team but we have down/distance info,
         // assume the team with better field position or default to home team
-        if (!possessionTeam && (situation.down || situation.shortDownDistanceText)) {
+        if (
+          !possessionTeam &&
+          (situation.down || situation.shortDownDistanceText)
+        ) {
           // For now, we need a smarter way to determine possession
           // Looking at the console log: KC is the team that should have possession
           // but situation.possession might not be set correctly
-          
+
           // Try to infer from context - if we have down/distance, someone has possession
           // This is a fallback and should be improved with better data
           if (situation.yardLine !== undefined) {
             // If yard line is closer to opponent's endzone, likely that team has possession
             if (situation.yardLine > 50) {
-              possessionTeam = awayTeam?.abbreviation || awayTeam?.team?.abbreviation || '';
+              possessionTeam =
+                awayTeam?.abbreviation || awayTeam?.team?.abbreviation || "";
             } else if (situation.yardLine < 50) {
-              possessionTeam = homeTeam?.abbreviation || homeTeam?.team?.abbreviation || '';
+              possessionTeam =
+                homeTeam?.abbreviation || homeTeam?.team?.abbreviation || "";
             } else {
               // At midfield - harder to determine, use other context
               // For KC vs NYG game where KC should have possession, default to away team for now
-              possessionTeam = awayTeam?.abbreviation || awayTeam?.team?.abbreviation || '';
+              possessionTeam =
+                awayTeam?.abbreviation || awayTeam?.team?.abbreviation || "";
             }
           }
         }
 
-        let downAndDistance = '';
+        let downAndDistance = "";
         if (situation.shortDownDistanceText) {
           // Use the pre-formatted text from ESPN (e.g., "1st & 10")
           downAndDistance = situation.shortDownDistanceText;
         } else if (situation.down && situation.distance !== undefined) {
           // Fallback to manual formatting
-          downAndDistance = situation.distance === 0 ? `${getOrdinal(situation.down)} & Goal` : `${getOrdinal(situation.down)} & ${situation.distance}`;
+          downAndDistance =
+            situation.distance === 0
+              ? `${getOrdinal(situation.down)} & Goal`
+              : `${getOrdinal(situation.down)} & ${situation.distance}`;
         }
 
-        let yardLine = '';
+        let yardLine = "";
         if (situation.possessionText) {
           // Use the pre-formatted possession text from ESPN (e.g., "KC 28")
           yardLine = situation.possessionText;
-        } else if (situation.yardLine !== undefined && situation.yardLine !== null && possessionTeam) {
+        } else if (
+          situation.yardLine !== undefined &&
+          situation.yardLine !== null &&
+          possessionTeam
+        ) {
           // Construct possession text from components
           yardLine = `${possessionTeam} ${situation.yardLine}`;
         } else if (possessionTeam && situation.yardLine !== undefined) {
@@ -6382,14 +8692,18 @@ const FavoritesScreen = ({ navigation }) => {
           yardLine = `${possessionTeam} ${situation.yardLine}`;
         }
         // Validate the data before storing - filter out invalid cases
-        const hasValidDown = situation.down && situation.down > 0 && !downAndDistance.includes('-1th');
-        const hasValidYardLine = yardLine && yardLine.trim() !== '50' && !yardLine.includes(' 50');
-        
+        const hasValidDown =
+          situation.down &&
+          situation.down > 0 &&
+          !downAndDistance.includes("-1th");
+        const hasValidYardLine =
+          yardLine && yardLine.trim() !== "50" && !yardLine.includes(" 50");
+
         possessionInfo = {
           team: possessionTeam,
-          downAndDistance: hasValidDown ? downAndDistance : 'Kickoff',
-          yardLine: hasValidYardLine ? yardLine : '',
-          raw: situation
+          downAndDistance: hasValidDown ? downAndDistance : "Kickoff",
+          yardLine: hasValidYardLine ? yardLine : "",
+          raw: situation,
         };
       } else {
         // The ESPN summary API doesn't include situation data for this game
@@ -6397,8 +8711,8 @@ const FavoritesScreen = ({ navigation }) => {
         possessionInfo = null;
       }
     }
-    
-  // Get team logo URLs
+
+    // Get team logo URLs
     const getNFLTeamLogoUrl = (team) => {
       const teamAbbr = team.abbreviation?.toLowerCase();
       if (teamAbbr) {
@@ -6408,17 +8722,17 @@ const FavoritesScreen = ({ navigation }) => {
       }
       return null;
     };
-    
+
     // Extract most recent play for live games using NFL-specific extraction
-    let recentPlay = '';
+    let recentPlay = "";
     let playTeamId = null;
-    let playText = '';
-    
+    let playText = "";
+
     if (isLive) {
       try {
         // Try to get plays from game object first (similar to extractMostRecentPlay)
         let plays = [];
-        
+
         // Check various possible locations for plays data
         if (game.plays && Array.isArray(game.plays)) {
           plays = game.plays;
@@ -6428,20 +8742,20 @@ const FavoritesScreen = ({ navigation }) => {
           plays = game.gameDataWithStatus.plays;
         } else if (game.gamepackageJSON?.drives) {
           // Extract plays from drives like NFLService.getPlays()
-          game.gamepackageJSON.drives.forEach(drive => {
+          game.gamepackageJSON.drives.forEach((drive) => {
             if (drive.plays) {
               plays.push(...drive.plays);
             }
           });
         } else if (game.drives) {
           // Try alternate drives structure
-          game.drives.forEach(drive => {
+          game.drives.forEach((drive) => {
             if (drive.plays && Array.isArray(drive.plays)) {
               plays.push(...drive.plays);
             }
           });
         }
-        
+
         if (plays.length > 0) {
           // Sort plays by sequence if available
           plays.sort((a, b) => {
@@ -6449,27 +8763,27 @@ const FavoritesScreen = ({ navigation }) => {
             const seqB = parseInt(b.sequenceNumber) || 0;
             return seqA - seqB;
           });
-          
+
           const lastPlay = plays[plays.length - 1];
-          playText = lastPlay.text || lastPlay.description || '';
-          
+          playText = lastPlay.text || lastPlay.description || "";
+
           // Ensure playText is always a string
-          if (typeof playText !== 'string') {
-            playText = '';
+          if (typeof playText !== "string") {
+            playText = "";
           }
-          
+
           // Try to determine which team made the play
           if (lastPlay.team && lastPlay.team.id) {
             playTeamId = String(lastPlay.team.id);
           } else if (lastPlay.teamId) {
             playTeamId = String(lastPlay.teamId);
           }
-          
+
           // Truncate if too long
           if (playText && playText.length > 100) {
-            playText = playText.substring(0, 97) + '...';
+            playText = playText.substring(0, 97) + "...";
           }
-          
+
           recentPlay = playText;
         } else {
           // Fallback: try to fetch recent plays using NFLService.getPlays if needed in the future
@@ -6478,11 +8792,11 @@ const FavoritesScreen = ({ navigation }) => {
         // Error extracting play data, silently continue
       }
     }
-    
+
     // Determine winner/loser for finished games (use MLB pattern)
     const homeScoreNum = parseInt(String(homeScore)) || 0;
     const awayScoreNum = parseInt(String(awayScore)) || 0;
-    
+
     const isPost = gameStatus.isPost;
     let homeIsWinner = false;
     let awayIsWinner = false;
@@ -6496,15 +8810,16 @@ const FavoritesScreen = ({ navigation }) => {
 
     const homeIsLoser = isPost && !isDraw && !homeIsWinner;
     const awayIsLoser = isPost && !isDraw && !awayIsWinner;
-    
+
     // Format game status
-    let gameStatusText = game.status || 'Scheduled';
+    let gameStatusText = game.status || "Scheduled";
     if (isLive) {
-      gameStatusText = 'Live';
+      gameStatusText = "Live";
       if (game.displayClock) {
-        gameStatusText = game.displayClock === '0:00' ? 'End' : `${game.displayClock}`;
+        gameStatusText =
+          game.displayClock === "0:00" ? "End" : `${game.displayClock}`;
         if (game.period) {
-          const quarters = ['1st', '2nd', '3rd', '4th'];
+          const quarters = ["1st", "2nd", "3rd", "4th"];
           if (game.period <= 4) {
             gameStatusText += ` - ${quarters[game.period - 1]}`;
           } else {
@@ -6513,21 +8828,23 @@ const FavoritesScreen = ({ navigation }) => {
         }
       }
     } else if (isFinished) {
-      gameStatusText = 'Final';
+      gameStatusText = "Final";
     }
-    
+
     // Format date/time
     const gameDate = new Date(game.date || game.gameDate);
-    const formatGameDate = (date) => date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric' 
-    });
-    const formatGameTime = (date) => date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit', 
-      hour12: true 
-    });
-    
+    const formatGameDate = (date) =>
+      date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
+    const formatGameTime = (date) =>
+      date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+
     // Determine play/team in possession and apply card border like MLB cards
     // Prefer drives-derived possession (current drive team), then possessionInfo.team (abbreviation),
     // then fall back to last-play teamId when present.
@@ -6537,11 +8854,13 @@ const FavoritesScreen = ({ navigation }) => {
     if (matchStatus.isLive) {
       // Drives (preferred): look for current drive team id
       if (game.drives && Array.isArray(game.drives)) {
-        const currentDrive = game.drives.find(drive => !drive.end?.text && drive.result !== 'End of Game');
+        const currentDrive = game.drives.find(
+          (drive) => !drive.end?.text && drive.result !== "End of Game"
+        );
         if (currentDrive && currentDrive.team && currentDrive.team.id) {
           const driveTeamId = String(currentDrive.team.id);
-          const homeId = String(homeTeam?.id || homeTeam?.team?.id || '');
-          const awayId = String(awayTeam?.id || awayTeam?.team?.id || '');
+          const homeId = String(homeTeam?.id || homeTeam?.team?.id || "");
+          const awayId = String(awayTeam?.id || awayTeam?.team?.id || "");
           if (driveTeamId === homeId) possessionIsHome = true;
           else if (driveTeamId === awayId) possessionIsHome = false;
         }
@@ -6550,16 +8869,27 @@ const FavoritesScreen = ({ navigation }) => {
       // Next preference: possessionInfo.team (abbreviation)
       if (possessionIsHome === null && possessionInfo && possessionInfo.team) {
         const poss = String(possessionInfo.team).toUpperCase();
-        const homeAbbr = (homeTeam?.abbreviation || homeTeam?.team?.abbreviation || '').toUpperCase();
-        const awayAbbr = (awayTeam?.abbreviation || awayTeam?.team?.abbreviation || '').toUpperCase();
+        const homeAbbr = (
+          homeTeam?.abbreviation ||
+          homeTeam?.team?.abbreviation ||
+          ""
+        ).toUpperCase();
+        const awayAbbr = (
+          awayTeam?.abbreviation ||
+          awayTeam?.team?.abbreviation ||
+          ""
+        ).toUpperCase();
         if (poss && homeAbbr && poss === homeAbbr) possessionIsHome = true;
-        else if (poss && awayAbbr && poss === awayAbbr) possessionIsHome = false;
+        else if (poss && awayAbbr && poss === awayAbbr)
+          possessionIsHome = false;
       }
 
       // Fallback: use last-play team id if we still don't know possession
       let isHomeTeamPlay = null;
       if (playTeamId) {
-        isHomeTeamPlay = String(playTeamId) === String(homeTeam?.id) || String(playTeamId) === String(homeTeam?.team?.id);
+        isHomeTeamPlay =
+          String(playTeamId) === String(homeTeam?.id) ||
+          String(playTeamId) === String(homeTeam?.team?.id);
       }
 
       // Get smart team colors for border styling to handle color conflicts
@@ -6569,9 +8899,19 @@ const FavoritesScreen = ({ navigation }) => {
       let awayColorValue = null;
       try {
         // Try multiple possible paths for team data
-        const homeTeamData = homeTeam?.team || homeTeam || game.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home')?.team;
-        const awayTeamData = awayTeam?.team || awayTeam || game.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away')?.team;
-        
+        const homeTeamData =
+          homeTeam?.team ||
+          homeTeam ||
+          game.competitions?.[0]?.competitors?.find(
+            (c) => c.homeAway === "home"
+          )?.team;
+        const awayTeamData =
+          awayTeam?.team ||
+          awayTeam ||
+          game.competitions?.[0]?.competitors?.find(
+            (c) => c.homeAway === "away"
+          )?.team;
+
         // Use smart colors to handle similar team colors
         if (homeTeamData && awayTeamData) {
           const smartColors = getSmartTeamColors(awayTeamData, homeTeamData);
@@ -6579,21 +8919,35 @@ const FavoritesScreen = ({ navigation }) => {
           awayColor = smartColors.awayColor;
         } else {
           // Fallback to original color logic if smart colors can't be used
-          const homeColorValue = homeTeam?.team?.color || homeTeam?.color || game.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home')?.team?.color;
-          const awayColorValue = awayTeam?.team?.color || awayTeam?.color || game.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away')?.team?.color;
-          
+          const homeColorValue =
+            homeTeam?.team?.color ||
+            homeTeam?.color ||
+            game.competitions?.[0]?.competitors?.find(
+              (c) => c.homeAway === "home"
+            )?.team?.color;
+          const awayColorValue =
+            awayTeam?.team?.color ||
+            awayTeam?.color ||
+            game.competitions?.[0]?.competitors?.find(
+              (c) => c.homeAway === "away"
+            )?.team?.color;
+
           if (homeColorValue) {
-            homeColor = homeColorValue.startsWith('#') ? homeColorValue : `#${homeColorValue}`;
+            homeColor = homeColorValue.startsWith("#")
+              ? homeColorValue
+              : `#${homeColorValue}`;
           }
           if (awayColorValue) {
-            awayColor = awayColorValue.startsWith('#') ? awayColorValue : `#${awayColorValue}`;
+            awayColor = awayColorValue.startsWith("#")
+              ? awayColorValue
+              : `#${awayColorValue}`;
           }
         }
-      } catch (e) {
-      }
+      } catch (e) {}
 
       // Decide which side to color: possessionIsHome (preferred), otherwise isHomeTeamPlay
-      const useHome = possessionIsHome !== null ? possessionIsHome : (isHomeTeamPlay === true);
+      const useHome =
+        possessionIsHome !== null ? possessionIsHome : isHomeTeamPlay === true;
       if (useHome === true) {
         cardBorderStyle = {
           borderRightColor: awayColor,
@@ -6625,30 +8979,49 @@ const FavoritesScreen = ({ navigation }) => {
         };
       }
     }
-    
+
     return (
-      <TouchableOpacity 
-        key={`${game.id}-${possessionInfo?.team || 'no-team'}-${possessionInfo?.downAndDistance || 'no-down'}-${possessionInfo?.yardLine || 'no-yard'}-${game.situation?.shortDownDistanceText || 'no-short'}-${game.situation?.possessionText || 'no-poss'}`}
-        style={[styles.gameCard, { 
-          backgroundColor: theme.surface, 
-          borderColor: theme.border,
-          borderTopColor: theme.border,
-          borderBottomColor: theme.border,
-        }, cardBorderStyle]}
+      <TouchableOpacity
+        key={`${game.id}-${possessionInfo?.team || "no-team"}-${
+          possessionInfo?.downAndDistance || "no-down"
+        }-${possessionInfo?.yardLine || "no-yard"}-${
+          game.situation?.shortDownDistanceText || "no-short"
+        }-${game.situation?.possessionText || "no-poss"}`}
+        style={[
+          styles.gameCard,
+          {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+            borderTopColor: theme.border,
+            borderBottomColor: theme.border,
+          },
+          cardBorderStyle,
+        ]}
         onPress={() => handleGamePress(game)}
         activeOpacity={0.7}
       >
         {/* League Header */}
-        <View style={[styles.leagueHeader, { 
-          backgroundColor: theme.surfaceSecondary 
-        }]}>
-          <Text allowFontScaling={false} style={[styles.leagueText, { 
-            color: colors.primary 
-          }]}>
+        <View
+          style={[
+            styles.leagueHeader,
+            {
+              backgroundColor: theme.surfaceSecondary,
+            },
+          ]}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.leagueText,
+              {
+                color: colors.primary,
+              },
+            ]}
+          >
             NFL
           </Text>
         </View>
-        
+
         {/* Main Game Content */}
         <View style={styles.matchContent}>
           {/* Away Team */}
@@ -6659,7 +9032,7 @@ const FavoritesScreen = ({ navigation }) => {
                 source={{
                   uri: isDarkMode
                     ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500-dark/${awayTeam.abbreviation?.toLowerCase()}.png&w=200&h=200`
-                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${awayTeam.abbreviation?.toLowerCase()}.png&w=200&h=200`
+                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${awayTeam.abbreviation?.toLowerCase()}.png&w=200&h=200`,
                 }}
                 onError={() => {
                   // Fallback to the other mode on error
@@ -6667,77 +9040,155 @@ const FavoritesScreen = ({ navigation }) => {
               />
               {!isScheduled && (
                 <View style={styles.scoreContainer}>
-                  <Text allowFontScaling={false} style={[styles.teamScore, {
-                    color: gameStatus.isPost ? (awayIsWinner ? colors.primary : (awayIsLoser ? '#999' : theme.text)) : theme.text
-                  }]}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.teamScore,
+                      {
+                        color: gameStatus.isPost
+                          ? awayIsWinner
+                            ? colors.primary
+                            : awayIsLoser
+                            ? "#999"
+                            : theme.text
+                          : theme.text,
+                      },
+                    ]}
+                  >
                     {awayScore}
                   </Text>
                 </View>
               )}
             </View>
-            <Text allowFontScaling={false} style={[styles.teamAbbreviation, {
-              color: isFavorite(awayTeam.id, 'nfl') ? colors.primary : (awayIsLoser ? '#999' : theme.text)
-            }]}>
-              {isFavorite(awayTeam.id, 'nfl') ? '★ ' : ''}{awayTeam.abbreviation}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamAbbreviation,
+                {
+                  color: isFavorite(awayTeam.id, "nfl")
+                    ? colors.primary
+                    : awayIsLoser
+                    ? "#999"
+                    : theme.text,
+                },
+              ]}
+            >
+              {isFavorite(awayTeam.id, "nfl") ? "★ " : ""}
+              {awayTeam.abbreviation}
             </Text>
           </View>
-          
+
           {/* Status/Live Info Section */}
           <View style={styles.statusSection}>
-            <Text allowFontScaling={false} style={[styles.gameStatus, {
-              color: colors.primary
-            }]}>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.gameStatus,
+                {
+                  color: colors.primary,
+                },
+              ]}
+            >
               {gameStatusText}
             </Text>
-            
+
             {/* Live game situation info: show down/distance and yard line like GameDetails screen */}
             {isLive ? (
-              <View style={{ alignItems: 'center', marginTop: 4 }}>
+              <View style={{ alignItems: "center", marginTop: 4 }}>
                 {/* Primary line: down & distance (like "1st & 10") - only show if valid */}
                 {possessionInfo?.downAndDistance ? (
-                  <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary, fontWeight: '600' }]}>
-                    {description === 'Halftime' ? 'Halftime' : `${possessionInfo.downAndDistance}`}
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.gameDateTime,
+                      { color: theme.textSecondary, fontWeight: "600" },
+                    ]}
+                  >
+                    {description === "Halftime"
+                      ? "Halftime"
+                      : `${possessionInfo.downAndDistance}`}
                   </Text>
                 ) : (
-                  <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary, fontWeight: '600' }]}>
-                    {matchStatus.time && matchStatus.detail ? `${matchStatus.time} - ${matchStatus.detail}` : 
-                     matchStatus.time ? matchStatus.time : 
-                     matchStatus.detail ? matchStatus.detail : 
-                     'Live'}
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.gameDateTime,
+                      { color: theme.textSecondary, fontWeight: "600" },
+                    ]}
+                  >
+                    {matchStatus.time && matchStatus.detail
+                      ? `${matchStatus.time} - ${matchStatus.detail}`
+                      : matchStatus.time
+                      ? matchStatus.time
+                      : matchStatus.detail
+                      ? matchStatus.detail
+                      : "Live"}
                   </Text>
                 )}
 
                 {/* Secondary line: yard line with possession arrow (like "◀ ARI 24") - only show if valid */}
                 {possessionInfo?.yardLine && possessionInfo?.team ? (
-                  <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
-                    {possessionInfo.team === awayTeam?.abbreviation ? `◀ ${possessionInfo.yardLine}` : `${possessionInfo.yardLine} ▶`}
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.gameDateTime,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {possessionInfo.team === awayTeam?.abbreviation
+                      ? `◀ ${possessionInfo.yardLine}`
+                      : `${possessionInfo.yardLine} ▶`}
                   </Text>
                 ) : possessionInfo?.yardLine ? (
-                  <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.gameDateTime,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
                     {possessionInfo.yardLine}
                   </Text>
                 ) : null}
               </View>
             ) : (
-              <View style={{ alignItems: 'center', marginTop: 4 }}>
-                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+              <View style={{ alignItems: "center", marginTop: 4 }}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
+                >
                   {formatGameDate(gameDate)}
                 </Text>
-                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
+                >
                   {formatGameTime(gameDate)} EST
                 </Text>
               </View>
             )}
           </View>
-          
+
           {/* Home Team */}
           <View style={styles.teamSection}>
             <View style={styles.teamLogoRow}>
               {!isScheduled && (
                 <View style={styles.scoreContainer}>
-                  <Text allowFontScaling={false} style={[styles.teamScore, {
-                    color: gameStatus.isPost ? (homeIsWinner ? colors.primary : (homeIsLoser ? '#999' : theme.text)) : theme.text
-                  }]}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.teamScore,
+                      {
+                        color: gameStatus.isPost
+                          ? homeIsWinner
+                            ? colors.primary
+                            : homeIsLoser
+                            ? "#999"
+                            : theme.text
+                          : theme.text,
+                      },
+                    ]}
+                  >
                     {homeScore}
                   </Text>
                 </View>
@@ -6747,30 +9198,48 @@ const FavoritesScreen = ({ navigation }) => {
                 source={{
                   uri: isDarkMode
                     ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500-dark/${homeTeam.abbreviation?.toLowerCase()}.png&w=200&h=200`
-                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${homeTeam.abbreviation?.toLowerCase()}.png&w=200&h=200`
+                    : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${homeTeam.abbreviation?.toLowerCase()}.png&w=200&h=200`,
                 }}
                 onError={() => {
                   // Fallback to the other mode on error
                 }}
               />
             </View>
-            <Text allowFontScaling={false} style={[styles.teamAbbreviation, {
-              color: isFavorite(homeTeam.id, 'nfl') ? colors.primary : (homeIsLoser ? '#999' : theme.text)
-            }]}>
-              {isFavorite(homeTeam.id, 'nfl') ? '★ ' : ''}{homeTeam.abbreviation}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamAbbreviation,
+                {
+                  color: isFavorite(homeTeam.id, "nfl")
+                    ? colors.primary
+                    : homeIsLoser
+                    ? "#999"
+                    : theme.text,
+                },
+              ]}
+            >
+              {isFavorite(homeTeam.id, "nfl") ? "★ " : ""}
+              {homeTeam.abbreviation}
             </Text>
           </View>
         </View>
-        
+
         {/* Venue Section - Replace with play description for live games like MLB */}
         <View style={styles.venueSection}>
           {isLive && playText ? (
-            <Text allowFontScaling={false} style={[styles.livePlayText, { color: theme.text }]} numberOfLines={2}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.livePlayText, { color: theme.text }]}
+              numberOfLines={2}
+            >
               {playText}
             </Text>
           ) : (
-            <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>
-              {game.venue || 'TBD Stadium'}
+            <Text
+              allowFontScaling={false}
+              style={[styles.venueText, { color: theme.textSecondary }]}
+            >
+              {game.venue || "TBD Stadium"}
             </Text>
           )}
         </View>
@@ -6786,11 +9255,15 @@ const FavoritesScreen = ({ navigation }) => {
     // Debug logging to understand how this game was fetched
     const competition = game.competitions[0];
     const competitors = competition.competitors || [];
-    const homeTeam = competitors.find(c => c.homeAway === "home");
-    const awayTeam = competitors.find(c => c.homeAway === "away");
+    const homeTeam = competitors.find((c) => c.homeAway === "home");
+    const awayTeam = competitors.find((c) => c.homeAway === "away");
     if (!homeTeam || !awayTeam) {
       // F1 games don't have home/away teams, so check for F1 before returning null
-      if (game.sport === 'F1' || game.actualLeagueCode === 'f1' || game.sport === 'f1') {
+      if (
+        game.sport === "F1" ||
+        game.actualLeagueCode === "f1" ||
+        game.sport === "f1"
+      ) {
         return renderF1GameCard(game);
       }
       return null;
@@ -6798,48 +9271,51 @@ const FavoritesScreen = ({ navigation }) => {
 
     // Map league code to sport name for favorites
     const getSportFromLeagueCode = (leagueCode) => {
-      if (!leagueCode) return 'soccer'; // default fallback
+      if (!leagueCode) return "soccer"; // default fallback
       const code = leagueCode.toLowerCase();
-      if (code.includes('premier') || code.includes('eng.1')) return 'premier league';
-      if (code.includes('esp.1') || code.includes('laliga')) return 'la liga';
-      if (code.includes('ita.1') || code.includes('serie')) return 'serie a';
-      if (code.includes('ger.1') || code.includes('bundesliga')) return 'bundesliga';
-      if (code.includes('fra.1') || code.includes('ligue')) return 'ligue 1';
-      if (code.includes('uefa.champions')) return 'uefa champions';
-      if (code.includes('uefa.europa') && !code.includes('conf')) return 'uefa europa';
-      if (code.includes('uefa.europa.conf')) return 'uefa europa conf';
-      return 'soccer'; // fallback
+      if (code.includes("premier") || code.includes("eng.1"))
+        return "premier league";
+      if (code.includes("esp.1") || code.includes("laliga")) return "la liga";
+      if (code.includes("ita.1") || code.includes("serie")) return "serie a";
+      if (code.includes("ger.1") || code.includes("bundesliga"))
+        return "bundesliga";
+      if (code.includes("fra.1") || code.includes("ligue")) return "ligue 1";
+      if (code.includes("uefa.champions")) return "uefa champions";
+      if (code.includes("uefa.europa") && !code.includes("conf"))
+        return "uefa europa";
+      if (code.includes("uefa.europa.conf")) return "uefa europa conf";
+      return "soccer"; // fallback
     };
 
     const sportName = getSportFromLeagueCode(game.actualLeagueCode);
 
     const gameDate = new Date(game.date);
-    
+
     // Use gameDate directly since formatGameTime/formatGameDate handle timezone conversion
     const estDate = gameDate;
-    
+
     const formatGameTime = (date) => {
-      return date.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
+      return date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
         hour12: true,
-        timeZone: 'America/New_York'
+        timeZone: "America/New_York",
       });
     };
 
     const formatGameDate = (date) => {
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        timeZone: 'America/New_York'
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        timeZone: "America/New_York",
       });
     };
 
     // Helper function to get the current/most recent play for live games (reuses extractor)
     const getCurrentPlay = (game) => {
       try {
-  const most = extractMostRecentPlay(game, homeTeam, awayTeam);
+        const most = extractMostRecentPlay(game, homeTeam, awayTeam);
         if (!most) {
           return null;
         }
@@ -6854,7 +9330,7 @@ const FavoritesScreen = ({ navigation }) => {
       if (!teamObj) return null;
       try {
         // If it's a plain string reference
-        if (typeof teamObj === 'string') {
+        if (typeof teamObj === "string") {
           const m = teamObj.match(/teams\/(\d+)/);
           if (m) return m[1];
           return null;
@@ -6864,7 +9340,7 @@ const FavoritesScreen = ({ navigation }) => {
         if (teamObj.id) return String(teamObj.id);
 
         // If API provides a $ref link
-        if (teamObj.$ref && typeof teamObj.$ref === 'string') {
+        if (teamObj.$ref && typeof teamObj.$ref === "string") {
           const m = teamObj.$ref.match(/teams\/(\d+)/);
           if (m) return m[1];
         }
@@ -6886,7 +9362,7 @@ const FavoritesScreen = ({ navigation }) => {
     // Helper function to get team color for play border
     const getPlayTeamColor = (play, homeTeam, awayTeam) => {
       if (!play || !play.team) {
-        return ''; // Gray fallback
+        return ""; // Gray fallback
       }
 
       const playTeamId = extractTeamId(play.team);
@@ -6898,138 +9374,185 @@ const FavoritesScreen = ({ navigation }) => {
           // Try multiple approaches to get team color
           let teamColor = null;
           try {
-            teamColor = ChampionsLeagueServiceEnhanced.getTeamColorWithAlternateLogic(awayTeam?.team || awayTeam);
+            teamColor =
+              ChampionsLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+                awayTeam?.team || awayTeam
+              );
           } catch (error) {
             // Silent fallback
           }
-          
+
           // Fallback to team object color properties
           if (!teamColor) {
-            teamColor = (awayTeam?.team?.color || awayTeam?.color || awayTeam?.team?.alternateColor || awayTeam?.alternateColor);
+            teamColor =
+              awayTeam?.team?.color ||
+              awayTeam?.color ||
+              awayTeam?.team?.alternateColor ||
+              awayTeam?.alternateColor;
           }
-          
-          return teamColor || '#dc3545'; // Red fallback for away
+
+          return teamColor || "#dc3545"; // Red fallback for away
         } else if (String(playTeamId) === String(homeId)) {
           let teamColor = null;
           try {
-            teamColor = ChampionsLeagueServiceEnhanced.getTeamColorWithAlternateLogic(homeTeam?.team || homeTeam);
+            teamColor =
+              ChampionsLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
+                homeTeam?.team || homeTeam
+              );
           } catch (error) {
             // Silent fallback
           }
-          
+
           // Fallback to team object color properties
           if (!teamColor) {
-            teamColor = (homeTeam?.team?.color || homeTeam?.color || homeTeam?.team?.alternateColor || homeTeam?.alternateColor);
+            teamColor =
+              homeTeam?.team?.color ||
+              homeTeam?.color ||
+              homeTeam?.team?.alternateColor ||
+              homeTeam?.alternateColor;
           }
-          
-          return teamColor || '#007bff'; // Blue fallback for home
+
+          return teamColor || "#007bff"; // Blue fallback for home
         }
       }
-      
-      return ''; // Gray fallback
+
+      return ""; // Gray fallback
     };
 
     // Component to display live play text with team color border
     const LivePlayDisplay = ({ game, theme }) => {
-  const extracted = extractMostRecentPlay(game, homeTeam, awayTeam);
+      const extracted = extractMostRecentPlay(game, homeTeam, awayTeam);
       // Log diagnostic summary so we can verify play text and team/color mapping
       try {
-        const resolvedTeamName = (extracted && (extracted.team?.id ? (extracted.team?.id === homeTeam?.team?.id ? homeTeam?.team?.name : awayTeam?.team?.name) : (extracted.inferredTeamId ? (extracted.inferredIsHome ? homeTeam?.team?.name : awayTeam?.team?.name) : null))) || null;
-        const resolvedColor = extracted && (extracted.team?.id ? MLBService.getTeamColor(resolvedTeamName) : (extracted.inferredTeamId ? MLBService.getTeamColor(resolvedTeamName) : null));
+        const resolvedTeamName =
+          (extracted &&
+            (extracted.team?.id
+              ? extracted.team?.id === homeTeam?.team?.id
+                ? homeTeam?.team?.name
+                : awayTeam?.team?.name
+              : extracted.inferredTeamId
+              ? extracted.inferredIsHome
+                ? homeTeam?.team?.name
+                : awayTeam?.team?.name
+              : null)) ||
+          null;
+        const resolvedColor =
+          extracted &&
+          (extracted.team?.id
+            ? MLBService.getTeamColor(resolvedTeamName)
+            : extracted.inferredTeamId
+            ? MLBService.getTeamColor(resolvedTeamName)
+            : null);
       } catch (e) {
         // ignore logging errors
       }
       if (extracted) {
-        const playText = extracted.text || extracted.shortText || 'Live';
+        const playText = extracted.text || extracted.shortText || "Live";
         return (
-          <Text allowFontScaling={false} style={[styles.livePlayText, { color: theme.textSecondary }]} numberOfLines={2}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.livePlayText, { color: theme.textSecondary }]}
+            numberOfLines={2}
+          >
             {playText}
           </Text>
         );
       }
-      return <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>Live</Text>;
+      return (
+        <Text
+          allowFontScaling={false}
+          style={[styles.venueText, { color: theme.textSecondary }]}
+        >
+          Live
+        </Text>
+      );
     };
 
     // Determine game status using actual game status data (like scoreboard screens)
     const getMatchStatus = () => {
       // Try to get status from Site API data first (like Game Details screen)
-      const statusFromSiteAPI = game.gameDataWithStatus?.header?.competitions?.[0]?.status;
+      const statusFromSiteAPI =
+        game.gameDataWithStatus?.header?.competitions?.[0]?.status;
       if (statusFromSiteAPI) {
         const state = statusFromSiteAPI.type?.state;
-        if (state === 'pre') {
+        if (state === "pre") {
           // Match not started - show date and time but render label as 'Scheduled'
           const today = new Date();
           const isToday = gameDate.toDateString() === today.toDateString();
           const yesterday = new Date(today);
           yesterday.setDate(today.getDate() - 1);
-          const isYesterday = gameDate.toDateString() === yesterday.toDateString();
-          
-          let dateText = '';
+          const isYesterday =
+            gameDate.toDateString() === yesterday.toDateString();
+
+          let dateText = "";
           if (isToday) {
-            dateText = 'Today';
+            dateText = "Today";
           } else if (isYesterday) {
-            dateText = 'Yesterday';
+            dateText = "Yesterday";
           } else {
-            dateText = gameDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+            dateText = gameDate.toLocaleDateString([], {
+              month: "short",
+              day: "numeric",
+            });
           }
-          
+
           const timeText = formatGameTime(gameDate);
 
           // For pre-match state return a normalized status object similar to other states
           // Use 'Scheduled' as the primary label and keep date/time in detail/time
           return {
-            text: 'Scheduled',
+            text: "Scheduled",
             time: timeText,
             detail: dateText,
             isLive: false,
             isPre: true,
-            isPost: false
+            isPost: false,
           };
-        } else if (state === 'in') {
+        } else if (state === "in") {
           // Match in progress - show clock time and half info
           const displayClock = statusFromSiteAPI.displayClock || "0'";
           const period = statusFromSiteAPI.period;
-          
+
           // Check if it's halftime
           if (statusFromSiteAPI.type?.description === "Halftime") {
             return {
-              text: 'Live',
+              text: "Live",
               time: statusFromSiteAPI.type.description, // "Halftime"
-              detail: statusFromSiteAPI.type.shortDetail || 'HT',
+              detail: statusFromSiteAPI.type.shortDetail || "HT",
               isLive: true,
               isPre: false,
-              isPost: false
+              isPost: false,
             };
           }
-          
+
           // Determine half based on period
-          let halfText = '';
+          let halfText = "";
           if (period === 1) {
-            halfText = '1st Half';
+            halfText = "1st Half";
           } else if (period === 2) {
-            halfText = '2nd Half';
+            halfText = "2nd Half";
           } else if (period > 2) {
-            halfText = 'Extra Time';
+            halfText = "Extra Time";
           } else {
-            halfText = 'Live';
+            halfText = "Live";
           }
-          
+
           return {
-            text: 'Live',
-            time: displayClock || 'Current',
+            text: "Live",
+            time: displayClock || "Current",
             detail: halfText,
             isLive: true,
             isPre: false,
-            isPost: false
+            isPost: false,
           };
-        } else if (state === 'post') {
+        } else if (state === "post") {
           return {
-            text: 'Final',
-            time: '',
-            detail: '',
+            text: "Final",
+            time: "",
+            detail: "",
             isLive: false,
             isPre: false,
-            isPost: true
+            isPost: true,
           };
         }
       }
@@ -7037,108 +9560,117 @@ const FavoritesScreen = ({ navigation }) => {
       // Fallback to original logic using game.status (Core API data)
       const status = game.status;
       const state = status?.type?.state;
-      
-      if (state === 'pre') {
+
+      if (state === "pre") {
         // Match not started - show date and time
         const today = new Date();
         const isToday = gameDate.toDateString() === today.toDateString();
         const yesterday = new Date(today);
         yesterday.setDate(today.getDate() - 1);
-        const isYesterday = gameDate.toDateString() === yesterday.toDateString();
-        
-        let dateText = '';
+        const isYesterday =
+          gameDate.toDateString() === yesterday.toDateString();
+
+        let dateText = "";
         if (isToday) {
-          dateText = 'Today';
+          dateText = "Today";
         } else if (isYesterday) {
-          dateText = 'Yesterday';
+          dateText = "Yesterday";
         } else {
-          dateText = gameDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+          dateText = gameDate.toLocaleDateString([], {
+            month: "short",
+            day: "numeric",
+          });
         }
-        
+
         const timeText = formatGameTime(gameDate);
-        
+
         return {
-          text: 'Scheduled',
+          text: "Scheduled",
           time: timeText,
           detail: dateText,
           isLive: false,
           isPre: true,
-          isPost: false
+          isPost: false,
         };
-      } else if (state === 'in') {
+      } else if (state === "in") {
         // Match in progress - show clock time and half info
         const displayClock = status.displayClock || "0'";
         const period = status.period;
-        
+
         // Check if it's halftime
         if (status.type?.description === "Halftime") {
           return {
-            text: 'Live',
+            text: "Live",
             time: status.type.description, // "Halftime"
-            detail: status.type.shortDetail || 'HT',
+            detail: status.type.shortDetail || "HT",
             isLive: true,
             isPre: false,
-            isPost: false
+            isPost: false,
           };
         }
-        
+
         // Determine half based on period
-        let halfText = '';
+        let halfText = "";
         if (period === 1) {
-          halfText = '1st Half';
+          halfText = "1st Half";
         } else if (period === 2) {
-          halfText = '2nd Half';
+          halfText = "2nd Half";
         } else if (period > 2) {
-          halfText = 'Extra Time';
+          halfText = "Extra Time";
         } else {
-          halfText = 'Live';
+          halfText = "Live";
         }
-        
+
         return {
-          text: 'Live',
-          time: displayClock || 'Current',
+          text: "Live",
+          time: displayClock || "Current",
           detail: halfText,
           isLive: true,
           isPre: false,
-          isPost: false
+          isPost: false,
         };
       } else {
         // Match finished or no status data - use fallback logic
         const now = new Date();
-        const threeHoursAgo = new Date(now.getTime() - (3 * 60 * 60 * 1000));
-        
+        const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+
         if (gameDate < threeHoursAgo) {
           return {
-            text: 'Final',
-            time: '',
-            detail: '',
+            text: "Final",
+            time: "",
+            detail: "",
             isLive: false,
             isPre: false,
-            isPost: true
+            isPost: true,
           };
         } else if (gameDate <= now) {
           // Game should be live but we don't have proper status data
           return {
-            text: 'Live',
-            time: 'Live',
-            detail: 'In Progress',
+            text: "Live",
+            time: "Live",
+            detail: "In Progress",
             isLive: true,
             isPre: false,
-            isPost: false
+            isPost: false,
           };
         } else {
           const timeText = formatGameTime(gameDate);
           const today = new Date();
           const isToday = gameDate.toDateString() === today.toDateString();
-          const dateText = isToday ? 'Today' : gameDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
-          
+          const dateText = isToday
+            ? "Today"
+            : gameDate.toLocaleDateString([], {
+                month: "short",
+                day: "numeric",
+              });
+
           return {
-            text: 'Scheduled',
+            text: "Scheduled",
             time: timeText,
             detail: dateText,
             isLive: false,
             isPre: true,
-            isPost: false
+            isPost: false,
           };
         }
       }
@@ -7146,19 +9678,22 @@ const FavoritesScreen = ({ navigation }) => {
 
     const matchStatus = getMatchStatus();
     const gameStatus = matchStatus.text; // Keep this for backward compatibility
-    
+
     // Log comprehensive status information for each game
     let isLive = null;
     let isScheduled = null;
     let isFinished = null;
-    
+
     // For MLB games, also check MLB-specific status
-    if (game.sport === 'MLB' || game.actualLeagueCode === 'mlb') {
-      const codedGameState = game.mlbGameData?.status?.codedGameState || game.liveData?.status?.codedGameState || game.codedGameState;
-      
+    if (game.sport === "MLB" || game.actualLeagueCode === "mlb") {
+      const codedGameState =
+        game.mlbGameData?.status?.codedGameState ||
+        game.liveData?.status?.codedGameState ||
+        game.codedGameState;
+
       if (codedGameState) {
-        isLive = codedGameState === 'I';
-        isFinished = codedGameState === 'F';
+        isLive = codedGameState === "I";
+        isFinished = codedGameState === "F";
         isScheduled = !isLive && !isFinished;
       } else {
         // Fallback to standard status for MLB if no coded state
@@ -7172,48 +9707,60 @@ const FavoritesScreen = ({ navigation }) => {
       isScheduled = matchStatus.isPre;
       isFinished = matchStatus.isPost;
     }
-    
+
     // Only log if this game hasn't been logged yet in this session
     const logKey = `${game.id}-${isLive}-${isScheduled}-${isFinished}`;
     if (!loggedGames.has(logKey)) {
       const gameStartTime = formatGameTime(gameDate);
-      const directLink = game.eventLink ? `, Direct Link: ${game.eventLink}` : ', Direct Link: None';
+      const directLink = game.eventLink
+        ? `, Direct Link: ${game.eventLink}`
+        : ", Direct Link: None";
       loggedGames.add(logKey);
-      
+
       // Determine if this game should receive updates and track it
       const statusInfo = { isLive, isPre: isScheduled, isPost: isFinished };
-      const shouldUpdate = shouldGameReceiveUpdates(game, statusInfo, game.sport || 'Unknown');
+      const shouldUpdate = shouldGameReceiveUpdates(
+        game,
+        statusInfo,
+        game.sport || "Unknown"
+      );
       if (shouldUpdate) {
         gamesToUpdate.add(game.id);
       } else {
         gamesToUpdate.delete(game.id);
       }
     }
-    
-    const venue = competition.venue?.fullName || 'TBD';
+
+    const venue = competition.venue?.fullName || "TBD";
 
     // Get scores using the same logic as team page
     const getScoreValue = (scoreData) => {
-      if (!scoreData) return '0';
-      
+      if (!scoreData) return "0";
+
       if (scoreData.displayValue) return scoreData.displayValue;
       if (scoreData.value !== undefined) return scoreData.value.toString();
-      
-      if (typeof scoreData === 'string' || (typeof scoreData === 'object' && scoreData.$ref)) {
-        return '0';
+
+      if (
+        typeof scoreData === "string" ||
+        (typeof scoreData === "object" && scoreData.$ref)
+      ) {
+        return "0";
       }
-      
-      return scoreData.toString() || '0';
+
+      return scoreData.toString() || "0";
     };
 
     // Get shootout scores
     const getShootoutScore = (scoreData) => {
-      if (!scoreData || typeof scoreData !== 'object') return null;
-      
-      if (scoreData.shootoutScore !== undefined && scoreData.shootoutScore !== null) {
+      if (!scoreData || typeof scoreData !== "object") return null;
+
+      if (
+        scoreData.shootoutScore !== undefined &&
+        scoreData.shootoutScore !== null
+      ) {
         return scoreData.shootoutScore.toString();
       }
-      
+
       return null;
     };
 
@@ -7221,15 +9768,16 @@ const FavoritesScreen = ({ navigation }) => {
     const awayScore = getScoreValue(awayTeam.score);
     const homeShootoutScore = getShootoutScore(homeTeam.score);
     const awayShootoutScore = getShootoutScore(awayTeam.score);
-    
+
     // Determine winner/loser using shootout scores first if they exist
     const determineWinner = () => {
-      if (gameStatus !== 'Final') return { homeIsWinner: false, awayIsWinner: false, isDraw: false };
-      
+      if (gameStatus !== "Final")
+        return { homeIsWinner: false, awayIsWinner: false, isDraw: false };
+
       if (homeShootoutScore !== null && awayShootoutScore !== null) {
         const homeShootout = parseInt(homeShootoutScore);
         const awayShootout = parseInt(awayShootoutScore);
-        
+
         if (homeShootout > awayShootout) {
           return { homeIsWinner: true, awayIsWinner: false, isDraw: false };
         } else if (awayShootout > homeShootout) {
@@ -7237,10 +9785,10 @@ const FavoritesScreen = ({ navigation }) => {
         }
         return { homeIsWinner: false, awayIsWinner: false, isDraw: true };
       }
-      
+
       const homeScoreNum = parseInt(homeScore);
       const awayScoreNum = parseInt(awayScore);
-      
+
       if (homeScoreNum > awayScoreNum) {
         return { homeIsWinner: true, awayIsWinner: false, isDraw: false };
       } else if (awayScoreNum > homeScoreNum) {
@@ -7249,7 +9797,7 @@ const FavoritesScreen = ({ navigation }) => {
         return { homeIsWinner: false, awayIsWinner: false, isDraw: true };
       }
     };
-    
+
     const { homeIsWinner, awayIsWinner, isDraw } = determineWinner();
     const homeIsLoser = matchStatus.isPost && !isDraw && !homeIsWinner;
     const awayIsLoser = matchStatus.isPost && !isDraw && !awayIsWinner;
@@ -7258,36 +9806,36 @@ const FavoritesScreen = ({ navigation }) => {
     const getCompetitionName = (leagueCode) => {
       const competitionNames = {
         // European competitions
-        'uefa.champions': 'Champions League',
-        'uefa.europa': 'Europa League', 
-        'uefa.europa.conf': 'Europa Conference League',
-        
+        "uefa.champions": "Champions League",
+        "uefa.europa": "Europa League",
+        "uefa.europa.conf": "Europa Conference League",
+
         // England
-        'eng.1': 'Premier League',
-        'eng.fa': 'FA Cup',
-        'eng.league_cup': 'EFL Cup',
-        
+        "eng.1": "Premier League",
+        "eng.fa": "FA Cup",
+        "eng.league_cup": "EFL Cup",
+
         // Spain
-        'esp.1': 'La Liga',
-        'esp.copa_del_rey': 'Copa del Rey',
-        'esp.super_cup': 'Spanish Supercopa',
-        
+        "esp.1": "La Liga",
+        "esp.copa_del_rey": "Copa del Rey",
+        "esp.super_cup": "Spanish Supercopa",
+
         // Germany
-        'ger.1': 'Bundesliga',
-        'ger.dfb_pokal': 'DFB Pokal',
-        'ger.super_cup': 'German Super Cup',
-        
+        "ger.1": "Bundesliga",
+        "ger.dfb_pokal": "DFB Pokal",
+        "ger.super_cup": "German Super Cup",
+
         // Italy
-        'ita.1': 'Serie A',
-        'ita.coppa_italia': 'Coppa Italia',
-        'ita.super_cup': 'Italian Supercoppa',
-        
+        "ita.1": "Serie A",
+        "ita.coppa_italia": "Coppa Italia",
+        "ita.super_cup": "Italian Supercoppa",
+
         // France
-        'fra.1': 'Ligue 1',
-        'fra.coupe_de_france': 'Coupe de France',
-        'fra.super_cup': 'Trophee des Champions'
+        "fra.1": "Ligue 1",
+        "fra.coupe_de_france": "Coupe de France",
+        "fra.super_cup": "Trophee des Champions",
       };
-      
+
       return competitionNames[leagueCode] || leagueCode;
     };
 
@@ -7304,7 +9852,7 @@ const FavoritesScreen = ({ navigation }) => {
       };
 
       if (!matchStatus.isLive) return defaultBorderStyles;
-      
+
       // Check if it's halftime - no side borders during halftime
       if (matchStatus.time === "Halftime" || matchStatus.detail === "HT") {
         return {
@@ -7312,93 +9860,125 @@ const FavoritesScreen = ({ navigation }) => {
           borderRightWidth: 0,
           borderTopWidth: 1,
           borderBottomWidth: 1,
-          borderLeftColor: 'transparent',
-          borderRightColor: 'transparent',
+          borderLeftColor: "transparent",
+          borderRightColor: "transparent",
         };
       }
-      
+
       const currentPlay = getCurrentPlay(game);
       if (!currentPlay) return defaultBorderStyles;
-      
-      const homeTeam = game.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home');
-      const awayTeam = game.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away');
+
+      const homeTeam = game.competitions?.[0]?.competitors?.find(
+        (c) => c.homeAway === "home"
+      );
+      const awayTeam = game.competitions?.[0]?.competitors?.find(
+        (c) => c.homeAway === "away"
+      );
       const teamColor = getPlayTeamColor(currentPlay, homeTeam, awayTeam);
       const playTeamId = extractTeamId(currentPlay.team);
       const homeId = extractTeamId(homeTeam) || extractTeamId(homeTeam?.team);
       const isHomeTeamPlay = String(playTeamId) === String(homeId);
-      
+
       // If we can't determine team color, use default borders to prevent jittering
-      if (!teamColor || teamColor === '') {
+      if (!teamColor || teamColor === "") {
         return defaultBorderStyles;
       }
-      
+
       // Ensure color has # prefix
-      const formattedColor = teamColor.startsWith('#') ? teamColor : `#${teamColor}`;
-      
+      const formattedColor = teamColor.startsWith("#")
+        ? teamColor
+        : `#${teamColor}`;
+
       // Always keep consistent border widths - only change colors to prevent flickering
       const borderStyles = {
-        borderLeftColor: isHomeTeamPlay ? formattedColor : '#333333',
-        borderRightColor: !isHomeTeamPlay ? formattedColor : '#333333',
+        borderLeftColor: isHomeTeamPlay ? formattedColor : "#333333",
+        borderRightColor: !isHomeTeamPlay ? formattedColor : "#333333",
         borderLeftWidth: isHomeTeamPlay ? 8 : 0,
         borderRightWidth: !isHomeTeamPlay ? 8 : 0,
         borderTopWidth: 1,
         borderBottomWidth: 1,
       };
-      
+
       return borderStyles;
     };
 
     // Check if this is an MLB game and render it with special styling
-    if (game.sport === 'MLB' || game.actualLeagueCode === 'mlb') {
+    if (game.sport === "MLB" || game.actualLeagueCode === "mlb") {
       return renderMLBGameCard(game);
     }
 
     // Check if this is an NFL game and render it with special styling
-    if (game.sport === 'NFL' || game.actualLeagueCode === 'nfl') {
+    if (game.sport === "NFL" || game.actualLeagueCode === "nfl") {
       return renderNFLGameCard(game);
     }
 
     // Check if this is an NHL game and render it with special styling
-    if (game.sport === 'NHL' || game.actualLeagueCode === 'nhl') {
+    if (game.sport === "NHL" || game.actualLeagueCode === "nhl") {
       return renderNHLGameCard(game);
     }
 
     // Check if this is an NBA game and render it with special styling
-    if (game.sport === 'NBA' || game.actualLeagueCode === 'nba') {
+    if (game.sport === "NBA" || game.actualLeagueCode === "nba") {
       return renderNBAGameCard(game);
     }
 
     // Check if this is a WNBA game and render it with special styling
-    if (game.sport === 'WNBA' || game.actualLeagueCode === 'wnba') {
+    if (game.sport === "WNBA" || game.actualLeagueCode === "wnba") {
       return renderWNBAGameCard(game);
     }
 
     // Check if this is an F1 session and render it with special styling
-    if (game.sport === 'F1' || game.actualLeagueCode === 'f1' || game.sport === 'f1') {
+    if (
+      game.sport === "F1" ||
+      game.actualLeagueCode === "f1" ||
+      game.sport === "f1"
+    ) {
       return renderF1GameCard(game);
     }
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[
-          styles.gameCard, 
+          styles.gameCard,
           { backgroundColor: theme.surface, borderColor: theme.border },
-          getLivePlayBorderStyles(game, theme)
+          getLivePlayBorderStyles(game, theme),
         ]}
         onPress={() => handleGamePress(game)}
         activeOpacity={0.7}
       >
         {/* League Header */}
-        <View style={[styles.leagueHeader, { backgroundColor: theme.surfaceSecondary }]}>
+        <View
+          style={[
+            styles.leagueHeader,
+            { backgroundColor: theme.surfaceSecondary },
+          ]}
+        >
           {/* Diagnostic logging to help debug mismatched league names (e.g., EFL Cup shown as Premier League) */}
-          {console.log('FavoritesScreen render - game object:', game)}
-          {console.log('FavoritesScreen render - actualLeagueCode:', game.actualLeagueCode, 'competition:', competition)}
-          {console.log('FavoritesScreen render - resolvedCompetitionName:', getCompetitionName(game.actualLeagueCode) || competition?.name || competition?.league?.name || game.sport)}
-          <Text allowFontScaling={false} style={[styles.leagueText, { color: colors.primary }]}>
-            {getCompetitionName(game.actualLeagueCode) || competition?.name || competition?.league?.name || game.sport}
+          {console.log("FavoritesScreen render - game object:", game)}
+          {console.log(
+            "FavoritesScreen render - actualLeagueCode:",
+            game.actualLeagueCode,
+            "competition:",
+            competition
+          )}
+          {console.log(
+            "FavoritesScreen render - resolvedCompetitionName:",
+            getCompetitionName(game.actualLeagueCode) ||
+              competition?.name ||
+              competition?.league?.name ||
+              game.sport
+          )}
+          <Text
+            allowFontScaling={false}
+            style={[styles.leagueText, { color: colors.primary }]}
+          >
+            {getCompetitionName(game.actualLeagueCode) ||
+              competition?.name ||
+              competition?.league?.name ||
+              game.sport}
           </Text>
         </View>
-        
+
         {/* Main Match Content */}
         <View style={styles.matchContent}>
           {/* Home Team */}
@@ -7413,62 +9993,115 @@ const FavoritesScreen = ({ navigation }) => {
               {!matchStatus.isPre && (
                 <View style={styles.scoreContainer}>
                   <View style={styles.scoreRow}>
-                    <Text allowFontScaling={false} style={[styles.teamScore, { 
-                      color: matchStatus.isPost && homeIsWinner ? colors.primary : 
-                             homeIsLoser ? '#999' : theme.text 
-                    }]}>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.teamScore,
+                        {
+                          color:
+                            matchStatus.isPost && homeIsWinner
+                              ? colors.primary
+                              : homeIsLoser
+                              ? "#999"
+                              : theme.text,
+                        },
+                      ]}
+                    >
                       {homeScore}
                     </Text>
                     {homeShootoutScore && (
-                      <Text allowFontScaling={false} style={[
-                        styles.shootoutSuperscript, 
-                        { color: homeIsLoser ? '#999' : colors.primary }
-                      ]}>
-                       ({homeShootoutScore})
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.shootoutSuperscript,
+                          { color: homeIsLoser ? "#999" : colors.primary },
+                        ]}
+                      >
+                        ({homeShootoutScore})
                       </Text>
                     )}
                   </View>
                 </View>
               )}
             </View>
-            <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
-              color: homeIsLoser ? '#999' : 
-                     isFavorite(homeTeam.team?.id, sportName) ? colors.primary : theme.text 
-            }]}>
-              {isFavorite(homeTeam.team?.id, sportName) ? '★ ' : ''}{homeTeam.team?.abbreviation || homeTeam.team?.shortDisplayName || 'TBD'}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamAbbreviation,
+                {
+                  color: homeIsLoser
+                    ? "#999"
+                    : isFavorite(homeTeam.team?.id, sportName)
+                    ? colors.primary
+                    : theme.text,
+                },
+              ]}
+            >
+              {isFavorite(homeTeam.team?.id, sportName) ? "★ " : ""}
+              {homeTeam.team?.abbreviation ||
+                homeTeam.team?.shortDisplayName ||
+                "TBD"}
             </Text>
           </View>
-          
+
           {/* Status Section */}
           <View style={styles.statusSection}>
-            <Text allowFontScaling={false} style={[styles.gameStatus, { color: matchStatus.isLive ? '#ff4444' : colors.primary }]}>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.gameStatus,
+                { color: matchStatus.isLive ? "#ff4444" : colors.primary },
+              ]}
+            >
               {matchStatus.text}
             </Text>
             {matchStatus.isLive ? (
               // For live games, show current time and half
               <>
-                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: matchStatus.isLive ? theme.text : theme.textSecondary }]}>
-                  {matchStatus.time || 'Current'}
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.gameDateTime,
+                    {
+                      color: matchStatus.isLive
+                        ? theme.text
+                        : theme.textSecondary,
+                    },
+                  ]}
+                >
+                  {matchStatus.time || "Current"}
                 </Text>
-                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
-                  {matchStatus.detail || 'Live'}
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
+                >
+                  {matchStatus.detail || "Live"}
                 </Text>
               </>
             ) : (
               // For scheduled and finished games, show date and time
               <>
-                <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.gameDateTime, { color: theme.textSecondary }]}
+                >
                   {matchStatus.detail || formatGameDate(gameDate)}
                 </Text>
                 {matchStatus.time && (
-                  <Text allowFontScaling={false} style={[styles.gameDateTime, { color: theme.textSecondary }]}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.gameDateTime,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
                     {matchStatus.time} EST
                   </Text>
                 )}
               </>
             )}
           </View>
-          
+
           {/* Away Team */}
           <View style={styles.teamSection}>
             <View style={styles.teamLogoRow}>
@@ -7476,17 +10109,30 @@ const FavoritesScreen = ({ navigation }) => {
                 <View style={styles.scoreContainer}>
                   <View style={styles.scoreRow}>
                     {awayShootoutScore && (
-                      <Text allowFontScaling={false} style={[
-                        styles.shootoutSuperscript, 
-                        { color: awayIsLoser ? '#999' : colors.primary }
-                      ]}>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.shootoutSuperscript,
+                          { color: awayIsLoser ? "#999" : colors.primary },
+                        ]}
+                      >
                         ({awayShootoutScore})
                       </Text>
                     )}
-                    <Text allowFontScaling={false} style={[styles.teamScore, { 
-                      color: matchStatus.isPost && awayIsWinner ? colors.primary : 
-                             awayIsLoser ? '#999' : theme.text 
-                    }]}>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.teamScore,
+                        {
+                          color:
+                            matchStatus.isPost && awayIsWinner
+                              ? colors.primary
+                              : awayIsLoser
+                              ? "#999"
+                              : theme.text,
+                        },
+                      ]}
+                    >
                       {awayScore}
                     </Text>
                   </View>
@@ -7499,21 +10145,38 @@ const FavoritesScreen = ({ navigation }) => {
                 isDarkMode={isDarkMode}
               />
             </View>
-            <Text allowFontScaling={false} style={[styles.teamAbbreviation, { 
-              color: awayIsLoser ? '#999' : 
-                     isFavorite(awayTeam.team?.id, sportName) ? colors.primary : theme.text 
-            }]}>
-              {isFavorite(awayTeam.team?.id, sportName) ? '★ ' : ''}{awayTeam.team?.abbreviation || awayTeam.team?.shortDisplayName || 'TBD'}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamAbbreviation,
+                {
+                  color: awayIsLoser
+                    ? "#999"
+                    : isFavorite(awayTeam.team?.id, sportName)
+                    ? colors.primary
+                    : theme.text,
+                },
+              ]}
+            >
+              {isFavorite(awayTeam.team?.id, sportName) ? "★ " : ""}
+              {awayTeam.team?.abbreviation ||
+                awayTeam.team?.shortDisplayName ||
+                "TBD"}
             </Text>
           </View>
         </View>
-        
+
         {/* Venue or Live Play */}
         <View style={styles.venueSection}>
           {matchStatus.isLive ? (
             <LivePlayDisplay game={game} theme={theme} />
           ) : (
-            <Text allowFontScaling={false} style={[styles.venueText, { color: theme.textSecondary }]}>{venue}</Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.venueText, { color: theme.textSecondary }]}
+            >
+              {venue}
+            </Text>
           )}
         </View>
       </TouchableOpacity>
@@ -7525,127 +10188,155 @@ const FavoritesScreen = ({ navigation }) => {
     const getCompetitionName = (leagueCode) => {
       const competitionNames = {
         // European competitions
-        'uefa.champions': 'Champions League',
-        'uefa.europa': 'Europa League', 
-        'uefa.europa.conf': 'Europa Conference League',
-        
+        "uefa.champions": "Champions League",
+        "uefa.europa": "Europa League",
+        "uefa.europa.conf": "Europa Conference League",
+
         // England
-        'eng.1': 'Premier League',
-        'eng.fa': 'FA Cup',
-        'eng.league_cup': 'EFL Cup',
-        
+        "eng.1": "Premier League",
+        "eng.fa": "FA Cup",
+        "eng.league_cup": "EFL Cup",
+
         // Spain
-        'esp.1': 'La Liga',
-        'esp.copa_del_rey': 'Copa del Rey',
-        'esp.super_cup': 'Spanish Supercopa',
-        
+        "esp.1": "La Liga",
+        "esp.copa_del_rey": "Copa del Rey",
+        "esp.super_cup": "Spanish Supercopa",
+
         // Germany
-        'ger.1': 'Bundesliga',
-        'ger.dfb_pokal': 'DFB Pokal',
-        'ger.super_cup': 'German Super Cup',
-        
+        "ger.1": "Bundesliga",
+        "ger.dfb_pokal": "DFB Pokal",
+        "ger.super_cup": "German Super Cup",
+
         // Italy
-        'ita.1': 'Serie A',
-        'ita.coppa_italia': 'Coppa Italia',
-        'ita.super_cup': 'Italian Supercoppa',
-        
+        "ita.1": "Serie A",
+        "ita.coppa_italia": "Coppa Italia",
+        "ita.super_cup": "Italian Supercoppa",
+
         // France
-        'fra.1': 'Ligue 1',
-        'fra.coupe_de_france': 'Coupe de France',
-        'fra.super_cup': 'Trophee des Champions'
+        "fra.1": "Ligue 1",
+        "fra.coupe_de_france": "Coupe de France",
+        "fra.super_cup": "Trophee des Champions",
       };
-      
+
       return competitionNames[leagueCode] || leagueCode;
     };
 
     // Function to get generic league group name from actual competition
     const getLeagueGroupName = (actualLeagueCode, fallbackSport) => {
       const competitionName = getCompetitionName(actualLeagueCode);
-      
+
       const groupNames = {
         // All soccer competitions go to single Soccer section
-        'Premier League': 'Soccer',
-        'FA Cup': 'Soccer',
-        'EFL Cup': 'Soccer',
-        'La Liga': 'Soccer',
-        'Copa del Rey': 'Soccer',
-        'Spanish Supercopa': 'Soccer',
-        'Serie A': 'Soccer',
-        'Coppa Italia': 'Soccer',
-        'Italian Supercoppa': 'Soccer',
-        'Bundesliga': 'Soccer',
-        'DFB Pokal': 'Soccer',
-        'German Super Cup': 'Soccer',
-        'Ligue 1': 'Soccer',
-        'Coupe de France': 'Soccer',
-        'Trophee des Champions': 'Soccer',
-        'Champions League': 'Soccer',
-        'Europa League': 'Soccer',
-        'Europa Conference League': 'Soccer',
+        "Premier League": "Soccer",
+        "FA Cup": "Soccer",
+        "EFL Cup": "Soccer",
+        "La Liga": "Soccer",
+        "Copa del Rey": "Soccer",
+        "Spanish Supercopa": "Soccer",
+        "Serie A": "Soccer",
+        "Coppa Italia": "Soccer",
+        "Italian Supercoppa": "Soccer",
+        Bundesliga: "Soccer",
+        "DFB Pokal": "Soccer",
+        "German Super Cup": "Soccer",
+        "Ligue 1": "Soccer",
+        "Coupe de France": "Soccer",
+        "Trophee des Champions": "Soccer",
+        "Champions League": "Soccer",
+        "Europa League": "Soccer",
+        "Europa Conference League": "Soccer",
         // Baseball/MLB mappings
-        'Baseball': 'MLB',
-        'mlb': 'MLB',
+        Baseball: "MLB",
+        mlb: "MLB",
         // Football/NFL mappings
-        'Football': 'NFL',
-        'nfl': 'NFL',
+        Football: "NFL",
+        nfl: "NFL",
         // Basketball/NBA mappings
-        'NBA': 'NBA',
-        'nba': 'NBA',
+        NBA: "NBA",
+        nba: "NBA",
         // Hockey/NHL mappings
-        'Hockey': 'NHL',
-        'nhl': 'NHL',
+        Hockey: "NHL",
+        nhl: "NHL",
         // WNBA mappings
-        'WNBA': 'WNBA',
-        'wnba': 'WNBA',
+        WNBA: "WNBA",
+        wnba: "WNBA",
         // F1 mappings
-        'F1': 'F1',
-        'f1': 'F1',
-        'Formula 1': 'F1'
+        F1: "F1",
+        f1: "F1",
+        "Formula 1": "F1",
       };
-      
+
       const groupName = groupNames[competitionName];
       if (groupName) {
         return groupName;
       }
-      
+
       // Fallback logic for sports not in groupNames
-      if (fallbackSport === 'Baseball' || fallbackSport === 'baseball' || 
-          actualLeagueCode === 'mlb' || actualLeagueCode === 'MLB') {
-        return 'MLB';
+      if (
+        fallbackSport === "Baseball" ||
+        fallbackSport === "baseball" ||
+        actualLeagueCode === "mlb" ||
+        actualLeagueCode === "MLB"
+      ) {
+        return "MLB";
       }
-      
-      if (fallbackSport === 'Football' || fallbackSport === 'football' || 
-          actualLeagueCode === 'nfl' || actualLeagueCode === 'NFL') {
-        return 'NFL';
+
+      if (
+        fallbackSport === "Football" ||
+        fallbackSport === "football" ||
+        actualLeagueCode === "nfl" ||
+        actualLeagueCode === "NFL"
+      ) {
+        return "NFL";
       }
-      
-      if (fallbackSport === 'Basketball' || fallbackSport === 'basketball' || 
-          actualLeagueCode === 'nba' || actualLeagueCode === 'NBA') {
-        return 'NBA';
+
+      if (
+        fallbackSport === "Basketball" ||
+        fallbackSport === "basketball" ||
+        actualLeagueCode === "nba" ||
+        actualLeagueCode === "NBA"
+      ) {
+        return "NBA";
       }
-      
-      if (fallbackSport === 'Hockey' || fallbackSport === 'hockey' || 
-          actualLeagueCode === 'nhl' || actualLeagueCode === 'NHL') {
-        return 'NHL';
+
+      if (
+        fallbackSport === "Hockey" ||
+        fallbackSport === "hockey" ||
+        actualLeagueCode === "nhl" ||
+        actualLeagueCode === "NHL"
+      ) {
+        return "NHL";
       }
-      
-      if (fallbackSport === 'WNBA' || fallbackSport === 'wnba' || 
-          actualLeagueCode === 'wnba' || actualLeagueCode === 'WNBA') {
-        return 'WNBA';
+
+      if (
+        fallbackSport === "WNBA" ||
+        fallbackSport === "wnba" ||
+        actualLeagueCode === "wnba" ||
+        actualLeagueCode === "WNBA"
+      ) {
+        return "WNBA";
       }
-      
-      if (fallbackSport === 'F1' || fallbackSport === 'f1' || 
-          actualLeagueCode === 'f1' || actualLeagueCode === 'F1') {
-        return 'F1';
+
+      if (
+        fallbackSport === "F1" ||
+        fallbackSport === "f1" ||
+        actualLeagueCode === "f1" ||
+        actualLeagueCode === "F1"
+      ) {
+        return "F1";
       }
-      
+
       // Check if it's any soccer-related sport
-      if (fallbackSport === 'Soccer' || fallbackSport === 'soccer' || 
-          actualLeagueCode?.includes('soccer') || actualLeagueCode?.includes('uefa')) {
-        return 'Soccer';
+      if (
+        fallbackSport === "Soccer" ||
+        fallbackSport === "soccer" ||
+        actualLeagueCode?.includes("soccer") ||
+        actualLeagueCode?.includes("uefa")
+      ) {
+        return "Soccer";
       }
-      
-      return fallbackSport || 'Unknown';
+
+      return fallbackSport || "Unknown";
     };
 
     // Group games by actual competition using actualLeagueCode
@@ -7667,37 +10358,43 @@ const FavoritesScreen = ({ navigation }) => {
       if (grouped[key]) groupedGames[key] = grouped[key];
     }
     // Append any groups not in order
-    Object.keys(grouped).forEach(k => {
+    Object.keys(grouped).forEach((k) => {
       if (!groupedGames[k]) groupedGames[k] = grouped[k];
     });
 
     // Sort games within each group and render each league group
-    return Object.keys(groupedGames).map(sport => {
+    return Object.keys(groupedGames).map((sport) => {
       const sortedGames = sortGamesByStatusAndTime(groupedGames[sport]);
       const isCollapsed = collapsedSections[sport] !== false; // Default to collapsed (true)
       const gamesToShow = isCollapsed ? sortedGames.slice(0, 1) : sortedGames;
 
       return (
         <View key={sport} style={styles.leagueGroup}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.sectionHeader}
-            onPress={() => setCollapsedSections(prev => ({
-              ...prev,
-              [sport]: !isCollapsed
-            }))}
+            onPress={() =>
+              setCollapsedSections((prev) => ({
+                ...prev,
+                [sport]: !isCollapsed,
+              }))
+            }
             activeOpacity={0.7}
           >
-            <Text allowFontScaling={false} style={[styles.leagueGroupTitle, { color: colors.primary }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.leagueGroupTitle, { color: colors.primary }]}
+            >
               {sport}
             </Text>
-            <Text allowFontScaling={false} style={[styles.collapseArrow, { color: colors.primary }]}>
-              {isCollapsed ? '▶' : '▼'}
+            <Text
+              allowFontScaling={false}
+              style={[styles.collapseArrow, { color: colors.primary }]}
+            >
+              {isCollapsed ? "▶" : "▼"}
             </Text>
           </TouchableOpacity>
           {gamesToShow.map((game, index) => (
-            <View key={`${game.id}-${index}`}>
-              {renderGameCard(game)}
-            </View>
+            <View key={`${game.id}-${index}`}>{renderGameCard(game)}</View>
           ))}
         </View>
       );
@@ -7714,29 +10411,93 @@ const FavoritesScreen = ({ navigation }) => {
         animationType="slide"
         onRequestClose={closeReorderModal}
       >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
-          <View style={{ width: '90%', maxHeight: '70%', backgroundColor: theme.surface, borderRadius: 10, padding: 12 }}>
-            <Text allowFontScaling={false} style={{ fontSize: 18, fontWeight: '700', color: colors.primary, marginBottom: 8 }}>Reorder Sections</Text>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              width: "90%",
+              maxHeight: "70%",
+              backgroundColor: theme.surface,
+              borderRadius: 10,
+              padding: 12,
+            }}
+          >
+            <Text
+              allowFontScaling={false}
+              style={{
+                fontSize: 18,
+                fontWeight: "700",
+                color: colors.primary,
+                marginBottom: 8,
+              }}
+            >
+              Reorder Sections
+            </Text>
             <FlatList
               data={data}
               keyExtractor={(item) => item}
               renderItem={({ item, index }) => (
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
-                  <Text allowFontScaling={false} style={{ color: theme.text }}>{item}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <TouchableOpacity onPress={() => moveItem(index, -1)} style={{ padding: 8 }}>
-                      <Text allowFontScaling={false} style={{ color: colors.primary }}>▲</Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingVertical: 8,
+                  }}
+                >
+                  <Text allowFontScaling={false} style={{ color: theme.text }}>
+                    {item}
+                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <TouchableOpacity
+                      onPress={() => moveItem(index, -1)}
+                      style={{ padding: 8 }}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        style={{ color: colors.primary }}
+                      >
+                        ▲
+                      </Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => moveItem(index, 1)} style={{ padding: 8 }}>
-                      <Text allowFontScaling={false} style={{ color: colors.primary }}>▼</Text>
+                    <TouchableOpacity
+                      onPress={() => moveItem(index, 1)}
+                      style={{ padding: 8 }}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        style={{ color: colors.primary }}
+                      >
+                        ▼
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               )}
             />
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
-              <TouchableOpacity onPress={closeReorderModal} style={{ padding: 8 }}>
-                <Text allowFontScaling={false} style={{ color: colors.primary }}>Done</Text>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "flex-end",
+                marginTop: 8,
+              }}
+            >
+              <TouchableOpacity
+                onPress={closeReorderModal}
+                style={{ padding: 8 }}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={{ color: colors.primary }}
+                >
+                  Done
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -7747,9 +10508,14 @@ const FavoritesScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+      <View
+        style={[styles.loadingContainer, { backgroundColor: theme.background }]}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.loadingText, { color: theme.text }]}
+        >
           Loading favorite games...
         </Text>
       </View>
@@ -7760,20 +10526,31 @@ const FavoritesScreen = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text allowFontScaling={false} style={[styles.title, { color: colors.primary }]}>Favorites</Text>
-      
+      <Text
+        allowFontScaling={false}
+        style={[styles.title, { color: colors.primary }]}
+      >
+        Favorites
+      </Text>
+
       {favoriteTeams.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.text }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.subtitle, { color: theme.text }]}
+          >
             Your favorite teams and games will appear here
           </Text>
-          <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textSecondary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.subtitle, { color: theme.textSecondary }]}
+          >
             Add teams to favorites by clicking the star on team pages
           </Text>
         </View>
       ) : (
-        <ScrollView 
-          style={styles.favoritesContainer} 
+        <ScrollView
+          style={styles.favoritesContainer}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -7786,16 +10563,53 @@ const FavoritesScreen = ({ navigation }) => {
         >
           {favoriteGames.length > 0 ? (
             <>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.sectionTitle, { color: theme.text }]}
+                >
                   Today's Games
                 </Text>
-                <TouchableOpacity onPress={openReorderModal} style={{ padding: 8 }} accessibilityLabel="Reorder Sections">
+                <TouchableOpacity
+                  onPress={openReorderModal}
+                  style={{ padding: 8 }}
+                  accessibilityLabel="Reorder Sections"
+                >
                   {/* Simple 3-bar icon */}
-                  <View style={{ width: 28, alignItems: 'center' }}>
-                    <View style={{ height: 3, width: 20, backgroundColor: colors.primary, marginVertical: 2, borderRadius: 2 }} />
-                    <View style={{ height: 3, width: 20, backgroundColor: colors.primary, marginVertical: 2, borderRadius: 2 }} />
-                    <View style={{ height: 3, width: 20, backgroundColor: colors.primary, marginVertical: 2, borderRadius: 2 }} />
+                  <View style={{ width: 28, alignItems: "center" }}>
+                    <View
+                      style={{
+                        height: 3,
+                        width: 20,
+                        backgroundColor: colors.primary,
+                        marginVertical: 2,
+                        borderRadius: 2,
+                      }}
+                    />
+                    <View
+                      style={{
+                        height: 3,
+                        width: 20,
+                        backgroundColor: colors.primary,
+                        marginVertical: 2,
+                        borderRadius: 2,
+                      }}
+                    />
+                    <View
+                      style={{
+                        height: 3,
+                        width: 20,
+                        backgroundColor: colors.primary,
+                        marginVertical: 2,
+                        borderRadius: 2,
+                      }}
+                    />
                   </View>
                 </TouchableOpacity>
               </View>
@@ -7803,7 +10617,10 @@ const FavoritesScreen = ({ navigation }) => {
               {renderReorderModal()}
             </>
           ) : (
-            <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textSecondary }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.subtitle, { color: theme.textSecondary }]}
+            >
               No games today for your favorite teams
             </Text>
           )}
@@ -7822,8 +10639,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: 12,
@@ -7831,24 +10648,24 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 20,
-    textAlign: 'center',
+    textAlign: "center",
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 16,
   },
   subtitle: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 10,
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   favoritesContainer: {
     flex: 1,
@@ -7858,10 +10675,10 @@ const styles = StyleSheet.create({
   gameCard: {
     borderRadius: 10,
     marginBottom: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 1,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
@@ -7869,25 +10686,25 @@ const styles = StyleSheet.create({
   leagueHeader: {
     paddingVertical: 8,
     paddingHorizontal: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   leagueText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   matchContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
   teamSection: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   teamLogoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 6,
   },
   teamLogo: {
@@ -7902,54 +10719,54 @@ const styles = StyleSheet.create({
   },
   teamScore: {
     fontSize: 22,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     minWidth: 30,
   },
   shootoutScore: {
     fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
+    fontWeight: "500",
+    textAlign: "center",
     marginTop: 2,
   },
   scoreRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
+    flexDirection: "row",
+    alignItems: "baseline",
   },
   shootoutSuperscript: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: 2,
     marginBottom: 4,
   },
   teamAbbreviation: {
     fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
+    fontWeight: "500",
+    textAlign: "center",
   },
   statusSection: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: 8,
   },
   gameStatus: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 4,
   },
   gameDateTime: {
     fontSize: 12,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 2,
   },
   venueSection: {
     paddingHorizontal: 12,
     paddingBottom: 10,
-    alignItems: 'center',
+    alignItems: "center",
   },
   venueText: {
     fontSize: 11,
-    textAlign: 'center',
+    textAlign: "center",
   },
   livePlayContainer: {
     paddingHorizontal: 8,
@@ -7958,13 +10775,13 @@ const styles = StyleSheet.create({
   },
   livePlayText: {
     fontSize: 11,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    textAlign: "center",
+    fontStyle: "italic",
     marginTop: 6,
   },
   gameInfo: {
     padding: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
   gameText: {
     fontSize: 14,
@@ -7974,18 +10791,18 @@ const styles = StyleSheet.create({
   },
   leagueGroupTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 12,
     marginLeft: 4,
   },
   collapseArrow: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginRight: 4,
   },
   livePlayContainer: {
@@ -7994,20 +10811,20 @@ const styles = StyleSheet.create({
   },
   livePlayText: {
     fontSize: 11,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    textAlign: "center",
+    fontStyle: "italic",
     marginTop: 10,
   },
   // MLB-specific styles
   liveGameMiddleSection: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 8,
   },
   liveInningText: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 2,
   },
   liveCountText: {
@@ -8018,11 +10835,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   miniBasesContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginVertical: 2,
   },
   miniBasesRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginTop: 2,
   },
   miniBase: {
@@ -8030,39 +10847,39 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 2,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     marginHorizontal: 1,
   },
   playTextContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: "rgba(0,0,0,0.1)",
   },
   playText: {
     fontSize: 10,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    textAlign: "center",
+    fontStyle: "italic",
   },
   // Mini bases styles for MLB live games
   miniBasesContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginVertical: 2,
   },
   miniBasesRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     width: 20,
   },
   miniBase: {
     width: 6,
     height: 6,
     borderWidth: 1,
-    borderColor: '#666',
-    transform: [{ rotate: '45deg' }],
+    borderColor: "#666",
+    transform: [{ rotate: "45deg" }],
     margin: 1,
   },
 });

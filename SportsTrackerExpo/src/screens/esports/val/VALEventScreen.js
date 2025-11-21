@@ -93,7 +93,7 @@ const VALEventScreen = ({ navigation, route }) => {
           childEvent.bracketJson.groups.forEach((group) => {
             if (group.teams && group.teams.length > 0) {
               group.teams.forEach((team) => {
-                if (!teamIds.has(team.id)) {
+                if (!teamIds.has(team.id) && team.shortName && team.shortName !== "TBD") {
                   teamIds.add(team.id);
                   allTeams.push({
                     id: team.id,
@@ -109,6 +109,50 @@ const VALEventScreen = ({ navigation, route }) => {
           });
         }
 
+        if (childEvent.bracketJson && childEvent.bracketJson.type === "double") {
+          childEvent.bracketJson.losers.forEach((loserSeed) => {
+            loserSeed.seeds.forEach((loser) => {
+              if (loser.teams && loser.teams.length > 0) {
+                loser.teams.forEach((loserTeam) => {
+                  if (!teamIds.has(loserTeam.id) && loserTeam.shortName && loserTeam.shortName !== "TBD") {
+                    teamIds.add(loserTeam.id);
+                    allTeams.push({
+                      id: loserTeam.id,
+                      name: loserTeam.name,
+                      shortName: loserTeam.shortName,
+                      logoUrl: loserTeam.logoUrl,
+                      countryId: loserTeam.countryId,
+                      country: loserTeam.country,
+                    });
+                  }
+                });
+              }
+            });
+          });
+        }
+
+        if (childEvent.bracketJson && (childEvent.bracketJson.type === "double" || childEvent.bracketJson.type === "single")) {
+          childEvent.bracketJson.winners.forEach((winnerSeed) => {
+            winnerSeed.seeds.forEach((winner) => {
+              if (winner.teams && winner.teams.length > 0) {
+                winner.teams.forEach((winnerTeam) => {
+                  if (!teamIds.has(winnerTeam.id) && winnerTeam.shortName && winnerTeam.shortName !== "TBD") {
+                    teamIds.add(winnerTeam.id);
+                    allTeams.push({
+                      id: winnerTeam.id,
+                      name: winnerTeam.name,
+                      shortName: winnerTeam.shortName,
+                      logoUrl: winnerTeam.logoUrl,
+                      countryId: winnerTeam.countryId,
+                      country: winnerTeam.country,
+                    });
+                  }
+                });
+              }
+            });
+          });
+        }
+
         // Extract teams from weekly tournaments
         if (
           childEvent.bracketJson &&
@@ -120,7 +164,7 @@ const VALEventScreen = ({ navigation, route }) => {
               if (week.series) {
                 week.series.forEach((series) => {
                   // Add team1
-                  if (series.team1 && !teamIds.has(series.team1.id)) {
+                  if (series.team1 && !teamIds.has(series.team1.id) && series.team1.shortName && series.team1.shortName !== "TBD") {
                     teamIds.add(series.team1.id);
                     allTeams.push({
                       id: series.team1.id,
@@ -133,7 +177,7 @@ const VALEventScreen = ({ navigation, route }) => {
                   }
 
                   // Add team2
-                  if (series.team2 && !teamIds.has(series.team2.id)) {
+                  if (series.team2 && !teamIds.has(series.team2.id) && series.team2.shortName && series.team2.shortName !== "TBD") {
                     teamIds.add(series.team2.id);
                     allTeams.push({
                       id: series.team2.id,
@@ -520,16 +564,27 @@ const VALEventScreen = ({ navigation, route }) => {
     try {
       setLoading(true);
       const eventData = await getEventDetails(eventId);
-      setEvent(eventData); // eventData is already the event object from pageProps.event
+      setEvent(eventData);
 
-      // Initialize selectedEventId with the main event ID
+      // Initialize selectedEventId:
       if (!selectedEventId) {
-        setSelectedEventId(eventId);
+        const childEvents = eventData.childEvents || [];
+
+        if (childEvents.length === 1) {
+          // If there's only 1 child, auto-select it
+          setSelectedEventId(childEvents[0].id);
+          loadStatsData(childEvents[0].id);
+        } else {
+          // Otherwise select main event ("All")
+          setSelectedEventId(eventId);
+          loadStatsData(eventId);
+        }
       }
 
-      // Extract teams from child events
+      // Extract teams
       const extractedTeams = extractTeamsFromEvent(eventData);
       setTeams(extractedTeams);
+
     } catch (error) {
       console.error("Error loading Valorant event:", error);
       setEvent(null);
@@ -538,6 +593,7 @@ const VALEventScreen = ({ navigation, route }) => {
       setLoading(false);
     }
   };
+
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -803,24 +859,62 @@ const VALEventScreen = ({ navigation, route }) => {
         </View>
 
         {/* Child Event Buttons (Only show for Stats tab) */}
-        {activeTab === "stats" &&
-          event?.childEvents &&
-          event.childEvents.length > 0 && (
+        {activeTab === "stats" && (() => {
+          const childEvents = event?.childEvents ?? [];
+          const count = childEvents.length;
+
+          if (count === 0) return null; // nothing renders
+
+          if (count === 1) {
+            const onlyChild = childEvents[0];
+            return (
+              <View style={styles.childEventsSection}>
+                <TouchableOpacity
+                  style={[
+                    styles.childEventButton,
+                    {
+                      backgroundColor:
+                        selectedEventId === onlyChild.id
+                          ? colors.primary
+                          : theme.surface,
+                    },
+                  ]}
+                  onPress={() => {
+                    setSelectedEventId(onlyChild.id);
+                    loadStatsData(onlyChild.id);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.childEventButtonText,
+                      {
+                        color:
+                          selectedEventId === onlyChild.id ? "white" : theme.text,
+                      },
+                    ]}
+                  >
+                    {onlyChild.shortName || onlyChild.name}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            );
+          }
+
+          // FALLBACK: more than one → original behavior
+          return (
             <View style={styles.childEventsSection}>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.childEventsScrollContent}
               >
-                {/* All button (main event) */}
+                {/* ALL button */}
                 <TouchableOpacity
                   style={[
                     styles.childEventButton,
                     {
                       backgroundColor:
-                        selectedEventId === eventId
-                          ? colors.primary
-                          : theme.surface,
+                        selectedEventId === eventId ? colors.primary : theme.surface,
                     },
                   ]}
                   onPress={() => {
@@ -842,7 +936,7 @@ const VALEventScreen = ({ navigation, route }) => {
                 </TouchableOpacity>
 
                 {/* Child event buttons */}
-                {event.childEvents.map((childEvent) => (
+                {childEvents.map((childEvent) => (
                   <TouchableOpacity
                     key={childEvent.id}
                     style={[
@@ -864,9 +958,7 @@ const VALEventScreen = ({ navigation, route }) => {
                         styles.childEventButtonText,
                         {
                           color:
-                            selectedEventId === childEvent.id
-                              ? "white"
-                              : theme.text,
+                            selectedEventId === childEvent.id ? "white" : theme.text,
                         },
                       ]}
                     >
@@ -876,7 +968,9 @@ const VALEventScreen = ({ navigation, route }) => {
                 ))}
               </ScrollView>
             </View>
-          )}
+          );
+        })()}
+
 
         {/* Tab Content */}
         {activeTab === "overview" && (

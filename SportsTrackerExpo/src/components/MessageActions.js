@@ -144,9 +144,9 @@ const MessageActions = ({
               <Ionicons
                 name="person-remove-outline"
                 size={20}
-                color={colors.error}
+                color={theme.error}
               />
-              <Text style={[styles.actionText, { color: colors.error }]}>
+              <Text style={[styles.actionText, { color: theme.error }]}>
                 Block User
               </Text>
             </TouchableOpacity>
@@ -155,8 +155,8 @@ const MessageActions = ({
               style={[styles.actionButton, { borderBottomColor: theme.border }]}
               onPress={handleReport}
             >
-              <Ionicons name="flag-outline" size={20} color={colors.warning} />
-              <Text style={[styles.actionText, { color: colors.warning }]}>
+              <Ionicons name="flag-outline" size={20} color={theme.warning} />
+              <Text style={[styles.actionText, { color: theme.warning }]}>
                 Report Message
               </Text>
             </TouchableOpacity>
@@ -283,7 +283,7 @@ const ReportModal = ({ visible, onClose, onSubmit, reasons, message }) => {
               style={[
                 styles.reportSubmitButton,
                 {
-                  backgroundColor: selectedReason ? colors.error : theme.border,
+                  backgroundColor: selectedReason ? theme.error : theme.border,
                 },
               ]}
               onPress={handleSubmit}
