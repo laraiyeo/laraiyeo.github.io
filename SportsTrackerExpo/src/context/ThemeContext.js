@@ -153,7 +153,7 @@ export const ThemeProvider = ({ children }) => {
     const themeSuffix = isDarkMode ? '-dark' : '';
     // If teamId is suffixed (e.g. "1_mlb"), strip it for logo URL
     const base = stripSportSuffix(teamId).id || teamId;
-    return `https://a.espncdn.com/i/teamlogos/mlb/500${themeSuffix}/${base}.png`;
+    return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500${themeSuffix}/${base}.png&h=200&w=200`;
   };
 
   const getTeamLogoUrl = (sport, teamId, size = '500') => {
@@ -194,7 +194,7 @@ export const ThemeProvider = ({ children }) => {
     // Special handling for different sports
     switch (sport) {
       case 'mlb':
-        return `https://a.espncdn.com/i/teamlogos/mlb/${size}${themeSuffix}/${normalizedTeamId}.png`;
+        return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/${size}${themeSuffix}/${normalizedTeamId}.png&h=200&w=200`;
       case 'nfl':
         // Some ESPN payloads provide numeric team IDs; map those to the standard abbreviations used in the logo filenames
         const nflIdToAbbr = {
@@ -209,11 +209,11 @@ export const ThemeProvider = ({ children }) => {
         };
         // If teamId looks numeric and we have a mapping, prefer the abbreviation
         const nflNormalized = (nflIdToAbbr[normalizedTeamId] || normalizedTeamId);
-        return `https://a.espncdn.com/i/teamlogos/nfl/${size}${themeSuffix}/${nflNormalized}.png`;
+        return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/${size}${themeSuffix}/${nflNormalized}.png&h=200&w=200`;
       case 'nba':
-        return `https://a.espncdn.com/i/teamlogos/nba/${size}${themeSuffix}/${normalizedTeamId}.png`;
+        return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/${size}${themeSuffix}/${normalizedTeamId}.png&h=200&w=200`;
       case 'nhl':
-        return `https://a.espncdn.com/i/teamlogos/nhl/${size}${themeSuffix}/${normalizedTeamId}.png`;
+        return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nhl/${size}${themeSuffix}/${normalizedTeamId}.png&h=200&w=200`;
       case 'soccer':
       case 'champions league':
       case 'uefa champions':
@@ -236,12 +236,12 @@ export const ThemeProvider = ({ children }) => {
           // Some soccer IDs are numeric; prefer the numeric portion if present
           const numericMatch = String(cleanId).match(/(\d+)/);
           const finalId = numericMatch ? numericMatch[1] : cleanId.replace(/\s+/g, '-').toLowerCase();
-          return `https://a.espncdn.com/i/teamlogos/soccer/${size}${themeSuffix}/${finalId}.png`;
+          return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/${size}${themeSuffix}/${finalId}.png&h=200&w=200`;
         } catch (e) {
-          return `https://a.espncdn.com/i/teamlogos/soccer/${size}${themeSuffix}/${normalizedTeamId}.png`;
+          return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/${size}${themeSuffix}/${normalizedTeamId}.png&h=200&w=200`;
         }
       default:
-        return `https://a.espncdn.com/i/teamlogos/${sport}/${size}${themeSuffix}/${normalizedTeamId}.png`;
+        return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sport}/${size}${themeSuffix}/${normalizedTeamId}.png&h=200&w=200`;
     }
   };
 

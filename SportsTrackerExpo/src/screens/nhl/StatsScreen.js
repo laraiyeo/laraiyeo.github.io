@@ -443,7 +443,7 @@ const StatsScreen = ({ route }) => {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* NHL Statistics */}
-        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text, marginTop: -5 }]}>
           {selectedType === 'ATHLETES' ? 'Player Leaders' : 'Team Leaders'}
         </Text>
         

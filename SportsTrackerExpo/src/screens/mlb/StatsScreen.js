@@ -268,7 +268,7 @@ const StatsScreen = ({ route }) => {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Hitting Stats */}
-        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text, marginTop: -5 }]}>
           Hitting Leaders
         </Text>
         {hittingCategories.map(category => 

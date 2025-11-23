@@ -6,7 +6,7 @@ import {
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import { View, Text, StyleSheet, Image } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import * as ExpoSplashScreen from "expo-splash-screen";
 
 // Import SplashScreen component
@@ -67,16 +67,22 @@ import NFLStatsScreen from "./src/screens/nfl/StatsScreen";
 import NFLGameDetailsScreen from "./src/screens/nfl/GameDetailsScreen";
 import NFLTeamPageScreen from "./src/screens/nfl/TeamPageScreen";
 import NFLPlayerPageScreen from "./src/screens/nfl/NFLPlayerPageScreen";
+import NFLMoreScreen from "./src/screens/nfl/MoreScreen";
+import NFLTransactionsScreen from "./src/screens/nfl/TransactionsScreen";
+import NFLInjuriesScreen from "./src/screens/nfl/InjuriesScreen";
+import NFLDraftScreen from "./src/screens/nfl/DraftScreen";
 
 // MLB specific screens
 import MLBScoreboardScreen from "./src/screens/mlb/ScoreboardScreen";
 import MLBStandingsScreen from "./src/screens/mlb/StandingsScreen";
 import MLBSearchScreen from "./src/screens/mlb/SearchScreen";
 import MLBCompareScreen from "./src/screens/mlb/CompareScreen";
-import MLBStatsScreen from "./src/screens/mlb/StatsScreen";
 import MLBGameDetailsScreen from "./src/screens/mlb/GameDetailsScreen";
 import MLBTeamPageScreen from "./src/screens/mlb/TeamPageScreen";
 import MLBPlayerPageScreen from "./src/screens/mlb/PlayerPageScreen";
+import MLBMoreScreen from "./src/screens/mlb/MoreScreen";
+import MLBTransactionsScreen from "./src/screens/mlb/TransactionsScreen";
+import MLBDraftScreen from "./src/screens/mlb/DraftScreen";
 
 // NBA specific screens
 import NBAScoreboardScreen from "./src/screens/nba/ScoreboardScreen";
@@ -87,16 +93,23 @@ import NBAStatsScreen from "./src/screens/nba/StatsScreen";
 import NBAGameDetailsScreen from "./src/screens/nba/GameDetailsScreen";
 import NBATeamPageScreen from "./src/screens/nba/TeamPageScreen";
 import NBAPlayerPageScreen from "./src/screens/nba/PlayerPageScreen";
+import NBAMoreScreen from "./src/screens/nba/MoreScreen";
+import NBATransactionsScreen from "./src/screens/nba/TransactionsScreen";
+import NBAInjuriesScreen from "./src/screens/nba/InjuriesScreen";
+import NBADraftScreen from "./src/screens/nba/DraftScreen";
 
 // WNBA specific screens
 import WNBAScoreboardScreen from "./src/screens/wnba/ScoreboardScreen";
 import WNBAStandingsScreen from "./src/screens/wnba/StandingsScreen";
 import WNBASearchScreen from "./src/screens/wnba/SearchScreen";
 import WNBACompareScreen from "./src/screens/wnba/CompareScreen";
-import WNBAStatsScreen from "./src/screens/wnba/StatsScreen";
 import WNBAGameDetailsScreen from "./src/screens/wnba/GameDetailsScreen";
 import WNBATeamPageScreen from "./src/screens/wnba/TeamPageScreen";
 import WNBAPlayerPageScreen from "./src/screens/wnba/PlayerPageScreen";
+import WNBAMoreScreen from "./src/screens/wnba/MoreScreen";
+import WNBATransactionsScreen from "./src/screens/wnba/TransactionsScreen";
+import WNBAInjuriesScreen from "./src/screens/wnba/InjuriesScreen";
+import WNBADraftScreen from "./src/screens/wnba/DraftScreen";
 
 // F1 specific screens
 import F1ResultsScreen from "./src/screens/f1/ResultsScreen";
@@ -114,10 +127,12 @@ import NHLScoreboardScreen from "./src/screens/nhl/ScoreboardScreen";
 import NHLStandingsScreen from "./src/screens/nhl/StandingsScreen";
 import NHLSearchScreen from "./src/screens/nhl/SearchScreen";
 import NHLCompareScreen from "./src/screens/nhl/CompareScreen";
-import NHLStatsScreen from "./src/screens/nhl/StatsScreen";
 import NHLGameDetailsScreen from "./src/screens/nhl/GameDetailsScreen";
 import NHLTeamPageScreen from "./src/screens/nhl/TeamPageScreen";
 import NHLPlayerPageScreen from "./src/screens/nhl/PlayerPageScreen";
+import NHLMoreScreen from "./src/screens/nhl/MoreScreen";
+import NHLTransactionsScreen from "./src/screens/nhl/TransactionsScreen";
+import NHLInjuriesScreen from "./src/screens/nhl/InjuriesScreen";
 
 // Esports screens
 import EsportsNavigator from "./src/screens/esports/EsportsTabNavigator";
@@ -331,7 +346,10 @@ const SportTabNavigator = ({ route }) => {
           StandingsScreen: NFLStandingsScreen,
           SearchScreen: NFLSearchScreen,
           CompareScreen: NFLCompareScreen,
-          StatsScreen: NFLStatsScreen,
+          StatsScreen: NFLMoreScreen,
+          TransactionsScreen: NFLTransactionsScreen,
+          InjuriesScreen: NFLInjuriesScreen,
+          DraftScreen: NFLDraftScreen,
         };
       case "mlb":
         return {
@@ -339,7 +357,9 @@ const SportTabNavigator = ({ route }) => {
           StandingsScreen: MLBStandingsScreen,
           SearchScreen: MLBSearchScreen,
           CompareScreen: MLBCompareScreen,
-          StatsScreen: MLBStatsScreen,
+          StatsScreen: MLBMoreScreen,
+          TransactionsScreen: MLBTransactionsScreen,
+          DraftScreen: MLBDraftScreen,
         };
       case "nba":
         return {
@@ -347,7 +367,10 @@ const SportTabNavigator = ({ route }) => {
           StandingsScreen: NBAStandingsScreen,
           SearchScreen: NBASearchScreen,
           CompareScreen: NBACompareScreen,
-          StatsScreen: NBAStatsScreen,
+          StatsScreen: NBAMoreScreen,
+          TransactionsScreen: NBATransactionsScreen,
+          InjuriesScreen: NBAInjuriesScreen,
+          DraftScreen: NBADraftScreen,
         };
       case "wnba":
         return {
@@ -355,7 +378,10 @@ const SportTabNavigator = ({ route }) => {
           StandingsScreen: WNBAStandingsScreen,
           SearchScreen: WNBASearchScreen,
           CompareScreen: WNBACompareScreen,
-          StatsScreen: WNBAStatsScreen,
+          StatsScreen: WNBAMoreScreen,
+          TransactionsScreen: WNBATransactionsScreen,
+          InjuriesScreen: WNBAInjuriesScreen,
+          DraftScreen: WNBADraftScreen,
         };
       case "nhl":
         return {
@@ -363,7 +389,9 @@ const SportTabNavigator = ({ route }) => {
           StandingsScreen: NHLStandingsScreen,
           SearchScreen: NHLSearchScreen,
           CompareScreen: NHLCompareScreen,
-          StatsScreen: NHLStatsScreen,
+          StatsScreen: NHLMoreScreen,
+          TransactionsScreen: NHLTransactionsScreen,
+          InjuriesScreen: NHLInjuriesScreen,
         };
       case "f1":
         return {
@@ -534,7 +562,26 @@ const SportTabNavigator = ({ route }) => {
         component={screens.StatsScreen}
         initialParams={{ sport }}
         options={{
-          title: "Stats",
+          title:
+            sport?.toLowerCase() === "nba" ||
+            sport?.toLowerCase() === "nfl" ||
+            sport?.toLowerCase() === "wnba" ||
+            sport?.toLowerCase() === "nhl" ||
+            sport?.toLowerCase() === "mlb"
+              ? "More"
+              : "Stats",
+          tabBarIcon: ({ color, size }) => {
+            if (
+              sport?.toLowerCase() === "nba" ||
+              sport?.toLowerCase() === "nfl" ||
+              sport?.toLowerCase() === "wnba" ||
+              sport?.toLowerCase() === "nhl" ||
+              sport?.toLowerCase() === "mlb"
+            ) {
+              return <FontAwesome name="navicon" size={size} color={color} />;
+            }
+            return <Ionicons name="bar-chart" size={size} color={color} />;
+          },
         }}
       />
     </Tab.Navigator>
