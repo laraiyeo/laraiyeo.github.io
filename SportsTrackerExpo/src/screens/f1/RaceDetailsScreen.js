@@ -197,7 +197,11 @@ const RaceDetailsScreen = ({ route }) => {
 
   const computeShouldRunNow = () => {
     // Use refs to ensure we read the latest UI state inside start/stop callers
-    if (!isScreenFocusedRef.current || streamModalVisibleRef.current || !raceData)
+    if (
+      !isScreenFocusedRef.current ||
+      streamModalVisibleRef.current ||
+      !raceData
+    )
       return false;
 
     const isLiveNow = (() => {
@@ -215,7 +219,11 @@ const RaceDetailsScreen = ({ route }) => {
         if (!competition) return false;
         const statusState = competition.status?.type?.state;
         const completed = competition.status?.type?.completed;
-        return !(completed === true || statusState === "post" || statusState === "final");
+        return !(
+          completed === true ||
+          statusState === "post" ||
+          statusState === "final"
+        );
       }) || false;
 
     const recentlyLiveNow =
@@ -224,7 +232,12 @@ const RaceDetailsScreen = ({ route }) => {
     const recentlyStartedNow =
       lastLiveStartRef.current && Date.now() - lastLiveStartRef.current < 3000;
 
-    return isLiveNow || hasAnyLiveCompetitionNow || recentlyLiveNow || recentlyStartedNow;
+    return (
+      isLiveNow ||
+      hasAnyLiveCompetitionNow ||
+      recentlyLiveNow ||
+      recentlyStartedNow
+    );
   };
 
   // Keep refs updated with current values
@@ -981,7 +994,11 @@ const RaceDetailsScreen = ({ route }) => {
       if (liveUpdateInterval || streamModalVisible || !isScreenFocused) {
         console.log(
           "[loadStatus] Skipping status reload — live updates running, modal open, or screen not focused",
-          { liveUpdateInterval: !!liveUpdateInterval, streamModalVisible, isScreenFocused }
+          {
+            liveUpdateInterval: !!liveUpdateInterval,
+            streamModalVisible,
+            isScreenFocused,
+          }
         );
         return;
       }
@@ -2983,56 +3000,56 @@ const RaceDetailsScreen = ({ route }) => {
     }
 
     // Secondary check: if we have a selected competition, check its specific status
-      if (selectedCompetitionId && competitionResults[selectedCompetitionId]) {
-        const competition = competitionResults[selectedCompetitionId];
+    if (selectedCompetitionId && competitionResults[selectedCompetitionId]) {
+      const competition = competitionResults[selectedCompetitionId];
 
-        // If the competition exposes a status link, prefer the fetched status as authoritative.
-        // Do NOT treat local competitionResults 'has results' as definitive when a status.$ref exists.
-        const statusRef =
-          competition.status?.$ref || competition.raw?.status?.$ref || null;
+      // If the competition exposes a status link, prefer the fetched status as authoritative.
+      // Do NOT treat local competitionResults 'has results' as definitive when a status.$ref exists.
+      const statusRef =
+        competition.status?.$ref || competition.raw?.status?.$ref || null;
 
-        if (statusRef) {
-          // If we already have a fetched raceStatus, use it (the primary check above).
-          // If raceStatus is not yet available, assume live until the status link is fetched
-          // to avoid flipping based on cached/partial competitionResults.
-          if (!raceStatus) {
-            console.log(
-              "[checkIfRaceIsLive] Status link present but raceStatus not yet fetched - assuming live until fetched"
-            );
-            setCurrentLiveSession(competition);
-            return true;
-          }
-
-          // If raceStatus exists, we've already handled it in the primary check above.
-          // Fall through to allow time-based checks if needed.
+      if (statusRef) {
+        // If we already have a fetched raceStatus, use it (the primary check above).
+        // If raceStatus is not yet available, assume live until the status link is fetched
+        // to avoid flipping based on cached/partial competitionResults.
+        if (!raceStatus) {
+          console.log(
+            "[checkIfRaceIsLive] Status link present but raceStatus not yet fetched - assuming live until fetched"
+          );
+          setCurrentLiveSession(competition);
+          return true;
         }
 
-        // If no status link, fall back to any status object embedded in competitionResults.
-        if (competition.status?.type) {
-          const statusState = competition.status.type.state;
-          const completed = competition.status.type.completed;
+        // If raceStatus exists, we've already handled it in the primary check above.
+        // Fall through to allow time-based checks if needed.
+      }
 
-          if (
-            completed === true ||
-            statusState === "post" ||
-            statusState === "final"
-          ) {
-            console.log(
-              "[checkIfRaceIsLive] Not live - selected competition completed:",
-              statusState
-            );
-            return false;
-          }
+      // If no status link, fall back to any status object embedded in competitionResults.
+      if (competition.status?.type) {
+        const statusState = competition.status.type.state;
+        const completed = competition.status.type.completed;
 
-          if (statusState === "in" || statusState === "active") {
-            console.log(
-              "[checkIfRaceIsLive] Live - selected competition active:",
-              statusState
-            );
-            return true;
-          }
+        if (
+          completed === true ||
+          statusState === "post" ||
+          statusState === "final"
+        ) {
+          console.log(
+            "[checkIfRaceIsLive] Not live - selected competition completed:",
+            statusState
+          );
+          return false;
+        }
+
+        if (statusState === "in" || statusState === "active") {
+          console.log(
+            "[checkIfRaceIsLive] Live - selected competition active:",
+            statusState
+          );
+          return true;
         }
       }
+    }
 
     // Fallback: Use time-based check if no status available or status is inconclusive
     // But be more strict - only consider live if we have evidence it's not completed
@@ -3106,7 +3123,9 @@ const RaceDetailsScreen = ({ route }) => {
   const updateLiveRaceStatus = async () => {
     // Prevent overlapping updates
     if (isUpdatingRef.current) {
-      console.log("[updateLiveRaceStatus] Skipping because previous update still running");
+      console.log(
+        "[updateLiveRaceStatus] Skipping because previous update still running"
+      );
       return;
     }
 
@@ -3115,7 +3134,10 @@ const RaceDetailsScreen = ({ route }) => {
     if (!isScreenFocusedRef.current || streamModalVisibleRef.current) {
       console.log(
         "[updateLiveRaceStatus] Skipping update - screen not focused or stream modal open",
-        { isScreenFocused: isScreenFocusedRef.current, streamModalVisible: streamModalVisibleRef.current }
+        {
+          isScreenFocused: isScreenFocusedRef.current,
+          streamModalVisible: streamModalVisibleRef.current,
+        }
       );
       return;
     }
@@ -3157,182 +3179,192 @@ const RaceDetailsScreen = ({ route }) => {
         }
       }
 
-    // Update competitor statistics and status when live and on Results or Grid tab
-    if (
-      isLive &&
-      (currentTab === "RESULTS" || currentTab === "GRID") &&
-      currentCompetitionId
-    ) {
-      try {
-        const selectedComp = currentCompetitionResults[currentCompetitionId];
-        if (!selectedComp || !selectedComp.competitors) {
-          return;
-        }
-
-        console.log(
-          "[updateLiveRaceStatus] Updating",
-          selectedComp.competitors.length,
-          "competitors with live stats"
-        );
-
-        // First, update the competition status to check if still live
-        // Determine statusRef: prefer the selected competition object, but fall back
-        // to the original raceData entry if competitionResults may be missing the link
-        let statusRef = selectedComp.status?.$ref;
-        if (!statusRef && raceData?.competitions) {
-          const originalComp = raceData.competitions.find((c) => {
-            const compId = c.id || (c.$ref && c.$ref.split("/").pop());
-            return compId === currentCompetitionId;
-          });
-          statusRef = originalComp?.status?.$ref || null;
-        }
-
-        if (statusRef) {
-          try {
-            // Use occasional cache-busting to avoid CORS preflight issues
-            const statusUrl =
-              statusRef +
-              (Math.random() > 0.7 ? (statusRef.includes("?") ? "&" : "?") + "_=" + Date.now() : "");
-            const statusResponse = await fetch(convertToHttps(statusUrl), {
-              signal,
-            });
-            const statusData = await statusResponse.json();
-            // Store status in a ref so synchronous checks (computeShouldRunNow / checkIfRaceIsLive)
-            // can see the latest status immediately without waiting for state to propagate.
-            lastFetchedRaceStatusRef.current = statusData;
-            setRaceStatus(statusData);
-            console.log("[updateLiveRaceStatus] Updated race status:", statusData.type?.name);
-
-            // Check if session has ended - if so, stop live updates
-            const statusState = statusData.type?.state;
-            const completed = statusData.type?.completed;
-
-            // Session is complete if explicitly marked as completed OR state is post/final
-            const isComplete = completed === true || statusState === "post" || statusState === "final";
-
-            if (isComplete) {
-              console.log(
-                "[updateLiveRaceStatus] Session complete, stopping live updates - state:",
-                statusState,
-                "completed:",
-                completed
-              );
-              // Clear recent-live marker so computeShouldRunNow no longer treats this as recently live
-              lastLiveSeenRef.current = 0;
-              // Ensure lastFetchedRaceStatusRef reflects the final state (already set above)
-              setIsLiveRace(false);
-              stopLiveUpdates();
-              return;
-            }
-          } catch (statusError) {
-            console.error("Error updating race status:", statusError);
+      // Update competitor statistics and status when live and on Results or Grid tab
+      if (
+        isLive &&
+        (currentTab === "RESULTS" || currentTab === "GRID") &&
+        currentCompetitionId
+      ) {
+        try {
+          const selectedComp = currentCompetitionResults[currentCompetitionId];
+          if (!selectedComp || !selectedComp.competitors) {
+            return;
           }
-        }
 
-        // Update statistics for each competitor
-        const updatedCompetitors = await Promise.all(
-          selectedComp.competitors.map(async (competitor, index) => {
+          console.log(
+            "[updateLiveRaceStatus] Updating",
+            selectedComp.competitors.length,
+            "competitors with live stats"
+          );
+
+          // First, update the competition status to check if still live
+          // Determine statusRef: prefer the selected competition object, but fall back
+          // to the original raceData entry if competitionResults may be missing the link
+          let statusRef = selectedComp.status?.$ref;
+          if (!statusRef && raceData?.competitions) {
+            const originalComp = raceData.competitions.find((c) => {
+              const compId = c.id || (c.$ref && c.$ref.split("/").pop());
+              return compId === currentCompetitionId;
+            });
+            statusRef = originalComp?.status?.$ref || null;
+          }
+
+          if (statusRef) {
             try {
-              if (competitor.statistics && competitor.statistics.$ref) {
-                // Append /0 to get the detailed split statistics
-                // Use minimal cache-busting to avoid CORS preflight issues
-                const statsRef =
-                  competitor.statistics.$ref +
-                  "/0" +
-                  (Math.random() > 0.5 ? "?_=" + Date.now() : "");
-                const response = await fetch(convertToHttps(statsRef), {
-                  signal,
-                });
-                const statsData = await response.json();
+              // Use occasional cache-busting to avoid CORS preflight issues
+              const statusUrl =
+                statusRef +
+                (Math.random() > 0.7
+                  ? (statusRef.includes("?") ? "&" : "?") + "_=" + Date.now()
+                  : "");
+              const statusResponse = await fetch(convertToHttps(statusUrl), {
+                signal,
+              });
+              const statusData = await statusResponse.json();
+              // Store status in a ref so synchronous checks (computeShouldRunNow / checkIfRaceIsLive)
+              // can see the latest status immediately without waiting for state to propagate.
+              lastFetchedRaceStatusRef.current = statusData;
+              setRaceStatus(statusData);
+              console.log(
+                "[updateLiveRaceStatus] Updated race status:",
+                statusData.type?.name
+              );
 
-                // Extract laps and other data from live stats
-                let liveUpdatedLaps = competitor.laps;
-                let liveUpdatedTotalTime = competitor.totalTime;
+              // Check if session has ended - if so, stop live updates
+              const statusState = statusData.type?.state;
+              const completed = statusData.type?.completed;
 
-                if (statsData?.splits?.categories) {
-                  const categories = statsData.splits.categories;
+              // Session is complete if explicitly marked as completed OR state is post/final
+              const isComplete =
+                completed === true ||
+                statusState === "post" ||
+                statusState === "final";
 
-                  // Extract laps from various possible locations in the stats
-                  for (const category of categories) {
-                    if (category.stats) {
-                      for (const stat of category.stats) {
-                        const statName = (stat.name || "").toLowerCase();
-                        const statValue = stat.displayValue || stat.value;
+              if (isComplete) {
+                console.log(
+                  "[updateLiveRaceStatus] Session complete, stopping live updates - state:",
+                  statusState,
+                  "completed:",
+                  completed
+                );
+                // Clear recent-live marker so computeShouldRunNow no longer treats this as recently live
+                lastLiveSeenRef.current = 0;
+                // Ensure lastFetchedRaceStatusRef reflects the final state (already set above)
+                setIsLiveRace(false);
+                stopLiveUpdates();
+                return;
+              }
+            } catch (statusError) {
+              console.error("Error updating race status:", statusError);
+            }
+          }
 
-                        // Update laps if found
-                        if (
-                          !liveUpdatedLaps &&
-                          (statName.includes("lapscompleted") ||
-                            statName.includes("laps"))
-                        ) {
-                          liveUpdatedLaps = statValue;
-                        }
+          // Update statistics for each competitor
+          const updatedCompetitors = await Promise.all(
+            selectedComp.competitors.map(async (competitor, index) => {
+              try {
+                if (competitor.statistics && competitor.statistics.$ref) {
+                  // Append /0 to get the detailed split statistics
+                  // Use minimal cache-busting to avoid CORS preflight issues
+                  const statsRef =
+                    competitor.statistics.$ref +
+                    "/0" +
+                    (Math.random() > 0.5 ? "?_=" + Date.now() : "");
+                  const response = await fetch(convertToHttps(statsRef), {
+                    signal,
+                  });
+                  const statsData = await response.json();
 
-                        // Update total time if found
-                        if (
-                          !liveUpdatedTotalTime &&
-                          (statName.includes("totaltime") ||
-                            statName.includes("total"))
-                        ) {
-                          liveUpdatedTotalTime = statValue;
+                  // Extract laps and other data from live stats
+                  let liveUpdatedLaps = competitor.laps;
+                  let liveUpdatedTotalTime = competitor.totalTime;
+
+                  if (statsData?.splits?.categories) {
+                    const categories = statsData.splits.categories;
+
+                    // Extract laps from various possible locations in the stats
+                    for (const category of categories) {
+                      if (category.stats) {
+                        for (const stat of category.stats) {
+                          const statName = (stat.name || "").toLowerCase();
+                          const statValue = stat.displayValue || stat.value;
+
+                          // Update laps if found
+                          if (
+                            !liveUpdatedLaps &&
+                            (statName.includes("lapscompleted") ||
+                              statName.includes("laps"))
+                          ) {
+                            liveUpdatedLaps = statValue;
+                          }
+
+                          // Update total time if found
+                          if (
+                            !liveUpdatedTotalTime &&
+                            (statName.includes("totaltime") ||
+                              statName.includes("total"))
+                          ) {
+                            liveUpdatedTotalTime = statValue;
+                          }
                         }
                       }
                     }
                   }
+
+                  const updatedCompetitor = {
+                    ...competitor,
+                    liveStats: statsData,
+                    laps: liveUpdatedLaps || competitor.laps,
+                    totalTime: liveUpdatedTotalTime || competitor.totalTime,
+                  };
+
+                  // Successfully updated with live stats
+                  return updatedCompetitor;
                 }
-
-                const updatedCompetitor = {
-                  ...competitor,
-                  liveStats: statsData,
-                  laps: liveUpdatedLaps || competitor.laps,
-                  totalTime: liveUpdatedTotalTime || competitor.totalTime,
-                };
-
-                // Successfully updated with live stats
-                return updatedCompetitor;
+                return competitor;
+              } catch (error) {
+                console.error("Error updating competitor stats:", error);
+                return competitor;
               }
-              return competitor;
-            } catch (error) {
-              console.error("Error updating competitor stats:", error);
-              return competitor;
-            }
-          })
-        );
+            })
+          );
 
-        const competitorsWithLiveStats = updatedCompetitors.filter(
-          (c) => !!c.liveStats
-        ).length;
-        console.log(
-          `[updateLiveRaceStatus] Updating state: ${competitorsWithLiveStats}/${updatedCompetitors.length} competitors have live stats`
-        );
+          const competitorsWithLiveStats = updatedCompetitors.filter(
+            (c) => !!c.liveStats
+          ).length;
+          console.log(
+            `[updateLiveRaceStatus] Updating state: ${competitorsWithLiveStats}/${updatedCompetitors.length} competitors have live stats`
+          );
 
-        // Update only the selected competition with new competitor data
-        setCompetitionResults((prev) => ({
-          ...prev,
-          [currentCompetitionId]: {
-            ...prev[currentCompetitionId],
-            competitors: updatedCompetitors,
-          },
-        }));
-      } catch (error) {
-        console.error("Error updating live race data:", error);
+          // Update only the selected competition with new competitor data
+          setCompetitionResults((prev) => ({
+            ...prev,
+            [currentCompetitionId]: {
+              ...prev[currentCompetitionId],
+              competitors: updatedCompetitors,
+            },
+          }));
+        } catch (error) {
+          console.error("Error updating live race data:", error);
+        }
+      }
+    } finally {
+      // Clear running flag and release abort controller
+      isUpdatingRef.current = false;
+      if (liveUpdateAbortControllerRef.current) {
+        liveUpdateAbortControllerRef.current = null;
       }
     }
-  } finally {
-    // Clear running flag and release abort controller
-    isUpdatingRef.current = false;
-    if (liveUpdateAbortControllerRef.current) {
-      liveUpdateAbortControllerRef.current = null;
-    }
-  }
-};
+  };
 
   const startLiveUpdates = () => {
     if (liveUpdateInterval) return; // Already running
 
     // Double-check locally before starting: if conditions don't justify running, skip.
     if (!computeShouldRunNow()) {
-      console.log("[startLiveUpdates] Skipping start — computeShouldRunNow false");
+      console.log(
+        "[startLiveUpdates] Skipping start — computeShouldRunNow false"
+      );
       return;
     }
 
@@ -3342,14 +3374,19 @@ const RaceDetailsScreen = ({ route }) => {
       if (!isScreenFocusedRef.current || streamModalVisibleRef.current) {
         console.log(
           "[liveUpdateInterval] Skipping scheduled update - screen not focused or stream modal open",
-          { isScreenFocused: isScreenFocusedRef.current, streamModalVisible: streamModalVisibleRef.current }
+          {
+            isScreenFocused: isScreenFocusedRef.current,
+            streamModalVisible: streamModalVisibleRef.current,
+          }
         );
         return;
       }
 
       // Prevent overlapping runs
       if (isUpdatingRef.current) {
-        console.log("[liveUpdateInterval] Skipping scheduled update - previous update still running");
+        console.log(
+          "[liveUpdateInterval] Skipping scheduled update - previous update still running"
+        );
         return;
       }
 
@@ -3434,7 +3471,8 @@ const RaceDetailsScreen = ({ route }) => {
       // Avoid immediate stop right after we just started the interval (race between
       // state updates). Treat very recent starts as shouldRun=true for a short window.
       const recentlyStarted =
-        lastLiveStartRef.current && Date.now() - lastLiveStartRef.current < 3000;
+        lastLiveStartRef.current &&
+        Date.now() - lastLiveStartRef.current < 3000;
 
       return isLive || hasAnyLiveCompetition || recentlyLive || recentlyStarted;
     })();
