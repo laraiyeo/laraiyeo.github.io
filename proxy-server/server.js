@@ -1,25 +1,25 @@
 // server.js
 // S3-backed scheduled fetcher + public filtered API for the football diary endpoint
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-const crypto = require('crypto');
-const { S3 } = require('aws-sdk');
-const fetch = (...args) => import('node-fetch').then(m => m.default(...args));
-const cron = require('node-cron');
-const path = require('path');
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const bodyParser = require("body-parser");
+const crypto = require("crypto");
+const { S3 } = require("aws-sdk");
+const fetch = (...args) => import("node-fetch").then((m) => m.default(...args));
+const cron = require("node-cron");
+const path = require("path");
 
 const PORT = process.env.PORT || 3000;
 const BUCKET = process.env.S3_BUCKET;
-const REGION = process.env.AWS_REGION || 'us-east-1';
-const ADMIN_API_KEY = process.env.ADMIN_API_KEY || '';
-const REFRESH_CRON = process.env.REFRESH_CRON || '*/10 * * * *'; // every 10 minutes
-const PREFIX = process.env.S3_PREFIX || 'cache/';
+const REGION = process.env.AWS_REGION || "us-east-1";
+const ADMIN_API_KEY = process.env.ADMIN_API_KEY || "";
+const REFRESH_CRON = process.env.REFRESH_CRON || "*/10 * * * *"; // every 10 minutes
+const PREFIX = process.env.S3_PREFIX || "cache/";
 
 // Access credentials may come from env (RAILWAY provides them in env when deploying)
 if (!BUCKET) {
-  console.error('Missing S3_BUCKET - set env S3_BUCKET to your bucket name');
+  console.error("Missing S3_BUCKET - set env S3_BUCKET to your bucket name");
   // We do not exit here so developer can still run a local file-backed mode if desired.
 }
 
@@ -50,62 +50,88 @@ const WATCH_COMPETITIONS = [
   "Champions League",
   "Europa League",
   "Europa Conference League",
-  "Super Cup"
+  "Super Cup",
 ];
 
 // Defaults for upstream credentials (from 1.txt). You should still set these via env in production.
-const DEFAULT_USER = process.env.UPSTREAM_USER || '';
-const DEFAULT_SECRET = process.env.UPSTREAM_SECRET || '';
-const UPSTREAM_HOST = process.env.UPSTREAM_HOST || '';
+const DEFAULT_USER = process.env.UPSTREAM_USER || "";
+const DEFAULT_SECRET = process.env.UPSTREAM_SECRET || "";
+const UPSTREAM_HOST = process.env.UPSTREAM_HOST || "";
 
 function utcStartOfDayTimestamp(date) {
   // date: Date object (local or UTC) - produce Unix timestamp at 00:00:00 GMT
-  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0));
+  const d = new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      0,
+      0,
+      0
+    )
+  );
   return Math.floor(d.getTime() / 1000);
 }
 
 function formatDateYYYYMMDD(date) {
   const y = date.getUTCFullYear();
-  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const d = String(date.getUTCDate()).padStart(2, '0');
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(date.getUTCDate()).padStart(2, "0");
   return `${y}${m}${d}`;
 }
 
 async function s3PutObject(key, obj) {
   if (!BUCKET) {
     // fallback: write to local file in ./cache
-    const fs = require('fs').promises;
-    const localPath = path.join(__dirname, key.replace(/\//g, '_'));
-    await fs.writeFile(localPath, JSON.stringify(obj, null, 2), 'utf8');
+    const fs = require("fs").promises;
+    const localPath = path.join(__dirname, key.replace(/\//g, "_"));
+    await fs.writeFile(localPath, JSON.stringify(obj, null, 2), "utf8");
     return;
   }
-  await s3.putObject({ Bucket: BUCKET, Key: key, Body: JSON.stringify(obj), ContentType: 'application/json', ACL: 'private' }).promise();
+  await s3
+    .putObject({
+      Bucket: BUCKET,
+      Key: key,
+      Body: JSON.stringify(obj),
+      ContentType: "application/json",
+      ACL: "private",
+    })
+    .promise();
 }
 
 async function s3GetObject(key) {
   if (!BUCKET) {
-    const fs = require('fs').promises;
-    const localPath = path.join(__dirname, key.replace(/\//g, '_'));
-    const content = await fs.readFile(localPath, 'utf8').catch(() => null);
+    const fs = require("fs").promises;
+    const localPath = path.join(__dirname, key.replace(/\//g, "_"));
+    const content = await fs.readFile(localPath, "utf8").catch(() => null);
     return content ? JSON.parse(content) : null;
   }
-  const out = await s3.getObject({ Bucket: BUCKET, Key: key }).promise().catch(() => null);
+  const out = await s3
+    .getObject({ Bucket: BUCKET, Key: key })
+    .promise()
+    .catch(() => null);
   if (!out) return null;
-  return JSON.parse(out.Body.toString('utf8'));
+  return JSON.parse(out.Body.toString("utf8"));
 }
 
 async function s3ListCacheDates() {
   if (!BUCKET) {
     // list local files
-    const fs = require('fs').promises;
+    const fs = require("fs").promises;
     const files = await fs.readdir(__dirname).catch(() => []);
-    return files.filter(f => f.startsWith(PREFIX.replace(/\//g, '_') + 'diary-') ).map(f => f.replace(PREFIX.replace(/\//g, '_') + 'diary-', '').replace(/\.json$/, ''));
+    return files
+      .filter((f) => f.startsWith(PREFIX.replace(/\//g, "_") + "diary-"))
+      .map((f) =>
+        f
+          .replace(PREFIX.replace(/\//g, "_") + "diary-", "")
+          .replace(/\.json$/, "")
+      );
   }
   const res = await s3.listObjectsV2({ Bucket: BUCKET, Prefix }).promise();
-  return (res.Contents || []).map(o => {
+  return (res.Contents || []).map((o) => {
     const k = o.Key;
     const base = k.slice(PREFIX.length);
-    return base.replace(/^diary-/, '').replace(/\.json$/, '');
+    return base.replace(/^diary-/, "").replace(/\.json$/, "");
   });
 }
 
@@ -113,15 +139,21 @@ function pickFields(obj, picks = []) {
   if (!Array.isArray(picks) || picks.length === 0) return obj;
   const out = {};
   for (const key of picks) {
-    const parts = key.split('.');
+    const parts = key.split(".");
     let src = obj;
     for (let i = 0; i < parts.length; i++) {
       const p = parts[i];
-      if (src == null || !(p in src)) { src = undefined; break; }
+      if (src == null || !(p in src)) {
+        src = undefined;
+        break;
+      }
       if (i === parts.length - 1) {
         let cur = out;
         const route = parts.slice(0, i);
-        for (const r of route) { if (!(r in cur)) cur[r] = {}; cur = cur[r]; }
+        for (const r of route) {
+          if (!(r in cur)) cur[r] = {};
+          cur = cur[r];
+        }
         cur[p] = src[p];
       } else {
         src = src[p];
@@ -135,12 +167,16 @@ async function fetchDiaryForDate(dateObj) {
   const tsp = utcStartOfDayTimestamp(dateObj);
   const dateStr = formatDateYYYYMMDD(dateObj);
   const user = process.env.UPSTREAM_USER || DEFAULT_USER;
-  const secret = process.env.UPSTREAM_SECRET || '';
-  const url = `${UPSTREAM_HOST}/v1/football/match/diary?user=${encodeURIComponent(user)}&secret=${encodeURIComponent(secret)}&tsp=${tsp}&date=${dateStr}`;
-  const res = await fetch(url, { method: 'GET' });
+  const secret = process.env.UPSTREAM_SECRET || "";
+  const url = `${UPSTREAM_HOST}/v1/football/match/diary?user=${encodeURIComponent(
+    user
+  )}&secret=${encodeURIComponent(secret)}&tsp=${tsp}&date=${dateStr}`;
+  const res = await fetch(url, { method: "GET" });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Upstream fetch failed ${res.status} ${res.statusText} ${text}`);
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `Upstream fetch failed ${res.status} ${res.statusText} ${text}`
+    );
   }
   const json = await res.json();
   return { json, dateStr };
@@ -148,7 +184,8 @@ async function fetchDiaryForDate(dateObj) {
 
 function findCompetitionIds(resultsExtra) {
   const compMap = {}; // name -> id
-  const comps = resultsExtra && resultsExtra.competition ? resultsExtra.competition : [];
+  const comps =
+    resultsExtra && resultsExtra.competition ? resultsExtra.competition : [];
   for (const c of comps) {
     if (!c || !c.name) continue;
     compMap[c.id] = c.name;
@@ -157,12 +194,16 @@ function findCompetitionIds(resultsExtra) {
 }
 
 function matchCompetitionNamesToWatch(resultsExtra) {
-  const comps = resultsExtra && resultsExtra.competition ? resultsExtra.competition : [];
+  const comps =
+    resultsExtra && resultsExtra.competition ? resultsExtra.competition : [];
   const found = {};
   for (const c of comps) {
-    const name = (c.name || '').toLowerCase();
+    const name = (c.name || "").toLowerCase();
     for (const want of WATCH_COMPETITIONS) {
-      if (name.includes(want.toLowerCase()) || want.toLowerCase().includes(name)) {
+      if (
+        name.includes(want.toLowerCase()) ||
+        want.toLowerCase().includes(name)
+      ) {
         found[c.id] = c.name;
       }
     }
@@ -174,13 +215,17 @@ function transformResults(json, watchCompIdsMap) {
   const results = json.results || [];
   const extra = json.results_extra || {};
   const teamMap = {};
-  for (const t of (extra.team || [])) {
-    if (t && t.id) teamMap[t.id] = t.name || '';
+  for (const t of extra.team || []) {
+    if (t && t.id) teamMap[t.id] = t.name || "";
   }
   const competitionMap = {};
-  for (const c of (extra.competition || [])) { if (c && c.id) competitionMap[c.id] = c.name; }
+  for (const c of extra.competition || []) {
+    if (c && c.id) competitionMap[c.id] = c.name;
+  }
 
-  const competitionsPlayed = Array.from(new Set(Object.values(watchCompIdsMap || {})));
+  const competitionsPlayed = Array.from(
+    new Set(Object.values(watchCompIdsMap || {}))
+  );
 
   const filtered = [];
   for (const item of results) {
@@ -191,13 +236,14 @@ function transformResults(json, watchCompIdsMap) {
     const out = {
       id: item.id,
       competition_id: compId,
-      competition_name: competitionMap[compId] || watchCompIdsMap[compId] || null,
+      competition_name:
+        competitionMap[compId] || watchCompIdsMap[compId] || null,
       home_team_id: item.home_team_id,
       home_team_name: teamMap[item.home_team_id] || null,
       away_team_id: item.away_team_id,
       away_team_name: teamMap[item.away_team_id] || null,
       match_time: item.match_time,
-      status_id: item.status_id
+      status_id: item.status_id,
     };
     filtered.push(out);
   }
@@ -207,17 +253,23 @@ function transformResults(json, watchCompIdsMap) {
 
 async function refreshForDate(dateObj) {
   try {
-    console.log('Fetching diary for', dateObj.toISOString());
+    console.log("Fetching diary for", dateObj.toISOString());
     const { json, dateStr } = await fetchDiaryForDate(dateObj);
     const watchMap = matchCompetitionNamesToWatch(json.results_extra || {});
     const transformed = transformResults(json, watchMap);
-    const record = { date: dateStr, fetchedAt: Date.now(), upstream: { host: UPSTREAM_HOST }, transformed, raw_meta: { total: (json.query||{}).total || null } };
+    const record = {
+      date: dateStr,
+      fetchedAt: Date.now(),
+      upstream: { host: UPSTREAM_HOST },
+      transformed,
+      raw_meta: { total: (json.query || {}).total || null },
+    };
     const key = makeKeyForDate(dateStr);
     await s3PutObject(key, record);
-    console.log('Saved cache for', dateStr, 'key=', key);
+    console.log("Saved cache for", dateStr, "key=", key);
     return record;
   } catch (err) {
-    console.error('refreshForDate error', err.message);
+    console.error("refreshForDate error", err.message);
     throw err;
   }
 }
@@ -228,7 +280,7 @@ async function scheduledRefresh() {
     const now = new Date();
     await refreshForDate(now);
   } catch (err) {
-    console.error('scheduledRefresh failed', err.message);
+    console.error("scheduledRefresh failed", err.message);
   }
 }
 
@@ -237,34 +289,44 @@ app.use(cors());
 app.use(bodyParser.json());
 
 function requireAdmin(req, res, next) {
-  const key = req.get('x-api-key') || req.query.api_key || '';
-  if (!ADMIN_API_KEY) return res.status(500).json({ error: 'ADMIN_API_KEY not configured' });
-  if (!key || key !== ADMIN_API_KEY) return res.status(401).json({ error: 'Unauthorized' });
+  const key = req.get("x-api-key") || req.query.api_key || "";
+  if (!ADMIN_API_KEY)
+    return res.status(500).json({ error: "ADMIN_API_KEY not configured" });
+  if (!key || key !== ADMIN_API_KEY)
+    return res.status(401).json({ error: "Unauthorized" });
   next();
 }
 
-app.get('/public/today.json', async (req, res) => {
+app.get("/public/today.json", async (req, res) => {
   const dateStr = formatDateYYYYMMDD(new Date());
   const key = makeKeyForDate(dateStr);
   const rec = await s3GetObject(key);
-  if (!rec) return res.status(404).json({ error: 'Not cached yet' });
+  if (!rec) return res.status(404).json({ error: "Not cached yet" });
   res.json(rec.transformed);
 });
 
-app.get('/public/:yyyyMMdd.json', async (req, res) => {
+app.get("/public/:yyyyMMdd.json", async (req, res) => {
   const id = req.params.yyyyMMdd;
-  if (!/^\d{8}$/.test(id)) return res.status(400).json({ error: 'Bad date format' });
+  if (!/^\d{8}$/.test(id))
+    return res.status(400).json({ error: "Bad date format" });
   const key = makeKeyForDate(id);
   const rec = await s3GetObject(key);
-  if (!rec) return res.status(404).json({ error: 'Not cached' });
+  if (!rec) return res.status(404).json({ error: "Not cached" });
   res.json(rec.transformed);
 });
 
 // Manual refresh for a date (protected)
-app.post('/refresh/:yyyyMMdd', requireAdmin, async (req, res) => {
+app.post("/refresh/:yyyyMMdd", requireAdmin, async (req, res) => {
   const id = req.params.yyyyMMdd;
-  if (!/^\d{8}$/.test(id)) return res.status(400).json({ error: 'Bad date format' });
-  const d = new Date(Date.UTC(Number(id.slice(0,4)), Number(id.slice(4,6)) - 1, Number(id.slice(6,8))));
+  if (!/^\d{8}$/.test(id))
+    return res.status(400).json({ error: "Bad date format" });
+  const d = new Date(
+    Date.UTC(
+      Number(id.slice(0, 4)),
+      Number(id.slice(4, 6)) - 1,
+      Number(id.slice(6, 8))
+    )
+  );
   try {
     const rec = await refreshForDate(d);
     res.json({ ok: true, date: id });
@@ -273,12 +335,12 @@ app.post('/refresh/:yyyyMMdd', requireAdmin, async (req, res) => {
   }
 });
 
-app.get('/health', (req, res) => res.json({ ok: true }));
+app.get("/health", (req, res) => res.json({ ok: true }));
 
 // schedule
 if (REFRESH_CRON) {
-  console.log('Scheduling refresh cron:', REFRESH_CRON);
-  cron.schedule(REFRESH_CRON, scheduledRefresh, { timezone: 'UTC' });
+  console.log("Scheduling refresh cron:", REFRESH_CRON);
+  cron.schedule(REFRESH_CRON, scheduledRefresh, { timezone: "UTC" });
 } else {
   setInterval(scheduledRefresh, 10 * 60 * 1000);
 }
@@ -286,5 +348,7 @@ if (REFRESH_CRON) {
 app.listen(PORT, () => {
   console.log(`Proxy server listening on port ${PORT}`);
   // run one immediate refresh at startup
-  scheduledRefresh().catch(err => console.error('Initial refresh failed', err.message));
+  scheduledRefresh().catch((err) =>
+    console.error("Initial refresh failed", err.message)
+  );
 });
