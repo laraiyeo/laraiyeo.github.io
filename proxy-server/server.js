@@ -178,7 +178,10 @@ async function fetchDiaryForDate(dateObj) {
   // Log a small sample (first 2 lines) for debugging
   if (bodyText && bodyText.length > 0) {
     const lines = bodyText.split(/\r?\n/).slice(0, 2).join("\n");
-    console.log("Upstream sample:\n", lines.length ? lines : bodyText.slice(0, 200));
+    console.log(
+      "Upstream sample:\n",
+      lines.length ? lines : bodyText.slice(0, 200)
+    );
   } else {
     console.log("Upstream returned empty body");
   }
@@ -359,7 +362,8 @@ app.get("/health", (req, res) => res.json({ ok: true }));
 // Debug endpoint (protected) - return the full cached record including raw upstream metadata
 app.get("/debug/:yyyyMMdd", requireAdmin, async (req, res) => {
   const id = req.params.yyyyMMdd;
-  if (!/^\d{8}$/.test(id)) return res.status(400).json({ error: "Bad date format" });
+  if (!/^\d{8}$/.test(id))
+    return res.status(400).json({ error: "Bad date format" });
   const key = makeKeyForDate(id);
   const rec = await s3GetObject(key);
   if (!rec) return res.status(404).json({ error: "Not cached" });
@@ -369,9 +373,14 @@ app.get("/debug/:yyyyMMdd", requireAdmin, async (req, res) => {
 // Live fetch sample endpoint (protected) - fetches upstream for the given date and returns a tiny sample
 app.get("/fetch-sample/:yyyyMMdd", requireAdmin, async (req, res) => {
   const id = req.params.yyyyMMdd;
-  if (!/^\d{8}$/.test(id)) return res.status(400).json({ error: "Bad date format" });
+  if (!/^\d{8}$/.test(id))
+    return res.status(400).json({ error: "Bad date format" });
   const d = new Date(
-    Date.UTC(Number(id.slice(0, 4)), Number(id.slice(4, 6)) - 1, Number(id.slice(6, 8)))
+    Date.UTC(
+      Number(id.slice(0, 4)),
+      Number(id.slice(4, 6)) - 1,
+      Number(id.slice(6, 8))
+    )
   );
   try {
     const { json, dateStr, rawText } = await fetchDiaryForDate(d);
@@ -382,8 +391,15 @@ app.get("/fetch-sample/:yyyyMMdd", requireAdmin, async (req, res) => {
       sample = lines.length ? lines : rawText.slice(0, 500);
     }
     // Also include a small snippet of parsed results if present
-    const smallResults = Array.isArray(json.results) ? json.results.slice(0, 2) : [];
-    res.json({ ok: true, date: dateStr, sample_raw: sample, sample_results: smallResults });
+    const smallResults = Array.isArray(json.results)
+      ? json.results.slice(0, 2)
+      : [];
+    res.json({
+      ok: true,
+      date: dateStr,
+      sample_raw: sample,
+      sample_results: smallResults,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
