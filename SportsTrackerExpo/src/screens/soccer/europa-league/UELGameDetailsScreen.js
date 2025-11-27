@@ -778,6 +778,41 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
     }
   }, [shareCardPlay, route?.params?.gameId]);
 
+  // Resolve live tracker UUID (from route param or by matching team names)
+  useEffect(() => {
+    let cancelled = false;
+    const resolveTracker = async () => {
+      if (!gameData) return;
+      const provided = route?.params?.liveTrackerMatchId;
+      if (provided) {
+        setLiveTrackerUuid(provided);
+        return;
+      }
+
+      const competition = gameData.header?.competitions?.[0];
+      const homeName =
+        gameData.homeCompetitor?.team?.displayName ||
+        competition?.competitors?.find((c) => c.homeAway === "home")?.team?.displayName ||
+        "";
+      const awayName =
+        gameData.awayCompetitor?.team?.displayName ||
+        competition?.competitors?.find((c) => c.homeAway === "away")?.team?.displayName ||
+        "";
+
+      try {
+        const id = await LiveTrackerService.findMatchIdByTeams(homeName, awayName);
+        if (!cancelled && id) setLiveTrackerUuid(id);
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    resolveTracker();
+    return () => {
+      cancelled = true;
+    };
+  }, [gameData, route?.params?.liveTrackerMatchId]);
+
   // Goal Share Card - Handle long press on scoring plays
   const handleGoalLongPress = useCallback(
     (play) => {
@@ -2787,7 +2822,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
 
       // If route param provides a full wrapper URL, use it. Otherwise build one that includes the id param
       const provided = route?.params?.liveTrackerWrapperUrl || null;
-      const wrapperUrl = provided
+      const wrapperUrlBase = provided
         ? provided.includes("?")
           ? `${provided}&id=${encodeURIComponent(liveTrackerUuid)}`
           : `${provided}?id=${encodeURIComponent(liveTrackerUuid)}`
@@ -2795,17 +2830,34 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         ? `${defaultWrapperBase}?id=${encodeURIComponent(liveTrackerUuid)}`
         : `${defaultWrapperBase}?id=${encodeURIComponent(liveTrackerUuid)}`;
 
+      // Use fixed ratio for height calculation (404/800 = 0.505) and allow
+      // passing an optional offset `o` via route params.
+      const formulaO = route?.params?.liveTrackerFormulaO ?? 50;
+
+      // Pass device width to the wrapper as `w` so it can compute visual size.
+      const deviceWidth = Math.round(width || 800);
+      const wrapperUrl = `${wrapperUrlBase}&w=${encodeURIComponent(
+        deviceWidth
+      )}&o=${encodeURIComponent(formulaO)}`;
+
+      // Calculate the initial height for the embed using the fixed ratio.
+      const ratio = 0.505; // 404 / 800
+      const initialEmbedHeight = Math.round(deviceWidth * ratio) + formulaO;
+
       return (
-        <LiveTrackerEmbed
-          uuid={liveTrackerUuid}
-          visible={true}
-          inline={true}
-          wrapperUrl={wrapperUrl}
-          onClose={() => {
-            setLiveTrackerVisible(false);
-            setLiveTrackerUuid(null);
-          }}
-        />
+        <>
+          <LiveTrackerEmbed
+            uuid={liveTrackerUuid}
+            visible={true}
+            inline={true}
+            wrapperUrl={wrapperUrl}
+            initialHeight={initialEmbedHeight}
+            showHeader={false}
+            onClose={() => {
+              setLiveTrackerVisible(false);
+            }}
+          />
+        </>
       );
     }
 
@@ -2979,6 +3031,22 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                 </Text>
               </TouchableOpacity>
             )}
+            {/* Tracker Button - show if we resolved a liveTracker UUID */}
+            {liveTrackerUuid && (
+              <TouchableOpacity
+                style={[
+                  styles.streamButton,
+                  { backgroundColor: colors.primary, marginLeft: 8 },
+                ]}
+                onPress={() => {
+                  setLiveTrackerVisible(true);
+                }}
+              >
+                <Text allowFontScaling={false} style={styles.streamButtonText}>
+                  Tracker
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Away Team (Right) */}
@@ -3113,64 +3181,7 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                   resetPlaysCount();
                 }
               }}
-              onLongPress={async () => {
-                try {
-                  // Toggle: if already visible, hide; otherwise try to open
-                  if (liveTrackerVisible) {
-                    setLiveTrackerVisible(false);
-                    setLiveTrackerUuid(null);
-                    return;
-                  }
-
-                  let uuid = route?.params?.liveTrackerMatchId || null;
-                  if (!uuid && gameData) {
-                    const competition = gameData.header?.competitions?.[0];
-                    const hnObj =
-                      gameData.homeCompetitor ||
-                      competition?.competitors?.find(
-                        (comp) => comp.homeAway === "home"
-                      ) ||
-                      competition?.competitors?.[0];
-                    const anObj =
-                      gameData.awayCompetitor ||
-                      competition?.competitors?.find(
-                        (comp) => comp.homeAway === "away"
-                      ) ||
-                      competition?.competitors?.[1];
-                    const hn =
-                      (hnObj &&
-                        (hnObj.team?.displayName ||
-                          hnObj.team?.abbreviation ||
-                          hnObj.displayName ||
-                          hnObj.abbreviation)) ||
-                      "";
-                    const an =
-                      (anObj &&
-                        (anObj.team?.displayName ||
-                          anObj.team?.abbreviation ||
-                          anObj.displayName ||
-                          anObj.abbreviation)) ||
-                      "";
-                    if (hn || an) {
-                      uuid = LiveTrackerService.findMatchIdByTeams(hn, an);
-                    }
-                  }
-
-                  if (uuid) {
-                    setLiveTrackerUuid(uuid);
-                    setLiveTrackerVisible(true);
-                  } else {
-                    Alert.alert(
-                      "Live Tracker",
-                      "Live-tracker not available for this match"
-                    );
-                  }
-                } catch (err) {
-                  console.warn("LiveTracker open failed", err);
-                  Alert.alert("Live Tracker", "Failed to open live tracker");
-                }
-              }}
-              delayLongPress={500}
+              
             >
               <Text
                 allowFontScaling={false}
@@ -5570,10 +5581,6 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
           <TouchableOpacity
             style={styles.playHeader}
             onPress={() => togglePlay(playKey)}
-            onLongPress={
-              isScoring ? () => handleGoalLongPress(play) : undefined
-            }
-            delayLongPress={isScoring ? 500 : undefined}
           >
             <View style={styles.playMainInfo}>
               <View style={styles.playTeamsScore}>

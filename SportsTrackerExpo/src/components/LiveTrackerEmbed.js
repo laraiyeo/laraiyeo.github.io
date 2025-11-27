@@ -12,6 +12,7 @@ import {
 import { WebView } from "react-native-webview";
 import { Ionicons } from "@expo/vector-icons";
 import { buildLiveTrackerUrl } from "../utils/liveTracker";
+import { useTheme } from "../context/ThemeContext"
 
 const { width: DEVICE_WIDTH } = Dimensions.get("window");
 
@@ -32,19 +33,30 @@ const LiveTrackerEmbed = ({
   inline = false,
   wrapperUrl = null,
   customHeaders = null,
+  // When false, the component will not render its own header row. Useful
+  // when the caller wants to render a native header (so touches aren't
+  // intercepted by the WebView).
+  showHeader = true,
   // New: allow caller to set an initial height (px) and an inline top offset (px)
   initialHeight = 420,
   inlineTopOffset = 0,
 }) => {
   // Compute height using the provided formula based on device width
   const computeHeightForWidth = (w) => Math.round((404 / 800) * w) + 50;
-  const initialComputedHeight = computeHeightForWidth(DEVICE_WIDTH);
+  const initialComputedHeight =
+    typeof initialHeight === "number" && initialHeight > 0
+      ? initialHeight
+      : computeHeightForWidth(DEVICE_WIDTH);
   const [height, setHeight] = useState(initialComputedHeight);
   const [loading, setLoading] = useState(true);
   const [lastError, setLastError] = useState(null);
   const [lastHttpStatus, setLastHttpStatus] = useState(null);
+  const { theme, colors, isDarkMode } = useTheme();
   const webRef = useRef(null);
-  const firstMessageRef = useRef(false);
+
+  useEffect(() => {
+    console.log("LiveTrackerEmbed mounted", { uuid, wrapperUrl, inline });
+  }, []);
 
   const widgetUrl = buildLiveTrackerUrl(uuid, profile);
   const urlToLoad = wrapperUrl || widgetUrl;
@@ -79,13 +91,14 @@ const LiveTrackerEmbed = ({
 
   const content = (
     <View style={styles.innerContainer}>
-      <View style={styles.headerRow}>
-        <Text allowFontScaling={false} style={styles.headerTitle}>
-          Live Tracker
-        </Text>
-      </View>
 
-      <View style={[styles.webWrapper, { width: DEVICE_WIDTH }]}>
+      <View
+        style={[
+          styles.webWrapper,
+          { width: DEVICE_WIDTH },
+          showHeader ? { paddingTop: 56 } : {},
+        ]}
+      >
         {loading && (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#fff" />
@@ -100,6 +113,17 @@ const LiveTrackerEmbed = ({
           }
           style={{ width: DEVICE_WIDTH, height }}
           originWhitelist={["*"]}
+          onMessage={(e) => {
+            const msg = e.nativeEvent.data;
+            const val = parseInt(msg, 10);
+            if (!isNaN(val) && val > 0) {
+              if (loading) setLoading(false);
+              const clamped = Math.min(Math.max(val, 100), 2000);
+              if (clamped !== height) setHeight(clamped);
+            } else {
+              console.log('LiveTrackerEmbed onMessage:', msg);
+            }
+          }}
           // We use a deterministic resize formula based on device width, so
           // we do not inject resize scripts or react to postMessage events.
           onLoadStart={() => {
@@ -130,24 +154,11 @@ const LiveTrackerEmbed = ({
           sharedCookiesEnabled={true}
           mixedContentMode={"always"}
         />
-        {(lastError || lastHttpStatus) && (
-          <View style={styles.errorBox}>
-            <Text allowFontScaling={false} style={styles.errorText}>
-              {lastError ? `Error: ${lastError}` : `HTTP: ${lastHttpStatus}`}
-            </Text>
-            <Text allowFontScaling={false} style={styles.smallText}>
-              URL: {urlToLoad}
-            </Text>
-          </View>
-        )}
       </View>
     </View>
   );
 
   if (inline) {
-    // Render inline (no modal) - caller should place this where needed.
-    // Apply `inlineTopOffset` only to the web wrapper so the native header
-    // row remains unaffected and only the WebView content is shifted down.
     const wrapperExtraStyle =
       typeof inlineTopOffset === "number" && inlineTopOffset > 0
         ? { marginTop: inlineTopOffset }
@@ -156,12 +167,6 @@ const LiveTrackerEmbed = ({
     return (
       <View style={styles.containerInline}>
         <View style={styles.innerContainer}>
-          <View style={styles.headerRow}>
-            <Text allowFontScaling={false} style={styles.headerTitle}>
-              Live Tracker
-            </Text>
-          </View>
-
           <View
             style={[
               styles.webWrapper,
@@ -183,19 +188,15 @@ const LiveTrackerEmbed = ({
               }
               style={{ width: DEVICE_WIDTH, height }}
               originWhitelist={["*"]}
-              injectedJavaScript={injectedHeightScript}
               onMessage={(e) => {
                 const msg = e.nativeEvent.data;
                 const val = parseInt(msg, 10);
                 if (!isNaN(val) && val > 0) {
-                  firstMessageRef.current = true;
                   if (loading) setLoading(false);
-                  const newH = Math.min(val + 20, 1600);
-                  if (newH !== height) setHeight(newH);
+                  const clamped = Math.min(Math.max(val, 100), 2000);
+                  if (clamped !== height) setHeight(clamped);
                 } else {
-                  console.log("LiveTrackerEmbed onMessage:", msg);
-                  firstMessageRef.current = true;
-                  if (loading) setLoading(false);
+                  console.log('LiveTrackerEmbed onMessage:', msg);
                 }
               }}
               onLoadStart={() => {
@@ -223,19 +224,28 @@ const LiveTrackerEmbed = ({
               sharedCookiesEnabled={true}
               mixedContentMode={"always"}
             />
-            {(lastError || lastHttpStatus) && (
-              <View style={styles.errorBox}>
-                <Text allowFontScaling={false} style={styles.errorText}>
-                  {lastError
-                    ? `Error: ${lastError}`
-                    : `HTTP: ${lastHttpStatus}`}
-                </Text>
-                <Text allowFontScaling={false} style={styles.smallText}>
-                  URL: {urlToLoad}
-                </Text>
-              </View>
-            )}
           </View>
+
+          {/* Render header below the web wrapper so it does not get covered by
+              any sticky/native header layers above the WebView surface. */}
+          <View style={[styles.headerRowInline, { backgroundColor: theme.surface }]}>
+            <Text allowFontScaling={false} style={[styles.headerTitle, { color: theme.text }] }>
+              Live Tracker
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                console.log("LiveTrackerEmbed: close pressed (inline)");
+                if (onClose) onClose();
+              }}
+              hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}
+              accessible={true}
+              accessibilityRole="button"
+              style={styles.closeButton}
+            >
+              <Ionicons name="close" size={22} color={theme.text || "#fff"} />
+            </TouchableOpacity>
+          </View>
+
         </View>
       </View>
     );
@@ -263,13 +273,31 @@ const styles = StyleSheet.create({
     backgroundColor: "#111",
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: 'space-between',
+    zIndex: 50,
+    elevation: 50,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     paddingHorizontal: 12,
+  },
+  headerRowInline: {
+    height: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    position: 'relative',
+    zIndex: 5,
   },
   closeButton: {
     width: 40,
     height: 40,
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 10,
+    elevation: 10,
   },
   headerTitle: {
     color: "#fff",

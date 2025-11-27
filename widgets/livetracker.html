@@ -13,9 +13,9 @@
         color: #fff;
         font-family: Arial, Helvetica, sans-serif;
 
-        /* Fixed page size */
-        width: 800px;
-        height: 404px;
+        /* Default page size (can be overridden by ?w=WIDTH and formula params n,d,o) */
+          width: 800px;
+          height: 404px;
         overflow: hidden; /* Hide scrollbars */
       }
 
@@ -50,16 +50,24 @@
     </div>
 
     <script>
-      // Read ?id= or ?uuid= and optional profile
+      // Read ?id= or ?uuid= and optional profile, width and formula params (n,d,o)
       function qs(name) {
         const params = new URLSearchParams(window.location.search);
-        return params.get(name) || params.get(name === "id" ? "uuid" : null);
+        return params.get(name);
       }
 
       const id = qs("id") || qs("uuid");
       const profile = qs("profile") || "1gheey76n2szh3n14w1g";
       const lang = qs("lang") || "en";
       const mode = qs("mode") || "3d";
+
+      // Formula pieces: n/d * width + o
+      const formulaN = parseInt(qs("n")) || 404;
+      const formulaD = parseInt(qs("d")) || 800;
+      const formulaO = parseInt(qs("o")) || 50;
+
+      // Optional width param from caller (device width in px). If missing, fall back to 800
+      const requestedWidth = parseInt(qs("w")) || 800;
 
       const notice = document.getElementById("notice");
       const container = document.getElementById("frameContainer");
@@ -69,16 +77,56 @@
           "No id provided. Use ?id=UUID to load a live-tracker.";
       } else {
         notice.style.display = "none";
+
+        // Compute visual size using fixed ratio (404/800 = 0.505)
+        const ratio = 0.505;
+        const visualWidth = requestedWidth;
+        const visualHeight = Math.round(visualWidth * ratio) + (parseInt(qs("o")) || 50);
+
+        // Apply sizes to document and wrapper so the host sees the expected dimensions
+        document.documentElement.style.width = visualWidth + "px";
+        document.documentElement.style.height = visualHeight + "px";
+        document.body.style.width = visualWidth + "px";
+        document.body.style.height = visualHeight + "px";
+        const wrapper = document.querySelector(".wrapper");
+        wrapper.style.width = visualWidth + "px";
+        wrapper.style.height = visualHeight + "px";
+
         const src = `https://widgets.thesports01.com/${lang}/${mode}/football?profile=${encodeURIComponent(
           profile
         )}&uuid=${encodeURIComponent(id)}`;
-        const iframe = document.createElement("iframe");
-        iframe.src = src;
-        iframe.width = "800";
-        iframe.height = "404";
-        iframe.scrolling = "no";
-        iframe.setAttribute("title", "LiveTracker Widget");
-        container.appendChild(iframe);
+
+        // Ensure wrapper and container inline styles match computed size
+        const frameContainer = document.getElementById("frameContainer");
+        frameContainer.style.width = visualWidth + "px";
+        frameContainer.style.height = visualHeight + "px";
+        frameContainer.style.overflow = "hidden";
+
+        const srcIframe = document.createElement("iframe");
+        srcIframe.src = src;
+        // Use inline styles to override any stylesheet defaults
+        srcIframe.style.width = visualWidth + "px";
+        srcIframe.style.height = visualHeight + "px";
+        srcIframe.style.border = "0";
+        srcIframe.style.display = "block";
+        srcIframe.scrolling = "no";
+        srcIframe.setAttribute("title", "LiveTracker Widget");
+        frameContainer.appendChild(srcIframe);
+
+        // If embedded in a WebView, post the computed visual height so the host can size itself.
+        function postSize() {
+          try {
+            if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+              window.ReactNativeWebView.postMessage(String(visualHeight));
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        postSize();
+        // Also post again if the window resizes (dev tooling)
+        window.addEventListener("resize", postSize);
       }
     </script>
   </body>
