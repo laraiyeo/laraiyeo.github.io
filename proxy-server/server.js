@@ -171,15 +171,28 @@ async function fetchDiaryForDate(dateObj) {
   const url = `${UPSTREAM_HOST}/v1/football/match/diary?user=${encodeURIComponent(
     user
   )}&secret=${encodeURIComponent(secret)}&tsp=${tsp}&date=${dateStr}`;
+  console.log("Upstream URL:", url);
   const res = await fetch(url, { method: "GET" });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `Upstream fetch failed ${res.status} ${res.statusText} ${text}`
-    );
+  console.log("Upstream response status:", res.status, res.statusText);
+  const bodyText = await res.text().catch(() => "");
+  // Log a small sample (first 2 lines) for debugging
+  if (bodyText && bodyText.length > 0) {
+    const lines = bodyText.split(/\r?\n/).slice(0, 2).join("\n");
+    console.log("Upstream sample:\n", lines.length ? lines : bodyText.slice(0, 200));
+  } else {
+    console.log("Upstream returned empty body");
   }
-  const json = await res.json();
-  return { json, dateStr };
+  if (!res.ok) {
+    throw new Error(`Upstream fetch failed ${res.status} ${res.statusText}`);
+  }
+  let json = null;
+  try {
+    json = JSON.parse(bodyText);
+  } catch (err) {
+    console.error("Failed to parse upstream JSON:", err.message);
+    throw new Error("Failed to parse upstream JSON");
+  }
+  return { json, dateStr, rawText: bodyText };
 }
 
 function findCompetitionIds(resultsExtra) {
@@ -342,6 +355,39 @@ app.post("/refresh/:yyyyMMdd", requireAdmin, async (req, res) => {
 });
 
 app.get("/health", (req, res) => res.json({ ok: true }));
+
+// Debug endpoint (protected) - return the full cached record including raw upstream metadata
+app.get("/debug/:yyyyMMdd", requireAdmin, async (req, res) => {
+  const id = req.params.yyyyMMdd;
+  if (!/^\d{8}$/.test(id)) return res.status(400).json({ error: "Bad date format" });
+  const key = makeKeyForDate(id);
+  const rec = await s3GetObject(key);
+  if (!rec) return res.status(404).json({ error: "Not cached" });
+  res.json(rec);
+});
+
+// Live fetch sample endpoint (protected) - fetches upstream for the given date and returns a tiny sample
+app.get("/fetch-sample/:yyyyMMdd", requireAdmin, async (req, res) => {
+  const id = req.params.yyyyMMdd;
+  if (!/^\d{8}$/.test(id)) return res.status(400).json({ error: "Bad date format" });
+  const d = new Date(
+    Date.UTC(Number(id.slice(0, 4)), Number(id.slice(4, 6)) - 1, Number(id.slice(6, 8)))
+  );
+  try {
+    const { json, dateStr, rawText } = await fetchDiaryForDate(d);
+    // prepare a small sample of the raw text (first 2 lines or up to 500 chars)
+    let sample = null;
+    if (rawText) {
+      const lines = rawText.split(/\r?\n/).slice(0, 2).join("\n");
+      sample = lines.length ? lines : rawText.slice(0, 500);
+    }
+    // Also include a small snippet of parsed results if present
+    const smallResults = Array.isArray(json.results) ? json.results.slice(0, 2) : [];
+    res.json({ ok: true, date: dateStr, sample_raw: sample, sample_results: smallResults });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // schedule
 if (REFRESH_CRON) {
