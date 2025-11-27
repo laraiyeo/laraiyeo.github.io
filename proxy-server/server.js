@@ -17,20 +17,28 @@ const ADMIN_API_KEY = process.env.ADMIN_API_KEY || "";
 const REFRESH_CRON = process.env.REFRESH_CRON || "*/10 * * * *"; // every 10 minutes
 const PREFIX = process.env.S3_PREFIX || "cache/";
 
-// Access credentials may come from env (RAILWAY provides them in env when deploying)
 if (!BUCKET) {
   console.error("Missing S3_BUCKET - set env S3_BUCKET to your bucket name");
-  // We do not exit here so developer can still run a local file-backed mode if desired.
 }
 
 const s3 = new S3({ region: REGION });
 
+// >>> ADDED — Function to log outbound IP
+async function logOutboundIP() {
+  try {
+    const res = await fetch("https://api.ipify.org?format=json");
+    const data = await res.json();
+    console.log("🔎 Outbound IP detected:", data.ip);
+  } catch (err) {
+    console.error("Failed to fetch outbound IP:", err.message);
+  }
+}
+// >>> END ADD
+
 function makeKeyForDate(dateStr) {
-  // dateStr: YYYYMMDD
   return `${PREFIX}diary-${dateStr}.json`;
 }
 
-// Competitions of interest (user-provided list from 1.txt)
 const WATCH_COMPETITIONS = [
   "Premier League",
   "La Liga",
@@ -53,13 +61,11 @@ const WATCH_COMPETITIONS = [
   "Super Cup",
 ];
 
-// Defaults for upstream credentials (from 1.txt). You should still set these via env in production.
 const DEFAULT_USER = process.env.UPSTREAM_USER || "";
 const DEFAULT_SECRET = process.env.UPSTREAM_SECRET || "";
 const UPSTREAM_HOST = process.env.UPSTREAM_HOST || "";
 
 function utcStartOfDayTimestamp(date) {
-  // date: Date object (local or UTC) - produce Unix timestamp at 00:00:00 GMT
   const d = new Date(
     Date.UTC(
       date.getUTCFullYear(),
@@ -82,7 +88,6 @@ function formatDateYYYYMMDD(date) {
 
 async function s3PutObject(key, obj) {
   if (!BUCKET) {
-    // fallback: write to local file in ./cache
     const fs = require("fs").promises;
     const localPath = path.join(__dirname, key.replace(/\//g, "_"));
     await fs.writeFile(localPath, JSON.stringify(obj, null, 2), "utf8");
@@ -116,7 +121,6 @@ async function s3GetObject(key) {
 
 async function s3ListCacheDates() {
   if (!BUCKET) {
-    // list local files
     const fs = require("fs").promises;
     const files = await fs.readdir(__dirname).catch(() => []);
     return files
@@ -175,7 +179,6 @@ async function fetchDiaryForDate(dateObj) {
   const res = await fetch(url, { method: "GET" });
   console.log("Upstream response status:", res.status, res.statusText);
   const bodyText = await res.text().catch(() => "");
-  // Log a small sample (first 2 lines) for debugging
   if (bodyText && bodyText.length > 0) {
     const lines = bodyText.split(/\r?\n/).slice(0, 2).join("\n");
     console.log(
@@ -199,7 +202,7 @@ async function fetchDiaryForDate(dateObj) {
 }
 
 function findCompetitionIds(resultsExtra) {
-  const compMap = {}; // name -> id
+  const compMap = {};
   const comps =
     resultsExtra && resultsExtra.competition ? resultsExtra.competition : [];
   for (const c of comps) {
@@ -224,7 +227,7 @@ function matchCompetitionNamesToWatch(resultsExtra) {
       }
     }
   }
-  return found; // map id -> actual name
+  return found;
 }
 
 function transformResults(json, watchCompIdsMap) {
@@ -248,7 +251,7 @@ function transformResults(json, watchCompIdsMap) {
     if (!item || !item.id) continue;
     const compId = item.competition_id;
     if (!compId) continue;
-    if (!(compId in watchCompIdsMap)) continue; // not in user watch list for today
+    if (!(compId in watchCompIdsMap)) continue;
     const out = {
       id: item.id,
       competition_id: compId,
@@ -296,7 +299,6 @@ async function refreshForDate(dateObj) {
   }
 }
 
-// Scheduled refresh - refresh today's data every REFRESH_CRON
 async function scheduledRefresh() {
   try {
     const now = new Date();
@@ -337,7 +339,6 @@ app.get("/public/:yyyyMMdd.json", async (req, res) => {
   res.json(rec.transformed);
 });
 
-// Manual refresh for a date (protected)
 app.post("/refresh/:yyyyMMdd", requireAdmin, async (req, res) => {
   const id = req.params.yyyyMMdd;
   if (!/^\d{8}$/.test(id))
@@ -359,7 +360,6 @@ app.post("/refresh/:yyyyMMdd", requireAdmin, async (req, res) => {
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
-// Debug endpoint (protected) - return the full cached record including raw upstream metadata
 app.get("/debug/:yyyyMMdd", requireAdmin, async (req, res) => {
   const id = req.params.yyyyMMdd;
   if (!/^\d{8}$/.test(id))
@@ -370,7 +370,6 @@ app.get("/debug/:yyyyMMdd", requireAdmin, async (req, res) => {
   res.json(rec);
 });
 
-// Live fetch sample endpoint (protected) - fetches upstream for the given date and returns a tiny sample
 app.get("/fetch-sample/:yyyyMMdd", requireAdmin, async (req, res) => {
   const id = req.params.yyyyMMdd;
   if (!/^\d{8}$/.test(id))
@@ -384,13 +383,11 @@ app.get("/fetch-sample/:yyyyMMdd", requireAdmin, async (req, res) => {
   );
   try {
     const { json, dateStr, rawText } = await fetchDiaryForDate(d);
-    // prepare a small sample of the raw text (first 2 lines or up to 500 chars)
     let sample = null;
     if (rawText) {
       const lines = rawText.split(/\r?\n/).slice(0, 2).join("\n");
       sample = lines.length ? lines : rawText.slice(0, 500);
     }
-    // Also include a small snippet of parsed results if present
     const smallResults = Array.isArray(json.results)
       ? json.results.slice(0, 2)
       : [];
@@ -405,7 +402,6 @@ app.get("/fetch-sample/:yyyyMMdd", requireAdmin, async (req, res) => {
   }
 });
 
-// schedule
 if (REFRESH_CRON) {
   console.log("Scheduling refresh cron:", REFRESH_CRON);
   cron.schedule(REFRESH_CRON, scheduledRefresh, { timezone: "UTC" });
@@ -415,7 +411,11 @@ if (REFRESH_CRON) {
 
 app.listen(PORT, () => {
   console.log(`Proxy server listening on port ${PORT}`);
-  // run one immediate refresh at startup
+
+  // >>> ADDED — Log outbound IP at startup
+  logOutboundIP();
+  // >>> END
+
   scheduledRefresh().catch((err) =>
     console.error("Initial refresh failed", err.message)
   );
