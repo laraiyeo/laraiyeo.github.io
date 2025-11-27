@@ -96,13 +96,15 @@ function normalizeName(str) {
   if (!str) return "";
   // Normalize to NFKD and strip diacritics, then lowercase for comparison
   try {
-    return String(str)
-      .normalize("NFKD")
-      // remove ONLY combining diacritical marks (U+0300 - U+036F)
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .toLowerCase();
+    return (
+      String(str)
+        .normalize("NFKD")
+        // remove ONLY combining diacritical marks (U+0300 - U+036F)
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase()
+    );
   } catch (e) {
     return String(str).toLowerCase();
   }
@@ -379,7 +381,12 @@ async function scheduledRefresh() {
     // Allow fetching a day offset (e.g. tomorrow) via env `FETCH_DAY_OFFSET=1`.
     if (Number.isFinite(FETCH_DAY_OFFSET) && FETCH_DAY_OFFSET !== 0) {
       now.setDate(now.getDate() + FETCH_DAY_OFFSET);
-      console.log("Applying fetch day offset:", FETCH_DAY_OFFSET, "-> fetching date", now.toISOString());
+      console.log(
+        "Applying fetch day offset:",
+        FETCH_DAY_OFFSET,
+        "-> fetching date",
+        now.toISOString()
+      );
     }
     await refreshForDate(now);
   } catch (err) {
