@@ -263,7 +263,7 @@ export class NFLService extends BaseCacheService {
     const cacheKey = `drives_${gameId}`;
     
     return this.getCachedData(cacheKey, async () => {
-      const drivesUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/${gameId}/competitions/${gameId}/drives?lang=en&region=us`;
+      const drivesUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/${gameId}/competitions/${gameId}/drives?lang=en&region=us&limit=50`;
       
       const response = await fetch(this.convertToHttps(drivesUrl), { headers: this.getBrowserHeaders() });
       const drivesData = await response.json();
@@ -358,7 +358,7 @@ export class NFLService extends BaseCacheService {
     const cacheKey = `drives_complete_${gameId}`;
     
     return this.getCachedData(cacheKey, async () => {
-      const drivesUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/${gameId}/competitions/${gameId}/drives?lang=en&region=us`;
+      const drivesUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/${gameId}/competitions/${gameId}/drives?lang=en&region=us&limit=50`;
       
       const response = await fetch(this.convertToHttps(drivesUrl));
       const drivesData = await response.json();

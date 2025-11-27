@@ -15,14 +15,10 @@ export const useGamePresence = (gameId) => {
   useEffect(() => {
     if (!gameId) return;
 
-    console.log("🎮 useGamePresence - Starting for gameId:", gameId);
-
     // Join the game presence tracking
     const joinGame = async () => {
       try {
-        console.log("🔗 useGamePresence - Attempting to join game:", gameId);
         const success = await PresenceService.joinGame(gameId);
-        console.log("🔗 useGamePresence - Join result:", { gameId, success });
         setIsJoined(success);
         isJoinedRef.current = success;
       } catch (error) {
@@ -36,24 +32,10 @@ export const useGamePresence = (gameId) => {
     // Subscribe to viewer updates
     const subscribeToViewers = () => {
       try {
-        console.log("📡 useGamePresence - Subscribing to viewers for:", gameId);
         const unsubscribe = PresenceService.subscribeToGameViewers(
           gameId,
           (data) => {
-            console.log("📊 useGamePresence - Received viewer data:", {
-              gameId,
-              data,
-            });
-            console.log(
-              "📊 useGamePresence - Raw count from data:",
-              data.count
-            );
-            console.log(
-              "📊 useGamePresence - Current viewerData state before update:",
-              viewerData
-            );
             setViewerData(data);
-            console.log("📊 useGamePresence - Updated viewerData state:", data);
           }
         );
         unsubscribeRef.current = unsubscribe;
@@ -67,55 +49,23 @@ export const useGamePresence = (gameId) => {
 
     // Cleanup on unmount or gameId change
     return () => {
-      console.log("🧹 useGamePresence - Cleanup triggered for gameId:", gameId);
-      console.log(
-        "🧹 useGamePresence - isJoined state during cleanup:",
-        isJoined
-      );
-      console.log(
-        "🧹 useGamePresence - isJoinedRef.current during cleanup:",
-        isJoinedRef.current
-      );
 
       if (unsubscribeRef.current) {
-        console.log(
-          "🧹 useGamePresence - Unsubscribing from Firebase for gameId:",
-          gameId
-        );
         unsubscribeRef.current();
         unsubscribeRef.current = null;
       }
 
       // Use the ref value to avoid stale closure
       if (gameId && isJoinedRef.current) {
-        console.log(
-          "🧹 useGamePresence - About to call PresenceService.leaveGame for gameId:",
-          gameId
-        );
         try {
           PresenceService.leaveGame(gameId);
-          console.log(
-            "🧹 useGamePresence - Successfully called PresenceService.leaveGame for gameId:",
-            gameId
-          );
         } catch (error) {
           console.error("🧹 useGamePresence - Error calling leaveGame:", error);
         }
         setIsJoined(false);
         isJoinedRef.current = false;
-        console.log(
-          "🧹 useGamePresence - Set isJoined to false and isJoinedRef to false"
-        );
       } else {
-        console.log("🧹 useGamePresence - NOT leaving game. Conditions:", {
-          gameId: gameId,
-          "isJoinedRef.current": isJoinedRef.current,
-          "gameId truthy": !!gameId,
-          "isJoinedRef truthy": !!isJoinedRef.current,
-        });
       }
-
-      console.log("🧹 useGamePresence - Cleanup completed for gameId:", gameId);
     };
   }, [gameId]);
 
@@ -143,32 +93,12 @@ export const useGamePresenceReadOnly = (gameId) => {
   useEffect(() => {
     if (!gameId) return;
 
-    console.log(
-      "👁️ useGamePresenceReadOnly - Setting up read-only subscription for gameId:",
-      gameId
-    );
-    console.log("👁️ useGamePresenceReadOnly - Platform:", Platform.OS);
-
     // Only subscribe to viewer updates, don't join
     const subscribeToViewers = () => {
       try {
-        console.log(
-          "📡 useGamePresenceReadOnly - Subscribing to viewers for:",
-          gameId
-        );
         const unsubscribe = PresenceService.subscribeToGameViewers(
           gameId,
           (data) => {
-            console.log("📊 useGamePresenceReadOnly - Received viewer data:", {
-              gameId,
-              data,
-            });
-            console.log(
-              "📊 useGamePresenceReadOnly - Platform:",
-              Platform.OS,
-              "Count:",
-              data.count
-            );
             setViewerData(data);
           }
         );
@@ -187,10 +117,6 @@ export const useGamePresenceReadOnly = (gameId) => {
     // Cleanup on unmount or gameId change
     return () => {
       if (unsubscribeRef.current) {
-        console.log(
-          "🧹 useGamePresenceReadOnly - Cleaning up subscription for:",
-          gameId
-        );
         unsubscribeRef.current();
         unsubscribeRef.current = null;
       }

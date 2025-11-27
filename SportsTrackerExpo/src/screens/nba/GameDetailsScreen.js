@@ -107,44 +107,68 @@ const getSmartTeamColors = (homeTeam, awayTeam, colors) => {
 };
 
 // Stable TeamLogo component outside main component to prevent recreation and state loss
-const TeamLogo = ({
-  teamAbbreviation,
-  logoUri,
-  size = 32,
-  style,
-  iconStyle,
-  colors,
-  getTeamLogoUrl,
-}) => {
-  const [imageError, setImageError] = useState(false);
-  const resolvedUri = logoUri || getTeamLogoUrl("nba", teamAbbreviation);
+const TeamLogo = React.memo(
+  ({
+    teamAbbreviation,
+    logoUri,
+    size = 32,
+    style,
+    iconStyle,
+    colors,
+    getTeamLogoUrl,
+  }) => {
+    const [imageError, setImageError] = useState(false);
+    const resolvedUri =
+      logoUri ||
+      (getTeamLogoUrl ? getTeamLogoUrl("nba", teamAbbreviation) : null);
 
-  // Reset error state when URI changes
-  React.useEffect(() => {
-    setImageError(false);
-  }, [resolvedUri]);
+    // Reset error state when URI changes
+    React.useEffect(() => {
+      setImageError(false);
+    }, [resolvedUri]);
 
-  // If no URI or image failed to load, show basketball icon
-  if (!resolvedUri || imageError) {
+    console.log("[GameDetails][TeamLogo] render", {
+      resolvedUri,
+      teamAbbreviation,
+      size,
+    });
+
+    // If no URI or image failed to load, show basketball icon
+    if (!resolvedUri || imageError) {
+      return (
+        <Ionicons
+          name="basketball"
+          size={size}
+          color={colors.primary}
+          style={iconStyle || style}
+        />
+      );
+    }
+
+    // Try to load the image directly, fallback to icon on error
     return (
-      <Ionicons
-        name="basketball"
-        size={size}
-        color={colors.primary}
-        style={iconStyle || style}
+      <Image
+        source={{ uri: resolvedUri }}
+        style={style}
+        onError={() => setImageError(true)}
       />
     );
+  },
+  (prev, next) => {
+    // Only re-render when the effective image URI or size changes (or abbreviation when logoUri not provided)
+    const prevUri =
+      prev.logoUri ||
+      (prev.getTeamLogoUrl
+        ? prev.getTeamLogoUrl("nba", prev.teamAbbreviation)
+        : null);
+    const nextUri =
+      next.logoUri ||
+      (next.getTeamLogoUrl
+        ? next.getTeamLogoUrl("nba", next.teamAbbreviation)
+        : null);
+    return prevUri === nextUri && prev.size === next.size;
   }
-
-  // Try to load the image directly, fallback to icon on error
-  return (
-    <Image
-      source={{ uri: resolvedUri }}
-      style={style}
-      onError={() => setImageError(true)}
-    />
-  );
-};
+);
 
 // Stable wrapper component that will receive theme context as props
 const TeamLogoWithTheme = ({ colors, getTeamLogoUrl, ...props }) => (
@@ -200,7 +224,7 @@ const BasketballCourt = React.memo(
     let leftPercent, bottomPercent;
 
     if (teamSide === "home") {
-      bottomPercent = 44 + (25 - espnY) * 2;
+      bottomPercent = (52 - espnY) * 2;
       leftPercent = espnX * 2;
     } else {
       bottomPercent = espnY * 2 - 6;
@@ -212,6 +236,13 @@ const BasketballCourt = React.memo(
     const finalTeamColor = teamColor.startsWith("#")
       ? teamColor
       : `#${teamColor}`;
+
+    let clampedBottom = finalBottomPercent;
+    if (teamSide === "home") {
+      clampedBottom = Math.max(clampedBottom, 50);
+    } else {
+      clampedBottom = Math.min(clampedBottom, 50);
+    }
 
     return (
       <View style={styles.miniCourtContainer}>
@@ -258,7 +289,7 @@ const BasketballCourt = React.memo(
               {
                 position: "absolute",
                 left: `${finalLeftPercent}%`,
-                bottom: `${finalBottomPercent}%`,
+                bottom: `${clampedBottom}%`,
                 backgroundColor: isScoring ? finalTeamColor : "white",
                 borderColor: isScoring ? "white" : finalTeamColor,
                 marginLeft: -5,
@@ -1014,6 +1045,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       const clock =
         play?.clock?.displayValue || play?.clock || play?.time || "";
       const isScoring = !!play?.scoringPlay;
+      const pointsAttempted = play?.pointsAttempted || 0;
       const scoreValue = play?.scoreValue;
       const playTeamId = play?.team?.id;
       const scorerId =
@@ -1049,6 +1081,7 @@ const NBAGameDetailsScreen = ({ route }) => {
         awayScore: play?.awayScore || 0,
         homeScore: play?.homeScore || 0,
         isScoring,
+        pointsAttempted,
         scoreValue,
         textColor: theme.text,
         borderLeftWidth: borderWidth,
@@ -3535,12 +3568,8 @@ const NBAGameDetailsScreen = ({ route }) => {
                           }
                           // Fallback coordinates for invalid data
                           return {
-                            x: p.isScoring ? 25 : 0,
-                            y: p.isScoring
-                              ? away?.team?.id === p.playTeamId
-                                ? 17
-                                : 12
-                              : 0,
+                            x: p.isScoring || p.pointsAttempted === 1 ? 25 : 0,
+                            y: p.isScoring || p.pointsAttempted === 1 ? 17 : 0,
                           };
                         })()}
                         isScoring={p.isScoring}
@@ -4814,8 +4843,11 @@ const NBAGameDetailsScreen = ({ route }) => {
                               }}
                             >
                               {p.awayLogoUri ? (
-                                <Image
-                                  source={{ uri: p.awayLogoUri }}
+                                <TeamLogoWithTheme
+                                  colors={colors}
+                                  getTeamLogoUrl={getTeamLogoUrl}
+                                  logoUri={p.awayLogoUri}
+                                  size={30}
                                   style={{
                                     width: 30,
                                     height: 30,
@@ -4860,8 +4892,11 @@ const NBAGameDetailsScreen = ({ route }) => {
                                 {p.homeScore ?? "0"}
                               </Text>
                               {p.homeLogoUri ? (
-                                <Image
-                                  source={{ uri: p.homeLogoUri }}
+                                <TeamLogoWithTheme
+                                  colors={colors}
+                                  getTeamLogoUrl={getTeamLogoUrl}
+                                  logoUri={p.homeLogoUri}
+                                  size={30}
                                   style={{
                                     width: 30,
                                     height: 30,
@@ -4905,10 +4940,30 @@ const NBAGameDetailsScreen = ({ route }) => {
                             >
                               <BasketballCourt
                                 key={`share-court-${p.id}`}
-                                coordinate={{
-                                  x: p.coordX ?? 0,
-                                  y: p.coordY ?? 0,
-                                }}
+                                coordinate={(() => {
+                                  // Check for valid coordinates
+                                  if (
+                                    p.coordX != null &&
+                                    p.coordY != null &&
+                                    p.coordX > -1000000 &&
+                                    p.coordY > -1000000 &&
+                                    p.coordX < 1000000 &&
+                                    p.coordY < 1000000
+                                  ) {
+                                    return { x: p.coordX, y: p.coordY };
+                                  }
+                                  // Fallback coordinates for invalid data
+                                  return {
+                                    x:
+                                      p.isScoring || p.pointsAttempted === 1
+                                        ? 25
+                                        : 0,
+                                    y:
+                                      p.isScoring || p.pointsAttempted === 1
+                                        ? 17
+                                        : 0,
+                                  };
+                                })()}
                                 isScoring={p.isScoring}
                                 teamSide={
                                   away?.team?.id === p.playTeamId

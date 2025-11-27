@@ -17,34 +17,43 @@ import { useTheme } from "../../context/ThemeContext";
 import { useFavorites } from "../../context/FavoritesContext";
 import { LiveViewerBadge } from "../../components/ViewerCounter";
 
-const TeamLogo = ({ teamAbbreviation, size, style, iconStyle }) => {
-  const { colors, getTeamLogoUrl } = useTheme();
-  const [imageError, setImageError] = useState(false);
+const TeamLogo = React.memo(
+  ({ logoUri, size = 32, style, iconStyle, opacity = 1 }) => {
+    const { colors } = useTheme();
+    const [imageError, setImageError] = useState(false);
 
-  const logoUri = getTeamLogoUrl("nba", teamAbbreviation);
+    console.log("[TeamLogo] render", { logoUri, opacity });
+    if (!logoUri || imageError) {
+      return (
+        <Ionicons
+          name="basketball"
+          size={size}
+          color={colors.primary}
+          style={iconStyle}
+        />
+      );
+    }
 
-  if (!logoUri || imageError) {
     return (
-      <Ionicons
-        name="basketball"
-        size={size}
-        color={colors.primary}
-        style={iconStyle}
+      <Image
+        source={{ uri: logoUri }}
+        style={[style, { opacity }]}
+        onError={() => setImageError(true)}
       />
     );
+  },
+  (prev, next) => {
+    // Prevent re-render unless the actual image URI or opacity/size change.
+    return (
+      prev.logoUri === next.logoUri &&
+      prev.size === next.size &&
+      prev.opacity === next.opacity
+    );
   }
-
-  return (
-    <Image
-      source={{ uri: logoUri }}
-      style={style}
-      onError={() => setImageError(true)}
-    />
-  );
-};
+);
 
 const NBAScoreboardScreen = ({ navigation }) => {
-  const { theme, colors, getTeamLogoUrl } = useTheme();
+  const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
   const { isFavorite } = useFavorites();
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +73,60 @@ const NBAScoreboardScreen = ({ navigation }) => {
   const [updateInterval, setUpdateInterval] = useState(null);
   const hasPreloadedRef = useRef(false);
   const hasLoggedFirstGameRef = useRef(false);
+  const isScreenFocusedRef = useRef(isScreenFocused);
+  const scrollOffsetRef = useRef(0);
+  const listRef = useRef(null);
+  const prefetchedLogosRef = useRef(new Set());
+
+  // Merge new processed games into current games preserving object identity for unchanged items
+  const mergeProcessedGames = (prevGames, newGames) => {
+    if (!Array.isArray(prevGames) || prevGames.length === 0) return newGames;
+    if (!Array.isArray(newGames)) return newGames;
+
+    // Build map of prev by id
+    const prevMap = new Map();
+    prevGames.forEach((g) => {
+      if (g && g.id) prevMap.set(String(g.id), g);
+    });
+
+    const merged = newGames.map((g) => {
+      if (!g || !g.id) return g;
+      const id = String(g.id);
+      const prev = prevMap.get(id);
+      if (!prev) return g;
+
+      // Quick shallow compare for key fields to decide if object changed
+      // You can expand this list if your game objects include more nested mutable data
+      const fields = [
+        "date",
+        "homeTeam",
+        "awayTeam",
+        "isCompleted",
+        "displayClock",
+        "period",
+        "gameStatus",
+        "lastPlay",
+      ];
+      let changed = false;
+      for (const f of fields) {
+        try {
+          const a = JSON.stringify(prev[f] || null);
+          const b = JSON.stringify(g[f] || null);
+          if (a !== b) {
+            changed = true;
+            break;
+          }
+        } catch (e) {
+          changed = true;
+          break;
+        }
+      }
+
+      return changed ? g : prev;
+    });
+
+    return merged;
+  };
 
   const getCacheDuration = (filter) =>
     filter === "today" || filter === "upcoming" ? 30000 : 300000;
@@ -111,8 +174,10 @@ const NBAScoreboardScreen = ({ navigation }) => {
   useFocusEffect(
     React.useCallback(() => {
       setIsScreenFocused(true);
+      isScreenFocusedRef.current = true;
       return () => {
         setIsScreenFocused(false);
+        isScreenFocusedRef.current = false;
         if (updateInterval) {
           clearInterval(updateInterval);
         }
@@ -121,7 +186,30 @@ const NBAScoreboardScreen = ({ navigation }) => {
   );
 
   useEffect(() => {
-    loadScoreboard();
+    // Only trigger a fresh network load on mount/focus when the cache is stale.
+    // This avoids an immediate forced fetch when returning from GameDetails
+    // if we already have fresh data in `gameCache`.
+    (async () => {
+      try {
+        const now = Date.now();
+        const cacheTime = cacheTimestamps[selectedDateFilter] || 0;
+        const cacheDuration = getCacheDuration(selectedDateFilter);
+        const isCacheValid = cacheTime && now - cacheTime < cacheDuration;
+
+        if (!isCacheValid) {
+          // Cache stale or missing — fetch fresh data
+          await loadScoreboard();
+        } else {
+          // Cache valid — ensure UI shows cached games when focused
+          if (isScreenFocusedRef.current && gameCache[selectedDateFilter]) {
+            setGames(gameCache[selectedDateFilter]);
+          }
+        }
+      } catch (e) {
+        console.error("[Scoreboard] focus-load error", e);
+      }
+    })();
+
     if (
       (selectedDateFilter === "today" || selectedDateFilter === "upcoming") &&
       isScreenFocused
@@ -168,7 +256,10 @@ const NBAScoreboardScreen = ({ navigation }) => {
       const isCacheValid = cached && now - cacheTime < cacheDuration;
 
       if (isCacheValid && !silent) {
-        setGames(cached);
+        // Only update the UI when the screen is focused to avoid resetting scroll
+        if (isScreenFocusedRef.current) {
+          setGames(cached);
+        }
         setLoading(false);
         if (dateFilter === "today" || dateFilter === "upcoming")
           loadScoreboard(true, dateFilter);
@@ -215,7 +306,86 @@ const NBAScoreboardScreen = ({ navigation }) => {
 
       setGameCache((prev) => ({ ...prev, [dateFilter]: processed }));
       setCacheTimestamps((prev) => ({ ...prev, [dateFilter]: Date.now() }));
-      if (dateFilter === selectedDateFilter) setGames(processed);
+      // Only set visible `games` state when the screen is focused; otherwise update cache only.
+      if (dateFilter === selectedDateFilter) {
+        if (isScreenFocusedRef.current) {
+          setGames((prev) => {
+            // merge processed into prev to preserve object identity where possible
+            const prevMap = new Map();
+            (prev || []).forEach((g) => {
+              if (g && g.id) prevMap.set(String(g.id), g);
+            });
+
+            const merged = (processed || []).map((g) => {
+              if (!g || !g.id) return g;
+              const id = String(g.id);
+              const prevG = prevMap.get(id);
+              if (!prevG) return g;
+
+              // Shallow compare a small set of fields to detect changes
+              try {
+                const keys = [
+                  "date",
+                  "homeTeam",
+                  "awayTeam",
+                  "isCompleted",
+                  "displayClock",
+                  "period",
+                  "gameStatus",
+                  "lastPlay",
+                ];
+                let changed = false;
+                for (const k of keys) {
+                  const a = JSON.stringify(prevG[k] || null);
+                  const b = JSON.stringify(g[k] || null);
+                  if (a !== b) {
+                    changed = true;
+                    break;
+                  }
+                }
+                return changed ? g : prevG;
+              } catch (e) {
+                return g;
+              }
+            });
+
+            // Prefetch any new logos discovered in merged list (only once per URL)
+            try {
+              merged.forEach((m) => {
+                const logo = m?.homeTeam?.logo || m?.awayTeam?.logo || null;
+                if (logo && !prefetchedLogosRef.current.has(logo)) {
+                  console.log("[Scoreboard] prefetching logo", logo);
+                  try {
+                    if (
+                      global.Image &&
+                      typeof global.Image.prefetch === "function"
+                    ) {
+                      global.Image.prefetch(logo);
+                    }
+                  } catch (e) {}
+                  prefetchedLogosRef.current.add(logo);
+                }
+              });
+            } catch (e) {}
+
+            // Restore scroll position to previous offset if we had one
+            if (listRef.current && scrollOffsetRef.current > 0) {
+              try {
+                setTimeout(() => {
+                  if (listRef.current && listRef.current.scrollToOffset) {
+                    listRef.current.scrollToOffset({
+                      offset: scrollOffsetRef.current,
+                      animated: false,
+                    });
+                  }
+                }, 50);
+              } catch (e) {}
+            }
+
+            return merged;
+          });
+        }
+      }
     } catch (e) {
       if (!silent) {
         Alert.alert("Error", "Failed to load NBA games");
@@ -556,16 +726,10 @@ const NBAScoreboardScreen = ({ navigation }) => {
                 activeOpacity={0.7}
               >
                 <TeamLogo
-                  teamAbbreviation={normalizeAbbreviation(
-                    item.awayTeam.abbreviation
-                  )}
+                  logoUri={`https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${isDarkMode ? "-dark" : ""}/scoreboard/${(item.awayTeam?.abbreviation || "").toLowerCase()}.png&w=200&h=200`}
                   size={32}
-                  style={[
-                    styles.teamLogo,
-                    {
-                      opacity: isLive || isScheduled ? 1 : awayWinner ? 1 : 0.6,
-                    },
-                  ]}
+                  style={styles.teamLogo}
+                  opacity={isLive || isScheduled ? 1 : awayWinner ? 1 : 0.6}
                   iconStyle={{ marginRight: 12 }}
                 />
               </TouchableOpacity>
@@ -637,16 +801,10 @@ const NBAScoreboardScreen = ({ navigation }) => {
                 activeOpacity={0.7}
               >
                 <TeamLogo
-                  teamAbbreviation={normalizeAbbreviation(
-                    item.homeTeam.abbreviation
-                  )}
+                  logoUri={`https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${isDarkMode ? "-dark" : ""}/scoreboard/${(item.homeTeam?.abbreviation || "").toLowerCase()}.png&w=200&h=200`}
                   size={32}
-                  style={[
-                    styles.teamLogo,
-                    {
-                      opacity: isLive || isScheduled ? 1 : homeWinner ? 1 : 0.6,
-                    },
-                  ]}
+                  style={styles.teamLogo}
+                  opacity={isLive || isScheduled ? 1 : homeWinner ? 1 : 0.6}
                   iconStyle={{ marginRight: 12 }}
                 />
               </TouchableOpacity>
@@ -714,22 +872,40 @@ const NBAScoreboardScreen = ({ navigation }) => {
         {/* Game Info */}
         <View style={styles.gameFooter}>
           <View style={styles.gameFooterLeft}>
-            {item.venue && (
-              <Text
-                allowFontScaling={false}
-                style={[styles.venueText, { color: theme.textSecondary }]}
-              >
-                {item.venue}
-              </Text>
-            )}
-            {item.broadcast && (
-              <Text
-                allowFontScaling={false}
-                style={[styles.broadcastText, { color: theme.textSecondary }]}
-              >
-                {item.broadcast}
-              </Text>
-            )}
+            {/* If this game is part of the NBA Cup, show a trophy icon left of venue/broadcast */}
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              {item.notes &&
+              typeof item.notes === "string" &&
+              item.notes.includes("NBA Cup") ? (
+                <Ionicons
+                  name="trophy"
+                  size={16}
+                  color={colors.primary}
+                  style={{ marginRight: 8 }}
+                />
+              ) : null}
+              <View>
+                {item.venue && (
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.venueText, { color: theme.textSecondary }]}
+                  >
+                    {item.venue}
+                  </Text>
+                )}
+                {item.broadcast && (
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.broadcastText,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {item.broadcast}
+                  </Text>
+                )}
+              </View>
+            </View>
           </View>
           <View style={styles.gameFooterRight}>
             <LiveViewerBadge gameId={item.id} style={styles.viewerBadge} />
@@ -739,7 +915,8 @@ const NBAScoreboardScreen = ({ navigation }) => {
     );
   };
 
-  if (loading) {
+  // Only show the full-screen loading state when we have no cached/visible games.
+  if (loading && (!games || games.length === 0)) {
     return (
       <View
         style={[styles.loadingContainer, { backgroundColor: theme.background }]}
@@ -759,9 +936,16 @@ const NBAScoreboardScreen = ({ navigation }) => {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {renderDateFilter()}
       <FlatList
+        ref={listRef}
         data={games}
         renderItem={renderGameItem}
         keyExtractor={(item, index) => item.id || `${item.type}-${index}`}
+        onScroll={(e) => {
+          try {
+            scrollOffsetRef.current = e.nativeEvent.contentOffset.y || 0;
+          } catch (err) {}
+        }}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

@@ -1265,7 +1265,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       return (
         <View style={[styles.gameSectionCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Text style={[styles.contentText, { color: theme.textSecondary }]}>
-            No current or upcoming games found
+            No current games found
           </Text>
         </View>
       );
@@ -1690,6 +1690,28 @@ const TeamPageScreen = ({ route, navigation }) => {
     // We'll render every category using configurable stats selection
     const categories = teamStats?.results?.stats?.categories || teamStats?.categories || teamStats?.groups || [];
 
+    // Ensure categories appear in a preferred order: Offensive, Defensive, General, then any others.
+    const orderPriority = (name) => {
+      if (!name) return 3;
+      const n = name.toString().toLowerCase();
+      if (n.includes('offens') || n.includes('attack') || n.includes('scoring')) return 0;
+      if (n.includes('defens') || n.includes('opponent') || n.includes('stop')) return 1;
+      if (n.includes('general') || n.includes('overall') || n.includes('team')) return 2;
+      return 3;
+    };
+
+    const orderedCategories = [...categories].map((c, idx) => ({
+      origIndex: idx,
+      keyName: (c.displayName || c.name || '').toString(),
+      cat: c,
+    })).sort((a, b) => {
+      const pa = orderPriority(a.keyName);
+      const pb = orderPriority(b.keyName);
+      if (pa !== pb) return pa - pb;
+      // preserve API order for same-priority categories
+      return a.origIndex - b.origIndex;
+    }).map(x => x.cat);
+
     const pickTopStats = (statsArr, categoryName = '') => {
       if (!Array.isArray(statsArr)) return [];
       
@@ -1762,7 +1784,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       <ScrollView style={[styles.statsContainer, { backgroundColor: theme.background }]} contentContainerStyle={styles.statsContent} showsVerticalScrollIndicator={false}>
         <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: theme.text }]}>Team Statistics</Text>
         {/* Render each category */}
-        {categories.map((cat, idx) => {
+        {orderedCategories.map((cat, idx) => {
           const categoryName = cat.displayName || cat.name || '';
           const statsArr = cat.stats || cat.items || cat.values || [];
           const top = pickTopStats(statsArr, categoryName);
@@ -1874,7 +1896,7 @@ const styles = StyleSheet.create({
   },
   favoriteButton: {
     position: 'absolute',
-    top: 15,
+    top: 50,
     right: 15,
     padding: 10,
     zIndex: 1,

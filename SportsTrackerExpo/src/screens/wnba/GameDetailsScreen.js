@@ -210,7 +210,7 @@ const BasketballCourt = React.memo(
     let leftPercent, bottomPercent;
 
     if (teamSide === "home") {
-      bottomPercent = 44 + (25 - espnY) * 2;
+      bottomPercent = (50 - espnY) * 2;
       leftPercent = espnX * 2;
     } else {
       bottomPercent = espnY * 2 - 6;
@@ -222,6 +222,13 @@ const BasketballCourt = React.memo(
     const finalTeamColor = teamColor.startsWith("#")
       ? teamColor
       : `#${teamColor}`;
+      
+    let clampedBottom = finalBottomPercent;
+    if (teamSide === "home") {
+      clampedBottom = Math.max(clampedBottom, 50);
+    } else {
+      clampedBottom = Math.min(clampedBottom, 50);
+    }
 
     return (
       <View style={styles.miniCourtContainer}>
@@ -268,7 +275,7 @@ const BasketballCourt = React.memo(
               {
                 position: "absolute",
                 left: `${finalLeftPercent}%`,
-                bottom: `${finalBottomPercent}%`,
+                bottom: `${clampedBottom}%`,
                 backgroundColor: isScoring ? finalTeamColor : "white",
                 borderColor: isScoring ? "white" : finalTeamColor,
                 marginLeft: -5,
@@ -3476,7 +3483,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                           ? `+${p.scoreValue} Point${
                               p.scoreValue !== 1 ? "s" : ""
                             }`
-                          : "GOAL"}
+                          : "Score"}
                       </Text>
                     </View>
                   )}

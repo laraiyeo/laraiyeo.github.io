@@ -69,16 +69,6 @@ const LiveViewerBadge = ({ gameId, style }) => {
   // Use a read-only subscription that doesn't join the game
   const { viewerCount } = useGamePresenceReadOnly(gameId);
 
-  console.log("👁️ LiveViewerBadge Debug (Scoreboard):", {
-    gameId,
-    viewerCount,
-    hasGameId: !!gameId,
-    showBadge: !!(gameId && viewerCount > 0),
-    gameIdType: typeof gameId,
-    platform: "scoreboard-readonly",
-    exactMatch: gameId === "401802583",
-  });
-
   if (!gameId || viewerCount === 0) return null;
 
   const formatViewerCount = (count) => {

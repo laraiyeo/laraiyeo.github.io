@@ -1248,7 +1248,7 @@ const styles = StyleSheet.create({
   teamHeader: { flexDirection: 'row', alignItems: 'center', padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3.84, elevation: 5 },
   teamLogoHead: { width: 80, height: 80, marginRight: 20 },
   teamInfo: { flex: 1 },
-  favoriteButton: { position: 'absolute', top: 15, right: 15, padding: 10, zIndex: 1 },
+  favoriteButton: { position: 'absolute', top: 50, right: 15, padding: 10, zIndex: 1 },
   favoriteIcon: { fontSize: 24, fontWeight: 'bold' },
   teamName: { fontSize: 24, fontWeight: 'bold', marginBottom: 4 },
   teamDivision: { fontSize: 16, marginBottom: 8 },

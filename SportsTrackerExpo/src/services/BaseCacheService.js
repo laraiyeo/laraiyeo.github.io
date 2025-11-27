@@ -13,6 +13,8 @@ export class BaseCacheService {
   // Fallback in-memory cache for AsyncStorage failures
   static memoryCache = new Map();
   static memoryCacheTimestamps = new Map();
+  // Track whether AsyncStorage should be used (disable after persistent failures)
+  static asyncStorageAvailable = true;
 
   /**
    * Get cached data with AsyncStorage persistence
@@ -56,36 +58,84 @@ export class BaseCacheService {
     let fetchedFromNetwork = false;
 
     try {
-      // 1️⃣ Try to read from AsyncStorage
-      const cachedItem = await AsyncStorage.getItem(cacheKey);
-      if (cachedItem) {
-        const { data: cachedData, timestamp } = JSON.parse(cachedItem);
-        const age = (now - timestamp) / 1000;
-        const isFresh = now - timestamp < cacheDuration;
-
-        if (isFresh) {
+      // If AsyncStorage is currently marked unavailable, skip AsyncStorage ops
+      if (this.asyncStorageAvailable) {
+        // Debug: show how many AsyncStorage items exist (quick sanity)
+        try {
+          const _keys = await AsyncStorage.getAllKeys();
           console.log(
-            `%c[Cache HIT] %c${key} %c(${age.toFixed(
-              1
-            )}s old)${this.getCacheTypeLabel(dataType, isLiveData)}`,
-            "color: limegreen; font-weight: bold;",
-            "color: white;",
-            "color: gray;"
+            `[Cache] asyncStorage keys count: ${_keys ? _keys.length : 0}`
           );
-          return cachedData;
-        } else {
-          console.log(
-            `%c[Cache STALE] %c${key} %c(${age.toFixed(
-              1
-            )}s old — refreshing...)${this.getCacheTypeLabel(
-              dataType,
-              isLiveData
-            )}`,
-            "color: orange; font-weight: bold;",
-            "color: white;",
-            "color: gray;"
-          );
+        } catch (kErr) {
+          console.warn("[Cache] getAllKeys failed", kErr);
+          // If getAllKeys fails repeatedly, mark AsyncStorage as unavailable
+          this.asyncStorageAvailable = false;
         }
+
+        // 1️⃣ Try to read from AsyncStorage
+        let cachedItem = null;
+        try {
+          cachedItem = await AsyncStorage.getItem(cacheKey);
+          console.log(
+            `[Cache] read ${cacheKey}:`,
+            cachedItem ? "FOUND" : "MISS"
+          );
+        } catch (rErr) {
+          console.warn(
+            "[Cache] AsyncStorage.getItem failed for",
+            cacheKey,
+            rErr
+          );
+          this.asyncStorageAvailable = false;
+        }
+
+        if (cachedItem) {
+          let parsed = null;
+          try {
+            parsed = JSON.parse(cachedItem);
+          } catch (parseErr) {
+            console.warn(
+              "[Cache] failed to parse cached item for",
+              cacheKey,
+              parseErr
+            );
+          }
+
+          if (parsed) {
+            const { data: cachedData, timestamp } = parsed;
+            const age = (now - timestamp) / 1000;
+            const isFresh = now - timestamp < cacheDuration;
+
+            if (isFresh) {
+              console.log(
+                `%c[Cache HIT] %c${key} %c(${age.toFixed(
+                  1
+                )}s old)${this.getCacheTypeLabel(dataType, isLiveData)}`,
+                "color: limegreen; font-weight: bold;",
+                "color: white;",
+                "color: gray;"
+              );
+              return cachedData;
+            } else {
+              console.log(
+                `%c[Cache STALE] %c${key} %c(${age.toFixed(
+                  1
+                )}s old — refreshing...)${this.getCacheTypeLabel(
+                  dataType,
+                  isLiveData
+                )}`,
+                "color: orange; font-weight: bold;",
+                "color: white;",
+                "color: gray;"
+              );
+            }
+          }
+        }
+      } else {
+        console.log(
+          "[Cache] AsyncStorage disabled — using in-memory fallback for",
+          key
+        );
       }
 
       // 2️⃣ Fetch from network if not cached or stale
@@ -102,15 +152,50 @@ export class BaseCacheService {
       data = await fetchFunction();
       fetchedFromNetwork = true;
 
-      // Save to AsyncStorage
-      await AsyncStorage.setItem(
-        cacheKey,
-        JSON.stringify({ data, timestamp: now })
-      );
+      // Save to AsyncStorage (guarded)
+      try {
+        if (this.asyncStorageAvailable) {
+          await AsyncStorage.setItem(
+            cacheKey,
+            JSON.stringify({ data, timestamp: now })
+          );
+          console.log(`[Cache] wrote ${cacheKey} (ts=${now})`);
+          try {
+            const verify = await AsyncStorage.getItem(cacheKey);
+            console.log(
+              `[Cache] verify-read ${cacheKey}:`,
+              verify ? "FOUND" : "MISS"
+            );
+          } catch (vrErr) {
+            console.warn("[Cache] verify-read failed for", cacheKey, vrErr);
+          }
+        }
+      } catch (setErr) {
+        console.warn(
+          "[Cache] failed to write to AsyncStorage for",
+          cacheKey,
+          setErr
+        );
+        try {
+          const msg = String(
+            setErr && setErr.message ? setErr.message : setErr
+          );
+          if (/quota|exceed/i.test(msg)) {
+            console.warn(
+              "[Cache] AsyncStorage appears to be full - disabling AsyncStorage usage"
+            );
+            this.asyncStorageAvailable = false;
+          }
+        } catch (chkErr) {}
+      }
 
       // Also save to memory cache as backup
-      this.memoryCache.set(key, data);
-      this.memoryCacheTimestamps.set(key, now);
+      try {
+        this.memoryCache.set(key, data);
+        this.memoryCacheTimestamps.set(key, now);
+      } catch (memErr) {
+        console.warn("[Cache] memory cache set failed for", key, memErr);
+      }
 
       return data;
     } catch (err) {

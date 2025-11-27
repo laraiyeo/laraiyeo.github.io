@@ -2737,7 +2737,7 @@ const styles = StyleSheet.create({
   },
   favoriteButton: {
     position: "absolute",
-    top: 15,
+    top: 50,
     right: 15,
     padding: 10,
     zIndex: 1,

@@ -83,15 +83,39 @@ export class EmoteService {
       const response = await fetch(this.STREAMED_PK_API);
       const emotes = await response.json();
 
-      // Transform to our format
-      const formattedEmotes = emotes.map((emote) => ({
-        id: emote.id,
-        name: emote.name,
-        category: emote.cat?.[0] || "misc",
-        url: `${this.STREAMED_PK_IMAGE_BASE}${emote.id}.webp`,
-        type: "streamed",
-        cached_at: Date.now(),
-      }));
+      // Transform to our format and ensure duplicate names become unique identifiers
+      // while keeping each emote's unique `id` for the image URL and cache key.
+      const nameCounts = {};
+      const formattedEmotes = emotes.map((emote) => {
+        // Preserve original raw name from API
+        const rawName = emote.name || "";
+        // Normalize base name without surrounding colons
+        let base = rawName.replace(/^:+|:+$/g, "");
+        base = base.trim();
+        // Fallback to id if name empty
+        if (!base) base = String(emote.id);
+
+        nameCounts[base] = (nameCounts[base] || 0) + 1;
+        const seq = nameCounts[base];
+
+        // If duplicate, append sequence suffix (e.g., HUH-2). The first occurrence keeps the base name.
+        const uniqueBase = seq === 1 ? base : `${base}-${seq}`;
+
+        // Use colon-wrapped name for compatibility with parseMessageForEmotes (':NAME:')
+        const uniqueNameWithColons = `:${uniqueBase}:`;
+
+        return {
+          id: emote.id,
+          // originalName keeps the API-provided name (useful for display or mapping back)
+          originalName: rawName,
+          // name is the token used when parsing messages (colon-wrapped)
+          name: uniqueNameWithColons,
+          category: emote.cat?.[0] || "misc",
+          url: `${this.STREAMED_PK_IMAGE_BASE}${emote.id}.webp`,
+          type: "streamed",
+          cached_at: Date.now(),
+        };
+      });
 
       // Cache in Firestore (but don't fail if permissions are missing)
       try {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Image } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 
-const API_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/draft';
+const API_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/draft';
 
 const DraftScreen = () => {
   const { theme, colors, isDarkMode } = useTheme();
@@ -98,14 +98,14 @@ const DraftScreen = () => {
           const team = teamsMap[String(item.teamId)];
           const getTeamLogo = (t) => {
             if (!t) return null;
-            return (isDarkMode ? (`https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500-dark/${t.abbreviation.toLowerCase()}.png&w=200&h=200`) : (`https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${t.abbreviation.toLowerCase()}.png&w=200&h=200`)) || null;
+            return (isDarkMode ? (`https://a.espncdn.com/combiner/i?img=/i/teamlogos/wnba/500-dark/${t.abbreviation.toLowerCase()}.png&w=200&h=200`) : (`https://a.espncdn.com/combiner/i?img=/i/teamlogos/wnba/500/${t.abbreviation.toLowerCase()}.png&w=200&h=200`)) || null;
           };
           const teamLogoUri = getTeamLogo(team);
           const headshotUrl = athlete.headshot?.href;
           let headshot = null;
           if (headshotUrl) {
           // Extract the ID + filename from the original URL
-          const path = headshotUrl.split('/i/')[1]; // "headshots/nba/players/full/3934719.png"
+          const path = headshotUrl.split('/i/')[1]; // "headshots/wnba/players/full/3934719.png"
           // Build the combiner URL
           headshot = `https://a.espncdn.com/combiner/i?img=/i/${path}&w=200`;
           }

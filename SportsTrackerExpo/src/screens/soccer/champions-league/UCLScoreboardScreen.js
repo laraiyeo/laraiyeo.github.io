@@ -21,7 +21,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { ChampionsLeagueServiceEnhanced } from "../../../services/soccer/ChampionsLeagueServiceEnhanced";
 import { useTheme } from "../../../context/ThemeContext";
 import { useFavorites } from "../../../context/FavoritesContext";
-import LiveViewerBadge from "../../../components/ViewerCounter";
+import { LiveViewerBadge } from "../../../components/ViewerCounter";
 
 const { width } = Dimensions.get("window");
 
