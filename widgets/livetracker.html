@@ -14,8 +14,8 @@
         font-family: Arial, Helvetica, sans-serif;
 
         /* Default page size (can be overridden by ?w=WIDTH and formula params n,d,o) */
-          width: 800px;
-          height: 404px;
+        width: 800px;
+        height: 404px;
         overflow: hidden; /* Hide scrollbars */
       }
 
@@ -81,7 +81,8 @@
         // Compute visual size using fixed ratio (404/800 = 0.505)
         const ratio = 0.505;
         const visualWidth = requestedWidth;
-        const visualHeight = Math.round(visualWidth * ratio) + (parseInt(qs("o")) || 50);
+        const visualHeight =
+          Math.round(visualWidth * ratio) + (parseInt(qs("o")) || 50);
 
         // Apply sizes to document and wrapper so the host sees the expected dimensions
         document.documentElement.style.width = visualWidth + "px";
@@ -116,7 +117,10 @@
         // If embedded in a WebView, post the computed visual height so the host can size itself.
         function postSize() {
           try {
-            if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+            if (
+              window.ReactNativeWebView &&
+              window.ReactNativeWebView.postMessage
+            ) {
               window.ReactNativeWebView.postMessage(String(visualHeight));
             }
           } catch (e) {

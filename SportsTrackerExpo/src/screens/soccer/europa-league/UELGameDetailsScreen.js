@@ -792,15 +792,20 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
       const competition = gameData.header?.competitions?.[0];
       const homeName =
         gameData.homeCompetitor?.team?.displayName ||
-        competition?.competitors?.find((c) => c.homeAway === "home")?.team?.displayName ||
+        competition?.competitors?.find((c) => c.homeAway === "home")?.team
+          ?.displayName ||
         "";
       const awayName =
         gameData.awayCompetitor?.team?.displayName ||
-        competition?.competitors?.find((c) => c.homeAway === "away")?.team?.displayName ||
+        competition?.competitors?.find((c) => c.homeAway === "away")?.team
+          ?.displayName ||
         "";
 
       try {
-        const id = await LiveTrackerService.findMatchIdByTeams(homeName, awayName);
+        const id = await LiveTrackerService.findMatchIdByTeams(
+          homeName,
+          awayName
+        );
         if (!cancelled && id) setLiveTrackerUuid(id);
       } catch (e) {
         // ignore
@@ -3181,7 +3186,6 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                   resetPlaysCount();
                 }
               }}
-              
             >
               <Text
                 allowFontScaling={false}

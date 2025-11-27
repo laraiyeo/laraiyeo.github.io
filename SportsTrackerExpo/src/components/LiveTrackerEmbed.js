@@ -12,7 +12,7 @@ import {
 import { WebView } from "react-native-webview";
 import { Ionicons } from "@expo/vector-icons";
 import { buildLiveTrackerUrl } from "../utils/liveTracker";
-import { useTheme } from "../context/ThemeContext"
+import { useTheme } from "../context/ThemeContext";
 
 const { width: DEVICE_WIDTH } = Dimensions.get("window");
 
@@ -91,7 +91,6 @@ const LiveTrackerEmbed = ({
 
   const content = (
     <View style={styles.innerContainer}>
-
       <View
         style={[
           styles.webWrapper,
@@ -121,7 +120,7 @@ const LiveTrackerEmbed = ({
               const clamped = Math.min(Math.max(val, 100), 2000);
               if (clamped !== height) setHeight(clamped);
             } else {
-              console.log('LiveTrackerEmbed onMessage:', msg);
+              console.log("LiveTrackerEmbed onMessage:", msg);
             }
           }}
           // We use a deterministic resize formula based on device width, so
@@ -196,7 +195,7 @@ const LiveTrackerEmbed = ({
                   const clamped = Math.min(Math.max(val, 100), 2000);
                   if (clamped !== height) setHeight(clamped);
                 } else {
-                  console.log('LiveTrackerEmbed onMessage:', msg);
+                  console.log("LiveTrackerEmbed onMessage:", msg);
                 }
               }}
               onLoadStart={() => {
@@ -228,8 +227,13 @@ const LiveTrackerEmbed = ({
 
           {/* Render header below the web wrapper so it does not get covered by
               any sticky/native header layers above the WebView surface. */}
-          <View style={[styles.headerRowInline, { backgroundColor: theme.surface }]}>
-            <Text allowFontScaling={false} style={[styles.headerTitle, { color: theme.text }] }>
+          <View
+            style={[styles.headerRowInline, { backgroundColor: theme.surface }]}
+          >
+            <Text
+              allowFontScaling={false}
+              style={[styles.headerTitle, { color: theme.text }]}
+            >
               Live Tracker
             </Text>
             <TouchableOpacity
@@ -245,7 +249,6 @@ const LiveTrackerEmbed = ({
               <Ionicons name="close" size={22} color={theme.text || "#fff"} />
             </TouchableOpacity>
           </View>
-
         </View>
       </View>
     );
@@ -273,10 +276,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#111",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
     zIndex: 50,
     elevation: 50,
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -286,9 +289,9 @@ const styles = StyleSheet.create({
     height: 56,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
     paddingHorizontal: 12,
-    position: 'relative',
+    position: "relative",
     zIndex: 5,
   },
   closeButton: {
