@@ -185,7 +185,12 @@ async function fetchDiaryForDate(dateObj) {
       user
     )}&secret=${encodeURIComponent(secret)}&date=${dateStr}`;
     const forwardEndpoint = `${FORWARDER_URL.replace(/\/$/, "")}/forward`;
-    console.log("Using forwarder endpoint:", forwardEndpoint, "-> upstream:", upstreamUrl);
+    console.log(
+      "Using forwarder endpoint:",
+      forwardEndpoint,
+      "-> upstream:",
+      upstreamUrl
+    );
 
     const res = await fetch(forwardEndpoint, {
       method: "POST",
@@ -198,7 +203,11 @@ async function fetchDiaryForDate(dateObj) {
     console.log("Forwarder response status:", res.status, res.statusText);
     const bodyText = await res.text().catch(() => "");
     if (!res.ok) {
-      console.error("Forwarder returned non-200", res.status, bodyText.slice(0, 200));
+      console.error(
+        "Forwarder returned non-200",
+        res.status,
+        bodyText.slice(0, 200)
+      );
       throw new Error(`Forwarder fetch failed ${res.status} ${res.statusText}`);
     }
     let json = null;
