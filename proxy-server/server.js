@@ -172,9 +172,50 @@ async function fetchDiaryForDate(dateObj) {
   const dateStr = formatDateYYYYMMDD(dateObj);
   const user = process.env.UPSTREAM_USER || DEFAULT_USER;
   const secret = process.env.UPSTREAM_SECRET || "";
+
+  // If a FORWARDER_URL is set, use the VPS forwarder which returns upstream data.
+  const FORWARDER_URL = process.env.FORWARDER_URL || "";
+  const FORWARDER_SECRET = process.env.FORWARDER_SECRET || "";
+
+  if (FORWARDER_URL) {
+    // Build the upstream URL we want the forwarder to fetch. We POST this to
+    // the forwarder's `/forward` endpoint so the forwarder does the outbound
+    // request from the whitelisted VM.
+    const upstreamUrl = `${UPSTREAM_HOST}/v1/football/match/diary?user=${encodeURIComponent(
+      user
+    )}&secret=${encodeURIComponent(secret)}&date=${dateStr}`;
+    const forwardEndpoint = `${FORWARDER_URL.replace(/\/$/, "")}/forward`;
+    console.log("Using forwarder endpoint:", forwardEndpoint, "-> upstream:", upstreamUrl);
+
+    const res = await fetch(forwardEndpoint, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarder-secret": FORWARDER_SECRET,
+      },
+      body: JSON.stringify({ url: upstreamUrl }),
+    });
+    console.log("Forwarder response status:", res.status, res.statusText);
+    const bodyText = await res.text().catch(() => "");
+    if (!res.ok) {
+      console.error("Forwarder returned non-200", res.status, bodyText.slice(0, 200));
+      throw new Error(`Forwarder fetch failed ${res.status} ${res.statusText}`);
+    }
+    let json = null;
+    try {
+      json = JSON.parse(bodyText);
+    } catch (err) {
+      console.error("Failed to parse forwarder JSON:", err.message);
+      throw new Error("Failed to parse forwarder JSON");
+    }
+    return { json, dateStr, rawText: bodyText };
+  }
+
+  // Default: call upstream host directly. Use `date=YYYYMMDD` (many accounts
+  // reject `tsp` queries) — include only date to match upstream account scope.
   const url = `${UPSTREAM_HOST}/v1/football/match/diary?user=${encodeURIComponent(
     user
-  )}&secret=${encodeURIComponent(secret)}&tsp=${tsp}&date=${dateStr}`;
+  )}&secret=${encodeURIComponent(secret)}&date=${dateStr}`;
   console.log("Upstream URL:", url);
   const res = await fetch(url, { method: "GET" });
   console.log("Upstream response status:", res.status, res.statusText);
