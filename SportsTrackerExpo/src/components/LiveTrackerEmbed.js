@@ -1,10 +1,19 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions, Platform } from 'react-native';
-import { WebView } from 'react-native-webview';
-import { Ionicons } from '@expo/vector-icons';
-import { buildLiveTrackerUrl } from '../utils/liveTracker';
+import React, { useState, useRef, useEffect } from "react";
+import {
+  View,
+  Text,
+  Modal,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+  Dimensions,
+  Platform,
+} from "react-native";
+import { WebView } from "react-native-webview";
+import { Ionicons } from "@expo/vector-icons";
+import { buildLiveTrackerUrl } from "../utils/liveTracker";
 
-const { width: DEVICE_WIDTH } = Dimensions.get('window');
+const { width: DEVICE_WIDTH } = Dimensions.get("window");
 
 const injectedHeightScript = `
   (function(){
@@ -26,7 +35,15 @@ const injectedHeightScript = `
 // - wrapperUrl: optional URL to a page that embeds the widget (useful when widget only works when hosted on allowed domain)
 // - customHeaders: optional headers object passed to WebView (eg. { Referer: 'https://sportsheart.ca/' })
 // - visible, onClose, inline
-const LiveTrackerEmbed = ({ uuid, profile, visible, onClose, inline = false, wrapperUrl = null, customHeaders = null }) => {
+const LiveTrackerEmbed = ({
+  uuid,
+  profile,
+  visible,
+  onClose,
+  inline = false,
+  wrapperUrl = null,
+  customHeaders = null,
+}) => {
   const [height, setHeight] = useState(420);
   const [loading, setLoading] = useState(true);
   const webRef = useRef(null);
@@ -45,10 +62,12 @@ const LiveTrackerEmbed = ({ uuid, profile, visible, onClose, inline = false, wra
   const content = (
     <View style={styles.innerContainer}>
       <View style={styles.headerRow}>
-        <Text allowFontScaling={false} style={styles.headerTitle}>Live Tracker</Text>
+        <Text allowFontScaling={false} style={styles.headerTitle}>
+          Live Tracker
+        </Text>
       </View>
 
-      <View style={[styles.webWrapper, { width: DEVICE_WIDTH }]}> 
+      <View style={[styles.webWrapper, { width: DEVICE_WIDTH }]}>
         {loading && (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#fff" />
@@ -56,7 +75,11 @@ const LiveTrackerEmbed = ({ uuid, profile, visible, onClose, inline = false, wra
         )}
         <WebView
           ref={webRef}
-          source={ customHeaders ? { uri: urlToLoad, headers: customHeaders } : { uri: urlToLoad } }
+          source={
+            customHeaders
+              ? { uri: urlToLoad, headers: customHeaders }
+              : { uri: urlToLoad }
+          }
           style={{ width: DEVICE_WIDTH, height }}
           originWhitelist={["*"]}
           injectedJavaScript={injectedHeightScript}
@@ -79,11 +102,7 @@ const LiveTrackerEmbed = ({ uuid, profile, visible, onClose, inline = false, wra
 
   if (inline) {
     // Render inline (no modal) - caller should place this where needed
-    return (
-      <View style={[styles.containerInline]}>
-        {content}
-      </View>
-    );
+    return <View style={[styles.containerInline]}>{content}</View>;
   }
 
   return (
@@ -93,9 +112,7 @@ const LiveTrackerEmbed = ({ uuid, profile, visible, onClose, inline = false, wra
       animationType="slide"
       transparent={false}
     >
-      <View style={styles.container}>
-        {content}
-      </View>
+      <View style={styles.container}>{content}</View>
     </Modal>
   );
 };
@@ -103,39 +120,39 @@ const LiveTrackerEmbed = ({ uuid, profile, visible, onClose, inline = false, wra
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: "#000",
   },
   headerRow: {
     height: 56,
-    backgroundColor: '#111',
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: "#111",
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
   },
   closeButton: {
     width: 40,
     height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerTitle: {
-    color: '#fff',
-    fontWeight: '700',
+    color: "#fff",
+    fontWeight: "700",
     marginLeft: 8,
   },
   webWrapper: {
     flex: 1,
-    alignItems: 'center',
-    backgroundColor: '#000',
+    alignItems: "center",
+    backgroundColor: "#000",
   },
   loadingOverlay: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     top: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 2,
   },
 });
