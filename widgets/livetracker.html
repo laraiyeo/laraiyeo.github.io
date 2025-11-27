@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>LiveTracker Widget</title>
+    <style>
+      html,body{height:100%;margin:0;background:#000;color:#fff;font-family:Arial,Helvetica,sans-serif}
+      .wrapper{max-width:1200px;margin:0 auto;padding:12px}
+      .notice{padding:12px;background:#111;border:1px solid #222;border-radius:6px;margin-bottom:12px}
+      iframe{width:100%;border:0;background:#000}
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div id="notice" class="notice">Loading widget…</div>
+      <div id="frameContainer"></div>
+    </div>
+
+    <script>
+      // Read ?id= or ?uuid= and optional profile
+      function qs(name){
+        const params = new URLSearchParams(window.location.search);
+        return params.get(name) || params.get(name === 'id' ? 'uuid' : null);
+      }
+
+      const id = qs('id') || qs('uuid');
+      const profile = qs('profile') || '1gheey76n2szh3n14w1g';
+      const lang = qs('lang') || 'en';
+      const mode = qs('mode') || '3d';
+
+      const notice = document.getElementById('notice');
+      const container = document.getElementById('frameContainer');
+
+      if (!id) {
+        notice.innerText = 'No id provided. Use ?id=UUID to load a live-tracker.';
+      } else {
+        notice.style.display = 'none';
+        const src = `https://widgets.thesports01.com/${lang}/${mode}/football?profile=${encodeURIComponent(profile)}&uuid=${encodeURIComponent(id)}`;
+        const iframe = document.createElement('iframe');
+        iframe.src = src;
+        iframe.width = '100%';
+        iframe.height = '600';
+        iframe.scrolling = 'no';
+        iframe.setAttribute('title','LiveTracker Widget');
+        container.appendChild(iframe);
+      }
+    </script>
+  </body>
+</html>

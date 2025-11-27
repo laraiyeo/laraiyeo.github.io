@@ -1873,6 +1873,23 @@ const AppContent = () => {
     preloadEmotes();
   }, []);
 
+  // Initialize LiveTracker service to fetch diary for the session
+  useEffect(() => {
+    const initLiveTracker = async () => {
+      try {
+        // lazy-import service to avoid circular deps during bundling
+        const LiveTrackerService = require("./src/services/liveTrackerService").default;
+        console.log("Initializing LiveTrackerService...");
+        await LiveTrackerService.initDiary();
+        console.log("LiveTrackerService initialized");
+      } catch (err) {
+        console.warn("Failed to initialize LiveTrackerService:", err);
+      }
+    };
+
+    initLiveTracker();
+  }, []);
+
   // Initialize PresenceService for viewer tracking
   useEffect(() => {
     const initializePresence = async () => {

@@ -26,6 +26,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useStreamingAccess } from '../../../utils/streamingUtils';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
+import LiveTrackerEmbed from '../../../components/LiveTrackerEmbed';
+import LiveTrackerService from '../../../services/liveTrackerService';
+import { buildLiveTrackerUrl } from '../../../utils/liveTracker';
 
 const { width } = Dimensions.get('window');
 
@@ -164,6 +167,9 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
   const [loadingPlayerStats, setLoadingPlayerStats] = useState(false);
   const [statsData, setStatsData] = useState(null);
   const [loadingMatchStats, setLoadingMatchStats] = useState(false);
+  // Live tracker embed state
+  const [liveTrackerVisible, setLiveTrackerVisible] = useState(false);
+  const [liveTrackerUuid, setLiveTrackerUuid] = useState(null);
   
   // Streaming state
   const [availableStreams, setAvailableStreams] = useState({});
@@ -2270,6 +2276,34 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
   const renderMatchHeader = () => {
     if (!gameData) return null;
 
+    // If inline live tracker is visible, render the embed replacing the header
+    if (liveTrackerVisible) {
+      // Allow override via route param `liveTrackerWrapperUrl`.
+      // Default to local dev test page when in dev, otherwise use production domain wrapper.
+      const defaultWrapperBase = __DEV__
+        ? 'http://10.0.2.2:8000/livetracker-test.html' // Android emulator -> host machine
+        : 'https://sportsheart.ca/widgets/livetracker.html';
+
+      // If route param provides a full wrapper URL, use it. Otherwise build one that includes the id param
+      const provided = route?.params?.liveTrackerWrapperUrl || null;
+      const wrapperUrl = provided
+        ? (provided.includes('?') ? `${provided}&id=${encodeURIComponent(liveTrackerUuid)}` : `${provided}?id=${encodeURIComponent(liveTrackerUuid)}`)
+        : (defaultWrapperBase.includes('livetracker-test.html') ? `${defaultWrapperBase}?id=${encodeURIComponent(liveTrackerUuid)}` : `${defaultWrapperBase}?id=${encodeURIComponent(liveTrackerUuid)}`);
+
+      return (
+        <LiveTrackerEmbed
+          uuid={liveTrackerUuid}
+          visible={true}
+          inline={true}
+          wrapperUrl={wrapperUrl}
+          onClose={() => {
+            setLiveTrackerVisible(false);
+            setLiveTrackerUuid(null);
+          }}
+        />
+      );
+    }
+
     const competition = gameData.header?.competitions?.[0];
     // Use processed competitors if available, fallback to original structure
     const homeTeam = gameData.homeCompetitor || competition?.competitors?.find(comp => comp.homeAway === 'home') || competition?.competitors?.[0];
@@ -2499,6 +2533,39 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
                   resetPlaysCount();
                 }
               }}
+              onLongPress={async () => {
+                try {
+                  // Toggle: if already visible, hide; otherwise try to open
+                  if (liveTrackerVisible) {
+                    setLiveTrackerVisible(false);
+                    setLiveTrackerUuid(null);
+                    return;
+                  }
+
+                  let uuid = route?.params?.liveTrackerMatchId || null;
+                  if (!uuid && gameData) {
+                    const competition = gameData.header?.competitions?.[0];
+                    const hnObj = gameData.homeCompetitor || competition?.competitors?.find(comp => comp.homeAway === 'home') || competition?.competitors?.[0];
+                    const anObj = gameData.awayCompetitor || competition?.competitors?.find(comp => comp.homeAway === 'away') || competition?.competitors?.[1];
+                    const hn = (hnObj && (hnObj.team?.displayName || hnObj.team?.abbreviation || hnObj.displayName || hnObj.abbreviation)) || '';
+                    const an = (anObj && (anObj.team?.displayName || anObj.team?.abbreviation || anObj.displayName || anObj.abbreviation)) || '';
+                    if (hn || an) {
+                      uuid = LiveTrackerService.findMatchIdByTeams(hn, an);
+                    }
+                  }
+
+                  if (uuid) {
+                    setLiveTrackerUuid(uuid);
+                    setLiveTrackerVisible(true);
+                  } else {
+                    Alert.alert('Live Tracker', 'Live-tracker not available for this match');
+                  }
+                } catch (err) {
+                  console.warn('LiveTracker open failed', err);
+                  Alert.alert('Live Tracker', 'Failed to open live tracker');
+                }
+              }}
+              delayLongPress={500}
             >
               <Text allowFontScaling={false}
                 style={[
@@ -4962,6 +5029,8 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
       </ScrollView>
       
       {renderPlayerPopup()}
+
+      {/* Inline Live Tracker handled inside renderMatchHeader when `liveTrackerVisible` is true */}
       
       {/* Stream Modal - Only render when streaming is unlocked */}
       {isStreamingUnlocked && (
