@@ -8,13 +8,91 @@ let diaryData = null;
 
 function normalize(str) {
   if (!str) return "";
+
+  const customMap = {
+      "paris saint germain": "psg",
+      "paris saint-germain": "psg",
+      "tottenham hotspur": "tottenham-hotspur",
+      tottenham: "tottenham-hotspur",
+      "manchester united": "manchester-united",
+      "manchester city": "manchester-city",
+      "real madrid": "real-madrid",
+      "atletico madrid": "atletico-madrid",
+      "bayern munich": "bayern-munich",
+      "borussia dortmund": "borussia-dortmund",
+      "stade rennais": "rennes",
+      marseille: "olympique-marseille",
+      lafc: "los-angeles-fc",
+      "sporting kansas city": "sporting-kc",
+      "chicago fire fc": "chicago-fire",
+      "st. louis city sc": "st-louis-city",
+      "afc bournemouth": "bournemouth",
+      bournemouth: "bournemouth",
+      "west ham united": "west-ham-united",
+      "west ham": "west-ham-united",
+      "brighton & hove albion": "brighton",
+      brighton: "brighton",
+      "crystal palace": "crystal-palace",
+      "newcastle united": "newcastle-united",
+      newcastle: "newcastle-united",
+      "wolverhampton wanderers": "wolves",
+      wolves: "wolves",
+      "nottingham forest": "nottingham-forest",
+      fulham: "fulham",
+      burnley: "burnley",
+      "sheffield united": "sheffield-united",
+      "luton town": "luton-town",
+      millwall: "millwall",
+      "preston north end": "preston",
+      "coventry city": "coventry-city",
+      "swansea city": "swansea-city",
+      swansea: "swansea-city",
+      "norwich city": "norwich-city",
+      norwich: "norwich-city",
+      watford: "watford",
+      sunderland: "sunderland",
+      middlesbrough: "middlesbrough",
+      "hull city": "hull-city",
+      "cardiff city": "cardiff-city",
+      cardiff: "cardiff-city",
+      "rb salzburg": "red bull salzburg",
+  };
+
   try {
-    return String(str)
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .toLowerCase();
+    let out = String(str)
+      .toLowerCase()
+        // First, convert special characters to ASCII equivalents (matching API format)
+        .replace(/á/g, "a")
+        .replace(/é/g, "e")
+        .replace(/í/g, "i")
+        .replace(/ó/g, "o")
+        .replace(/ú/g, "u")
+        .replace(/ü/g, "u")
+        .replace(/ñ/g, "n")
+        .replace(/ç/g, "c")
+        .replace(/ß/g, "ss")
+        // Handle accented characters that become multiple characters
+        .replace(/ë/g, "e")
+        .replace(/ï/g, "i")
+        .replace(/ö/g, "o")
+        .replace(/ä/g, "a")
+        .replace(/å/g, "a")
+        .replace(/ø/g, "o")
+        // Convert spaces to hyphens
+        .replace(/\s+/g, "-")
+        // Remove any remaining non-alphanumeric characters except hyphens
+        .replace(/[^a-z0-9\-]/g, "")
+        // Clean up multiple hyphens
+        .replace(/-+/g, "-")
+        // Remove leading/trailing hyphens
+        .replace(/^-+|-+$/g, "")
+        // Remove common prefixes/suffixes (be more conservative)
+        .replace(/^afc-/, "") // Remove "AFC " prefix
+        .replace(/-afc$/, "")
+
+    if (customMap[out]) out = customMap[out];
+
+    return out;
   } catch (e) {
     return String(str).toLowerCase();
   }

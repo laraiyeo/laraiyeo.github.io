@@ -439,22 +439,12 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
   const getTeamShootoutScore = (teamType) => {
     if (!gameData) return null;
 
-    console.log(`[getTeamShootoutScore] Getting ${teamType} shootout score`);
-    console.log(
-      `[getTeamShootoutScore] gameData.processedShootoutScores:`,
-      gameData.processedShootoutScores
-    );
-
     // Use processed shootout scores first (similar to how getTeamScore works)
     if (gameData.processedShootoutScores) {
       const shootoutScore =
         teamType === "home"
           ? gameData.processedShootoutScores.home
           : gameData.processedShootoutScores.away;
-      console.log(
-        `[getTeamShootoutScore] Processed ${teamType} shootout score:`,
-        shootoutScore
-      );
       return shootoutScore !== undefined && shootoutScore !== null
         ? shootoutScore.toString()
         : null;
@@ -467,32 +457,15 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
         ? competition?.competitors?.[0]
         : competition?.competitors?.[1];
 
-    console.log(
-      `[getTeamShootoutScore] Fallback - ${teamType} team score object:`,
-      team?.score
-    );
-
     // Look for shootout score in the same way as regular score
     if (team?.score?.shootout !== undefined && team?.score?.shootout !== null) {
-      console.log(
-        `[getTeamShootoutScore] Found ${teamType} shootout in fallback:`,
-        team.score.shootout
-      );
       return team.score.shootout.toString();
     }
-
-    console.log(`[getTeamShootoutScore] No ${teamType} shootout score found`);
     return null;
   };
 
   const hasShootout = () => {
     if (!gameData) return false;
-
-    console.log(`[hasShootout] Checking for shootout`);
-    console.log(
-      `[hasShootout] gameData.processedShootoutScores:`,
-      gameData.processedShootoutScores
-    );
 
     // Check processed shootout scores first (similar to getTeamScore pattern)
     if (gameData.processedShootoutScores) {
@@ -501,7 +474,6 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
           gameData.processedShootoutScores.home !== null) ||
         (gameData.processedShootoutScores.away !== undefined &&
           gameData.processedShootoutScores.away !== null);
-      console.log(`[hasShootout] Processed shootout check result:`, result);
       return result;
     }
 
@@ -510,16 +482,12 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
     const homeTeam = competition?.competitors?.[0];
     const awayTeam = competition?.competitors?.[1];
 
-    console.log(`[hasShootout] Fallback - homeTeam score:`, homeTeam?.score);
-    console.log(`[hasShootout] Fallback - awayTeam score:`, awayTeam?.score);
-
     // Check if shootout scores exist (indicating a penalty shootout occurred)
     const result =
       (homeTeam?.score?.shootout !== undefined &&
         homeTeam?.score?.shootout !== null) ||
       (awayTeam?.score?.shootout !== undefined &&
         awayTeam?.score?.shootout !== null);
-    console.log(`[hasShootout] Fallback shootout check result:`, result);
     return result;
   };
 
@@ -2810,10 +2778,11 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
     // If inline live tracker is visible, render the embed replacing the header
     if (liveTrackerVisible) {
       // Allow override via route param `liveTrackerWrapperUrl`.
-      // Default to local dev test page when in dev, otherwise use production domain wrapper.
-      const defaultWrapperBase = __DEV__
-        ? "http://10.0.2.2:8000/livetracker-test.html" // Android emulator -> host machine
-        : "https://sportsheart.ca/widgets/livetracker.html";
+      // Default to the production wrapper hosted on `sportsheart.ca` so the
+      // WebView loads the authorized domain (avoid emulator localhost by default).
+      // For local/dev testing you can still pass `route.params.liveTrackerWrapperUrl`
+      // (e.g. `http://10.0.2.2:8000/livetracker-test.html`) to override this.
+      const defaultWrapperBase = "https://sportsheart.ca/widgets/livetracker.html";
 
       // If route param provides a full wrapper URL, use it. Otherwise build one that includes the id param
       const provided = route?.params?.liveTrackerWrapperUrl || null;

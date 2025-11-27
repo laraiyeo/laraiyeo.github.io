@@ -7,17 +7,26 @@
     <style>
       html,
       body {
-        height: 100%;
         margin: 0;
+        padding: 0;
         background: #000;
         color: #fff;
         font-family: Arial, Helvetica, sans-serif;
+
+        /* Fixed page size */
+        width: 800px;
+        height: 404px;
+        overflow: hidden; /* Hide scrollbars */
       }
+
       .wrapper {
-        max-width: 1200px;
+        width: 800px;
+        height: 404px;
         margin: 0 auto;
-        padding: 12px;
+        padding: 0;
+        box-sizing: border-box;
       }
+
       .notice {
         padding: 12px;
         background: #111;
@@ -25,8 +34,10 @@
         border-radius: 6px;
         margin-bottom: 12px;
       }
+
       iframe {
-        width: 100%;
+        width: 800px;
+        height: 404px;
         border: 0;
         background: #000;
       }
@@ -63,8 +74,8 @@
         )}&uuid=${encodeURIComponent(id)}`;
         const iframe = document.createElement("iframe");
         iframe.src = src;
-        iframe.width = "100%";
-        iframe.height = "600";
+        iframe.width = "800";
+        iframe.height = "404";
         iframe.scrolling = "no";
         iframe.setAttribute("title", "LiveTracker Widget");
         container.appendChild(iframe);
