@@ -253,7 +253,13 @@ function transformResults(json, watchCompIdsMap) {
 
 async function refreshForDate(dateObj) {
   try {
-    console.log("Fetching diary for", dateObj.toISOString());
+    const tsp = utcStartOfDayTimestamp(dateObj);
+    const dateStrLocal = formatDateYYYYMMDD(dateObj);
+    console.log(
+      "Fetching diary for",
+      dateObj.toISOString(),
+      `(dateStr=${dateStrLocal}, tsp=${tsp})`
+    );
     const { json, dateStr } = await fetchDiaryForDate(dateObj);
     const watchMap = matchCompetitionNamesToWatch(json.results_extra || {});
     const transformed = transformResults(json, watchMap);
