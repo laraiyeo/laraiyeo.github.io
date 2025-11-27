@@ -63,11 +63,14 @@ const LiveTrackerEmbed = ({
         setHeight(computeHeightForWidth(newW));
       } catch (e) {}
     };
-    const sub = Dimensions.addEventListener ? Dimensions.addEventListener('change', handler) : null;
+    const sub = Dimensions.addEventListener
+      ? Dimensions.addEventListener("change", handler)
+      : null;
     return () => {
       try {
         if (sub && sub.remove) sub.remove();
-        else if (Dimensions.removeEventListener) Dimensions.removeEventListener('change', handler);
+        else if (Dimensions.removeEventListener)
+          Dimensions.removeEventListener("change", handler);
       } catch (e) {}
     };
   }, []);
@@ -111,7 +114,7 @@ const LiveTrackerEmbed = ({
           }}
           onError={(syntheticEvent) => {
             const { nativeEvent } = syntheticEvent;
-            setLastError(nativeEvent.description || 'WebView error');
+            setLastError(nativeEvent.description || "WebView error");
             setLoading(false);
           }}
           onHttpError={(syntheticEvent) => {
@@ -125,7 +128,7 @@ const LiveTrackerEmbed = ({
           domStorageEnabled
           thirdPartyCookiesEnabled={true}
           sharedCookiesEnabled={true}
-          mixedContentMode={'always'}
+          mixedContentMode={"always"}
         />
         {(lastError || lastHttpStatus) && (
           <View style={styles.errorBox}>
@@ -159,7 +162,13 @@ const LiveTrackerEmbed = ({
             </Text>
           </View>
 
-          <View style={[styles.webWrapper, { width: DEVICE_WIDTH }, wrapperExtraStyle]}>
+          <View
+            style={[
+              styles.webWrapper,
+              { width: DEVICE_WIDTH },
+              wrapperExtraStyle,
+            ]}
+          >
             {loading && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color="#fff" />
@@ -168,7 +177,9 @@ const LiveTrackerEmbed = ({
             <WebView
               ref={webRef}
               source={
-                customHeaders ? { uri: urlToLoad, headers: customHeaders } : { uri: urlToLoad }
+                customHeaders
+                  ? { uri: urlToLoad, headers: customHeaders }
+                  : { uri: urlToLoad }
               }
               style={{ width: DEVICE_WIDTH, height }}
               originWhitelist={["*"]}
@@ -182,7 +193,7 @@ const LiveTrackerEmbed = ({
                   const newH = Math.min(val + 20, 1600);
                   if (newH !== height) setHeight(newH);
                 } else {
-                  console.log('LiveTrackerEmbed onMessage:', msg);
+                  console.log("LiveTrackerEmbed onMessage:", msg);
                   firstMessageRef.current = true;
                   if (loading) setLoading(false);
                 }
@@ -196,7 +207,7 @@ const LiveTrackerEmbed = ({
               onLoadProgress={(e) => {}}
               onError={(syntheticEvent) => {
                 const { nativeEvent } = syntheticEvent;
-                setLastError(nativeEvent.description || 'WebView error');
+                setLastError(nativeEvent.description || "WebView error");
                 setLoading(false);
               }}
               onHttpError={(syntheticEvent) => {
@@ -210,12 +221,14 @@ const LiveTrackerEmbed = ({
               domStorageEnabled
               thirdPartyCookiesEnabled={true}
               sharedCookiesEnabled={true}
-              mixedContentMode={'always'}
+              mixedContentMode={"always"}
             />
             {(lastError || lastHttpStatus) && (
               <View style={styles.errorBox}>
                 <Text allowFontScaling={false} style={styles.errorText}>
-                  {lastError ? `Error: ${lastError}` : `HTTP: ${lastHttpStatus}`}
+                  {lastError
+                    ? `Error: ${lastError}`
+                    : `HTTP: ${lastHttpStatus}`}
                 </Text>
                 <Text allowFontScaling={false} style={styles.smallText}>
                   URL: {urlToLoad}
@@ -264,26 +277,26 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   smallText: {
-    color: '#ddd',
+    color: "#ddd",
     fontSize: 12,
     marginTop: 6,
   },
   errorBox: {
-    position: 'absolute',
+    position: "absolute",
     left: 12,
     right: 12,
     bottom: 12,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    borderColor: '#800',
+    backgroundColor: "rgba(0,0,0,0.7)",
+    borderColor: "#800",
     borderWidth: 1,
     padding: 8,
     borderRadius: 6,
-    alignItems: 'flex-start'
+    alignItems: "flex-start",
   },
   errorText: {
-    color: '#ffb3b3',
+    color: "#ffb3b3",
     fontSize: 13,
-    fontWeight: '600'
+    fontWeight: "600",
   },
   webWrapper: {
     flex: 1,
@@ -293,7 +306,7 @@ const styles = StyleSheet.create({
   containerInline: {
     // Ensure inline placement doesn't introduce spacing and allows the web wrapper
     // to size itself based on the calculated height.
-    backgroundColor: '#000',
+    backgroundColor: "#000",
     width: DEVICE_WIDTH,
   },
   loadingOverlay: {

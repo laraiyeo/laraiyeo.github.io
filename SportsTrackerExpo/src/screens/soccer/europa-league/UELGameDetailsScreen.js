@@ -2782,7 +2782,8 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
       // WebView loads the authorized domain (avoid emulator localhost by default).
       // For local/dev testing you can still pass `route.params.liveTrackerWrapperUrl`
       // (e.g. `http://10.0.2.2:8000/livetracker-test.html`) to override this.
-      const defaultWrapperBase = "https://sportsheart.ca/widgets/livetracker.html";
+      const defaultWrapperBase =
+        "https://sportsheart.ca/widgets/livetracker.html";
 
       // If route param provides a full wrapper URL, use it. Otherwise build one that includes the id param
       const provided = route?.params?.liveTrackerWrapperUrl || null;
