@@ -18,6 +18,7 @@ import {
   Alert,
   Share,
   Platform,
+  Dimensions,
 } from "react-native";
 import { FontAwesome6, Ionicons } from "@expo/vector-icons";
 import Svg, {
@@ -39,6 +40,8 @@ import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import * as MediaLibrary from "expo-media-library";
 import { useGamePresence } from "../../hooks/useGamePresence";
+import LiveTrackerEmbed from "../../components/LiveTrackerEmbed";
+import LiveTrackerService from "../../services/liveTrackerService";
 
 // Color similarity detection utility
 const calculateColorSimilarity = (color1, color2) => {
@@ -53,7 +56,6 @@ const calculateColorSimilarity = (color1, color2) => {
         }
       : null;
   };
-
   const rgb1 = hexToRgb(color1);
   const rgb2 = hexToRgb(color2);
 
@@ -304,6 +306,11 @@ const BasketballCourt = React.memo(
 );
 
 const NBAGameDetailsScreen = ({ route }) => {
+  // Live tracker state & resolver (NBA)
+  const { width } = Dimensions.get("window");
+  const [liveTrackerVisible, setLiveTrackerVisible] = useState(false);
+  const [liveTrackerUuid, setLiveTrackerUuid] = useState(null);
+  // live tracker resolver effect is attached after `details` is declared
   const { gameId } = route.params || {};
   const { theme, colors, getTeamLogoUrl, isDarkMode, currentColorPalette } =
     useTheme();
@@ -313,6 +320,50 @@ const NBAGameDetailsScreen = ({ route }) => {
   const [showStickyHeader, setShowStickyHeader] = useState(false);
   const [loading, setLoading] = useState(true);
   const [details, setDetails] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const resolveTracker = async () => {
+      // Prefer explicit id passed via route params
+      const provided = route?.params?.liveTrackerMatchId;
+      if (provided) {
+        setLiveTrackerUuid(provided);
+        return;
+      }
+
+      // Prefer a diary URL passed from the scoreboard; fallback to basketball diary
+      const diaryUrl =
+        route?.params?.liveTrackerDiaryUrl || LiveTrackerService.buildDiaryUrl("basketball");
+
+      // Derive team names from details
+      const competition =
+        details?.header?.competitions?.[0] || details?.competitions?.[0] || details?.game || null;
+
+      const homeName =
+        details?.homeCompetitor?.team?.displayName ||
+        competition?.competitors?.find((c) => c.homeAway === "home")?.team?.displayName ||
+        "";
+      const awayName =
+        details?.awayCompetitor?.team?.displayName ||
+        competition?.competitors?.find((c) => c.homeAway === "away")?.team?.displayName ||
+        "";
+
+      if (!diaryUrl || !homeName || !awayName) return;
+
+      try {
+        await LiveTrackerService.initDiary(diaryUrl);
+        const id = await LiveTrackerService.findMatchIdByTeams(homeName, awayName);
+        if (!cancelled && id) setLiveTrackerUuid(id);
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    resolveTracker();
+    return () => {
+      cancelled = true;
+    };
+  }, [details, route?.params?.liveTrackerMatchId, route?.params?.liveTrackerDiaryUrl]);
   const [activeTab, setActiveTab] = useState("stats");
 
   const [selectedPlayer, setSelectedPlayer] = useState(null);
@@ -4238,6 +4289,74 @@ const NBAGameDetailsScreen = ({ route }) => {
             </TouchableOpacity>
           ) : null;
         })()}
+
+        {/* Tracker Button - show if we resolved a liveTracker UUID */}
+        {liveTrackerUuid && (
+          <TouchableOpacity
+            style={[
+              styles.streamButton,
+              { backgroundColor: colors.primary, marginLeft: 8 },
+            ]}
+            onPress={() => {
+              setLiveTrackerVisible(true);
+            }}
+          >
+            <Text allowFontScaling={false} style={styles.streamButtonText}>
+              Tracker
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Inline LiveTracker Embed (replaces header when visible) */}
+        {liveTrackerVisible && (
+          (() => {
+            const defaultWrapperBase =
+              "https://sportsheart.ca/widgets/livetracker.html";
+            const provided = route?.params?.liveTrackerWrapperUrl || null;
+            const wrapperUrlBase = provided
+              ? provided.includes("?")
+                ? `${provided}&id=${encodeURIComponent(liveTrackerUuid)}`
+                : `${provided}?id=${encodeURIComponent(liveTrackerUuid)}`
+              : `${defaultWrapperBase}?id=${encodeURIComponent(liveTrackerUuid)}`;
+
+            const formulaO = route?.params?.liveTrackerFormulaO ?? 56;
+            const deviceWidth = Math.round(width || 800);
+            // Determine team logo URLs to pass to the wrapper (prefer theme-specific logo index)
+            const homeLogo =
+              (homeTeam?.team?.logos?.[1]?.href || homeTeam?.team?.logo || homeTeam?.logo || "")
+                ? encodeURIComponent(
+                    (homeTeam?.team?.logos?.[1]?.href || homeTeam?.team?.logo || homeTeam?.logo || "")
+                  )
+                : "";
+            const awayLogo =
+              (awayTeam?.team?.logos?.[1]?.href || awayTeam?.team?.logo || awayTeam?.logo || "")
+                ? encodeURIComponent(
+                    (awayTeam?.team?.logos?.[1]?.href || awayTeam?.team?.logo || awayTeam?.logo || "")
+                  )
+                : "";
+
+            const wrapperUrl = `${wrapperUrlBase}&w=${encodeURIComponent(
+              deviceWidth
+            )}&o=${encodeURIComponent(formulaO)}&sport=basketball${
+              homeLogo ? `&home_logo=${homeLogo}` : ""
+            }${awayLogo ? `&away_logo=${awayLogo}` : ""}&reverse=1`;
+            const ratio = 0.505;
+            const initialEmbedHeight = Math.round(deviceWidth * ratio) + formulaO;
+
+            return (
+              <LiveTrackerEmbed
+                uuid={liveTrackerUuid}
+                visible={true}
+                inline={true}
+                wrapperUrl={wrapperUrl}
+                initialHeight={initialEmbedHeight}
+                formulaO={formulaO}
+                showHeader={false}
+                onClose={() => setLiveTrackerVisible(false)}
+              />
+            );
+          })()
+        )}
 
         {/* Tab Container */}
         <View style={[styles.tabContainer, { backgroundColor: theme.surface }]}>

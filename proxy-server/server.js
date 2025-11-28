@@ -38,8 +38,8 @@ async function logOutboundIP() {
 }
 // >>> END ADD
 
-function makeKeyForDate(dateStr) {
-  return `${PREFIX}diary-${dateStr}.json`;
+function makeKeyForDate(dateStr, sport = "football") {
+  return `${PREFIX}diary-${sport}-${dateStr}.json`;
 }
 
 const WATCH_COMPETITIONS = [
@@ -63,6 +63,11 @@ const WATCH_COMPETITIONS = [
   "UEFA Europa Conference League",
   "Super Cup",
 ];
+
+const WATCH_COMPETITIONS_BY_SPORT = {
+  football: WATCH_COMPETITIONS,
+  basketball: ["National Basketball Association"],
+};
 
 const DEFAULT_USER = process.env.UPSTREAM_USER || "";
 const DEFAULT_SECRET = process.env.UPSTREAM_SECRET || "";
@@ -90,6 +95,43 @@ function formatDateYYYYMMDD(date) {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}${m}${d}`;
+}
+
+// For basketball we want the diary 'day' to roll at 02:00 Pacific Time
+function formatDateYYYYMMDDForPSTBoundary(date) {
+  try {
+    // Get LA (America/Los_Angeles) date parts including hour
+    const f = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Los_Angeles",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      hour12: false,
+    });
+    const parts = f.formatToParts(date);
+    const year = parts.find((p) => p.type === "year").value;
+    const month = parts.find((p) => p.type === "month").value;
+    const day = parts.find((p) => p.type === "day").value;
+    const hourPart = parts.find((p) => p.type === "hour").value;
+    const hour = parseInt(hourPart, 10) || 0;
+
+    // If local LA hour is before 02:00, use the previous calendar day
+    if (hour < 2) {
+      // Build a UTC date from the LA calendar date, then subtract one day
+      const dt = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+      dt.setUTCDate(dt.getUTCDate() - 1);
+      const y = dt.getUTCFullYear();
+      const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
+      const d = String(dt.getUTCDate()).padStart(2, "0");
+      return `${y}${m}${d}`;
+    }
+
+    return `${year}${month}${day}`;
+  } catch (e) {
+    // Fallback to server-local formatting if Intl fails
+    return formatDateYYYYMMDD(date);
+  }
 }
 
 function normalizeName(str) {
@@ -191,9 +233,10 @@ function pickFields(obj, picks = []) {
   return out;
 }
 
-async function fetchDiaryForDate(dateObj) {
+async function fetchDiaryForDate(dateObj, sport = "football") {
   const tsp = utcStartOfDayTimestamp(dateObj);
-  const dateStr = formatDateYYYYMMDD(dateObj);
+  // Choose date string logic per sport: basketball uses PST boundary at 02:00
+  const dateStr = sport === "basketball" ? formatDateYYYYMMDDForPSTBoundary(dateObj) : formatDateYYYYMMDD(dateObj);
   const user = process.env.UPSTREAM_USER || DEFAULT_USER;
   const secret = process.env.UPSTREAM_SECRET || "";
 
@@ -204,8 +247,9 @@ async function fetchDiaryForDate(dateObj) {
   if (FORWARDER_URL) {
     // Build the upstream URL we want the forwarder to fetch. We POST this to
     // the forwarder's `/forward` endpoint so the forwarder does the outbound
-    // request from the whitelisted VM.
-    const upstreamUrl = `${UPSTREAM_HOST}/v1/football/match/diary?user=${encodeURIComponent(
+    // request from the whitelisted VM. Use sport-specific path.
+    const sportPath = sport === "basketball" ? "basketball" : "football";
+    const upstreamUrl = `${UPSTREAM_HOST}/v1/${sportPath}/match/diary?user=${encodeURIComponent(
       user
     )}&secret=${encodeURIComponent(secret)}&date=${dateStr}`;
     const forwardEndpoint = `${FORWARDER_URL.replace(/\/$/, "")}/forward`;
@@ -246,7 +290,8 @@ async function fetchDiaryForDate(dateObj) {
 
   // Default: call upstream host directly. Use `date=YYYYMMDD` (many accounts
   // reject `tsp` queries) — include only date to match upstream account scope.
-  const url = `${UPSTREAM_HOST}/v1/football/match/diary?user=${encodeURIComponent(
+  const sportPath = sport === "basketball" ? "basketball" : "football";
+  const url = `${UPSTREAM_HOST}/v1/${sportPath}/match/diary?user=${encodeURIComponent(
     user
   )}&secret=${encodeURIComponent(secret)}&date=${dateStr}`;
   console.log("Upstream URL:", url);
@@ -286,17 +331,14 @@ function findCompetitionIds(resultsExtra) {
   return compMap;
 }
 
-function matchCompetitionNamesToWatch(resultsExtra) {
+function matchCompetitionNamesToWatch(resultsExtra, wantedList = WATCH_COMPETITIONS) {
   const comps =
     resultsExtra && resultsExtra.competition ? resultsExtra.competition : [];
   const found = {};
   for (const c of comps) {
     const nameNorm = normalizeName(c.name || "");
-    for (const want of WATCH_COMPETITIONS) {
+    for (const want of wantedList) {
       const wantNorm = normalizeName(want);
-      // Match exact normalized names (user requested exact matches after
-      // lowercasing and removing accents). If you want looser matching,
-      // change this to `includes` or other rules.
       if (nameNorm === wantNorm) {
         found[c.id] = c.name;
         break;
@@ -346,17 +388,18 @@ function transformResults(json, watchCompIdsMap) {
   return { competitions_playing: competitionsPlayed, results: filtered };
 }
 
-async function refreshForDate(dateObj) {
+async function refreshForDate(dateObj, sport = "football") {
   try {
     const tsp = utcStartOfDayTimestamp(dateObj);
-    const dateStrLocal = formatDateYYYYMMDD(dateObj);
+    const dateStrLocal = sport === "basketball" ? formatDateYYYYMMDDForPSTBoundary(dateObj) : formatDateYYYYMMDD(dateObj);
     console.log(
       "Fetching diary for",
       dateObj.toISOString(),
       `(dateStr=${dateStrLocal}, tsp=${tsp})`
     );
-    const { json, dateStr } = await fetchDiaryForDate(dateObj);
-    const watchMap = matchCompetitionNamesToWatch(json.results_extra || {});
+    const { json, dateStr } = await fetchDiaryForDate(dateObj, sport);
+    const wanted = WATCH_COMPETITIONS_BY_SPORT[sport] || WATCH_COMPETITIONS;
+    const watchMap = matchCompetitionNamesToWatch(json.results_extra || {}, wanted);
     const transformed = transformResults(json, watchMap);
     const record = {
       date: dateStr,
@@ -365,7 +408,7 @@ async function refreshForDate(dateObj) {
       transformed,
       raw_meta: { total: (json.query || {}).total || null },
     };
-    const key = makeKeyForDate(dateStr);
+    const key = makeKeyForDate(dateStr, sport);
     await s3PutObject(key, record);
     console.log("Saved cache for", dateStr, "key=", key);
     return record;
@@ -388,7 +431,9 @@ async function scheduledRefresh() {
         now.toISOString()
       );
     }
-    await refreshForDate(now);
+    await refreshForDate(now, "football");
+    // Also refresh basketball diary so app can lookup NBA matches
+    await refreshForDate(now, "basketball");
   } catch (err) {
     console.error("scheduledRefresh failed", err.message);
   }
@@ -415,6 +460,29 @@ app.get("/public/today.json", async (req, res) => {
   }
   const dateStr = formatDateYYYYMMDD(d);
   const key = makeKeyForDate(dateStr);
+  const rec = await s3GetObject(key);
+  if (!rec) return res.status(404).json({ error: "Not cached yet" });
+  res.json(rec.transformed);
+});
+
+// Public diary endpoints per sport e.g. /public/football/today.json or /public/basketball/today.json
+app.get("/public/:sport/today.json", async (req, res) => {
+  const sport = req.params.sport || "football";
+  const d = new Date();
+  if (Number.isFinite(FETCH_DAY_OFFSET) && FETCH_DAY_OFFSET !== 0) {
+    d.setDate(d.getDate() + FETCH_DAY_OFFSET);
+  }
+  const dateStr = sport === "basketball" ? formatDateYYYYMMDDForPSTBoundary(d) : formatDateYYYYMMDD(d);
+  const key = makeKeyForDate(dateStr, sport);
+  const rec = await s3GetObject(key);
+  if (!rec) return res.status(404).json({ error: "Not cached yet" });
+  res.json(rec.transformed);
+});
+
+app.get("/public/:sport/:yyyyMMdd.json", async (req, res) => {
+  const sport = req.params.sport || "football";
+  const dateStr = req.params.yyyyMMdd;
+  const key = makeKeyForDate(dateStr, sport);
   const rec = await s3GetObject(key);
   if (!rec) return res.status(404).json({ error: "Not cached yet" });
   res.json(rec.transformed);

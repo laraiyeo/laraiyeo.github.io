@@ -22,6 +22,7 @@ import { SpainServiceEnhanced } from "../../../services/soccer/SpainServiceEnhan
 import { useTheme } from "../../../context/ThemeContext";
 import { useFavorites } from "../../../context/FavoritesContext";
 import { LiveViewerBadge } from "../../../components/ViewerCounter";
+import LiveTrackerService from "../../../services/liveTrackerService";
 
 const { width } = Dimensions.get("window");
 
@@ -489,13 +490,40 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
 
   const handleGamePress = (game) => {
     console.log("SpainScoreboardScreen: Game pressed:", game.id);
-    navigation.navigate("SpainGameDetails", {
-      gameId: game.id,
-      sport: "Spanish",
-      competition: game.competitionName || "Spain",
-      homeTeam: game.competitions[0]?.competitors[0]?.team,
-      awayTeam: game.competitions[0]?.competitors[1]?.team,
-    });
+
+    try {
+      const competition = game.competitions[0];
+      const homeTeam = competition?.competitors[0]?.team;
+      const awayTeam = competition?.competitors[1]?.team;
+      const homeName = homeTeam?.displayName || homeTeam?.abbreviation || "";
+      const awayName = awayTeam?.displayName || awayTeam?.abbreviation || "";
+      const matchedId = LiveTrackerService.findMatchIdByTeams(
+        homeName,
+        awayName
+      );
+      console.log(
+        "SpainScoreboardScreen: matched live-tracker id ->",
+        matchedId
+      );
+
+      navigation.navigate("SpainGameDetails", {
+        gameId: game.id,
+        sport: "Spanish",
+        competition: game.competitionName || "Spain",
+        homeTeam: homeTeam,
+        awayTeam: awayTeam,
+        liveTrackerMatchId: matchedId || null,
+      });
+    } catch (err) {
+      console.warn("SpainScoreboardScreen: live tracker lookup failed", err);
+      navigation.navigate("SpainGameDetails", {
+        gameId: game.id,
+        sport: "Spanish",
+        competition: game.competitionName || "Spain",
+        homeTeam: game.competitions[0]?.competitors[0]?.team,
+        awayTeam: game.competitions[0]?.competitors[1]?.team,
+      });
+    }
   };
 
   const renderDateFilter = () => {

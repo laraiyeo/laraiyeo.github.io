@@ -16,7 +16,7 @@ const HomeScreen = () => {
   
   // Manual features list - update this when you have new features
   const updateFeatures = [
-    'Bug fixes and performance improvements.',
+    'Added live game tracking to Soccer and NBA.',
   ];
 
   const sports = [

@@ -35,6 +35,9 @@ import { Ionicons } from "@expo/vector-icons";
 import ViewShot, { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import ChatComponent from "../../../components/ChatComponent";
+import LiveTrackerEmbed from "../../../components/LiveTrackerEmbed";
+import LiveTrackerService from "../../../services/liveTrackerService";
+import { buildLiveTrackerUrl } from "../../../utils/liveTracker";
 import { EnglandServiceEnhanced } from "../../../services/soccer/EnglandServiceEnhanced";
 import { useTheme } from "../../../context/ThemeContext";
 import { useFavorites } from "../../../context/FavoritesContext";
@@ -170,6 +173,8 @@ const EnglandGameDetailsScreen = ({ route, navigation }) => {
   const { theme, colors, isDarkMode } = useTheme();
   const { isFavorite } = useFavorites();
   const [gameData, setGameData] = useState(null);
+  const [liveTrackerVisible, setLiveTrackerVisible] = useState(false);
+  const [liveTrackerUuid, setLiveTrackerUuid] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [updateInterval, setUpdateInterval] = useState(null);
@@ -2714,8 +2719,80 @@ const EnglandGameDetailsScreen = ({ route, navigation }) => {
     );
   };
 
+  // Resolve live tracker UUID (from route param or by matching team names)
+  useEffect(() => {
+    let cancelled = false;
+    const resolveTracker = async () => {
+      if (!gameData) return;
+      const provided = route?.params?.liveTrackerMatchId;
+      if (provided) {
+        setLiveTrackerUuid(provided);
+        return;
+      }
+
+      const competition = gameData.header?.competitions?.[0];
+      const homeName =
+        gameData.homeCompetitor?.team?.displayName ||
+        competition?.competitors?.find((c) => c.homeAway === "home")?.team
+          ?.displayName ||
+        "";
+      const awayName =
+        gameData.awayCompetitor?.team?.displayName ||
+        competition?.competitors?.find((c) => c.homeAway === "away")?.team
+          ?.displayName ||
+        "";
+
+      try {
+        const id = await LiveTrackerService.findMatchIdByTeams(
+          homeName,
+          awayName
+        );
+        if (!cancelled && id) setLiveTrackerUuid(id);
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    resolveTracker();
+    return () => {
+      cancelled = true;
+    };
+  }, [gameData, route?.params?.liveTrackerMatchId]);
+
   const renderMatchHeader = () => {
     if (!gameData) return null;
+
+    // If inline live tracker is visible, render the embed replacing the header
+    if (liveTrackerVisible) {
+      const defaultWrapperBase =
+        "https://sportsheart.ca/widgets/livetracker.html";
+      const provided = route?.params?.liveTrackerWrapperUrl || null;
+      const wrapperUrlBase = provided
+        ? provided.includes("?")
+          ? `${provided}&id=${encodeURIComponent(liveTrackerUuid)}`
+          : `${provided}?id=${encodeURIComponent(liveTrackerUuid)}`
+        : `${defaultWrapperBase}?id=${encodeURIComponent(liveTrackerUuid)}`;
+
+      const formulaO = route?.params?.liveTrackerFormulaO ?? 50;
+      const deviceWidth = Math.round(width || 800);
+      const wrapperUrl = `${wrapperUrlBase}&w=${encodeURIComponent(
+        deviceWidth
+      )}&o=${encodeURIComponent(formulaO)}`;
+      const ratio = 0.505;
+      const initialEmbedHeight = Math.round(deviceWidth * ratio) + formulaO;
+
+      return (
+        <LiveTrackerEmbed
+          uuid={liveTrackerUuid}
+          visible={true}
+          inline={true}
+          wrapperUrl={wrapperUrl}
+          initialHeight={initialEmbedHeight}
+          showHeader={false}
+          onClose={() => setLiveTrackerVisible(false)}
+        />
+      );
+    }
 
     const competition = gameData.header?.competitions?.[0];
     // Use processed competitors if available, fallback to original structure
@@ -2887,6 +2964,22 @@ const EnglandGameDetailsScreen = ({ route, navigation }) => {
               >
                 <Text allowFontScaling={false} style={styles.streamButtonText}>
                   Watch Live
+                </Text>
+              </TouchableOpacity>
+            )}
+            {/* Tracker Button - show if we resolved a liveTracker UUID */}
+            {liveTrackerUuid && (
+              <TouchableOpacity
+                style={[
+                  styles.streamButton,
+                  { backgroundColor: colors.primary, marginLeft: 8 },
+                ]}
+                onPress={() => {
+                  setLiveTrackerVisible(true);
+                }}
+              >
+                <Text allowFontScaling={false} style={styles.streamButtonText}>
+                  Tracker
                 </Text>
               </TouchableOpacity>
             )}

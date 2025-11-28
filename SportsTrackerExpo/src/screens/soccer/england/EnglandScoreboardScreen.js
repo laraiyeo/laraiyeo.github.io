@@ -22,6 +22,7 @@ import { EnglandServiceEnhanced } from "../../../services/soccer/EnglandServiceE
 import { useTheme } from "../../../context/ThemeContext";
 import { useFavorites } from "../../../context/FavoritesContext";
 import { LiveViewerBadge } from "../../../components/ViewerCounter";
+import LiveTrackerService from "../../../services/liveTrackerService";
 
 const { width } = Dimensions.get("window");
 
@@ -495,13 +496,41 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
 
   const handleGamePress = (game) => {
     console.log("EnglandScoreboardScreen: Game pressed:", game.id);
-    navigation.navigate("EnglandGameDetails", {
-      gameId: game.id,
-      sport: "English",
-      competition: game.competitionName || "England",
-      homeTeam: game.competitions[0]?.competitors[0]?.team,
-      awayTeam: game.competitions[0]?.competitors[1]?.team,
-    });
+    console.log("EnglandScoreboardScreen: Game pressed:", game.id);
+
+    try {
+      const competition = game.competitions[0];
+      const homeTeam = competition?.competitors[0]?.team;
+      const awayTeam = competition?.competitors[1]?.team;
+      const homeName = homeTeam?.displayName || homeTeam?.abbreviation || "";
+      const awayName = awayTeam?.displayName || awayTeam?.abbreviation || "";
+      const matchedId = LiveTrackerService.findMatchIdByTeams(
+        homeName,
+        awayName
+      );
+      console.log(
+        "EnglandScoreboardScreen: matched live-tracker id ->",
+        matchedId
+      );
+
+      navigation.navigate("EnglandGameDetails", {
+        gameId: game.id,
+        sport: "English",
+        competition: game.competitionName || "England",
+        homeTeam: homeTeam,
+        awayTeam: awayTeam,
+        liveTrackerMatchId: matchedId || null,
+      });
+    } catch (err) {
+      console.warn("EnglandScoreboardScreen: live tracker lookup failed", err);
+      navigation.navigate("EnglandGameDetails", {
+        gameId: game.id,
+        sport: "English",
+        competition: game.competitionName || "England",
+        homeTeam: game.competitions[0]?.competitors[0]?.team,
+        awayTeam: game.competitions[0]?.competitors[1]?.team,
+      });
+    }
   };
 
   const renderDateFilter = () => {

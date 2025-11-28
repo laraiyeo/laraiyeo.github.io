@@ -60,6 +60,7 @@
       const profile = qs("profile") || "1gheey76n2szh3n14w1g";
       const lang = qs("lang") || "en";
       const mode = qs("mode") || "3d";
+      const sport = qs("sport") || "football";
 
       // Formula pieces: n/d * width + o
       const formulaN = parseInt(qs("n")) || 404;
@@ -93,9 +94,24 @@
         wrapper.style.width = visualWidth + "px";
         wrapper.style.height = visualHeight + "px";
 
-        const src = `https://widgets.thesports01.com/${lang}/${mode}/football?profile=${encodeURIComponent(
-          profile
-        )}&uuid=${encodeURIComponent(id)}`;
+        // Build widget src and forward optional logo/reverse params
+        let src = `https://widgets.thesports01.com/${lang}/${mode}/${encodeURIComponent(
+          sport
+        )}?profile=${encodeURIComponent(profile)}&uuid=${encodeURIComponent(id)}`;
+
+        const homeLogoParam = qs("home_logo") || qs("homeLogo") || null;
+        const awayLogoParam = qs("away_logo") || qs("awayLogo") || null;
+        const reverseParam = qs("reverse") || null;
+
+        if (homeLogoParam) {
+          src += `&home_logo=${encodeURIComponent(homeLogoParam)}`;
+        }
+        if (awayLogoParam) {
+          src += `&away_logo=${encodeURIComponent(awayLogoParam)}`;
+        }
+        if (reverseParam) {
+          src += `&reverse=${encodeURIComponent(reverseParam)}`;
+        }
 
         // Ensure wrapper and container inline styles match computed size
         const frameContainer = document.getElementById("frameContainer");

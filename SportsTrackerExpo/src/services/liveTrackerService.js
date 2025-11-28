@@ -4,6 +4,13 @@
 const DEFAULT_DIARY_URL =
   "https://laraiyeogithubio-production.up.railway.app/public/today.json";
 
+function buildDiaryUrl(sport = "football") {
+  const base = DEFAULT_DIARY_URL.replace(/\/public\/.*$/, "");
+  if (sport === "basketball" || sport === "nba") {
+    return `${base}/public/basketball/today.json`;
+  }
+  return `${base}/public/today.json`;
+}
 let diaryData = null;
 
 function normalize(str) {
@@ -132,4 +139,6 @@ export default {
   initDiary,
   getDiary,
   findMatchIdByTeams,
+  buildDiaryUrl,
+  DEFAULT_DIARY_URL,
 };
