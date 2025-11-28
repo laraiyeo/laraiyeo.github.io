@@ -160,7 +160,10 @@ export class BaseCacheService {
           return sharedData;
         } catch (sharedErr) {
           // If the shared fetch failed, continue and perform our own fetch
-          console.warn("[Cache] shared in-flight fetch failed, falling back", sharedErr);
+          console.warn(
+            "[Cache] shared in-flight fetch failed, falling back",
+            sharedErr
+          );
         }
       }
 

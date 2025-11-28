@@ -70,8 +70,12 @@ const PlayProbability = ({ probabilityRef, driveTeam, homeTeam, awayTeam }) => {
         const data = await NFLService.getProbability(probabilityRef);
         if (!mounted || !data) return;
 
-        const homeWinPct = data.homeWinPercentage ?? data.homeWinProbability ?? 0;
-        const awayWinPct = data.awayWinPercentage ?? data.awayWinProbability ?? (homeWinPct ? 1 - homeWinPct : 0);
+        const homeWinPct =
+          data.homeWinPercentage ?? data.homeWinProbability ?? 0;
+        const awayWinPct =
+          data.awayWinPercentage ??
+          data.awayWinProbability ??
+          (homeWinPct ? 1 - homeWinPct : 0);
 
         // Determine which team's probability to show based on drive team
         let displayProbability = "";
@@ -6450,7 +6454,10 @@ const GameDetailsScreen = ({ route }) => {
                                       stats.push(`${receiving[5]} tgt`);
                                     if (receiving[1])
                                       stats.push(`${receiving[1]} yds`);
-                                  } else if ( participantType === "tackler" || participantType === "assistedBy") {
+                                  } else if (
+                                    participantType === "tackler" ||
+                                    participantType === "assistedBy"
+                                  ) {
                                     // Show total tackles
                                     const defensive =
                                       playerBoxscoreData.defensive || [];
@@ -6468,16 +6475,21 @@ const GameDetailsScreen = ({ route }) => {
                                       stats.push(`${returning[0]} ret`);
                                     if (returning[1])
                                       stats.push(`${returning[1]} yds`);
-                                  } else if (participantType === "tackler" || participantType === "assistedBy") {
+                                  } else if (
+                                    participantType === "tackler" ||
+                                    participantType === "assistedBy"
+                                  ) {
                                     // Show total tackles
                                     const defensive =
                                       playerBoxscoreData.defensive || [];
                                     if (defensive[0])
                                       stats.push(`${defensive[0]} tkl`);
                                   }
-                                }
-                                else if (playTypeId === "32") {
-                                  if (participantType === "returner" || participantType === "scorer") {
+                                } else if (playTypeId === "32") {
+                                  if (
+                                    participantType === "returner" ||
+                                    participantType === "scorer"
+                                  ) {
                                     const returning =
                                       playerBoxscoreData.kickReturns || [];
                                     if (returning[0])
@@ -6486,7 +6498,10 @@ const GameDetailsScreen = ({ route }) => {
                                       stats.push(`${returning[1]} yds`);
                                     if (returning[4])
                                       stats.push(`${returning[4]} TD`);
-                                  } else if (participantType === "patScorer" || participantType === "kicker") {
+                                  } else if (
+                                    participantType === "patScorer" ||
+                                    participantType === "kicker"
+                                  ) {
                                     const kicking =
                                       playerBoxscoreData.kicking || [];
                                     if (kicking[3])
@@ -6494,7 +6509,10 @@ const GameDetailsScreen = ({ route }) => {
                                   }
                                 }
                                 // Special case: Punt (type 52)
-                                else if (playTypeId === "52" || playTypeId === "34") {
+                                else if (
+                                  playTypeId === "52" ||
+                                  playTypeId === "34"
+                                ) {
                                   if (participantType === "returner") {
                                     // Show punt returns and yards
                                     const returning =
@@ -6503,7 +6521,10 @@ const GameDetailsScreen = ({ route }) => {
                                       stats.push(`${returning[0]} ret`);
                                     if (returning[1])
                                       stats.push(`${returning[1]} yds`);
-                                  } else if (participantType === "tackler" || participantType === "assistedBy") {
+                                  } else if (
+                                    participantType === "tackler" ||
+                                    participantType === "assistedBy"
+                                  ) {
                                     // Show total tackles
                                     const defensive =
                                       playerBoxscoreData.defensive || [];
@@ -6517,7 +6538,10 @@ const GameDetailsScreen = ({ route }) => {
                                       stats.push(`${punting[0]} punts`);
                                     if (punting[1])
                                       stats.push(`${punting[1]} yds`);
-                                  } else if (participantType === "patScorer" || participantType === "kicker") {
+                                  } else if (
+                                    participantType === "patScorer" ||
+                                    participantType === "kicker"
+                                  ) {
                                     const kicking =
                                       playerBoxscoreData.kicking || [];
                                     if (kicking[3])
@@ -6544,7 +6568,11 @@ const GameDetailsScreen = ({ route }) => {
                                       playerBoxscoreData.fumbles || [];
                                     if (defensive[2])
                                       stats.push(`${defensive[2]} rec`);
-                                  } else if (participantType === "tackler" || participantType === "assistedBy" || participantType === "forcedBy") {
+                                  } else if (
+                                    participantType === "tackler" ||
+                                    participantType === "assistedBy" ||
+                                    participantType === "forcedBy"
+                                  ) {
                                     // Show total tackles
                                     const defensive =
                                       playerBoxscoreData.defensive || [];
@@ -6562,7 +6590,11 @@ const GameDetailsScreen = ({ route }) => {
                                       stats.push(`${passing[5]} sck`);
                                     if (passing[1])
                                       stats.push(`${passing[1]} yds`);
-                                  } else if (participantType === "sackedBy" || participantType === "tackler" || participantType === "assistedBy") {
+                                  } else if (
+                                    participantType === "sackedBy" ||
+                                    participantType === "tackler" ||
+                                    participantType === "assistedBy"
+                                  ) {
                                     // Show sacks and total tackles
                                     const defensive =
                                       playerBoxscoreData.defensive || [];
