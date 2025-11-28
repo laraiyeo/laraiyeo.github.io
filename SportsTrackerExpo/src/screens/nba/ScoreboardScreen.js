@@ -744,7 +744,11 @@ const NBAScoreboardScreen = ({ navigation }) => {
                 activeOpacity={0.7}
               >
                 <TeamLogo
-                  logoUri={`https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${isDarkMode ? "-dark" : ""}/scoreboard/${(item.awayTeam?.abbreviation || "").toLowerCase()}.png&w=200&h=200`}
+                  logoUri={`https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${
+                    isDarkMode ? "-dark" : ""
+                  }/scoreboard/${(
+                    item.awayTeam?.abbreviation || ""
+                  ).toLowerCase()}.png&w=200&h=200`}
                   size={32}
                   style={styles.teamLogo}
                   opacity={isLive || isScheduled ? 1 : awayWinner ? 1 : 0.6}
@@ -819,7 +823,11 @@ const NBAScoreboardScreen = ({ navigation }) => {
                 activeOpacity={0.7}
               >
                 <TeamLogo
-                  logoUri={`https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${isDarkMode ? "-dark" : ""}/scoreboard/${(item.homeTeam?.abbreviation || "").toLowerCase()}.png&w=200&h=200`}
+                  logoUri={`https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${
+                    isDarkMode ? "-dark" : ""
+                  }/scoreboard/${(
+                    item.homeTeam?.abbreviation || ""
+                  ).toLowerCase()}.png&w=200&h=200`}
                   size={32}
                   style={styles.teamLogo}
                   opacity={isLive || isScheduled ? 1 : homeWinner ? 1 : 0.6}

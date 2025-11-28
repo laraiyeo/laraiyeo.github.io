@@ -119,7 +119,9 @@ function formatDateYYYYMMDDForPSTBoundary(date) {
     // If local LA hour is before 02:00, use the previous calendar day
     if (hour < 2) {
       // Build a UTC date from the LA calendar date, then subtract one day
-      const dt = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+      const dt = new Date(
+        Date.UTC(Number(year), Number(month) - 1, Number(day))
+      );
       dt.setUTCDate(dt.getUTCDate() - 1);
       const y = dt.getUTCFullYear();
       const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
@@ -236,7 +238,10 @@ function pickFields(obj, picks = []) {
 async function fetchDiaryForDate(dateObj, sport = "football") {
   const tsp = utcStartOfDayTimestamp(dateObj);
   // Choose date string logic per sport: basketball uses PST boundary at 02:00
-  const dateStr = sport === "basketball" ? formatDateYYYYMMDDForPSTBoundary(dateObj) : formatDateYYYYMMDD(dateObj);
+  const dateStr =
+    sport === "basketball"
+      ? formatDateYYYYMMDDForPSTBoundary(dateObj)
+      : formatDateYYYYMMDD(dateObj);
   const user = process.env.UPSTREAM_USER || DEFAULT_USER;
   const secret = process.env.UPSTREAM_SECRET || "";
 
@@ -331,7 +336,10 @@ function findCompetitionIds(resultsExtra) {
   return compMap;
 }
 
-function matchCompetitionNamesToWatch(resultsExtra, wantedList = WATCH_COMPETITIONS) {
+function matchCompetitionNamesToWatch(
+  resultsExtra,
+  wantedList = WATCH_COMPETITIONS
+) {
   const comps =
     resultsExtra && resultsExtra.competition ? resultsExtra.competition : [];
   const found = {};
@@ -391,7 +399,10 @@ function transformResults(json, watchCompIdsMap) {
 async function refreshForDate(dateObj, sport = "football") {
   try {
     const tsp = utcStartOfDayTimestamp(dateObj);
-    const dateStrLocal = sport === "basketball" ? formatDateYYYYMMDDForPSTBoundary(dateObj) : formatDateYYYYMMDD(dateObj);
+    const dateStrLocal =
+      sport === "basketball"
+        ? formatDateYYYYMMDDForPSTBoundary(dateObj)
+        : formatDateYYYYMMDD(dateObj);
     console.log(
       "Fetching diary for",
       dateObj.toISOString(),
@@ -399,7 +410,10 @@ async function refreshForDate(dateObj, sport = "football") {
     );
     const { json, dateStr } = await fetchDiaryForDate(dateObj, sport);
     const wanted = WATCH_COMPETITIONS_BY_SPORT[sport] || WATCH_COMPETITIONS;
-    const watchMap = matchCompetitionNamesToWatch(json.results_extra || {}, wanted);
+    const watchMap = matchCompetitionNamesToWatch(
+      json.results_extra || {},
+      wanted
+    );
     const transformed = transformResults(json, watchMap);
     const record = {
       date: dateStr,
@@ -472,7 +486,10 @@ app.get("/public/:sport/today.json", async (req, res) => {
   if (Number.isFinite(FETCH_DAY_OFFSET) && FETCH_DAY_OFFSET !== 0) {
     d.setDate(d.getDate() + FETCH_DAY_OFFSET);
   }
-  const dateStr = sport === "basketball" ? formatDateYYYYMMDDForPSTBoundary(d) : formatDateYYYYMMDD(d);
+  const dateStr =
+    sport === "basketball"
+      ? formatDateYYYYMMDDForPSTBoundary(d)
+      : formatDateYYYYMMDD(d);
   const key = makeKeyForDate(dateStr, sport);
   const rec = await s3GetObject(key);
   if (!rec) return res.status(404).json({ error: "Not cached yet" });

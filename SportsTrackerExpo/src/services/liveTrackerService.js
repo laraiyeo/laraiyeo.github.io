@@ -20,7 +20,7 @@ function normalize(str) {
     "paris saint germain": "psg",
     "paris saint-germain": "psg",
     "tottenham hotspur": "tottenham hotspur",
-    "tottenham": "tottenham hotspur",
+    tottenham: "tottenham hotspur",
     "manchester united": "manchester united",
     "manchester city": "manchester city",
     "real madrid": "real madrid",
@@ -28,40 +28,40 @@ function normalize(str) {
     "bayern munich": "bayern munich",
     "borussia dortmund": "borussia dortmund",
     "stade rennais": "rennes",
-    "marseille": "olympique marseille",
-    "lafc": "los angeles fc",
+    marseille: "olympique marseille",
+    lafc: "los angeles fc",
     "sporting kansas city": "sporting kc",
     "chicago fire fc": "chicago fire",
     "st. louis city sc": "st louis city",
     "afc bournemouth": "bournemouth",
-    "bournemouth": "bournemouth",
+    bournemouth: "bournemouth",
     "west ham united": "west ham united",
     "west ham": "west ham united",
     "brighton & hove albion": "brighton",
-    "brighton": "brighton",
+    brighton: "brighton",
     "crystal palace": "crystal palace",
     "newcastle united": "newcastle united",
-    "newcastle": "newcastle united",
+    newcastle: "newcastle united",
     "wolverhampton wanderers": "wolves",
-    "wolves": "wolves",
+    wolves: "wolves",
     "nottingham forest": "nottingham forest",
-    "fulham": "fulham",
-    "burnley": "burnley",
+    fulham: "fulham",
+    burnley: "burnley",
     "sheffield united": "sheffield united",
     "luton town": "luton town",
-    "millwall": "millwall",
+    millwall: "millwall",
     "preston north end": "preston",
     "coventry city": "coventry city",
     "swansea city": "swansea city",
-    "swansea": "swansea city",
+    swansea: "swansea city",
     "norwich city": "norwich city",
-    "norwich": "norwich city",
-    "watford": "watford",
-    "sunderland": "sunderland",
-    "middlesbrough": "middlesbrough",
+    norwich: "norwich city",
+    watford: "watford",
+    sunderland: "sunderland",
+    middlesbrough: "middlesbrough",
     "hull city": "hull city",
     "cardiff city": "cardiff city",
-    "cardiff": "cardiff city",
+    cardiff: "cardiff city",
     "rb salzburg": "red bull salzburg",
   };
 
@@ -75,18 +75,20 @@ function normalize(str) {
   return normalizedMap[out] || out;
 
   function normalizeRaw(s) {
-    return String(s)
-      .toLowerCase()
-      // accents → ascii
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      // remove punctuation except spaces
-      .replace(/[^a-z0-9 ]+/g, " ")
-      // collapse spaces
-      .replace(/\s+/g, " ")
-      .trim();
+    return (
+      String(s)
+        .toLowerCase()
+        // accents → ascii
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        // remove punctuation except spaces
+        .replace(/[^a-z0-9 ]+/g, " ")
+        // collapse spaces
+        .replace(/\s+/g, " ")
+        .trim()
+    );
   }
 }
-
 
 async function initDiary(url = DEFAULT_DIARY_URL, fetchImpl = fetch) {
   try {

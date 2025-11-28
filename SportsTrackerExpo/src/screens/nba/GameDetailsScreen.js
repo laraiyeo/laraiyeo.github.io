@@ -333,26 +333,35 @@ const NBAGameDetailsScreen = ({ route }) => {
 
       // Prefer a diary URL passed from the scoreboard; fallback to basketball diary
       const diaryUrl =
-        route?.params?.liveTrackerDiaryUrl || LiveTrackerService.buildDiaryUrl("basketball");
+        route?.params?.liveTrackerDiaryUrl ||
+        LiveTrackerService.buildDiaryUrl("basketball");
 
       // Derive team names from details
       const competition =
-        details?.header?.competitions?.[0] || details?.competitions?.[0] || details?.game || null;
+        details?.header?.competitions?.[0] ||
+        details?.competitions?.[0] ||
+        details?.game ||
+        null;
 
       const homeName =
         details?.homeCompetitor?.team?.displayName ||
-        competition?.competitors?.find((c) => c.homeAway === "home")?.team?.displayName ||
+        competition?.competitors?.find((c) => c.homeAway === "home")?.team
+          ?.displayName ||
         "";
       const awayName =
         details?.awayCompetitor?.team?.displayName ||
-        competition?.competitors?.find((c) => c.homeAway === "away")?.team?.displayName ||
+        competition?.competitors?.find((c) => c.homeAway === "away")?.team
+          ?.displayName ||
         "";
 
       if (!diaryUrl || !homeName || !awayName) return;
 
       try {
         await LiveTrackerService.initDiary(diaryUrl);
-        const id = await LiveTrackerService.findMatchIdByTeams(homeName, awayName);
+        const id = await LiveTrackerService.findMatchIdByTeams(
+          homeName,
+          awayName
+        );
         if (!cancelled && id) setLiveTrackerUuid(id);
       } catch (e) {
         // ignore
@@ -363,7 +372,11 @@ const NBAGameDetailsScreen = ({ route }) => {
     return () => {
       cancelled = true;
     };
-  }, [details, route?.params?.liveTrackerMatchId, route?.params?.liveTrackerDiaryUrl]);
+  }, [
+    details,
+    route?.params?.liveTrackerMatchId,
+    route?.params?.liveTrackerDiaryUrl,
+  ]);
   const [activeTab, setActiveTab] = useState("stats");
 
   const [selectedPlayer, setSelectedPlayer] = useState(null);
@@ -4308,7 +4321,7 @@ const NBAGameDetailsScreen = ({ route }) => {
         )}
 
         {/* Inline LiveTracker Embed (replaces header when visible) */}
-        {liveTrackerVisible && (
+        {liveTrackerVisible &&
           (() => {
             const defaultWrapperBase =
               "https://sportsheart.ca/widgets/livetracker.html";
@@ -4317,21 +4330,35 @@ const NBAGameDetailsScreen = ({ route }) => {
               ? provided.includes("?")
                 ? `${provided}&id=${encodeURIComponent(liveTrackerUuid)}`
                 : `${provided}?id=${encodeURIComponent(liveTrackerUuid)}`
-              : `${defaultWrapperBase}?id=${encodeURIComponent(liveTrackerUuid)}`;
+              : `${defaultWrapperBase}?id=${encodeURIComponent(
+                  liveTrackerUuid
+                )}`;
 
             const formulaO = route?.params?.liveTrackerFormulaO ?? 56;
             const deviceWidth = Math.round(width || 800);
             // Determine team logo URLs to pass to the wrapper (prefer theme-specific logo index)
             const homeLogo =
-              (homeTeam?.team?.logos?.[1]?.href || homeTeam?.team?.logo || homeTeam?.logo || "")
+              homeTeam?.team?.logos?.[1]?.href ||
+              homeTeam?.team?.logo ||
+              homeTeam?.logo ||
+              ""
                 ? encodeURIComponent(
-                    (homeTeam?.team?.logos?.[1]?.href || homeTeam?.team?.logo || homeTeam?.logo || "")
+                    homeTeam?.team?.logos?.[1]?.href ||
+                      homeTeam?.team?.logo ||
+                      homeTeam?.logo ||
+                      ""
                   )
                 : "";
             const awayLogo =
-              (awayTeam?.team?.logos?.[1]?.href || awayTeam?.team?.logo || awayTeam?.logo || "")
+              awayTeam?.team?.logos?.[1]?.href ||
+              awayTeam?.team?.logo ||
+              awayTeam?.logo ||
+              ""
                 ? encodeURIComponent(
-                    (awayTeam?.team?.logos?.[1]?.href || awayTeam?.team?.logo || awayTeam?.logo || "")
+                    awayTeam?.team?.logos?.[1]?.href ||
+                      awayTeam?.team?.logo ||
+                      awayTeam?.logo ||
+                      ""
                   )
                 : "";
 
@@ -4341,7 +4368,8 @@ const NBAGameDetailsScreen = ({ route }) => {
               homeLogo ? `&home_logo=${homeLogo}` : ""
             }${awayLogo ? `&away_logo=${awayLogo}` : ""}&reverse=1`;
             const ratio = 0.505;
-            const initialEmbedHeight = Math.round(deviceWidth * ratio) + formulaO;
+            const initialEmbedHeight =
+              Math.round(deviceWidth * ratio) + formulaO;
 
             return (
               <LiveTrackerEmbed
@@ -4355,8 +4383,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                 onClose={() => setLiveTrackerVisible(false)}
               />
             );
-          })()
-        )}
+          })()}
 
         {/* Tab Container */}
         <View style={[styles.tabContainer, { backgroundColor: theme.surface }]}>

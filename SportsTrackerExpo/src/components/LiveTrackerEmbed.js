@@ -44,7 +44,8 @@ const LiveTrackerEmbed = ({
   formulaO = 50,
 }) => {
   // Compute height using the provided formula based on device width
-  const computeHeightForWidth = (w) => Math.round((404 / 800) * w) + (Number.isFinite(formulaO) ? formulaO : 50);
+  const computeHeightForWidth = (w) =>
+    Math.round((404 / 800) * w) + (Number.isFinite(formulaO) ? formulaO : 50);
   const initialComputedHeight =
     typeof initialHeight === "number" && initialHeight > 0
       ? initialHeight
