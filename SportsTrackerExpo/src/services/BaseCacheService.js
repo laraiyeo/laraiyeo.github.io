@@ -13,6 +13,8 @@ export class BaseCacheService {
   // Fallback in-memory cache for AsyncStorage failures
   static memoryCache = new Map();
   static memoryCacheTimestamps = new Map();
+  // Track in-flight fetch promises to coalesce concurrent requests
+  static inFlightFetches = new Map();
   // Track whether AsyncStorage should be used (disable after persistent failures)
   static asyncStorageAvailable = true;
 
@@ -149,55 +151,74 @@ export class BaseCacheService {
         "color: gray;"
       );
 
-      data = await fetchFunction();
-      fetchedFromNetwork = true;
-
-      // Save to AsyncStorage (guarded)
-      try {
-        if (this.asyncStorageAvailable) {
-          await AsyncStorage.setItem(
-            cacheKey,
-            JSON.stringify({ data, timestamp: now })
-          );
-          console.log(`[Cache] wrote ${cacheKey} (ts=${now})`);
-          try {
-            const verify = await AsyncStorage.getItem(cacheKey);
-            console.log(
-              `[Cache] verify-read ${cacheKey}:`,
-              verify ? "FOUND" : "MISS"
-            );
-          } catch (vrErr) {
-            console.warn("[Cache] verify-read failed for", cacheKey, vrErr);
-          }
-        }
-      } catch (setErr) {
-        console.warn(
-          "[Cache] failed to write to AsyncStorage for",
-          cacheKey,
-          setErr
-        );
+      // Coalesce concurrent network fetches for the same cache key
+      if (this.inFlightFetches.has(cacheKey)) {
         try {
-          const msg = String(
-            setErr && setErr.message ? setErr.message : setErr
-          );
-          if (/quota|exceed/i.test(msg)) {
-            console.warn(
-              "[Cache] AsyncStorage appears to be full - disabling AsyncStorage usage"
-            );
-            this.asyncStorageAvailable = false;
-          }
-        } catch (chkErr) {}
+          const sharedPromise = this.inFlightFetches.get(cacheKey);
+          const sharedData = await sharedPromise;
+          // Return the shared data without attempting another network write
+          return sharedData;
+        } catch (sharedErr) {
+          // If the shared fetch failed, continue and perform our own fetch
+          console.warn("[Cache] shared in-flight fetch failed, falling back", sharedErr);
+        }
       }
 
-      // Also save to memory cache as backup
+      // Create a single in-flight promise for this fetch so others can await it
+      const networkPromise = (async () => {
+        const result = await fetchFunction();
+        return result;
+      })();
+
+      this.inFlightFetches.set(cacheKey, networkPromise);
+
       try {
-        this.memoryCache.set(key, data);
-        this.memoryCacheTimestamps.set(key, now);
-      } catch (memErr) {
-        console.warn("[Cache] memory cache set failed for", key, memErr);
-      }
+        data = await networkPromise;
+        fetchedFromNetwork = true;
 
-      return data;
+        // Save to AsyncStorage (guarded)
+        try {
+          if (this.asyncStorageAvailable) {
+            await AsyncStorage.setItem(
+              cacheKey,
+              JSON.stringify({ data, timestamp: now })
+            );
+            console.log(`[Cache] wrote ${cacheKey} (ts=${now})`);
+          }
+        } catch (setErr) {
+          console.warn(
+            "[Cache] failed to write to AsyncStorage for",
+            cacheKey,
+            setErr
+          );
+          try {
+            const msg = String(
+              setErr && setErr.message ? setErr.message : setErr
+            );
+            if (/quota|exceed/i.test(msg)) {
+              console.warn(
+                "[Cache] AsyncStorage appears to be full - disabling AsyncStorage usage"
+              );
+              this.asyncStorageAvailable = false;
+            }
+          } catch (chkErr) {}
+        }
+
+        // Also save to memory cache as backup
+        try {
+          this.memoryCache.set(key, data);
+          this.memoryCacheTimestamps.set(key, now);
+        } catch (memErr) {
+          console.warn("[Cache] memory cache set failed for", key, memErr);
+        }
+
+        return data;
+      } finally {
+        // Clean up in-flight promise map
+        try {
+          this.inFlightFetches.delete(cacheKey);
+        } catch (e) {}
+      }
     } catch (err) {
       console.warn("⚠️ AsyncStorage cache failed:", err);
 

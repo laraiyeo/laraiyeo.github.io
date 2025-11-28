@@ -655,7 +655,8 @@ const TeamPageScreen = ({ route, navigation }) => {
             name: athlete.displayName || athlete.fullName || `${athlete.firstName || ''} ${athlete.lastName || ''}`.trim() || 'Unknown Player',
             position: athlete.position?.abbreviation || athlete.position?.displayName || 'N/A',
             number: athlete.jersey || 'N/A',
-            headshot: athlete.headshot?.href
+            headshot: athlete.headshot?.href,
+            status: athlete.injuries?.[0]?.status || 'active',
           }));
           console.log('WNBA TeamPage: processed roster players:', players.length);
           setRoster(players);
@@ -1617,11 +1618,14 @@ const TeamPageScreen = ({ route, navigation }) => {
                   </View>
                 </View>
                 <View style={styles.rosterTableStatusCell}>
-                  <Text allowFontScaling={false} style={[
-                    styles.rosterTableStatusText,
-                    styles.activeStatus // For now, all WNBA players are active
-                  ]}>
-                    Active
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.rosterTableStatusText,
+                      player.status !== "active" ? { color: theme.error, backgroundColor: theme.error + "33", borderWidth: 1, borderColor: theme.error } : { color: theme.success, backgroundColor: theme.success + "33", borderWidth: 1, borderColor: theme.success }, // For now, all NBA players are active
+                    ]}
+                  >
+                    {(player.status || "Active").slice(0, 1).toUpperCase() + (player.status || "Active").slice(1).toLowerCase()}
                   </Text>
                 </View>
               </TouchableOpacity>

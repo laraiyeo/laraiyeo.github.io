@@ -132,6 +132,10 @@ const ResultsScreen = ({ route }) => {
 
           const enriched = {
             ...eventData,
+            // Use end date as the canonical `date` for completed events so that
+            // "Last" uses the event end date for display and sorting. Keep a
+            // dedicated `endDate` field as a Date object for other logic.
+            date: isCompleted ? endDate : eventData.date,
             eventDate: new Date(eventData.date),
             endDate: new Date(endDate),
             countryFlag,
@@ -1245,6 +1249,7 @@ const ResultsScreen = ({ route }) => {
       marginRight: 8,
       borderRadius: 2,
       backgroundColor: "#fff",
+      marginTop: -20,
     },
     rightColumn: {
       alignItems: "flex-end",

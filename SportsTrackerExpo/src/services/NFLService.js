@@ -653,62 +653,77 @@ export class NFLService extends BaseCacheService {
 
   // Get game summary data
   static async getSummary(gameId) {
-    const cacheKey = `summary_${gameId}`;
-    
-    return this.getCachedData(cacheKey, async () => {
-      const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
-      const response = await fetch(this.convertToHttps(url));
-      const data = await response.json();
-      
-      // Extract summary-specific data (news, highlights, recap, etc.)
+    // Reuse cached game details so we don't fetch the same summary URL twice
+    try {
+      const details = await this.getGameDetails(gameId);
       return {
-        recap: data.recap || null,
-        news: data.news || null,
-        highlights: data.highlights || null,
-        articles: data.articles || null,
-        winprobability: data.winprobability || null,
-        pickcenter: data.pickcenter || null
+        recap: details?.recap || null,
+        news: details?.news || null,
+        highlights: details?.highlights || null,
+        articles: details?.articles || null,
+        winprobability: details?.winprobability || null,
+        pickcenter: details?.pickcenter || null,
       };
-    });
+    } catch (err) {
+      console.error('Error in getSummary (using getGameDetails):', err);
+      return {
+        recap: null,
+        news: null,
+        highlights: null,
+        articles: null,
+        winprobability: null,
+        pickcenter: null,
+      };
+    }
   }
 
   // Get play-by-play data
   static async getPlays(gameId) {
-    const cacheKey = `plays_${gameId}`;
-    
-    return this.getCachedData(cacheKey, async () => {
-      const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
-      const response = await fetch(this.convertToHttps(url));
-      const data = await response.json();
-      
-      // Extract plays data from drives or separate plays endpoint
+    // Build plays from the cached game details so we avoid duplicate network
+    // requests to the same summary endpoint under different cache keys.
+    try {
+      const details = await this.getGameDetails(gameId);
+
       let plays = [];
-      
-      // Try to get plays from gamepackageJSON first
-      if (data.gamepackageJSON?.drives) {
-        data.gamepackageJSON.drives.forEach(drive => {
-          if (drive.plays) {
-            plays.push(...drive.plays);
-          }
+
+      if (details?.gamepackageJSON?.drives) {
+        details.gamepackageJSON.drives.forEach((drive) => {
+          if (drive.plays) plays.push(...drive.plays);
         });
       }
-      
-      // If no plays found, try alternate structure
-      if (plays.length === 0 && data.drives) {
-        data.drives.forEach(drive => {
-          if (drive.plays && Array.isArray(drive.plays)) {
-            plays.push(...drive.plays);
-          }
+
+      if (plays.length === 0 && details?.drives) {
+        details.drives.forEach((drive) => {
+          if (drive.plays && Array.isArray(drive.plays)) plays.push(...drive.plays);
         });
       }
-      
-      // Sort plays by sequence if available
+
       return plays.sort((a, b) => {
         const seqA = parseInt(a.sequenceNumber) || 0;
         const seqB = parseInt(b.sequenceNumber) || 0;
         return seqA - seqB;
       });
-    });
+    } catch (err) {
+      console.error('Error in getPlays (using getGameDetails):', err);
+      return [];
+    }
+  }
+
+  // Cached fetch for play probability JSON blobs referenced by plays/drives.
+  static async getProbability(probabilityRef) {
+    if (!probabilityRef) return null;
+    const cacheKey = `prob_${encodeURIComponent(probabilityRef)}`;
+
+    return this.getCachedData(cacheKey, async () => {
+      try {
+        const response = await fetch(this.convertToHttps(probabilityRef));
+        if (!response.ok) return null;
+        return await response.json();
+      } catch (err) {
+        console.error('Error fetching probability:', err);
+        return null;
+      }
+    }, 'probability');
   }
 
   static clearCache() {

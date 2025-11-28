@@ -1000,11 +1000,13 @@ const TeamPageScreen = ({ route, navigation }) => {
               "N/A",
             number: athlete.jersey || "N/A",
             headshot: athlete.headshot?.href,
+            status: athlete.injuries?.[0]?.status || "Active",
           }));
           console.log(
             "NBA TeamPage: processed roster players:",
             players.length
           );
+          console.log("NBA TeamPage: roster players sample:", players.slice(0, 3));
           setRoster(players);
         } else {
           console.log("NBA TeamPage: no athletes in roster response");
@@ -2414,10 +2416,10 @@ const TeamPageScreen = ({ route, navigation }) => {
                     allowFontScaling={false}
                     style={[
                       styles.rosterTableStatusText,
-                      styles.activeStatus, // For now, all NBA players are active
+                      player.status !== "Active" ? { color: theme.error, backgroundColor: theme.error + "33", borderWidth: 1, borderColor: theme.error } : { color: theme.success, backgroundColor: theme.success + "33", borderWidth: 1, borderColor: theme.success }, // For now, all NBA players are active
                     ]}
                   >
-                    Active
+                    {player.status || "Active"}
                   </Text>
                 </View>
               </TouchableOpacity>

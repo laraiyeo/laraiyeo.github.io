@@ -64,29 +64,26 @@ const PlayProbability = ({ probabilityRef, driveTeam, homeTeam, awayTeam }) => {
   const { theme } = useTheme();
 
   useEffect(() => {
+    let mounted = true;
     const fetchProbability = async () => {
       try {
-        const response = await fetch(NFLService.convertToHttps(probabilityRef));
-        const data = await response.json();
+        const data = await NFLService.getProbability(probabilityRef);
+        if (!mounted || !data) return;
 
-        const homeWinPct = data.homeWinPercentage || 0;
-        const awayWinPct = data.awayWinPercentage || 0;
+        const homeWinPct = data.homeWinPercentage ?? data.homeWinProbability ?? 0;
+        const awayWinPct = data.awayWinPercentage ?? data.awayWinProbability ?? (homeWinPct ? 1 - homeWinPct : 0);
 
         // Determine which team's probability to show based on drive team
         let displayProbability = "";
         let teamLogo = "";
 
-        // Check if drive team matches home or away team
         if (driveTeam?.id === homeTeam?.id) {
-          // Drive team is home team
           displayProbability = `${(homeWinPct * 100).toFixed(1)}%`;
           teamLogo = homeTeam?.logo;
         } else if (driveTeam?.id === awayTeam?.id) {
-          // Drive team is away team
           displayProbability = `${(awayWinPct * 100).toFixed(1)}%`;
           teamLogo = awayTeam?.logo;
         } else {
-          // Fallback to higher percentage
           if (homeWinPct > awayWinPct) {
             displayProbability = `${(homeWinPct * 100).toFixed(1)}%`;
             teamLogo = homeTeam?.logo;
@@ -102,9 +99,11 @@ const PlayProbability = ({ probabilityRef, driveTeam, homeTeam, awayTeam }) => {
       }
     };
 
-    if (probabilityRef) {
-      fetchProbability();
-    }
+    if (probabilityRef) fetchProbability();
+
+    return () => {
+      mounted = false;
+    };
   }, [probabilityRef, driveTeam, homeTeam, awayTeam]);
 
   if (!probabilityData) return null;
@@ -1127,27 +1126,14 @@ const GameDetailsScreen = ({ route }) => {
       }
       const drives = await NFLService.getDrivesComplete(gameId);
 
-      // For silent updates, only update if there are actually new drives or changes
-      if (silentUpdate && drivesData) {
-        // Compare drive count and latest drive ID to see if update is needed
-        const currentDriveCount = drivesData.length;
-        const newDriveCount = drives.length;
-
-        // Only update if there are new drives or if the latest drive has a different result
-        if (
-          newDriveCount > currentDriveCount ||
-          (drives.length > 0 &&
-            drivesData.length > 0 &&
-            (drives[drives.length - 1].id !==
-              drivesData[drivesData.length - 1].id ||
-              drives[drives.length - 1].displayResult !==
-                drivesData[drivesData.length - 1].displayResult))
-        ) {
-          setDrivesData(drives);
-        }
-      } else {
-        setDrivesData(drives);
-      }
+      // For silent updates we previously tried to skip setting state when
+      // only minor/uncaptured changes were present. That caused the UI to
+      // stop reflecting updated plays after opening a drive (because
+      // the in-memory drives list could differ only in nested `plays`). To
+      // ensure the drive modal and yardline graphic always stay current,
+      // always apply the fresh drives payload, but avoid toggling loading
+      // UI when `silentUpdate` is true.
+      setDrivesData(drives);
     } catch (error) {
       if (!silentUpdate) {
         console.error("Error loading drives:", error);
@@ -5943,7 +5929,8 @@ const GameDetailsScreen = ({ route }) => {
                         playTypeId === "26" ||
                         playTypeId === "29" ||
                         playTypeId === "36" ||
-                        playTypeId === "80"
+                        playTypeId === "80" ||
+                        playTypeId === "34"
                       ) {
                         // Determine which team is the drive team
                         const driveTeamId = play.driveTeam?.id;
@@ -6129,7 +6116,8 @@ const GameDetailsScreen = ({ route }) => {
                             playTypeId !== "26" &&
                             playTypeId !== "29" &&
                             playTypeId !== "36" &&
-                            playTypeId !== "80" && (
+                            playTypeId !== "80" &&
+                            playTypeId !== "34" && (
                               <View
                                 style={[
                                   styles.nflPlayShareCardDriveIndicator,
@@ -6271,6 +6259,7 @@ const GameDetailsScreen = ({ route }) => {
                                 "80",
                                 "7",
                                 "32",
+                                "34",
                               ].includes(playTypeId); // Kickoff, Interception, Punt, Fumble, Sack
                               const isRushingPlay = playTypeId === "5"; // Rush
                               const isPassingPlay = playTypeId === "24"; // Pass Reception
@@ -6505,7 +6494,7 @@ const GameDetailsScreen = ({ route }) => {
                                   }
                                 }
                                 // Special case: Punt (type 52)
-                                else if (playTypeId === "52") {
+                                else if (playTypeId === "52" || playTypeId === "34") {
                                   if (participantType === "returner") {
                                     // Show punt returns and yards
                                     const returning =
@@ -6528,6 +6517,11 @@ const GameDetailsScreen = ({ route }) => {
                                       stats.push(`${punting[0]} punts`);
                                     if (punting[1])
                                       stats.push(`${punting[1]} yds`);
+                                  } else if (participantType === "patScorer" || participantType === "kicker") {
+                                    const kicking =
+                                      playerBoxscoreData.kicking || [];
+                                    if (kicking[3])
+                                      stats.push(`${kicking[3]} XP`);
                                   }
                                   // Don't show stats for kicker
                                 } else if (
