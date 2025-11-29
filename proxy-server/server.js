@@ -472,7 +472,7 @@ app.get("/public/today.json", async (req, res) => {
   if (Number.isFinite(FETCH_DAY_OFFSET) && FETCH_DAY_OFFSET !== 0) {
     d.setDate(d.getDate() + FETCH_DAY_OFFSET);
   }
-  const dateStr = formatDateYYYYMMDD(d);
+  const dateStr = formatDateYYYYMMDDForPSTBoundary(d);
   const key = makeKeyForDate(dateStr);
   const rec = await s3GetObject(key);
   if (!rec) return res.status(404).json({ error: "Not cached yet" });
@@ -486,10 +486,7 @@ app.get("/public/:sport/today.json", async (req, res) => {
   if (Number.isFinite(FETCH_DAY_OFFSET) && FETCH_DAY_OFFSET !== 0) {
     d.setDate(d.getDate() + FETCH_DAY_OFFSET);
   }
-  const dateStr =
-    sport === "basketball"
-      ? formatDateYYYYMMDDForPSTBoundary(d)
-      : formatDateYYYYMMDD(d);
+  const dateStr = formatDateYYYYMMDDForPSTBoundary(d);
   const key = makeKeyForDate(dateStr, sport);
   const rec = await s3GetObject(key);
   if (!rec) return res.status(404).json({ error: "Not cached yet" });
