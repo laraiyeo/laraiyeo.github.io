@@ -256,7 +256,9 @@ async function fetchDiaryForDate(dateObj, sport = "football", useTsp = false) {
     const sportPath = sport === "basketball" ? "basketball" : "football";
     const upstreamUrl = `${UPSTREAM_HOST}/v1/${sportPath}/match/diary?user=${encodeURIComponent(
       user
-    )}&secret=${encodeURIComponent(secret)}${useTsp ? `&tsp=${tsp}` : `&date=${dateStr}`}`;
+    )}&secret=${encodeURIComponent(secret)}${
+      useTsp ? `&tsp=${tsp}` : `&date=${dateStr}`
+    }`;
     const forwardEndpoint = `${FORWARDER_URL.replace(/\/$/, "")}/forward`;
     console.log(
       "Using forwarder endpoint:",
@@ -298,7 +300,9 @@ async function fetchDiaryForDate(dateObj, sport = "football", useTsp = false) {
   const sportPath = sport === "basketball" ? "basketball" : "football";
   const url = `${UPSTREAM_HOST}/v1/${sportPath}/match/diary?user=${encodeURIComponent(
     user
-  )}&secret=${encodeURIComponent(secret)}${useTsp ? `&tsp=${tsp}` : `&date=${dateStr}`}`;
+  )}&secret=${encodeURIComponent(secret)}${
+    useTsp ? `&tsp=${tsp}` : `&date=${dateStr}`
+  }`;
   console.log("Upstream URL:", url);
   const res = await fetch(url, { method: "GET" });
   console.log("Upstream response status:", res.status, res.statusText);
@@ -477,15 +481,24 @@ app.get("/public/today.json", async (req, res) => {
 
   // Always fetch upstream for /public/today using &tsp= (00:00 UTC seconds)
   const tsp = utcStartOfDayTimestamp(d);
-  console.log("/public/today: using tsp (00:00 UTC) =", tsp, "dateStr=", dateStr);
+  console.log(
+    "/public/today: using tsp (00:00 UTC) =",
+    tsp,
+    "dateStr=",
+    dateStr
+  );
   try {
-    const { json, dateStr: fetchedDateStr, rawText } = await fetchDiaryForDate(
-      d,
-      "football",
-      true
+    const {
+      json,
+      dateStr: fetchedDateStr,
+      rawText,
+    } = await fetchDiaryForDate(d, "football", true);
+    const wanted =
+      WATCH_COMPETITIONS_BY_SPORT["football"] || WATCH_COMPETITIONS;
+    const watchMap = matchCompetitionNamesToWatch(
+      json.results_extra || {},
+      wanted
     );
-    const wanted = WATCH_COMPETITIONS_BY_SPORT["football"] || WATCH_COMPETITIONS;
-    const watchMap = matchCompetitionNamesToWatch(json.results_extra || {}, wanted);
     const transformed = transformResults(json, watchMap);
     const record = {
       date: fetchedDateStr,
