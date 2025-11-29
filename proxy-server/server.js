@@ -235,7 +235,7 @@ function pickFields(obj, picks = []) {
   return out;
 }
 
-async function fetchDiaryForDate(dateObj, sport = "football") {
+async function fetchDiaryForDate(dateObj, sport = "football", useTsp = false) {
   const tsp = utcStartOfDayTimestamp(dateObj);
   // Choose date string logic per sport: basketball uses PST boundary at 02:00
   const dateStr =
@@ -256,7 +256,7 @@ async function fetchDiaryForDate(dateObj, sport = "football") {
     const sportPath = sport === "basketball" ? "basketball" : "football";
     const upstreamUrl = `${UPSTREAM_HOST}/v1/${sportPath}/match/diary?user=${encodeURIComponent(
       user
-    )}&secret=${encodeURIComponent(secret)}&date=${dateStr}`;
+    )}&secret=${encodeURIComponent(secret)}${useTsp ? `&tsp=${tsp}` : `&date=${dateStr}`}`;
     const forwardEndpoint = `${FORWARDER_URL.replace(/\/$/, "")}/forward`;
     console.log(
       "Using forwarder endpoint:",
@@ -298,7 +298,7 @@ async function fetchDiaryForDate(dateObj, sport = "football") {
   const sportPath = sport === "basketball" ? "basketball" : "football";
   const url = `${UPSTREAM_HOST}/v1/${sportPath}/match/diary?user=${encodeURIComponent(
     user
-  )}&secret=${encodeURIComponent(secret)}&date=${dateStr}`;
+  )}&secret=${encodeURIComponent(secret)}${useTsp ? `&tsp=${tsp}` : `&date=${dateStr}`}`;
   console.log("Upstream URL:", url);
   const res = await fetch(url, { method: "GET" });
   console.log("Upstream response status:", res.status, res.statusText);
@@ -470,13 +470,44 @@ app.get("/public/today.json", async (req, res) => {
   const d = new Date();
   // Use the same fetch offset as scheduledRefresh (always fetch tomorrow)
   if (Number.isFinite(FETCH_DAY_OFFSET) && FETCH_DAY_OFFSET !== 0) {
-    d.setDate(d.getDate());
+    d.setDate(d.getDate() + FETCH_DAY_OFFSET);
   }
-  const dateStr = formatDateYYYYMMDD(d);
+  const dateStr = formatDateYYYYMMDDForPSTBoundary(d);
   const key = makeKeyForDate(dateStr);
-  const rec = await s3GetObject(key);
-  if (!rec) return res.status(404).json({ error: "Not cached yet" });
-  res.json(rec.transformed);
+
+  // Always fetch upstream for /public/today using &tsp= (00:00 UTC seconds)
+  const tsp = utcStartOfDayTimestamp(d);
+  console.log("/public/today: using tsp (00:00 UTC) =", tsp, "dateStr=", dateStr);
+  try {
+    const { json, dateStr: fetchedDateStr, rawText } = await fetchDiaryForDate(
+      d,
+      "football",
+      true
+    );
+    const wanted = WATCH_COMPETITIONS_BY_SPORT["football"] || WATCH_COMPETITIONS;
+    const watchMap = matchCompetitionNamesToWatch(json.results_extra || {}, wanted);
+    const transformed = transformResults(json, watchMap);
+    const record = {
+      date: fetchedDateStr,
+      fetchedAt: Date.now(),
+      upstream: { host: UPSTREAM_HOST, tsp },
+      transformed,
+      raw_meta: { total: (json.query || {}).total || null },
+    };
+    // Cache under the normal YYYYMMDD key so other endpoints still work
+    await s3PutObject(key, record);
+    console.log("Saved cache for (tsp-fetch)", fetchedDateStr, "key=", key);
+    return res.json(record.transformed);
+  } catch (err) {
+    console.error("public/today fetch failed:", err.message);
+    // As a fallback, if a cached record exists return it, otherwise error
+    const rec = await s3GetObject(key);
+    if (rec) {
+      console.warn("Returning stale cached record due to fetch error");
+      return res.json(rec.transformed);
+    }
+    return res.status(500).json({ error: "Failed to fetch diary" });
+  }
 });
 
 // Public diary endpoints per sport e.g. /public/football/today.json or /public/basketball/today.json
