@@ -2997,7 +2997,7 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
               <TouchableOpacity
                 style={[
                   styles.streamButton,
-                  { backgroundColor: colors.primary, marginLeft: 8 },
+                  { backgroundColor: colors.primary, marginBottom: 8 },
                 ]}
                 onPress={() => {
                   setLiveTrackerVisible(true);

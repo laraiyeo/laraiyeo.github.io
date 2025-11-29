@@ -43,7 +43,7 @@ function makeKeyForDate(dateStr, sport = "football") {
 }
 
 const WATCH_COMPETITIONS = [
-  "Premier League",
+  "English Premier League",
   "Spanish La Liga",
   "Bundesliga",
   "Italian Serie A",

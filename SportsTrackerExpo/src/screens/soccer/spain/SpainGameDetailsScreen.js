@@ -2958,6 +2958,20 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                 </Text>
               </TouchableOpacity>
             )}
+            {/* Tracker Button - show when a live tracker id is available */}
+            {liveTrackerUuid && (
+              <TouchableOpacity
+                style={[
+                  styles.trackerButton,
+                  { backgroundColor: colors.primary, marginBottom: 8 },
+                ]}
+                onPress={() => setLiveTrackerVisible(true)}
+              >
+                <Text allowFontScaling={false} style={styles.trackerButtonText}>
+                  Tracker
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Away Team (Right) */}
@@ -9148,6 +9162,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     textTransform: "capitalize",
+  },
+  trackerButton: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignItems: "center",
+  },
+  trackerButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
   },
   webViewContainer: {
     flex: 1,

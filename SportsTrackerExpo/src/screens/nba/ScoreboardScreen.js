@@ -553,7 +553,11 @@ const NBAScoreboardScreen = ({ navigation }) => {
       await LiveTrackerService.initDiary(diaryUrl);
       const homeName = item.homeTeam?.displayName || item.homeTeam?.name || "";
       const awayName = item.awayTeam?.displayName || item.awayTeam?.name || "";
-      matchedId = LiveTrackerService.findMatchIdByTeams(homeName, awayName);
+      matchedId = LiveTrackerService.findMatchIdByTeams(
+        homeName,
+        awayName,
+        "basketball"
+      );
     } catch (e) {
       // ignore lookup errors
       matchedId = null;
@@ -568,6 +572,8 @@ const NBAScoreboardScreen = ({ navigation }) => {
       liveTrackerDiaryUrl: diaryUrl,
       liveTrackerFormulaO: 56,
     });
+
+    console.log({ matchedId });
   };
 
   const handleTeamPress = (team) => {

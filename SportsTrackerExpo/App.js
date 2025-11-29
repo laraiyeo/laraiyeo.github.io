@@ -1878,10 +1878,18 @@ const AppContent = () => {
     const initLiveTracker = async () => {
       try {
         // lazy-import service to avoid circular deps during bundling
-        const LiveTrackerService = require("./src/services/liveTrackerService").default;
-        console.log("Initializing LiveTrackerService...");
-        await LiveTrackerService.initDiary();
-        console.log("LiveTrackerService initialized");
+        const LiveTrackerService =
+          require("./src/services/liveTrackerService").default;
+        console.log("Initializing LiveTrackerService (preloading diaries)...");
+        // Prefetch both football and basketball diaries to avoid later per-navigation fetches
+        if (typeof LiveTrackerService.prefetchDefaultDiaries === "function") {
+          await LiveTrackerService.prefetchDefaultDiaries();
+          console.log("LiveTrackerService: prefetchDefaultDiaries complete");
+        } else {
+          // Fallback to previous behavior for compatibility
+          await LiveTrackerService.initDiary();
+          console.log("LiveTrackerService: initDiary complete (fallback)");
+        }
       } catch (err) {
         console.warn("Failed to initialize LiveTrackerService:", err);
       }

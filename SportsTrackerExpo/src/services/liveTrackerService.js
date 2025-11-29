@@ -11,7 +11,12 @@ function buildDiaryUrl(sport = "football") {
   }
   return `${base}/public/today.json`;
 }
-let diaryData = null;
+// Store diary payloads keyed by sport to avoid overwriting when multiple
+// sports are fetched during the same session (e.g. football + basketball).
+const diaryDataBySport = {
+  football: null,
+  basketball: null,
+};
 
 function normalize(str) {
   if (!str) return "";
@@ -63,6 +68,8 @@ function normalize(str) {
     "cardiff city": "cardiff city",
     cardiff: "cardiff city",
     "rb salzburg": "red bull salzburg",
+    "stade rennais": "stade rennais fc",
+    "la clippers": "los angeles clippers",
   };
 
   // Normalize customMap keys using the same function
@@ -90,43 +97,78 @@ function normalize(str) {
   }
 }
 
-async function initDiary(url = DEFAULT_DIARY_URL, fetchImpl = fetch) {
+// idempotent init: accepts a diary `url` (or default) and an optional `sport`.
+// If the diary for `sport` is already loaded it will be returned without
+// making a new network request. If only `url` is provided we attempt to
+// infer the sport from the URL (contains '/basketball/' -> basketball).
+async function initDiary(
+  url = DEFAULT_DIARY_URL,
+  fetchImpl = fetch,
+  sport = null
+) {
   try {
+    // infer sport if not provided
+    const inferredSport =
+      sport ||
+      (String(url).includes("/basketball/") ? "basketball" : "football");
+
+    // return cached if present
+    if (diaryDataBySport[inferredSport]) {
+      return diaryDataBySport[inferredSport];
+    }
+
     const res = await fetchImpl(url, { method: "GET" });
     if (!res.ok) {
-      console.warn("liveTrackerService: diary fetch failed", res.status);
-      diaryData = null;
+      console.warn("liveTrackerService: diary fetch failed", res.status, url);
+      diaryDataBySport[inferredSport] = null;
       return null;
     }
     const json = await res.json();
-    diaryData = json;
-    return diaryData;
+    diaryDataBySport[inferredSport] = json;
+    return diaryDataBySport[inferredSport];
   } catch (err) {
     console.warn("liveTrackerService: initDiary error", err);
-    diaryData = null;
     return null;
   }
 }
 
-function getDiary() {
-  return diaryData;
+// Convenience: prefetch both the default football diary and the basketball diary
+// (useful on app startup so both are available later without per-navigation fetches)
+async function prefetchDefaultDiaries(fetchImpl = fetch) {
+  try {
+    const footballUrl = DEFAULT_DIARY_URL;
+    const basketballUrl = buildDiaryUrl("basketball");
+    await Promise.all([
+      initDiary(footballUrl, fetchImpl, "football"),
+      initDiary(basketballUrl, fetchImpl, "basketball"),
+    ]);
+  } catch (e) {
+    // ignore individual errors; initDiary logs them
+  }
+}
+
+function getDiary(sport = "football") {
+  return diaryDataBySport[sport] || null;
 }
 
 // Try to find a match id by exact normalized home+away names.
 // Returns the `id` string if found, otherwise null.
-function findMatchIdByTeams(homeName, awayName) {
-  if (!diaryData || !Array.isArray(diaryData.results)) return null;
+// Try to find a match id by exact normalized home+away names for the given sport.
+// Returns the `id` string if found, otherwise null.
+function findMatchIdByTeams(homeName, awayName, sport = "football") {
+  const diary = getDiary(sport);
+  if (!diary || !Array.isArray(diary.results)) return null;
   const homeNorm = normalize(homeName);
   const awayNorm = normalize(awayName);
 
-  for (const r of diaryData.results) {
+  for (const r of diary.results) {
     const h = normalize(r.home_team_name || "");
     const a = normalize(r.away_team_name || "");
     if (h === homeNorm && a === awayNorm) return r.id;
   }
 
   // fallback: try loose matching (substring) in case abbreviations differ
-  for (const r of diaryData.results) {
+  for (const r of diary.results) {
     const h = normalize(r.home_team_name || "");
     const a = normalize(r.away_team_name || "");
     if (h.includes(homeNorm) || homeNorm.includes(h)) {
@@ -143,4 +185,5 @@ export default {
   findMatchIdByTeams,
   buildDiaryUrl,
   DEFAULT_DIARY_URL,
+  prefetchDefaultDiaries,
 };

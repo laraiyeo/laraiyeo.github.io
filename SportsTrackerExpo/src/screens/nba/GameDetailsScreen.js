@@ -360,7 +360,8 @@ const NBAGameDetailsScreen = ({ route }) => {
         await LiveTrackerService.initDiary(diaryUrl);
         const id = await LiveTrackerService.findMatchIdByTeams(
           homeName,
-          awayName
+          awayName,
+          "basketball"
         );
         if (!cancelled && id) setLiveTrackerUuid(id);
       } catch (e) {
@@ -3895,385 +3896,455 @@ const NBAGameDetailsScreen = ({ route }) => {
       {/* Main Content */}
       <ScrollView
         style={[styles.scrollView, { backgroundColor: theme.background }]}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={
+          liveTrackerVisible ? { marginTop: -6 } : styles.scrollContent
+        }
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
-        {/* Top header card (matches soccer layout) */}
-        <View
-          style={[
-            styles.headerCard,
-            { backgroundColor: theme.surface, borderColor: "rgba(0,0,0,0.08)" },
-          ]}
-        >
-          <Text
-            style={[styles.competitionText, { color: theme.textSecondary }]}
-            numberOfLines={1}
-          >
-            {details?.header?.gameNote || "NBA"}
-            {details?.gameInfo?.venue?.fullName
-              ? ` - ${details.gameInfo.venue.fullName}`
-              : ""}
-          </Text>
+        {/* Top header card (matches soccer layout) or LiveTracker when visible */}
+        {liveTrackerVisible ? (
+          (() => {
+            const defaultWrapperBase =
+              "https://sportsheart.ca/widgets/livetracker.html";
+            const provided = route?.params?.liveTrackerWrapperUrl || null;
+            const wrapperUrlBase = provided
+              ? provided.includes("?")
+                ? `${provided}&id=${encodeURIComponent(liveTrackerUuid)}`
+                : `${provided}?id=${encodeURIComponent(liveTrackerUuid)}`
+              : `${defaultWrapperBase}?id=${encodeURIComponent(
+                  liveTrackerUuid
+                )}`;
 
-          <View style={styles.soccerMainRow}>
-            {/* Away team section (left) */}
-            <View style={styles.soccerTeamSection}>
-              <TouchableOpacity
-                onPress={() => navigateToTeam(away)}
-                activeOpacity={0.7}
-              >
-                <TeamLogoWithTheme
-                  colors={colors}
-                  getTeamLogoUrl={getTeamLogoUrl}
-                  teamAbbreviation={
-                    away?.team?.abbreviation || away?.abbreviation
-                  }
-                  logoUri={away?.team?.logo || away?.logo}
-                  size={56}
-                  style={[
-                    styles.soccerTeamLogo,
-                    awayIsLoser && styles.losingTeamLogo,
-                  ]}
-                />
-              </TouchableOpacity>
-              <View style={styles.teamNameWithFavorite}>
-                <View style={styles.teamNameRow}>
-                  {isFavorite(awayTeamId, "nba") && (
-                    <Ionicons
-                      name="star"
-                      size={14}
-                      color={colors.primary}
-                      style={styles.favoriteIconHeader}
-                    />
-                  )}
+            const formulaO = route?.params?.liveTrackerFormulaO ?? 56;
+            const deviceWidth = Math.round(width || 800);
+            // Determine team logo URLs to pass to the wrapper (prefer theme-specific logo index)
+            const homeLogo =
+              home?.team?.logos?.[1]?.href ||
+              home?.team?.logo ||
+              home?.logo ||
+              ""
+                ? encodeURIComponent(
+                    home?.team?.logos?.[1]?.href ||
+                      home?.team?.logo ||
+                      home?.logo ||
+                      ""
+                  )
+                : "";
+            const awayLogo =
+              away?.team?.logos?.[1]?.href ||
+              away?.team?.logo ||
+              away?.logo ||
+              ""
+                ? encodeURIComponent(
+                    away?.team?.logos?.[1]?.href ||
+                      away?.team?.logo ||
+                      away?.logo ||
+                      ""
+                  )
+                : "";
+
+            const wrapperUrl = `${wrapperUrlBase}&w=${encodeURIComponent(
+              deviceWidth
+            )}&o=${encodeURIComponent(formulaO)}&sport=basketball${
+              homeLogo ? `&home_logo=${awayLogo}` : ""
+            }${awayLogo ? `&away_logo=${homeLogo}` : ""}&reverse=1`;
+            const ratio = 0.505;
+            const initialEmbedHeight =
+              Math.round(deviceWidth * ratio) + formulaO;
+
+            return (
+              <LiveTrackerEmbed
+                uuid={liveTrackerUuid}
+                visible={true}
+                inline={true}
+                wrapperUrl={wrapperUrl}
+                initialHeight={initialEmbedHeight}
+                formulaO={formulaO}
+                showHeader={false}
+                onClose={() => setLiveTrackerVisible(false)}
+              />
+            );
+          })()
+        ) : (
+          <View
+            style={[
+              styles.headerCard,
+              {
+                backgroundColor: theme.surface,
+                borderColor: "rgba(0,0,0,0.08)",
+              },
+            ]}
+          >
+            <Text
+              style={[styles.competitionText, { color: theme.textSecondary }]}
+              numberOfLines={1}
+            >
+              {details?.header?.gameNote || "NBA"}
+              {details?.gameInfo?.venue?.fullName
+                ? ` - ${details.gameInfo.venue.fullName}`
+                : ""}
+            </Text>
+
+            <View style={styles.soccerMainRow}>
+              {/* Away team section (left) */}
+              <View style={styles.soccerTeamSection}>
+                <TouchableOpacity
+                  onPress={() => navigateToTeam(away)}
+                  activeOpacity={0.7}
+                >
+                  <TeamLogoWithTheme
+                    colors={colors}
+                    getTeamLogoUrl={getTeamLogoUrl}
+                    teamAbbreviation={
+                      away?.team?.abbreviation || away?.abbreviation
+                    }
+                    logoUri={away?.team?.logo || away?.logo}
+                    size={56}
+                    style={[
+                      styles.soccerTeamLogo,
+                      awayIsLoser && styles.losingTeamLogo,
+                    ]}
+                  />
+                </TouchableOpacity>
+                <View style={styles.teamNameWithFavorite}>
+                  <View style={styles.teamNameRow}>
+                    {isFavorite(awayTeamId, "nba") && (
+                      <Ionicons
+                        name="star"
+                        size={14}
+                        color={colors.primary}
+                        style={styles.favoriteIconHeader}
+                      />
+                    )}
+                    <Text
+                      style={[
+                        styles.soccerTeamName,
+                        {
+                          color: awayIsLoser
+                            ? "#999"
+                            : isFavorite(awayTeamId, "nba")
+                            ? colors.primary
+                            : theme.text,
+                        },
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {away?.team?.abbreviation ||
+                        away?.team?.name ||
+                        away?.team?.displayName ||
+                        ""}
+                    </Text>
+                  </View>
+                  {/* Timeouts / Bonus indicators */}
+                  {!isGameFinal &&
+                    !getGameStatus().isPre &&
+                    (() => {
+                      try {
+                        const teamObj = away || {};
+                        // Prefer explicit timeoutsRemaining fields but fall back to common locations
+                        const timeoutsRemaining = Math.max(
+                          0,
+                          Number(
+                            teamObj.timeoutsRemaining ??
+                              teamObj?.team?.timeoutsRemaining ??
+                              teamObj?.statistics?.find((s) =>
+                                /timeoutsRemaining/i.test(
+                                  s?.name || s?.label || ""
+                                )
+                              )?.value ??
+                              0
+                          ) || 0
+                        );
+
+                        const foulsRaw =
+                          teamObj.fouls ??
+                          teamObj?.team?.fouls ??
+                          teamObj?.statistics?.find((s) =>
+                            /foul/i.test(s?.name || s?.label || "")
+                          )?.value ??
+                          null;
+                        const bonusState =
+                          (foulsRaw && foulsRaw.bonusState) ||
+                          (foulsRaw && foulsRaw.bonus) ||
+                          null;
+
+                        const count = Math.min(5, timeoutsRemaining);
+                        const { homeColor, awayColor } = getSmartTeamColors(
+                          home,
+                          away,
+                          colors
+                        );
+                        const teamColor = awayColor || colors.primary;
+
+                        if (count <= 0) return null;
+
+                        return (
+                          <View style={{ alignItems: "center", marginTop: 6 }}>
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                justifyContent: "center",
+                              }}
+                            >
+                              {Array.from({ length: count }).map((_, i) => (
+                                <View
+                                  key={`away-to-${i}`}
+                                  style={{
+                                    width: 7,
+                                    height: 7,
+                                    borderRadius: 4,
+                                    marginHorizontal: 1.5,
+                                    backgroundColor: teamColor,
+                                    borderWidth: 1,
+                                    borderColor: teamColor,
+                                  }}
+                                />
+                              ))}
+                            </View>
+                            {bonusState &&
+                            String(bonusState).toUpperCase() !== "NONE" ? (
+                              <Text
+                                style={{
+                                  color: theme.error,
+                                  marginTop: 4,
+                                  fontSize: 11,
+                                  fontWeight: "700",
+                                }}
+                              >
+                                BONUS
+                              </Text>
+                            ) : null}
+                          </View>
+                        );
+                      } catch (e) {
+                        return null;
+                      }
+                    })()}
+                </View>
+              </View>
+
+              {/* Score section (center) */}
+              <View style={styles.soccerScoreSection}>
+                <View style={styles.soccerScoreRow}>
                   <Text
                     style={[
-                      styles.soccerTeamName,
+                      styles.soccerScore,
                       {
-                        color: awayIsLoser
-                          ? "#999"
-                          : isFavorite(awayTeamId, "nba")
-                          ? colors.primary
+                        color: isGameFinal
+                          ? awayIsWinner
+                            ? colors.primary
+                            : awayIsLoser
+                            ? "#999"
+                            : theme.text
                           : theme.text,
                       },
                     ]}
-                    numberOfLines={2}
                   >
-                    {away?.team?.abbreviation ||
-                      away?.team?.name ||
-                      away?.team?.displayName ||
-                      ""}
+                    {getGameStatus().isPre
+                      ? ""
+                      : away?.score ?? away?.team?.score ?? "0"}
                   </Text>
-                </View>
-                {/* Timeouts / Bonus indicators */}
-                {!isGameFinal &&
-                  !getGameStatus().isPre &&
-                  (() => {
-                    try {
-                      const teamObj = away || {};
-                      // Prefer explicit timeoutsRemaining fields but fall back to common locations
-                      const timeoutsRemaining = Math.max(
-                        0,
-                        Number(
-                          teamObj.timeoutsRemaining ??
-                            teamObj?.team?.timeoutsRemaining ??
-                            teamObj?.statistics?.find((s) =>
-                              /timeoutsRemaining/i.test(
-                                s?.name || s?.label || ""
-                              )
-                            )?.value ??
-                            0
-                        ) || 0
-                      );
-
-                      const foulsRaw =
-                        teamObj.fouls ??
-                        teamObj?.team?.fouls ??
-                        teamObj?.statistics?.find((s) =>
-                          /foul/i.test(s?.name || s?.label || "")
-                        )?.value ??
-                        null;
-                      const bonusState =
-                        (foulsRaw && foulsRaw.bonusState) ||
-                        (foulsRaw && foulsRaw.bonus) ||
-                        null;
-
-                      const count = Math.min(5, timeoutsRemaining);
-                      const { homeColor, awayColor } = getSmartTeamColors(
-                        home,
-                        away,
-                        colors
-                      );
-                      const teamColor = awayColor || colors.primary;
-
-                      if (count <= 0) return null;
-
-                      return (
-                        <View style={{ alignItems: "center", marginTop: 6 }}>
-                          <View
-                            style={{
-                              flexDirection: "row",
-                              justifyContent: "center",
-                            }}
-                          >
-                            {Array.from({ length: count }).map((_, i) => (
-                              <View
-                                key={`away-to-${i}`}
-                                style={{
-                                  width: 7,
-                                  height: 7,
-                                  borderRadius: 4,
-                                  marginHorizontal: 1.5,
-                                  backgroundColor: teamColor,
-                                  borderWidth: 1,
-                                  borderColor: teamColor,
-                                }}
-                              />
-                            ))}
-                          </View>
-                          {bonusState &&
-                          String(bonusState).toUpperCase() !== "NONE" ? (
-                            <Text
-                              style={{
-                                color: theme.error,
-                                marginTop: 4,
-                                fontSize: 11,
-                                fontWeight: "700",
-                              }}
-                            >
-                              BONUS
-                            </Text>
-                          ) : null}
-                        </View>
-                      );
-                    } catch (e) {
-                      return null;
-                    }
-                  })()}
-              </View>
-            </View>
-
-            {/* Score section (center) */}
-            <View style={styles.soccerScoreSection}>
-              <View style={styles.soccerScoreRow}>
-                <Text
-                  style={[
-                    styles.soccerScore,
-                    {
-                      color: isGameFinal
-                        ? awayIsWinner
-                          ? colors.primary
-                          : awayIsLoser
-                          ? "#999"
-                          : theme.text
-                        : theme.text,
-                    },
-                  ]}
-                >
-                  {getGameStatus().isPre
-                    ? ""
-                    : away?.score ?? away?.team?.score ?? "0"}
-                </Text>
-                <Text
-                  style={[styles.scoreDash, { color: theme.textSecondary }]}
-                >
-                  -
-                </Text>
-                <Text
-                  style={[
-                    styles.soccerScore,
-                    {
-                      color: isGameFinal
-                        ? homeIsWinner
-                          ? colors.primary
-                          : homeIsLoser
-                          ? "#999"
-                          : theme.text
-                        : theme.text,
-                    },
-                  ]}
-                >
-                  {getGameStatus().isPre
-                    ? ""
-                    : home?.score ?? home?.team?.score ?? "0"}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.soccerStatusBadge,
-                  (() => {
-                    const gameStatus = getGameStatus();
-                    if (gameStatus.isLive)
-                      return { backgroundColor: theme.success };
-                    if (gameStatus.isPre)
-                      return { backgroundColor: theme.info };
-                    return { backgroundColor: "#9E9E9E" };
-                  })(),
-                ]}
-              >
-                <View style={styles.statusRow}>
-                  <Text style={[styles.statusText, { color: "#FFFFFF" }]}>
-                    {getGameStatus().text}
-                  </Text>
-                  <Text style={[styles.statusDash, { color: "#FFFFFF" }]}>
+                  <Text
+                    style={[styles.scoreDash, { color: theme.textSecondary }]}
+                  >
                     -
                   </Text>
-                  <Text style={[styles.statusDetail, { color: "#FFFFFF" }]}>
-                    {getGameStatus().detail}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Home team section (right) */}
-            <View style={styles.soccerTeamSection}>
-              <TouchableOpacity
-                onPress={() => navigateToTeam(home)}
-                activeOpacity={0.7}
-              >
-                <TeamLogoWithTheme
-                  colors={colors}
-                  getTeamLogoUrl={getTeamLogoUrl}
-                  teamAbbreviation={
-                    home?.team?.abbreviation || home?.abbreviation
-                  }
-                  logoUri={home?.team?.logo || home?.logo}
-                  size={56}
-                  style={[
-                    styles.soccerTeamLogo,
-                    homeIsLoser && styles.losingTeamLogo,
-                  ]}
-                />
-              </TouchableOpacity>
-              <View style={styles.teamNameWithFavorite}>
-                <View style={styles.teamNameRow}>
-                  {isFavorite(homeTeamId, "nba") && (
-                    <Ionicons
-                      name="star"
-                      size={14}
-                      color={colors.primary}
-                      style={styles.favoriteIconHeader}
-                    />
-                  )}
                   <Text
                     style={[
-                      styles.soccerTeamName,
+                      styles.soccerScore,
                       {
-                        color: homeIsLoser
-                          ? "#999"
-                          : isFavorite(homeTeamId, "nba")
-                          ? colors.primary
+                        color: isGameFinal
+                          ? homeIsWinner
+                            ? colors.primary
+                            : homeIsLoser
+                            ? "#999"
+                            : theme.text
                           : theme.text,
                       },
                     ]}
-                    numberOfLines={2}
                   >
-                    {home?.team?.abbreviation ||
-                      home?.team?.name ||
-                      home?.team?.displayName ||
-                      ""}
+                    {getGameStatus().isPre
+                      ? ""
+                      : home?.score ?? home?.team?.score ?? "0"}
                   </Text>
                 </View>
-                {/* Timeouts / Bonus indicators */}
-                {!isGameFinal &&
-                  !getGameStatus().isPre &&
-                  (() => {
-                    try {
-                      const teamObj = home || {};
-                      const timeoutsRemaining = Math.max(
-                        0,
-                        Number(
-                          teamObj.timeoutsRemaining ??
-                            teamObj?.team?.timeoutsRemaining ??
-                            teamObj?.statistics?.find((s) =>
-                              /timeoutsRemaining/i.test(
-                                s?.name || s?.label || ""
-                              )
-                            )?.value ??
-                            0
-                        ) || 0
-                      );
+                <View
+                  style={[
+                    styles.soccerStatusBadge,
+                    (() => {
+                      const gameStatus = getGameStatus();
+                      if (gameStatus.isLive)
+                        return { backgroundColor: theme.success };
+                      if (gameStatus.isPre)
+                        return { backgroundColor: theme.info };
+                      return { backgroundColor: "#9E9E9E" };
+                    })(),
+                  ]}
+                >
+                  <View style={styles.statusRow}>
+                    <Text style={[styles.statusText, { color: "#FFFFFF" }]}>
+                      {getGameStatus().text}
+                    </Text>
+                    <Text style={[styles.statusDash, { color: "#FFFFFF" }]}>
+                      -
+                    </Text>
+                    <Text style={[styles.statusDetail, { color: "#FFFFFF" }]}>
+                      {getGameStatus().detail}
+                    </Text>
+                  </View>
+                </View>
+              </View>
 
-                      const foulsRaw =
-                        teamObj.fouls ??
-                        teamObj?.team?.fouls ??
-                        teamObj?.statistics?.find((s) =>
-                          /foul/i.test(s?.name || s?.label || "")
-                        )?.value ??
-                        null;
-                      const bonusState =
-                        (foulsRaw && foulsRaw.bonusState) ||
-                        (foulsRaw && foulsRaw.bonus) ||
-                        null;
+              {/* Home team section (right) */}
+              <View style={styles.soccerTeamSection}>
+                <TouchableOpacity
+                  onPress={() => navigateToTeam(home)}
+                  activeOpacity={0.7}
+                >
+                  <TeamLogoWithTheme
+                    colors={colors}
+                    getTeamLogoUrl={getTeamLogoUrl}
+                    teamAbbreviation={
+                      home?.team?.abbreviation || home?.abbreviation
+                    }
+                    logoUri={home?.team?.logo || home?.logo}
+                    size={56}
+                    style={[
+                      styles.soccerTeamLogo,
+                      homeIsLoser && styles.losingTeamLogo,
+                    ]}
+                  />
+                </TouchableOpacity>
+                <View style={styles.teamNameWithFavorite}>
+                  <View style={styles.teamNameRow}>
+                    {isFavorite(homeTeamId, "nba") && (
+                      <Ionicons
+                        name="star"
+                        size={14}
+                        color={colors.primary}
+                        style={styles.favoriteIconHeader}
+                      />
+                    )}
+                    <Text
+                      style={[
+                        styles.soccerTeamName,
+                        {
+                          color: homeIsLoser
+                            ? "#999"
+                            : isFavorite(homeTeamId, "nba")
+                            ? colors.primary
+                            : theme.text,
+                        },
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {home?.team?.abbreviation ||
+                        home?.team?.name ||
+                        home?.team?.displayName ||
+                        ""}
+                    </Text>
+                  </View>
+                  {/* Timeouts / Bonus indicators */}
+                  {!isGameFinal &&
+                    !getGameStatus().isPre &&
+                    (() => {
+                      try {
+                        const teamObj = home || {};
+                        const timeoutsRemaining = Math.max(
+                          0,
+                          Number(
+                            teamObj.timeoutsRemaining ??
+                              teamObj?.team?.timeoutsRemaining ??
+                              teamObj?.statistics?.find((s) =>
+                                /timeoutsRemaining/i.test(
+                                  s?.name || s?.label || ""
+                                )
+                              )?.value ??
+                              0
+                          ) || 0
+                        );
 
-                      const count = Math.min(5, timeoutsRemaining);
-                      const { homeColor, awayColor } = getSmartTeamColors(
-                        home,
-                        away,
-                        colors
-                      );
-                      const teamColor = homeColor || colors.primary;
+                        const foulsRaw =
+                          teamObj.fouls ??
+                          teamObj?.team?.fouls ??
+                          teamObj?.statistics?.find((s) =>
+                            /foul/i.test(s?.name || s?.label || "")
+                          )?.value ??
+                          null;
+                        const bonusState =
+                          (foulsRaw && foulsRaw.bonusState) ||
+                          (foulsRaw && foulsRaw.bonus) ||
+                          null;
 
-                      if (count <= 0) return null;
+                        const count = Math.min(5, timeoutsRemaining);
+                        const { homeColor, awayColor } = getSmartTeamColors(
+                          home,
+                          away,
+                          colors
+                        );
+                        const teamColor = homeColor || colors.primary;
 
-                      return (
-                        <View style={{ alignItems: "center", marginTop: 6 }}>
-                          <View
-                            style={{
-                              flexDirection: "row-reverse",
-                              justifyContent: "center",
-                            }}
-                          >
-                            {Array.from({ length: count }).map((_, i) => (
-                              <View
-                                key={`home-to-${i}`}
-                                style={{
-                                  width: 7,
-                                  height: 7,
-                                  borderRadius: 4,
-                                  marginHorizontal: 1.5,
-                                  backgroundColor: teamColor,
-                                  borderWidth: 1,
-                                  borderColor: teamColor,
-                                }}
-                              />
-                            ))}
-                          </View>
-                          {bonusState &&
-                          String(bonusState).toUpperCase() !== "NONE" ? (
-                            <Text
+                        if (count <= 0) return null;
+
+                        return (
+                          <View style={{ alignItems: "center", marginTop: 6 }}>
+                            <View
                               style={{
-                                color: theme.error,
-                                marginTop: 4,
-                                fontSize: 11,
-                                fontWeight: "700",
+                                flexDirection: "row-reverse",
+                                justifyContent: "center",
                               }}
                             >
-                              BONUS
-                            </Text>
-                          ) : null}
-                        </View>
-                      );
-                    } catch (e) {
-                      return null;
-                    }
-                  })()}
+                              {Array.from({ length: count }).map((_, i) => (
+                                <View
+                                  key={`home-to-${i}`}
+                                  style={{
+                                    width: 7,
+                                    height: 7,
+                                    borderRadius: 4,
+                                    marginHorizontal: 1.5,
+                                    backgroundColor: teamColor,
+                                    borderWidth: 1,
+                                    borderColor: teamColor,
+                                  }}
+                                />
+                              ))}
+                            </View>
+                            {bonusState &&
+                            String(bonusState).toUpperCase() !== "NONE" ? (
+                              <Text
+                                style={{
+                                  color: theme.error,
+                                  marginTop: 4,
+                                  fontSize: 11,
+                                  fontWeight: "700",
+                                }}
+                              >
+                                BONUS
+                              </Text>
+                            ) : null}
+                          </View>
+                        );
+                      } catch (e) {
+                        return null;
+                      }
+                    })()}
+                </View>
               </View>
             </View>
-          </View>
 
-          <Text style={[styles.dateText, { color: theme.textSecondary }]}>
-            {new Date(gameDate).toLocaleDateString("en-US", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </Text>
-        </View>
+            <Text style={[styles.dateText, { color: theme.textSecondary }]}>
+              {new Date(gameDate).toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </Text>
+          </View>
+        )}
 
         {/* Stream Button - only show for live games and when streaming is unlocked */}
         {(() => {
@@ -4304,12 +4375,9 @@ const NBAGameDetailsScreen = ({ route }) => {
         })()}
 
         {/* Tracker Button - show if we resolved a liveTracker UUID */}
-        {liveTrackerUuid && (
+        {liveTrackerUuid && !liveTrackerVisible && (
           <TouchableOpacity
-            style={[
-              styles.streamButton,
-              { backgroundColor: colors.primary, marginLeft: 8 },
-            ]}
+            style={[styles.streamButton, { backgroundColor: colors.primary }]}
             onPress={() => {
               setLiveTrackerVisible(true);
             }}
@@ -4319,71 +4387,6 @@ const NBAGameDetailsScreen = ({ route }) => {
             </Text>
           </TouchableOpacity>
         )}
-
-        {/* Inline LiveTracker Embed (replaces header when visible) */}
-        {liveTrackerVisible &&
-          (() => {
-            const defaultWrapperBase =
-              "https://sportsheart.ca/widgets/livetracker.html";
-            const provided = route?.params?.liveTrackerWrapperUrl || null;
-            const wrapperUrlBase = provided
-              ? provided.includes("?")
-                ? `${provided}&id=${encodeURIComponent(liveTrackerUuid)}`
-                : `${provided}?id=${encodeURIComponent(liveTrackerUuid)}`
-              : `${defaultWrapperBase}?id=${encodeURIComponent(
-                  liveTrackerUuid
-                )}`;
-
-            const formulaO = route?.params?.liveTrackerFormulaO ?? 56;
-            const deviceWidth = Math.round(width || 800);
-            // Determine team logo URLs to pass to the wrapper (prefer theme-specific logo index)
-            const homeLogo =
-              homeTeam?.team?.logos?.[1]?.href ||
-              homeTeam?.team?.logo ||
-              homeTeam?.logo ||
-              ""
-                ? encodeURIComponent(
-                    homeTeam?.team?.logos?.[1]?.href ||
-                      homeTeam?.team?.logo ||
-                      homeTeam?.logo ||
-                      ""
-                  )
-                : "";
-            const awayLogo =
-              awayTeam?.team?.logos?.[1]?.href ||
-              awayTeam?.team?.logo ||
-              awayTeam?.logo ||
-              ""
-                ? encodeURIComponent(
-                    awayTeam?.team?.logos?.[1]?.href ||
-                      awayTeam?.team?.logo ||
-                      awayTeam?.logo ||
-                      ""
-                  )
-                : "";
-
-            const wrapperUrl = `${wrapperUrlBase}&w=${encodeURIComponent(
-              deviceWidth
-            )}&o=${encodeURIComponent(formulaO)}&sport=basketball${
-              homeLogo ? `&home_logo=${homeLogo}` : ""
-            }${awayLogo ? `&away_logo=${awayLogo}` : ""}&reverse=1`;
-            const ratio = 0.505;
-            const initialEmbedHeight =
-              Math.round(deviceWidth * ratio) + formulaO;
-
-            return (
-              <LiveTrackerEmbed
-                uuid={liveTrackerUuid}
-                visible={true}
-                inline={true}
-                wrapperUrl={wrapperUrl}
-                initialHeight={initialEmbedHeight}
-                formulaO={formulaO}
-                showHeader={false}
-                onClose={() => setLiveTrackerVisible(false)}
-              />
-            );
-          })()}
 
         {/* Tab Container */}
         <View style={[styles.tabContainer, { backgroundColor: theme.surface }]}>

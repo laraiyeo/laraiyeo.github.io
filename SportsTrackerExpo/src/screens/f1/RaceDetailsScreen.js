@@ -137,6 +137,7 @@ const RaceDetailsScreen = ({ route }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [competitionResults, setCompetitionResults] = useState({});
   const [competitionOrder, setCompetitionOrder] = useState([]);
+  const [competitionStatusMap, setCompetitionStatusMap] = useState({});
   const [selectedCompetitionId, setSelectedCompetitionId] = useState(null);
   const [raceStatus, setRaceStatus] = useState(null);
   const [driverModalVisible, setDriverModalVisible] = useState(false);
@@ -385,6 +386,17 @@ const RaceDetailsScreen = ({ route }) => {
 
   // Helper to extract live gap to leader from statistics
   const getLiveGapToLeader = (competitor) => {
+    // If a totalTime is already available (final or authoritative), prefer it
+    // so we don't show a gap-to-leader when a completed total time exists.
+    if (competitor && competitor.totalTime) {
+      return (
+        competitor.behindTime ||
+        (competitor.behindLaps != null
+          ? `+${competitor.behindLaps} Laps`
+          : competitor.totalTime)
+      );
+    }
+
     if (
       !competitor.liveStats ||
       !competitor.liveStats.splits ||
@@ -868,6 +880,20 @@ const RaceDetailsScreen = ({ route }) => {
             })
           ).then((results) => results.filter(Boolean));
 
+          // Build a map of processed competition status for easy lookup elsewhere
+          const statusMap = {};
+          competitionsWithDates.forEach((c) => {
+            statusMap[c.id] = {
+              isLive: !!c.isLive,
+              isCompleted: !!c.isCompleted,
+              isUpcoming: !!c.isUpcoming,
+              hasResults: !!c.hasResults,
+              date: c.date,
+              endDate: c.endDate,
+            };
+          });
+          setCompetitionStatusMap(statusMap);
+
           // Sort by date to find chronologically next sessions
           competitionsWithDates.sort((a, b) => {
             if (!a.date && !b.date) return 0;
@@ -1246,8 +1272,8 @@ const RaceDetailsScreen = ({ route }) => {
         return null;
       }
 
-      // Get event log from first driver
-      const firstDriverData = await fetchAthleteData(
+      // Get event log from first driver (use cached/coalesced fetch)
+      const firstDriverData = await fetchAthleteCached(
         standingsData.standings[0].athlete.$ref
       );
 
@@ -1272,16 +1298,39 @@ const RaceDetailsScreen = ({ route }) => {
   const athleteCacheExpiry = {};
   const ATHLETE_CACHE_MS = 1000 * 60 * 60; // 1 hour
 
+  // In-flight map to coalesce concurrent athlete fetches
+  const athleteFetchInFlight = {};
+
   const fetchAthleteCached = async (athleteRef) => {
     if (!athleteRef) return null;
     const now = Date.now();
     if (athleteCache[athleteRef] && athleteCacheExpiry[athleteRef] > now)
       return athleteCache[athleteRef];
+    // If there's already an in-flight fetch for this athleteRef, await it
+    if (athleteFetchInFlight[athleteRef]) {
+      try {
+        const data = await athleteFetchInFlight[athleteRef];
+        return data;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Start fetch and store promise to coalesce concurrent callers
+    athleteFetchInFlight[athleteRef] = (async () => {
+      try {
+        const data = await fetchAthleteData(athleteRef);
+        athleteCache[athleteRef] = data;
+        athleteCacheExpiry[athleteRef] = Date.now() + ATHLETE_CACHE_MS;
+        return data;
+      } finally {
+        // Clean up inflight map regardless of success/failure
+        delete athleteFetchInFlight[athleteRef];
+      }
+    })();
+
     try {
-      const data = await fetchAthleteData(athleteRef);
-      athleteCache[athleteRef] = data;
-      athleteCacheExpiry[athleteRef] = now + ATHLETE_CACHE_MS;
-      return data;
+      return await athleteFetchInFlight[athleteRef];
     } catch (e) {
       return null;
     }
@@ -1820,6 +1869,27 @@ const RaceDetailsScreen = ({ route }) => {
                   fastestLap: null,
                   behindLaps: null,
                 };
+                // helper to parse display time strings into milliseconds when possible
+                const parseTimeToMs = (v) => {
+                  if (v == null) return null;
+                  if (typeof v === "number") return v;
+                  if (typeof v !== "string") return null;
+                  const s = v.trim();
+                  // mm:ss.mmm or m:ss.mmm
+                  if (/^\d+:\d{2}(?:\.\d+)?$/.test(s)) {
+                    const parts = s.split(":");
+                    const minutes = Number(parts[0]);
+                    const seconds = Number(parts[1]);
+                    if (!isNaN(minutes) && !isNaN(seconds))
+                      return Math.round((minutes * 60 + seconds) * 1000);
+                  }
+                  // plain seconds like 0.000 or 12.345
+                  if (/^\d+(?:\.\d+)?$/.test(s)) {
+                    const f = parseFloat(s);
+                    if (!isNaN(f)) return Math.round(f * 1000);
+                  }
+                  return null;
+                };
                 const splits = statsJson?.splits;
                 if (splits && Array.isArray(splits.categories)) {
                   for (const cat of splits.categories) {
@@ -1851,24 +1921,43 @@ const RaceDetailsScreen = ({ route }) => {
                           key.includes("q1") ||
                           key.includes("qual1timems") ||
                           key.includes("qual1time"))
-                      )
+                      ) {
                         parsed.qual1 = val;
+                        // prefer numeric value from the stat if available, otherwise try parsing display string
+                        if (typeof s.value === "number") parsed.qual1Ms = s.value;
+                        else {
+                          const ms = parseTimeToMs(val);
+                          if (ms != null) parsed.qual1Ms = ms;
+                        }
+                      }
                       if (
                         !parsed.qual2 &&
                         (key.includes("qual2") ||
                           key.includes("q2") ||
                           key.includes("qual2timems") ||
                           key.includes("qual2time"))
-                      )
+                      ) {
                         parsed.qual2 = val;
+                        if (typeof s.value === "number") parsed.qual2Ms = s.value;
+                        else {
+                          const ms = parseTimeToMs(val);
+                          if (ms != null) parsed.qual2Ms = ms;
+                        }
+                      }
                       if (
                         !parsed.qual3 &&
                         (key.includes("qual3") ||
                           key.includes("q3") ||
                           key.includes("qual3timems") ||
                           key.includes("qual3time"))
-                      )
+                      ) {
                         parsed.qual3 = val;
+                        if (typeof s.value === "number") parsed.qual3Ms = s.value;
+                        else {
+                          const ms = parseTimeToMs(val);
+                          if (ms != null) parsed.qual3Ms = ms;
+                        }
+                      }
                       if (
                         !parsed.behindTime &&
                         key.includes("behind") &&
@@ -1934,12 +2023,17 @@ const RaceDetailsScreen = ({ route }) => {
                 r.qual1 = normalizeTime(parsed.qual1);
                 r.qual2 = normalizeTime(parsed.qual2);
                 r.qual3 = normalizeTime(parsed.qual3);
+                // preserve numeric ms values when present to help rendering decisions
+                r.qual1Ms = parsed.qual1Ms != null ? parsed.qual1Ms : typeof parsed.qual1 === "number" ? parsed.qual1 : null;
+                r.qual2Ms = parsed.qual2Ms != null ? parsed.qual2Ms : typeof parsed.qual2 === "number" ? parsed.qual2 : null;
+                r.qual3Ms = parsed.qual3Ms != null ? parsed.qual3Ms : typeof parsed.qual3 === "number" ? parsed.qual3 : null;
                 r.behindTime = normalizeTime(parsed.behindTime);
                 r.fastestLap = normalizeTime(parsed.fastestLap);
                 r.behindLaps = normalizeTime(parsed.behindLaps);
                 // assign behindLaps and place if available
                 if (parsed.behindLaps != null) r.behindLaps = parsed.behindLaps;
                 if (parsed.place != null) r.order = parsed.place;
+                console.log("Fetched stats for competitor", r.name, ":", r);
               } catch (e) {
                 // ignore per-competitor stat fetch errors
               }
@@ -2963,7 +3057,20 @@ const RaceDetailsScreen = ({ route }) => {
   // Live race functionality
   const checkIfRaceIsLive = () => {
     if (!raceData || !raceData.competitions) return false;
-
+    
+    // If we have processed competition status for the selected competition,
+    // prefer that authoritative value to avoid re-computing time windows.
+    if (
+      selectedCompetitionId &&
+      competitionStatusMap &&
+      competitionStatusMap[selectedCompetitionId]
+    ) {
+      const s = competitionStatusMap[selectedCompetitionId];
+      if (s.isLive) return true;
+      // If scheduled/pre or completed, explicitly return false
+      if (s.isCompleted || s.isUpcoming) return false;
+      // otherwise fall through to further checks
+    }
     // Primary check: if we have race status, use it as the authoritative source
     const effectiveRaceStatus = lastFetchedRaceStatusRef.current || raceStatus;
     if (effectiveRaceStatus && effectiveRaceStatus.type) {
@@ -3598,40 +3705,132 @@ const RaceDetailsScreen = ({ route }) => {
         return compId === selectedCompetitionId;
       });
 
-    // Determine color based on selected competition status, not global live status
+    // Determine color based on authoritative status where possible.
+    // Use `checkIfRaceIsLive()` (which may set `currentLiveSession`) and any
+    // status objects embedded on the competition as the primary sources.
+    // If neither is available, fall back to date-based heuristics but expose
+    // a `pre` (scheduled) state for competitions that haven't started yet.
     let compTypeColor = theme.textSecondary;
     if (selectedCompetition && selectedOriginalComp) {
-      const compDate = selectedOriginalComp.date
-        ? new Date(selectedOriginalComp.date)
-        : null;
-      const endDate = selectedOriginalComp.endDate
-        ? new Date(selectedOriginalComp.endDate)
-        : compDate
-        ? new Date(compDate.getTime() + 3 * 60 * 60 * 1000)
-        : null;
       const now = new Date();
 
-      // Check if session is completed (either by time or by having results)
-      const hasResults =
-        selectedCompetition.competitors?.some((c) => c.winner || c.order) ||
-        false;
-      const isTimeCompleted = endDate && now > endDate;
-      const isCompleted = hasResults || isTimeCompleted;
+      // Prefer processed competitionStatusMap values if available (most authoritative
+      // for header coloring and avoids recomputing time windows here).
+      if (
+        competitionStatusMap &&
+        selectedCompetitionId &&
+        competitionStatusMap[selectedCompetitionId]
+      ) {
+        const s = competitionStatusMap[selectedCompetitionId];
+        let compPhase = null;
+        if (s.isLive) compPhase = "live";
+        else if (s.isCompleted) compPhase = "completed";
+        else if (s.isUpcoming) compPhase = "pre";
+        if (compPhase === "completed") {
+          compTypeColor = theme.success;
+        } else if (compPhase === "live") {
+          compTypeColor = theme.error;
+        } else if (compPhase === "pre") {
+          compTypeColor = theme.warning;
+        }
+        console.log("[RaceDetailsHeader] Competition phase/color determined:", { compPhase, s });
+        // We have applied the status-based color; skip recomputing below to avoid
+        // accidentally overwriting the established phase/color.
+      } else {
+        // Helper to extract an id from either id or $ref
+      const extractId = (obj) => obj?.id || (obj?.$ref && obj.$ref.split("/").pop());
 
-      const isSelectedLive =
-        !isCompleted &&
-        compDate &&
-        endDate &&
-        now >= compDate &&
-        now <= endDate;
-      const isSelectedUpcoming = !isCompleted && compDate && now < compDate;
+      // First, prefer explicit status objects if present on the selected competition
+      const statusObj =
+        selectedCompetition.status ||
+        (competitionResults[selectedCompetitionId] && competitionResults[selectedCompetitionId].status) ||
+        selectedOriginalComp.status ||
+        null;
 
-      if (isCompleted) {
-        compTypeColor = theme.success; // Green for completed
-      } else if (isSelectedLive) {
-        compTypeColor = theme.error; // Red for live
-      } else if (isSelectedUpcoming) {
-        compTypeColor = theme.warning; // Yellow for upcoming
+      let compPhase = null; // 'live' | 'completed' | 'pre' | null
+
+      if (statusObj?.type) {
+        const sState = statusObj.type.state;
+        const completedFlag = statusObj.type.completed;
+
+        if (completedFlag === true || sState === "post" || sState === "final") {
+          compPhase = "completed";
+        } else if (sState === "in" || sState === "active") {
+          compPhase = "live";
+        }
+      }
+
+      // If statusObj was inconclusive, be careful about assuming live just
+      // because a status $ref exists but `raceStatus` hasn't been fetched yet.
+      // Prefer any explicit statusState on the original competition or the
+      // competitionResults entry, otherwise consult the global live check.
+      if (!compPhase) {
+        const statusRef =
+          (selectedOriginalComp && selectedOriginalComp.status && selectedOriginalComp.status.$ref) ||
+          (selectedCompetition && selectedCompetition.raw && selectedCompetition.raw.status && selectedCompetition.raw.status.$ref) ||
+          null;
+
+        // If there is a statusRef but we haven't fetched the global `raceStatus`,
+        // do NOT optimistically assume live for the header — instead prefer any
+        // explicit embedded statusState (e.g., 'pre') or fall back to date heuristics.
+        if (statusRef && !raceStatus) {
+          const explicitState =
+            (selectedOriginalComp && selectedOriginalComp.status && selectedOriginalComp.status.type && selectedOriginalComp.status.type.state) ||
+            (selectedCompetition && selectedCompetition.status && selectedCompetition.status.type && selectedCompetition.status.type.state) ||
+            null;
+          if (explicitState === "in" || explicitState === "active") {
+            compPhase = "live";
+          } else if (explicitState === "post" || explicitState === "final") {
+            compPhase = "completed";
+          } else if (explicitState === "pre") {
+            compPhase = "pre";
+          }
+          // if explicitState is still unknown, defer to date heuristics below
+        } else {
+          const isGlobalLive = checkIfRaceIsLive();
+          if (isGlobalLive && currentLiveSession) {
+            const liveId = extractId(currentLiveSession);
+            const selId = extractId(selectedOriginalComp) || extractId(selectedCompetition);
+            if (liveId && selId && liveId === selId) {
+              compPhase = "live";
+            }
+          }
+        }
+      }
+
+      // Still unknown: fall back to date heuristics and embedded results
+      if (!compPhase) {
+        const compDate = selectedOriginalComp.date ? new Date(selectedOriginalComp.date) : null;
+        const endDate = selectedOriginalComp.endDate
+          ? new Date(selectedOriginalComp.endDate)
+          : compDate
+          ? new Date(compDate.getTime() + 3 * 60 * 60 * 1000)
+          : null;
+
+        const hasResults = selectedCompetition.competitors?.some((c) => c.winner || c.order) || false;
+        const isTimeCompleted = endDate && now > endDate;
+
+        if (hasResults || isTimeCompleted) {
+          compPhase = "completed";
+        } else if (compDate && now < compDate) {
+          // Not started yet — mark as 'pre' (scheduled)
+          compPhase = "pre";
+        } else if (compDate && endDate && now >= compDate && now <= endDate) {
+          compPhase = "live";
+        }
+      }
+
+        if (compPhase === "completed") {
+          compTypeColor = theme.success;
+        } else if (compPhase === "live") {
+          compTypeColor = theme.error;
+        } else if (compPhase === "pre") {
+          compTypeColor = theme.warning; // scheduled/pre
+        }
+
+        console.log("[RaceDetailsHeader] Competition phase/color determined:", {
+          compPhase,
+        });
       }
     }
 
@@ -4082,8 +4281,68 @@ const RaceDetailsScreen = ({ route }) => {
     </View>
   );
 
-  const renderResultsTab = () => (
-    <View style={styles.tabContent}>
+  const renderResultsTab = () => {
+    // Compute competition-level flags used by the Results rendering
+    const selectedCompetition =
+      selectedCompetitionId && competitionResults[selectedCompetitionId]
+        ? competitionResults[selectedCompetitionId]
+        : null;
+    const selectedOriginalComp =
+      selectedCompetition &&
+      raceData?.competitions?.find((comp) => {
+        const compId = comp.id || (comp.$ref && comp.$ref.split("/").pop());
+        return compId === selectedCompetitionId;
+      });
+
+    const now = new Date();
+    const compDate = selectedOriginalComp?.date
+      ? new Date(selectedOriginalComp.date)
+      : null;
+    const endDate = selectedOriginalComp?.endDate
+      ? new Date(selectedOriginalComp.endDate)
+      : compDate
+      ? new Date(compDate.getTime() + 3 * 60 * 60 * 1000)
+      : null;
+    const hasResults =
+      selectedCompetition?.competitors?.some((c) => c.winner || c.order) ||
+      false;
+    const isTimeCompleted = endDate && now > endDate;
+    const isCompCompleted = hasResults || isTimeCompleted;
+
+    // Check qualifying ms presence across competitors for OUT logic
+    const compCompetitors = selectedCompetition?.competitors || [];
+    const hasAnyQual3Ms = compCompetitors.some(
+      (c) => c?.qual3Ms && Number(c.qual3Ms) > 0
+    );
+    const hasAnyQual2Ms = compCompetitors.some(
+      (c) => c?.qual2Ms && Number(c.qual2Ms) > 0
+    );
+
+    const getGapOnly = (competitor) => {
+      try {
+        // Attempt to extract gapToLeader stat from liveStats
+        const gapSplit =
+          competitor.liveStats?.splits?.categories?.find(
+            (s) => s.name === "gapToLeader"
+          ) || null;
+        if (gapSplit) {
+          const gapStat = gapSplit.stats?.find((s) => s.name === "gapToLeader") || null;
+          if (gapStat) {
+            if (gapStat.value === 0) return "Leader";
+            return gapStat.displayValue || gapStat.value;
+          }
+        }
+        // fallback to behindTime/behindLaps or totalTime
+        if (competitor.behindTime) return competitor.behindTime;
+        if (competitor.behindLaps != null) return `+${competitor.behindLaps} Laps`;
+        return competitor.totalTime || null;
+      } catch (e) {
+        return null;
+      }
+    };
+
+    return (
+      <View style={styles.tabContent}>
       <Text
         allowFontScaling={false}
         style={[styles.sectionTitle, { color: theme.text }]}
@@ -4151,16 +4410,16 @@ const RaceDetailsScreen = ({ route }) => {
               {sortedCompetitors.map((r) => {
                 const compType =
                   competitionResults[selectedCompetitionId]?.type || {};
-                const isQual = (
+                const str = (
                   (compType.abbreviation || "") +
                   " " +
                   (compType.text || "") +
                   " " +
                   (compType.displayName || "")
-                )
-                  .toString()
-                  .toLowerCase()
-                  .includes("qual");
+                ).toLowerCase();
+
+                const isQual = str.includes("qual") || str.includes("ss");
+
                 return (
                   <View
                     key={r.id}
@@ -4312,41 +4571,85 @@ const RaceDetailsScreen = ({ route }) => {
                       ) : null}
                       {isQual ? (
                         <View style={{ alignItems: "flex-end" }}>
-                          {r.qual1 ? (
-                            <Text
-                              allowFontScaling={false}
-                              style={[styles.totalTime, { color: theme.text }]}
-                            >
-                              Q1: {r.qual1}
-                            </Text>
-                          ) : null}
-                          {r.qual2 ? (
-                            <Text
-                              allowFontScaling={false}
-                              style={[styles.totalTime, { color: theme.text }]}
-                            >
-                              Q2: {r.qual2}
-                            </Text>
-                          ) : null}
-                          {r.qual3 ? (
-                            <Text
-                              allowFontScaling={false}
-                              style={[styles.totalTime, { color: theme.text }]}
-                            >
-                              Q3: {r.qual3}
-                            </Text>
-                          ) : null}
-                          {r.behindTime ? (
-                            <Text
-                              allowFontScaling={false}
-                              style={[
-                                styles.lapsText,
-                                { color: theme.textSecondary },
-                              ]}
-                            >
-                              Behind: {r.behindTime}
-                            </Text>
-                          ) : null}
+                          {hasAnyQual2Ms && (!r.qual2Ms || Number(r.qual2Ms) === 0) ? (
+                            <>
+                              <Text
+                                allowFontScaling={false}
+                                style={[styles.totalTime, { color: theme.error, fontWeight: '700', fontSize: 12, fontStyle: 'italic' }]}
+                              >
+                                OUT - Q1
+                              </Text>
+                              {r.qual1 ? (
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.lapsText,
+                                    { color: theme.text, fontSize: 14},
+                                  ]}
+                                >
+                                  Q1: {r.qual1}
+                                </Text>
+                              ) : null}
+                            </>
+                          ) : hasAnyQual3Ms && (!r.qual3Ms || Number(r.qual3Ms) === 0) ? (
+                            <>
+                              <Text
+                                allowFontScaling={false}
+                                style={[styles.totalTime, { color: theme.error, fontWeight: '700', fontSize: 12, fontStyle: 'italic' }]}
+                              >
+                                OUT - Q2
+                              </Text>
+                              {r.qual2 ? (
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.lapsText,
+                                    { color: theme.text, fontSize: 14},
+                                  ]}
+                                >
+                                  Q2: {r.qual2}
+                                </Text>
+                              ) : null}
+                              {r.qual1 ? (
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.lapsText,
+                                    { color: theme.text, fontSize: 14},
+                                  ]}
+                                >
+                                  Q1: {r.qual1}
+                                </Text>
+                              ) : null}
+                            </>
+                          ) : (
+                            <>
+                              {r.qual1 ? (
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[styles.totalTime, { color: theme.text }]}
+                                >
+                                  Q3: {r.qual3}
+                                </Text>
+                              ) : null}
+                              {r.qual2 ? (
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[styles.totalTime, { color: theme.text }]}
+                                >
+                                  Q2: {r.qual2}
+                                </Text>
+                              ) : null}
+                              {r.qual3 ? (
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[styles.totalTime, { color: theme.text }]}
+                                >
+                                  Q1: {r.qual1}
+                                </Text>
+                              ) : null}
+                            </>
+                          )}
                         </View>
                       ) : (
                         <>
@@ -4392,6 +4695,7 @@ const RaceDetailsScreen = ({ route }) => {
       )}
     </View>
   );
+  };
 
   const renderGridTab = () => (
     <View style={styles.tabContent}>
