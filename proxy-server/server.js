@@ -470,7 +470,7 @@ app.get("/public/today.json", async (req, res) => {
   const d = new Date();
   // Use the same fetch offset as scheduledRefresh (always fetch tomorrow)
   if (Number.isFinite(FETCH_DAY_OFFSET) && FETCH_DAY_OFFSET !== 0) {
-    d.setDate(d.getDate() + FETCH_DAY_OFFSET);
+    d.setDate(d.getDate());
   }
   const dateStr = formatDateYYYYMMDDForPSTBoundary(d);
   const key = makeKeyForDate(dateStr);
