@@ -239,7 +239,7 @@ async function fetchDiaryForDate(dateObj, sport = "football") {
   const tsp = utcStartOfDayTimestamp(dateObj);
   // Choose date string logic per sport: basketball uses PST boundary at 02:00
   const dateStr =
-    sport === "basketball"
+    sport === "basketball" || sport === "football"
       ? formatDateYYYYMMDDForPSTBoundary(dateObj)
       : formatDateYYYYMMDD(dateObj);
   const user = process.env.UPSTREAM_USER || DEFAULT_USER;
@@ -400,7 +400,7 @@ async function refreshForDate(dateObj, sport = "football") {
   try {
     const tsp = utcStartOfDayTimestamp(dateObj);
     const dateStrLocal =
-      sport === "basketball"
+      sport === "basketball" || sport === "football"
         ? formatDateYYYYMMDDForPSTBoundary(dateObj)
         : formatDateYYYYMMDD(dateObj);
     console.log(
