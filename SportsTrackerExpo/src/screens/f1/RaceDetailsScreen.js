@@ -1924,7 +1924,8 @@ const RaceDetailsScreen = ({ route }) => {
                       ) {
                         parsed.qual1 = val;
                         // prefer numeric value from the stat if available, otherwise try parsing display string
-                        if (typeof s.value === "number") parsed.qual1Ms = s.value;
+                        if (typeof s.value === "number")
+                          parsed.qual1Ms = s.value;
                         else {
                           const ms = parseTimeToMs(val);
                           if (ms != null) parsed.qual1Ms = ms;
@@ -1938,7 +1939,8 @@ const RaceDetailsScreen = ({ route }) => {
                           key.includes("qual2time"))
                       ) {
                         parsed.qual2 = val;
-                        if (typeof s.value === "number") parsed.qual2Ms = s.value;
+                        if (typeof s.value === "number")
+                          parsed.qual2Ms = s.value;
                         else {
                           const ms = parseTimeToMs(val);
                           if (ms != null) parsed.qual2Ms = ms;
@@ -1952,7 +1954,8 @@ const RaceDetailsScreen = ({ route }) => {
                           key.includes("qual3time"))
                       ) {
                         parsed.qual3 = val;
-                        if (typeof s.value === "number") parsed.qual3Ms = s.value;
+                        if (typeof s.value === "number")
+                          parsed.qual3Ms = s.value;
                         else {
                           const ms = parseTimeToMs(val);
                           if (ms != null) parsed.qual3Ms = ms;
@@ -2024,9 +2027,24 @@ const RaceDetailsScreen = ({ route }) => {
                 r.qual2 = normalizeTime(parsed.qual2);
                 r.qual3 = normalizeTime(parsed.qual3);
                 // preserve numeric ms values when present to help rendering decisions
-                r.qual1Ms = parsed.qual1Ms != null ? parsed.qual1Ms : typeof parsed.qual1 === "number" ? parsed.qual1 : null;
-                r.qual2Ms = parsed.qual2Ms != null ? parsed.qual2Ms : typeof parsed.qual2 === "number" ? parsed.qual2 : null;
-                r.qual3Ms = parsed.qual3Ms != null ? parsed.qual3Ms : typeof parsed.qual3 === "number" ? parsed.qual3 : null;
+                r.qual1Ms =
+                  parsed.qual1Ms != null
+                    ? parsed.qual1Ms
+                    : typeof parsed.qual1 === "number"
+                    ? parsed.qual1
+                    : null;
+                r.qual2Ms =
+                  parsed.qual2Ms != null
+                    ? parsed.qual2Ms
+                    : typeof parsed.qual2 === "number"
+                    ? parsed.qual2
+                    : null;
+                r.qual3Ms =
+                  parsed.qual3Ms != null
+                    ? parsed.qual3Ms
+                    : typeof parsed.qual3 === "number"
+                    ? parsed.qual3
+                    : null;
                 r.behindTime = normalizeTime(parsed.behindTime);
                 r.fastestLap = normalizeTime(parsed.fastestLap);
                 r.behindLaps = normalizeTime(parsed.behindLaps);
@@ -3057,7 +3075,7 @@ const RaceDetailsScreen = ({ route }) => {
   // Live race functionality
   const checkIfRaceIsLive = () => {
     if (!raceData || !raceData.competitions) return false;
-    
+
     // If we have processed competition status for the selected competition,
     // prefer that authoritative value to avoid re-computing time windows.
     if (
@@ -3733,92 +3751,118 @@ const RaceDetailsScreen = ({ route }) => {
         } else if (compPhase === "pre") {
           compTypeColor = theme.warning;
         }
-        console.log("[RaceDetailsHeader] Competition phase/color determined:", { compPhase, s });
+        console.log("[RaceDetailsHeader] Competition phase/color determined:", {
+          compPhase,
+          s,
+        });
         // We have applied the status-based color; skip recomputing below to avoid
         // accidentally overwriting the established phase/color.
       } else {
         // Helper to extract an id from either id or $ref
-      const extractId = (obj) => obj?.id || (obj?.$ref && obj.$ref.split("/").pop());
+        const extractId = (obj) =>
+          obj?.id || (obj?.$ref && obj.$ref.split("/").pop());
 
-      // First, prefer explicit status objects if present on the selected competition
-      const statusObj =
-        selectedCompetition.status ||
-        (competitionResults[selectedCompetitionId] && competitionResults[selectedCompetitionId].status) ||
-        selectedOriginalComp.status ||
-        null;
-
-      let compPhase = null; // 'live' | 'completed' | 'pre' | null
-
-      if (statusObj?.type) {
-        const sState = statusObj.type.state;
-        const completedFlag = statusObj.type.completed;
-
-        if (completedFlag === true || sState === "post" || sState === "final") {
-          compPhase = "completed";
-        } else if (sState === "in" || sState === "active") {
-          compPhase = "live";
-        }
-      }
-
-      // If statusObj was inconclusive, be careful about assuming live just
-      // because a status $ref exists but `raceStatus` hasn't been fetched yet.
-      // Prefer any explicit statusState on the original competition or the
-      // competitionResults entry, otherwise consult the global live check.
-      if (!compPhase) {
-        const statusRef =
-          (selectedOriginalComp && selectedOriginalComp.status && selectedOriginalComp.status.$ref) ||
-          (selectedCompetition && selectedCompetition.raw && selectedCompetition.raw.status && selectedCompetition.raw.status.$ref) ||
+        // First, prefer explicit status objects if present on the selected competition
+        const statusObj =
+          selectedCompetition.status ||
+          (competitionResults[selectedCompetitionId] &&
+            competitionResults[selectedCompetitionId].status) ||
+          selectedOriginalComp.status ||
           null;
 
-        // If there is a statusRef but we haven't fetched the global `raceStatus`,
-        // do NOT optimistically assume live for the header — instead prefer any
-        // explicit embedded statusState (e.g., 'pre') or fall back to date heuristics.
-        if (statusRef && !raceStatus) {
-          const explicitState =
-            (selectedOriginalComp && selectedOriginalComp.status && selectedOriginalComp.status.type && selectedOriginalComp.status.type.state) ||
-            (selectedCompetition && selectedCompetition.status && selectedCompetition.status.type && selectedCompetition.status.type.state) ||
-            null;
-          if (explicitState === "in" || explicitState === "active") {
-            compPhase = "live";
-          } else if (explicitState === "post" || explicitState === "final") {
+        let compPhase = null; // 'live' | 'completed' | 'pre' | null
+
+        if (statusObj?.type) {
+          const sState = statusObj.type.state;
+          const completedFlag = statusObj.type.completed;
+
+          if (
+            completedFlag === true ||
+            sState === "post" ||
+            sState === "final"
+          ) {
             compPhase = "completed";
-          } else if (explicitState === "pre") {
-            compPhase = "pre";
+          } else if (sState === "in" || sState === "active") {
+            compPhase = "live";
           }
-          // if explicitState is still unknown, defer to date heuristics below
-        } else {
-          const isGlobalLive = checkIfRaceIsLive();
-          if (isGlobalLive && currentLiveSession) {
-            const liveId = extractId(currentLiveSession);
-            const selId = extractId(selectedOriginalComp) || extractId(selectedCompetition);
-            if (liveId && selId && liveId === selId) {
+        }
+
+        // If statusObj was inconclusive, be careful about assuming live just
+        // because a status $ref exists but `raceStatus` hasn't been fetched yet.
+        // Prefer any explicit statusState on the original competition or the
+        // competitionResults entry, otherwise consult the global live check.
+        if (!compPhase) {
+          const statusRef =
+            (selectedOriginalComp &&
+              selectedOriginalComp.status &&
+              selectedOriginalComp.status.$ref) ||
+            (selectedCompetition &&
+              selectedCompetition.raw &&
+              selectedCompetition.raw.status &&
+              selectedCompetition.raw.status.$ref) ||
+            null;
+
+          // If there is a statusRef but we haven't fetched the global `raceStatus`,
+          // do NOT optimistically assume live for the header — instead prefer any
+          // explicit embedded statusState (e.g., 'pre') or fall back to date heuristics.
+          if (statusRef && !raceStatus) {
+            const explicitState =
+              (selectedOriginalComp &&
+                selectedOriginalComp.status &&
+                selectedOriginalComp.status.type &&
+                selectedOriginalComp.status.type.state) ||
+              (selectedCompetition &&
+                selectedCompetition.status &&
+                selectedCompetition.status.type &&
+                selectedCompetition.status.type.state) ||
+              null;
+            if (explicitState === "in" || explicitState === "active") {
               compPhase = "live";
+            } else if (explicitState === "post" || explicitState === "final") {
+              compPhase = "completed";
+            } else if (explicitState === "pre") {
+              compPhase = "pre";
+            }
+            // if explicitState is still unknown, defer to date heuristics below
+          } else {
+            const isGlobalLive = checkIfRaceIsLive();
+            if (isGlobalLive && currentLiveSession) {
+              const liveId = extractId(currentLiveSession);
+              const selId =
+                extractId(selectedOriginalComp) ||
+                extractId(selectedCompetition);
+              if (liveId && selId && liveId === selId) {
+                compPhase = "live";
+              }
             }
           }
         }
-      }
 
-      // Still unknown: fall back to date heuristics and embedded results
-      if (!compPhase) {
-        const compDate = selectedOriginalComp.date ? new Date(selectedOriginalComp.date) : null;
-        const endDate = selectedOriginalComp.endDate
-          ? new Date(selectedOriginalComp.endDate)
-          : compDate
-          ? new Date(compDate.getTime() + 3 * 60 * 60 * 1000)
-          : null;
+        // Still unknown: fall back to date heuristics and embedded results
+        if (!compPhase) {
+          const compDate = selectedOriginalComp.date
+            ? new Date(selectedOriginalComp.date)
+            : null;
+          const endDate = selectedOriginalComp.endDate
+            ? new Date(selectedOriginalComp.endDate)
+            : compDate
+            ? new Date(compDate.getTime() + 3 * 60 * 60 * 1000)
+            : null;
 
-        const hasResults = selectedCompetition.competitors?.some((c) => c.winner || c.order) || false;
-        const isTimeCompleted = endDate && now > endDate;
+          const hasResults =
+            selectedCompetition.competitors?.some((c) => c.winner || c.order) ||
+            false;
+          const isTimeCompleted = endDate && now > endDate;
 
-        if (hasResults || isTimeCompleted) {
-          compPhase = "completed";
-        } else if (compDate && now < compDate) {
-          // Not started yet — mark as 'pre' (scheduled)
-          compPhase = "pre";
-        } else if (compDate && endDate && now >= compDate && now <= endDate) {
-          compPhase = "live";
+          if (hasResults || isTimeCompleted) {
+            compPhase = "completed";
+          } else if (compDate && now < compDate) {
+            // Not started yet — mark as 'pre' (scheduled)
+            compPhase = "pre";
+          } else if (compDate && endDate && now >= compDate && now <= endDate) {
+            compPhase = "live";
+          }
         }
-      }
 
         if (compPhase === "completed") {
           compTypeColor = theme.success;
@@ -4326,7 +4370,8 @@ const RaceDetailsScreen = ({ route }) => {
             (s) => s.name === "gapToLeader"
           ) || null;
         if (gapSplit) {
-          const gapStat = gapSplit.stats?.find((s) => s.name === "gapToLeader") || null;
+          const gapStat =
+            gapSplit.stats?.find((s) => s.name === "gapToLeader") || null;
           if (gapStat) {
             if (gapStat.value === 0) return "Leader";
             return gapStat.displayValue || gapStat.value;
@@ -4334,7 +4379,8 @@ const RaceDetailsScreen = ({ route }) => {
         }
         // fallback to behindTime/behindLaps or totalTime
         if (competitor.behindTime) return competitor.behindTime;
-        if (competitor.behindLaps != null) return `+${competitor.behindLaps} Laps`;
+        if (competitor.behindLaps != null)
+          return `+${competitor.behindLaps} Laps`;
         return competitor.totalTime || null;
       } catch (e) {
         return null;
@@ -4343,358 +4389,390 @@ const RaceDetailsScreen = ({ route }) => {
 
     return (
       <View style={styles.tabContent}>
-      <Text
-        allowFontScaling={false}
-        style={[styles.sectionTitle, { color: theme.text }]}
-      >
-        Race Results
-      </Text>
-      {!competitionResults || Object.keys(competitionResults).length === 0 ? (
         <Text
           allowFontScaling={false}
-          style={[styles.placeholderText, { color: theme.textSecondary }]}
+          style={[styles.sectionTitle, { color: theme.text }]}
         >
-          Loading results...
+          Race Results
         </Text>
-      ) : (
-        <>
-          {/* Horizontal sliding competition buttons */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ marginBottom: 12 }}
-            contentContainerStyle={{ paddingHorizontal: 8 }}
+        {!competitionResults || Object.keys(competitionResults).length === 0 ? (
+          <Text
+            allowFontScaling={false}
+            style={[styles.placeholderText, { color: theme.textSecondary }]}
           >
-            {(competitionOrder && competitionOrder.length
-              ? competitionOrder
-              : Object.keys(competitionResults)
-            ).map((compId) => {
-              const comp = competitionResults[compId];
-              if (!comp) return null;
-              const pillLabel =
-                comp.type?.abbreviation ||
-                comp.type?.displayName ||
-                comp.name ||
-                "";
-              return (
-                <TouchableOpacity
-                  key={comp.id}
-                  onPress={() => setSelectedCompetitionId(comp.id)}
-                  style={[
-                    styles.compPill,
-                    selectedCompetitionId === comp.id
-                      ? { backgroundColor: colors.primary }
-                      : { backgroundColor: theme.surface },
-                  ]}
-                >
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.compPillText,
-                      selectedCompetitionId === comp.id
-                        ? { color: "#fff" }
-                        : { color: theme.text },
-                    ]}
-                  >
-                    {pillLabel}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-
-          {/* Competitors list for selected competition */}
-          {selectedCompetitionId &&
-          competitionResults[selectedCompetitionId] ? (
-            <View style={{ marginTop: 8 }}>
-              {sortedCompetitors.map((r) => {
-                const compType =
-                  competitionResults[selectedCompetitionId]?.type || {};
-                const str = (
-                  (compType.abbreviation || "") +
-                  " " +
-                  (compType.text || "") +
-                  " " +
-                  (compType.displayName || "")
-                ).toLowerCase();
-
-                const isQual = str.includes("qual") || str.includes("ss");
-
+            Loading results...
+          </Text>
+        ) : (
+          <>
+            {/* Horizontal sliding competition buttons */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginBottom: 12 }}
+              contentContainerStyle={{ paddingHorizontal: 8 }}
+            >
+              {(competitionOrder && competitionOrder.length
+                ? competitionOrder
+                : Object.keys(competitionResults)
+              ).map((compId) => {
+                const comp = competitionResults[compId];
+                if (!comp) return null;
+                const pillLabel =
+                  comp.type?.abbreviation ||
+                  comp.type?.displayName ||
+                  comp.name ||
+                  "";
                 return (
-                  <View
-                    key={r.id}
+                  <TouchableOpacity
+                    key={comp.id}
+                    onPress={() => setSelectedCompetitionId(comp.id)}
                     style={[
-                      styles.racerRow,
-                      {
-                        borderLeftColor: r.teamColor || "#000000",
-                        backgroundColor: r.fastestLap
-                          ? "#7c3aed5b"
-                          : theme.surface,
-                      },
+                      styles.compPill,
+                      selectedCompetitionId === comp.id
+                        ? { backgroundColor: colors.primary }
+                        : { backgroundColor: theme.surface },
                     ]}
                   >
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.compPillText,
+                        selectedCompetitionId === comp.id
+                          ? { color: "#fff" }
+                          : { color: theme.text },
+                      ]}
+                    >
+                      {pillLabel}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Competitors list for selected competition */}
+            {selectedCompetitionId &&
+            competitionResults[selectedCompetitionId] ? (
+              <View style={{ marginTop: 8 }}>
+                {sortedCompetitors.map((r) => {
+                  const compType =
+                    competitionResults[selectedCompetitionId]?.type || {};
+                  const str = (
+                    (compType.abbreviation || "") +
+                    " " +
+                    (compType.text || "") +
+                    " " +
+                    (compType.displayName || "")
+                  ).toLowerCase();
+
+                  const isQual = str.includes("qual") || str.includes("ss");
+
+                  return (
                     <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        flex: 1,
-                      }}
+                      key={r.id}
+                      style={[
+                        styles.racerRow,
+                        {
+                          borderLeftColor: r.teamColor || "#000000",
+                          backgroundColor: r.fastestLap
+                            ? "#7c3aed5b"
+                            : theme.surface,
+                        },
+                      ]}
                     >
                       <View
                         style={{
+                          flexDirection: "row",
                           alignItems: "center",
-                          marginRight: 10,
-                          width: 40,
+                          flex: 1,
                         }}
                       >
                         <View
-                          style={[
-                            styles.positionBadge,
-                            {
-                              borderColor: theme.border,
-                              backgroundColor: theme.surface,
-                            },
-                          ]}
+                          style={{
+                            alignItems: "center",
+                            marginRight: 10,
+                            width: 40,
+                          }}
                         >
-                          <Text
-                            allowFontScaling={false}
-                            style={[styles.positionText, { color: theme.text }]}
+                          <View
+                            style={[
+                              styles.positionBadge,
+                              {
+                                borderColor: theme.border,
+                                backgroundColor: theme.surface,
+                              },
+                            ]}
                           >
-                            {isLiveRace ? getLivePosition(r) : r.order || "-"}
-                          </Text>
-                        </View>
-                        {/* Position delta: show only when we have startOrder and order and competition is a race */}
-                        {(() => {
-                          const compTypeLocal = compType || {};
-                          const isRace = (
-                            (compTypeLocal.abbreviation || "") +
-                            " " +
-                            (compTypeLocal.text || "") +
-                            " " +
-                            (compTypeLocal.displayName || "")
-                          )
-                            .toString()
-                            .toLowerCase()
-                            .includes("race");
-                          const hasOrder =
-                            typeof r.order === "number" ||
-                            (r.order && !isNaN(Number(r.order)));
-                          const hasStart =
-                            typeof r.startOrder === "number" ||
-                            (r.startOrder && !isNaN(Number(r.startOrder)));
-                          if (!isRace || !hasOrder || !hasStart) return null;
-                          const delta = Number(r.startOrder) - Number(r.order);
-                          if (!delta) return null;
-                          const absDelta = Math.abs(delta);
-                          const arrow = delta > 0 ? "▲" : "▼";
-                          const color = delta > 0 ? theme.success : theme.error;
-                          return (
                             <Text
                               allowFontScaling={false}
                               style={[
-                                styles.positionDelta,
-                                { color, marginTop: 6 },
+                                styles.positionText,
+                                { color: theme.text },
                               ]}
                             >
-                              {arrow} {absDelta}
+                              {isLiveRace ? getLivePosition(r) : r.order || "-"}
                             </Text>
-                          );
-                        })()}
-                      </View>
-                      <View style={styles.racerLeft}>
-                        <Text
-                          allowFontScaling={false}
-                          style={[styles.racerName, { color: theme.text }]}
-                          numberOfLines={1}
-                        >
-                          {r.name || "Unknown"}
-                        </Text>
-                        <View style={styles.racerManufacturerRow}>
-                          {isFavorite(getF1TeamId(r.manufacturer)) && (
-                            <TouchableOpacity
-                              onPress={() =>
-                                handleTeamFavoriteToggle(
-                                  r.manufacturer,
-                                  r.teamColor
-                                )
-                              }
-                              activeOpacity={0.7}
-                              style={styles.racerManufacturerFav}
-                            >
+                          </View>
+                          {/* Position delta: show only when we have startOrder and order and competition is a race */}
+                          {(() => {
+                            const compTypeLocal = compType || {};
+                            const isRace = (
+                              (compTypeLocal.abbreviation || "") +
+                              " " +
+                              (compTypeLocal.text || "") +
+                              " " +
+                              (compTypeLocal.displayName || "")
+                            )
+                              .toString()
+                              .toLowerCase()
+                              .includes("race");
+                            const hasOrder =
+                              typeof r.order === "number" ||
+                              (r.order && !isNaN(Number(r.order)));
+                            const hasStart =
+                              typeof r.startOrder === "number" ||
+                              (r.startOrder && !isNaN(Number(r.startOrder)));
+                            if (!isRace || !hasOrder || !hasStart) return null;
+                            const delta =
+                              Number(r.startOrder) - Number(r.order);
+                            if (!delta) return null;
+                            const absDelta = Math.abs(delta);
+                            const arrow = delta > 0 ? "▲" : "▼";
+                            const color =
+                              delta > 0 ? theme.success : theme.error;
+                            return (
                               <Text
                                 allowFontScaling={false}
                                 style={[
-                                  styles.racerManufacturerFavIcon,
-                                  { color: colors.primary },
+                                  styles.positionDelta,
+                                  { color, marginTop: 6 },
                                 ]}
                               >
-                                ★
+                                {arrow} {absDelta}
                               </Text>
-                            </TouchableOpacity>
-                          )}
+                            );
+                          })()}
+                        </View>
+                        <View style={styles.racerLeft}>
                           <Text
                             allowFontScaling={false}
-                            style={[
-                              styles.racerSub,
-                              {
-                                color: isFavorite(getF1TeamId(r.manufacturer))
-                                  ? colors.primary
-                                  : theme.textSecondary,
-                              },
-                            ]}
+                            style={[styles.racerName, { color: theme.text }]}
                             numberOfLines={1}
                           >
-                            {r.manufacturer || ""}
+                            {r.name || "Unknown"}
                           </Text>
+                          <View style={styles.racerManufacturerRow}>
+                            {isFavorite(getF1TeamId(r.manufacturer)) && (
+                              <TouchableOpacity
+                                onPress={() =>
+                                  handleTeamFavoriteToggle(
+                                    r.manufacturer,
+                                    r.teamColor
+                                  )
+                                }
+                                activeOpacity={0.7}
+                                style={styles.racerManufacturerFav}
+                              >
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.racerManufacturerFavIcon,
+                                    { color: colors.primary },
+                                  ]}
+                                >
+                                  ★
+                                </Text>
+                              </TouchableOpacity>
+                            )}
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.racerSub,
+                                {
+                                  color: isFavorite(getF1TeamId(r.manufacturer))
+                                    ? colors.primary
+                                    : theme.textSecondary,
+                                },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {r.manufacturer || ""}
+                            </Text>
+                          </View>
                         </View>
                       </View>
-                    </View>
-                    <View style={styles.racerRight}>
-                      {r.winner ? (
-                        <View
-                          allowFontScaling={false}
-                          style={[
-                            styles.winnerBadgeContainer,
-                            {
-                              backgroundColor: colors.primary,
-                              borderColor: colors.secondary,
-                            },
-                          ]}
-                        >
-                          <Text
-                            allowFontScaling={false}
-                            style={styles.winnerText}
-                          >
-                            WIN
-                          </Text>
-                        </View>
-                      ) : null}
-                      {isQual ? (
-                        <View style={{ alignItems: "flex-end" }}>
-                          {hasAnyQual2Ms && (!r.qual2Ms || Number(r.qual2Ms) === 0) ? (
-                            <>
-                              <Text
-                                allowFontScaling={false}
-                                style={[styles.totalTime, { color: theme.error, fontWeight: '700', fontSize: 12, fontStyle: 'italic' }]}
-                              >
-                                OUT - Q1
-                              </Text>
-                              {r.qual1 ? (
-                                <Text
-                                  allowFontScaling={false}
-                                  style={[
-                                    styles.lapsText,
-                                    { color: theme.text, fontSize: 14},
-                                  ]}
-                                >
-                                  Q1: {r.qual1}
-                                </Text>
-                              ) : null}
-                            </>
-                          ) : hasAnyQual3Ms && (!r.qual3Ms || Number(r.qual3Ms) === 0) ? (
-                            <>
-                              <Text
-                                allowFontScaling={false}
-                                style={[styles.totalTime, { color: theme.error, fontWeight: '700', fontSize: 12, fontStyle: 'italic' }]}
-                              >
-                                OUT - Q2
-                              </Text>
-                              {r.qual2 ? (
-                                <Text
-                                  allowFontScaling={false}
-                                  style={[
-                                    styles.lapsText,
-                                    { color: theme.text, fontSize: 14},
-                                  ]}
-                                >
-                                  Q2: {r.qual2}
-                                </Text>
-                              ) : null}
-                              {r.qual1 ? (
-                                <Text
-                                  allowFontScaling={false}
-                                  style={[
-                                    styles.lapsText,
-                                    { color: theme.text, fontSize: 14},
-                                  ]}
-                                >
-                                  Q1: {r.qual1}
-                                </Text>
-                              ) : null}
-                            </>
-                          ) : (
-                            <>
-                              {r.qual1 ? (
-                                <Text
-                                  allowFontScaling={false}
-                                  style={[styles.totalTime, { color: theme.text }]}
-                                >
-                                  Q3: {r.qual3}
-                                </Text>
-                              ) : null}
-                              {r.qual2 ? (
-                                <Text
-                                  allowFontScaling={false}
-                                  style={[styles.totalTime, { color: theme.text }]}
-                                >
-                                  Q2: {r.qual2}
-                                </Text>
-                              ) : null}
-                              {r.qual3 ? (
-                                <Text
-                                  allowFontScaling={false}
-                                  style={[styles.totalTime, { color: theme.text }]}
-                                >
-                                  Q1: {r.qual1}
-                                </Text>
-                              ) : null}
-                            </>
-                          )}
-                        </View>
-                      ) : (
-                        <>
-                          {/* Show live gap to leader when race is live, otherwise show total time */}
-                          <Text
-                            allowFontScaling={false}
-                            style={[styles.totalTime, { color: theme.text }]}
-                            numberOfLines={1}
-                          >
-                            {isLiveRace
-                              ? getLiveGapToLeader(r)
-                              : r.totalTime ||
-                                (r.behindLaps != null
-                                  ? `+${r.behindLaps} Laps`
-                                  : r.behindTime || "-")}
-                          </Text>
-                          <Text
+                      <View style={styles.racerRight}>
+                        {r.winner ? (
+                          <View
                             allowFontScaling={false}
                             style={[
-                              styles.lapsText,
-                              { color: theme.textSecondary },
+                              styles.winnerBadgeContainer,
+                              {
+                                backgroundColor: colors.primary,
+                                borderColor: colors.secondary,
+                              },
                             ]}
-                            numberOfLines={1}
                           >
-                            {r.laps ? `${r.laps} laps` : ""}
-                          </Text>
-                        </>
-                      )}
+                            <Text
+                              allowFontScaling={false}
+                              style={styles.winnerText}
+                            >
+                              WIN
+                            </Text>
+                          </View>
+                        ) : null}
+                        {isQual ? (
+                          <View style={{ alignItems: "flex-end" }}>
+                            {hasAnyQual2Ms &&
+                            (!r.qual2Ms || Number(r.qual2Ms) === 0) ? (
+                              <>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.totalTime,
+                                    {
+                                      color: theme.error,
+                                      fontWeight: "700",
+                                      fontSize: 12,
+                                      fontStyle: "italic",
+                                    },
+                                  ]}
+                                >
+                                  OUT - Q1
+                                </Text>
+                                {r.qual1 ? (
+                                  <Text
+                                    allowFontScaling={false}
+                                    style={[
+                                      styles.lapsText,
+                                      { color: theme.text, fontSize: 14 },
+                                    ]}
+                                  >
+                                    Q1: {r.qual1}
+                                  </Text>
+                                ) : null}
+                              </>
+                            ) : hasAnyQual3Ms &&
+                              (!r.qual3Ms || Number(r.qual3Ms) === 0) ? (
+                              <>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.totalTime,
+                                    {
+                                      color: theme.error,
+                                      fontWeight: "700",
+                                      fontSize: 12,
+                                      fontStyle: "italic",
+                                    },
+                                  ]}
+                                >
+                                  OUT - Q2
+                                </Text>
+                                {r.qual2 ? (
+                                  <Text
+                                    allowFontScaling={false}
+                                    style={[
+                                      styles.lapsText,
+                                      { color: theme.text, fontSize: 14 },
+                                    ]}
+                                  >
+                                    Q2: {r.qual2}
+                                  </Text>
+                                ) : null}
+                                {r.qual1 ? (
+                                  <Text
+                                    allowFontScaling={false}
+                                    style={[
+                                      styles.lapsText,
+                                      { color: theme.text, fontSize: 14 },
+                                    ]}
+                                  >
+                                    Q1: {r.qual1}
+                                  </Text>
+                                ) : null}
+                              </>
+                            ) : (
+                              <>
+                                {r.qual1 ? (
+                                  <Text
+                                    allowFontScaling={false}
+                                    style={[
+                                      styles.totalTime,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    Q3: {r.qual3}
+                                  </Text>
+                                ) : null}
+                                {r.qual2 ? (
+                                  <Text
+                                    allowFontScaling={false}
+                                    style={[
+                                      styles.totalTime,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    Q2: {r.qual2}
+                                  </Text>
+                                ) : null}
+                                {r.qual3 ? (
+                                  <Text
+                                    allowFontScaling={false}
+                                    style={[
+                                      styles.totalTime,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    Q1: {r.qual1}
+                                  </Text>
+                                ) : null}
+                              </>
+                            )}
+                          </View>
+                        ) : (
+                          <>
+                            {/* Show live gap to leader when race is live, otherwise show total time */}
+                            <Text
+                              allowFontScaling={false}
+                              style={[styles.totalTime, { color: theme.text }]}
+                              numberOfLines={1}
+                            >
+                              {isLiveRace
+                                ? getLiveGapToLeader(r)
+                                : r.totalTime ||
+                                  (r.behindLaps != null
+                                    ? `+${r.behindLaps} Laps`
+                                    : r.behindTime || "-")}
+                            </Text>
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.lapsText,
+                                { color: theme.textSecondary },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {r.laps ? `${r.laps} laps` : ""}
+                            </Text>
+                          </>
+                        )}
+                      </View>
                     </View>
-                  </View>
-                );
-              })}
-            </View>
-          ) : (
-            <Text
-              allowFontScaling={false}
-              style={[styles.placeholderText, { color: theme.textSecondary }]}
-            >
-              Select a competition to view competitors
-            </Text>
-          )}
-        </>
-      )}
-    </View>
-  );
+                  );
+                })}
+              </View>
+            ) : (
+              <Text
+                allowFontScaling={false}
+                style={[styles.placeholderText, { color: theme.textSecondary }]}
+              >
+                Select a competition to view competitors
+              </Text>
+            )}
+          </>
+        )}
+      </View>
+    );
   };
 
   const renderGridTab = () => (
